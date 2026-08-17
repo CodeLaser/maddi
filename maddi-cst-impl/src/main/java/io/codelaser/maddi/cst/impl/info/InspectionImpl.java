@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.Access;
-import org.e2immu.language.cst.api.info.Info;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.Access;
+import io.codelaser.maddi.cst.api.info.Info;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,11 +1,11 @@
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.ClassExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.ClassExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

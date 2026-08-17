@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.analysis;
+package io.codelaser.maddi.cst.impl.analysis;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.util.ParSeq;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.util.ParSeq;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.*;
 import java.util.function.BiFunction;

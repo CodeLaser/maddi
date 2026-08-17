@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java.erasure;
+package io.codelaser.maddi.parser.java.erasure;
 
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Precedence;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Objects;
 import java.util.Set;

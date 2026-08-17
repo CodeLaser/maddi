@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.type;
+package io.codelaser.maddi.inspection.integration.java.type;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.Assignment;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -192,8 +192,8 @@ public class TestTypeParameter extends CommonTest {
     @Language("java")
     public static final String INPUT5 = """
             package a.b;
-            import org.e2immu.annotation.Container;
-            import org.e2immu.annotation.Independent;
+            import io.codelaser.maddi.annotation.Container;
+            import io.codelaser.maddi.annotation.Independent;
             class X {
               class Class$<@Independent @Container T> {
             
@@ -210,8 +210,8 @@ public class TestTypeParameter extends CommonTest {
         assertEquals(2, tp.annotations().size());
         assertEquals("""
                 package a.b;
-                import org.e2immu.annotation.Container;
-                import org.e2immu.annotation.Independent;
+                import io.codelaser.maddi.annotation.Container;
+                import io.codelaser.maddi.annotation.Independent;
                 class X { class Class$<@Independent @Container T> { } }
                 """, javaInspector.print2(typeInfo.compilationUnit()));
     }
@@ -219,8 +219,8 @@ public class TestTypeParameter extends CommonTest {
     @Language("java")
     public static final String INPUT5b = """
             package a.b;
-            import org.e2immu.annotation.Container;
-            import org.e2immu.annotation.Independent;
+            import io.codelaser.maddi.annotation.Container;
+            import io.codelaser.maddi.annotation.Independent;
             class X {
               class Class$<@Independent @Container(comment = X.COMMENT) T> {
             
@@ -238,8 +238,8 @@ public class TestTypeParameter extends CommonTest {
         assertEquals(2, tp.annotations().size());
         assertEquals("""
                 package a.b;
-                import org.e2immu.annotation.Container;
-                import org.e2immu.annotation.Independent;
+                import io.codelaser.maddi.annotation.Container;
+                import io.codelaser.maddi.annotation.Independent;
                 class X {
                     private static final String COMMENT = "comment";
                     class Class$<@Independent @Container(comment = X.COMMENT) T> { }

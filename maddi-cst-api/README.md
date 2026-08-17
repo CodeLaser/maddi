@@ -5,8 +5,8 @@ the Java and Kotlin front ends, on which every downstream analysis operates. Def
 element/expression/statement/type interfaces, the `TypeInfo`/`MethodInfo`/`FieldInfo` info
 objects, and the central `Runtime`/`Factory` facade through which trees are constructed.
 
-Key entry points: `org.e2immu.language.cst.api.runtime.Runtime`,
-`org.e2immu.language.cst.api.element.Element`, `org.e2immu.language.cst.api.info.TypeInfo`.
+Key entry points: `io.codelaser.maddi.cst.api.runtime.Runtime`,
+`io.codelaser.maddi.cst.api.element.Element`, `io.codelaser.maddi.cst.api.info.TypeInfo`.
 
 Remember: info objects are single-instance per (FQN, source set) — compare with `==`.
 

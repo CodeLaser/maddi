@@ -2,7 +2,7 @@
 
 Aspects of the prep analyzer (`maddi-modification-prepwork`) that still need hardening, from a
 code audit on 2026-06-27. Paths are relative to
-`maddi-modification-prepwork/src/main/java/org/e2immu/analyzer/modification/prepwork/` unless noted.
+`maddi-modification-prepwork/src/main/java/io/codelaser/maddi/modification/prepwork/` unless noted.
 
 > **The H items are tracked as GitHub issues** — see the tracking issue #13. This document
 > remains the record: the M and L items, the reasoning, and the corrections live here only.

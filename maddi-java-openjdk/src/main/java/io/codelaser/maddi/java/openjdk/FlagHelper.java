@@ -1,15 +1,15 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.FieldModifier;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.MethodModifier;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeModifier;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.TypeNature;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.FieldModifier;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.MethodModifier;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeModifier;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.TypeNature;
 
 public record FlagHelper(Runtime runtime) {
 

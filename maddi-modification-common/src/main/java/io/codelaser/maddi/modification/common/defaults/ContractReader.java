@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.common.defaults;
+package io.codelaser.maddi.modification.common.defaults;
 
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 import java.util.Map;
 

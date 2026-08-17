@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.openjdkmain.javac;
+package io.codelaser.maddi.run.openjdkmain.javac;
 
 import org.junit.jupiter.api.Test;
 

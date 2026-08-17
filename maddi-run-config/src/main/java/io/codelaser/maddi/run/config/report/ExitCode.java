@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config.report;
+package io.codelaser.maddi.run.config.report;
 
 /**
  * The analyzer's process exit codes, shared by every runner (openjdk, in-house/main, kotlin) so they report the
@@ -27,7 +27,7 @@ public final class ExitCode {
     public static final int PARSER_ERROR = 2;
     public static final int INSPECTION_ERROR = 3;
     public static final int IO_EXCEPTION = 4;
-    public static final int ANALYSER_ERROR = 5;
+    public static final int ANALYZER_ERROR = 5;
 
     public static String message(int exitValue) {
         return switch (exitValue) {
@@ -36,7 +36,7 @@ public final class ExitCode {
             case PARSER_ERROR -> "Parser error(s)";
             case INSPECTION_ERROR -> "Inspection error(s)";
             case IO_EXCEPTION -> "IO exception";
-            case ANALYSER_ERROR -> "Analyser error(s)";
+            case ANALYZER_ERROR -> "Analyzer error(s)";
             default -> "Unknown exit code " + exitValue;
         };
     }

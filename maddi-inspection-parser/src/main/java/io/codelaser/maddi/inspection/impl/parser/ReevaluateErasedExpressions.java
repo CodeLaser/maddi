@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.impl.parser;
+package io.codelaser.maddi.inspection.impl.parser;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.NullConstant;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.parser.*;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.parser.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

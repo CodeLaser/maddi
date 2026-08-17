@@ -1,8 +1,8 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.source.tree.Tree;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Source;
 
 import java.util.List;
 

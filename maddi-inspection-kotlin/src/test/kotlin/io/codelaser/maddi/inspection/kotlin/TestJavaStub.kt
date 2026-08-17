@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
 import com.sun.source.util.JavacTask
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -29,7 +29,7 @@ import javax.tools.ToolProvider
 
 /**
  * Phase 3 de-risk (Java → Kotlin): the make-or-break question is whether a **signature-only Java stub**
- * generated from a Kotlin [org.e2immu.language.cst.api.info.TypeInfo] actually lets javac resolve a Java
+ * generated from a Kotlin [io.codelaser.maddi.cst.api.info.TypeInfo] actually lets javac resolve a Java
  * source that references the Kotlin type. Here a Kotlin `Widget` is parsed, [JavaStubGenerator] emits its
  * stub, and javac attributes a Java `UseWidget` that constructs `Widget`, reads its field/getter and calls
  * its methods — against the stub only. No errors ⇒ the stub approach is viable.

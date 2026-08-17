@@ -1,14 +1,14 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class TestJavaInspector6MultiProject {
         maddiSupport = new SourceSetImpl.Builder()
                 .setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(org.e2immu.annotation.Container.class))
+                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
                 .setLibrary(true)
                 .setModule(true)
                 .build();
@@ -81,7 +81,7 @@ public class TestJavaInspector6MultiProject {
         maddiUtil = new SourceSetImpl.Builder()
                 .setName("maddi-util")
                 .setSourceDirectories(List.of(maddUtilSrc))
-                .setUri(artifactOf(org.e2immu.util.internal.util.GetSetNames.class))
+                .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
                 .setLibrary(true)
                 .setModule(true)
                 .setDependencies(List.of(maddiSupport, orgSlf4jApi))
@@ -99,7 +99,7 @@ public class TestJavaInspector6MultiProject {
         cstApi = new SourceSetImpl.Builder()
                 .setName("maddi-cst-api")
                 .setSourceDirectories(List.of(cstApiPath))
-                .setUri(artifactOf(org.e2immu.language.cst.api.element.Element.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
                 .setLibrary(true)
                 .setModule(true)
                 .setDependencies(List.of(maddiSupport, annotations))
@@ -117,7 +117,7 @@ public class TestJavaInspector6MultiProject {
         cstAnalysis = new SourceSetImpl.Builder()
                 .setName("maddi-cst-analysis")
                 .setSourceDirectories(List.of(cstAnalysisPath))
-                .setUri(artifactOf(org.e2immu.language.cst.impl.analysis.ValueImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi))
                 .build();
@@ -126,7 +126,7 @@ public class TestJavaInspector6MultiProject {
         cstImpl = new SourceSetImpl.Builder()
                 .setName("maddi-cst-impl")
                 .setSourceDirectories(List.of(cstImplPath))
-                .setUri(artifactOf(org.e2immu.language.cst.impl.info.TypeInfoImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
@@ -146,7 +146,7 @@ public class TestJavaInspector6MultiProject {
         cstIo = new SourceSetImpl.Builder()
                 .setName("maddi-cst-io")
                 .setSourceDirectories(List.of(cstIoPath))
-                .setUri(artifactOf(org.e2immu.language.cst.io.CodecImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations))
                 .build();
@@ -171,10 +171,10 @@ public class TestJavaInspector6MultiProject {
         javaInspector.initialize(inputConfiguration);
     }
 
-    private static final String ELEMENT = "org.e2immu.language.cst.api.element.Element";
-    private static final String TYPE_INFO = "org.e2immu.language.cst.api.info.TypeInfo";
-    private static final String TYPE_INFO_IMPL = "org.e2immu.language.cst.impl.info.TypeInfoImpl";
-    private static final String CONTAINER = "org.e2immu.annotation.Container";
+    private static final String ELEMENT = "io.codelaser.maddi.cst.api.element.Element";
+    private static final String TYPE_INFO = "io.codelaser.maddi.cst.api.info.TypeInfo";
+    private static final String TYPE_INFO_IMPL = "io.codelaser.maddi.cst.impl.info.TypeInfoImpl";
+    private static final String CONTAINER = "io.codelaser.maddi.annotation.Container";
 
     /**
      * Rewiring per source set, on a real module graph rather than a two-type toy: everything in maddi-cst-api is
@@ -250,7 +250,7 @@ public class TestJavaInspector6MultiProject {
         ModuleInfo moduleInfoApi = parseResult.moduleInfo(cstApi);
         assertEquals(13, moduleInfoApi.exports().size());
 
-        TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
+        TypeInfo element = parseResult.findType("io.codelaser.maddi.cst.api.element.Element");
         assertTrue(element.isInterface());
 
         ModuleInfo moduleInfoAnalysis = parseResult.moduleInfo(cstAnalysis);
@@ -258,10 +258,10 @@ public class TestJavaInspector6MultiProject {
         assertEquals(3, moduleInfoAnalysis.requires().size());
         assertEquals(moduleInfoApi.name(), moduleInfoAnalysis.requires().get(1).name());
 
-        TypeInfo valueImpl = parseResult.findType("org.e2immu.language.cst.impl.analysis.ValueImpl");
+        TypeInfo valueImpl = parseResult.findType("io.codelaser.maddi.cst.impl.analysis.ValueImpl");
         assertTrue(valueImpl.isAbstract());
 
-        TypeInfo typeInfoImpl = parseResult.findType("org.e2immu.language.cst.impl.info.TypeInfoImpl");
+        TypeInfo typeInfoImpl = parseResult.findType("io.codelaser.maddi.cst.impl.info.TypeInfoImpl");
         assertTrue(typeInfoImpl.typeNature().isClass());
     }
 }

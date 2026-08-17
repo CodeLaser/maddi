@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
-import org.e2immu.language.cst.api.expression.MethodCall
-import org.e2immu.language.cst.api.statement.ReturnStatement
+import io.codelaser.maddi.cst.api.expression.MethodCall
+import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

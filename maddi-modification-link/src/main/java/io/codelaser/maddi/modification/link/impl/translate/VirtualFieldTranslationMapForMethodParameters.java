@@ -1,19 +1,19 @@
-package org.e2immu.analyzer.modification.link.impl.translate;
+package io.codelaser.maddi.modification.link.impl.translate;
 
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMapImpl;
-import org.e2immu.analyzer.modification.link.vf.VirtualFields;
-import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.parser.GenericsHelper;
-import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldTranslationMapImpl;
+import io.codelaser.maddi.modification.link.vf.VirtualFields;
+import io.codelaser.maddi.modification.prepwork.variable.VirtualFieldTranslationMap;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
+import io.codelaser.maddi.inspection.impl.parser.GenericsHelperImpl;
 
 import java.util.Map;
 

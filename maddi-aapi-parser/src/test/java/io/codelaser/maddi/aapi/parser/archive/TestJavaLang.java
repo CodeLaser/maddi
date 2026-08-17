@@ -12,26 +12,26 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.archive;
+package io.codelaser.maddi.aapi.parser.archive;
 
-import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
+import io.codelaser.maddi.aapi.parser.CommonTest;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import org.junit.jupiter.api.Test;
 
 import java.util.NoSuchElementException;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NULL;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NULLABLE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NULL;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.NotNullImpl.NULLABLE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaLang extends CommonTest {

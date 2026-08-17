@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.info.CompilationUnitPrinter;
-import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypePrinter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.impl.output.*;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.info.CompilationUnitPrinter;
+import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypePrinter;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.List;
 

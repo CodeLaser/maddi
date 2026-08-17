@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.rewire;
+package io.codelaser.maddi.modification.analyzer.rewire;
 
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

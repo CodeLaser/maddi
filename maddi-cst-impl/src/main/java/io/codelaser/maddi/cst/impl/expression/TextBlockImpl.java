@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression;
+package io.codelaser.maddi.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.TextBlock;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.TextBlock;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 
 import java.util.List;
 

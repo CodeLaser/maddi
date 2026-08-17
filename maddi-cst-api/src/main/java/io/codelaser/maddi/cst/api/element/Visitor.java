@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.element;
+package io.codelaser.maddi.cst.api.element;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 /**
  * Callback interface for recursively visiting CST nodes via {@link Element#visit(Visitor)}.

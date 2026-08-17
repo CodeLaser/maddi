@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
-import org.e2immu.language.inspection.api.integration.JavaInspector
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
-import org.e2immu.language.inspection.resource.InputConfigurationImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.inspection.api.integration.JavaInspector
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import java.net.URI

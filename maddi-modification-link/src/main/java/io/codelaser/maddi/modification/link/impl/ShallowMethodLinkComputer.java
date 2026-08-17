@@ -1,30 +1,30 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFields;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.parser.GenericsHelper;
-import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
+import io.codelaser.maddi.modification.common.AnalysisHelper;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.link.vf.VirtualFields;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.ReturnVariableImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
+import io.codelaser.maddi.inspection.impl.parser.GenericsHelperImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,10 +32,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.*;
+import static io.codelaser.maddi.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
 
 /*
 rules for ⊆ instead of ≡, ~

@@ -260,7 +260,7 @@ field reasons, each worth a look but none blocking the headline.
 The "analyze cst-analysis as source" route was blocked by a plugin gap:
 `ComputeSourceSets.dependentProjectResult` built each *transitive* dependency project as a flat leaf source
 set with `List.of()` inter-project dependencies, so the cst-analysis→cst-api edge was never wired —
-cst-analysis could not resolve cst-api (`package org.e2immu.language.cst.api.info does not exist`) and the
+cst-analysis could not resolve cst-api (`package io.codelaser.maddi.cst.api.info does not exist`) and the
 front end dropped it. Fixed: `ComputeSourceSets.collectSourceProjectEdges` reconstructs the dependency DAG
 among source projects from the Gradle resolution result, and `ComputeDependencies` adds those edges to the
 graph. The dogfood now analyzes `cst-analysis` as a third source subproject.
@@ -685,7 +685,7 @@ The diagnostic shows the closure now spans the **entire CST**, and the remaining
 
 1. **The `Expression` hierarchy** (`api.expression.Expression` + every `*Impl` + `ExpressionImpl`): every
    carrier assumed it; certifying it means the whole expression tree proves out — including the printer
-   methods that today CRASH with the known exit-5 `ANALYSER_ERROR` (cycle protection), leaving their
+   methods that today CRASH with the known exit-5 `ANALYZER_ERROR` (cycle protection), leaving their
    `NON_MODIFYING` undecided forever. Fixing those crashes is a hard prerequisite.
 2. **The API `Builder` interfaces** (`FieldInfo.Builder`, `MethodInfo.Builder`, …): they enter the cluster
    through the upward closure (the `*InspectionImpl.Builder`s implement them and have `@TestMark` intent),
@@ -1833,7 +1833,7 @@ is the sweep that measured 24 → 10 last session.
 
 ### The support types (§3)
 
-`org.e2immu.support.Memo<T>` and `IntMemo`, both carrying a **class-level** `@IgnoreModifications`
+`io.codelaser.maddi.support.Memo<T>` and `IntMemo`, both carrying a **class-level** `@IgnoreModifications`
 (`TYPE` added to the annotation's `@Target`), plus the engine rule that makes it pay: a field whose
 *type* carries the class-level disclaimer is materialized as if the field itself were annotated
 (`SourceContractMaterializer.materializeIgnoreModificationsFromFieldType`). Writing it into
@@ -1988,7 +1988,7 @@ The overnight campaign's phase A delivered the cross-world retention-trace pair 
 - **First divergence:** the first-time `methodLinks` write of `Expression.<init>(int)` occurs ~700
   events earlier in the 10-world — the on-demand recursion pattern differs from iteration 1, at the
   `Expression` union root.
-- **The fork itself:** in the 10-world, `org.e2immu.language.cst.api.statement.Statement.translate`'s
+- **The fork itself:** in the 10-world, `io.codelaser.maddi.cst.api.statement.Statement.translate`'s
   stored `methodLinks` is the all-empty `[-] --> -`, and once per iteration a RICH re-derivation
   (`[0:translationMap*.§$→this*.§$, 0:translationMap*.§m≡this*.§m] --> translate.§$s∋this*.§$,…`)
   arrives and is DROPPED — `RT keepEq*`: the two are EQUAL because LinksImpl equality is primary-only,
@@ -2339,7 +2339,7 @@ instead of never forming. Survivors 68→68 (T1 hit the 55 coin; T2/T3 the canon
 
 **The wall behind it: nothing materializes external-library bytecode annotations.** TypeInfo caps
 on ONE method (`compilationUnitOrEnclosingType` returning `Either<CompilationUnit,TypeInfo>`),
-TypeParameter likewise (`getOwner` returning `Either<TypeInfo,MethodInfo>`). `org.e2immu.support.Either`
+TypeParameter likewise (`getOwner` returning `Either<TypeInfo,MethodInfo>`). `io.codelaser.maddi.support.Either`
 carries `@ImmutableContainer(hc=true)` in its class file — the support library is fully annotated at
 source, marks and all — but the support jar has no AAPI package, and absent-counts-as-doomed
 (`candidateDoomed`) makes every exposure of an Either or an inspection holder DEPENDENT.

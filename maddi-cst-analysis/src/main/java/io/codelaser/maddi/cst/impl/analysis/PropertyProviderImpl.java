@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.analysis;
+package io.codelaser.maddi.cst.impl.analysis;
 
-import org.e2immu.language.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Property;
 
 import java.util.*;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
 
 public class PropertyProviderImpl {
 

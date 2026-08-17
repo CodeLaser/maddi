@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.link.io;
+package io.codelaser.maddi.modification.link.io;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.common.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.common.CommonTest;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -30,14 +30,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NULL;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NULLABLE;
+import static io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NULL;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.NotNullImpl.NULLABLE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLoadAnalyzedPackageFiles {
@@ -45,8 +45,8 @@ public class TestLoadAnalyzedPackageFiles {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification")).setLevel(Level.DEBUG);
     }
 
     @Test

@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -55,12 +55,12 @@ public class Test3 {
                 .add(SpaceEnum.NEWLINE)
                 .add(new TextImpl("import"))
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl("org.e2immu.annotation.NotModified"))
+                .add(new TextImpl("io.codelaser.maddi.annotation.NotModified"))
                 .add(SymbolEnum.SEMICOLON)
                 .add(SpaceEnum.NEWLINE)
                 .add(new TextImpl("import"))
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl("org.e2immu.annotation.NotNull"))
+                .add(new TextImpl("io.codelaser.maddi.annotation.NotNull"))
                 .add(SymbolEnum.SEMICOLON)
                 .add(SpaceEnum.NEWLINE)
                 .add(gg31.start()) // priority=false, startNL=false, endNL=false
@@ -179,8 +179,8 @@ public class Test3 {
         String expect = """
                 package org.e2immu.analyser.parser.failing.testexample;
                 import java.util.stream.Stream;
-                import org.e2immu.annotation.NotModified;
-                import org.e2immu.annotation.NotNull;
+                import io.codelaser.maddi.annotation.NotModified;
+                import io.codelaser.maddi.annotation.NotNull;
                 @E2Container
                 @ExtensionClass
                 public class Basics_5 {
@@ -204,8 +204,8 @@ public class Test3 {
         String expect = """
                 package org.e2immu.analyser.parser.failing.testexample;
                 import java.util.stream.Stream;
-                import org.e2immu.annotation.NotModified;
-                import org.e2immu.annotation.NotNull;
+                import io.codelaser.maddi.annotation.NotModified;
+                import io.codelaser.maddi.annotation.NotNull;
                 @E2Container
                 @ExtensionClass
                 public class Basics_5 {
@@ -234,8 +234,8 @@ public class Test3 {
         String expect = """
                 package org.e2immu.analyser.parser.failing.testexample;
                 import java.util.stream.Stream;
-                import org.e2immu.annotation.NotModified;
-                import org.e2immu.annotation.NotNull;
+                import io.codelaser.maddi.annotation.NotModified;
+                import io.codelaser.maddi.annotation.NotNull;
                 @E2Container
                 @ExtensionClass
                 public class Basics_5 {

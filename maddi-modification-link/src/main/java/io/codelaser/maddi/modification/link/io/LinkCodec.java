@@ -1,32 +1,32 @@
-package org.e2immu.analyzer.modification.link.io;
+package io.codelaser.maddi.modification.link.io;
 
-import org.e2immu.analyzer.modification.link.impl.LinkedVariablesImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.link.impl.Result;
-import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.io.CodecImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.link.impl.LinkedVariablesImpl;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.link.impl.Result;
+import io.codelaser.maddi.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.ReturnVariableImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyProviderImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.io.CodecImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 import org.parsers.json.Node;
 import org.parsers.json.ast.StringLiteral;
@@ -36,8 +36,8 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 
 public class LinkCodec {
 
@@ -213,8 +213,8 @@ public class LinkCodec {
             // SharedVariable/IntermediateVariable have no codec branch by design: they are kept out of
             // summaries by acceptForLinkedVariables filtering. If one leaks here, the fallback would
             // silently encode it as an ordinary local — fail at the cause instead.
-            assert !(variable instanceof org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable)
-                   && !(variable instanceof org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable)
+            assert !(variable instanceof io.codelaser.maddi.modification.link.impl.localvar.SharedVariable)
+                   && !(variable instanceof io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable)
                     : "engine-internal variable leaked into persistence: " + variable;
             return super.encodeVariable(context, variable);
         }
@@ -489,8 +489,8 @@ public class LinkCodec {
             METHOD_LINKS.key(), METHOD_LINKS,
             LinksImpl.LINKS.key(), LinksImpl.LINKS,
             // prepwork call-graph property, present on checkpointed methods (task #34)
-            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD.key(),
-            org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD);
+            io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD.key(),
+            io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD);
 
     static class P implements Codec.PropertyProvider {
         @Override

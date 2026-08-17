@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.link.vf;
+package io.codelaser.maddi.modification.link.vf;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import org.jetbrains.annotations.NotNull;
 
 /*

@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.ui;
+package io.codelaser.maddi.ide.plugin.ui;
 
 import com.intellij.codeInsight.daemon.GutterMark;
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.plugin.analysis.MaddiAnalysisService;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 
 import java.util.List;
 import java.util.Map;

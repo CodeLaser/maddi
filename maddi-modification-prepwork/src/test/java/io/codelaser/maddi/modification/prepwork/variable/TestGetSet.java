@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.analyzer.modification.prepwork.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.prepwork.CommonTest;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -170,7 +170,7 @@ public class TestGetSet extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.ArrayList;
             import java.util.HashSet;
             import java.util.Set;
@@ -218,7 +218,7 @@ public class TestGetSet extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.ArrayList;
             import java.util.HashSet;
             import java.util.Set;
@@ -306,7 +306,7 @@ public class TestGetSet extends CommonTest {
     @Language("java")
     private static final String INPUT4 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.function.Function;
             class X {
                 interface R {
@@ -359,7 +359,7 @@ public class TestGetSet extends CommonTest {
     @Language("java")
     private static final String INPUT5 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.List;import java.util.function.Function;
             class X {
                 List<Integer> intList;
@@ -394,7 +394,7 @@ public class TestGetSet extends CommonTest {
     @Language("java")
     private static final String INPUT5b = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.ArrayList;
             import java.util.function.Function;
             class X {

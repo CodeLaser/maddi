@@ -1,12 +1,12 @@
-package org.e2immu.analyzer.modification.analyzer.guard;
+package io.codelaser.maddi.modification.analyzer.guard;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.GuardAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.GuardAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ public class TestGuardContainer extends CommonTest {
     @Language("java")
     private static final String CONTAINER_CONTRACT = """
             package a.b;
-            import org.e2immu.annotation.Container;
+            import io.codelaser.maddi.annotation.Container;
             import java.util.ArrayList;
             import java.util.List;
 
@@ -146,7 +146,7 @@ public class TestGuardContainer extends CommonTest {
     @Language("java")
     private static final String CONCRETE_CONTAINER = """
             package a.b;
-            import org.e2immu.annotation.Container;
+            import io.codelaser.maddi.annotation.Container;
 
             @Container
             public class Y {
@@ -182,7 +182,7 @@ public class TestGuardContainer extends CommonTest {
     @Language("java")
     private static final String NOT_MODIFIED_CONTRACT = """
             package a.b;
-            import org.e2immu.annotation.NotModified;
+            import io.codelaser.maddi.annotation.NotModified;
 
             public class Z {
 

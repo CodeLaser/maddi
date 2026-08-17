@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

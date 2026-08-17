@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.Diamond;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.parser.TypeContext;
-import org.e2immu.parser.java.erasure.ConstructorCallErasure;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.parser.TypeContext;
+import io.codelaser.maddi.parser.java.erasure.ConstructorCallErasure;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
@@ -183,7 +183,7 @@ public class ParseConstructorCall extends CommonParse {
                                           Diamond diamond,
                                           Source source,
                                           List<Comment> comments) {
-        org.e2immu.language.cst.api.expression.ArrayInitializer initializer;
+        io.codelaser.maddi.cst.api.expression.ArrayInitializer initializer;
         ForwardType fwdIndex = context.newForwardType(runtime.intParameterizedType());
         int j = 0;
         boolean haveDimensions = false;
@@ -214,7 +214,7 @@ public class ParseConstructorCall extends CommonParse {
             if (ada.get(j) instanceof ArrayInitializer ai) {
                 LOGGER.debug("Parsing array initializer");
                 ForwardType fwd = context.newForwardType(formalReturnType);
-                initializer = (org.e2immu.language.cst.api.expression.ArrayInitializer) parsers.parseExpression()
+                initializer = (io.codelaser.maddi.cst.api.expression.ArrayInitializer) parsers.parseExpression()
                         .parse(context, index, fwd, ai);
                 concreteReturnType = initializer.parameterizedType();
             } else throw new Summary.ParseException(context, "Expected array initializer");

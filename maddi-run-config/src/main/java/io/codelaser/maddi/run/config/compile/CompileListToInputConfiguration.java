@@ -11,13 +11,13 @@
  * more details. You should have received a copy of the GNU Lesser General Public
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.e2immu.analyzer.run.config.compile;
+package io.codelaser.maddi.run.config.compile;
 
-import org.e2immu.analyzer.run.config.util.JavaModules;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.run.config.util.JavaModules;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 import java.net.URI;
 import java.util.ArrayList;

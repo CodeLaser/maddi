@@ -1,7 +1,7 @@
-package org.e2immu.test.test;
+package io.codelaser.maddi.test.test;
 
-import org.e2immu.test.main.ASecondMainClass;
-import org.e2immu.test.main.SomeClass;
+import io.codelaser.maddi.test.main.ASecondMainClass;
+import io.codelaser.maddi.test.main.SomeClass;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

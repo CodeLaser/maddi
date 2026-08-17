@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.kotlinmain;
+package io.codelaser.maddi.run.kotlinmain;
 
-import org.e2immu.analyzer.run.config.report.ErrorReport;
-import org.e2immu.analyzer.run.config.report.ExitCode;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.analyzer.run.kotlinmain.kotlinc.ParseMixedList;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.run.config.report.ExitCode;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -122,7 +122,7 @@ public class Main {
             // isolated elements are reported in full by the runner; the exit code must not call them a success
             if (summary.prepErrors() > 0) {
                 LOGGER.error("{} element(s) were isolated by prep and not analyzed", summary.prepErrors());
-                return ExitCode.ANALYSER_ERROR;
+                return ExitCode.ANALYZER_ERROR;
             }
             return EXIT_OK;
         } catch (IOException ioException) {
@@ -130,7 +130,7 @@ public class Main {
             return ExitCode.IO_EXCEPTION;
         } catch (RuntimeException runtimeException) {
             ErrorReport.report(null, runtimeException);
-            return ExitCode.ANALYSER_ERROR;
+            return ExitCode.ANALYZER_ERROR;
         }
     }
 

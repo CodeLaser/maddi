@@ -1,6 +1,6 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
-import org.e2immu.language.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Element;
 
 import java.util.ArrayDeque;
 import java.util.Deque;

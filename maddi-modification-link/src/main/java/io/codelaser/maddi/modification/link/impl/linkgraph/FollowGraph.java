@@ -1,17 +1,17 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph;
+package io.codelaser.maddi.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.link.impl.Gate;
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.link.impl.Gate;
+import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.SharedVariable;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.ArrayList;
 import java.util.HashSet;

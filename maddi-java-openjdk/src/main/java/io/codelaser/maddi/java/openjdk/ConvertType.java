@@ -1,12 +1,12 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.IdentityHashMap;

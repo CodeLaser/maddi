@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.TypeNameRequired;
-import org.e2immu.language.cst.api.output.element.TypeName;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.util.StringUtil;
 
 public record TypeNameImpl(String simpleName,
                            String fullyQualifiedName,

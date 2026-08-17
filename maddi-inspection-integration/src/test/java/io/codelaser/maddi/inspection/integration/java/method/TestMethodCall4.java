@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.method;
+package io.codelaser.maddi.inspection.integration.java.method;
 
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -105,8 +105,8 @@ public class TestMethodCall4 extends CommonTest {
     private static final String INPUT3= """
             package org.e2immu.analyser.resolver.testexample;
 
-            import org.e2immu.language.inspection.integration.java.importhelper.a.CanBeSerialized;
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Serializer;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.CanBeSerialized;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Serializer;
 
             public class MethodCall_43<E extends CanBeSerialized> extends Serializer<E> {
 

@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.nolink;
+package io.codelaser.maddi.modification.analyzer.nolink;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.SingleIterationAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests the iterative fixed-point of the analyzer. Each pass of {@link SingleIterationAnalyzer} reports how many
- * properties it changed; the {@link org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer} re-runs single passes
+ * properties it changed; the {@link io.codelaser.maddi.modification.analyzer.IteratingAnalyzer} re-runs single passes
  * until that count reaches zero (a fixed point). An acyclic type reaches its fixed point after a single computing pass;
  * a type/method dependency <em>cycle</em> that a single pass cannot topologically order needs at least one extra
  * refinement pass. These tests drive the single-iteration analyzer directly so they observe the convergence itself,

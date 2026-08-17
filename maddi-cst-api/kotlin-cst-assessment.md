@@ -1,7 +1,7 @@
 # Accommodating Kotlin in the CST — statements & expressions
 
-*Assessment date: 2026-06-20. Scope: `org.e2immu.language.cst.api.statement` and
-`org.e2immu.language.cst.api.expression`. The CST ("Common Syntax Tree") is intended to represent multiple
+*Assessment date: 2026-06-20. Scope: `io.codelaser.maddi.cst.api.statement` and
+`io.codelaser.maddi.cst.api.expression`. The CST ("Common Syntax Tree") is intended to represent multiple
 source languages (Java today; C# and Kotlin planned) with one shared tree.*
 
 ## Headline
@@ -123,8 +123,8 @@ Expected structural Kotlin work lives elsewhere:
 
 # Accommodating Kotlin in the CST — info objects
 
-*Assessment date: 2026-06-20. Scope: `org.e2immu.language.cst.api.info` (TypeInfo, MethodInfo,
-FieldInfo, ParameterInfo, TypeParameter) and `org.e2immu.language.cst.api.element.ModuleInfo`.
+*Assessment date: 2026-06-20. Scope: `io.codelaser.maddi.cst.api.info` (TypeInfo, MethodInfo,
+FieldInfo, ParameterInfo, TypeParameter) and `io.codelaser.maddi.cst.api.element.ModuleInfo`.
 This is where the statement/expression document said "the real work is".*
 
 ## Headline

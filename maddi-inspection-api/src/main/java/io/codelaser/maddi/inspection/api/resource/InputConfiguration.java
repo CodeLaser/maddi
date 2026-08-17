@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.resource;
+package io.codelaser.maddi.inspection.api.resource;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -27,7 +27,7 @@ public interface InputConfiguration {
 
     /**
      * A class path entry that is not a file but a <em>selector</em> into the running process' own class path:
-     * either a package folder ({@code jar-on-classpath:org/e2immu/annotation}) or a jar file name
+     * either a package folder ({@code jar-on-classpath:io/codelaser/maddi/annotation}) or a jar file name
      * ({@code jar-on-classpath:slf4j-api-2.0.17.jar}). The front end resolves it to the real jar or exploded
      * directory at scan time — see {@code ClassSymbolScanner} — because the entry does not carry the physical
      * identity of the library, and its version is not known until we look.
@@ -40,7 +40,7 @@ public interface InputConfiguration {
      * <p>
      * <b>Both the name and the URI are accepted, and that is the point of this method existing.</b> The two
      * ways of building such an entry disagreed about where the prefix goes:
-     * {@code Builder.addClassPath(JAR_ON_CLASSPATH_PREFIX + "org/e2immu/annotation")} puts it on the name
+     * {@code Builder.addClassPath(JAR_ON_CLASSPATH_PREFIX + "io/codelaser/maddi/annotation")} puts it on the name
      * (the URI follows), while {@code withSupportFromClasspath} puts it on the URI and names the set after
      * the caller's map key — the key being the point of that API. Every recognition site tested only the
      * name, so a set built the second way was never recognised, fell through to {@code Path.of(uri)} on an

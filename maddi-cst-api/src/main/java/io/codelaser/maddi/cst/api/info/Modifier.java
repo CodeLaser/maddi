@@ -1,6 +1,6 @@
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.language.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
 
 /**
  * Base interface for all modifier tokens that can appear on a type, method, or field declaration

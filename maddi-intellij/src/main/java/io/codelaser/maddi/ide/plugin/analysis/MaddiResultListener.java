@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.analysis;
+package io.codelaser.maddi.ide.plugin.analysis;
 
 import com.intellij.util.messages.Topic;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 import org.jetbrains.annotations.NotNull;
 
 /** Fired on the project message bus whenever a fresh analysis result is available (tool window etc. subscribe). */

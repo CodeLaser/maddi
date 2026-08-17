@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.link.io;
+package io.codelaser.maddi.modification.link.io;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.util.Trie;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**

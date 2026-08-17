@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
 
 /**
  * A text block (triple-quoted multi-line string literal). It is a {@link StringConstant} whose

@@ -1,9 +1,9 @@
-module org.e2immu.util.external.support {
-    exports org.e2immu.annotatedapi;
-    exports org.e2immu.annotation;
-    exports org.e2immu.annotation.eventual;
-    exports org.e2immu.annotation.type;
-    exports org.e2immu.annotation.method;
-    exports org.e2immu.annotation.rare;
-    exports org.e2immu.support;
+module io.codelaser.maddi.support {
+    exports io.codelaser.maddi.annotatedapi;
+    exports io.codelaser.maddi.annotation;
+    exports io.codelaser.maddi.annotation.eventual;
+    exports io.codelaser.maddi.annotation.type;
+    exports io.codelaser.maddi.annotation.method;
+    exports io.codelaser.maddi.annotation.rare;
+    exports io.codelaser.maddi.support;
 }

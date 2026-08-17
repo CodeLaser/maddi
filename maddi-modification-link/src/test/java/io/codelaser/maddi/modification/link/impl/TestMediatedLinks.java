@@ -1,14 +1,14 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -147,7 +147,7 @@ public class TestMediatedLinks extends CommonTest {
                 .orElseThrow(() -> {
                     var lastVd = VariableDataImpl.of(m.methodBody().statements().getLast());
                     StringBuilder sb = new StringBuilder();
-                    lastVd.variableInfoIterable(org.e2immu.analyzer.modification.prepwork.variable.Stage.MERGE)
+                    lastVd.variableInfoIterable(io.codelaser.maddi.modification.prepwork.variable.Stage.MERGE)
                             .forEach(vi -> sb.append(vi.variable().simpleName()).append("=")
                                     .append(vi.linkedVariables()).append("; "));
                     return new AssertionError("expected a return<-0:o summary link; mlv=" + mlv
@@ -164,7 +164,7 @@ public class TestMediatedLinks extends CommonTest {
 
         VariableData vd = VariableDataImpl.of(m.methodBody().statements().get(statementIndex));
         List<Link> allLinks = StreamSupport.stream(vd.variableInfoIterable(
-                        org.e2immu.analyzer.modification.prepwork.variable.Stage.EVALUATION).spliterator(), false)
+                        io.codelaser.maddi.modification.prepwork.variable.Stage.EVALUATION).spliterator(), false)
                 .flatMap(vi -> vi.linkedVariables() == null ? Stream.of()
                         : vi.linkedVariables().stream())
                 .toList();

@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.impl.large;
+package io.codelaser.maddi.modification.link.impl.large;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Disabled;
@@ -19,7 +19,7 @@ public class TestLinkGraph extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.support.SetOnce;
             import java.util.ArrayList;
             import java.util.HashMap;
             import java.util.List;

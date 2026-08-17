@@ -12,23 +12,23 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.MultiLineComment;
-import org.e2immu.language.cst.api.element.SingleLineComment;
-import org.e2immu.language.cst.api.expression.BinaryOperator;
-import org.e2immu.language.cst.api.expression.CharConstant;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.FieldModifier;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.MultiLineComment;
+import io.codelaser.maddi.cst.api.element.SingleLineComment;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.expression.CharConstant;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.FieldModifier;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

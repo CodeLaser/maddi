@@ -1,11 +1,11 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.resource.InfoByFqn;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

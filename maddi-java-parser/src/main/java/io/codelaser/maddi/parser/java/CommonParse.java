@@ -12,23 +12,23 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.ImportStatement;
-import org.e2immu.language.cst.api.element.RecordPattern;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.SwitchEntry;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.parser.java.util.JavaDocParser;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.parser.java.util.JavaDocParser;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.Delimiter;
@@ -384,8 +384,8 @@ public abstract class CommonParse {
                                        ForwardType selectorTypeFwd,
                                        Context enumContext) {
         Context newContext = Objects.requireNonNullElse(enumContext, context);
-        org.e2immu.language.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
-        List<org.e2immu.language.cst.api.expression.Expression> conditions = new ArrayList<>();
+        io.codelaser.maddi.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
+        List<io.codelaser.maddi.cst.api.expression.Expression> conditions = new ArrayList<>();
         int j = 0;
         while (j < nsl.size()) {
             Node node = nsl.get(j);

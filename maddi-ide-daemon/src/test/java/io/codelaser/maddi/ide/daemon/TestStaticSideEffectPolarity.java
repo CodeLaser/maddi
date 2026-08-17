@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.daemon;
+package io.codelaser.maddi.ide.daemon;
 
-import org.e2immu.analyzer.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,8 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.analyze;
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.annotationsFor;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.analyze;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.annotationsFor;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.variable;
+package io.codelaser.maddi.cst.api.variable;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 
 /**
  * A variable representing a field access of the form {@code scope.fieldName} or a bare
@@ -38,7 +38,7 @@ public interface FieldReference extends Variable {
 
     /**
      * Returns the scope as a {@link Variable} when {@link #scope()} is a
-     * {@link org.e2immu.language.cst.api.expression.VariableExpression}, or {@code null} otherwise.
+     * {@link io.codelaser.maddi.cst.api.expression.VariableExpression}, or {@code null} otherwise.
      */
     Variable scopeVariable();
 

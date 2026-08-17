@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example;
+package io.codelaser.maddi.inspection.integration.java.example;
 
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.*;
 
 public class Import4 {
     interface BB extends Bool {

@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin;
+package io.codelaser.maddi.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.run.config.GeneralConfiguration;
-import org.e2immu.analyzer.run.config.util.JavaModules;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.analyzer.run.main.Main;
-import org.e2immu.gradleplugin.inputconfig.ComputeDependencies;
-import org.e2immu.gradleplugin.inputconfig.ComputeSourceSets;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
-import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.op.Linearize;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.config.util.JavaModules;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.run.main.Main;
+import io.codelaser.maddi.gradleplugin.inputconfig.ComputeDependencies;
+import io.codelaser.maddi.gradleplugin.inputconfig.ComputeSourceSets;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.op.Linearize;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
@@ -52,7 +52,7 @@ public record AnalyzerPropertyComputer(
         Project targetProject) {
 
     private static final Logger LOGGER = Logging.getLogger(AnalyzerPropertyComputer.class);
-    public static final String PREFIX = "e2immu-analyser.";
+    public static final String PREFIX = "e2immu-analyzer.";
 
     public static final String E2IMMU_CONFIGURATION = "configuration.json";
 
@@ -68,7 +68,7 @@ public record AnalyzerPropertyComputer(
         if (extension.skipProject) {
             return;
         }
-        org.e2immu.analyzer.run.config.Configuration configuration = computeConfiguration(project, extension);
+        io.codelaser.maddi.run.config.Configuration configuration = computeConfiguration(project, extension);
         try {
             String json = JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
                     .writeValueAsString(configuration);
@@ -106,7 +106,7 @@ public record AnalyzerPropertyComputer(
                 .toList();
 
         if (!skippedChildProjects.isEmpty()) {
-            LOGGER.debug("Skipping collecting Analyser properties on: " +
+            LOGGER.debug("Skipping collecting Analyzer properties on: " +
                          skippedChildProjects.stream().map(Project::toString).collect(Collectors.joining(", ")));
         }
 
@@ -118,7 +118,7 @@ public record AnalyzerPropertyComputer(
         }*/
     }
 
-    public org.e2immu.analyzer.run.config.Configuration computeConfiguration(Project project, AnalyzerExtension extension) {
+    public io.codelaser.maddi.run.config.Configuration computeConfiguration(Project project, AnalyzerExtension extension) {
         LanguageConfiguration languageConfiguration = new LanguageConfigurationImpl(true);
 
         // general
@@ -130,7 +130,7 @@ public record AnalyzerPropertyComputer(
         // Input
         InputConfiguration inputConfiguration = makeInputConfiguration(project, extension);
 
-        return new org.e2immu.analyzer.run.config.Configuration.Builder()
+        return new io.codelaser.maddi.run.config.Configuration.Builder()
                 .setAnalysisHintsConfiguration(analysisHintsConfiguration)
                 .setGeneralConfiguration(generalConfiguration)
                 .setLanguageConfiguration(languageConfiguration)

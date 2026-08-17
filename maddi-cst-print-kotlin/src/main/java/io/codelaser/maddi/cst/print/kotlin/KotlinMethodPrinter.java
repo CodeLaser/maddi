@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.kotlin;
+package io.codelaser.maddi.cst.print.kotlin;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.MethodPrinter;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.output.*;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.MethodPrinter;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.List;
 

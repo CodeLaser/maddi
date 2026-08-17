@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse.tests;
+package io.codelaser.maddi.ide.eclipse.tests;
 
-import org.e2immu.analyzer.ide.client.AnalysisModel;
-import org.e2immu.analyzer.ide.eclipse.MaddiEclipseConfigBuilder;
+import io.codelaser.maddi.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.eclipse.MaddiEclipseConfigBuilder;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;

@@ -1,7 +1,7 @@
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;

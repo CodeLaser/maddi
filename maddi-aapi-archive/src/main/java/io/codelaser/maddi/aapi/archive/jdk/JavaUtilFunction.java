@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.Comparator;
 import java.util.function.*;
 
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.Modified;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.NotNull;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaUtilFunction {
     public static final String PACKAGE_NAME = "java.util.function";

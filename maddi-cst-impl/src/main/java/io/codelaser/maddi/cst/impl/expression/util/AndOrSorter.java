@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.util;
+package io.codelaser.maddi.cst.impl.expression.util;
 
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.expression.VariableExpressionImpl;
-import org.e2immu.language.cst.impl.variable.DescendModeEnum;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
+import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
 
 import java.util.*;
 import java.util.stream.Collectors;

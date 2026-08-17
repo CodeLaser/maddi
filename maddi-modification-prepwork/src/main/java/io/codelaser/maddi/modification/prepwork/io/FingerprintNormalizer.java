@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
 /**
  * A single normalization applied to the serialised analysis dump before it is hashed into an

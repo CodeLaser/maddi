@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Instance;
-import org.e2immu.language.cst.api.expression.InstanceOf;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Instance;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 public class EvalInstanceOf {
     private final Runtime runtime;

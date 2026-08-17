@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.bytecode.java.asm;
+package io.codelaser.maddi.bytecode.java.asm;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.slf4j.Logger;

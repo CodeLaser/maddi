@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin;
+package io.codelaser.maddi.gradleplugin;
 
 import org.gradle.api.Action;
 
@@ -46,7 +46,7 @@ public class AnalyzerExtension {
     public String jre;
     /**
      * @deprecated Legacy, avoid; fatal on modular projects. See
-     * {@link org.e2immu.language.cst.api.element.SourceSet#restrictToPackages()}.
+     * {@link io.codelaser.maddi.cst.api.element.SourceSet#restrictToPackages()}.
      */
     @Deprecated
     public String sourcePackages;

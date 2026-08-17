@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.variable;
+package io.codelaser.maddi.cst.api.variable;
 
-import org.e2immu.annotation.NotNull;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.util.OneVariable;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.util.OneVariable;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -33,7 +33,7 @@ import java.util.stream.Stream;
  * {@link FieldReference} (instance and static field accesses), {@link DependentVariable}
  * (array-element accesses), and {@link This} (the {@code this} / {@code super} pseudo-variable).
  * <p>
- * Variables implement {@link Comparable} so that {@link org.e2immu.language.cst.api.expression.Expression}
+ * Variables implement {@link Comparable} so that {@link io.codelaser.maddi.cst.api.expression.Expression}
  * collections can be sorted canonically by {@link #fullyQualifiedName()}.
  */
 public interface Variable extends Comparable<Variable>, Element, OneVariable {
@@ -43,7 +43,7 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
     String fullyQualifiedName();
 
     /**
-     * Returns {@code true} if the analyser should not track modifications through this variable.
+     * Returns {@code true} if the analyzer should not track modifications through this variable.
      * Defaults to {@code false}; overridden for certain synthetic or ignored variables.
      */
     default boolean isIgnoreModifications() {

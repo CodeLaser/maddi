@@ -1,5 +1,5 @@
 /*
- * e2immu: a static code analyser for effective and eventual immutability
+ * e2immu: a static code analyzer for effective and eventual immutability
  * Copyright 2020-2021, Bart Naudts, https://www.e2immu.org
  *
  * This program is free software: you can redistribute it and/or modify it under the
@@ -12,10 +12,10 @@
  * program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.print;
+package io.codelaser.maddi.java.openjdk.print;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

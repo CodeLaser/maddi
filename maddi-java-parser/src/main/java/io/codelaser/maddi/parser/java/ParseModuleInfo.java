@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.Summary;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;

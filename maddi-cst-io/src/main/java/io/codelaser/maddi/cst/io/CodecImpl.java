@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.io;
+package io.codelaser.maddi.cst.io;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.Wildcard;
-import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.Wildcard;
+import io.codelaser.maddi.cst.api.variable.*;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import org.parsers.json.Node;
 import org.parsers.json.ast.*;
 import org.slf4j.Logger;

@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.support.Either;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
+import io.codelaser.maddi.support.Either;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -485,7 +485,7 @@ public interface TypeInfo extends NamedType, Info {
     }
 
     /**
-     * Returns {@code true} if the analyser has determined this type is at least
+     * Returns {@code true} if the analyzer has determined this type is at least
      * immutable with hidden content.
      */
     boolean isAtLeastImmutableHC();

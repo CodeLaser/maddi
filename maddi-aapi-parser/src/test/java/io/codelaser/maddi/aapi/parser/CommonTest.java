@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.util.internal.graph.G;
+import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.graph.G;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -40,9 +40,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,14 +70,14 @@ public class CommonTest {
     @BeforeAll
     public static void beforeAll() throws IOException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.aapi")).setLevel(Level.DEBUG);
 
         AnalysisHintsParser analysisHintsParser = createAnalysisHintsParser();
         AnalysisHints test = new AnalysisHints.Builder()
                 .setLibraryName("test")
                 .setAnalysisResultsDir(Path.of("build/"))
                 .setHintsPath(Path.of("../maddi-aapi-archive/src/main/java"))
-                .setPackagePrefix("org.e2immu.analyzer.aapi.archive")
+                .setPackagePrefix("io.codelaser.maddi.aapi.archive")
                 .build();
 
         javaInspector = analysisHintsParser.go(test);
@@ -95,7 +95,7 @@ public class CommonTest {
     static @NonNull AnalysisHintsParser createAnalysisHintsParser() {
         // the AAPI archive covers all JDK modules, including java.desktop (swing/awt) and java.net.http, so this
         // compiler needs them on the classpath (the lean default only carries java.base)
-        JavaInspectorFactory javaInspectorFactory = org.e2immu.analyzer.modification.common.CommonTest
+        JavaInspectorFactory javaInspectorFactory = io.codelaser.maddi.modification.common.CommonTest
                 .javaInspectorFactory("java.desktop", "java.net.http");
         return new AnalysisHintsParser(javaInspectorFactory);
     }

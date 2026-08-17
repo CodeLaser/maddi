@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.analysis;
+package io.codelaser.maddi.cst.api.analysis;
 
 public interface Property {
     Class<? extends Value> classOfValue();

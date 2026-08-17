@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.util;
+package io.codelaser.maddi.util;
 
 public class GetSetNames {
     public static String fieldName(String methodName) {

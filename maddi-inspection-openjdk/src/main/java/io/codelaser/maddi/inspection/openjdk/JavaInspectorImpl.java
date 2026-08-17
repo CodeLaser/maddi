@@ -1,49 +1,49 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
 import com.sun.source.util.JavacTask;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.impl.parser.ContextImpl;
-import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
-import org.e2immu.parser.java.ParseHelperImpl;
-import org.e2immu.parser.java.ParseModuleInfo;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
+import io.codelaser.maddi.parser.java.ParseHelperImpl;
+import io.codelaser.maddi.parser.java.ParseModuleInfo;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
 import org.parsers.java.ast.ModularCompilationUnit;
-import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
-import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.resource.InfoByFqn;
-import org.e2immu.language.inspection.resource.ResolveModuleDirectives;
-import org.e2immu.language.inspection.resource.SummaryImpl;
-import org.e2immu.language.java.openjdk.ClassSymbolScanner;
-import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
-import org.e2immu.language.java.openjdk.MaddiDiagnosticCollector;
-import org.e2immu.language.java.openjdk.ScanCompilationUnits;
-import org.e2immu.language.java.openjdk.UnresolvedSymbolException;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
-import org.e2immu.util.internal.graph.op.Linearize;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
+import io.codelaser.maddi.inspection.resource.SummaryImpl;
+import io.codelaser.maddi.java.openjdk.ClassSymbolScanner;
+import io.codelaser.maddi.java.openjdk.InMemoryJavaFileObject;
+import io.codelaser.maddi.java.openjdk.MaddiDiagnosticCollector;
+import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
+import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.op.Linearize;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +68,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPInputStream;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
@@ -80,7 +80,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final Map<SourceFile, List<TypeInfo>> sourceFiles = new HashMap<>();
     private CompiledTypesManager compiledTypesManager;
     private InputConfiguration inputConfiguration; // kept for tests
-    private org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
+    private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
@@ -145,7 +145,7 @@ public class JavaInspectorImpl implements JavaInspector {
     // the JDK modules for which a faithful parameter-name index is shipped in maddi-aapi-archive
     private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
     private static final String PARAMETER_NAME_RESOURCE_PREFIX =
-            "/org/e2immu/analyzer/aapi/archive/parameterNames/";
+            "/io/codelaser/maddi/aapi/archive/parameterNames/";
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -159,7 +159,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     /** @see InputConfiguration#JAR_ON_CLASSPATH_PREFIX — kept as the name this front end has always used. */
     public static final String JAR_WITH_PATH_PREFIX = InputConfiguration.JAR_ON_CLASSPATH_PREFIX;
-    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
+    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
     // how reloadSources' in-memory sources are keyed, as in the in-house inspector: "test-protocol:a.b.X"
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
@@ -1590,7 +1590,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap() {
+    public io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
         return lastRewireInfoMap;
     }
 

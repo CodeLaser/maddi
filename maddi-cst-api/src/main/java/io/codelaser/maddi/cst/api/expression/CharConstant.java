@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
 /**
  * A {@code char} literal; its {@code constant()} is the {@link Character} value. Note it is not

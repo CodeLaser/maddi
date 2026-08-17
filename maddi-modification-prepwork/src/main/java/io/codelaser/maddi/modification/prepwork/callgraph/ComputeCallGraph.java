@@ -12,36 +12,36 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.callgraph;
+package io.codelaser.maddi.modification.prepwork.callgraph;
 
 
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.RecordPattern;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.TryStatement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.TryStatement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 
 /*
 call & reference graphs.

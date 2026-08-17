@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse;
+package io.codelaser.maddi.ide.eclipse;
 
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.text.BadLocationException;

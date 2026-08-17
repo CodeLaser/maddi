@@ -1,31 +1,31 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
-import org.e2immu.analyzer.modification.link.impl.translate.VirtualFieldTranslationMapForMethodParameters;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.RecordPattern;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.SwitchEntry;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.impl.translate.VariableTranslationMap;
+import io.codelaser.maddi.modification.link.impl.translate.VirtualFieldTranslationMapForMethodParameters;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.variable.*;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.*;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public record ExpressionVisitor(Runtime runtime,
                                 JavaInspector javaInspector,
@@ -551,7 +551,7 @@ public record ExpressionVisitor(Runtime runtime,
 
     // last-write-wins for the element-internal call-site argument links; same monitor discipline as
     // TolerantWrite (PropertyValueMapImpl's own methods synchronize on the map)
-    private static void writeArgumentLinks(org.e2immu.language.cst.api.analysis.PropertyValueMap analysis,
+    private static void writeArgumentLinks(io.codelaser.maddi.cst.api.analysis.PropertyValueMap analysis,
                                            LinkComputer.ListOfLinks list) {
         synchronized (analysis) {
             if (analysis.haveAnalyzedValueFor(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS)) {

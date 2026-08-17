@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,7 +32,7 @@ public class TestRunComposer {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
     }
 
     @Disabled
@@ -46,11 +46,11 @@ public class TestRunComposer {
                 "--classpath=jmod:java.base",
                 "--source=none",
                 "--annotated-api-packages=java.util.",
-                "--annotated-api-target-package=org.e2immu.aapi",
+                "--annotated-api-target-package=io.codelaser.maddi.aapi",
                 "--annotated-api-target-dir=" + file.getAbsolutePath()
         });
         assertTrue(file.canRead());
-        File pkg = new File(file, "org/e2immu/aapi");
+        File pkg = new File(file, "io/codelaser/maddi/aapi");
         File javaIo = new File(pkg, "JavaIo.java");
         assertFalse(javaIo.canRead());
         File javaUtil = new File(pkg, "JavaUtil.java");

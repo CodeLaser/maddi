@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java.util;
+package io.codelaser.maddi.parser.java.util;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 import org.parsers.java.ast.StringLiteral;
 
 import java.util.List;

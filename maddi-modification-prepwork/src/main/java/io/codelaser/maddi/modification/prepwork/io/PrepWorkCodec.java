@@ -12,21 +12,21 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.io.CodecImpl;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
+import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
+import io.codelaser.maddi.modification.prepwork.variable.impl.ReturnVariableImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyProviderImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.io.CodecImpl;
 
 import java.util.List;
 import java.util.Map;

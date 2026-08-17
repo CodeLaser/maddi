@@ -1,15 +1,15 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.run.openjdkmain.javac.ParseJavacList;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -71,7 +71,7 @@ public class TestParSeqLinkBench {
 
         // PRODUCTION disables the checkDuplicateNames debug assertion so linking runs to completion (we are
         // measuring time on deep structures, not asserting graph invariants).
-        LinkComputerImpl link = new LinkComputerImpl(javaInspector, org.e2immu.analyzer.modification.link.LinkComputer.Options.PRODUCTION);
+        LinkComputerImpl link = new LinkComputerImpl(javaInspector, io.codelaser.maddi.modification.link.LinkComputer.Options.PRODUCTION);
         // first link the production parseq types so their method summaries (callees of the tests) are available
         for (TypeInfo t : parseqTypes) {
             if (t.simpleName().startsWith("Test") || t.simpleName().startsWith("Common")) continue;

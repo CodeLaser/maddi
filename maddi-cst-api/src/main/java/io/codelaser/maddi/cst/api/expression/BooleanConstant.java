@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
 /**
  * A boolean literal ({@code true}/{@code false}); its {@code constant()} is the {@link Boolean} value.

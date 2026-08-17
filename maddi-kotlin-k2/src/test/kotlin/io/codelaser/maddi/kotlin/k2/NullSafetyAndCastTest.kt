@@ -12,21 +12,21 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
-import org.e2immu.language.cst.api.element.DetailedSources
-import org.e2immu.language.cst.api.expression.BinaryOperator
-import org.e2immu.language.cst.api.expression.Cast
-import org.e2immu.language.cst.api.expression.ConstructorCall
-import org.e2immu.language.cst.api.expression.Equals
-import org.e2immu.language.cst.api.expression.InlineConditional
-import org.e2immu.language.cst.api.expression.InstanceOf
-import org.e2immu.language.cst.api.expression.MethodCall
-import org.e2immu.language.cst.api.expression.UnaryOperator
-import org.e2immu.language.cst.api.expression.VariableExpression
-import org.e2immu.language.cst.api.variable.FieldReference
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement
-import org.e2immu.language.cst.api.statement.ReturnStatement
+import io.codelaser.maddi.cst.api.element.DetailedSources
+import io.codelaser.maddi.cst.api.expression.BinaryOperator
+import io.codelaser.maddi.cst.api.expression.Cast
+import io.codelaser.maddi.cst.api.expression.ConstructorCall
+import io.codelaser.maddi.cst.api.expression.Equals
+import io.codelaser.maddi.cst.api.expression.InlineConditional
+import io.codelaser.maddi.cst.api.expression.InstanceOf
+import io.codelaser.maddi.cst.api.expression.MethodCall
+import io.codelaser.maddi.cst.api.expression.UnaryOperator
+import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.variable.FieldReference
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
+import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue

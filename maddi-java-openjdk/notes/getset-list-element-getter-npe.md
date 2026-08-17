@@ -35,8 +35,8 @@ indexed list element-getter crashes at parse time:
 
 ```
 java.lang.NullPointerException: Called on wrong method
-    at org.e2immu.language.cst.impl.runtime.RuntimeImpl.getSetVariable(RuntimeImpl.java:359)
-    at org.e2immu.language.cst.impl.runtime.RuntimeImpl.getterVariable(RuntimeImpl.java:314)
+    at io.codelaser.maddi.cst.impl.runtime.RuntimeImpl.getSetVariable(RuntimeImpl.java:359)
+    at io.codelaser.maddi.cst.impl.runtime.RuntimeImpl.getterVariable(RuntimeImpl.java:314)
     at io.codelaser.jfocus.standardize.analyzer.parse.ExpressionVisitor.getterSetter(ExpressionVisitor.java:954)
     at io.codelaser.jfocus.standardize.analyzer.parse.ExpressionVisitor.continueMethodCall(ExpressionVisitor.java:885)
     at io.codelaser.jfocus.standardize.analyzer.parse.ExpressionVisitor.handleMethodCall(ExpressionVisitor.java:878)

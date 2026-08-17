@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 import org.apache.commons.cli.help.HelpFormatter;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.config.GeneralConfiguration;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
-import org.e2immu.analyzer.run.openjdkmain.javac.ParseJavacList;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ public class Main {
     public static final int EXIT_PARSER_ERROR = 2;
     public static final int EXIT_INSPECTION_ERROR = 3;
     public static final int EXIT_IO_EXCEPTION = 4;
-    public static final int EXIT_ANALYSER_ERROR = 5; // analyser found errors
+    public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
 
     public static final String HELP = "help";
 
@@ -104,7 +104,7 @@ public class Main {
             case EXIT_PARSER_ERROR -> "Parser error(s)";
             case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
             case EXIT_IO_EXCEPTION -> "IO exception";
-            case EXIT_ANALYSER_ERROR -> "Analyser error(s)";
+            case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
             default -> throw new UnsupportedOperationException("don't know value " + exitValue);
         };
     }
@@ -142,12 +142,12 @@ public class Main {
 
         // the following will be output if the CONFIGURATION logger is active!
         LOGGER.debug("Configuration:\n{}", configuration);
-        RunAnalyzer runAnalyser = new RunAnalyzer(configuration);
-        runAnalyser.run();
+        RunAnalyzer runAnalyzer = new RunAnalyzer(configuration);
+        runAnalyzer.run();
         if (!configuration.generalConfiguration().quiet()) {
-            runAnalyser.printSummaries();
+            runAnalyzer.printSummaries();
         }
-        return runAnalyser.exitValue();
+        return runAnalyzer.exitValue();
     }
 
 
@@ -164,7 +164,7 @@ public class Main {
         if (cmd.hasOption(HELP)) {
             HelpFormatter formatter = HelpFormatter.builder().get();
             //formatter.setWidth(128);
-            formatter.printHelp("e2immu-analyser", "", options, "", true);
+            formatter.printHelp("e2immu-analyzer", "", options, "", true);
             System.exit(EXIT_OK);
         }
         Configuration.Builder builder = new Configuration.Builder();
@@ -286,7 +286,7 @@ public class Main {
 
         options.addOption(Option.builder().longOpt(JRE).hasArg().argName("DIR")
                 .desc("Provide an alternative location for the Java Runtime Environment (JRE). " +
-                      "If absent, the JRE from the analyser is used: '" + System.getProperty("java.home") + "'.").get());
+                      "If absent, the JRE from the analyzer is used: '" + System.getProperty("java.home") + "'.").get());
         options.addOption(Option.builder().longOpt(SOURCE_ENCODING).hasArg().argName("ENCODING")
                 .desc("Alternative source encoding. Default is UTF-8").get());
 

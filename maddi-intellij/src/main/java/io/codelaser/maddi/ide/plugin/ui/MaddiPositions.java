@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.ui;
+package io.codelaser.maddi.ide.plugin.ui;
 
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.util.TextRange;

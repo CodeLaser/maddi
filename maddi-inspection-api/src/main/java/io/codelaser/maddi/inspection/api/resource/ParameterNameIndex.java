@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.resource;
+package io.codelaser.maddi.inspection.api.resource;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -46,7 +46,7 @@ import java.util.zip.GZIPOutputStream;
  * those names (e.g. the javac-based one, which only sees {@code arg0}). It lives in inspection-api so both the
  * builder and the consumer can use it without depending on each other.
  * <p>
- * The key deliberately uses {@link org.e2immu.language.cst.api.type.ParameterizedType#erasedForFQN()}
+ * The key deliberately uses {@link io.codelaser.maddi.cst.api.type.ParameterizedType#erasedForFQN()}
  * fully-qualified names (the same erasure {@code MethodMap} uses), <em>not</em> the model's
  * {@code descriptor()}: the latter carries a {@code sourceSet::} prefix, which would make the same JDK/library
  * method key differently depending on how it was loaded.

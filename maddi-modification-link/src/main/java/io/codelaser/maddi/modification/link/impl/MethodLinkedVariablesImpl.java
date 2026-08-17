@@ -1,19 +1,19 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -136,7 +136,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
             // pass-carrying ≡ variant (☷): [symbol, methodInfo...] — see LinksImpl.encodeLink
             List<Codec.EncodedValue> natureList = codec.decodeList(context, natureEv);
             assert "☷".equals(codec.decodeString(context, natureList.getFirst()));
-            java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = new java.util.HashSet<>();
+            java.util.Set<io.codelaser.maddi.cst.api.info.MethodInfo> pass = new java.util.HashSet<>();
             for (int i = 1; i < natureList.size(); i++) {
                 pass.add(codec.decodeMethodInfo(context, natureList.get(i)));
             }

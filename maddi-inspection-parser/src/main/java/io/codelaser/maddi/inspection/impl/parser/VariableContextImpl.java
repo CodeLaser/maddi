@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.impl.parser;
+package io.codelaser.maddi.inspection.impl.parser;
 
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.parser.VariableContext;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.inspection.api.parser.VariableContext;
 
 import java.util.HashMap;
 import java.util.List;

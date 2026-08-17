@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.util;
+package io.codelaser.maddi.util;
 
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.util.internal.util.StringUtil.replaceSlashDollar;
+import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStringUtil {
     @Test
     public void testReplaceSlashDollar() {
-        assertEquals("org.e2immu.sequence", replaceSlashDollar("org/e2immu/sequence"));
-        assertEquals("org.e2immu.sequence", replaceSlashDollar("org/e2immu$sequence"));
-        assertEquals("org.e2immu.$sequence", replaceSlashDollar("org/e2immu$$sequence"));
+        assertEquals("io.codelaser.maddi.sequence", replaceSlashDollar("io/codelaser/maddi/sequence"));
+        assertEquals("io.codelaser.maddi.sequence", replaceSlashDollar("io/codelaser/maddi$sequence"));
+        assertEquals("io.codelaser.maddi.$sequence", replaceSlashDollar("io/codelaser/maddi$$sequence"));
     }
 }

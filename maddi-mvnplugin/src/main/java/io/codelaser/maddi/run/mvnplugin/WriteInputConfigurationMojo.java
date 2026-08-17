@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.mvnplugin;
+package io.codelaser.maddi.run.mvnplugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -8,8 +8,8 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.ProjectDependenciesResolver;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 import java.io.File;
 

@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph.op;
+package io.codelaser.maddi.graph.op;
 
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.analyser.TypeGraphIO;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.analyzer.TypeGraphIO;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

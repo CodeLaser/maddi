@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.util;
+package io.codelaser.maddi.util;
 
-import org.e2immu.annotation.FinalFields;
-import org.e2immu.annotation.Modified;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.support.Freezable;
+import io.codelaser.maddi.annotation.FinalFields;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.support.Freezable;
 
 import java.util.*;
 import java.util.function.BiConsumer;

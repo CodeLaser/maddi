@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.mixed
+package io.codelaser.maddi.inspection.mixed
 
-import org.e2immu.language.inspection.resource.InputConfigurationImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

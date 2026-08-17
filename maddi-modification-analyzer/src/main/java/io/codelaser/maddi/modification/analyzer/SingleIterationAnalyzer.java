@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
 
 import java.util.List;
 
@@ -43,8 +43,8 @@ public interface SingleIterationAnalyzer {
      * Summary-consumption edges discovered by the link computer (consumer read consumed's METHOD_LINKS
      * while computing its own links) — see LinkComputer.recordSummaryConsumption. Accumulated over the run.
      */
-    default java.util.Map<org.e2immu.language.cst.api.info.MethodInfo,
-            java.util.Set<org.e2immu.language.cst.api.info.MethodInfo>> consumedSummaries() {
+    default java.util.Map<io.codelaser.maddi.cst.api.info.MethodInfo,
+            java.util.Set<io.codelaser.maddi.cst.api.info.MethodInfo>> consumedSummaries() {
         return java.util.Map.of();
     }
 

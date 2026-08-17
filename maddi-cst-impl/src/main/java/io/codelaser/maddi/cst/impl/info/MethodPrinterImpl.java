@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.language.cst.impl.type.DiamondEnum;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 
 import java.util.ArrayList;
 import java.util.List;

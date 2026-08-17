@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
-import org.e2immu.analyzer.modification.common.defaults.DebugVisitor;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.common.defaults.DebugVisitor;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 
 import java.util.Set;
 

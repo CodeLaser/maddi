@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.output.QualificationImpl;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

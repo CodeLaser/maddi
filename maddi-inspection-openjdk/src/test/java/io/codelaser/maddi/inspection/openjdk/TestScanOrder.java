@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;

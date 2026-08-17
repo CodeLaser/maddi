@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
@@ -24,11 +24,11 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.rare.AllowsInterrupt;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
 public class JavaIo {
     public static final String PACKAGE_NAME = "java.io";
     //public class BufferedReader extends Reader

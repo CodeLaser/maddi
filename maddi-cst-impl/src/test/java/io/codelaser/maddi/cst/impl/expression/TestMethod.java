@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression;
+package io.codelaser.maddi.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypePrinter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.info.ImportComputerImpl;
-import org.e2immu.language.cst.impl.info.TypePrinterImpl;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypePrinter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.impl.info.TypePrinterImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

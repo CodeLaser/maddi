@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example4.impl;
+package io.codelaser.maddi.inspection.integration.java.example4.impl;
 
-import org.e2immu.language.inspection.integration.java.example4.api.Bool;
+import io.codelaser.maddi.inspection.integration.java.example4.api.Bool;
 
 public class BoolImpl extends ValueImpl implements Bool {
 }

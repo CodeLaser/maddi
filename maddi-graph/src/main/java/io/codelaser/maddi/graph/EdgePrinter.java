@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph;
+package io.codelaser.maddi.graph;
 
 import java.util.Map;
 

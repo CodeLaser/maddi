@@ -1,9 +1,9 @@
-package org.e2immu.language.java.openjdk.method;
+package io.codelaser.maddi.java.openjdk.method;
 
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ public class TestOverrides extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.ArrayList;
             import java.util.function.Function;
             class X {

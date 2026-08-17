@@ -1,8 +1,8 @@
-package org.e2immu.analyzer.modification.common.util;
+package io.codelaser.maddi.modification.common.util;
 
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
 
 import java.util.List;
 
@@ -128,7 +128,7 @@ public interface IteratingAnalyzer {
      * on Y, as built by ComputeCallGraph). Worklist narrowing (default ON; opt out with NOWORKLIST=1) then makes iterations 2+ only re-analyze elements
      * that changed in the previous iteration plus their dependents (reverse edges) — the worklist narrowing.
      */
-    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
+    default void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph) {
         analyze(analysisOrder, dependencyGraph, null);
     }
 
@@ -140,13 +140,13 @@ public interface IteratingAnalyzer {
      * and defeat the skip). Elements the worklist never reaches keep whatever analysis they already hold (their
      * carried values). {@code null} ⇒ the normal full analysis.
      */
-    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+    default void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph,
                          java.util.Set<Info> initialDirty) {
         analyze(analysisOrder, dependencyGraph, initialDirty, null);
     }
 
     /**
-     * As {@link #analyze(List, org.e2immu.util.internal.graph.G, java.util.Set)}, with a clear-before-recompute hook.
+     * As {@link #analyze(List, io.codelaser.maddi.graph.G, java.util.Set)}, with a clear-before-recompute hook.
      * In incremental mode the worklist discovers the dirty frontier dynamically: a <em>carried</em> type is pulled in
      * only when a dependency's summary changes. Before such a type is re-analysed, its carried cross-type-derived
      * values must be cleared, or the monotonic overwrite guard rejects a value the fresh analysis <em>lowers</em>
@@ -156,7 +156,7 @@ public interface IteratingAnalyzer {
      * the {@code CROSS_TYPE_DERIVED} tier of a carried element (and drops it from its carried set). {@code null} ⇒ no
      * hook. Only consulted when {@code initialDirty != null}.
      */
-    default void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+    default void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph,
                          java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         analyze(analysisOrder, dependencyGraph);
     }

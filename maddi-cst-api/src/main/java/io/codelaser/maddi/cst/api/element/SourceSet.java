@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.element;
+package io.codelaser.maddi.cst.api.element;
 
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Describes a named collection of source files or a compiled library that the analyser can inspect.
+ * Describes a named collection of source files or a compiled library that the analyzer can inspect.
  * <p>
  * A {@code SourceSet} is one of:
  * <ul>

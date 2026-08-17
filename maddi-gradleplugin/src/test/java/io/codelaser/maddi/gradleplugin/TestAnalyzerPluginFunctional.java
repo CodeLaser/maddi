@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin;
+package io.codelaser.maddi.gradleplugin;
 
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
@@ -92,7 +92,7 @@ public class TestAnalyzerPluginFunctional {
         Files.writeString(projectDir.resolve("build.gradle.kts"), """
                 plugins {
                     java
-                    id("org.e2immu.analyzer-plugin")
+                    id("io.codelaser.maddi.analyzer")
                 }
                 e2immu {
                     jmods = "java.base"

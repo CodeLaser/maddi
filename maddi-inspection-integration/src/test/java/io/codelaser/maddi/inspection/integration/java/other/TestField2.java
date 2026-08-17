@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.other;
+package io.codelaser.maddi.inspection.integration.java.other;
 
-import org.e2immu.language.cst.api.expression.BinaryOperator;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.integration.java.CommonTest2;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.integration.java.CommonTest2;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

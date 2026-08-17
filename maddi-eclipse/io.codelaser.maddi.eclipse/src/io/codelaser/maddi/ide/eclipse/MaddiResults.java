@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse;
+package io.codelaser.maddi.ide.eclipse;
 
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

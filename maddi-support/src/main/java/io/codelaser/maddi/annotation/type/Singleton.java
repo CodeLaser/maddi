@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation.type;
+package io.codelaser.maddi.annotation.type;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
 
 /**
  * Annotation used to indicate that a class is a <em>singleton</em>: only one instance can be created.
- * The analyser currently implements two methods of detection of a singleton:
+ * The analyzer currently implements two methods of detection of a singleton:
  * <ol>
  *     <li>a precondition on a private static boolean field in the constructor</li>
  *     <li>one call from the initializer of a field to a single, private constructor.</li>
@@ -36,7 +36,7 @@ public @interface Singleton {
     /**
      * Parameter to mark that the annotation should be absent, or present.
      * In verification mode, <code>absent=true</code> means that an error will be raised
-     * if the analyser computes the annotation. In contract mode, it guarantees absence of the annotation.
+     * if the analyzer computes the annotation. In contract mode, it guarantees absence of the annotation.
      *
      * @return <code>true</code> when the annotation should be absent (verification mode) or must be absent (contract mode).
      */
@@ -45,7 +45,7 @@ public @interface Singleton {
     /**
      * Parameter to set contract mode, even if the annotation occurs in a context
      * where verification mode is normal. Use <code>contract=true</code>
-     * to override the computation of the analyser.
+     * to override the computation of the analyzer.
      *
      * @return <code>true</code> when switching to contract mode.
      */

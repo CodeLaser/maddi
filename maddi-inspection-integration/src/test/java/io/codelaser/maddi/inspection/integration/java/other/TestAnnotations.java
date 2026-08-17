@@ -12,21 +12,21 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.other;
+package io.codelaser.maddi.inspection.integration.java.other;
 
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.ArrayInitializer;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.StringConstant;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.statement.TryStatement;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.TryStatement;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +37,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT1 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.annotation.ImmutableContainer;
+            import io.codelaser.maddi.annotation.ImmutableContainer;
             
             public class Annotations_0 {
             
@@ -58,8 +58,8 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT2 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
             
             @Resources({
                     @Resource(name = "xx", lookup = "yy", type = java.util.TreeMap.class),
@@ -75,7 +75,7 @@ public class TestAnnotations extends CommonTest {
         TypeInfo t = javaInspector.parse(INPUT2);
         assertEquals(1, t.annotations().size());
         AnnotationExpression ae = t.annotations().getFirst();
-        assertEquals("org.e2immu.language.inspection.integration.java.importhelper.a.Resources",
+        assertEquals("io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources",
                 ae.typeInfo().fullyQualifiedName());
         assertEquals(1, ae.keyValuePairs().size());
         AnnotationExpression.KV kv0 = ae.keyValuePairs().getFirst();
@@ -94,7 +94,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT2b = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
             
             @Resources({ })
             public class Annotations_1 {
@@ -107,7 +107,7 @@ public class TestAnnotations extends CommonTest {
         TypeInfo t = javaInspector.parse(INPUT2b);
         assertEquals(1, t.annotations().size());
         AnnotationExpression ae = t.annotations().getFirst();
-        assertEquals("org.e2immu.language.inspection.integration.java.importhelper.a.Resources",
+        assertEquals("io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources",
                 ae.typeInfo().fullyQualifiedName());
         assertEquals(1, ae.keyValuePairs().size());
         AnnotationExpression.KV kv0 = ae.keyValuePairs().getFirst();
@@ -123,8 +123,8 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT3 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
             
             import static org.e2immu.analyser.resolver.testexample.Annotations_2.XX;
             
@@ -147,7 +147,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT4 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
             import static org.e2immu.analyser.resolver.testexample.Annotations_3.XX;
             
             @Resource(name = XX, lookup = Annotations_3.ZZ, type = java.util.TreeMap.class)
@@ -166,7 +166,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT5 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
             import static org.e2immu.analyser.resolver.testexample.Annotations_4.XX;
             
             @Resource(name = XX, lookup = Annotations_4.ZZ, authenticationType = Resource.AuthenticationType.CONTAINER)
@@ -474,7 +474,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT13 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             class X {
               static void assertArrayEquals(boolean [] expected, boolean @Nullable ... actual) {
               }
@@ -497,7 +497,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT14 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             class X {
               static void assertArrayEquals(boolean @Nullable [] expected, boolean @Nullable [] actual) {
               }
@@ -518,7 +518,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT15 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             abstract class X {
               abstract boolean @Nullable [] findBooleans();
               void assertArrayEquals() {
@@ -540,7 +540,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT16 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             abstract class X {
               abstract String @Nullable [] findStrings();
               void assertArrayEquals() {
@@ -563,10 +563,10 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT17 = """
             package a.b;
-            import org.e2immu.annotation.Independent
-            ;import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.NotNull;
+            import io.codelaser.maddi.annotation.Independent
+            ;import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.NotNull;
             import java.util.Collection;
             abstract class X {
                <T> boolean addAll(@NotNull @Modified @Independent(hcParameters = {1}) Collection<? super T> c, @NotModified T... elements);

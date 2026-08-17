@@ -1,27 +1,27 @@
-package org.e2immu.analyzer.modification.common.util;
+package io.codelaser.maddi.modification.common.util;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.output.TypeNameRequired;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,7 +125,7 @@ public class IsolateMethod {
      *
      * @param known the placement evidence of a previous round, or null to decide on the reference at hand
      */
-    private MethodStubs buildData(MethodInfo methodInfo, org.e2immu.language.cst.api.runtime.Runtime runtime,
+    private MethodStubs buildData(MethodInfo methodInfo, io.codelaser.maddi.cst.api.runtime.Runtime runtime,
                            String simpleName, Placement known) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
         CompilationUnit newCu = runtime.newCompilationUnitBuilder()
@@ -169,7 +169,7 @@ public class IsolateMethod {
 
     public Result isolate(MethodInfo methodInfo, String customClassName) {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
-        org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
+        io.codelaser.maddi.cst.api.runtime.Runtime runtime = javaInspector.runtime();
         String simpleName = customClassName == null
                 ? originalType.simpleName() + "_" + methodInfo.name()
                 : customClassName;

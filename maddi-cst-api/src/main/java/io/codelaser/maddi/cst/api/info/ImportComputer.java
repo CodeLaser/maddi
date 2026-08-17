@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.output.Qualification;
 
 import java.util.List;
 import java.util.Objects;

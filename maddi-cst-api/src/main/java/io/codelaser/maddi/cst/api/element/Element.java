@@ -12,23 +12,23 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.element;
+package io.codelaser.maddi.cst.api.element;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.List;
 import java.util.function.Predicate;

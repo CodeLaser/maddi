@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
 /**
  * Operator precedence, used by {@link Expression#precedence()} to decide when a sub-expression must be

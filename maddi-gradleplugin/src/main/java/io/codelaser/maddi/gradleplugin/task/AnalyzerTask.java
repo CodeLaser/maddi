@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin.task;
+package io.codelaser.maddi.gradleplugin.task;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -36,10 +36,10 @@ import java.io.File;
 import java.util.List;
 
 /**
- * Runs the maddi analyzer over the project's sources. It deserializes the {@link org.e2immu.analyzer.run.config.Configuration}
+ * Runs the maddi analyzer over the project's sources. It deserializes the {@link io.codelaser.maddi.run.config.Configuration}
  * computed by the plugin (source sets, classpath, analysis steps, results directory), serialized to
  * {@link #getConfigurationJson()}, and hands it to the openjdk-parser-based
- * {@link org.e2immu.analyzer.run.openjdkmain.RunAnalyzer}, which parses, runs the prep- and modification-analysis,
+ * {@link io.codelaser.maddi.run.openjdkmain.RunAnalyzer}, which parses, runs the prep- and modification-analysis,
  * and writes the results to {@link #getAnalysisResultsDir()} (default {@code <build>/e2immu}).
  * <p>
  * The analysis runs in a <em>forked</em> worker JVM (see {@link AnalyzerWorkAction}): the openjdk front-end reaches
@@ -61,7 +61,7 @@ public abstract class AnalyzerTask extends DefaultTask {
             "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
             "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED");
 
-    /** The serialized {@code run-config} {@link org.e2immu.analyzer.run.config.Configuration}. */
+    /** The serialized {@code run-config} {@link io.codelaser.maddi.run.config.Configuration}. */
     @Input
     public abstract Property<String> getConfigurationJson();
 

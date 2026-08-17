@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation.rare;
+package io.codelaser.maddi.annotation.rare;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -36,7 +36,7 @@ import java.lang.annotation.Target;
  * <p>
  * On a <em>type</em> it declares that the whole class is a disclaimed slot — every field of that type
  * inherits the disclaimer, so the idiom is declared once at the source rather than repeated on each
- * field. {@link org.e2immu.support.Memo} and {@link org.e2immu.support.IntMemo} are the types this
+ * field. {@link io.codelaser.maddi.support.Memo} and {@link io.codelaser.maddi.support.IntMemo} are the types this
  * exists for. This is not the same as skipping a type the author never marked: the disclaimer is
  * written, deliberately, on the class whose entire purpose it is.
  */

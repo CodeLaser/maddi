@@ -1,4 +1,4 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import javax.tools.SimpleJavaFileObject;
 import java.net.URI;

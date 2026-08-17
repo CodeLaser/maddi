@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.importhelper;
+package io.codelaser.maddi.inspection.integration.java.importhelper;
 
 public class SubType_4Helper {
     public void set(D d) {

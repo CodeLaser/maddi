@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.util.OneVariable;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.util.OneVariable;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
 /**
  * A method invocation, {@code object.method(args)}. Operators are also modelled as method calls (see
- * {@link BinaryOperator}). It is a {@link org.e2immu.language.cst.api.expression.util.OneVariable} because
+ * {@link BinaryOperator}). It is a {@link io.codelaser.maddi.cst.api.expression.util.OneVariable} because
  * the call may stand for a single variable (a getter), which the analyzer exploits.
  */
 public interface MethodCall extends Expression, OneVariable {

@@ -41,7 +41,7 @@ maddi_java_test(
     name = "maddi-inspection-integration_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.language.inspection.integration"],
+    test_packages = ["io.codelaser.maddi.inspection.integration"],
     resources = glob(["src/test/resources/**"]),  # Add this too
     resource_strip_prefix = "maddi-inspection-integration/src/test/resources",  # Important!
     deps = [

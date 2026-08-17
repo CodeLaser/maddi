@@ -12,35 +12,35 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
-import org.e2immu.analyzer.aapi.parser.AnalysisHints;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.common.AnalyzerException;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
-import org.e2immu.analyzer.run.rewire.RunRewireTests;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.config.report.ErrorReport;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.aapi.parser.AnalysisHints;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.common.AnalyzerException;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
+import io.codelaser.maddi.run.rewire.RunRewireTests;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -217,7 +217,7 @@ public class RunAnalyzer implements Runnable {
                     LOGGER.error("  [{}] {} ({}): {}: {}", i++, info, at,
                             cause.getClass().getName(), cause.getMessage());
                 }
-                exitValue = Main.EXIT_ANALYSER_ERROR;
+                exitValue = Main.EXIT_ANALYZER_ERROR;
                 // do NOT skip modification: the offending types were isolated by prep itself, and a handful
                 // of isolated types must not deny analysis to a corpus (elasticsearch: 4 of 43k). The exit
                 // code still reports the errors.
@@ -271,17 +271,17 @@ public class RunAnalyzer implements Runnable {
             if (checkpointDir != null && !checkpointDir.isBlank()) {
                 if (System.getenv("CHECKPOINT_RESTORE") != null) {
                     try {
-                        int loaded = new org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults(
+                        int loaded = new io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults(
                                 javaInspector.runtime(), javaInspector.mainSources())
-                                .goDirTolerant(new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector)
+                                .goDirTolerant(new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector)
                                         .restoreCodec(), new File(checkpointDir));
                         LOGGER.info("CHECKPOINT_RESTORE: preloaded {} primary types from {}", loaded, checkpointDir);
                     } catch (IOException | RuntimeException e) {
                         LOGGER.error("CHECKPOINT_RESTORE failed, continuing cold: {}", e.toString());
                     }
                 }
-                var linkCodec = new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector);
-                analyzer.setValueFeed(new org.e2immu.analyzer.modification.analyzer.CheckpointWriter(
+                var linkCodec = new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector);
+                analyzer.setValueFeed(new io.codelaser.maddi.modification.analyzer.CheckpointWriter(
                         javaInspector.runtime(), linkCodec::codec, new File(checkpointDir)));
                 LOGGER.info("CHECKPOINT: writing pass-boundary deltas to {}", checkpointDir);
             }
@@ -290,23 +290,23 @@ public class RunAnalyzer implements Runnable {
             // worklist with the changed types' elements, and union the persisted consumption edges
             // into the wake relation. Unchanged elements keep their carried (restored) values; the
             // run stops when the worklist is dry. Value-carrying gate, FPDUMP convention.
-            java.util.Set<org.e2immu.language.cst.api.info.Info> initialDirty = null;
+            java.util.Set<io.codelaser.maddi.cst.api.info.Info> initialDirty = null;
             String incrementalDir = System.getenv("INCREMENTAL");
             if (incrementalDir != null && !incrementalDir.isBlank()) {
                 try {
-                    var state = org.e2immu.analyzer.modification.prepwork.io.IncrementalState
+                    var state = io.codelaser.maddi.modification.prepwork.io.IncrementalState
                             .load(new File(incrementalDir));
                     if (state.sourceFingerprints().isEmpty()) {
                         LOGGER.warn("INCREMENTAL: no usable state in {}; running cold", incrementalDir);
                     } else {
-                        int loaded = new org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults(
+                        int loaded = new io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults(
                                 javaInspector.runtime(), javaInspector.mainSources())
-                                .goDirTolerant(new org.e2immu.analyzer.modification.link.io.LinkCodec(javaInspector)
+                                .goDirTolerant(new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector)
                                         .restoreCodec(), new File(incrementalDir));
                         java.util.Set<String> changed = state.changedTypes(summary.parseResult().primaryTypes());
                         initialDirty = new java.util.HashSet<>();
                         int unrestored = 0;
-                        java.util.Map<String, org.e2immu.language.cst.api.info.TypeInfo> typesByFqn = new java.util.HashMap<>();
+                        java.util.Map<String, io.codelaser.maddi.cst.api.info.TypeInfo> typesByFqn = new java.util.HashMap<>();
                         for (var info : order) {
                             var pt = info.typeInfo() == null ? null : info.typeInfo().primaryType();
                             if (pt == null) continue;
@@ -324,19 +324,19 @@ public class RunAnalyzer implements Runnable {
                                 if (System.getenv("INCREMENTAL_FILL") != null) initialDirty.add(info);
                             }
                         }
-                        java.util.Map<org.e2immu.language.cst.api.info.Info,
-                                java.util.Set<org.e2immu.language.cst.api.info.Info>> wake = new java.util.HashMap<>();
+                        java.util.Map<io.codelaser.maddi.cst.api.info.Info,
+                                java.util.Set<io.codelaser.maddi.cst.api.info.Info>> wake = new java.util.HashMap<>();
                         state.consumers().forEach((consumedFqn, consumerFqns) -> {
                             var consumedType = typesByFqn.get(consumedFqn);
                             if (consumedType == null) return;
-                            java.util.Set<org.e2immu.language.cst.api.info.Info> consumers = new java.util.HashSet<>();
+                            java.util.Set<io.codelaser.maddi.cst.api.info.Info> consumers = new java.util.HashSet<>();
                             for (String c : consumerFqns) {
                                 var t = typesByFqn.get(c);
                                 if (t != null) consumers.add(t);
                             }
                             if (!consumers.isEmpty()) wake.put(consumedType, consumers);
                         });
-                        if (analyzer instanceof org.e2immu.analyzer.modification.analyzer.impl
+                        if (analyzer instanceof io.codelaser.maddi.modification.analyzer.impl
                                 .IteratingAnalyzerImpl iai) {
                             iai.setExternalWakeEdges(wake);
                         }
@@ -353,9 +353,9 @@ public class RunAnalyzer implements Runnable {
                 if (initialDirty != null) {
                     // clear-before-recompute: a dirtied element's carried cross-type-derived values
                     // must not block the fresh, possibly-lowering re-analysis
-                    java.util.function.Consumer<org.e2immu.language.cst.api.info.Info> clearHook = info -> {
+                    java.util.function.Consumer<io.codelaser.maddi.cst.api.info.Info> clearHook = info -> {
                         info.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY);
-                        if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+                        if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
                             mi.parameters().forEach(p ->
                                     p.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY));
                         }
@@ -366,14 +366,14 @@ public class RunAnalyzer implements Runnable {
                 }
             } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
-                exitValue = Main.EXIT_ANALYSER_ERROR;
+                exitValue = Main.EXIT_ANALYZER_ERROR;
                 return;
             }
             // phase-1 shadow diff (PLAN §13): one-shot reachability over the converged artifacts,
             // no writes; names the frozen optimistic values the evidence contradicts (§9.4 cross-read)
             if (System.getenv("SHADOWDIFF") != null) {
                 try {
-                    var report = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass()
+                    var report = new io.codelaser.maddi.modification.analyzer.shadow.ShadowModificationPass()
                             .go(order);
                     LOGGER.info("SHADOWDIFF {}", report.summary());
                     // cause chain appended: distinguishes direct refused-downgrades from the E2/E6
@@ -398,16 +398,16 @@ public class RunAnalyzer implements Runnable {
             // the early-cutoff worklist with changed types + their DIRECT consumers
             if (checkpointDir != null && !checkpointDir.isBlank()) {
                 try {
-                    org.e2immu.analyzer.modification.prepwork.io.IncrementalState
+                    io.codelaser.maddi.modification.prepwork.io.IncrementalState
                             .capture(javaInspector.runtime(), summary.parseResult().primaryTypes(),
-                                    org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.edgesSnapshot())
+                                    io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.edgesSnapshot())
                             .save(new File(checkpointDir));
                 } catch (IOException | RuntimeException e) {
                     LOGGER.warn("Cannot save incremental state: {}", e.toString());
                 }
             }
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
-                exitValue = Main.EXIT_ANALYSER_ERROR;
+                exitValue = Main.EXIT_ANALYZER_ERROR;
             }
 
             // write results
@@ -475,7 +475,7 @@ public class RunAnalyzer implements Runnable {
             LOGGER.info("AnalysisHints compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
         }
         if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
-            exitValue = Main.EXIT_ANALYSER_ERROR;
+            exitValue = Main.EXIT_ANALYZER_ERROR;
         }
         LOGGER.info("End of e2immu, analysis-hints compiler mode.");
     }

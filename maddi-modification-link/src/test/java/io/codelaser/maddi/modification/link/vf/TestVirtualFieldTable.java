@@ -1,14 +1,14 @@
-package org.e2immu.analyzer.modification.link.vf;
+package io.codelaser.maddi.modification.link.vf;
 
-import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,8 +32,8 @@ public class TestVirtualFieldTable extends CommonTest {
     @Language("java")
     private static final String INPUT = """
             package a.b;
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.NotModified;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.NotModified;
             import java.util.Map;
             import java.util.Set;
             public interface Table<R,C,V> {

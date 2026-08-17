@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java;
+package io.codelaser.maddi.inspection.integration.java;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 
 
 public abstract class CommonTest {
@@ -46,7 +46,7 @@ public abstract class CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((Logger) LoggerFactory.getLogger("org.e2immu.language.cst.impl")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.cst.impl")).setLevel(Level.DEBUG);
     }
 
     @BeforeEach
@@ -54,7 +54,7 @@ public abstract class CommonTest {
         javaInspector = new JavaInspectorImpl(false, allowCreationOfStubTypes);
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSources(InputConfigurationImpl.MAVEN_TEST)
-                .addRestrictSourceToPackages("org.e2immu.language.inspection.integration.java.importhelper.")
+                .addRestrictSourceToPackages("io.codelaser.maddi.inspection.integration.java.importhelper.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath("../maddi-support/build/classes/java/main")
                 // NOTE: no access to ToolChain here; this is rather exceptional

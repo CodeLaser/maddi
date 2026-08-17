@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.link.io;
+package io.codelaser.maddi.modification.link.io;
 
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.util.Trie;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -42,14 +42,14 @@ public class TestWriteAnalysis {
     @Language("json")
     private static final String EXPECT = """
             [
-            {"name": "Torg.e2immu.C", "data":{"commutableMethods":["p1","p2,p3","p4"],"defaultsAnalyzer":1,"immutableType":3}, "sub":
+            {"name": "Tio.codelaser.maddi.C", "data":{"commutableMethods":["p1","p2,p3","p4"],"defaultsAnalyzer":1,"immutableType":3}, "sub":
              {"name": "Mm1(0)", "data":{"defaultsAnalyzer":1}}}
             ]
             """;
 
     @Test
     public void test() throws IOException {
-        CompilationUnit cu = runtime.newCompilationUnitBuilder().setPackageName("org.e2immu").build();
+        CompilationUnit cu = runtime.newCompilationUnitBuilder().setPackageName("io.codelaser.maddi").build();
         TypeInfo typeInfo = runtime.newTypeInfo(cu, "C");
 
         typeInfo.analysis().set(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.IMMUTABLE);

@@ -1,12 +1,12 @@
-package org.e2immu.analyzer.modification.analyzer.guard;
+package io.codelaser.maddi.modification.analyzer.guard;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.GuardAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.GuardAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String RULE_0 = """
             package a.b;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable
@@ -74,7 +74,7 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String RULE_1 = """
             package a.b;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             import java.util.ArrayList;
             import java.util.List;
 
@@ -104,7 +104,7 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String RULE_2 = """
             package a.b;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             import java.util.ArrayList;
             import java.util.List;
 
@@ -132,7 +132,7 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String RULE_3 = """
             package a.b;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             import java.util.HashSet;
             import java.util.Set;
 
@@ -168,7 +168,7 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String CONFORMING = """
             package a.b;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             import java.util.List;
             import java.util.Set;
 
@@ -203,9 +203,9 @@ public class TestGuardImmutable extends CommonTest {
     @Language("java")
     private static final String EVENTUAL = """
             package a.b;
-            import org.e2immu.annotation.ImmutableContainer;
-            import org.e2immu.annotation.eventual.Mark;
-            import org.e2immu.annotation.eventual.Only;
+            import io.codelaser.maddi.annotation.ImmutableContainer;
+            import io.codelaser.maddi.annotation.eventual.Mark;
+            import io.codelaser.maddi.annotation.eventual.Only;
             import java.util.HashSet;
             import java.util.Set;
             import java.util.stream.Stream;

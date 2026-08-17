@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.guard;
+package io.codelaser.maddi.modification.analyzer.guard;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.GuardAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.GuardAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class TestGuardIgnoreModifications extends CommonTest {
             package a.b;
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.annotation.rare.IgnoreModifications;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
             public class X {
                 private final List<String> data = new ArrayList<>();
@@ -110,7 +110,7 @@ public class TestGuardIgnoreModifications extends CommonTest {
             package a.b;
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.annotation.rare.IgnoreModifications;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
             public class X {
                 private final List<StringBuilder> data = new ArrayList<>();
@@ -151,7 +151,7 @@ public class TestGuardIgnoreModifications extends CommonTest {
     @Language("java")
     private static final String GLOBAL_ESCAPE = """
             package a.b;
-            import org.e2immu.annotation.rare.IgnoreModifications;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
             class Global { static int count; }
             public class X {
                 static class Sink {
@@ -193,8 +193,8 @@ public class TestGuardIgnoreModifications extends CommonTest {
     @Language("java")
     private static final String GLOBAL_ESCAPE_VIA_CONTRACT = """
             package a.b;
-            import org.e2immu.annotation.rare.IgnoreModifications;
-            import org.e2immu.annotation.rare.StaticSideEffects;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+            import io.codelaser.maddi.annotation.rare.StaticSideEffects;
             public class X {
                 static class Native {
                     @StaticSideEffects void install() { }   // effect invisible from body, asserted by contract

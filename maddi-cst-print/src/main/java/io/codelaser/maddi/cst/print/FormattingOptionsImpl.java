@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print;
+package io.codelaser.maddi.cst.print;
 
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.language.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
 
 public record FormattingOptionsImpl(int lengthOfLine,
                                 int spacesInTab,

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.daemon;
+package io.codelaser.maddi.ide.daemon;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,10 +20,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.analyze;
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.annotationsFor;
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.displayFor;
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.finding;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.analyze;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.annotationsFor;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.displayFor;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.finding;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,7 +39,7 @@ public class WarmAnalysisServiceTest {
     public void containerViolationIsFoundAndExplained(@TempDir Path projectDir) throws Exception {
         DaemonProtocol.Result r = analyze(projectDir, "x/Example.java", """
                 package x;
-                import org.e2immu.annotation.Container;
+                import io.codelaser.maddi.annotation.Container;
 
                 class Mutable {
                     private int value;

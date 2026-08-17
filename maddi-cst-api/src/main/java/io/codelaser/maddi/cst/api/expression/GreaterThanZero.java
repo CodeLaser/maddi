@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 /**
  * The canonical form for all numeric inequalities: {@code expression >= 0} (or {@code > 0}). Every

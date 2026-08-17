@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.analysis;
+package io.codelaser.maddi.ide.plugin.analysis;
 
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
@@ -21,7 +21,7 @@ import com.intellij.openapi.roots.CompilerModuleExtension;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.OrderEnumerator;
 import com.intellij.openapi.vfs.VirtualFile;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 import org.jetbrains.jps.model.java.JavaSourceRootType;
 
 import java.util.ArrayList;

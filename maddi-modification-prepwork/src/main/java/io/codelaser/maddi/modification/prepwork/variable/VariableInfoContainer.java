@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.annotation.NotNull;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 public interface VariableInfoContainer {
      /* note: local variables also have a variableNature. This one can override their value

@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.archive;
+package io.codelaser.maddi.aapi.parser.archive;
 
-import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.aapi.parser.CommonTest;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.Charset;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestJavaNioCharset extends CommonTest {

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.common.defaults;
+package io.codelaser.maddi.modification.common.defaults;
 
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 
 import java.util.List;
 

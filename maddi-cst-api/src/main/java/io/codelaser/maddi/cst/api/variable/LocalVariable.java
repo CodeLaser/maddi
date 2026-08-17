@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.variable;
+package io.codelaser.maddi.cst.api.variable;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 /**
  * A variable declared inside a method body, initialiser block, for-loop, catch clause,
@@ -24,12 +24,12 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
  * <p>
  * This interface covers named locals, pattern variables (from {@code instanceof} or
  * {@code switch}), and Java 22 unnamed variables ({@code _}).  Parameters are
- * represented by {@link org.e2immu.language.cst.api.info.ParameterInfo} rather than by
+ * represented by {@link io.codelaser.maddi.cst.api.info.ParameterInfo} rather than by
  * this interface.
  * <p>
  * A {@code LocalVariable} may carry the value it was initialised with via
  * {@link #assignmentExpression()}; this is set during inspection from the
- * {@link org.e2immu.language.cst.api.statement.LocalVariableCreation} statement and
+ * {@link io.codelaser.maddi.cst.api.statement.LocalVariableCreation} statement and
  * may be {@code null} when the value is not known or not relevant.
  */
 public interface LocalVariable extends Variable {

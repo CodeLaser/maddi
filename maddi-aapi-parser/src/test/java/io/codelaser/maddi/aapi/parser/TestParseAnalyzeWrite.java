@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.util.Trie;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -56,14 +56,14 @@ import java.util.random.RandomGenerator;
 import java.util.stream.Stream;
 import java.util.zip.ZipOutputStream;
 
-import static org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer.AnnotationOrigin.*;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer.AnnotationOrigin.*;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestParseAnalyzeWrite extends CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(TestParseAnalyzeWrite.class);
     public static final String NOTE_CHARSEQUENCE = " NOTE: can we demand that the result is @Independent?";
-    public static final String JDK_PACKAGE = "org.e2immu.analyzer.aapi.archive.v2.jdk";
+    public static final String JDK_PACKAGE = "io.codelaser.maddi.aapi.archive.v2.jdk";
 
     @BeforeAll
     public static void beforeAll() {
@@ -77,7 +77,7 @@ public class TestParseAnalyzeWrite extends CommonTest {
                 .setLibraryName("test")
                 .setAnalysisResultsDir(Path.of("build/"))
                 .setHintsPath(Path.of("../maddi-aapi-archive/src/main/java"))
-                .setPackagePrefix("org.e2immu.analyzer.aapi.archive")
+                .setPackagePrefix("io.codelaser.maddi.aapi.archive")
                 .build();
 
         JavaInspector javaInspector = analysisHintsParser.go(test);

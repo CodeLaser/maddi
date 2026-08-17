@@ -5,7 +5,7 @@ have written (`@Container`, `@NotModified`, `@Immutable`, `@Independent`) as pro
 that led to them.
 
 Requires **Eclipse 2025-09 or later** and a **JDK 25+** for the analysis to run on. That JDK is not the one
-Eclipse itself runs on: the analyser is bundled with the plugin and runs out of process, so Eclipse can stay
+Eclipse itself runs on: the analyzer is bundled with the plugin and runs out of process, so Eclipse can stay
 on whatever JVM it likes.
 
 ## Installing
@@ -58,7 +58,7 @@ under `~/.m2/repository/.cache/tycho`.
 
 **The bundle must be installed unpacked.** It carries the daemon as a distribution with a launch script that
 has to be a real file on disk. That is why the manifest says `Eclipse-BundleShape: dir` and the feature says
-`unpack="true"`; drop either and the plugin installs as a jar and cannot start its analyser.
+`unpack="true"`; drop either and the plugin installs as a jar and cannot start its analyzer.
 
 **p2 does not preserve the executable bit** on that launch script, so a freshly installed plugin has a
 non-executable `daemon/bin/maddi-ide-daemon`. `DaemonLauncher` restores it before launching, which is the

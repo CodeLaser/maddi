@@ -1,12 +1,12 @@
-module org.e2immu.language.inspection.api {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.util.internal.util;
+module io.codelaser.maddi.inspection.api {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.util;
 
     requires org.slf4j;
 
-    exports org.e2immu.language.inspection.api.integration;
-    exports org.e2immu.language.inspection.api.parser;
-    exports org.e2immu.language.inspection.api.resource;
-    exports org.e2immu.language.inspection.api.util;
+    exports io.codelaser.maddi.inspection.api.integration;
+    exports io.codelaser.maddi.inspection.api.parser;
+    exports io.codelaser.maddi.inspection.api.resource;
+    exports io.codelaser.maddi.inspection.api.util;
 }

@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.daemon;
+package io.codelaser.maddi.ide.daemon;
 
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.PrepWorkCodec;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.modification.prepwork.io.PrepWorkCodec;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +46,7 @@ import java.util.jar.JarFile;
 public class HintsLoader {
     private static final Logger LOGGER = LoggerFactory.getLogger(HintsLoader.class);
 
-    private static final String BASE = "/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles";
+    private static final String BASE = "/io/codelaser/maddi/aapi/archive/analyzedPackageFiles";
     private static final String LIBS_JAR_RESOURCE = BASE + "/libs.jar";
     private static final String JDK_ENTRY_PREFIX = BASE.substring(1) + "/jdk/"; // no leading slash, for jar entries
 
@@ -66,7 +66,7 @@ public class HintsLoader {
             "java.base::java.lang.annotation",
             "java.base::java.lang.reflect",
             "java.base::java.lang.constant",
-            "org.e2immu.annotation.");
+            "io.codelaser.maddi.annotation.");
 
     /**
      * Register the JDK packages to eagerly parse. MUST be called BEFORE {@code inspector.initialize(...)} so

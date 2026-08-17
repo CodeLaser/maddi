@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.daemon;
+package io.codelaser.maddi.ide.daemon;
 
 import org.junit.jupiter.api.Test;
 

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
-import org.e2immu.language.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.Info;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +35,7 @@ import java.util.List;
  * asking — <em>where are we, how are we doing, what to expect.</em>
  *
  * <p><b>Where.</b> The heavy stretch is the cold FIRST pass, which the analyzer runs as strata waves
- * (see {@link org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl}); this feed
+ * (see {@link io.codelaser.maddi.modification.analyzer.impl.SingleIterationAnalyzerImpl}); this feed
  * commits progress at each {@link #waveCompleted} barrier AND ticks {@link #elementCompleted} per element
  * in between, so progress advances smoothly even <em>inside</em> a single giant SCC — which is one wave,
  * whose barrier fires only at its end (closed-core pinned at 48% for the whole back-half wave without this).

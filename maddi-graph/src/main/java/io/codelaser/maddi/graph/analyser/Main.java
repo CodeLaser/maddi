@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph.analyser;
+package io.codelaser.maddi.graph.analyzer;
 
-import org.e2immu.util.internal.graph.*;
-import org.e2immu.util.internal.graph.op.BreakCycles;
-import org.e2immu.util.internal.graph.op.GreedyEdgeRemoval;
-import org.e2immu.util.internal.graph.op.ParallelGreedyEdgeRemoval;
-import org.e2immu.util.internal.graph.op.RemoveEdgesByVertexWeight;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.graph.*;
+import io.codelaser.maddi.graph.op.BreakCycles;
+import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.ParallelGreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.RemoveEdgesByVertexWeight;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.slf4j.Logger;

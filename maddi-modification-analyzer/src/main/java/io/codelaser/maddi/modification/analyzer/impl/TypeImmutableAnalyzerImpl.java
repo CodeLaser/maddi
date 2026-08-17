@@ -12,29 +12,29 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CycleBreakingStrategy;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeImmutableAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeIndependentAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.modification.common.AnalysisHelper;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 
 /*
 Phase 4.2 Primary type immutable

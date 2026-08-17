@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse;
+package io.codelaser.maddi.ide.eclipse;
 
-import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
+import io.codelaser.maddi.ide.client.MaddiDaemonProcess;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IStatus;

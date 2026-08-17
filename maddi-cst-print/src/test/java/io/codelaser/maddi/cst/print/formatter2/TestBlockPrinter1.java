@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
-import org.e2immu.language.cst.impl.output.SymbolEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

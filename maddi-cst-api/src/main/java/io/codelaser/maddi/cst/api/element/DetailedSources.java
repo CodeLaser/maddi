@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.element;
+package io.codelaser.maddi.cst.api.element;
 
-import org.e2immu.annotation.NotNull;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
@@ -175,7 +175,7 @@ public interface DetailedSources {
         DetailedSources build();
 
         /**
-         * Records the mapping from an array-typed {@link org.e2immu.language.cst.api.type.ParameterizedType} to its non-array counterpart.
+         * Records the mapping from an array-typed {@link io.codelaser.maddi.cst.api.type.ParameterizedType} to its non-array counterpart.
          */
         Builder putWithArrayToWithoutArray(ParameterizedType withArray, ParameterizedType withoutArray);
 

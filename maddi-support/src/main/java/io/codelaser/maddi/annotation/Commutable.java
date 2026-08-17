@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation;
+package io.codelaser.maddi.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -48,7 +48,7 @@ import java.lang.annotation.Target;
  * <p>
  * The parameters either take a group name, or a comma separated list of group name and method parameter index.
  * <p>
- * Note that setters (annotated with {@link org.e2immu.annotation.method.GetSet}), are commutable in the
+ * Note that setters (annotated with {@link io.codelaser.maddi.annotation.method.GetSet}), are commutable in the
  * default parallel group. The <code>@Commutable</code> annotation is implied.
  */
 @Retention(RetentionPolicy.CLASS)

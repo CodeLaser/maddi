@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.other;
+package io.codelaser.maddi.inspection.integration.java.other;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.ToolChain;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.integration.ToolChain;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -33,7 +33,7 @@ public class TestPackageInfo {
     public void test() throws IOException {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSources(InputConfigurationImpl.MAVEN_TEST)
-                .addRestrictSourceToPackages("org.e2immu.language.inspection.integration.java.importhelper.")
+                .addRestrictSourceToPackages("io.codelaser.maddi.inspection.integration.java.importhelper.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
                 .addClassPath(ToolChain.CLASSPATH_INTELLIJ_LANG)
@@ -43,7 +43,7 @@ public class TestPackageInfo {
         javaInspector.initialize(inputConfiguration);
         ParseResult parseResult = javaInspector.parse(JavaInspectorImpl.FAIL_FAST).parseResult();
         TypeInfo packageInfo = parseResult
-                .findType("org.e2immu.language.inspection.integration.java.importhelper.package-info");
+                .findType("io.codelaser.maddi.inspection.integration.java.importhelper.package-info");
         assertNotNull(packageInfo);
         assertTrue(packageInfo.typeNature().isPackageInfo());
         String printed = javaInspector.print2(packageInfo.compilationUnit());

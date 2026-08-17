@@ -12,33 +12,33 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.variable;
+package io.codelaser.maddi.cst.impl.variable;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Visitor;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.OutputElement;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.output.TypeNameRequired;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.element.ElementImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.QualifiedNameImpl;
-import org.e2immu.language.cst.impl.output.TextImpl;
-import org.e2immu.language.cst.impl.output.TypeNameImpl;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.QualifiedNameImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
-import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class ThisImpl extends VariableImpl implements This {
 

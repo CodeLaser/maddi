@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.io;
+package io.codelaser.maddi.cst.io;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.Diamond;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +46,7 @@ public class ExpressionCodec {
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
         map.put(IntConstant.NAME, new IntConstantCodec());
-        map.put(org.e2immu.language.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
+        map.put(io.codelaser.maddi.cst.api.expression.TypeExpression.NAME, new TypeExpressionCodec());
     }
 
     private interface ECodec {
@@ -201,8 +201,8 @@ public class ExpressionCodec {
 
         @Override
         public List<Codec.EncodedValue> encode(Expression e) {
-            org.e2immu.language.cst.api.expression.TypeExpression te =
-                    (org.e2immu.language.cst.api.expression.TypeExpression) e;
+            io.codelaser.maddi.cst.api.expression.TypeExpression te =
+                    (io.codelaser.maddi.cst.api.expression.TypeExpression) e;
             return List.of(codec.encodeType(context, te.parameterizedType()));
         }
 

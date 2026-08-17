@@ -1,9 +1,9 @@
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

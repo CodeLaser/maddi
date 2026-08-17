@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.kotlin;
+package io.codelaser.maddi.cst.print.kotlin;
 
-import org.e2immu.language.cst.api.output.element.Keyword;
-import org.e2immu.language.cst.impl.output.KeywordImpl;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 
 /** Kotlin-specific keywords not present in the (Java-oriented) {@link KeywordImpl}. */
 public class KotlinKeyword {

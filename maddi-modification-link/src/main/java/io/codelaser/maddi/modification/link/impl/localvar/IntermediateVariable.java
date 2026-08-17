@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.modification.link.impl.localvar;
+package io.codelaser.maddi.modification.link.impl.localvar;
 
-import org.e2immu.analyzer.modification.link.impl.LinkVariable;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.modification.link.impl.LinkVariable;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 
 public class IntermediateVariable extends LocalVariableImpl implements LocalVariable, LinkVariable {
     public static final String PREFIX = "$__";

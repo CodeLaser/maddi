@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config.util;
+package io.codelaser.maddi.run.config.util;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.ImmutableGraph;
 
 import java.util.*;
 import java.util.function.Consumer;

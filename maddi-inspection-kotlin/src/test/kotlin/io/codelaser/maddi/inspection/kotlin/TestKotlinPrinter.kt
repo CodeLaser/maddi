@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer
-import org.e2immu.language.cst.api.info.MethodPrinter
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.info.TypePrinter
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl
-import org.e2immu.language.cst.impl.info.ImportComputerImpl
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl
-import org.e2immu.language.cst.impl.output.TextImpl
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl
-import org.e2immu.language.cst.print.FormattingOptionsImpl
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl
-import org.e2immu.language.cst.print.kotlin.KotlinTypePrinter
-import org.e2immu.language.inspection.resource.InfoByFqn
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer
+import io.codelaser.maddi.cst.api.info.MethodPrinter
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.info.TypePrinter
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl
+import io.codelaser.maddi.cst.impl.output.TextImpl
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl
+import io.codelaser.maddi.cst.print.kotlin.KotlinTypePrinter
+import io.codelaser.maddi.inspection.resource.InfoByFqn
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -201,7 +201,7 @@ class TestKotlinPrinter {
         val importData = CompilationUnitPrinterImpl(foo.compilationUnit(), true)
             .computeImportData(ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType())
         val ob = KotlinTypePrinter(foo, true).print(importData, true, customMethods,
-            { fieldInfo, f2 -> org.e2immu.language.cst.print.kotlin.KotlinFieldPrinter(fieldInfo, f2) },
+            { fieldInfo, f2 -> io.codelaser.maddi.cst.print.kotlin.KotlinFieldPrinter(fieldInfo, f2) },
             { ti, f2 -> KotlinTypePrinter(ti, f2) })
         val kotlin = Formatter2Impl(runtime, FormattingOptionsImpl.Builder().build()).write(ob)
 

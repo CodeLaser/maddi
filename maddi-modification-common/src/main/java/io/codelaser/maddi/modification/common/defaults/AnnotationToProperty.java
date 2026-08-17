@@ -12,37 +12,37 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.common.defaults;
+package io.codelaser.maddi.modification.common.defaults;
 
-import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
-import org.e2immu.annotation.method.GetSet;
-import org.e2immu.annotation.rare.AllowsInterrupt;
-import org.e2immu.annotation.rare.Finalizer;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.annotation.rare.StaticSideEffects;
-import org.e2immu.annotation.type.UtilityClass;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
-import org.e2immu.util.internal.util.GetSetNames;
+import io.codelaser.maddi.modification.common.getset.GetSetHelper;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
+import io.codelaser.maddi.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.rare.StaticSideEffects;
+import io.codelaser.maddi.annotation.type.UtilityClass;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import io.codelaser.maddi.util.GetSetNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer.AnnotationOrigin.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer.AnnotationOrigin.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 
 class AnnotationToProperty {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnnotationToProperty.class);

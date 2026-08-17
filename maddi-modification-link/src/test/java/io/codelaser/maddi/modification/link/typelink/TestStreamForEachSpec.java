@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.typelink;
+package io.codelaser.maddi.modification.link.typelink;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Specification-by-example for consumers ({@code Collection.forEach}, {@code Stream.peek}) — the safety net for
- * hardening {@link org.e2immu.analyzer.modification.link.impl.LinkFunctionalInterface} on the consumer side.
+ * hardening {@link io.codelaser.maddi.modification.link.impl.LinkFunctionalInterface} on the consumer side.
  * <p>
  * The governing principle (dual to {@code map}): a consumer {@code c : X -> void} carries the source's elements
  * <em>into the wider scope it captures</em> (a field, another argument, ...). So {@code list.forEach(target::add)}

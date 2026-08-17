@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.ImportStatement;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.support.Either;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.support.Either;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
@@ -49,7 +49,7 @@ public class ScanCompilationUnit extends CommonParse {
     }
 
     public record ScanResult(Map<String, TypeInfo> sourceTypes,
-                             org.e2immu.language.cst.api.element.CompilationUnit compilationUnit) {
+                             io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit) {
     }
 
     public ScanResult scan(URI uri,
@@ -78,7 +78,7 @@ public class ScanCompilationUnit extends CommonParse {
         String packageName;
         Source s1 = source(cu);
         Source source;
-        List<org.e2immu.language.cst.api.element.Comment> comments;
+        List<io.codelaser.maddi.cst.api.element.Comment> comments;
         if (packageDeclaration == null) {
             source = s1;
             packageName = "";
@@ -92,7 +92,7 @@ public class ScanCompilationUnit extends CommonParse {
                     : s1;
             comments = comments(packageDeclaration);
         }
-        org.e2immu.language.cst.api.element.CompilationUnit.Builder compilationUnitBuilder
+        io.codelaser.maddi.cst.api.element.CompilationUnit.Builder compilationUnitBuilder
                 = runtime.newCompilationUnitBuilder()
                 .addComments(comments)
                 .setSource(source)
@@ -110,13 +110,13 @@ public class ScanCompilationUnit extends CommonParse {
             compilationUnitBuilder.addTrailingComments(comments(lastChild));
         }
 
-        org.e2immu.language.cst.api.element.CompilationUnit compilationUnit = compilationUnitBuilder.build();
+        io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit = compilationUnitBuilder.build();
         Map<String, TypeInfo> sourceTypes = recursivelyFindTypes(Either.left(compilationUnit), null, cu,
                 addDetailedSources);
         return new ScanResult(sourceTypes, compilationUnit);
     }
 
-    private Map<String, TypeInfo> recursivelyFindTypes(Either<org.e2immu.language.cst.api.element.CompilationUnit, TypeInfo> parent,
+    private Map<String, TypeInfo> recursivelyFindTypes(Either<io.codelaser.maddi.cst.api.element.CompilationUnit, TypeInfo> parent,
                                                        TypeInfo typeInfoOrNull,
                                                        Node body,
                                                        boolean addDetailedSources) {
@@ -132,7 +132,7 @@ public class ScanCompilationUnit extends CommonParse {
     /*
     We extract type nature and type modifiers here, because we'll need them in sibling subtype declarations.
      */
-    private void handleTypeDeclaration(Either<org.e2immu.language.cst.api.element.CompilationUnit, TypeInfo> enclosing,
+    private void handleTypeDeclaration(Either<io.codelaser.maddi.cst.api.element.CompilationUnit, TypeInfo> enclosing,
                                        TypeInfo typeInfoOrNull,
                                        TypeDeclaration td,
                                        Map<String, TypeInfo> map,

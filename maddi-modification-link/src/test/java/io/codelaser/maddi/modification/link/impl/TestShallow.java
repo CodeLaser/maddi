@@ -1,22 +1,22 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
-import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFields;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsParser;
+import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.link.vf.VirtualFields;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,11 +24,11 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestShallow extends CommonTest {
@@ -36,8 +36,8 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.NotModified;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.NotModified;
             public interface X<T> {
                 @Independent(hc = true)
                 @NotModified
@@ -82,8 +82,8 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT1b = """
             package a.b;
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.NotModified;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.NotModified;
             public interface X<T extends Comparable<? super T>> {
                 @Independent(hc = true)
                 @NotModified
@@ -393,7 +393,7 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT7 = """
             package a.b;
-            import org.e2immu.annotation.Independent;
+            import io.codelaser.maddi.annotation.Independent;
             import java.util.Collection;
             public interface X {
                 <T> void add(@Independent(hcParameters = {1}) Collection<T> c, T t);
@@ -446,7 +446,7 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT9 = """
             package a.b;
-            import org.e2immu.annotation.Independent;
+            import io.codelaser.maddi.annotation.Independent;
             import java.util.List;
             public abstract class C<X> {
                 record R<V>(V v) { }
@@ -482,7 +482,7 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT9b = """
             package a.b;
-            import org.e2immu.annotation.Independent;import org.e2immu.annotation.NotModified;
+            import io.codelaser.maddi.annotation.Independent;import io.codelaser.maddi.annotation.NotModified;
             import java.util.List;
             public abstract class C {
                 record R<V>(V v) { }
@@ -518,7 +518,7 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT10 = """
             package a.b;
-            import org.e2immu.annotation.Independent;
+            import io.codelaser.maddi.annotation.Independent;
             public class X {
                 static void arrayCopy(@Independent(hc = true, hcParameters = {2}) Object[] in,
                     int from,

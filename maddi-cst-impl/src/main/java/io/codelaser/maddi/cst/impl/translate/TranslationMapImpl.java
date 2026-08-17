@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.translate;
+package io.codelaser.maddi.cst.impl.translate;
 
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
-import org.e2immu.language.cst.impl.variable.DependentVariableImpl;
-import org.e2immu.language.cst.impl.variable.FieldReferenceImpl;
-import org.e2immu.language.cst.impl.variable.ThisImpl;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.*;
+import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
+import io.codelaser.maddi.cst.impl.variable.DependentVariableImpl;
+import io.codelaser.maddi.cst.impl.variable.FieldReferenceImpl;
+import io.codelaser.maddi.cst.impl.variable.ThisImpl;
 
 import java.util.HashMap;
 import java.util.List;

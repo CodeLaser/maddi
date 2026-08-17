@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * Phase 4.3: eventual immutability by <em>propagation</em> (road to immutability §060; plan in
  * {@code docs/eventual-immutability.md}).
  * <p>
- * A type that holds a field of eventually immutable type — overwhelmingly one of the {@code org.e2immu.support}
+ * A type that holds a field of eventually immutable type — overwhelmingly one of the {@code io.codelaser.maddi.support}
  * classes — is itself eventually immutable, and its methods inherit the mark: a method calling a {@code @Mark}
  * method on such a field is itself a {@code @Mark}, one calling an {@code @Only(before=)} method can itself only
  * run before the mark, and so on. The same holds for a call on {@code this} to an inherited marked method.

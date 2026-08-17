@@ -1,6 +1,6 @@
 # Running maddi on real projects (openjdk runner)
 
-Worked examples for the openjdk CLI (`org.e2immu.analyzer.run.openjdkmain.Main`) on parts of the
+Worked examples for the openjdk CLI (`io.codelaser.maddi.run.openjdkmain.Main`) on parts of the
 JDK, on [Timefold Solver](https://github.com/TimefoldAI/timefold-solver), and on
 [LangChain4j](https://github.com/langchain4j/langchain4j). For the full option reference see the
 manual's command-line section (`maddi-manual/.../050-command-line.adoc`).

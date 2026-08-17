@@ -12,30 +12,30 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.RecordPattern;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.SwitchEntry;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.parser.java.util.EscapeSequence;
-import org.e2immu.parser.java.util.TextBlockParser;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.parser.java.util.EscapeSequence;
+import io.codelaser.maddi.parser.java.util.TextBlockParser;
+import io.codelaser.maddi.util.StringUtil;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
@@ -254,7 +254,7 @@ public class ParseExpression extends CommonParse {
                     case Statement statement -> {
                         // throw statement is allowed!
                         String newIndex = index + "." + StringUtil.pad(count, n) + "0";
-                        org.e2immu.language.cst.api.statement.Statement st = parsers.parseStatement()
+                        io.codelaser.maddi.cst.api.statement.Statement st = parsers.parseStatement()
                                 .parse(newContext, newIndex, statement);
                         entryBuilder.setStatement(st);
                     }

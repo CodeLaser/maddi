@@ -12,34 +12,34 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
-import org.e2immu.analyzer.modification.prepwork.callgraph.PrimaryTypeUseGraph;
-import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
+import io.codelaser.maddi.modification.prepwork.callgraph.PrimaryTypeUseGraph;
+import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -133,7 +133,7 @@ public class TestOutsideReloadCarry {
     // the DERIVED (cross-type) analyzer output: verdicts + link summaries. Precisely the CROSS_TYPE_DERIVED tier --
     // excludes both the parse-time tier the rewire phase already carried (GET_SET_FIELD) and the intrinsic tier
     // prepwork re-derives (VARIABLE_DATA, PART_OF_CONSTRUCTION, ...). Together, phase-carry + prep + this = full output.
-    private static final java.util.function.Predicate<org.e2immu.language.cst.api.analysis.Property> DERIVED_OUTPUT =
+    private static final java.util.function.Predicate<io.codelaser.maddi.cst.api.analysis.Property> DERIVED_OUTPUT =
             AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY;
 
     /** Carry a type's derived analyzer output onto its rewired copy, via the read-only view. */

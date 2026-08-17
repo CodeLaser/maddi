@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.common;
+package io.codelaser.maddi.modification.common;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

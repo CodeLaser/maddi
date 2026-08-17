@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

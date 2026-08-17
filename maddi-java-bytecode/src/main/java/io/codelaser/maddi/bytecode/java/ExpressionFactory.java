@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.bytecode.java;
+package io.codelaser.maddi.bytecode.java;
 
-import org.e2immu.bytecode.java.asm.LocalTypeMap;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.ArrayInitializer;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.TypeExpression;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.bytecode.java.asm.LocalTypeMap;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.util.StringUtil;
 import org.objectweb.asm.Type;
 
 import java.util.ArrayList;

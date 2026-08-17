@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.main;
+package io.codelaser.maddi.run.main;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.language.inspection.integration.ToolChain;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.integration.ToolChain;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class TestRunAnalyzer {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
     }
 
     @Disabled
@@ -57,13 +57,13 @@ public class TestRunAnalyzer {
         File output = new File("build/e2immu/OrgE2ImmuUtilInternalUtil.json");
         String content = Files.readString(output.toPath());
         String expected = """
-                [{"fqn": "Torg.e2immu.util.internal.util.GetSetHelper", "data":{"hct":{"E":true}}},
-                {"fqn": "Torg.e2immu.util.internal.util.ThrowingBiConsumer", "data":{"hct":{"E":true,"M":2,0:"S",1:"T"}}},
-                {"fqn": "Torg.e2immu.util.internal.util.StringUtil", "data":{"hct":{"E":true}}},
-                {"fqn": "Torg.e2immu.util.internal.util.Trie", "data":{"hct":{"E":true,"M":1,0:"T"}}},
-                {"fqn": "Morg.e2immu.util.internal.util.Trie.recursivelyVisit(8)", "data":{"hct":{1:"T"}}},
-                {"fqn": "Morg.e2immu.util.internal.util.MapUtil.compareMaps(0)", "data":{"hct":{0:"T",1:"D"}}},
-                {"fqn": "Morg.e2immu.util.internal.util.MapUtil.compareKeys(1)", "data":{"hct":{0:"T"}}}]\
+                [{"fqn": "Tio.codelaser.maddi.util.GetSetHelper", "data":{"hct":{"E":true}}},
+                {"fqn": "Tio.codelaser.maddi.util.ThrowingBiConsumer", "data":{"hct":{"E":true,"M":2,0:"S",1:"T"}}},
+                {"fqn": "Tio.codelaser.maddi.util.StringUtil", "data":{"hct":{"E":true}}},
+                {"fqn": "Tio.codelaser.maddi.util.Trie", "data":{"hct":{"E":true,"M":1,0:"T"}}},
+                {"fqn": "Mio.codelaser.maddi.util.Trie.recursivelyVisit(8)", "data":{"hct":{1:"T"}}},
+                {"fqn": "Mio.codelaser.maddi.util.MapUtil.compareMaps(0)", "data":{"hct":{0:"T",1:"D"}}},
+                {"fqn": "Mio.codelaser.maddi.util.MapUtil.compareKeys(1)", "data":{"hct":{0:"T"}}}]\
                 """;
         assertEquals(expected, content);
     }

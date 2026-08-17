@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.kotlin;
+package io.codelaser.maddi.cst.print.kotlin;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.statement.*;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.impl.output.*;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.List;
 

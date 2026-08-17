@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.SwitchExpression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.SwitchEntry;
-import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle;
-import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
-import org.e2immu.language.cst.impl.output.QualificationImpl;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.SwitchExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.statement.SwitchStatementNewStyle;
+import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

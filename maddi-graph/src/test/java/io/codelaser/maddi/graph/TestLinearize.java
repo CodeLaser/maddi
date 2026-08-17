@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph;
+package io.codelaser.maddi.graph;
 
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.op.BreakCycles;
-import org.e2immu.util.internal.graph.op.Linearize;
-import org.e2immu.util.internal.graph.op.GreedyEdgeRemoval;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.op.BreakCycles;
+import io.codelaser.maddi.graph.op.Linearize;
+import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

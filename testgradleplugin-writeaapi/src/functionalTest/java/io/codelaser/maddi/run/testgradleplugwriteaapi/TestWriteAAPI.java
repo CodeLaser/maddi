@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.testgradleplugwriteaapi;
+package io.codelaser.maddi.run.testgradleplugwriteaapi;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ public class TestWriteAAPI {
     @Test
     public void test() throws IOException {
         LOGGER.info("In test!");
-        File dir = new File("/tmp/testWriteAnnotatedAPIDir/org/e2immu/testwrite");
+        File dir = new File("/tmp/testWriteAnnotatedAPIDir/io/codelaser/maddi/testwrite");
         File ju = new File(dir, "/JavaUtil.java");
         assertTrue(ju.canRead());
         File jio = new File(dir, "JavaIo.java");

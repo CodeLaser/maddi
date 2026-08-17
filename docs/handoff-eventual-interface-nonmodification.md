@@ -344,9 +344,9 @@ Run: `./gradlew :maddi-modification-analyzer:test` (allowed — it's a normal `t
 
 ### 8.2 Gate-ON dogfood (the scoreboard)
 Recipe (input configuration already generated; the `run` task recompiles the analyzer). AAPI preload dirs are
-mandatory. Exit code **5 is expected** (`ANALYSER_ERROR` on a few printer methods); results are still written.
+mandatory. Exit code **5 is expected** (`ANALYZER_ERROR` on a few printer methods); results are still written.
 ```
-AAPI=$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles
+AAPI=$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles
 EVENTUALCLUSTER=1 FPDUMP=/tmp/ec_fp.txt ./gradlew :maddi-run-openjdk:run --args="\
   --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
   --preload-analysis-results-dirs $AAPI/jdk,$AAPI/libs/test,$AAPI/libs/log \
@@ -367,7 +367,7 @@ task (tag-gated). Compare the change vs. base with the gate **off**:
 ```
 # B = your branch, gate off (no EVENTUALCLUSTER):
 FPDUMP=/tmp/B.txt ./gradlew :maddi-run-openjdk:slowTest \
-  --tests "org.e2immu.analyzer.run.openjdkmain.TestFernflower" --rerun-tasks
+  --tests "io.codelaser.maddi.run.openjdkmain.TestFernflower" --rerun-tasks
 # A = base commit 1634a823 (git stash your change), same command → /tmp/A.txt
 sort /tmp/A.txt > /tmp/A.s ; sort /tmp/B.txt > /tmp/B.s ; diff /tmp/A.s /tmp/B.s | wc -l   # must be 0
 ```
@@ -410,7 +410,7 @@ Part B alone will **not** take the retraction to 0. Remaining, in order:
 
 ## 10. File / symbol index (base commit `1634a823`)
 
-- `maddi-modification-analyzer/src/main/java/org/e2immu/analyzer/modification/analyzer/impl/`
+- `maddi-modification-analyzer/src/main/java/io/codelaser/maddi/modification/analyzer/impl/`
   - `TypeEventualAnalyzerImpl.java` — **the file to change.** Key methods: `computeEventuallyNonModifying`
     (~280), `nonModifyingLabels` (~327), `receiverAfterLabels` (~351), `isNonModifyingRead` (~368),
     `fieldHoldsCommittableContent` (~380), `immutableOf`/`eventualOf` (fallbacks for jar types), `referencesThis`

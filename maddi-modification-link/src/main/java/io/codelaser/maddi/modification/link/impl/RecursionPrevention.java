@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

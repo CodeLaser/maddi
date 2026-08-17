@@ -12,33 +12,33 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.common.defaults.ContractReader;
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeIndependentAnalyzer;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeImmutableAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeIndependentAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING;
-import static org.e2immu.language.cst.api.analysis.Value.Independent;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
+import static io.codelaser.maddi.modification.analyzer.CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING;
+import static io.codelaser.maddi.cst.api.analysis.Value.Independent;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
 
 /*
 Phase 4.1 Primary type independent
@@ -397,14 +397,14 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
     private boolean fieldWrapperProvablyImmutable(FieldInfo fieldInfo) {
         return wrapperImmutableCache.computeIfAbsent(fieldInfo, f -> {
-            java.util.List<org.e2immu.language.cst.api.expression.Expression> writes = new java.util.ArrayList<>();
-            org.e2immu.language.cst.api.expression.Expression init = f.initializer();
+            java.util.List<io.codelaser.maddi.cst.api.expression.Expression> writes = new java.util.ArrayList<>();
+            io.codelaser.maddi.cst.api.expression.Expression init = f.initializer();
             if (init != null && !init.isEmpty()) writes.add(init);
             for (MethodInfo ctor : f.owner().constructors()) {
                 if (ctor.methodBody().isEmpty()) continue;
                 ctor.methodBody().visit(e -> {
-                    if (e instanceof org.e2immu.language.cst.api.expression.Assignment a
-                        && a.variableTarget() instanceof org.e2immu.language.cst.api.variable.FieldReference fr
+                    if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+                        && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
                         && fr.scopeIsThis() && f.equals(fr.fieldInfo())) {
                         writes.add(a.value());
                     }
@@ -416,20 +416,20 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         });
     }
 
-    private static boolean immutableCopyExpression(org.e2immu.language.cst.api.expression.Expression expr) {
-        if (expr instanceof org.e2immu.language.cst.api.expression.NullConstant) {
+    private static boolean immutableCopyExpression(io.codelaser.maddi.cst.api.expression.Expression expr) {
+        if (expr instanceof io.codelaser.maddi.cst.api.expression.NullConstant) {
             return true; // a null wrapper cannot be mutated; the null-tolerant copyOf ternary shape
         }
-        if (expr instanceof org.e2immu.language.cst.api.expression.Cast c) {
+        if (expr instanceof io.codelaser.maddi.cst.api.expression.Cast c) {
             return immutableCopyExpression(c.expression());
         }
-        if (expr instanceof org.e2immu.language.cst.api.expression.EnclosedExpression ee) {
+        if (expr instanceof io.codelaser.maddi.cst.api.expression.EnclosedExpression ee) {
             return immutableCopyExpression(ee.inner());
         }
-        if (expr instanceof org.e2immu.language.cst.api.expression.InlineConditional ic) {
+        if (expr instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
             return immutableCopyExpression(ic.ifTrue()) && immutableCopyExpression(ic.ifFalse());
         }
-        if (expr instanceof org.e2immu.language.cst.api.expression.MethodCall mc) {
+        if (expr instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
             MethodInfo mi = mc.methodInfo();
             String name = mi.name();
             if (("copyOf".equals(name) || "of".equals(name)) && mi.isStatic()) {

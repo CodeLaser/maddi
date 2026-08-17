@@ -1,4 +1,4 @@
-package org.e2immu.test;
+package io.codelaser.maddi.test;
 
 public record SomeClass(int i) {
     void print() {

@@ -1,24 +1,24 @@
 /*
 Integrates all CST definition, parsing, and inspection modules.
  */
-module org.e2immu.language.inspection.integration {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.util.internal.util;
-    requires org.e2immu.language.cst.analysis;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
-    requires org.e2immu.language.cst.io;
-    requires org.e2immu.language.cst.print;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.language.inspection.parser;
-    requires org.e2immu.language.inspection.resource;
-    requires org.e2immu.language.java.bytecode;
-    requires org.e2immu.language.java.parser;
+module io.codelaser.maddi.inspection.integration {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.util;
+    requires io.codelaser.maddi.cst.analysis;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.cst.io;
+    requires io.codelaser.maddi.cst.print;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.inspection.parser;
+    requires io.codelaser.maddi.inspection.resource;
+    requires io.codelaser.maddi.java.bytecode;
+    requires io.codelaser.maddi.java.parser;
 
     requires org.slf4j;
     // used by DetectJREs, for MacOS
     requires java.xml;
-    requires org.e2immu.util.internal.graph;
+    requires io.codelaser.maddi.graph;
 
-    exports org.e2immu.language.inspection.integration;
+    exports io.codelaser.maddi.inspection.integration;
 }

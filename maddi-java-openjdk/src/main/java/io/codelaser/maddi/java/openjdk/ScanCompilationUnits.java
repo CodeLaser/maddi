@@ -1,4 +1,4 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.source.tree.CompilationUnitTree;
 
@@ -12,20 +12,20 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
-import org.e2immu.language.inspection.resource.InfoByFqn;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +86,7 @@ public class ScanCompilationUnits {
                                 boolean detailedSources,
                                 MaddiDiagnosticCollector diagnosticCollector,
                                 List<String> packagesToPreload,
-                                org.e2immu.language.inspection.api.resource.ParameterNameIndex parameterNameIndex,
+                                io.codelaser.maddi.inspection.api.resource.ParameterNameIndex parameterNameIndex,
                                 boolean jdkInternals,
                                 boolean computeFingerPrints,
                                 boolean syntheticListField) {

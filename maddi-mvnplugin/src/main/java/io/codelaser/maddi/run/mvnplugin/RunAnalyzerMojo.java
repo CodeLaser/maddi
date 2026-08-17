@@ -1,12 +1,12 @@
-package org.e2immu.analyzer.run.mvnplugin;
+package io.codelaser.maddi.run.mvnplugin;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.main.Main;
-import org.e2immu.analyzer.run.openjdkmain.RunAnalyzer;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.main.Main;
+import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
 
 /**
  * Runs the maddi analyzer over the project's sources. Like the Gradle plugin's {@code AnalyzerTask}/{@code

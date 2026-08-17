@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.output.element;
+package io.codelaser.maddi.cst.api.output.element;
 
-import org.e2immu.language.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.OutputElement;
 
 public interface Qualifier extends OutputElement {
     String fullyQualifiedName();

@@ -1,14 +1,14 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -192,7 +192,7 @@ public class TestInvalidate {
         TypeInfo user2 = pr2.findType(USER_FQN);
         assertNotSame(user1, user2);
 
-        org.e2immu.language.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        io.codelaser.maddi.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
         assertNotNull(view, "User was rewired, so the reload must expose a view");
         assertSame(user2, view.typeInfo(user1), "the exposed view maps the old User to the rewired one");
         assertTrue(view.rewiredTypes().contains(user2), "rewiredTypes includes the rewired User");
@@ -220,7 +220,7 @@ public class TestInvalidate {
         TypeInfo base2 = pr2.findType(BASE_FQN);
         assertNotSame(base1, base2, "Base was re-scanned");
 
-        org.e2immu.language.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
+        io.codelaser.maddi.cst.api.info.InfoMapView view = javaInspector.lastRewireInfoMap();
         assertNotNull(view, "a rescanned set exposes a view even with nothing to rewire");
         // the old rescanned type resolves to the new one by fqn+source-set equality (InfoMapImpl seeds rebuilt types)
         assertSame(base2, view.typeInfo(base1), "the view maps the old rescanned Base to the new one");

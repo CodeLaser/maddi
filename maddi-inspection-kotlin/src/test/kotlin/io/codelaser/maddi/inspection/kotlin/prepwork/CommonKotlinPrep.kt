@@ -12,21 +12,21 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin.prepwork
+package io.codelaser.maddi.inspection.kotlin.prepwork
 
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer
-import org.e2immu.language.cst.api.info.MethodInfo
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer
+import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import java.net.URI
 
 /**
  * Tier-1 cross-language validation: the Kotlin analogue of `modification-prepwork`'s `CommonTest`. Each
  * subclass ports a Java prep-analyzer test — the SAME behaviour expressed in Kotlin source — and asserts the
- * SAME [org.e2immu.analyzer.modification.prepwork.variable.VariableData] result. The Java test's assertion
+ * SAME [io.codelaser.maddi.modification.prepwork.variable.VariableData] result. The Java test's assertion
  * strings (e.g. `"D:0, A:[0, 1]"`) are the oracle: if the Kotlin front-end produces a faithful CST (same
  * statement indices, same reads/assignments), the analyzer yields the identical string.
  *

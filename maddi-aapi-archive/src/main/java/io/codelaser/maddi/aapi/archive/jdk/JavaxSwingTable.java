@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.Commutable;
+package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.Commutable;
 
 import java.beans.PropertyChangeListener;
 import javax.swing.table.TableCellEditor;

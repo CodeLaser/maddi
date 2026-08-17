@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 
 /**
  * A prefix unary operation {@code op expression}. The operator is identified by a {@link MethodInfo}.

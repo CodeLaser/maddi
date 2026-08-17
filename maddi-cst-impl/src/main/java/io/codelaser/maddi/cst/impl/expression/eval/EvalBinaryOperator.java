@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
-import org.e2immu.language.cst.api.expression.BinaryOperator;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 public class EvalBinaryOperator {
     private final Runtime runtime;

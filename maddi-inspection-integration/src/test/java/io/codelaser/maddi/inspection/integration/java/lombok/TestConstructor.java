@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.lombok;
+package io.codelaser.maddi.inspection.integration.java.lombok;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +31,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.NoArgsConstructor;
             
@@ -64,7 +64,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.RequiredArgsConstructor;
             import lombok.NonNull;
@@ -92,7 +92,7 @@ public class TestConstructor extends CommonTest {
 
         MethodInfo rac = typeInfo.findConstructor(3);
         assertTrue(rac.isSynthetic());
-        assertEquals("org.e2immu.test.X.<init>(String,int,Class)", rac.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.test.X.<init>(String,int,Class)", rac.fullyQualifiedName());
         ParameterInfo p0 = rac.parameters().get(0);
         assertEquals("s", p0.name());
         ParameterInfo p1 = rac.parameters().get(1);
@@ -102,7 +102,7 @@ public class TestConstructor extends CommonTest {
 
         assertEquals("{this.s=s;this.k=k;this.clazz=clazz;}", rac.methodBody().toString());
         MethodInfo nac = typeInfo.findConstructor(0);
-        assertEquals("org.e2immu.test.X.<init>()", nac.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.test.X.<init>()", nac.fullyQualifiedName());
     }
 
     @Test
@@ -115,7 +115,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT3 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.AllArgsConstructor;
             import lombok.NonNull;
@@ -139,11 +139,11 @@ public class TestConstructor extends CommonTest {
 
         MethodInfo aac = typeInfo.findConstructor(6);
         assertTrue(aac.isSynthetic());
-        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class,Class)",
+        assertEquals("io.codelaser.maddi.test.X.<init>(String,int,int,int,Class,Class)",
                 aac.fullyQualifiedName());
         assertEquals("{this.s=s;this.k=k;this.l=l;this.m=m;this.variableClazz=variableClazz;this.clazz=clazz;}",
                 aac.methodBody().toString());
         MethodInfo nac = typeInfo.findConstructor(0);
-        assertEquals("org.e2immu.test.X.<init>()", nac.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.test.X.<init>()", nac.fullyQualifiedName());
     }
 }

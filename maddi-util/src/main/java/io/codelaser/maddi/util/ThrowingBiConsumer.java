@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.util;
+package io.codelaser.maddi.util;
 
-import org.e2immu.annotation.Modified;
+import io.codelaser.maddi.annotation.Modified;
 
 @FunctionalInterface
 public interface ThrowingBiConsumer<S, T> {

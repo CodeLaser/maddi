@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.settings;
+package io.codelaser.maddi.ide.plugin.settings;
 
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 
 /**
  * Which computed annotations appear as inline hints (the gutter always shows the full set). Applied per

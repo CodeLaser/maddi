@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.importhelper;
+package io.codelaser.maddi.inspection.integration.java.importhelper;
 
-import org.e2immu.language.inspection.integration.java.importhelper.b.ErrorHandler;
+import io.codelaser.maddi.inspection.integration.java.importhelper.b.ErrorHandler;
 
 public class ImplementsErrorHandler implements ErrorHandler {
 

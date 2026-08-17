@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.method;
+package io.codelaser.maddi.inspection.integration.java.method;
 
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -61,7 +61,7 @@ public class TestMethodCall2 extends CommonTest {
     private static final String INPUT23= """
             package org.e2immu.analyser.resolver.testexample;
 
-            import org.e2immu.annotation.NotNull;
+            import io.codelaser.maddi.annotation.NotNull;
 
             import java.util.List;
 
@@ -100,11 +100,11 @@ public class TestMethodCall2 extends CommonTest {
 
             public class MethodCall_24 {
 
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
 
-                static class MethodAnalyser implements Analyser {
+                static class MethodAnalyzer implements Analyzer {
 
                     private record SharedState(boolean allowBreaking) {}
 

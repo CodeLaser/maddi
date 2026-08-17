@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.callgraph;
+package io.codelaser.maddi.modification.prepwork.callgraph;
 
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.op.Linearize;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.op.Linearize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

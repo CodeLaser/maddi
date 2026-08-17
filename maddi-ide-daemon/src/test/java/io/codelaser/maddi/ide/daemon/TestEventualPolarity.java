@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.daemon;
+package io.codelaser.maddi.ide.daemon;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,8 +21,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.analyze;
-import static org.e2immu.analyzer.ide.daemon.DaemonAnalysisFixture.annotationsFor;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.analyze;
+import static io.codelaser.maddi.ide.daemon.DaemonAnalysisFixture.annotationsFor;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -37,7 +37,7 @@ public class TestEventualPolarity {
     // a hand-free eventually-immutable type: SetOnce transitions once, and the analyzer computes the mark "value"
     private static final String HOLDER = """
             package x;
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.support.SetOnce;
             public class Holder {
                 private final SetOnce<String> value = new SetOnce<>();
                 public void set(String v) { value.set(v); }

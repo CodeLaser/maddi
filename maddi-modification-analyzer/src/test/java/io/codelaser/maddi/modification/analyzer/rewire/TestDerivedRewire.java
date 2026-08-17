@@ -12,21 +12,21 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.rewire;
+package io.codelaser.maddi.modification.analyzer.rewire;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -131,9 +131,9 @@ public class TestDerivedRewire extends CommonTest {
 
         // the analyzer-output rewire must not throw (every kept property implements rewire) and carries strictly more than
         // the carryOnRewire-filtered rewire.
-        org.e2immu.language.cst.api.analysis.PropertyValueMap full =
+        io.codelaser.maddi.cst.api.analysis.PropertyValueMap full =
                 assertDoesNotThrow(() -> getMethod.analysis().rewire(infoMap, AnalysisFingerprint.ANALYZER_OUTPUT_ONLY));
-        org.e2immu.language.cst.api.analysis.PropertyValueMap filtered = getMethod.analysis().rewire(infoMap);
+        io.codelaser.maddi.cst.api.analysis.PropertyValueMap filtered = getMethod.analysis().rewire(infoMap);
         assertTrue(full.propertyValueStream().count() > filtered.propertyValueStream().count(),
                 "the analyzer-output rewire carries verdicts + links; the plain rewire keeps only carryOnRewire");
 
@@ -144,7 +144,7 @@ public class TestDerivedRewire extends CommonTest {
                 "rewire drops METHOD_LINKS (not carryOnRewire)");
 
         // the abstract method's IMPLEMENTATIONS survive a full carry, re-pointed to the rewired implementation
-        org.e2immu.language.cst.api.analysis.PropertyValueMap abstractFull =
+        io.codelaser.maddi.cst.api.analysis.PropertyValueMap abstractFull =
                 assertDoesNotThrow(() -> abstractM.analysis().rewire(infoMap, AnalysisFingerprint.ANALYZER_OUTPUT_ONLY));
         ValueImpl.SetOfMethodInfoImpl impls = abstractFull
                 .getOrNull(PropertyImpl.IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.class);

@@ -12,29 +12,29 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.annotation.NotModified;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.TextImpl;
-import org.e2immu.language.cst.impl.variable.DescendModeEnum;
-import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
-import org.e2immu.support.EventuallyFinal;
-import org.e2immu.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.support.EventuallyFinal;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 import java.util.List;
 import java.util.Objects;
@@ -227,8 +227,8 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public PropertyValueMap analysis() {
-        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
-            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
         }
         return analysis;
     }

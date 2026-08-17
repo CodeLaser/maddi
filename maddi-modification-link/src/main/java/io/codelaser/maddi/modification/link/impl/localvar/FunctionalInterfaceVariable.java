@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.impl.localvar;
+package io.codelaser.maddi.modification.link.impl.localvar;
 
-import org.e2immu.analyzer.modification.link.impl.LinkVariable;
-import org.e2immu.analyzer.modification.link.impl.Result;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.modification.link.impl.LinkVariable;
+import io.codelaser.maddi.modification.link.impl.Result;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 
 public class FunctionalInterfaceVariable extends MarkerVariable implements LocalVariable, LinkVariable {
     public static final String LABEL = "fi";

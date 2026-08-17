@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.inspection.api.integration.JavaInspector
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
-import org.e2immu.language.inspection.resource.InfoByFqn
-import org.e2immu.language.inspection.resource.InputConfigurationImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.inspection.api.integration.JavaInspector
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
+import io.codelaser.maddi.inspection.resource.InfoByFqn
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull

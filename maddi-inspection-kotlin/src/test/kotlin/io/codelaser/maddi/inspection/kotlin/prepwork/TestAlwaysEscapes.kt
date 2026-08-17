@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin.prepwork
+package io.codelaser.maddi.inspection.kotlin.prepwork
 
-import org.e2immu.analyzer.modification.prepwork.escape.ComputeAlwaysEscapes
-import org.e2immu.language.cst.api.statement.IfElseStatement
+import io.codelaser.maddi.modification.prepwork.escape.ComputeAlwaysEscapes
+import io.codelaser.maddi.cst.api.statement.IfElseStatement
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

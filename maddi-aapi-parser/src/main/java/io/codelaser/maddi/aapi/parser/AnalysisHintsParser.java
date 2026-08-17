@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
-import org.e2immu.analyzer.modification.common.defaults.AnnotationProvider;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.StringConstant;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.modification.common.defaults.AnnotationProvider;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

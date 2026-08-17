@@ -1,7 +1,7 @@
-package org.e2immu.analyzer.run.openjdkmain.javac;
+package io.codelaser.maddi.run.openjdkmain.javac;
 
-import org.e2immu.analyzer.run.config.compile.CompileListToInputConfiguration;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +40,7 @@ public class ParseJavacList {
     /**
      * @param buildRoot the directory the build was run from; it decides the source-set names, so a caller that
      *                  knows it should pass it — see
-     *                  {@link org.e2immu.analyzer.run.config.compile.CompileListToSourceSets#CompileListToSourceSets(String)}.
+     *                  {@link io.codelaser.maddi.run.config.compile.CompileListToSourceSets#CompileListToSourceSets(String)}.
      */
     public InputConfiguration inputConfiguration(List<Javac> javacList, List<String> extraJmods, String buildRoot) {
         return inputConfiguration(javacList, extraJmods, buildRoot, List.of());

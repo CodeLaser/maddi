@@ -14,7 +14,7 @@ runners). A parse error never returns `0`.
 | `3` | Inspection error | An error during type inspection. (Reserved; parse-phase failures currently
 map to `2`.)
 | `4` | IO exception | An IO failure — e.g. a source directory or classpath entry could not be read.
-| `5` | Analyser error | The modification analysis threw.
+| `5` | Analyzer error | The modification analysis threw.
 |===
 
 TIP: Unresolved references to types not on the (partial) classpath are *warnings*, not errors — they do

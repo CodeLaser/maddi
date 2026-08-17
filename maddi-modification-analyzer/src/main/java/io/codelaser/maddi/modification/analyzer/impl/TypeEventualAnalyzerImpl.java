@@ -12,48 +12,48 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeEventualAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
-import org.e2immu.analyzer.modification.common.defaults.ContractReader;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.Assignment;
-import org.e2immu.language.cst.api.expression.Cast;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.expression.EnclosedExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.InlineConditional;
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.MethodReference;
-import org.e2immu.language.cst.api.expression.Negation;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.AssertStatement;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.IfElseStatement;
-import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.statement.SynchronizedStatement;
-import org.e2immu.language.cst.api.statement.ThrowStatement;
-import org.e2immu.language.cst.api.statement.TryStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.statement.YieldStatement;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeEventualAnalyzer;
+import io.codelaser.maddi.modification.analyzer.TypeImmutableAnalyzer;
+import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.AssertStatement;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.IfElseStatement;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.SynchronizedStatement;
+import io.codelaser.maddi.cst.api.statement.ThrowStatement;
+import io.codelaser.maddi.cst.api.statement.TryStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.YieldStatement;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,15 +66,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.FINAL_FIELD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.NOT_EVENTUAL;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.FINAL_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.EventualImpl.NOT_EVENTUAL;
 
 public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements TypeEventualAnalyzer {
 
@@ -699,7 +699,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
 
         /** No side contributions from a conditional region; a {@code @Mark} seen there still taints. */
-        private void conditional(org.e2immu.language.cst.api.element.Element element) {
+        private void conditional(io.codelaser.maddi.cst.api.element.Element element) {
             if (element == null) return;
             element.visit(e -> {
                 if (e instanceof TypeInfo) return false; // local/anonymous types: their own walks
@@ -2248,7 +2248,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
     }
 
     private static boolean anyImplementationModifies(MethodInfo methodInfo,
-                                                     org.e2immu.language.cst.api.analysis.Property property) {
+                                                     io.codelaser.maddi.cst.api.analysis.Property property) {
         for (MethodInfo implementation : methodInfo.analysis()
                 .getOrDefault(property, ValueImpl.SetOfMethodInfoImpl.EMPTY).methodInfoSet()) {
             Value.Bool nonModifying = implementation.analysis()

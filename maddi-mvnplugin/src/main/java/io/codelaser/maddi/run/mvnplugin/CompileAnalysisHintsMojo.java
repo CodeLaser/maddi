@@ -1,20 +1,20 @@
-package org.e2immu.analyzer.run.mvnplugin;
+package io.codelaser.maddi.run.mvnplugin;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.config.GeneralConfiguration;
-import org.e2immu.analyzer.run.main.Main;
-import org.e2immu.analyzer.run.openjdkmain.RunAnalyzer;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.main.Main;
+import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;

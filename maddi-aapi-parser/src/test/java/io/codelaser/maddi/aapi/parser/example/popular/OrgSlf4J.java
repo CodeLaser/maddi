@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.example.popular;
+package io.codelaser.maddi.aapi.parser.example.popular;
 
-import org.e2immu.annotation.*;
+import io.codelaser.maddi.annotation.*;
 
 public class OrgSlf4J {
     public static final String PACKAGE_NAME = "org.slf4j";

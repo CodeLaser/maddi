@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.runtime;
+package io.codelaser.maddi.cst.impl.runtime;
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.runtime.Eval;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.expression.eval.*;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.runtime.Eval;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.expression.eval.*;
 
 import java.util.Arrays;
 import java.util.Collection;

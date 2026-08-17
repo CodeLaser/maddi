@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.support.Either;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.support.Either;
 
 import java.util.HashSet;
 import java.util.List;
@@ -65,7 +65,7 @@ public interface TypeParameter extends NamedType, Info {
      *                parameter already on the stack contributes no new information and is treated as set.
      *                The receiver enters the set as a lookup KEY (hidden content), never as mutable state
      *                to link -- the {@code @Independent(hc = true)} contract, the
-     *                {@link org.e2immu.language.cst.api.expression.Expression#translate} precedent.
+     *                {@link io.codelaser.maddi.cst.api.expression.Expression#translate} precedent.
      */
     boolean typeBoundsAreSet(@Independent(hc = true) Set<TypeParameter> visited);
 

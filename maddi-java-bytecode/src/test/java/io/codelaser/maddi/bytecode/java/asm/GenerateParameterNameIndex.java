@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.bytecode.java.asm;
+package io.codelaser.maddi.bytecode.java.asm;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
-import org.e2immu.language.inspection.api.resource.Resources;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.integration.CompiledTypesManagerImpl;
-import org.e2immu.language.inspection.integration.ResourcesImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
+import io.codelaser.maddi.inspection.api.resource.Resources;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.integration.CompiledTypesManagerImpl;
+import io.codelaser.maddi.inspection.integration.ResourcesImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -57,7 +57,7 @@ public class GenerateParameterNameIndex {
 
     // by default, generate next to the analyzed-package files (relative to the maddi-java-bytecode module dir)
     private static final String DEFAULT_OUTPUT_DIR =
-            "maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/parameterNames";
+            "maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/parameterNames";
     private static final List<String> DEFAULT_MODULES = List.of("java.base", "java.desktop", "java.net.http");
 
     private record Setup(Resources resources, CompiledTypesManager ctm, Map<String, SourceSet> sourceSetByModule) {

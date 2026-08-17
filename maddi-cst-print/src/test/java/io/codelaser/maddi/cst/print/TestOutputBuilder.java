@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print;
+package io.codelaser.maddi.cst.print;
 
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.element.Guide;
-import org.e2immu.language.cst.impl.output.GuideImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SymbolEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.element.Guide;
+import io.codelaser.maddi.cst.impl.output.GuideImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

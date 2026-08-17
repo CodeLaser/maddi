@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.output.element;
+package io.codelaser.maddi.cst.api.output.element;
 
 import java.util.Set;
 

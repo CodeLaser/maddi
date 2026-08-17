@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.util;
+package io.codelaser.maddi.util;
 
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.NotNull;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 import java.util.Iterator;
 import java.util.LinkedList;

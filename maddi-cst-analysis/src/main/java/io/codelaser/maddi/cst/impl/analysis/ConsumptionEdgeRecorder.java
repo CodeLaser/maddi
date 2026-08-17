@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.analysis;
+package io.codelaser.maddi.cst.impl.analysis;
 
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;

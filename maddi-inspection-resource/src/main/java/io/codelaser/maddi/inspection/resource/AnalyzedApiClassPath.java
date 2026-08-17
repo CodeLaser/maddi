@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.resource;
+package io.codelaser.maddi.inspection.resource;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -20,7 +20,7 @@ import java.util.stream.Stream;
 /**
  * Class-path entries for the third-party libraries whose analysis hints ship in the annotated-API archive
  * ({@code maddi-aapi-archive}'s {@code libs} jar: junit, slf4j/logback). Add them to an
- * {@link org.e2immu.language.inspection.api.resource.InputConfiguration.Builder#addClassPath(String...) classpath}
+ * {@link io.codelaser.maddi.inspection.api.resource.InputConfiguration.Builder#addClassPath(String...) classpath}
  * when a project references those libraries and you want their bundled hints to resolve against the real types --
  * e.g. {@code builder.addClassPath(AnalyzedApiClassPath.ALL)}.
  * <p>

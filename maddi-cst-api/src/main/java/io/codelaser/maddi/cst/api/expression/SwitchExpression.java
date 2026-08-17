@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.statement.SwitchEntry;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * A switch expression, {@code switch (selector) { case ... -> value; ... }}, which yields a value. Like
  * the arrow-form switch statement it is modelled as a list of
- * {@link org.e2immu.language.cst.api.statement.SwitchEntry SwitchEntry} arms; the result type is the
+ * {@link io.codelaser.maddi.cst.api.statement.SwitchEntry SwitchEntry} arms; the result type is the
  * overall {@link Expression#parameterizedType()}.
  */
 public interface SwitchExpression extends Expression {

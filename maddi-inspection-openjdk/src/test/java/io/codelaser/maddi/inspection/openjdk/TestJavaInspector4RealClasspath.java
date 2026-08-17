@@ -1,13 +1,13 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -58,7 +58,7 @@ public class TestJavaInspector4RealClasspath {
                 .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
 
-        TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
+        TypeInfo element = parseResult.findType("io.codelaser.maddi.cst.api.element.Element");
         assertTrue(element.isInterface());
     }
 }

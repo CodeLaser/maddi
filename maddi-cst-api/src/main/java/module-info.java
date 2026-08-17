@@ -1,17 +1,17 @@
-module org.e2immu.language.cst.api {
-    requires org.e2immu.util.external.support;
+module io.codelaser.maddi.cst.api {
+    requires io.codelaser.maddi.support;
     requires org.jetbrains.annotations;
-    exports org.e2immu.language.cst.api.analysis;
-    exports org.e2immu.language.cst.api.element;
-    exports org.e2immu.language.cst.api.expression;
-    exports org.e2immu.language.cst.api.expression.util;
-    exports org.e2immu.language.cst.api.info;
-    exports org.e2immu.language.cst.api.output;
-    exports org.e2immu.language.cst.api.output.element;
-    exports org.e2immu.language.cst.api.runtime;
-    exports org.e2immu.language.cst.api.statement;
-    exports org.e2immu.language.cst.api.translate;
-    exports org.e2immu.language.cst.api.type;
-    exports org.e2immu.language.cst.api.util;
-    exports org.e2immu.language.cst.api.variable;
+    exports io.codelaser.maddi.cst.api.analysis;
+    exports io.codelaser.maddi.cst.api.element;
+    exports io.codelaser.maddi.cst.api.expression;
+    exports io.codelaser.maddi.cst.api.expression.util;
+    exports io.codelaser.maddi.cst.api.info;
+    exports io.codelaser.maddi.cst.api.output;
+    exports io.codelaser.maddi.cst.api.output.element;
+    exports io.codelaser.maddi.cst.api.runtime;
+    exports io.codelaser.maddi.cst.api.statement;
+    exports io.codelaser.maddi.cst.api.translate;
+    exports io.codelaser.maddi.cst.api.type;
+    exports io.codelaser.maddi.cst.api.util;
+    exports io.codelaser.maddi.cst.api.variable;
 }

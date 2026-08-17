@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example;
+package io.codelaser.maddi.inspection.integration.java.example;
 
-import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
-import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
+import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resource;
+import io.codelaser.maddi.inspection.integration.java.importhelper.a.Resources;
 
-import static org.e2immu.language.inspection.integration.java.example.Annotations_2.XX;
+import static io.codelaser.maddi.inspection.integration.java.example.Annotations_2.XX;
 
 // this file is here only to show that we can use a static import for XX!
 // see TestAnnotations, INPUT3

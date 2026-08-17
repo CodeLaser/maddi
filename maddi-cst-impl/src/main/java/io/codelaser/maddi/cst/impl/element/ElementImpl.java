@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.element;
+package io.codelaser.maddi.cst.impl.element;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.output.QualificationImpl;
-import org.e2immu.language.cst.impl.variable.DescendModeEnum;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;

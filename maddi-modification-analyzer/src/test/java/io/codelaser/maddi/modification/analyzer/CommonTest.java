@@ -1,21 +1,21 @@
-package org.e2immu.analyzer.modification.analyzer;
+package io.codelaser.maddi.modification.analyzer;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.ModAnalyzerForTesting;
-import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.support.SetOnceMap;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.ModAnalyzerForTesting;
+import io.codelaser.maddi.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnceMap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
-import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
+import static io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 
 
 public abstract class CommonTest {
@@ -59,8 +59,8 @@ public abstract class CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.link")).setLevel(Level.DEBUG);
-        ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.analyzer")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification.link")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification.analyzer")).setLevel(Level.DEBUG);
     }
 
     // A fully-configured, independent analyzer stack (its own JavaInspector + runtime + analyzers). The runtime's
@@ -83,7 +83,7 @@ public abstract class CommonTest {
                 .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
         if (extraSourceSetNames.isEmpty()) {
             // lean default classpath, plus any JDK modules the test declared via jmods (e.g. "jmod:java.desktop")
-            ji = org.e2immu.analyzer.modification.common.CommonTest
+            ji = io.codelaser.maddi.modification.common.CommonTest
                     .javaInspectorWithExtras(testProtocol, List.of(), jdkModules);
         } else {
             // clone-bench style test: register one source set per directory (JDK types resolve via the global
@@ -95,7 +95,7 @@ public abstract class CommonTest {
                 sourceSetsByName.put(name, set);
                 extraSets.add(set);
             }
-            ji = org.e2immu.analyzer.modification.common.CommonTest
+            ji = io.codelaser.maddi.modification.common.CommonTest
                     .javaInspectorWithExtras(testProtocol, extraSets, jdkModules);
             extraSets.forEach(SourceSet::computePriorityDependencies);
         }

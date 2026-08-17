@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.mixed
+package io.codelaser.maddi.inspection.mixed
 
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.inspection.api.integration.JavaInspector
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager
-import org.e2immu.language.inspection.api.resource.InputConfiguration
-import org.e2immu.language.inspection.kotlin.JavaStubGenerator
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
-import org.e2immu.language.inspection.resource.InfoByFqn
-import org.e2immu.language.inspection.resource.InputConfigurationImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
-import org.e2immu.language.kotlin.k2.KotlinScan
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.inspection.api.integration.JavaInspector
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration
+import io.codelaser.maddi.inspection.kotlin.JavaStubGenerator
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
+import io.codelaser.maddi.inspection.resource.InfoByFqn
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import java.net.URI
 import java.nio.file.Files
 import javax.tools.JavaFileObject

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.language.cst.api.type.Diamond;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 /**
  * A bare type used in expression position — the type-name qualifier of a static member access, e.g. the

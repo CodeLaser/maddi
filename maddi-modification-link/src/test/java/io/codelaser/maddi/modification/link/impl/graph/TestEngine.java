@@ -1,14 +1,14 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package io.codelaser.maddi.modification.link.impl.graph;
 
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_ELEMENT_OF;
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.SHARES_ELEMENTS;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.IS_ELEMENT_OF;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.SHARES_ELEMENTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestEngine {

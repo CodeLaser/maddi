@@ -36,7 +36,7 @@ maddi_java_test(
     name = "maddi-run-config_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.analyzer.run.config.util"],
+    test_packages = ["io.codelaser.maddi.run.config.util"],
     deps = [
         ":maddi-run-config",  # Depend on the main library
         "//maddi-aapi-parser",

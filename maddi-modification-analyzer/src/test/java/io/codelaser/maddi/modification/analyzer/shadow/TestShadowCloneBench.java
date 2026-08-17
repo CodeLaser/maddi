@@ -1,19 +1,19 @@
-package org.e2immu.analyzer.modification.analyzer.shadow;
+package io.codelaser.maddi.modification.analyzer.shadow;
 
-import org.e2immu.analyzer.modification.common.CloneBenchCorpus;
+import io.codelaser.maddi.modification.common.CloneBenchCorpus;
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.ModAnalyzerForTesting;
-import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.ModAnalyzerForTesting;
+import io.codelaser.maddi.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -27,8 +27,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
-import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
+import static io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import org.junit.jupiter.api.Tag;
 
 /**
@@ -84,7 +84,7 @@ public class TestShadowCloneBench extends CommonTest {
         }
         List<String> jdkModules = Arrays.stream(jmods)
                 .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
-        javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorWithExtras(
+        javaInspector = io.codelaser.maddi.modification.common.CommonTest.javaInspectorWithExtras(
                 dirSets.getFirst(), dirSets.subList(1, dirSets.size()), jdkModules);
         dirSets.forEach(SourceSet::computePriorityDependencies);
         runtime = javaInspector.runtime();

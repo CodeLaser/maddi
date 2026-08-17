@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.resource;
+package io.codelaser.maddi.inspection.resource;
 
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.support.SetOnce;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 
 public class SourceSetImpl implements SourceSet {
     private final String name;

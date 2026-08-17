@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.variable;
+package io.codelaser.maddi.cst.impl.variable;
 
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.element.SourceImpl;
-import org.e2immu.language.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
 
 import java.util.List;
 import java.util.Objects;

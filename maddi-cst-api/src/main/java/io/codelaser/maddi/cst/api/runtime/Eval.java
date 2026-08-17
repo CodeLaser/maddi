@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.runtime;
+package io.codelaser.maddi.cst.api.runtime;
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.Collection;
 import java.util.List;

@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.rare.AllowsInterrupt;
-import org.e2immu.annotation.rare.IgnoreModifications;
+package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 import java.io.*;
 import java.net.URI;

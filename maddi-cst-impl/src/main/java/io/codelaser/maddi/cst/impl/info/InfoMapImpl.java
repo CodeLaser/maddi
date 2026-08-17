@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.impl.statement.BlockImpl;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.impl.statement.BlockImpl;
 
 import java.util.HashMap;
 import java.util.Map;

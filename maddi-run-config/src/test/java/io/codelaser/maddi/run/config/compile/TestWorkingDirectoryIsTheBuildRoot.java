@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config.compile;
+package io.codelaser.maddi.run.config.compile;
 
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

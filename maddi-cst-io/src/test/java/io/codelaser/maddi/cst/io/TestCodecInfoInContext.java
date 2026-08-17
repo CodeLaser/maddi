@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.io;
+package io.codelaser.maddi.cst.io;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

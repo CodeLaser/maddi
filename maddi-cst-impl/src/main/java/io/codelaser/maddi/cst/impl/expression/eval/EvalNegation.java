@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.impl.expression.NegationImpl;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.expression.NegationImpl;
 
 import java.util.List;
 import java.util.Objects;

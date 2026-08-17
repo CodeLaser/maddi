@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
 
 /**
  * Eventually immutable class, which holds arbitrary values for one field until a final value is written.

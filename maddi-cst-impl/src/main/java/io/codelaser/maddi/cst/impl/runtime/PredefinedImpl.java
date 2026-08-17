@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.runtime;
+package io.codelaser.maddi.cst.impl.runtime;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Predefined;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.element.CompilationUnitImpl;
-import org.e2immu.language.cst.impl.element.SourceImpl;
-import org.e2immu.language.cst.impl.expression.AnnotationExpressionImpl;
-import org.e2immu.language.cst.impl.info.InspectionImpl;
-import org.e2immu.language.cst.impl.info.MethodInfoImpl;
-import org.e2immu.language.cst.impl.info.TypeInfoImpl;
-import org.e2immu.language.cst.impl.info.TypeNatureEnum;
-import org.e2immu.language.cst.impl.type.IsAssignableFrom2;
-import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Predefined;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.element.CompilationUnitImpl;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
+import io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl;
+import io.codelaser.maddi.cst.impl.info.InspectionImpl;
+import io.codelaser.maddi.cst.impl.info.MethodInfoImpl;
+import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
+import io.codelaser.maddi.cst.impl.info.TypeNatureEnum;
+import io.codelaser.maddi.cst.impl.type.IsAssignableFrom2;
+import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
 
 import java.net.URI;
 import java.util.*;

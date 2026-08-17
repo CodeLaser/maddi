@@ -26,7 +26,7 @@ stream into `Doc`. Migrating producers to emit `Doc` directly is a later, option
 
 ## 2. The Doc IR
 
-Immutable records in a new package `org.e2immu.language.cst.print.doc`. Node set (minimal but
+Immutable records in a new package `io.codelaser.maddi.cst.print.doc`. Node set (minimal but
 complete for Java/Kotlin output):
 
 | Node | Flat rendering | Broken rendering | Use |

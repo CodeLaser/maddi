@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork;
+package io.codelaser.maddi.modification.prepwork;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
 
-import org.e2immu.support.SetOnceMap;
+import io.codelaser.maddi.support.SetOnceMap;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -38,9 +38,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
-import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
 
 public class CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(CommonTest.class);
@@ -123,7 +123,7 @@ public class CommonTest {
             icBuilder.addClassPath(extra);
         }
         InputConfiguration inputConfiguration = icBuilder.build();
-        javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
         sources.computePriorityDependencies();
         openJdkSourceSetsByName.valueStream().forEach(SourceSet::computePriorityDependencies);

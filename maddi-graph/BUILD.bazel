@@ -31,7 +31,7 @@ maddi_java_test(
     name = "maddi-graph_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.util.internal.graph"],
+    test_packages = ["io.codelaser.maddi.graph"],
     resources = glob(["src/test/resources/**"]),  # Add this too
     resource_strip_prefix = "maddi-graph/src/test/resources",  # Important!
     deps = [

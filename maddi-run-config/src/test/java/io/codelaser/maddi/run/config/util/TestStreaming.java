@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config.util;
+package io.codelaser.maddi.run.config.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.MD5FingerPrint;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +41,7 @@ public class TestStreaming {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         SourceSet sourceSet = new SourceSetImpl.Builder()
                 .setName("abc")
-                .setBuildUnit("org.e2immu:abc")
+                .setBuildUnit("io.codelaser.maddi:abc")
                 .setSourceDirectories(List.of(Path.of("/home/x")))
                 .setUri(URI.create("file:/home/x"))
                 .setTest(true)
@@ -71,7 +71,7 @@ public class TestStreaming {
         SourceSet set1 = copy.sourceSets().getFirst();
         Assertions.assertEquals("[a.b.c]", set1.restrictToPackages().toString());
         Assertions.assertEquals(fingerPrint1, set1.fingerPrintOrNull());
-        Assertions.assertEquals("org.e2immu:abc", set1.buildUnit());
+        Assertions.assertEquals("io.codelaser.maddi:abc", set1.buildUnit());
 
         SourceSet set2 = copy.sourceSets().get(1);
         Assertions.assertSame(set1, set2.dependencies().stream().findFirst().orElseThrow());

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -114,7 +114,7 @@ public class TestSubTypes extends CommonTest {
 
     @Language("java")
     private static final String INPUT3_ST4 = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class SubType_4Helper {
                 public void set(D d) {
                 }
@@ -129,7 +129,7 @@ public class TestSubTypes extends CommonTest {
     private static final String INPUT3 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.SubType_4Helper;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.SubType_4Helper;
             
             public class SubType_4 {
             
@@ -138,9 +138,9 @@ public class TestSubTypes extends CommonTest {
                     b.set(createD(strings));
                 }
             
-                private org.e2immu.language.inspection.integration.java.importhelper.SubType_4Helper.D createD(String strings) {
-                    org.e2immu.language.inspection.integration.java.importhelper.SubType_4Helper.D d
-                            = new org.e2immu.language.inspection.integration.java.importhelper.SubType_4Helper.D();
+                private io.codelaser.maddi.inspection.integration.java.importhelper.SubType_4Helper.D createD(String strings) {
+                    io.codelaser.maddi.inspection.integration.java.importhelper.SubType_4Helper.D d
+                            = new io.codelaser.maddi.inspection.integration.java.importhelper.SubType_4Helper.D();
                     System.out.println(d + " = " + strings);
                     return d;
                 }
@@ -150,13 +150,13 @@ public class TestSubTypes extends CommonTest {
     @Test
     public void test3() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.SubType_4Helper", INPUT3_ST4,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.SubType_4Helper", INPUT3_ST4,
                 "org.e2immu.analyser.resolver.testexample.SubType_4", INPUT3);
     }
 
     @Language("java")
     private static final String INPUT4_ST3 = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class SubType_3Helper {
                 public interface PP {
                     void theFirstMethod();
@@ -171,7 +171,7 @@ public class TestSubTypes extends CommonTest {
     private static final String INPUT4 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.SubType_3Helper;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.SubType_3Helper;
             
             public class SubType_3B {
             
@@ -204,7 +204,7 @@ public class TestSubTypes extends CommonTest {
     @Test
     public void test4() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.SubType_3Helper", INPUT4_ST3,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.SubType_3Helper", INPUT4_ST3,
                 "org.e2immu.analyser.resolver.testexample.SubType_3B", INPUT4);
     }
 
@@ -213,11 +213,11 @@ public class TestSubTypes extends CommonTest {
     private static final String INPUT5 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.SubType_3Helper;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.SubType_3Helper;
             
             public class SubType_3C {
             
-                private interface PP extends org.e2immu.language.inspection.integration.java.importhelper.SubType_3Helper.PP {
+                private interface PP extends io.codelaser.maddi.inspection.integration.java.importhelper.SubType_3Helper.PP {
                     void oneMoreMethod();
                 }
             
@@ -246,7 +246,7 @@ public class TestSubTypes extends CommonTest {
     @Test
     public void test5() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.SubType_3Helper", INPUT4_ST3,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.SubType_3Helper", INPUT4_ST3,
                 "org.e2immu.analyser.resolver.testexample.SubType_3C", INPUT5);
     }
 }

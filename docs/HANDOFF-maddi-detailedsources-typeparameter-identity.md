@@ -161,7 +161,7 @@ The buggy output on a failing run is `class A<S ...>` + `S first` renamed, but `
 
 ### 1. The store is identity-keyed
 
-`maddi-cst-impl/src/main/java/org/e2immu/language/cst/impl/element/DetailedSourcesImpl.java`
+`maddi-cst-impl/src/main/java/io/codelaser/maddi/cst/impl/element/DetailedSourcesImpl.java`
 
 ```java
 public class DetailedSourcesImpl implements DetailedSources {
@@ -178,7 +178,7 @@ public class DetailedSourcesImpl implements DetailedSources {
 
 ### 2. The parser records the *parser's* `TypeParameter` instance
 
-`maddi-java-parser/src/main/java/org/e2immu/parser/java/ParseType.java:202`
+`maddi-java-parser/src/main/java/io/codelaser/maddi/parser/java/ParseType.java:202`
 
 ```java
 detailedSourcesBuilder.put(withoutTypeParameters.typeParameter(), details.pop());
@@ -292,11 +292,11 @@ costs performance.
 
 | What | Path |
 |---|---|
-| Identity-keyed store (the bug) | `maddi/maddi-cst-impl/src/main/java/org/e2immu/language/cst/impl/element/DetailedSourcesImpl.java` |
-| `DetailedSources` contract | `maddi/maddi-cst-api/src/main/java/org/e2immu/language/cst/api/element/DetailedSources.java` |
-| Parser records the type-parameter source | `maddi/maddi-java-parser/src/main/java/org/e2immu/parser/java/ParseType.java` (~line 202) |
-| Translation machinery (re-instantiation) | `maddi/maddi-cst-impl/src/main/java/org/e2immu/language/cst/impl/translate/TranslationMapImpl.java` |
-| `TypeParameter` API (`getOwner`/`getIndex`) | `maddi/maddi-cst-api/src/main/java/org/e2immu/language/cst/api/info/TypeParameter.java` |
+| Identity-keyed store (the bug) | `maddi/maddi-cst-impl/src/main/java/io/codelaser/maddi/cst/impl/element/DetailedSourcesImpl.java` |
+| `DetailedSources` contract | `maddi/maddi-cst-api/src/main/java/io/codelaser/maddi/cst/api/element/DetailedSources.java` |
+| Parser records the type-parameter source | `maddi/maddi-java-parser/src/main/java/io/codelaser/maddi/parser/java/ParseType.java` (~line 202) |
+| Translation machinery (re-instantiation) | `maddi/maddi-cst-impl/src/main/java/io/codelaser/maddi/cst/impl/translate/TranslationMapImpl.java` |
+| `TypeParameter` API (`getOwner`/`getIndex`) | `maddi/maddi-cst-api/src/main/java/io/codelaser/maddi/cst/api/info/TypeParameter.java` |
 | Consumer + current workaround | `jfocus-refactor-service/codelaser-refactor-renamemodule/.../renameidentifier/RenameTypeParameter.java` (`handleType`, `sourcesForTypeParameter`, `canonicalInstance`) |
 | Reproducing test | `jfocus-refactor-service/codelaser-refactor-renamemodule/.../renameidentifier/TestRenameTypeParameter.java` (`testTypeParamUsedInSignatureWithCaller`) |
 

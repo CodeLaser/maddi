@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.resource;
+package io.codelaser.maddi.inspection.api.resource;
 
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 import java.net.URI;
 import java.util.Objects;
 
-import static org.e2immu.util.internal.util.StringUtil.replaceSlashDollar;
+import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 
 public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint fingerPrint) {
 

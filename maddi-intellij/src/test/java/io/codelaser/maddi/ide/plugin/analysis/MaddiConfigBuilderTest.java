@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.analysis;
+package io.codelaser.maddi.ide.plugin.analysis;
 
 import com.intellij.openapi.application.AccessToken;
 import com.intellij.openapi.application.ReadAction;
@@ -22,7 +22,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.testFramework.LoggedErrorProcessor;
 import com.intellij.testFramework.PsiTestUtil;
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 
 import java.util.LinkedHashMap;
 import java.util.List;

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.analyzer.modification.prepwork.StatementIndex;
+import io.codelaser.maddi.modification.prepwork.StatementIndex;
 
 // suffixes in assignment id; these act as the 3 levels for setProperty
 public enum Stage {

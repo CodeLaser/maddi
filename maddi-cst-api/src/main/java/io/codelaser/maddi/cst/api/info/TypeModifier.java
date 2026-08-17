@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
 /**
  * A modifier that can appear on a type declaration:

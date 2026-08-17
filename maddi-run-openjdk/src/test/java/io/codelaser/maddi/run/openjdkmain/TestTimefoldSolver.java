@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
@@ -25,10 +25,10 @@ public class TestTimefoldSolver {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
         // corpus-scale noise (multi-GB of captured output over 50k+ elements x iterations)
         ((ch.qos.logback.classic.Logger) LoggerFactory
-                .getLogger("org.e2immu.analyzer.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
+                .getLogger("io.codelaser.maddi.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
     }
 
     private static void assumeCorpus() {
@@ -42,7 +42,7 @@ public class TestTimefoldSolver {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=" + TestOssCorpus.config("timefold-solver")
                 , "--analysis-steps=modification"
-                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }
@@ -54,7 +54,7 @@ public class TestTimefoldSolver {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=" + TestOssCorpus.ROOT.resolve("timefold-solver/inputConfiguration2.json")
                 , "--analysis-steps=modification"
-                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"
         });
         assertEquals(Main.EXIT_OK, exitValue);
     }

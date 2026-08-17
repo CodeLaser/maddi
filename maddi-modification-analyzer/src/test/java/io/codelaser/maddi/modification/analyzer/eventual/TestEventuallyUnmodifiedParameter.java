@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.eventual;
+package io.codelaser.maddi.modification.analyzer.eventual;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.impl.EventualCluster;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.impl.EventualCluster;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ public class TestEventuallyUnmodifiedParameter extends CommonTest {
     // on the argument. The caller hands bare 'this' to the helper.
     @Language("java")
     private static final String INPUT = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class A {
               static class T {
@@ -84,8 +84,8 @@ public class TestEventuallyUnmodifiedParameter extends CommonTest {
             // the plain fixpoint freezes the helper parameters optimistically unmodified=TRUE (the known
             // TolerantWrite optimism the shadow pass exists to correct), and eup only fires on an honest
             // FALSE -- so run composed, exactly like the dogfood DoD environment
-            var iterating = new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl(javaInspector,
-                    new org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl.ConfigurationBuilder()
+            var iterating = new io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl(javaInspector,
+                    new io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl.ConfigurationBuilder()
                             .setMaxIterations(10)
                             .setModificationViaReachability(true)
                             .build());

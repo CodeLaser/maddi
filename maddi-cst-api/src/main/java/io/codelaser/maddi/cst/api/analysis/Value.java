@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.analysis;
+package io.codelaser.maddi.cst.api.analysis;
 
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.util.ParSeq;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.util.ParSeq;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.List;
 import java.util.Map;
@@ -43,7 +43,7 @@ public interface Value extends Comparable<Value> {
     }
 
     /**
-     * Produce the equivalent of this value in the rewired world: every {@link org.e2immu.language.cst.api.info.Info}
+     * Produce the equivalent of this value in the rewired world: every {@link io.codelaser.maddi.cst.api.info.Info}
      * and {@link Variable} reference must be mapped through {@code infoMap}, which returns its argument unchanged for
      * anything that was not rewired.
      * <p>

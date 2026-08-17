@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.prepwork;
+package io.codelaser.maddi.modification.prepwork;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -136,8 +136,8 @@ public class TestGap151SwitchInAnonymousField extends CommonTest {
         new PrepAnalyzer(runtime).doPrimaryType(X);
 
         var make = X.findUniqueMethod("make", 3);
-        var rs = (org.e2immu.language.cst.api.statement.ReturnStatement) make.methodBody().statements().getFirst();
-        var cc = (org.e2immu.language.cst.api.expression.ConstructorCall) rs.expression();
+        var rs = (io.codelaser.maddi.cst.api.statement.ReturnStatement) make.methodBody().statements().getFirst();
+        var cc = (io.codelaser.maddi.cst.api.expression.ConstructorCall) rs.expression();
         TypeInfo anon = cc.anonymousClass();
         assertNotNull(anon, "the returned Runnable is an anonymous class");
         assertFalse(anon.fields().isEmpty(), "the anonymous class declares the initialized field");

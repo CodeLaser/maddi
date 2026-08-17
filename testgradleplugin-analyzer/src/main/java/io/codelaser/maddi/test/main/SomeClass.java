@@ -1,6 +1,6 @@
-package org.e2immu.test.main;
+package io.codelaser.maddi.test.main;
 
-import org.e2immu.util.internal.util.IntUtil;
+import io.codelaser.maddi.util.IntUtil;
 
 import java.util.HashSet;
 import java.util.Set;

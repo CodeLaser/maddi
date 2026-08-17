@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.archive;
+package io.codelaser.maddi.aapi.parser.archive;
 
-import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.aapi.parser.CommonTest;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import java.security.MessageDigest;
@@ -26,9 +26,9 @@ import java.security.Principal;
 import java.security.SecureRandom;
 import java.util.stream.Collectors;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaSecurity extends CommonTest {

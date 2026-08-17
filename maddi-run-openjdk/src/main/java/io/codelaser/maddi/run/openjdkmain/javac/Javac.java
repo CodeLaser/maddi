@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.run.openjdkmain.javac;
+package io.codelaser.maddi.run.openjdkmain.javac;
 
-import org.e2immu.analyzer.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

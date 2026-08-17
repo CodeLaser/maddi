@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.element;
+package io.codelaser.maddi.cst.impl.element;
 
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.info.Access;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.output.GuideImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
-import org.e2immu.language.cst.impl.output.SymbolEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.info.Access;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.GuideImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.support.SetOnce;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print;
+package io.codelaser.maddi.cst.print;
 
-import org.e2immu.language.cst.api.output.element.TypeName;
-import org.e2immu.language.cst.impl.output.TypeNameImpl;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

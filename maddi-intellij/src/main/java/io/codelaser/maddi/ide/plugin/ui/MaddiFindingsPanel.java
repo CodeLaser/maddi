@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.ui;
+package io.codelaser.maddi.ide.plugin.ui;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
@@ -22,9 +22,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.ui.SimpleToolWindowPanel;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiResultListener;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.plugin.analysis.MaddiAnalysisService;
+import io.codelaser.maddi.ide.plugin.analysis.MaddiResultListener;
+import io.codelaser.maddi.ide.client.AnalysisModel;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;

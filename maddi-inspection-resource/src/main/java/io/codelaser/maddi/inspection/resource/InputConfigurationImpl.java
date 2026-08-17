@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.resource;
+package io.codelaser.maddi.inspection.resource;
 
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -69,7 +69,7 @@ public record InputConfigurationImpl(Path workingDirectory,
 
     @Override
     public InputConfiguration withE2ImmuSupportFromClasspath() {
-        return withSupportFromClasspath(Map.of("maddiSupport", "org/e2immu/annotation"));
+        return withSupportFromClasspath(Map.of("maddiSupport", "io/codelaser/maddi/annotation"));
     }
 
 

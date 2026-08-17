@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
 
 import org.junit.jupiter.api.Test;

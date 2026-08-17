@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.impl.variable.DescendModeEnum;
-import org.e2immu.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 import java.util.stream.Stream;
 
@@ -48,8 +48,8 @@ public abstract class InfoImpl implements Info {
 
     @Override
     public PropertyValueMap analysis() {
-        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
-            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
         }
         return propertyValueMap;
     }

@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
-import org.e2immu.language.cst.api.element.SourceSet
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.inspection.resource.InfoByFqn
+import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.inspection.resource.InfoByFqn
 import java.net.URI
 
 /**

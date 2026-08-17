@@ -140,7 +140,7 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
      `run-openjdk/RunAnalyzer:355`, `run-kotlin/Main.java:92,95`. Caps warnings at 50.
      Explicit javadoc: collected errors were "previously write-only".
    - `ExitCode.java`: shared exit codes `OK/INTERNAL_EXCEPTION/PARSER_ERROR/
-     INSPECTION_ERROR/IO_EXCEPTION/ANALYSER_ERROR`; RunAnalyzer catch-blocks now map
+     INSPECTION_ERROR/IO_EXCEPTION/ANALYZER_ERROR`; RunAnalyzer catch-blocks now map
      exception classes to codes and stash `terminalError` for the report.
 2. **`Message.Severity` enum added to cst-api `Message`** — a concrete WARN/ERROR `Level`
    implementation "shared by the parse path (Summary.ParseException) and the analysis path
@@ -173,7 +173,7 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   report hook, exit codes, located errors) now exists. Instead of inventing one:
   - extend `ErrorReport.report(...)` to take and enumerate analysis `Message`s alongside
     parse errors (single rendering point for all three runners);
-  - decide exit-code policy for contract violations (natural: `ANALYSER_ERROR` when any
+  - decide exit-code policy for contract violations (natural: `ANALYZER_ERROR` when any
     ERROR-severity finding, mirroring PARSER_ERROR ← Summary.haveErrors());
   - reuse `Message.Severity`; follow `ParseException`'s pattern of deriving a `Source`
     from the blamed `Element` for guaranteed line/col (fixes the `MessageImpl.warn`
@@ -203,7 +203,7 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   `ShallowAnalyzer.Result` + the iteration collector. `ErrorReport.report` gained a third
   parameter enumerating analysis findings (errors first, warnings capped at 50, indented
   "because:" cause chains, uri:line-col locations). Both runners feed it; ERROR findings →
-  `EXIT_ANALYSER_ERROR`; analysis-hints compiler mode collects instead of counting.
+  `EXIT_ANALYZER_ERROR`; analysis-hints compiler mode collects instead of counting.
 - **Phase 1 — contract provenance, simplified.** Insight: for source-code contracts no
   persistence is needed — the contract side is re-derivable on demand from the CST.
   `ContractReader` (modification-common, `defaults` package, subclass of the package-private
@@ -243,7 +243,7 @@ hardening work). ~500 files differ, mostly kotlin parsing; the guard-relevant de
   (3) a **field/element assignment** rooted at the parameter (`pi.f = …`, `pi[i] = …`).
   For `@NotModified` methods: a write to an instance field (`count++`) or a modifying call on
   `this`. Key design choice: it re-derives the evidence from the CST reading only the
-  analyser's own accessors (`MethodInfo.isModifying()`, `ParameterInfo.isModified()` — the
+  analyzer's own accessors (`MethodInfo.isModifying()`, `ParameterInfo.isModified()` — the
   same signal that decided the violation, so it agrees for **shallow/JDK** callees like
   `StringBuilder.append` too), rather than threading the per-call `Result.modified`
   (`Variable → Set<MethodInfo>`) map out of the link module (which discards it after linking,

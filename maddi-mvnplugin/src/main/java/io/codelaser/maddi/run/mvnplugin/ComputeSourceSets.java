@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.run.mvnplugin;
+package io.codelaser.maddi.run.mvnplugin;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.*;
-import org.e2immu.analyzer.run.config.util.ComputeDependencies;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.run.config.util.ComputeDependencies;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.graph.DependencyFilter;
 import org.eclipse.aether.graph.DependencyNode;

@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -22,7 +22,7 @@ public class TestModuleGatedHints {
 
     private JavaInspector inspectorWithoutDesktop() throws Exception {
         SourceSet javaBase = SourceSetImpl.javaBase();
-        JavaInspector ji = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        JavaInspector ji = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
         ji.preload("java.base::java.util.");
         // deliberately NOT preloading java.desktop / java.net.http, and NOT on the classpath below
         InputConfiguration ic = new InputConfigurationImpl.Builder()

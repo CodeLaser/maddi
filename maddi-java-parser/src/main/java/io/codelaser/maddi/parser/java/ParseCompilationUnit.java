@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.parser.TypeContext;
-import org.e2immu.support.Either;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.parser.TypeContext;
+import io.codelaser.maddi.support.Either;
 import org.parsers.java.ast.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +43,7 @@ public class ParseCompilationUnit extends CommonParse {
     }
 
     public List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>>
-    parse(org.e2immu.language.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
+    parse(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
         assert compilationUnit.packageName() != null;
         assert compilationUnit.uri() != null;
         try {
@@ -60,7 +60,7 @@ public class ParseCompilationUnit extends CommonParse {
     }
 
     private List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>>
-    internalParse(org.e2immu.language.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
+    internalParse(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
         assert compilationUnit.packageName() != null;
 
         Context newContext = rootContext.newCompilationUnit(compilationUnit);
@@ -99,7 +99,7 @@ public class ParseCompilationUnit extends CommonParse {
         return types;
     }
 
-    private static void handleImportStatements(org.e2immu.language.cst.api.element.CompilationUnit compilationUnit,
+    private static void handleImportStatements(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit,
                                                TypeContext typeContext,
                                                AtomicBoolean mustDelayForStaticImportTypeHierarchy,
                                                boolean isStar) {
@@ -117,7 +117,7 @@ public class ParseCompilationUnit extends CommonParse {
                 });
     }
 
-    private TypeInfo buildPackageInfoType(org.e2immu.language.cst.api.element.CompilationUnit compilationUnit,
+    private TypeInfo buildPackageInfoType(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit,
                                           CompilationUnit cu,
                                           Context context) {
         PackageDeclaration packageDeclaration = cu.getPackageDeclaration();

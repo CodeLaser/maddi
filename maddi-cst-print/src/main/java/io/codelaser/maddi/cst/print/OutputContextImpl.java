@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print;
+package io.codelaser.maddi.cst.print;
 
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputContext;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputContext;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 
 public record OutputContextImpl(Runtime runtime) implements OutputContext {
 

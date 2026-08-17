@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package io.codelaser.maddi.modification.link.impl.graph;
 
-import org.e2immu.analyzer.modification.link.impl.Gate;
+import io.codelaser.maddi.modification.link.impl.Gate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

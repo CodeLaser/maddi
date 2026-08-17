@@ -1,5 +1,5 @@
 [
-{"name": "Torg.e2immu.support.Either", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
+{"name": "Tio.codelaser.maddi.support.Either", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "Mequals(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Po(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetLeft(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -17,7 +17,7 @@
   {"name": "Pright(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoString(10)", "data":{"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1}}]},
 
-{"name": "Torg.e2immu.support.EventuallyFinal", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["isFinal",2],"immutableType":2,"independentType":1}, "subs":[
+{"name": "Tio.codelaser.maddi.support.EventuallyFinal", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["isFinal",2],"immutableType":2,"independentType":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mget(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MisFinal(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"eventualMethod":["isFinal",0,-1,1],"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
@@ -27,7 +27,7 @@
  {"name": "MsetVariable(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"eventualMethod":["isFinal",0,0,-1],"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
-{"name": "Torg.e2immu.support.EventuallyFinalOnDemand", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["isFinal",2],"immutableType":2,"independentType":1}, "subs":[
+{"name": "Tio.codelaser.maddi.support.EventuallyFinalOnDemand", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["isFinal",2],"immutableType":2,"independentType":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mget(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["isFinal"],"immutableMethod":2,"independentMethod":1}},
  {"name": "MhaveOnDemand(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
@@ -40,7 +40,7 @@
  {"name": "MsetVariable(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"eventualMethod":["isFinal",0,0,-1],"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
-{"name": "Torg.e2immu.support.SetOnce", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["t",2],"immutableType":2,"independentType":1}, "subs":[
+{"name": "Tio.codelaser.maddi.support.SetOnce", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"eventuallyImmutableType":["t",2],"immutableType":2,"independentType":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mcopy(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"eventualMethod":["t",1,-1,-1],"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},

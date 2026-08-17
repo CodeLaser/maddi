@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable.impl;
+package io.codelaser.maddi.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableNature;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.support.Either;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.modification.prepwork.variable.Stage;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfoContainer;
+import io.codelaser.maddi.modification.prepwork.variable.VariableNature;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.support.Either;
+import io.codelaser.maddi.support.SetOnce;
 
 public class VariableInfoContainerImpl implements VariableInfoContainer {
     private final Variable variable;

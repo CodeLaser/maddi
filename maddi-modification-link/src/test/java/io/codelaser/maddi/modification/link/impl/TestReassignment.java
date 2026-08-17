@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.CommonTest;
 
 // FIXME test remove linking after reassignment
 

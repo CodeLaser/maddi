@@ -1,10 +1,10 @@
-package org.e2immu.language.java.openjdk.sourcecode;
+package io.codelaser.maddi.java.openjdk.sourcecode;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.java.openjdk.SourceCodeScan;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.java.openjdk.SourceCodeScan;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.kotlin;
+package io.codelaser.maddi.cst.print.kotlin;
 
-import org.e2immu.language.cst.api.type.NullableState;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Map;
 

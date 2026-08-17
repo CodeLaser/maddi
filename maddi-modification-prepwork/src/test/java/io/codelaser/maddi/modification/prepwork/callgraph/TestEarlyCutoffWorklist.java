@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.callgraph;
+package io.codelaser.maddi.modification.prepwork.callgraph;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

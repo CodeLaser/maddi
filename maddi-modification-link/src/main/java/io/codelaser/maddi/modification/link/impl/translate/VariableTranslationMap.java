@@ -1,16 +1,16 @@
-package org.e2immu.analyzer.modification.link.impl.translate;
+package io.codelaser.maddi.modification.link.impl.translate;
 
-import org.e2immu.analyzer.modification.link.impl.SliceFactory;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.*;
+import io.codelaser.maddi.modification.link.impl.SliceFactory;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.*;
 
 import java.util.HashMap;
 import java.util.Map;

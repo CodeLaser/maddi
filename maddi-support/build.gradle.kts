@@ -65,7 +65,7 @@ publishing {
 
             pom {
                 name.set("maddi-support")
-                description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+                description = "Support library for Maddi, a modification analyzer for duplication detection and immutability."
 
                 groupId = project.group.toString()
                 artifactId = "maddi-support"
@@ -107,7 +107,7 @@ jreleaser {
 
     project {
         name.set("maddi-support")
-        description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+        description = "Support library for Maddi, a modification analyzer for duplication detection and immutability."
         license.set("Apache-2.0")
         authors.set(listOf("Bart Naudts"))
         copyright.set("2020-2026 Bart Naudts")

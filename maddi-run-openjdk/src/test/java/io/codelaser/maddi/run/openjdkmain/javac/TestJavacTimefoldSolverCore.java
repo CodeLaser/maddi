@@ -1,9 +1,9 @@
-package org.e2immu.analyzer.run.openjdkmain.javac;
+package io.codelaser.maddi.run.openjdkmain.javac;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;

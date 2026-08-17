@@ -1,12 +1,12 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.impl.info.ImportComputerImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import org.junit.jupiter.api.Test;
 
 /*
@@ -40,7 +40,7 @@ public class TestFormatterRoundTripStable extends CommonTest {
             }
             """;
 
-    private String printAt(TypeInfo ti, org.e2immu.language.cst.api.runtime.Runtime rt, int width,
+    private String printAt(TypeInfo ti, io.codelaser.maddi.cst.api.runtime.Runtime rt, int width,
                            FormattingOptions.WrapStyle style) {
         OutputBuilder ob = rt.newCompilationUnitPrinter(ti.compilationUnit(), true)
                 .print(new ImportComputerImpl(), rt.qualificationQualifyFromPrimaryType());

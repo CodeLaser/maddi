@@ -1,22 +1,22 @@
-module org.e2immu.analyzer.modification.prepwork {
-    requires org.e2immu.language.cst.analysis;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
-    requires org.e2immu.language.cst.io;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.util.internal.graph;
-    requires org.e2immu.util.internal.util;
-    requires org.e2immu.analyzer.modification.common;
+module io.codelaser.maddi.modification.prepwork {
+    requires io.codelaser.maddi.cst.analysis;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.cst.io;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.graph;
+    requires io.codelaser.maddi.util;
+    requires io.codelaser.maddi.modification.common;
 
     requires org.slf4j;
     requires org.jetbrains.annotations;
 
-    exports org.e2immu.analyzer.modification.prepwork;
-    exports org.e2immu.analyzer.modification.prepwork.callgraph;
-    exports org.e2immu.analyzer.modification.prepwork.escape;
-    exports org.e2immu.analyzer.modification.prepwork.variable;
-    exports org.e2immu.analyzer.modification.prepwork.variable.impl;
-    exports org.e2immu.analyzer.modification.prepwork.io;
+    exports io.codelaser.maddi.modification.prepwork;
+    exports io.codelaser.maddi.modification.prepwork.callgraph;
+    exports io.codelaser.maddi.modification.prepwork.escape;
+    exports io.codelaser.maddi.modification.prepwork.variable;
+    exports io.codelaser.maddi.modification.prepwork.variable.impl;
+    exports io.codelaser.maddi.modification.prepwork.io;
 
 }

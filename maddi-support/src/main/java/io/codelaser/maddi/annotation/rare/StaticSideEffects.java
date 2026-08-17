@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation.rare;
+package io.codelaser.maddi.annotation.rare;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

@@ -1,16 +1,16 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph;
+package io.codelaser.maddi.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.link.impl.Gate;
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
-import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.link.impl.Gate;
+import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
+import io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.SharedVariable;
+import io.codelaser.maddi.modification.link.impl.translate.VariableTranslationMap;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -196,11 +196,11 @@ public class SharedVariables {
                 // (per-statement view) we also stay shallow, preserving the collapse's dedup ('ttt ← tt', not
                 // the transitive 'ttt ← 0:t').
                 boolean deep = Util.primary(emitM)
-                        instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable
+                        instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable
                         // parameters are summary endpoints too: '0:in → v → this.f' must reach the
                         // field for the parameter's summary (var-transparency). Gate NOPDEEP.
                         || !Gate.isSet("NOPDEEP")
-                           && Util.primary(emitM) instanceof org.e2immu.language.cst.api.info.ParameterInfo;
+                           && Util.primary(emitM) instanceof io.codelaser.maddi.cst.api.info.ParameterInfo;
                 java.util.Set<Variable> fwdReachU = reachable(m, fwdU, deep);
                 for (Variable t : reachable(m, fwd, deep)) {
                     if (!emitM.equals(t)) {
@@ -210,7 +210,7 @@ public class SharedVariables {
                         // for-each row 'r ← g[0]' equally holds as 'm ← 0:g[0][0]' — the local face (r) dies at
                         // summary time, the parameter face survives. Sources only: a recipient sibling of the
                         // base may be reassigned later and must not be aliased.
-                        if (t instanceof org.e2immu.language.cst.api.variable.DependentVariable dvT
+                        if (t instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dvT
                             && dvT.arrayVariable() != null) {
                             for (Variable src : assignmentSources(dvT.arrayVariable())) {
                                 VariableTranslationMap aliasTm = new VariableTranslationMap(runtime);
@@ -227,7 +227,7 @@ public class SharedVariables {
                         // a derived face — td.variables[0] ← someSet, rehomed across the collapsed builder
                         // chain — bypasses both): td.variables[0] ∈ td.variables, td.variables ∋ someSet.
                         if (derivedFace
-                            && emitM instanceof org.e2immu.language.cst.api.variable.DependentVariable dv
+                            && emitM instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
                             && dv.arrayVariable() != null && !Util.virtual(t)) {
                             builder.add(new LinksImpl.LinkImpl(dv, LinkNatureImpl.IS_ELEMENT_OF, dv.arrayVariable()));
                             builder.add(new LinksImpl.LinkImpl(dv.arrayVariable(), LinkNatureImpl.CONTAINS_AS_MEMBER, t));
@@ -248,10 +248,10 @@ public class SharedVariables {
                         // aliases (switch arms yielding list1/list2/list3: no flow between co-sources).
                         if (!Gate.isSet("NORVSP")
                             && t instanceof FieldReference
-                            && Util.primary(t) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable) {
+                            && Util.primary(t) instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable) {
                             for (Variable sib : allShared(t)) {
                                 if (!sib.equals(t) && !sib.equals(m) && !emitM.equals(sib)
-                                    && !(Util.primary(sib) instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable)
+                                    && !(Util.primary(sib) instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable)
                                     && !(Util.firstRealVariable(sib) instanceof IntermediateVariable)
                                     && sib instanceof FieldReference) {
                                     builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib,
@@ -274,8 +274,8 @@ public class SharedVariables {
                                     // two index-SPELLINGS of the same slot (0:b[off++] / 0:b[1:off]) are not
                                     // sibling recipients — the pair carries no information and its direction
                                     // is arbitrary (flipped between class-run and full-suite contexts)
-                                    && !(sib instanceof org.e2immu.language.cst.api.variable.DependentVariable dvS
-                                         && m instanceof org.e2immu.language.cst.api.variable.DependentVariable dvM
+                                    && !(sib instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dvS
+                                         && m instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dvM
                                          && dvS.arrayVariable() != null
                                          && dvS.arrayVariable().equals(dvM.arrayVariable()))) {
                                     builder.add(new LinksImpl.LinkImpl(emitM, LinkNatureImpl.IS_ASSIGNED_TO, sib));
@@ -293,8 +293,8 @@ public class SharedVariables {
                     for (Variable src : fwd.getOrDefault(m, java.util.List.of())) {
                         for (Variable sib : bwd.getOrDefault(src, java.util.List.of())) {
                             if (!sib.equals(m) && !emitM.equals(sib)
-                                && !(sib instanceof org.e2immu.language.cst.api.variable.DependentVariable dvS
-                                     && m instanceof org.e2immu.language.cst.api.variable.DependentVariable dvM
+                                && !(sib instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dvS
+                                     && m instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dvM
                                      && dvS.arrayVariable() != null
                                      && dvS.arrayVariable().equals(dvM.arrayVariable()))) {
                                 builder.add(new LinksImpl.LinkImpl(emitM,
@@ -429,18 +429,18 @@ public class SharedVariables {
     private static boolean canChainThrough(Variable v, boolean deep) {
         if (Util.lvPrimaryOrNull(v) instanceof IntermediateVariable) return true;
         if (!deep) return false;
-        if (v instanceof org.e2immu.language.cst.api.variable.LocalVariable) return true;
+        if (v instanceof io.codelaser.maddi.cst.api.variable.LocalVariable) return true;
         // a FOREIGN method's return face in the group (the SAM's 'get' rv when an anonymous class
         // captures a variable: m ← get ← 0:x) is a value pass-through, like a dying local; the
         // primary's own rv is never a chain node in its own extraction (it is the emitM)
-        if (v instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable) return true;
+        if (v instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable) return true;
         // the field face of a DYING LOCAL ('b.j' of builder 'b') does not survive into the summary either:
         // bridge it (justJ.j ← b.j ← 0:jp → justJ.j ← 0:jp). Plain FieldReference only (never a
         // DependentVariable — dimensions), and only on a real local (not a synthetic LinkVariable).
-        if (v instanceof org.e2immu.language.cst.api.variable.FieldReference fr) {
+        if (v instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr) {
             Variable pr = Util.primary(fr);
-            return pr instanceof org.e2immu.language.cst.api.variable.LocalVariable
-                   && !(pr instanceof org.e2immu.analyzer.modification.link.impl.LinkVariable);
+            return pr instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                   && !(pr instanceof io.codelaser.maddi.modification.link.impl.LinkVariable);
         }
         return false;
     }
@@ -503,7 +503,7 @@ public class SharedVariables {
         // that walk runs per method call in a statement -- so recomputing it is cubic in the length of a
         // straight-line method (task #22). The memo is dropped by every mutator of SharedVariable.
         return sv.assignmentSources(variable, v -> {
-            boolean deep = v instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+            boolean deep = v instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
             java.util.Set<Variable> result =
                     new java.util.LinkedHashSet<>(reachable(v, sv.forwardAssignments(), deep));
             result.retainAll(sv.variables());

@@ -12,23 +12,23 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -54,7 +54,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.aapi")).setLevel(Level.DEBUG);
     }
 
     @Test
@@ -63,19 +63,19 @@ public class TestAnalysisHintsComposer extends CommonTest {
         SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
 
-        JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        JavaInspector javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
         javaInspector.preload("java.base::java.util");
         javaInspector.preload("org.slf4j");
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(SourceSetImpl.testProtocolSourceSet())
                 .addClassPathParts(javaBase, maddiSupport, slf4jApi)
                 .build();
-        javaInspector.preload("org.e2immu.annotation.");
+        javaInspector.preload("io.codelaser.maddi.annotation.");
 
         javaInspector.initialize(inputConfiguration);
         javaInspector.onlyPreload();
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector,
-                _ -> "org.e2immu.testannotatedapi", _ -> true);
+                _ -> "io.codelaser.maddi.testannotatedapi", _ -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Have {} primary types loaded", primaryTypes.size());
@@ -94,7 +94,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         analysisHintsComposer.write(apiTypes, TEST_DIR, new DecoratorImpl(javaInspector.runtime(),
                 javaInspector.mainSources(), dollarMap));
 
-        String ju = Files.readString(new File(TEST_DIR, "org/e2immu/testannotatedapi/JavaUtil.java").toPath());
+        String ju = Files.readString(new File(TEST_DIR, "io/codelaser/maddi/testannotatedapi/JavaUtil.java").toPath());
         assertTrue(ju.contains("//public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>"));
     }
 
@@ -108,13 +108,13 @@ public class TestAnalysisHintsComposer extends CommonTest {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "io.codelaser.maddi.testannotatedapi", w -> true);
         TypeInfo typeDescriptor = javaInspector.compiledTypesManager().type(TypeDescriptor.class);
         Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(typeDescriptor));
         assertEquals(1, res.size());
         @Language("java")
         String expected = """
-                package org.e2immu.testannotatedapi;
+                package io.codelaser.maddi.testannotatedapi;
                 import java.lang.invoke.TypeDescriptor;
                 import java.util.List;
                 public class JavaLangInvoke {
@@ -159,7 +159,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
         javaInspector.javaBase().computePriorityDependencies();
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "io.codelaser.maddi.testannotatedapi", w -> true);
 
         TypeInfo arrays = javaInspector.compiledTypesManager().type(Arrays.class);
         MethodInfo parallelSort = arrays.methodStream()
@@ -182,7 +182,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
                               && mi.parameters().getFirst().parameterizedType().isTypeParameter()).findFirst().orElseThrow();
 
         assertEquals("""
-                org.e2immu.testannotatedapi.JavaUtil.Arrays$.parallelSort(Comparable[],int,int)\
+                io.codelaser.maddi.testannotatedapi.JavaUtil.Arrays$.parallelSort(Comparable[],int,int)\
                 """, parallelSortCopy.fullyQualifiedName());
 
         TypeParameter tp0 = parallelSortCopy.typeParameters().getFirst();
@@ -213,7 +213,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         javaInspector.initialize(inputConfiguration);
         inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
 
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "io.codelaser.maddi.testannotatedapi", w -> true);
 
         TypeInfo commandLine = javaInspector.compiledTypesManager().type("picocli.CommandLine",
                 javaInspector.mainSources());
@@ -231,7 +231,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         MethodInfo callCopy = commandLineDollar.findUniqueMethod("call", 2);
 
         assertEquals("""
-                org.e2immu.testannotatedapi.Picocli.CommandLine$.call(java.util.concurrent.Callable,String[])\
+                io.codelaser.maddi.testannotatedapi.Picocli.CommandLine$.call(java.util.concurrent.Callable,String[])\
                 """, callCopy.fullyQualifiedName());
         assertEquals(2, callCopy.typeParameters().size());
         TypeParameter tp0 = callCopy.typeParameters().getFirst();
@@ -263,7 +263,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "io.codelaser.maddi.testannotatedapi", w -> true);
         TypeInfo annotationConsumer = javaInspector.compiledTypesManager()
                 .type("org.junit.jupiter.params.support.AnnotationConsumer",
                         javaInspector.mainSources());
@@ -272,7 +272,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
 
         @Language("java")
         String expected = """
-                package org.e2immu.testannotatedapi;
+                package io.codelaser.maddi.testannotatedapi;
                 import java.lang.annotation.Annotation;
                 public class OrgJunitJupiterParamsSupport {
                     public static final String PACKAGE_NAME = "org.junit.jupiter.params.support";
@@ -295,7 +295,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "io.codelaser.maddi.testannotatedapi", w -> true);
         TypeInfo typeInfo = javaInspector.compiledTypesManager().type(
                 "org.springframework.security.config.annotation.web.configurers.AbstractInterceptUrlConfigurer",
                 javaInspector.mainSources());
@@ -308,7 +308,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
          */
         @Language("java")
         String expected = """
-                package org.e2immu.testannotatedapi;
+                package io.codelaser.maddi.testannotatedapi;
                 import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
                 import org.springframework.security.config.annotation.web.configurers.AbstractInterceptUrlConfigurer;
                 public class OrgSpringframeworkSecurityConfigAnnotationWebConfigurers {

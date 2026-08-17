@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.e2immu.analyzer-plugin")
+    id("io.codelaser.maddi.analyzer")
 }
 
 java {
@@ -61,7 +61,7 @@ e2immu {
     debugTargets = "classpath"
     annotatedApiTargetDir = "/tmp/testWriteAnnotatedAPIDir"
     annotatedApiPackages = "java.util.,com.foo"
-    annotatedApiTargetPackage = "org.e2immu.testwrite"
+    annotatedApiTargetPackage = "io.codelaser.maddi.testwrite"
 }
 
 // no logic for publishing!

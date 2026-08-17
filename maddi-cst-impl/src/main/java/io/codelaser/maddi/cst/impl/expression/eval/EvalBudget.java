@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
 /**
  * A work budget over one top-level And/Or evaluation, counting every nested {@link EvalAnd}/{@link EvalOr}

@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.impl.parser;
+package io.codelaser.maddi.inspection.impl.parser;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.language.inspection.api.parser.GenericsHelper;
-import org.e2immu.language.inspection.api.parser.MethodTypeParameterMap;
-import org.e2immu.language.inspection.api.parser.TypeParameterMap;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.GenericsHelper;
+import io.codelaser.maddi.inspection.api.parser.MethodTypeParameterMap;
+import io.codelaser.maddi.inspection.api.parser.TypeParameterMap;
 
 public record ForwardTypeImpl(ParameterizedType type,
                               boolean erasure,

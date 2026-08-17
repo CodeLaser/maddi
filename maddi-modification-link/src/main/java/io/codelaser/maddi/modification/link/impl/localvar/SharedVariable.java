@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.impl.localvar;
+package io.codelaser.maddi.modification.link.impl.localvar;
 
-import org.e2immu.analyzer.modification.link.impl.LinkVariable;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.modification.link.impl.LinkVariable;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -32,7 +32,7 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
      * ⚠ Static, and therefore JVM-global. That is sound for the one test that reads them because Gradle's
      * {@code maxParallelForks} gives each fork its own JVM and JUnit runs a fork's classes sequentially — but a
      * second concurrent reader in one JVM would need {@link #resetCoreLoopCounters()} to become per-analysis
-     * state. {@link org.e2immu.analyzer.modification.link.impl.LinkComputerImpl}'s VL2O tier counters are the
+     * state. {@link io.codelaser.maddi.modification.link.impl.LinkComputerImpl}'s VL2O tier counters are the
      * same idiom.
      */
     private static final java.util.concurrent.atomic.LongAdder ASSIGNMENT_SOURCE_COMPUTATIONS =

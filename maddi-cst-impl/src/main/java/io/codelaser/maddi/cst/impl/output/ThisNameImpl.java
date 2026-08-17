@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
 
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.element.Qualifier;
-import org.e2immu.language.cst.api.output.element.ThisName;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.element.Qualifier;
+import io.codelaser.maddi.cst.api.output.element.ThisName;
+import io.codelaser.maddi.util.StringUtil;
 
 public record ThisNameImpl(boolean isSuper, Qualifier qualifier, boolean qualifierRequired) implements ThisName {
 

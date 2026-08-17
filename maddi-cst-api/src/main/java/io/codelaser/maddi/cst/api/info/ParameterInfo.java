@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -78,20 +78,20 @@ public interface ParameterInfo extends Variable, Info {
     }
 
     /**
-     * Returns {@code true} if the analyser determined this parameter is modified inside
+     * Returns {@code true} if the analyzer determined this parameter is modified inside
      * the method body.
      */
     default boolean isModified() { return !isUnmodified(); }
 
     /**
-     * Returns {@code true} if the analyser determined this parameter is never modified
+     * Returns {@code true} if the analyzer determined this parameter is never modified
      * inside the method body.
      */
     boolean isUnmodified();
 
     /**
      * Returns analysis data describing which field this parameter is assigned to
-     * (directly or via a setter), as determined by the analyser.
+     * (directly or via a setter), as determined by the analyzer.
      */
     Value.AssignedToField assignedToField();
 

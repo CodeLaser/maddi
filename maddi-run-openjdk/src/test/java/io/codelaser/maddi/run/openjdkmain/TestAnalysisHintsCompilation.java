@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -32,13 +32,13 @@ public class TestAnalysisHintsCompilation {
                 .setWorkingDirectory(".")
                 .addSourceSets(aapiSource)
                 .addClassPathParts(SourceSetImpl.javaBase(),
-                        SourceSetImpl.sourceSetOf(org.e2immu.annotation.Container.class),
+                        SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.Container.class),
                         SourceSetImpl.sourceSetOf(org.slf4j.Logger.class))
                 .build();
         AnalysisHintsConfigurationImpl aapi = (AnalysisHintsConfigurationImpl) new AnalysisHintsConfigurationImpl.Builder()
                 .setAnalysisResultsTargetDir(resultsDir.toString())  // use case 2
                 .setUpdatedHintsDir(hintsDir.toString())            // use case 3
-                .addHintsPackages("org.e2immu.analyzer.aapi.archive.libs.log")
+                .addHintsPackages("io.codelaser.maddi.aapi.archive.libs.log")
                 .build();
         Configuration configuration = new Configuration.Builder()
                 .setInputConfiguration(inputConfiguration)

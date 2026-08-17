@@ -11,7 +11,7 @@ import * as path from 'path';
 /**
  * Starts the analysis daemon and finds out which port it chose.
  *
- * maddi needs a JDK 25+, VS Code does not ship one, and the analyser must not run inside the extension host
+ * maddi needs a JDK 25+, VS Code does not ship one, and the analyzer must not run inside the extension host
  * anyway — so it runs as a separate process, exactly as it does for IntelliJ and Eclipse, and is spoken to
  * over a socket. The daemon prints `DAEMON_PORT=<n>` on stdout once it is listening; asking for port 0 and
  * reading it back avoids picking a port that turns out to be taken.

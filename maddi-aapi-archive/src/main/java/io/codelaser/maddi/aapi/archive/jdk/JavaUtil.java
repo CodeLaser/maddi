@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -22,9 +22,9 @@ import java.util.function.*;
 import java.util.random.RandomGenerator;
 import java.util.stream.*;
 
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.method.GetSet;
-import org.e2immu.annotation.type.UtilityClass;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 public class JavaUtil {
     public static final String PACKAGE_NAME = "java.util";
     //public abstract class AbstractCollection implements Collection<E>

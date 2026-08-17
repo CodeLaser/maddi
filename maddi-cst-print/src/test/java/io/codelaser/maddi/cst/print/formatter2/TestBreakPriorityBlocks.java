@@ -3,14 +3,14 @@
  * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 

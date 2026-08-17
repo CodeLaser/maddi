@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.language.cst.api.analysis.Message;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

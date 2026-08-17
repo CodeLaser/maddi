@@ -12,32 +12,32 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.callgraph.EarlyCutoffWorklist;
-import org.e2immu.analyzer.modification.prepwork.callgraph.PrimaryTypeUseGraph;
-import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.callgraph.EarlyCutoffWorklist;
+import io.codelaser.maddi.modification.prepwork.callgraph.PrimaryTypeUseGraph;
+import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -60,7 +60,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -234,7 +234,7 @@ public class TestEarlyCutoffWorklistDriver {
         G<TypeInfo> useGraph = new PrimaryTypeUseGraph(ccg0.graph()).graph();
         Map<TypeInfo, Set<TypeInfo>> deps = new HashMap<>();
         useGraph.vertices().forEach(v -> {
-            Map<org.e2immu.util.internal.graph.V<TypeInfo>, Long> out = useGraph.edges(v); // null for a sink
+            Map<io.codelaser.maddi.graph.V<TypeInfo>, Long> out = useGraph.edges(v); // null for a sink
             Set<TypeInfo> users = out == null ? Set.of() : out.keySet().stream()
                     .map(u -> pr1.findType(u.t().fullyQualifiedName())).collect(Collectors.toSet());
             deps.put(pr1.findType(v.t().fullyQualifiedName()), users);

@@ -1,4 +1,4 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.tools.javac.code.Symbol;
 import org.slf4j.Logger;

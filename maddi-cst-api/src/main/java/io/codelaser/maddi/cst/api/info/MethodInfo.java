@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.util.ParSeq;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.util.ParSeq;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -249,7 +249,7 @@ public interface MethodInfo extends Info {
     Set<MethodInfo> overrides();
 
     /**
-     * Returns {@code true} if the analyser has determined that this method may cause any of the non-final fields
+     * Returns {@code true} if the analyzer has determined that this method may cause any of the non-final fields
      * in the current execution to be re-assigned. This is definitely the case when a real interrupt in the
      * thread occurs, but there may be other situations.
      * Trivial methods like Math.max() will not cause an interrupt, but more complex ones like "System.out.println()"
@@ -284,13 +284,13 @@ public interface MethodInfo extends Info {
     /** Returns {@code true} if this represents an instance initialiser block. */
     boolean isInstanceInitializer();
 
-    /** Returns {@code true} if the analyser determined this method modifies its receiver. */
+    /** Returns {@code true} if the analyzer determined this method modifies its receiver. */
     default boolean isModifying() {
         return !isNonModifying();
     }
 
     /**
-     * Returns {@code true} if the analyser determined this method does not modify its receiver
+     * Returns {@code true} if the analyzer determined this method does not modify its receiver
      * or any reachable state.
      */
     boolean isNonModifying();
@@ -309,7 +309,7 @@ public interface MethodInfo extends Info {
 
     /**
      * Returns {@code true} if modifications made inside this method should be ignored
-     * by the analyser (e.g. logging or assertion helpers).
+     * by the analyzer (e.g. logging or assertion helpers).
      */
     boolean isIgnoreModification();
 
@@ -368,7 +368,7 @@ public interface MethodInfo extends Info {
 
     /**
      * Returns the set of statement indices for {@code throw} or {@code assert} statements
-     * that were not absorbed into a pre- or post-condition by the analyser.
+     * that were not absorbed into a pre- or post-condition by the analyzer.
      */
     Value.IndicesOfEscapes indicesOfEscapesNotInPreOrPostConditions();
 
@@ -376,13 +376,13 @@ public interface MethodInfo extends Info {
     Builder builder();
 
     /**
-     * Returns {@code true} if the analyser determined this method always returns a non-null value,
+     * Returns {@code true} if the analyzer determined this method always returns a non-null value,
      * as a property (derived from annotations or analysis).
      */
     boolean isPropertyNotNull();
 
     /**
-     * Returns {@code true} if the analyser determined this method may return {@code null},
+     * Returns {@code true} if the analyzer determined this method may return {@code null},
      * as a property (derived from annotations or analysis).
      */
     boolean isPropertyNullable();

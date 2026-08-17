@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.main;
+package io.codelaser.maddi.run.main;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.language.inspection.integration.ToolChain;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.integration.ToolChain;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ public class TestRunShallowAnalyzer {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
     }
 
     @Disabled
@@ -59,7 +59,7 @@ public class TestRunShallowAnalyzer {
                 "--classpath=" + String.join(":", InputConfigurationImpl.DEFAULT_MODULES),
                 "--classpath=" + String.join(":", ToolChain.CLASSPATH_SLF4J_LOGBACK),
                 "--source=" + aapiSources.getPath(),
-                "--source-packages=org.e2immu.analyzer.shallow.aapi.log",
+                "--source-packages=io.codelaser.maddi.shallow.aapi.log",
                 "--analyzed-annotated-api-dirs=src/test/resources/json",
                 "--analyzed-annotated-api-target-dir=" + file.getAbsolutePath()
         });

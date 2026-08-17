@@ -12,27 +12,27 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.other;
+package io.codelaser.maddi.inspection.integration.java.other;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Resolver;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.impl.parser.ContextImpl;
-import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SummaryImpl;
-import org.e2immu.parser.java.ParseHelperImpl;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Resolver;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SummaryImpl;
+import io.codelaser.maddi.parser.java.ParseHelperImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -52,14 +52,14 @@ public class TestModuleInfo {
 
     @Language("java")
     private static final String MODULE_INFO = """
-            open module org.e2immu.language.inspection.integration {
-                requires org.e2immu.util.external.support;
-                requires transitive org.e2immu.util.internal.util;
-                requires static org.e2immu.language.cst.analysis;
+            open module io.codelaser.maddi.inspection.integration {
+                requires io.codelaser.maddi.support;
+                requires transitive io.codelaser.maddi.util;
+                requires static io.codelaser.maddi.cst.analysis;
                 requires transitive static org.slf4j;
                 requires java.xml;
             
-                exports org.e2immu.language.inspection.integration;
+                exports io.codelaser.maddi.inspection.integration;
                 exports a.b to c.d;
             
                 /*we must open*/
@@ -105,7 +105,7 @@ public class TestModuleInfo {
 
         List<ModuleInfo.Exports> exports = moduleInfo.exports();
         assertEquals(2, exports.size());
-        assertEquals("org.e2immu.language.inspection.integration", exports.getFirst().packageName());
+        assertEquals("io.codelaser.maddi.inspection.integration", exports.getFirst().packageName());
         assertNull(exports.getFirst().toPackageNameOrNull());
         assertEquals("c.d", exports.getLast().toPackageNameOrNull());
 
@@ -155,11 +155,11 @@ public class TestModuleInfo {
         ModuleInfo moduleInfo = parseResult.moduleInfo(sourceSet);
         assertFalse(moduleInfo.open());
         assertEquals("[multiLineComment@1-1:3-3]", moduleInfo.comments().toString());
-        assertEquals("org.e2immu.language.inspection.integration", moduleInfo.name());
+        assertEquals("io.codelaser.maddi.inspection.integration", moduleInfo.name());
         ModuleInfo.Requires req0 = moduleInfo.requires().getFirst();
         assertEquals("5-14:5-45", req0.source().detailedSources().detail(req0.name()).compact2());
         assertEquals("""
-                        RequiresImpl[source=@5:5-5:46, comments=[], name=org.e2immu.util.external.support, \
+                        RequiresImpl[source=@5:5-5:46, comments=[], name=io.codelaser.maddi.support, \
                         isStatic=false, isTransitive=false]\
                         """,
                 req0.toString());

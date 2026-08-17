@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example;
+package io.codelaser.maddi.inspection.integration.java.example;
 
 public class Primary1 {
 

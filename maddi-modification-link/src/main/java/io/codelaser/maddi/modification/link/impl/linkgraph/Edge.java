@@ -1,8 +1,8 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph;
+package io.codelaser.maddi.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
 record Edge(Variable from, LinkNature linkNature, Variable to) {

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.util;
+package io.codelaser.maddi.cst.impl.expression.util;
 
-import org.e2immu.language.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.expression.Precedence;
 
 // from https://introcs.cs.princeton.edu/java/11precedence/
 

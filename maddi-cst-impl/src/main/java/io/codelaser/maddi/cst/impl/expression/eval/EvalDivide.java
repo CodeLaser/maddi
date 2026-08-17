@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
-import org.e2immu.language.cst.api.expression.Divide;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.expression.Numeric;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.expression.DivideImpl;
-import org.e2immu.language.cst.impl.expression.IntConstantImpl;
+import io.codelaser.maddi.cst.api.expression.Divide;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.expression.Numeric;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.DivideImpl;
+import io.codelaser.maddi.cst.impl.expression.IntConstantImpl;
 
 public class EvalDivide {
     private final Runtime runtime;

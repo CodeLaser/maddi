@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.annotation.Independent;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 /**
  * An expression in the common syntax tree.
@@ -28,7 +28,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
  * <p>Every expression is an {@link Element} (carrying a {@link Source source}, comments and annotations)
  * and additionally has a static {@link #parameterizedType() type}. Expressions are {@link Comparable},
  * which the analyzer uses to keep symbolic values in a canonical form. See the
- * {@code org.e2immu.language.cst.api.expression} package documentation for the shared families
+ * {@code io.codelaser.maddi.cst.api.expression} package documentation for the shared families
  * (constants, operators, wrappers) and conventions.
  */
 public interface Expression extends Comparable<Expression>, Element {
@@ -116,7 +116,7 @@ public interface Expression extends Comparable<Expression>, Element {
 
     /**
      * Source-to-source rewrite under the given map; returns a single expression (contrast with
-     * {@link org.e2immu.language.cst.api.statement.Statement#translate}, which may expand to several).
+     * {@link io.codelaser.maddi.cst.api.statement.Statement#translate}, which may expand to several).
      * The map is a read-only lookup: it receives the receiver as a KEY (hidden content), never as
      * mutable state to link -- the {@code @Independent(hc = true)} contract on the parameter.
      */

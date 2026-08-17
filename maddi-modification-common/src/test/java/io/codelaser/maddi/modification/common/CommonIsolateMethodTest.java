@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.modification.common;
+package io.codelaser.maddi.modification.common;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.common.util.IsolateMethod;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.common.util.IsolateMethod;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
+import static io.codelaser.maddi.modification.common.CommonTest.javaInspectorFactory;
 
 public abstract class CommonIsolateMethodTest {
     protected JavaInspector javaInspector;

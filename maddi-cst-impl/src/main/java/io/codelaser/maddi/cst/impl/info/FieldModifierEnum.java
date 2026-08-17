@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
 
-import org.e2immu.language.cst.api.info.FieldModifier;
-import org.e2immu.language.cst.api.output.element.Keyword;
-import org.e2immu.language.cst.impl.output.KeywordImpl;
+import io.codelaser.maddi.cst.api.info.FieldModifier;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 
 public enum FieldModifierEnum implements FieldModifier {
     PUBLIC(KeywordImpl.PUBLIC),

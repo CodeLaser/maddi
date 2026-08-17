@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
 import java.util.Set;
@@ -57,13 +57,13 @@ public interface FieldInfo extends Info {
     }
 
     /**
-     * Returns {@code true} if the analyser determined this field is modified after
+     * Returns {@code true} if the analyzer determined this field is modified after
      * construction.
      */
     default boolean isModified() { return !isUnmodified(); }
 
     /**
-     * Returns {@code true} if the analyser determined this field's content is never modified
+     * Returns {@code true} if the analyzer determined this field's content is never modified
      * after construction.
      */
     boolean isUnmodified();
@@ -99,20 +99,20 @@ public interface FieldInfo extends Info {
     boolean isVolatile();
 
     /**
-     * Returns {@code true} if the analyser determined this field holds a non-null value,
+     * Returns {@code true} if the analyzer determined this field holds a non-null value,
      * either because its declared type is a primitive or because analysis confirmed it.
      */
     boolean isPropertyNotNull();
 
     /**
-     * Returns {@code true} if the analyser determined this field is effectively final
+     * Returns {@code true} if the analyzer determined this field is effectively final
      * by assignment (even if not declared {@code final}).
      * Distinct from {@link #isFinal()}, which reflects the source modifier.
      */
     boolean isPropertyFinal();
 
     /**
-     * Returns {@code true} if modifications to this field should be ignored by the analyser
+     * Returns {@code true} if modifications to this field should be ignored by the analyzer
      * (e.g. fields used only for logging or bookkeeping).
      */
     boolean isIgnoreModifications();

@@ -36,7 +36,7 @@
       <requiresOnline>false</requiresOnline>
       <inheritedByDefault>true</inheritedByDefault>
       <phase>compile</phase>
-      <implementation>org.e2immu.analyzer.run.mvnplugin.RunAnalyzerMojo</implementation>
+      <implementation>io.codelaser.maddi.run.mvnplugin.RunAnalyzerMojo</implementation>
       <language>java</language>
       <instantiationStrategy>per-lookup</instantiationStrategy>
       <executionStrategy>once-per-session</executionStrategy>
@@ -106,7 +106,7 @@
       <requiresOnline>false</requiresOnline>
       <inheritedByDefault>true</inheritedByDefault>
       <phase>compile</phase>
-      <implementation>org.e2immu.analyzer.run.mvnplugin.WriteInputConfigurationMojo</implementation>
+      <implementation>io.codelaser.maddi.run.mvnplugin.WriteInputConfigurationMojo</implementation>
       <language>java</language>
       <instantiationStrategy>per-lookup</instantiationStrategy>
       <executionStrategy>once-per-session</executionStrategy>
@@ -178,7 +178,7 @@
       <requiresOnline>false</requiresOnline>
       <inheritedByDefault>true</inheritedByDefault>
       <phase>compile</phase>
-      <implementation>org.e2immu.analyzer.run.mvnplugin.StatisticsMojo</implementation>
+      <implementation>io.codelaser.maddi.run.mvnplugin.StatisticsMojo</implementation>
       <language>java</language>
       <instantiationStrategy>per-lookup</instantiationStrategy>
       <executionStrategy>once-per-session</executionStrategy>
@@ -260,7 +260,7 @@
       <requiresOnline>false</requiresOnline>
       <inheritedByDefault>true</inheritedByDefault>
       <phase>compile</phase>
-      <implementation>org.e2immu.analyzer.run.mvnplugin.WriteAnalysisHintsMojo</implementation>
+      <implementation>io.codelaser.maddi.run.mvnplugin.WriteAnalysisHintsMojo</implementation>
       <language>java</language>
       <instantiationStrategy>per-lookup</instantiationStrategy>
       <executionStrategy>once-per-session</executionStrategy>
@@ -334,7 +334,7 @@
       <requiresOnline>false</requiresOnline>
       <inheritedByDefault>true</inheritedByDefault>
       <phase>compile</phase>
-      <implementation>org.e2immu.analyzer.run.mvnplugin.CompileAnalysisHintsMojo</implementation>
+      <implementation>io.codelaser.maddi.run.mvnplugin.CompileAnalysisHintsMojo</implementation>
       <language>java</language>
       <instantiationStrategy>per-lookup</instantiationStrategy>
       <executionStrategy>once-per-session</executionStrategy>

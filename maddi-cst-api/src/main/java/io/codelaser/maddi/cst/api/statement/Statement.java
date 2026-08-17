@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.statement;
+package io.codelaser.maddi.cst.api.statement;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -30,9 +30,9 @@ import java.util.stream.Stream;
 /**
  * A statement in the common syntax tree (CST).
  *
- * <p>Every statement is an {@link Element} (so it has a {@link org.e2immu.language.cst.api.element.Source
+ * <p>Every statement is an {@link Element} (so it has a {@link io.codelaser.maddi.cst.api.element.Source
  * source}, comments and annotations) and exposes its nested blocks through a uniform block model. See the
- * {@code org.e2immu.language.cst.api.statement} package documentation for the conventions shared by all
+ * {@code io.codelaser.maddi.cst.api.statement} package documentation for the conventions shared by all
  * statements (the {@code NAME}/{@link #name()} tag, the block model, builders, {@code withX(...)} copies,
  * and the {@link #rewire}/{@link #translate} lifecycles).
  *

@@ -1,7 +1,7 @@
-package org.e2immu.language.cst.impl.info.util;
+package io.codelaser.maddi.cst.impl.info.util;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.impl.info.TypeInspection;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.impl.info.TypeInspection;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;

@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.Map;
 import java.util.stream.Stream;

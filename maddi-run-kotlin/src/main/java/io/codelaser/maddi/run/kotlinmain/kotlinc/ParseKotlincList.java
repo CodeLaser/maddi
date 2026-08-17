@@ -1,9 +1,9 @@
-package org.e2immu.analyzer.run.kotlinmain.kotlinc;
+package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import org.e2immu.analyzer.run.config.compile.CompileListToInputConfiguration;
-import org.e2immu.analyzer.run.config.compile.CompileInvocation;
-import org.e2immu.analyzer.run.config.compile.CompileListToSourceSets;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileListToInputConfiguration;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

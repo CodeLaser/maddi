@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin;
+package io.codelaser.maddi.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.gradleplugin.task.AnalyzerTask;
-import org.e2immu.gradleplugin.task.WriteInputConfigurationTask;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.gradleplugin.task.AnalyzerTask;
+import io.codelaser.maddi.gradleplugin.task.WriteInputConfigurationTask;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;

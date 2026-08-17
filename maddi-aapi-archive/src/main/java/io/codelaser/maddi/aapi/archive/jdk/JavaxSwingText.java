@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.awt.*;
 import java.awt.event.InputMethodListener;
 import java.awt.event.MouseEvent;
@@ -34,7 +34,7 @@ import javax.swing.event.CaretListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.plaf.TextUI;
 import javax.swing.text.*;
-import org.e2immu.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotModified;
 
 public class JavaxSwingText {
     public static final String PACKAGE_NAME = "javax.swing.text";

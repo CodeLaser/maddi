@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,14 +35,14 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RLEVEL = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class RLevel {
                 public static final String LEVEL = "?";
             }
             """;
     @Language("java")
     private static final String RMULTILEVEL = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class RMultiLevel {
                 public enum Effective {
                     E1, E2;
@@ -59,8 +59,8 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT0 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
-            import static org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective.E1;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
+            import static io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective.E1;
             public class Import_0 {
                 public void method() {
                     System.out.println(RLevel.LEVEL+": "+E1);
@@ -71,20 +71,20 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String OUTPUT1 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
-            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective;
             public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + Effective.E1); } }
             """;
 
     @Language("java")
     private static final String OUTPUT1bis = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
-            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel;
             public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
             """;
-    public static final String RLEVEL_FQN = "org.e2immu.language.inspection.integration.java.importhelper.RLevel";
-    public static final String RMULTILEVEL_FQN = "org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel";
+    public static final String RLEVEL_FQN = "io.codelaser.maddi.inspection.integration.java.importhelper.RLevel";
+    public static final String RMULTILEVEL_FQN = "io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel";
 
     @Test
     public void test0() {
@@ -99,12 +99,12 @@ public class TestImport extends CommonTest {
                 java.lang.System[I]
                 java.lang.System[E]
                 java.io.PrintStream[I]
-                org.e2immu.language.inspection.integration.java.importhelper.RLevel[I]
-                org.e2immu.language.inspection.integration.java.importhelper.RLevel[E]
+                io.codelaser.maddi.inspection.integration.java.importhelper.RLevel[I]
+                io.codelaser.maddi.inspection.integration.java.importhelper.RLevel[E]
                 java.lang.String[I]
-                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[I]
-                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[E]
-                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[I]\
+                io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective[I]
+                io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective[E]
+                io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective[I]\
                 """, s0.typesReferenced(_ -> true).map(Object::toString)
                 .collect(Collectors.joining("\n")));
     }
@@ -112,8 +112,8 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
-            import static org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective.E1;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
+            import static io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective.E1;
             public class Import_1 {
                 public void method() {
                     System.out.println(RLevel.LEVEL+": "+E1);
@@ -131,9 +131,9 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
             
-            import static org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective;
+            import static io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective;
             public class Import_2 {
                 public void method() {
                     System.out.println(RLevel.LEVEL+": "+Effective.E1);
@@ -151,7 +151,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RTYPEI = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RTypeInspection {
                 enum Methods {
                     A, B, C
@@ -161,7 +161,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RTYPEIIMPL = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class RTypeInspectionImpl implements RTypeInspection {
             }
             """;
@@ -169,7 +169,7 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RTypeInspectionImpl;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RTypeInspectionImpl;
             public class Import_3 {
                 // this is bad coding, we should refer to Methods directly via the interface, as in Import_4
                 public void method() {
@@ -180,15 +180,15 @@ public class TestImport extends CommonTest {
     @Test
     public void test3() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.RTypeInspection", RTYPEI,
-                "org.e2immu.language.inspection.integration.java.importhelper.RTypeInspectionImpl", RTYPEIIMPL,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RTypeInspection", RTYPEI,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RTypeInspectionImpl", RTYPEIIMPL,
                 "org.e2immu.analyser.resolver.testexample.Import_3", INPUT3);
     }
 
     @Language("java")
     private static final String INPUT4 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RTypeInspection;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RTypeInspection;
             public class Import_4 {
                 public void method() {
                     System.out.println(RTypeInspection.Methods.B);
@@ -199,21 +199,21 @@ public class TestImport extends CommonTest {
     @Test
     public void test4() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.RTypeInspection", RTYPEI,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RTypeInspection", RTYPEI,
                 "org.e2immu.analyser.resolver.testexample.Import_4", INPUT4);
     }
 
 
     @Language("java")
     private static final String REE = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RErasureExpression extends RExpression {
             }
             """;
 
     @Language("java")
     private static final String REX = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RExpression extends RElement, Comparable<RExpression> {
                 enum MethodStatic {
                     A, B, C
@@ -223,7 +223,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RE = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RElement {
                 enum DescendMode {
                     NO,
@@ -237,7 +237,7 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT5 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.*;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.*;
             
             import java.util.Map;
             // very similar to Import_3,4; do not change the * in the imports!!
@@ -300,14 +300,14 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RA = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RAnalysis {
             }
             """;
 
     @Language("java")
     private static final String RSA = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public interface RStatementAnalysis extends RAnalysis, Comparable<RStatementAnalysis> {
                 FindLoopResult create(int line);
                 record FindLoopResult(RStatementAnalysis statementAnalysis, int line) {
@@ -317,7 +317,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String RSAI = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class RStatementAnalysisImpl implements RStatementAnalysis {
                 @Override
                 public FindLoopResult create(int line) {
@@ -333,7 +333,7 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT8 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.RStatementAnalysisImpl;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RStatementAnalysisImpl;
             public class Import_8 {
                 public void method() {
                     RStatementAnalysisImpl sa = new RStatementAnalysisImpl();
@@ -346,9 +346,9 @@ public class TestImport extends CommonTest {
     public void test8() {
         String I8 = "org.e2immu.analyser.resolver.testexample.Import_8";
         TypeInfo typeInfo = scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.RAnalysis", RA,
-                "org.e2immu.language.inspection.integration.java.importhelper.RStatementAnalysis", RSA,
-                "org.e2immu.language.inspection.integration.java.importhelper.RStatementAnalysisImpl", RSAI,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RAnalysis", RA,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RStatementAnalysis", RSA,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.RStatementAnalysisImpl", RSAI,
                 I8, INPUT8).get(I8);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         if (methodInfo.methodBody().statements().get(1) instanceof LocalVariableCreation lvc) {
@@ -386,9 +386,9 @@ public class TestImport extends CommonTest {
     private static final String INPUT10 = """
             package org.e2immu.analyser.resolver.testexample;
             // IMPORTANT: keep this import static...* statement!
-            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel;
             import java.util.Set;
-            import static org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective.*;
+            import static io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective.*;
             public class Import_10 {
                 record ChangeData(Set<Integer> statementTimes) {
                 }
@@ -418,7 +418,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String II = """
-            package org.e2immu.language.inspection.integration.java.importhelper.a;
+            package io.codelaser.maddi.inspection.integration.java.importhelper.a;
             import java.util.Iterator;
             public class ImplementsIterable<T> implements Iterable<T> {
                 public static final int INT = 3;
@@ -435,7 +435,7 @@ public class TestImport extends CommonTest {
             import java.util.Map;
             import java.util.TreeMap;
             import java.util.function.BiConsumer;
-            import static org.e2immu.language.inspection.integration.java.importhelper.a.ImplementsIterable.INT;
+            import static io.codelaser.maddi.inspection.integration.java.importhelper.a.ImplementsIterable.INT;
             public class Import_11 {
                 interface Variable {
                 }
@@ -465,14 +465,14 @@ public class TestImport extends CommonTest {
     @Test
     public void test11() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.a.ImplementsIterable", II,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.a.ImplementsIterable", II,
                 "org.e2immu.analyser.resolver.testexample.Import_11", INPUT11);
     }
 
 
     @Language("java")
     private static final String AF = """
-            package org.e2immu.language.inspection.integration.java.importhelper.access;
+            package io.codelaser.maddi.inspection.integration.java.importhelper.access;
             public interface Filter {
                 Result filter(String s);
                 enum Result {
@@ -483,7 +483,7 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String AAF = """
-            package org.e2immu.language.inspection.integration.java.importhelper.access;
+            package io.codelaser.maddi.inspection.integration.java.importhelper.access;
             public abstract class AbstractFilter implements Filter {
             }
             """;
@@ -492,8 +492,8 @@ public class TestImport extends CommonTest {
     private static final String INPUT12 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.access.AbstractFilter;
-            import org.e2immu.language.inspection.integration.java.importhelper.access.Filter;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.access.AbstractFilter;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.access.Filter;
             
             public class Import_12 {
             
@@ -510,15 +510,15 @@ public class TestImport extends CommonTest {
     @Test
     public void test12() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.access.AbstractFilter", AAF,
-                "org.e2immu.language.inspection.integration.java.importhelper.access.Filter", AF,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.access.AbstractFilter", AAF,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.access.Filter", AF,
                 "org.e2immu.analyser.resolver.testexample.Import_12", INPUT12);
     }
 
 
     @Language("java")
     private static final String AEH = """
-            package org.e2immu.language.inspection.integration.java.importhelper.a;
+            package io.codelaser.maddi.inspection.integration.java.importhelper.a;
             public class ErrorHandler {
                 public static int handle(String s) {
                     return s.length();
@@ -527,7 +527,7 @@ public class TestImport extends CommonTest {
             """;
     @Language("java")
     private static final String BEH = """
-            package org.e2immu.language.inspection.integration.java.importhelper.b;
+            package io.codelaser.maddi.inspection.integration.java.importhelper.b;
             public interface ErrorHandler {
                 void error(String s);
             }
@@ -535,8 +535,8 @@ public class TestImport extends CommonTest {
 
     @Language("java")
     private static final String IEH = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
-            import org.e2immu.language.inspection.integration.java.importhelper.b.ErrorHandler;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.b.ErrorHandler;
             public class ImplementsErrorHandler implements ErrorHandler {
                 @Override
                 public void error(String s) {
@@ -550,8 +550,8 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT13 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.ImplementsErrorHandler;
-            import org.e2immu.language.inspection.integration.java.importhelper.a.ErrorHandler;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.ImplementsErrorHandler;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.a.ErrorHandler;
             public class Import_13 {
                 ImplementsErrorHandler errorHandler = new ImplementsErrorHandler();
                 public int method(String s) {
@@ -563,15 +563,15 @@ public class TestImport extends CommonTest {
     @Test
     public void test13() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.a.ErrorHandler", AEH,
-                "org.e2immu.language.inspection.integration.java.importhelper.b.ErrorHandler", BEH,
-                "org.e2immu.language.inspection.integration.java.importhelper.ImplementsErrorHandler", IEH,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.a.ErrorHandler", AEH,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.b.ErrorHandler", BEH,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.ImplementsErrorHandler", IEH,
                 "org.e2immu.analyser.resolver.testexample.Import_13", INPUT13);
     }
 
     @Language("java")
     private static final String PROPERTIES = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             public class Properties {
                 public static final String P = "p";
                 public static String p() {
@@ -588,7 +588,7 @@ public class TestImport extends CommonTest {
     @Language("java")
     private static final String INPUT14 = """
             package org.e2immu.analyser.resolver.testexample;
-            import org.e2immu.language.inspection.integration.java.importhelper.Properties;
+            import io.codelaser.maddi.inspection.integration.java.importhelper.Properties;
             // IMPORTANT: keep the "import java.util.*" here, do not "Organize imports" it away.
             import java.util.*;
             public class Import_14 {
@@ -602,7 +602,7 @@ public class TestImport extends CommonTest {
     @Test
     public void test14() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.Properties", PROPERTIES,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.Properties", PROPERTIES,
                 "org.e2immu.analyser.resolver.testexample.Import_14", INPUT14);
     }
 
@@ -612,10 +612,10 @@ public class TestImport extends CommonTest {
             // NO IMPORTS HERE!!
             public class Import_15 {
                 public String method1() {
-                    return org.e2immu.language.inspection.integration.java.importhelper.Properties.P;
+                    return io.codelaser.maddi.inspection.integration.java.importhelper.Properties.P;
                 }
                 public String method2() {
-                    return  org.e2immu.language.inspection.integration.java.importhelper.Properties.p();
+                    return  io.codelaser.maddi.inspection.integration.java.importhelper.Properties.p();
                 }
             }
             """;
@@ -623,7 +623,7 @@ public class TestImport extends CommonTest {
     @Test
     public void test15() {
         scan(false,
-                "org.e2immu.language.inspection.integration.java.importhelper.Properties", PROPERTIES,
+                "io.codelaser.maddi.inspection.integration.java.importhelper.Properties", PROPERTIES,
                 "org.e2immu.analyser.resolver.testexample.Import_15", INPUT15);
     }
 

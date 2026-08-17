@@ -95,7 +95,7 @@ tasks.named("assemble") { dependsOn(tasks.shadowJar) }
 // `website`, `vcsUrl` and per-plugin `tags` are validated by com.gradle.plugin-publish: the build
 // fails without them. The Portal additionally requires the plugin id and the Maven group to share a
 // top-level namespace, which `io.codelaser` + `io.codelaser.maddi.analyzer` satisfies and the old
-// `io.codelaser` + `org.e2immu.analyzer-plugin` pairing did not. The id below is still the old one;
+// `io.codelaser` + `io.codelaser.maddi.analyzer` pairing did not. The id below is still the old one;
 // tools/rename/name-map.tsv section 3 rewrites it at the cutover, so it is not edited by hand here.
 gradlePlugin {
     website = "https://github.com/CodeLaser/maddi"
@@ -104,8 +104,8 @@ gradlePlugin {
 
     plugins {
         create("maddiAnalyzerPlugin") {
-            id = "org.e2immu.analyzer-plugin"
-            implementationClass = "org.e2immu.gradleplugin.AnalyzerPlugin"
+            id = "io.codelaser.maddi.analyzer"
+            implementationClass = "io.codelaser.maddi.gradleplugin.AnalyzerPlugin"
             displayName = "maddi analyzer"
             // Was set on the enclosing scope, i.e. on the *project*, so the plugin declaration itself
             // carried no description at all — which plugin-publish requires.

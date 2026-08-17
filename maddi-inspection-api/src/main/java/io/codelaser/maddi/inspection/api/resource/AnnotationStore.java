@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.resource;
+package io.codelaser.maddi.inspection.api.resource;
 
 import java.util.List;
 import java.util.Map;

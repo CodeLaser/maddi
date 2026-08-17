@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.modification;
+package io.codelaser.maddi.modification.analyzer.modification;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModificationFunctional extends CommonTest {
@@ -227,7 +227,7 @@ public class TestModificationFunctional extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.Set;
             import java.util.function.Function;
             class X {
@@ -382,10 +382,10 @@ public class TestModificationFunctional extends CommonTest {
     private static final String INPUT5 = """
             package a.b;
             
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.HashSet;import java.util.Set;
             
             public class X {
@@ -503,10 +503,10 @@ public class TestModificationFunctional extends CommonTest {
     private static final String INPUT6 = """
             package a.b;
             
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.method.GetSet;
             
             import java.util.HashSet;
             import java.util.Set;
@@ -661,10 +661,10 @@ public class TestModificationFunctional extends CommonTest {
     private static final String INPUT7 = """
             package a.b;
             
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.method.GetSet;
             
             import java.util.HashSet;
             import java.util.Set;
@@ -794,10 +794,10 @@ public class TestModificationFunctional extends CommonTest {
     private static final String INPUT8 = """
             package a.b;
             
-            import org.e2immu.annotation.Independent;
-            import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.Independent;
+            import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.method.GetSet;
             
             import java.util.HashSet;
             import java.util.Set;

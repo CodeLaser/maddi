@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin.inputconfig;
+package io.codelaser.maddi.gradleplugin.inputconfig;
 
-import org.e2immu.gradleplugin.AnalyzerExtension;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.gradleplugin.AnalyzerExtension;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ArtifactView;
 import org.gradle.api.artifacts.Configuration;

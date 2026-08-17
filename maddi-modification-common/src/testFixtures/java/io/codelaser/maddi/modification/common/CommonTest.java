@@ -1,12 +1,12 @@
-package org.e2immu.analyzer.modification.common;
+package io.codelaser.maddi.modification.common;
 
-import org.e2immu.annotation.Immutable;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
@@ -74,7 +74,7 @@ public class CommonTest {
         SourceSet opentest4j = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
         SourceSet annotations = SourceSetImpl.sourceSetOf(NotNull.class);
 
-        JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        JavaInspector javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
         javaInspector.preload("java.base::java.util.");
         javaInspector.preload("java.base::java.net");
         javaInspector.preload("java.base::java.io");
@@ -95,7 +95,7 @@ public class CommonTest {
         }
         javaInspector.preload("org.slf4j");
         javaInspector.preload("org.junit.jupiter.api.");
-        javaInspector.preload("org.e2immu.annotation.");
+        javaInspector.preload("io.codelaser.maddi.annotation.");
 
         List<SourceSet> classPathParts = new ArrayList<>(List.of(javaBase,
                 maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j, annotations));

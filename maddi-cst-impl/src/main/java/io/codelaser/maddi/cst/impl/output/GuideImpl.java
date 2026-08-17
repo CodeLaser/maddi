@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.element.Guide;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.element.Guide;
 
 import java.util.concurrent.atomic.AtomicInteger;
 

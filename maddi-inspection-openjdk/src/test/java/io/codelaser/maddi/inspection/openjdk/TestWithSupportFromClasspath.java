@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,7 +59,7 @@ public class TestWithSupportFromClasspath {
     @Language("java")
     private static final String SOURCE = """
             package a;
-            import org.e2immu.annotation.ImmutableContainer;
+            import io.codelaser.maddi.annotation.ImmutableContainer;
             @ImmutableContainer
             public record C(int k) {
                 int kSquared() { return k * k; }
@@ -93,12 +93,12 @@ public class TestWithSupportFromClasspath {
         assertEquals("@ImmutableContainer", c.annotations().getFirst().toString(),
                 "the annotation resolved through the support set, so it is a type and not a stub");
         assertTrue(javaInspector.runtime()
-                        .getFullyQualified("org.e2immu.annotation.ImmutableContainer", true)
+                        .getFullyQualified("io.codelaser.maddi.annotation.ImmutableContainer", true)
                         .typeNature().isAnnotation(),
                 "and it really is the annotation type");
     }
 
-    @DisplayName("withE2ImmuSupportFromClasspath: the shorthand resolves org.e2immu.annotation")
+    @DisplayName("withE2ImmuSupportFromClasspath: the shorthand resolves io.codelaser.maddi.annotation")
     @Test
     public void testE2ImmuShorthand() throws IOException {
         assertAnnotationResolves(base().withE2ImmuSupportFromClasspath());
@@ -108,7 +108,7 @@ public class TestWithSupportFromClasspath {
     @Test
     public void testExplicitMap() throws IOException {
         assertAnnotationResolves(base()
-                .withSupportFromClasspath(Map.of("theAnnotations", "org/e2immu/annotation")));
+                .withSupportFromClasspath(Map.of("theAnnotations", "io/codelaser/maddi/annotation")));
     }
 
     /**
@@ -120,13 +120,13 @@ public class TestWithSupportFromClasspath {
     @Test
     public void testTheKeyIsTheName() throws IOException {
         InputConfiguration ic = base()
-                .withSupportFromClasspath(Map.of("theAnnotations", "org/e2immu/annotation"));
+                .withSupportFromClasspath(Map.of("theAnnotations", "io/codelaser/maddi/annotation"));
         SourceSet support = ic.classPathParts().stream()
                 .filter(s -> "theAnnotations".equals(s.name()))
                 .findFirst().orElseThrow(() -> new AssertionError("the set is named after the map key: "
                                                                   + ic.classPathParts()));
-        assertEquals(URI.create("jar-on-classpath:org/e2immu/annotation"), support.uri());
-        assertEquals("org/e2immu/annotation", InputConfiguration.jarOnClasspathSelector(support));
+        assertEquals(URI.create("jar-on-classpath:io/codelaser/maddi/annotation"), support.uri());
+        assertEquals("io/codelaser/maddi/annotation", InputConfiguration.jarOnClasspathSelector(support));
         // and every source set depends on it, which is what put it in front of the javac class path loop
         assertTrue(ic.sourceSets().stream().allMatch(s -> s.dependencies().contains(support)),
                 "" + ic.sourceSets());
@@ -137,9 +137,9 @@ public class TestWithSupportFromClasspath {
     @Test
     public void testPrefixOnTheName() {
         SourceSet onName = new SourceSetImpl.Builder()
-                .setName(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/e2immu/annotation")
+                .setName(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation")
                 .setUri(URI.create("file:/nowhere")).build();
-        assertEquals("org/e2immu/annotation", InputConfiguration.jarOnClasspathSelector(onName));
+        assertEquals("io/codelaser/maddi/annotation", InputConfiguration.jarOnClasspathSelector(onName));
 
         SourceSet neither = new SourceSetImpl.Builder().setName("plain")
                 .setUri(URI.create("file:/somewhere.jar")).build();

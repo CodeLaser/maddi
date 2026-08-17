@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.bytecode.java.asm;
+package io.codelaser.maddi.bytecode.java.asm;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.Resources;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.integration.CompiledTypesManagerImpl;
-import org.e2immu.language.inspection.integration.ResourcesImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.inspection.api.resource.ByteCodeInspector;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.Resources;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.inspection.integration.CompiledTypesManagerImpl;
+import io.codelaser.maddi.inspection.integration.ResourcesImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

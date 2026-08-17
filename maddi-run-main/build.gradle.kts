@@ -40,7 +40,7 @@ dependencies {
     implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-aapi-parser"))
 
-    // to access resource:/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs.jar
+    // to access resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar
     runtimeOnly(project(":maddi-aapi-archive"))
 
     implementation(project(":maddi-run-config"))
@@ -52,7 +52,7 @@ dependencies {
 }
 
 application {
-    mainClass = "org.e2immu.analyzer.run.main.Main"
+    mainClass = "io.codelaser.maddi.run.main.Main"
  //   applicationDefaultJvmArgs = listOf("-enableassertions", "-Xmx24G")
 }
 

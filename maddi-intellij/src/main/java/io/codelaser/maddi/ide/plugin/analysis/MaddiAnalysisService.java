@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.analysis;
+package io.codelaser.maddi.ide.plugin.analysis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
@@ -32,9 +32,9 @@ import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
-import org.e2immu.analyzer.ide.client.MaddiDaemonProcess;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
-import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
+import io.codelaser.maddi.ide.client.MaddiDaemonProcess;
+import io.codelaser.maddi.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.plugin.settings.MaddiSettings;
 
 import java.net.URI;
 import java.nio.file.Path;

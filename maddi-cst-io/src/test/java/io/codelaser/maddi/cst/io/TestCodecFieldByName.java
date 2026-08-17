@@ -7,11 +7,11 @@
  * Foundation, either version 3 of the License, or (at your option) any later version.
  */
 
-package org.e2immu.language.cst.io;
+package io.codelaser.maddi.cst.io;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

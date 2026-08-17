@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.lombok;
+package io.codelaser.maddi.java.openjdk.lombok;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.NoArgsConstructor;
             
@@ -48,14 +48,14 @@ public class TestConstructor extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT1);
         MethodInfo nac = typeInfo.findConstructor(0);
         assertTrue(nac.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
     }
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.RequiredArgsConstructor;
             import lombok.NonNull;
@@ -74,7 +74,7 @@ public class TestConstructor extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT2);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT2);
         FieldInfo variableClazz = typeInfo.getFieldByName("variableClazz", true);
         assertFalse(variableClazz.isPropertyNotNull());
         FieldInfo clazz = typeInfo.getFieldByName("clazz", true);
@@ -83,7 +83,7 @@ public class TestConstructor extends CommonTest {
         MethodInfo rac = typeInfo.findConstructor(3);
         assertTrue(rac.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
 
-        assertEquals("org.e2immu.test.X.<init>(String,int,Class)", rac.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.test.X.<init>(String,int,Class)", rac.fullyQualifiedName());
         ParameterInfo p0 = rac.parameters().get(0);
         assertEquals("s", p0.name());
         ParameterInfo p1 = rac.parameters().get(1);
@@ -100,7 +100,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT3 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.AllArgsConstructor;
             import lombok.NonNull;
@@ -119,11 +119,11 @@ public class TestConstructor extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT3);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT3);
 
         MethodInfo aac = typeInfo.findConstructor(6);
         assertTrue(aac.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
-        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class,Class)",
+        assertEquals("io.codelaser.maddi.test.X.<init>(String,int,int,int,Class,Class)",
                 aac.fullyQualifiedName());
         assertEquals("""
                         {if(clazz==null){throw new NullPointerException("clazz is marked non-null but is null");}\
@@ -133,6 +133,6 @@ public class TestConstructor extends CommonTest {
                 aac.methodBody().toString());
         assertThrows(NoSuchElementException.class, () ->typeInfo.findConstructor(0));
         MethodInfo nac = typeInfo.findConstructor(6);
-        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class,Class)", nac.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.test.X.<init>(String,int,int,int,Class,Class)", nac.fullyQualifiedName());
     }
 }

@@ -1,8 +1,8 @@
-package org.e2immu.language.inspection.integration;
+package io.codelaser.maddi.inspection.integration;
 
-import org.e2immu.language.inspection.resource.AnalyzedApiClassPath;
+import io.codelaser.maddi.inspection.resource.AnalyzedApiClassPath;
 
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 
 public class ToolChain {
 
@@ -21,21 +21,21 @@ public class ToolChain {
 
     public static String[] CLASSPATH_E2IMMU = {
             JAR_WITH_PATH_PREFIX + "org/parsers/java/ast",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/util/internal/util",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/util/internal/graph",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/cst/impl/analysis",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/cst/api",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/cst/io",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/cst/imp/element",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/cst/print",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/parser/java",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/inspection/api",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/inspection/impl/parser",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/inspection/integration",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/language/inspection/resource",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/analyzer/modification/common",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/analyzer/modification/io",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/analyzer/modification/prepwork",
-            JAR_WITH_PATH_PREFIX + "org/e2immu/analyzer/modification/linkedvariables"
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/util",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/graph",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/cst/impl/analysis",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/cst/api",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/cst/io",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/cst/imp/element",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/cst/print",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/parser/java",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/inspection/api",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/inspection/impl/parser",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/inspection/integration",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/inspection/resource",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/modification/common",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/modification/io",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/modification/prepwork",
+            JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/modification/linkedvariables"
     };
 }

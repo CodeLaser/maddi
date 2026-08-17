@@ -12,40 +12,40 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
-import org.e2immu.annotation.method.GetSet;
-import org.e2immu.annotation.rare.AllowsInterrupt;
-import org.e2immu.annotation.rare.Finalizer;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.annotation.rare.StaticSideEffects;
-import org.e2immu.annotation.type.UtilityClass;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.ImportStatement;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
+import io.codelaser.maddi.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.rare.StaticSideEffects;
+import io.codelaser.maddi.annotation.type.UtilityClass;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 import java.util.*;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 
 public class DecoratorImpl implements Qualification.Decorator {
     private final Runtime runtime;

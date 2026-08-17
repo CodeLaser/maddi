@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config;
+package io.codelaser.maddi.run.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
-import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
-import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 
 public class Configuration {
     @JsonProperty

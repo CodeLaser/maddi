@@ -1,4 +1,4 @@
-package org.e2immu.test.main;
+package io.codelaser.maddi.test.main;
 
 public class ASecondMainClass extends SomeClass<Integer> {
     @Override

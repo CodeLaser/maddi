@@ -2,7 +2,7 @@
 
 The `prepwork` test package under `maddi-inspection-kotlin` is a **cross-language validation tier**: each class
 ports a Java prep-analyzer test from `maddi-modification-prepwork` — the *same behaviour* expressed in Kotlin
-source — and asserts the *same* `VariableData` result (see [`CommonKotlinPrep`](src/test/kotlin/org/e2immu/language/inspection/kotlin/prepwork/CommonKotlinPrep.kt)).
+source — and asserts the *same* `VariableData` result (see [`CommonKotlinPrep`](src/test/kotlin/io/codelaser/maddi/inspection/kotlin/prepwork/CommonKotlinPrep.kt)).
 The Java test's oracle strings (`"D:0, A:[1.0.0, 1=M]"`, `"a.b.X.method(char)"`, …) are the truth: if the Kotlin
 front-end (k2) produces a faithful CST — same statement indices, same reads/assignments — the analyzer yields
 the identical string. So a passing port proves the k2 CST is structurally faithful for that construct.

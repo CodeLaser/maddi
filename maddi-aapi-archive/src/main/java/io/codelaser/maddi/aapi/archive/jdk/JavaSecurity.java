@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.NotModified;
+package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.NotModified;
 
 import java.nio.ByteBuffer;
 import java.security.*;

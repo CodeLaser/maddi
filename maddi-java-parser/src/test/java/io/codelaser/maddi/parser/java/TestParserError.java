@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +44,7 @@ public class TestParserError extends CommonTestParse {
         Summary s = c.summary();
         assertTrue(s.haveErrors());
         assertEquals("""
-                        Exception: org.e2immu.language.inspection.api.parser.Summary.ParseException
+                        Exception: io.codelaser.maddi.inspection.api.parser.Summary.ParseException
                         In: input:3-3
                         In: a.b.C.method1(String[])
                         Message: In: input:3-3

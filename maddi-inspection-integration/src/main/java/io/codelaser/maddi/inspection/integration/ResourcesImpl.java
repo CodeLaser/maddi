@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration;
+package io.codelaser.maddi.inspection.integration;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.resource.Resources;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.resource.Resources;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +37,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static org.e2immu.util.internal.util.StringUtil.replaceSlashDollar;
+import static io.codelaser.maddi.util.StringUtil.replaceSlashDollar;
 
 public class ResourcesImpl implements Resources {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResourcesImpl.class);

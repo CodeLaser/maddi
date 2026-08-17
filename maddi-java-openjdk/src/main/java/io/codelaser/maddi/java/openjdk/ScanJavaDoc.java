@@ -1,4 +1,4 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import com.sun.source.doctree.*;
 import com.sun.source.tree.CompilationUnitTree;
@@ -6,9 +6,9 @@ import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocSourcePositions;
 import com.sun.source.util.DocTreeScanner;
 import com.sun.tools.javac.tree.DCTree;
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 import javax.tools.Diagnostic;
 import java.util.ArrayList;

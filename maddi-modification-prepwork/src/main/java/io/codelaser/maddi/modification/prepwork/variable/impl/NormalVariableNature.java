@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable.impl;
+package io.codelaser.maddi.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.VariableNature;
+import io.codelaser.maddi.modification.prepwork.variable.VariableNature;
 
 public class NormalVariableNature implements VariableNature {
     public static NormalVariableNature INSTANCE = new NormalVariableNature();

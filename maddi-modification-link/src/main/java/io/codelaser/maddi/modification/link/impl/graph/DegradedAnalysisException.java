@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package io.codelaser.maddi.modification.link.impl.graph;
 
 /**
  * Thrown when the source-level link computation of one method is abandoned, so that

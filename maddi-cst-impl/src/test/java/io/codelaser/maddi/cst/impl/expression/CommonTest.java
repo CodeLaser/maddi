@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression;
+package io.codelaser.maddi.cst.impl.expression;
 
-import org.e2immu.language.cst.api.expression.BooleanConstant;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.InstanceOf;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.api.expression.BooleanConstant;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 
 public abstract class CommonTest {
     protected final Runtime r = new RuntimeImpl();

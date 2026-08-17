@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.support.SetOnce;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

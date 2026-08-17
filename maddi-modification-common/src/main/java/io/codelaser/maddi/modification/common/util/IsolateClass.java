@@ -1,18 +1,18 @@
-package org.e2immu.analyzer.modification.common.util;
+package io.codelaser.maddi.modification.common.util;
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypePrinter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypePrinter;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

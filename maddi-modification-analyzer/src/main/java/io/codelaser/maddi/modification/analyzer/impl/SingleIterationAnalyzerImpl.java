@@ -12,28 +12,28 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.analyzer.*;
-import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.analysis.MessageImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.analyzer.*;
+import io.codelaser.maddi.modification.common.defaults.ShallowTypeAnalyzer;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.MessageImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +45,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, ModAnalyzerForTesting {
     private static final Logger LOGGER = LoggerFactory.getLogger(SingleIterationAnalyzerImpl.class);
@@ -423,7 +423,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         if (faultTolerant && failed.contains(info)) return; // an earlier iteration already crashed on this one
         int changesBefore = propertiesChanged.get();
         // task #35 Phase A: attribute all analysis() touches during this element to it (CONSEDGES gate)
-        org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
+        io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.setCurrent(info);
         try {
             if (info instanceof MethodInfo methodInfo) {
                 sourceContractMaterializer.materialize(methodInfo);
@@ -464,16 +464,16 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             if (!faultTolerant) throw e;
             failed.add(info);
             // degradation marker (task #36): consumers relying on per-call data must go pessimistic here
-            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
+            if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
                 if (!mi.analysis().haveAnalyzedValueFor(
-                        org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-                    mi.analysis().set(org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
-                            org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+                    mi.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
                 }
             }
             messages.add(crashFinding(info, e));
         } finally {
-            org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.clearCurrent();
+            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.clearCurrent();
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
@@ -488,7 +488,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         // processed (the link computer's on-demand recursion writing a callee's METHOD_LINKS)
         for (Object target : TolerantWrite.changedTargets()) {
             // ParameterInfo extends Info but is not an analysis-order element: attribute to its method
-            Info info = target instanceof org.e2immu.language.cst.api.info.ParameterInfo pi ? pi.methodInfo()
+            Info info = target instanceof io.codelaser.maddi.cst.api.info.ParameterInfo pi ? pi.methodInfo()
                     : target instanceof Info i ? i : null;
             if (info != null) {
                 changedInfos.add(info);
@@ -512,7 +512,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     private static boolean isLinkCrash(Throwable t) {
         for (StackTraceElement ste : t.getStackTrace()) {
-            if (ste.getClassName().startsWith("org.e2immu.analyzer.modification.link.")) return true;
+            if (ste.getClassName().startsWith("io.codelaser.maddi.modification.link.")) return true;
         }
         return false;
     }

@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.mvnplugin;
+package io.codelaser.maddi.run.mvnplugin;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
@@ -7,15 +7,15 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
-import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsComposer;
+import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 
 import java.io.File;
 import java.io.IOException;

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph.op;
+package io.codelaser.maddi.graph.op;
 
-import org.e2immu.util.internal.graph.V;
+import io.codelaser.maddi.graph.V;
 
 import java.util.*;
 import java.util.function.Function;

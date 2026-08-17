@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph.op;
+package io.codelaser.maddi.graph.op;
 
-import org.e2immu.util.internal.graph.EdgeIterator;
-import org.e2immu.util.internal.graph.EdgePrinter;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.graph.EdgeIterator;
+import io.codelaser.maddi.graph.EdgePrinter;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

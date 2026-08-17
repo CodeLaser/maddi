@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.time.*;
 import java.time.chrono.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.*;
 import java.util.Comparator;
 
-import org.e2immu.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 
 public class JavaTimeChrono {
     public static final String PACKAGE_NAME = "java.time.chrono";

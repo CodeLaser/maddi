@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.stub;
+package io.codelaser.maddi.inspection.integration.java.stub;
 
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +26,7 @@ public class TestStub1 extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             public class X {
                 private Y y;

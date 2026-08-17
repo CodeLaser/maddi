@@ -1,11 +1,11 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -176,7 +176,7 @@ public class TestPrivateNestedTypeInClassFile {
         // not take a class directory: User.java was DROPPED with an UnresolvedSymbolException, summary.types()
         // was empty, and "the parse has no errors" passed on nothing at all.
         assertEquals(List.of("c.d.User"), summary.types().stream()
-                .map(org.e2immu.language.cst.api.info.TypeInfo::fullyQualifiedName).sorted().toList(),
+                .map(io.codelaser.maddi.cst.api.info.TypeInfo::fullyQualifiedName).sorted().toList(),
                 "the source set must actually have parsed");
         assertTrue(summary.parseWarnings().isEmpty(),
                 "and resolved its references: " + summary.parseWarnings().stream()

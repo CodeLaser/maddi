@@ -1,43 +1,43 @@
-package org.e2immu.analyzer.modification.analyzer.shadow;
+package io.codelaser.maddi.modification.analyzer.shadow;
 
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkVariable;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.ObjectCreationVariable;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Assignment;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.MethodReference;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.common.AnalysisHelper;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkVariable;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.*;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl;
+import io.codelaser.maddi.modification.prepwork.variable.ObjectCreationVariable;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
-import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
+import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
+import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 
 /**
  * PLAN-modification-reachability phase 1: the shadow pass. Computes modification as one-shot
@@ -206,7 +206,7 @@ public class ShadowModificationPass {
     }
 
     private void diff(List<Divergence> divergences, List<Divergence> reverse, String propertyName,
-                      PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
+                      PropertyValueMap analysis, io.codelaser.maddi.cst.api.analysis.Property property,
                       boolean reached, Info info, String detail) {
         Value.Bool frozen = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
         if (frozen == null || !frozen.hasAValue()) return; // undecided: nothing to diff against
@@ -445,7 +445,7 @@ public class ShadowModificationPass {
             if (opaque[0]) return false;
             // only a BOUND method reference (this::m, local::m, field::m) captures a receiver whose
             // deferred modification the walk cannot see; an unbound/static one (Type::m) does not
-            if (e instanceof MethodReference mr && !(mr.scope() instanceof org.e2immu.language.cst.api.expression.TypeExpression)
+            if (e instanceof MethodReference mr && !(mr.scope() instanceof io.codelaser.maddi.cst.api.expression.TypeExpression)
                 || e instanceof ConstructorCall cc && cc.anonymousClass() != null
                 || e instanceof LocalTypeDeclaration) {
                 opaque[0] = true;
@@ -456,7 +456,7 @@ public class ShadowModificationPass {
         return opaque[0];
     }
 
-    private static final String MODIFIED_FQN = "org.e2immu.annotation.Modified";
+    private static final String MODIFIED_FQN = "io.codelaser.maddi.annotation.Modified";
 
     private static boolean explicitlyContractedModified(MethodInfo mi) {
         return mi.annotations().stream().anyMatch(ShadowModificationPass::isModifiedAnnotation)
@@ -627,7 +627,7 @@ public class ShadowModificationPass {
     }
 
     private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis,
-                                List<org.e2immu.language.cst.api.expression.Expression> argumentExpressions) {
+                                List<io.codelaser.maddi.cst.api.expression.Expression> argumentExpressions) {
         if (callee == null || callee.parameters().isEmpty()) return;
         LinkComputer.ListOfLinks list = analysis.getOrNull(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS,
                 LinkComputerImpl.ListOfLinksImpl.class);
@@ -639,7 +639,7 @@ public class ShadowModificationPass {
             // frontier: they must not receive an optimistic TRUE at cutover (§10.1).
             if (callee.methodBody() != null && !callee.methodBody().isEmpty() && !callee.isAbstract()) {
                 missingArgLinkAnalyzedCallees.merge(callee.fullyQualifiedName(), 1, Integer::sum);
-                for (org.e2immu.language.cst.api.expression.Expression arg : argumentExpressions) {
+                for (io.codelaser.maddi.cst.api.expression.Expression arg : argumentExpressions) {
                     frontierIncomplete.addAll(projectReceiverChain(mi, vd, arg));
                 }
             } else if (!orderMethods.contains(callee)) {
@@ -700,11 +700,11 @@ public class ShadowModificationPass {
     // per return-value link, which is EXPONENTIAL in nesting depth without a cache (jenkins-core
     // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Expressions are shared
     // immutable CST nodes, each belonging to exactly one statement: identity keying is exact.
-    private final Map<org.e2immu.language.cst.api.expression.Expression, Set<Object>> receiverChainCache =
+    private final Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>> receiverChainCache =
             new IdentityHashMap<>();
 
     private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
-                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+                                             io.codelaser.maddi.cst.api.expression.Expression receiver) {
         if (receiver == null) return Set.of();
         Set<Object> cached = receiverChainCache.get(receiver);
         if (cached != null) return cached;
@@ -714,7 +714,7 @@ public class ShadowModificationPass {
     }
 
     private Set<Object> computeReceiverChain(MethodInfo mi, VariableData vd,
-                                             org.e2immu.language.cst.api.expression.Expression receiver) {
+                                             io.codelaser.maddi.cst.api.expression.Expression receiver) {
         switch (receiver) {
             case null -> {
                 return Set.of();
@@ -929,7 +929,7 @@ public class ShadowModificationPass {
     private static final int NO_CHANGE = 0, DOWNGRADED = 1, DECIDED_FALSE = 2, DECIDED_TRUE = 3,
             LEFT_UNDECIDED = 4, REVERSE_KEPT = 5, REVERSE_UPGRADED = 6;
 
-    private int write(PropertyValueMap analysis, org.e2immu.language.cst.api.analysis.Property property,
+    private int write(PropertyValueMap analysis, io.codelaser.maddi.cst.api.analysis.Property property,
                       boolean reached, boolean tainted, boolean immutableType, Object element) {
         Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
         if (reached) {

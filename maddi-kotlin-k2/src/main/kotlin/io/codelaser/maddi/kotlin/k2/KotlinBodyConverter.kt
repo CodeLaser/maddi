@@ -12,34 +12,34 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
-import org.e2immu.language.cst.api.element.CompilationUnit
-import org.e2immu.language.cst.api.element.DetailedSources
-import org.e2immu.language.cst.api.element.RecordPattern
-import org.e2immu.language.cst.api.element.Source
-import org.e2immu.language.cst.api.element.SourceSet
-import org.e2immu.language.cst.api.expression.EmptyExpression
-import org.e2immu.language.cst.api.expression.Expression
-import org.e2immu.language.cst.api.expression.NullConstant
-import org.e2immu.language.cst.api.expression.Lambda
-import org.e2immu.language.cst.api.expression.VariableExpression
-import org.e2immu.language.cst.api.info.FieldInfo
-import org.e2immu.language.cst.api.info.MethodInfo
-import org.e2immu.language.cst.api.info.MethodModifier
-import org.e2immu.language.cst.api.info.ParameterInfo
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.info.Variance
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.cst.api.statement.Block
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement
-import org.e2immu.language.cst.api.statement.Statement
-import org.e2immu.language.cst.api.statement.SwitchEntry
-import org.e2immu.language.cst.api.variable.LocalVariable
-import org.e2immu.language.cst.api.variable.Variable
-import org.e2immu.language.cst.api.type.NullableState
-import org.e2immu.language.cst.api.type.ParameterizedType
-import org.e2immu.language.cst.api.type.TypeNature
-import org.e2immu.language.inspection.resource.InfoByFqn
+package io.codelaser.maddi.kotlin.k2
+import io.codelaser.maddi.cst.api.element.CompilationUnit
+import io.codelaser.maddi.cst.api.element.DetailedSources
+import io.codelaser.maddi.cst.api.element.RecordPattern
+import io.codelaser.maddi.cst.api.element.Source
+import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.expression.EmptyExpression
+import io.codelaser.maddi.cst.api.expression.Expression
+import io.codelaser.maddi.cst.api.expression.NullConstant
+import io.codelaser.maddi.cst.api.expression.Lambda
+import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.info.FieldInfo
+import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.info.MethodModifier
+import io.codelaser.maddi.cst.api.info.ParameterInfo
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.info.Variance
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.api.statement.Block
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
+import io.codelaser.maddi.cst.api.statement.Statement
+import io.codelaser.maddi.cst.api.statement.SwitchEntry
+import io.codelaser.maddi.cst.api.variable.LocalVariable
+import io.codelaser.maddi.cst.api.variable.Variable
+import io.codelaser.maddi.cst.api.type.NullableState
+import io.codelaser.maddi.cst.api.type.ParameterizedType
+import io.codelaser.maddi.cst.api.type.TypeNature
+import io.codelaser.maddi.inspection.resource.InfoByFqn
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
@@ -322,7 +322,7 @@ internal class KotlinBodyConverter(
     /**
      * A local type declaration `class C : A { … }` inside a method body. Builds the local type (via the member
      * converter, so it gets its full members) with the enclosing method's parameters and locals available for
-     * capture, and wraps it in a [org.e2immu.language.cst.api.statement.LocalTypeDeclaration].
+     * capture, and wraps it in a [io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration].
      */
     private fun KaSession.convertLocalType(declaration: KtClassOrObject, method: MethodInfo,
                                            locals: Map<String, Variable>): Statement {
@@ -361,7 +361,7 @@ internal class KotlinBodyConverter(
     }
 
     /**
-     * `try { … } catch (e: T) { … } finally { … }` -> [org.e2immu.language.cst.api.statement.TryStatement].
+     * `try { … } catch (e: T) { … } finally { … }` -> [io.codelaser.maddi.cst.api.statement.TryStatement].
      * Each sub-block is indexed like the Java parser: try block `index.0`, catch i `index.(i+1)`, finally
      * last. Kotlin catch is single-type (no Java-style union), and the catch variable is in scope for its
      * block.
@@ -741,7 +741,7 @@ internal class KotlinBodyConverter(
             .build()
     }
 
-    /** `x as T` / `x as? T` -> a CST [org.e2immu.language.cst.api.expression.Cast] to T. */
+    /** `x as T` / `x as? T` -> a CST [io.codelaser.maddi.cst.api.expression.Cast] to T. */
     private fun KaSession.convertCastOrSafeCast(expression: KtBinaryExpressionWithTypeRHS, method: MethodInfo,
                                                 locals: Map<String, Variable>): Expression {
         val value = convertExpression(expression.left, method, locals)
@@ -750,7 +750,7 @@ internal class KotlinBodyConverter(
         return runtime.newCast(value, type)
     }
 
-    /** `x is T` / `x !is T` -> a CST [org.e2immu.language.cst.api.expression.InstanceOf] (`!is` negated by a logical-not). */
+    /** `x is T` / `x !is T` -> a CST [io.codelaser.maddi.cst.api.expression.InstanceOf] (`!is` negated by a logical-not). */
     private fun KaSession.convertIsExpression(expression: KtIsExpression, method: MethodInfo,
                                               locals: Map<String, Variable>): Expression {
         val value = convertExpression(expression.leftHandSide, method, locals)
@@ -1013,7 +1013,7 @@ internal class KotlinBodyConverter(
     }
 
     /**
-     * Build a CST [org.e2immu.language.cst.api.expression.MethodCall]. The callee [MethodInfo] is resolved
+     * Build a CST [io.codelaser.maddi.cst.api.expression.MethodCall]. The callee [MethodInfo] is resolved
      * by name + arity on the receiver's type (or the enclosing type for an implicit `this`), searching
      * supertypes and disambiguating overloads by argument type (see [resolveCallee]); an unresolved call
      * falls back to a placeholder.
@@ -1199,7 +1199,7 @@ internal class KotlinBodyConverter(
 
 
     /**
-     * Prefix/postfix unary: `++`/`--` become an [org.e2immu.language.cst.api.expression.Assignment]
+     * Prefix/postfix unary: `++`/`--` become an [io.codelaser.maddi.cst.api.expression.Assignment]
      * (`prefixPrimitiveOperator` distinguishes `++i` from `i++`); `-x` and `!x` become a `UnaryOperator`.
      */
     private fun KaSession.convertUnary(base: KtExpression?, token: com.intellij.psi.tree.IElementType,
@@ -1230,7 +1230,7 @@ internal class KotlinBodyConverter(
     }
 
     /**
-     * Convert a binary expression to a CST [org.e2immu.language.cst.api.expression.BinaryOperator] whose
+     * Convert a binary expression to a CST [io.codelaser.maddi.cst.api.expression.BinaryOperator] whose
      * operator is the corresponding `Runtime` operator method (e.g. `plusOperatorInt`). Only built-in
      * operators on primitive/String operands are emitted; overloaded operators (and Kotlin `==` on
      * objects, which is `.equals()`) fall back to a placeholder, to be handled as method calls.

@@ -12,42 +12,42 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.variable;
+package io.codelaser.maddi.cst.impl.variable;
 
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.Nullable;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Visitor;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.TypeExpression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.output.element.TypeName;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.element.ElementImpl;
-import org.e2immu.language.cst.impl.element.SourceImpl;
-import org.e2immu.language.cst.impl.expression.TypeExpressionImpl;
-import org.e2immu.language.cst.impl.expression.VariableExpressionImpl;
-import org.e2immu.language.cst.impl.expression.util.PrecedenceEnum;
-import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.language.cst.impl.type.DiamondEnum;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
+import io.codelaser.maddi.cst.impl.expression.TypeExpressionImpl;
+import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     @NotNull

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.element;
+package io.codelaser.maddi.cst.impl.element;
 
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

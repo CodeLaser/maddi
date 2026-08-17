@@ -12,20 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.common.getset;
+package io.codelaser.maddi.modification.common.getset;
 
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
 
 public record ApplyGetSetTranslation(Runtime runtime) implements TranslationMap {
     @Override

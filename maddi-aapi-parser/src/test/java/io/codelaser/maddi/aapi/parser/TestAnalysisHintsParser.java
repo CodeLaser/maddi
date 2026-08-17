@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -53,14 +53,14 @@ public class TestAnalysisHintsParser extends CommonTest {
                 .setLibraryName("example")
                 .setAnalysisResultsDir(Path.of("build/"))
                 .setHintsPath(Path.of("src/test/java"))
-                .setPackagePrefix("org.e2immu.analyzer.aapi.parser.example")
+                .setPackagePrefix("io.codelaser.maddi.aapi.parser.example")
                 .build();
         JavaInspector javaInspector = analysisHintsParser.go(example);
 
         List<TypeInfo> types = analysisHintsParser.typesParsed();
         assertEquals(2, types.size());
         TypeInfo t1 = types.stream()
-                .filter(ti -> "org.e2immu.analyzer.aapi.parser.example.popular.OrgSlf4J".equals(ti.fullyQualifiedName()))
+                .filter(ti -> "io.codelaser.maddi.aapi.parser.example.popular.OrgSlf4J".equals(ti.fullyQualifiedName()))
                 .findFirst().orElseThrow();
         String uri = t1.compilationUnitOrEnclosingType().getLeft().uri().toString();
         assertTrue(uri.endsWith("example/popular/OrgSlf4J.java"), "Have: " + uri);

@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.analyzer.modification.prepwork.variable.impl.Assignments;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.Reads;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.prepwork.variable.impl.Assignments;
+import io.codelaser.maddi.modification.prepwork.variable.impl.Reads;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.Set;
 

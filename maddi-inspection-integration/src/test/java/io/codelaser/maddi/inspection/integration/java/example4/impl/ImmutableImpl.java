@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example4.impl;
+package io.codelaser.maddi.inspection.integration.java.example4.impl;
 
-import org.e2immu.language.inspection.integration.java.example4.api.Immutable;
+import io.codelaser.maddi.inspection.integration.java.example4.api.Immutable;
 
 public class ImmutableImpl extends ValueImpl implements Immutable {
 }

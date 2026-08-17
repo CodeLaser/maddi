@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
 
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ThrowStatement;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ThrowStatement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -481,11 +481,11 @@ public class TestParseMethods extends CommonTestParse {
             
             public class MethodCall_23 {
             
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
             
-                static class MethodAnalyser implements Analyser {
+                static class MethodAnalyzer implements Analyzer {
             
                     private record SharedState(boolean allowBreaking) {}
             
@@ -509,16 +509,16 @@ public class TestParseMethods extends CommonTestParse {
     private static final String INPUT18 = """
             package org.e2immu.analyser.resolver.testexample;
             
-            // identical to _21, but for the Analyser. qualifier
+            // identical to _21, but for the Analyzer. qualifier
             public class MethodCall_22 {
             
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
             
-                static class MethodAnalyser implements Analyser {
+                static class MethodAnalyzer implements Analyzer {
             
-                    public boolean method(Analyser.SharedState sharedState) {
+                    public boolean method(Analyzer.SharedState sharedState) {
                         return true;
                     }
             
@@ -540,11 +540,11 @@ public class TestParseMethods extends CommonTestParse {
             
             public class MethodCall_21 {
             
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
             
-                static class MethodAnalyser implements Analyser {
+                static class MethodAnalyzer implements Analyzer {
             
                     public boolean method(SharedState sharedState) {
                         return true;

@@ -28,5 +28,5 @@ plugins {
     // supplies the project's own, read from the real build's gradle.properties, exactly as it does for the
     // maddi-support/maddi-util jar pins. Nothing under dogfood/ names a version, so nothing under dogfood/
     // can be left behind by a release.
-    id("org.e2immu.analyzer-plugin") apply false
+    id("io.codelaser.maddi.analyzer") apply false
 }

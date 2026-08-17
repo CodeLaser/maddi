@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation.method;
+package io.codelaser.maddi.annotation.method;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -25,7 +25,7 @@ import java.lang.annotation.Target;
 /**
  * Annotation indicating that this method is a getter or a setter.
  * A setter can be a void method, simply executing the assignment, or a
- * {@link org.e2immu.annotation.Fluent} one, returning <code>this</code> after
+ * {@link io.codelaser.maddi.annotation.Fluent} one, returning <code>this</code> after
  * the assignment.
  * <p>
  * When applied to a factory method or a constructor, the parameters whose name correspond to fields in the
@@ -44,7 +44,7 @@ public @interface GetSet {
     /**
      * Parameter to mark that the annotation should be absent, or present.
      * In verification mode, <code>absent=true</code> means that an error will be raised
-     * if the analyser computes the annotation. In contract mode, it guarantees absence of the annotation.
+     * if the analyzer computes the annotation. In contract mode, it guarantees absence of the annotation.
      *
      * @return <code>true</code> when the annotation should be absent (verification mode) or must be absent (contract mode).
      */
@@ -53,7 +53,7 @@ public @interface GetSet {
     /**
      * Parameter to set contract mode, even if the annotation occurs in a context
      * where verification mode is normal. Use <code>contract=true</code>
-     * to override the computation of the analyser.
+     * to override the computation of the analyzer.
      *
      * @return <code>true</code> when switching to contract mode.
      */

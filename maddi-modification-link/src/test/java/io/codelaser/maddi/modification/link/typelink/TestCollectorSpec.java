@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.typelink;
+package io.codelaser.maddi.modification.link.typelink;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * not a liftable lambda. The relationship "the result {@code R} shares hidden content with the stream's {@code T}" is
  * declared by {@code Stream.collect} being {@code @Independent(hc=true)}, but the shallow summary drops the return link
  * because generically {@code R} and {@code T} are distinct type parameters. {@link
- * org.e2immu.analyzer.modification.link.impl.LinkMethodCall#collectorReturnValue} realizes it at the concrete call
+ * io.codelaser.maddi.modification.link.impl.LinkMethodCall#collectorReturnValue} realizes it at the concrete call
  * site: when all of the concrete {@code R}'s hidden-content type parameters come from the stream's, it links
  * {@code result.§ ⊆ stream.§}.
  * <p>

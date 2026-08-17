@@ -1,6 +1,6 @@
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
-import org.e2immu.language.cst.api.expression.EmptyExpression
+import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

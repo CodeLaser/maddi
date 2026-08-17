@@ -3,9 +3,9 @@
  * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
  */
 
-package org.e2immu.language.cst.print;
+package io.codelaser.maddi.cst.print;
 
-import org.e2immu.language.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

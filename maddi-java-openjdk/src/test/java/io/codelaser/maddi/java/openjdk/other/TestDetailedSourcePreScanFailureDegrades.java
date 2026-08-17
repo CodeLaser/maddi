@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.java.openjdk.CommonTest;
-import org.e2immu.language.java.openjdk.ScanCompilationUnits;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

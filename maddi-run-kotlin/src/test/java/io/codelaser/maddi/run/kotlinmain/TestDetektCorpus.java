@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.kotlinmain;
+package io.codelaser.maddi.run.kotlinmain;
 
-import org.e2immu.analyzer.run.config.util.JsonStreaming;
-import org.e2immu.analyzer.run.openjdkmain.TestOssCorpus;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.inspection.kotlin.KotlinInspector;
-import org.e2immu.language.inspection.mixed.MixedProjectInspector;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.inspection.kotlin.KotlinInspector;
+import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -119,7 +119,7 @@ public class TestDetektCorpus {
      * pass the same directory ({@code TestFernflower} et al.).
      */
     private static final List<String> JDK_ANNOTATED_APIS = List.of(
-            "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk");
+            "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk");
 
     /**
      * Prep <b>and</b> the iterating modification/immutability analysis, over the whole project — the first time

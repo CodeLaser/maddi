@@ -12,36 +12,36 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration;
+package io.codelaser.maddi.inspection.integration;
 
-import org.e2immu.bytecode.java.asm.ByteCodeInspectorImpl;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.FingerPrint;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Resolver;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.*;
-import org.e2immu.language.inspection.impl.parser.ContextImpl;
-import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.inspection.resource.ResolveModuleDirectives;
-import org.e2immu.language.inspection.resource.SummaryImpl;
-import org.e2immu.parser.java.*;
-import org.e2immu.support.Either;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.bytecode.java.asm.ByteCodeInspectorImpl;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Resolver;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.*;
+import io.codelaser.maddi.inspection.impl.parser.ContextImpl;
+import io.codelaser.maddi.inspection.impl.parser.ResolverImpl;
+import io.codelaser.maddi.inspection.impl.parser.TypeContextImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.inspection.resource.ResolveModuleDirectives;
+import io.codelaser.maddi.inspection.resource.SummaryImpl;
+import io.codelaser.maddi.parser.java.*;
+import io.codelaser.maddi.support.Either;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
 import org.parsers.java.ParseException;
@@ -70,7 +70,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.*;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
 /*
 ---
@@ -117,7 +117,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public static final String JAR_WITH_PATH = "jar-on-classpath";
     public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
-    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
+    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
 
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();

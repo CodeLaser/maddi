@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
-import org.e2immu.language.cst.api.element.SourceSet
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager
-import org.e2immu.language.inspection.resource.InfoByFqn
+import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
+import io.codelaser.maddi.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
@@ -33,7 +33,7 @@ import java.nio.file.Path
  * Parses a whole Kotlin project — several [SourceSet]s with real source **directories** on disk, over a real
  * library **classpath** — in ONE standalone K2 session, then drives [KotlinScan] per source set. This is the
  * multi-module analogue of [KotlinScan.parse] (which builds a single-module session from in-memory files over
- * the process classpath); the driver ([org.e2immu.language.inspection.kotlin.KotlinInspector]) lives one module
+ * the process classpath); the driver ([io.codelaser.maddi.inspection.kotlin.KotlinInspector]) lives one module
  * up and translates an `InputConfiguration` into the plain inputs here (it cannot see the K2 Analysis API).
  *
  * The session has one `KtSourceModule` per source set, each wired to the JDK, the library classpath, and its

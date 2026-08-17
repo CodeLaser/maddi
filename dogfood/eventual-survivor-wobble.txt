@@ -12,4 +12,4 @@
 # ordering, so its verdict flips. Same family as the historical CompilationUnitPrinterImpl wobble.
 # It is absent from the current (24-type) baseline; the entry stands so that a run in which it does
 # form does not fail the ratchet.
-org.e2immu.language.cst.api.info.ImportComputer.ImportDetails
+io.codelaser.maddi.cst.api.info.ImportComputer.ImportDetails

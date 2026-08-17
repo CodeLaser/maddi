@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.run.openjdkmain.javac;
+package io.codelaser.maddi.run.openjdkmain.javac;
 
-import org.e2immu.analyzer.run.config.compile.CompileListToSourceSets;
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
 
 /**
  * The javac view of the shared {@link CompileListToSourceSets} engine. All logic now lives in the superclass

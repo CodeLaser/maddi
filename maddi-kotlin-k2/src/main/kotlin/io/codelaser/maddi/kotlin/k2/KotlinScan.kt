@@ -12,36 +12,36 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
 import com.intellij.psi.PsiElement
-import org.e2immu.language.cst.api.element.CompilationUnit
-import org.e2immu.language.cst.api.element.DetailedSources
-import org.e2immu.language.cst.api.element.RecordPattern
-import org.e2immu.language.cst.api.element.Source
-import org.e2immu.language.cst.api.element.SourceSet
-import org.e2immu.language.cst.api.expression.Expression
-import org.e2immu.language.cst.api.expression.Lambda
-import org.e2immu.language.cst.api.expression.VariableExpression
-import org.e2immu.language.cst.api.info.FieldInfo
-import org.e2immu.language.cst.api.info.MethodInfo
-import org.e2immu.language.cst.api.info.MethodModifier
-import org.e2immu.language.cst.api.info.ParameterInfo
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.info.Variance
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.cst.api.statement.Block
-import org.e2immu.language.cst.api.statement.Statement
-import org.e2immu.language.cst.api.statement.SwitchEntry
-import org.e2immu.language.cst.api.variable.LocalVariable
-import org.e2immu.language.cst.api.variable.Variable
-import org.e2immu.language.cst.api.type.NullableState
-import org.e2immu.language.cst.api.type.ParameterizedType
-import org.e2immu.language.cst.api.type.TypeNature
-import org.e2immu.language.inspection.api.util.EnumSynthetics
-import org.e2immu.language.inspection.api.util.RecordSynthetics
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager
-import org.e2immu.language.inspection.resource.InfoByFqn
+import io.codelaser.maddi.cst.api.element.CompilationUnit
+import io.codelaser.maddi.cst.api.element.DetailedSources
+import io.codelaser.maddi.cst.api.element.RecordPattern
+import io.codelaser.maddi.cst.api.element.Source
+import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.expression.Expression
+import io.codelaser.maddi.cst.api.expression.Lambda
+import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.info.FieldInfo
+import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.info.MethodModifier
+import io.codelaser.maddi.cst.api.info.ParameterInfo
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.info.Variance
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.api.statement.Block
+import io.codelaser.maddi.cst.api.statement.Statement
+import io.codelaser.maddi.cst.api.statement.SwitchEntry
+import io.codelaser.maddi.cst.api.variable.LocalVariable
+import io.codelaser.maddi.cst.api.variable.Variable
+import io.codelaser.maddi.cst.api.type.NullableState
+import io.codelaser.maddi.cst.api.type.ParameterizedType
+import io.codelaser.maddi.cst.api.type.TypeNature
+import io.codelaser.maddi.inspection.api.util.EnumSynthetics
+import io.codelaser.maddi.inspection.api.util.RecordSynthetics
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
+import io.codelaser.maddi.inspection.resource.InfoByFqn
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
@@ -111,7 +111,7 @@ import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import java.net.URI
-import org.e2immu.language.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import java.nio.file.Files
 
 /**
@@ -634,7 +634,7 @@ class KotlinScan(
     }
 
     /**
-     * Pass B2: wire each constructor's body — an [org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation]
+     * Pass B2: wire each constructor's body — an [io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation]
      * for an explicit `this(...)`/`super(...)` (resolved against the now-complete set of constructors),
      * followed by the property-field assignments — then commit the constructors and the type.
      */

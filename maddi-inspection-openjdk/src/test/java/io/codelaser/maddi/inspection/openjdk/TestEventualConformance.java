@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,20 +72,20 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class TestEventualConformance {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestEventualConformance.class);
 
-    private static final String IGNORE_MODIFICATIONS = "org.e2immu.annotation.rare.IgnoreModifications";
-    private static final String NOT_MODIFIED = "org.e2immu.annotation.NotModified";
-    private static final String PROPERTY_VALUE_MAP = "org.e2immu.language.cst.api.analysis.PropertyValueMap";
+    private static final String IGNORE_MODIFICATIONS = "io.codelaser.maddi.annotation.rare.IgnoreModifications";
+    private static final String NOT_MODIFIED = "io.codelaser.maddi.annotation.NotModified";
+    private static final String PROPERTY_VALUE_MAP = "io.codelaser.maddi.cst.api.analysis.PropertyValueMap";
 
     /**
      * The commit-once family: a field of one of these types is assignable exactly once, and the engine
      * knows their {@code @Mark}/{@code @Only} contracts, so it is a legitimate non-final-looking slot.
      */
     private static final Set<String> COMMIT_ONCE_TYPES = Set.of(
-            "org.e2immu.support.SetOnce", "org.e2immu.support.SetOnceMap",
-            "org.e2immu.support.EventuallyFinal", "org.e2immu.support.EventuallyFinalOnDemand",
-            "org.e2immu.support.FlipSwitch", "org.e2immu.support.AddOnceSet",
-            "org.e2immu.support.FirstThen", "org.e2immu.support.VariableFirstThen",
-            "org.e2immu.support.Lazy", "org.e2immu.support.Freezable");
+            "io.codelaser.maddi.support.SetOnce", "io.codelaser.maddi.support.SetOnceMap",
+            "io.codelaser.maddi.support.EventuallyFinal", "io.codelaser.maddi.support.EventuallyFinalOnDemand",
+            "io.codelaser.maddi.support.FlipSwitch", "io.codelaser.maddi.support.AddOnceSet",
+            "io.codelaser.maddi.support.FirstThen", "io.codelaser.maddi.support.VariableFirstThen",
+            "io.codelaser.maddi.support.Lazy", "io.codelaser.maddi.support.Freezable");
 
     private static final Set<String> MUTABLE_CONTAINERS = Set.of(
             "java.util.List", "java.util.Set", "java.util.Map", "java.util.Collection",
@@ -142,34 +142,34 @@ public class TestEventualConformance {
         Path maddiSupportSrc = Path.of("../maddi-support/src/main/java");
         SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
                 .setSourceDirectories(List.of(maddiSupportSrc))
-                .setUri(artifactOf(org.e2immu.annotation.Container.class))
+                .setUri(artifactOf(io.codelaser.maddi.annotation.Container.class))
                 .setLibrary(true).setModule(true).build();
 
         Path maddiUtilSrc = Path.of("../maddi-util/src/main/java");
         maddiUtil = new SourceSetImpl.Builder().setName("maddi-util")
                 .setSourceDirectories(List.of(maddiUtilSrc))
-                .setUri(artifactOf(org.e2immu.util.internal.util.GetSetNames.class))
+                .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
                 .setLibrary(true).setModule(true)
                 .setDependencies(List.of(maddiSupport, orgSlf4jApi)).build();
 
         Path cstApiSrc = Path.of("../maddi-cst-api/src/main/java");
         SourceSet cstApi = new SourceSetImpl.Builder().setName("maddi-cst-api")
                 .setSourceDirectories(List.of(cstApiSrc))
-                .setUri(artifactOf(org.e2immu.language.cst.api.element.Element.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
                 .setLibrary(true).setModule(true)
                 .setDependencies(List.of(maddiSupport, annotations)).build();
 
         Path cstAnalysisSrc = Path.of("../maddi-cst-analysis/src/main/java");
         SourceSet cstAnalysis = new SourceSetImpl.Builder().setName("maddi-cst-analysis")
                 .setSourceDirectories(List.of(cstAnalysisSrc))
-                .setUri(artifactOf(org.e2immu.language.cst.impl.analysis.ValueImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi)).build();
 
         Path cstImplSrc = Path.of("../maddi-cst-impl/src/main/java");
         cstImpl = new SourceSetImpl.Builder().setName("maddi-cst-impl")
                 .setSourceDirectories(List.of(cstImplSrc))
-                .setUri(artifactOf(org.e2immu.language.cst.impl.info.TypeInfoImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
@@ -180,7 +180,7 @@ public class TestEventualConformance {
         Path cstIoSrc = Path.of("../maddi-cst-io/src/main/java");
         SourceSet cstIo = new SourceSetImpl.Builder().setName("maddi-cst-io")
                 .setSourceDirectories(List.of(cstIoSrc))
-                .setUri(artifactOf(org.e2immu.language.cst.io.CodecImpl.class))
+                .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
                 .setModule(true)
                 .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations)).build();
 
@@ -299,7 +299,7 @@ public class TestEventualConformance {
     private static boolean implementsElement(TypeInfo typeInfo) {
         if (!typeInfo.hasBeenInspected()) return false;
         for (TypeInfo superType : typeInfo.superTypesExcludingJavaLangObject()) {
-            if ("org.e2immu.language.cst.api.element.Element".equals(superType.fullyQualifiedName())) return true;
+            if ("io.codelaser.maddi.cst.api.element.Element".equals(superType.fullyQualifiedName())) return true;
         }
         return false;
     }

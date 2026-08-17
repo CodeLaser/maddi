@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.lombok;
+package io.codelaser.maddi.java.openjdk.lombok;
 
-import org.e2immu.language.cst.api.expression.StringConstant;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +27,7 @@ public class TestLogger extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +41,7 @@ public class TestLogger extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT1);
         FieldInfo fieldInfo = typeInfo.getFieldByName("log", true);
         assertEquals("org.slf4j.Logger", fieldInfo.type().typeInfo().fullyQualifiedName());
         assertEquals("LoggerFactory.getLogger(X.class)", fieldInfo.initializer().toString());
@@ -50,7 +50,7 @@ public class TestLogger extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             import lombok.extern.java.Log;
 
@@ -64,7 +64,7 @@ public class TestLogger extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT2);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT2);
         FieldInfo fieldInfo = typeInfo.getFieldByName("log", true);
         assertEquals("java.util.logging.Logger", fieldInfo.type().typeInfo().fullyQualifiedName());
         assertEquals("Logger.getLogger(X.class.getName())", fieldInfo.initializer().toString());

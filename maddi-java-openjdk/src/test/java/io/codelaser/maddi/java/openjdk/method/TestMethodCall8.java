@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.method;
+package io.codelaser.maddi.java.openjdk.method;
 
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.MethodReference;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ public class TestMethodCall8 extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             public class MethodCall_81 {
                 @FunctionalInterface
@@ -66,14 +66,14 @@ public class TestMethodCall8 extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("org.e2immu.test.MethodCall_81", INPUT1);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_81", INPUT1);
         TypeInfo customizer = typeInfo.findSubType("Customizer");
         assertTrue(customizer.isFunctionalInterface());
     }
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             public abstract class MethodCall_82 {
                 interface MockMvc {}
@@ -101,7 +101,7 @@ public class TestMethodCall8 extends CommonTest {
                 }
                 static class DefaultMockMvcBuilder extends AbstractMockMvcBuilder<DefaultMockMvcBuilder> {
                     DefaultMockMvcBuilder(WebApplicationContext webAppContext) { }
-                    @Override public<T extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder> T dispatchOptions(boolean dispatchOptions) {
+                    @Override public<T extends io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder> T dispatchOptions(boolean dispatchOptions) {
                         return null;
                     }
                 }
@@ -118,7 +118,7 @@ public class TestMethodCall8 extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("org.e2immu.test.MethodCall_82", INPUT2);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_82", INPUT2);
         TypeInfo ConfigurableMockMvcBuilder = typeInfo.findSubType("ConfigurableMockMvcBuilder");
         assertFalse(ConfigurableMockMvcBuilder.isFunctionalInterface());
         TypeInfo MockMvcBuilder = typeInfo.findSubType("MockMvcBuilder");
@@ -127,8 +127,8 @@ public class TestMethodCall8 extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         Statement statement = methodInfo.methodBody().lastStatement();
         if (statement.expression() instanceof MethodCall mc) {
-            // DIFFERS from maddi parser: ? extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder
-            assertEquals("Type org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder",
+            // DIFFERS from maddi parser: ? extends io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder",
                     mc.object().parameterizedType().toString());
         }
     }
@@ -163,7 +163,7 @@ public class TestMethodCall8 extends CommonTest {
      */
     @Language("java")
     private static final String INPUT3 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             import org.assertj.core.api.AbstractCollectionAssert;
             import org.assertj.core.api.ObjectAssert;
             import java.util.Collection;
@@ -177,7 +177,7 @@ public class TestMethodCall8 extends CommonTest {
                 }
                 void method1() {
                     EventDTO eventDTOResult = new EventDTO();
-                    AbstractCollectionAssert<?,Collection<? extends org.e2immu.test.MethodCall_82.LanguageDTO>,org.e2immu.test.MethodCall_82.LanguageDTO,ObjectAssert<org.e2immu.test.MethodCall_82.LanguageDTO>> collectionLanguageDTOObjectAssertAbstractCollectionAssert
+                    AbstractCollectionAssert<?,Collection<? extends io.codelaser.maddi.test.MethodCall_82.LanguageDTO>,io.codelaser.maddi.test.MethodCall_82.LanguageDTO,ObjectAssert<io.codelaser.maddi.test.MethodCall_82.LanguageDTO>> collectionLanguageDTOObjectAssertAbstractCollectionAssert
                       = assertThat(eventDTOResult.getProposalLanguages());
                     collectionLanguageDTOObjectAssertAbstractCollectionAssert.hasSize(2);
                 }
@@ -194,12 +194,12 @@ public class TestMethodCall8 extends CommonTest {
         //   "org.assertj.core.api.AbstractCollectionAssert", null) and then javaInspector.print2() to
         // assert the printed form of the assertj byte-code type. compiledTypesManager is not available
         // here; the scan call is kept to verify the parse succeeds.
-        scan("org.e2immu.test.MethodCall_82", INPUT3);
+        scan("io.codelaser.maddi.test.MethodCall_82", INPUT3);
     }
 
     @Language("java")
     private static final String INPUT4 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             public class MethodCall_84 {
                 interface GenericContainer<SELF extends GenericContainer<SELF>> { }
@@ -225,23 +225,23 @@ public class TestMethodCall8 extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = scan("org.e2immu.test.MethodCall_84", INPUT4);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_84", INPUT4);
         {
             MethodInfo method = typeInfo.findUniqueMethod("method1", 0);
             LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
-            // DIFFERS from maddi parser: Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>
-            assertEquals("Type org.e2immu.test.MethodCall_84.GreenMailContainer<?>",
+            // DIFFERS from maddi parser: Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<?>",
                     lvc.localVariable().parameterizedType().toString());
-            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+            assertEquals("Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>",
                     lvc.localVariable().assignmentExpression().parameterizedType().toString());
         }
         {
             MethodInfo method = typeInfo.findUniqueMethod("method3", 0);
             LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
             // DIFFERS from maddi parser!
-            assertEquals("Type org.e2immu.test.MethodCall_84.GreenMailContainer<?>",
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<?>",
                     lvc.localVariable().parameterizedType().toString());
-            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+            assertEquals("Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>",
                     lvc.localVariable().assignmentExpression().parameterizedType().toString());
         }
     }
@@ -249,7 +249,7 @@ public class TestMethodCall8 extends CommonTest {
 
     @Language("java")
     private static final String INPUT5 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             import java.util.concurrent.CompletableFuture;
             
             public class MethodCall_85 {
@@ -268,7 +268,7 @@ public class TestMethodCall8 extends CommonTest {
     @DisplayName("null to String[]")
     @Test
     public void test5() {
-        scan("org.e2immu.test.MethodCall_85", INPUT5);
+        scan("io.codelaser.maddi.test.MethodCall_85", INPUT5);
     }
 
 

@@ -15,15 +15,15 @@ people it is not an upgrade but the first installable version.
 
 | Before | After |
 |---|---|
-| `org.e2immu.annotation` | `io.codelaser.maddi.annotation` |
-| `org.e2immu.util.external.support` | `io.codelaser.maddi.support` |
+| `io.codelaser.maddi.annotation` | `io.codelaser.maddi.annotation` |
+| `io.codelaser.maddi.support` | `io.codelaser.maddi.support` |
 
-So `import org.e2immu.annotation.Immutable;` becomes
+So `import io.codelaser.maddi.annotation.Immutable;` becomes
 `import io.codelaser.maddi.annotation.Immutable;`, and likewise for `@Container`, `@Independent`,
-`@NotModified` and the rest. A project-wide find-and-replace of `org.e2immu.annotation` →
+`@NotModified` and the rest. A project-wide find-and-replace of `io.codelaser.maddi.annotation` →
 `io.codelaser.maddi.annotation` is the whole migration for most codebases.
 
-JPMS module names follow their packages: `requires org.e2immu.util.external.support` becomes
+JPMS module names follow their packages: `requires io.codelaser.maddi.support` becomes
 `requires io.codelaser.maddi.support`.
 
 **The Maven coordinates do not change.** `io.codelaser:maddi-support` is still
@@ -76,7 +76,7 @@ plugins {
 }
 ```
 
-It was `org.e2immu.analyzer-plugin`. The old id is not maintained and will not receive this or any
+It was `io.codelaser.maddi.analyzer`. The old id is not maintained and will not receive this or any
 later version; the Gradle Plugin Portal requires a plugin's id and its Maven group to share a
 top-level namespace, and `org.e2immu.*` under group `io.codelaser` never satisfied that.
 

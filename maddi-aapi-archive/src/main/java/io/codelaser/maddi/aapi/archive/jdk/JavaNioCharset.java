@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -22,7 +22,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.SortedMap;
 
-import org.e2immu.annotation.Immutable;
+import io.codelaser.maddi.annotation.Immutable;
 
 public class JavaNioCharset {
     public static final String PACKAGE_NAME = "java.nio.charset";

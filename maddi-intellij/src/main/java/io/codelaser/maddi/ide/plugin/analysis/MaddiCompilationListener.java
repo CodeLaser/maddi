@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.analysis;
+package io.codelaser.maddi.ide.plugin.analysis;
 
 import com.intellij.openapi.compiler.CompilationStatusListener;
 import com.intellij.openapi.compiler.CompileContext;
-import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
+import io.codelaser.maddi.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;
 
 /**

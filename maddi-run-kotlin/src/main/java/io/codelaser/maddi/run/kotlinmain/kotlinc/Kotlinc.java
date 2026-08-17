@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.run.kotlinmain.kotlinc;
+package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
-import org.e2immu.analyzer.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.compile.CompileInvocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

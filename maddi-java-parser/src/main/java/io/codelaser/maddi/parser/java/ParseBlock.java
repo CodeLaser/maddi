@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.util.StringUtil;
 import org.parsers.java.Node;
 import org.parsers.java.ast.*;
 
@@ -47,7 +47,7 @@ public class ParseBlock extends CommonParse {
         for (Node child : codeBlock) {
             String sIndex = (index.isEmpty() ? "" : index + dot) + StringUtil.pad(count, n);
             if (child instanceof Statement s) {
-                org.e2immu.language.cst.api.statement.Statement statement = parsers.parseStatement()
+                io.codelaser.maddi.cst.api.statement.Statement statement = parsers.parseStatement()
                         .parse(context, sIndex, s);
                 builder.addStatement(statement);
                 count++;

@@ -1,15 +1,15 @@
-package org.e2immu.analyzer.modification.link;
+package io.codelaser.maddi.modification.link;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
-import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
+import static io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -34,13 +34,13 @@ public abstract class CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.link")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification.link")).setLevel(Level.DEBUG);
     }
 
     @BeforeEach
     public void beforeEach() throws IOException {
         SourceSet testProtocol = testProtocolSourceSet();
-        javaInspector = org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
+        javaInspector = io.codelaser.maddi.modification.common.CommonTest.javaInspectorFactory().withSources(testProtocol);
         runtime = javaInspector.runtime();
         javaInspector.setParameterNames(true); // faithful class-file parameter names; must precede any loading
         javaInspector.onlyPreload(); // we'll run more later

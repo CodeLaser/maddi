@@ -1,6 +1,6 @@
 # Virtual fields
 
-*Reference for the `org.e2immu.analyzer.modification.link.vf` package.*
+*Reference for the `io.codelaser.maddi.modification.link.vf` package.*
 
 > **Terminology** — this uses the vocabulary of *road-to-immutability* (`road-to-immutability/src/docs/asciidoc`),
 > which is the authoritative source. A quick recap, because it is easy to get wrong:

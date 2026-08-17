@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.common.defaults;
+package io.codelaser.maddi.modification.common.defaults;
 
-import org.e2immu.analyzer.modification.common.CommonTest;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.common.CommonTest;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -64,8 +64,8 @@ public class TestEventualContracts {
     // the boolean-flag pattern of the book's SimpleImmutableSet1, plus the @Final(after=) on the flag itself
     private static final String FREEZE = """
             package a;
-            import org.e2immu.annotation.*;
-            import org.e2immu.annotation.eventual.*;
+            import io.codelaser.maddi.annotation.*;
+            import io.codelaser.maddi.annotation.eventual.*;
             @ImmutableContainer(after = "frozen", hc = true)
             public abstract class X {
                 @Final(after = "frozen")
@@ -156,8 +156,8 @@ public class TestEventualContracts {
     public void testMultipleFields() {
         TypeInfo X = parse("a.X", """
                 package a;
-                import org.e2immu.annotation.*;
-                import org.e2immu.annotation.eventual.*;
+                import io.codelaser.maddi.annotation.*;
+                import io.codelaser.maddi.annotation.eventual.*;
                 @FinalFields(after = "b, a")
                 public abstract class X {
                     @Mark("a,b")
@@ -178,7 +178,7 @@ public class TestEventualContracts {
     public void testNotEventual() {
         TypeInfo X = parse("a.X", """
                 package a;
-                import org.e2immu.annotation.*;
+                import io.codelaser.maddi.annotation.*;
                 @ImmutableContainer
                 public class X {
                     public final int i = 3;
@@ -198,7 +198,7 @@ public class TestEventualContracts {
     public void testSupportClasses() {
         TypeInfo X = parse("a.X", """
                 package a;
-                import org.e2immu.support.*;
+                import io.codelaser.maddi.support.*;
                 public class X {
                     private final SetOnce<String> setOnce = new SetOnce<>();
                     private final EventuallyFinalOnDemand<String> onDemand = new EventuallyFinalOnDemand<>();

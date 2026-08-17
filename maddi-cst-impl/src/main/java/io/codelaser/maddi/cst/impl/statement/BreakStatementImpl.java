@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.statement;
+package io.codelaser.maddi.cst.impl.statement;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.statement.BreakStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.impl.output.KeywordImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
-import org.e2immu.language.cst.impl.output.SymbolEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.BreakStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 
 import java.util.List;
 import java.util.Objects;

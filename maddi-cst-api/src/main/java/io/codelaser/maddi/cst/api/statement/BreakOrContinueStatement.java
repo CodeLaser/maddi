@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.statement;
+package io.codelaser.maddi.cst.api.statement;
 
 /**
  * Common super-interface for the jump statements {@link BreakStatement} and {@link ContinueStatement}.

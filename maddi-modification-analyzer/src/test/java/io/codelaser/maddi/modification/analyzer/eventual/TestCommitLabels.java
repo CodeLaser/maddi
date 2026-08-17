@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.eventual;
+package io.codelaser.maddi.modification.analyzer.eventual;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.impl.EventualCluster;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.impl.EventualCluster;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +48,7 @@ public class TestCommitLabels extends CommonTest {
     // (before the mark) through a cross-reference field 'other' of the candidate type itself
     @Language("java")
     private static final String INPUT_CROSS = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               static class T {
@@ -121,8 +121,8 @@ public class TestCommitLabels extends CommonTest {
     // and behind a local variable holding an eventually-non-modifying accessor's result
     @Language("java")
     private static final String INPUT_EITHER = """
-            import org.e2immu.support.Either;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.Either;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class D {
               static class T {
@@ -170,7 +170,7 @@ public class TestCommitLabels extends CommonTest {
     private static final String INPUT_BAIL = """
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class C {
               static class T {
@@ -204,7 +204,7 @@ public class TestCommitLabels extends CommonTest {
     private static final String INPUT_CONTAINER = """
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class F {
               static class T {
@@ -272,7 +272,7 @@ public class TestCommitLabels extends CommonTest {
     private static final String INPUT_BREADTH = """
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class J {
               interface E { int size(); }
@@ -348,7 +348,7 @@ public class TestCommitLabels extends CommonTest {
     // in the harness (NON_MODIFYING never lands for them) -- the dogfood covers that case.
     @Language("java")
     private static final String INPUT_MARKLESS = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class P {
               interface E { int size(); }
@@ -417,7 +417,7 @@ public class TestCommitLabels extends CommonTest {
     // no longer bails the walk -- only the arguments carry root-derived content
     @Language("java")
     private static final String INPUT_GUARD = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class G {
               static class T {
@@ -501,7 +501,7 @@ public class TestCommitLabels extends CommonTest {
     private static final String INPUT_FLUENT = """
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class H {
               static class Wr {
@@ -606,7 +606,7 @@ public class TestCommitLabels extends CommonTest {
     // anywhere in its runtime cone -- U's 'data' is vacuous for a T argument).
     @Language("java")
     private static final String INPUT_CHAIN = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class K {
               interface E { int size(); }
@@ -656,7 +656,7 @@ public class TestCommitLabels extends CommonTest {
     // self-call rule excuses it by the fixpoint hypothesis; the surrounding sites supply the labels.
     @Language("java")
     private static final String INPUT_RECURSION = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class R {
               static class T {
@@ -694,8 +694,8 @@ public class TestCommitLabels extends CommonTest {
     // block the eventual type-level verdict.
     @Language("java")
     private static final String INPUT_MEMO = """
-            import org.e2immu.annotation.rare.IgnoreModifications;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class M {
               static class T {
@@ -743,7 +743,7 @@ public class TestCommitLabels extends CommonTest {
     // leniently for a discriminating fixture.
     @Language("java")
     private static final String INPUT_WRAPPER = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class W {
               static class T {
@@ -837,7 +837,7 @@ public class TestCommitLabels extends CommonTest {
     // the factory's result. notAFactory returns 'this' -- its result must NOT be treated as fresh.
     @Language("java")
     private static final String INPUT_FACTORY = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class V {
               static class T {

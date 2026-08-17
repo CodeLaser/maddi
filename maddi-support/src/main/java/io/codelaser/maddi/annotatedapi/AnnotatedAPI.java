@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotatedapi;
+package io.codelaser.maddi.annotatedapi;
 
 /**
  * Helper methods used in Annotated API classes.
@@ -25,11 +25,11 @@ package org.e2immu.annotatedapi;
 public class AnnotatedAPI {
 
     /**
-     * The method analyser replaces the method call <code>isFact(clause)</code>
+     * The method analyzer replaces the method call <code>isFact(clause)</code>
      * with the boolean value <code>true</code> when
      * the clause is present in the current instance state of the object.
      * <p>
-     * This method, hard-wired into the method analyser, is to be used in companion methods, see for example <code>JavaUtil</code>
+     * This method, hard-wired into the method analyzer, is to be used in companion methods, see for example <code>JavaUtil</code>
      * in the <code>e2immu/annotatedAPI</code> project.
      * <p>
      * The method does not return identity; it is not modifying.
@@ -43,11 +43,11 @@ public class AnnotatedAPI {
     }
 
     /**
-     * The method analyser replaces the method call <code>isKnown(true)</code>
+     * The method analyzer replaces the method call <code>isKnown(true)</code>
      * with a boolean to test if the current instance state is keeping track of clauses that represent
      * elements added to a collection. It keeps <code>isKnown(false)</code> as is.
      * <p>
-     * This method, hard-wired into the method analyser, is to be used in companion methods, see for example <code>JavaUtil</code>
+     * This method, hard-wired into the method analyzer, is to be used in companion methods, see for example <code>JavaUtil</code>
      * in the <code>e2immu/annotatedAPI</code> project.
      *
      * @param test true when testing, false when generating a clause for the state

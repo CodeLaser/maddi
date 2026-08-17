@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import java.nio.file.Path;
 

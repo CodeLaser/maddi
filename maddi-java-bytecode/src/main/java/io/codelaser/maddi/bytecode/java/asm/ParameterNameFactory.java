@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.bytecode.java.asm;
+package io.codelaser.maddi.bytecode.java.asm;
 
 
-import org.e2immu.language.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.HashSet;
 import java.util.Set;

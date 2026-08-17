@@ -1,19 +1,19 @@
-module org.e2immu.language.inspection.openjdk {
-    requires org.e2immu.language.cst.analysis;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
-    requires org.e2immu.language.cst.print;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.language.inspection.parser;
-    requires org.e2immu.language.inspection.resource;
-    requires org.e2immu.language.java.openjdk;
-    requires org.e2immu.language.java.parser;
-    requires org.e2immu.util.internal.graph;
+module io.codelaser.maddi.inspection.openjdk {
+    requires io.codelaser.maddi.cst.analysis;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.cst.print;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.inspection.parser;
+    requires io.codelaser.maddi.inspection.resource;
+    requires io.codelaser.maddi.java.openjdk;
+    requires io.codelaser.maddi.java.parser;
+    requires io.codelaser.maddi.graph;
 
     requires java.compiler;
     requires jdk.compiler;
     requires org.jetbrains.annotations;
     requires org.slf4j;
 
-    exports org.e2immu.language.inspection.openjdk;
+    exports io.codelaser.maddi.inspection.openjdk;
 }

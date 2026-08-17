@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.e2immu.annotation.rare;
+package io.codelaser.maddi.annotation.rare;
 
-import org.e2immu.annotation.Final;
+import io.codelaser.maddi.annotation.Final;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -29,7 +29,7 @@ import java.lang.annotation.Target;
  * no other methods may be called anymore on the object. After calling a finalizer, the
  * object has gone into a <em>final</em> state.
  * <p>
- * The analyser imposes strict rules for the life-cycle of objects with a finalizer method:
+ * The analyzer imposes strict rules for the life-cycle of objects with a finalizer method:
  * <ol>
  *     <li>
  *         Any field of a type with finalizers must be effectively final (marked with {@link Final}).
@@ -41,7 +41,7 @@ import java.lang.annotation.Target;
  *         A finalizer method can never be called on a parameter or any variable linked to it,
  *     </li>
  * </ol>
- * These rules allow the analyser to enforce the final state of the object.
+ * These rules allow the analyzer to enforce the final state of the object.
  */
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.METHOD)

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.gradleplugin;
+package io.codelaser.maddi.gradleplugin;
 
 import java.util.Map;
 
@@ -44,7 +44,7 @@ public class AnalyzerProperties {
     }
 
     /**
-     * @return The Analyser properties for the current Gradle project that are to be passed to the Analyser gradle.
+     * @return The Analyzer properties for the current Gradle project that are to be passed to the Analyzer gradle.
      */
     public Map<String, Object> getProperties() {
         return properties;

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.element;
+package io.codelaser.maddi.cst.api.element;
 
-import org.e2immu.annotation.Fluent;
+import io.codelaser.maddi.annotation.Fluent;
 
 /**
  * Represents a single {@code import} declaration inside a {@link CompilationUnit}.

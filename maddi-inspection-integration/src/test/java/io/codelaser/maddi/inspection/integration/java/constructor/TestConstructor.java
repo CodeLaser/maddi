@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.constructor;
+package io.codelaser.maddi.inspection.integration.java.constructor;
 
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -342,11 +342,11 @@ public class TestConstructor extends CommonTest {
             
             public class Constructor_9 {
             
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
             
-                static class ParameterAnalyser implements Analyser {
+                static class ParameterAnalyzer implements Analyzer {
                     record SharedState(int iteration) {}
             
                     public void method() {
@@ -492,7 +492,7 @@ public class TestConstructor extends CommonTest {
 
     @Language("java")
     private static final String INPUT15 = """
-            package org.e2immu.language.inspection.integration.java.importhelper;
+            package io.codelaser.maddi.inspection.integration.java.importhelper;
             
             import java.util.HashMap;
             import java.util.Map;

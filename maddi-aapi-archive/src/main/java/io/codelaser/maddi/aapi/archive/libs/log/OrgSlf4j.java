@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.libs.log;
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.Independent;
+package io.codelaser.maddi.aapi.archive.libs.log;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
 import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.Marker;

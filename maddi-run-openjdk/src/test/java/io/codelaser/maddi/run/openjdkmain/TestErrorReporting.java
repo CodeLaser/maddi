@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -56,7 +56,7 @@ public class TestErrorReporting {
      * qualified explicit {@code super()} in a class extending another class's inner class) currently trips an
      * assertion in downstream get/set analysis; whatever the outcome, the run must end with a clean exit code and
      * <em>never</em> the internal-exception code that an escaped throwable would produce. This asserts the isolation
-     * happens inside {@code PrepAnalyzer} (exit ANALYSER_ERROR, or OK once the get/set bug is fixed upstream), not
+     * happens inside {@code PrepAnalyzer} (exit ANALYZER_ERROR, or OK once the get/set bug is fixed upstream), not
      * merely that a run-level backstop caught it (which would be EXIT_INTERNAL_EXCEPTION).
      */
     @Test

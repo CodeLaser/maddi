@@ -12,35 +12,35 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.main;
+package io.codelaser.maddi.run.main;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.aapi.parser.AnalysisHints;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsCompiler;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfiguration;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.io.AnalysisFingerprint;
-import org.e2immu.analyzer.run.rewire.RunRewireTests;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.analyzer.run.config.report.ErrorReport;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.aapi.parser.AnalysisHints;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
+import io.codelaser.maddi.run.rewire.RunRewireTests;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ErrorReport;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -204,7 +204,7 @@ public class RunAnalyzer implements Runnable {
                 analyzer.analyze(order);
             } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
-                exitValue = Main.EXIT_ANALYSER_ERROR;
+                exitValue = Main.EXIT_ANALYZER_ERROR;
                 return;
             }
             analysisMessages.addAll(analyzer.messages());
@@ -213,7 +213,7 @@ public class RunAnalyzer implements Runnable {
                     summary.parseResult().primaryTypes()).size();
             LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
-                exitValue = Main.EXIT_ANALYSER_ERROR;
+                exitValue = Main.EXIT_ANALYZER_ERROR;
             }
 
             // write results
@@ -278,7 +278,7 @@ public class RunAnalyzer implements Runnable {
             analysisMessages.addAll(messages);
         }
         if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
-            exitValue = Main.EXIT_ANALYSER_ERROR;
+            exitValue = Main.EXIT_ANALYZER_ERROR;
         }
         LOGGER.info("End of e2immu, analysis-hints compiler mode.");
     }

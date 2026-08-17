@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
-import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * An {@code Info} object progresses through two lifecycle phases, both managed through its
  * {@link Builder}: <em>inspection</em> (structural data populated from source or bytecode,
  * finalised by {@link Builder#commit()}, queried via {@link #hasBeenInspected()}) and
- * <em>analysis</em> (semantic properties attached by the analyser, queried via
+ * <em>analysis</em> (semantic properties attached by the analyzer, queried via
  * {@link #hasBeenAnalyzed()}).
  * <p>
  * <b>Identity invariant.</b> Once inspected, an {@code Info} is immutable, and there is exactly one

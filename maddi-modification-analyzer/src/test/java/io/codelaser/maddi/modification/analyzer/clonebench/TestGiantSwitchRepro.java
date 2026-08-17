@@ -1,9 +1,9 @@
-package org.e2immu.analyzer.modification.analyzer.clonebench;
+package io.codelaser.maddi.modification.analyzer.clonebench;
 
-import org.e2immu.analyzer.modification.common.CloneBenchCorpus;
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.common.CloneBenchCorpus;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;

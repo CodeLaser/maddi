@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
-import org.e2immu.language.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Element;
 
 /**
  * The array {@code .length} access, {@code scope.length}. Modelled as its own node (rather than a field

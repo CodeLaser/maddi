@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.lombok;
+package io.codelaser.maddi.java.openjdk.lombok;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ public class TestData extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             import lombok.Data;
 
@@ -43,7 +43,7 @@ public class TestData extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT1);
         MethodInfo rac = typeInfo.findConstructor(2);
         assertTrue(rac.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
         typeInfo.findUniqueMethod("getC", 0);

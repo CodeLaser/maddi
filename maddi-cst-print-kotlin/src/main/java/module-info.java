@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module org.e2immu.language.cst.print.kotlin {
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
+module io.codelaser.maddi.cst.print.kotlin {
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
     requires org.slf4j;
 
-    exports org.e2immu.language.cst.print.kotlin;
+    exports io.codelaser.maddi.cst.print.kotlin;
 }

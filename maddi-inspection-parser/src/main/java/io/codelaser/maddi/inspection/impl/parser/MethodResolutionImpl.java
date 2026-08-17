@@ -12,27 +12,27 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.impl.parser;
+package io.codelaser.maddi.inspection.impl.parser;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.MethodReference;
-import org.e2immu.language.cst.api.expression.TypeExpression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.Diamond;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.parser.*;
-import org.e2immu.support.Either;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.inspection.api.parser.*;
+import io.codelaser.maddi.support.Either;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +40,9 @@ import java.util.*;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
-import static org.e2immu.language.inspection.api.parser.TypeContext.SUBTYPE_HIERARCHY_IN_CONSTRUCTOR_PRIORITY;
-import static org.e2immu.language.inspection.impl.parser.ListMethodAndConstructorCandidates.IGNORE_PARAMETER_NUMBERS;
-import static org.e2immu.language.inspection.impl.parser.ReevaluateErasedExpressions.containsErasedExpressions;
+import static io.codelaser.maddi.inspection.api.parser.TypeContext.SUBTYPE_HIERARCHY_IN_CONSTRUCTOR_PRIORITY;
+import static io.codelaser.maddi.inspection.impl.parser.ListMethodAndConstructorCandidates.IGNORE_PARAMETER_NUMBERS;
+import static io.codelaser.maddi.inspection.impl.parser.ReevaluateErasedExpressions.containsErasedExpressions;
 
 public class MethodResolutionImpl implements MethodResolution {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodResolutionImpl.class);

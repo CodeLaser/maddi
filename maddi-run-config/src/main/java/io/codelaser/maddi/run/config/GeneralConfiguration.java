@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config;
+package io.codelaser.maddi.run.config;
 
 import java.util.ArrayList;
 import java.util.Arrays;

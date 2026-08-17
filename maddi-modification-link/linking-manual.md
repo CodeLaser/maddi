@@ -5,7 +5,7 @@ pieces fit, the notation, the central class (`LinkMethodCall`), how to probe/tes
 
 It complements two existing docs — read them alongside this one:
 - **`README.md`** (this module): the authoritative list of link natures and the fixpoint operator table.
-- **`src/main/java/org/e2immu/analyzer/modification/link/vf/virtual-fields.md`**: the `§` virtual-field / hidden-content model.
+- **`src/main/java/io/codelaser/maddi/modification/link/vf/virtual-fields.md`**: the `§` virtual-field / hidden-content model.
 - Vocabulary of *mutable / immutable / independent / accessible vs hidden content* lives in the `road-to-immutability`
   asciidoc (authoritative for terminology).
 

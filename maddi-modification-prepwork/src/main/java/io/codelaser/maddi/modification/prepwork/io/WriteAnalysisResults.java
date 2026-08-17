@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.io.CodecImpl;
-import org.e2immu.util.internal.util.Trie;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.io.CodecImpl;
+import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,7 +161,7 @@ public class WriteAnalysisResults {
     private int skippedValues;
 
     private Codec.EncodedPropertyValue encodeOrSkip(Codec codec, Codec.Context context,
-                                                    org.e2immu.language.cst.api.analysis.PropertyValueMap.PropertyValue pv) {
+                                                    io.codelaser.maddi.cst.api.analysis.PropertyValueMap.PropertyValue pv) {
         try {
             return codec.encode(context, pv.property(), pv.value());
         } catch (RuntimeException | AssertionError | StackOverflowError e) {

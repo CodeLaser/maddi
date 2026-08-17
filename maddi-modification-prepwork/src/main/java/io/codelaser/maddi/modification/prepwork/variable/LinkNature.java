@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.language.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 
 import java.util.List;
 import java.util.Set;

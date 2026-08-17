@@ -12,28 +12,28 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.type;
+package io.codelaser.maddi.cst.impl.type;
 
-import org.e2immu.annotation.NotModified;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
-import org.e2immu.language.cst.impl.element.ElementImpl;
-import org.e2immu.language.cst.impl.info.InfoImpl;
-import org.e2immu.language.cst.impl.info.TypeParameterInspection;
-import org.e2immu.language.cst.impl.info.TypeParameterInspectionImpl;
-import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.support.Either;
-import org.e2immu.support.EventuallyFinal;
-import org.e2immu.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.info.InfoImpl;
+import io.codelaser.maddi.cst.impl.info.TypeParameterInspection;
+import io.codelaser.maddi.cst.impl.info.TypeParameterInspectionImpl;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.support.Either;
+import io.codelaser.maddi.support.EventuallyFinal;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -179,7 +179,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public org.e2immu.language.cst.api.info.Variance variance() {
+    public io.codelaser.maddi.cst.api.info.Variance variance() {
         return inspection.get().variance();
     }
 

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.client;
+package io.codelaser.maddi.ide.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ public class DaemonAnalyzeRoundTripTest {
         Path pkg = Files.createDirectories(projectDir.resolve("src/x"));
         Files.writeString(pkg.resolve("Example.java"), """
                 package x;
-                import org.e2immu.annotation.Container;
+                import io.codelaser.maddi.annotation.Container;
 
                 class Mutable {
                     private int value;

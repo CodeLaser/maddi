@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.e2immu.analyzer-plugin")
+    id("io.codelaser.maddi.analyzer")
 }
 
 group = "io.codelaser.build"
@@ -72,8 +72,8 @@ e2immu {
     workingDirectory = ""
     jmods = "java.base,java.xml"
     debugTargets = "classpath"
-    sourcePackages = "org.e2immu.something.,org.e2immu.test.main"
-    testSourcePackages = "org.e2immu.test.test"
+    sourcePackages = "io.codelaser.maddi.something.,io.codelaser.maddi.test.main"
+    testSourcePackages = "io.codelaser.maddi.test.test"
     analyzedAnnotatedApiDirs = "../analyzer-shallow/e2immu-shallow-aapi/src/main/resources/json"
     excludeFromClasspath = "gradle-api-8.9.jar" // because of javax.xml.parsers.*
 }

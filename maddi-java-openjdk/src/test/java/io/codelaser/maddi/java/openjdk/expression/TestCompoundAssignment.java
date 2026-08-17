@@ -1,11 +1,11 @@
-package org.e2immu.language.java.openjdk.expression;
+package io.codelaser.maddi.java.openjdk.expression;
 
-import org.e2immu.language.cst.api.expression.Assignment;
-import org.e2immu.language.cst.api.expression.BinaryOperator;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.BinaryOperator;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -84,7 +84,7 @@ public class TestCompoundAssignment extends CommonTest {
         TypeInfo typeInfo = scan("a.b.X", STRING_INPUT);
         MethodInfo plain = typeInfo.findUniqueMethod("plain", 1);
         // return s + "y";
-        var ret = (org.e2immu.language.cst.api.statement.ReturnStatement) plain.methodBody().statements().get(0);
+        var ret = (io.codelaser.maddi.cst.api.statement.ReturnStatement) plain.methodBody().statements().get(0);
         BinaryOperator binary = (BinaryOperator) ret.expression();
         assertSame(runtime.plusOperatorString(), binary.operator(), "plain String '+' is concatenation");
     }

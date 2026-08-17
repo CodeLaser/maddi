@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.settings;
+package io.codelaser.maddi.ide.plugin.settings;
 
 /**
  * Where a declaration's computed annotations are drawn.

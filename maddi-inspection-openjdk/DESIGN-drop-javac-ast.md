@@ -7,7 +7,7 @@ elements, ~32G). See §8 for the implementation and measurements.
 ## 1. The opportunity
 
 maddi parses Java by driving the OpenJDK **javac** front-end and then translating javac's output into
-its own CST (`org.e2immu.language.cst.impl.*`). A heap histogram at analysis peak shows that, long after
+its own CST (`io.codelaser.maddi.cst.impl.*`). A heap histogram at analysis peak shows that, long after
 parsing, the javac representation is **still resident**:
 
 - server/main (4,875 types): `com.sun.tools.javac.*` = **407 MB** (`JCTree$JCIdent` 41M,

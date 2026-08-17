@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.variable;
+package io.codelaser.maddi.cst.api.variable;
 
 /**
  * Controls whether variable traversal should recurse into the scope of a variable.

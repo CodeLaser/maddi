@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
 
 /**
  * As {@link EventuallyFinal}, but the <em>before</em> state may carry a loader that produces the final value on

@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -256,8 +256,8 @@ public class Test5 {
     @Language("java")
     static final String EXPECT_2b = """
             package org.e2immu.analyser.parser.conditional.testexample;
-            import org.e2immu.annotation.ImmutableContainer;
-            import org.e2immu.annotation.NotNull;
+            import io.codelaser.maddi.annotation.ImmutableContainer;
+            import io.codelaser.maddi.annotation.NotNull;
             @ImmutableContainer
             public class SwitchExpression_1 {
                 /*
@@ -293,12 +293,12 @@ public class Test5 {
                 .add(SpaceEnum.NEWLINE)
                 .add(new TextImpl("import"))
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl("org.e2immu.annotation.ImmutableContainer")) // 7
+                .add(new TextImpl("io.codelaser.maddi.annotation.ImmutableContainer")) // 7
                 .add(SymbolEnum.SEMICOLON)
                 .add(SpaceEnum.NEWLINE)
                 .add(new TextImpl("import"))
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl("org.e2immu.annotation.NotNull")) // 12
+                .add(new TextImpl("io.codelaser.maddi.annotation.NotNull")) // 12
                 .add(SymbolEnum.SEMICOLON)
                 .add(SpaceEnum.NEWLINE)
                 .add(ggAnnot.start()) // 15

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.example.jdk;
+package io.codelaser.maddi.aapi.parser.example.jdk;
 
-import org.e2immu.annotation.*;
+import io.codelaser.maddi.annotation.*;
 
 import java.util.Iterator;
 import java.util.Spliterator;

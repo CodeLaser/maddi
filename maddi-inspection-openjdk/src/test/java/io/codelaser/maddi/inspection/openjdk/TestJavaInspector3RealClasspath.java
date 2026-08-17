@@ -1,14 +1,14 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,7 +76,7 @@ public class TestJavaInspector3RealClasspath {
     public static final String INPUT1 = """
             package a.b;
             import org.apache.commons.cli.Option;
-            import org.e2immu.annotation.ImmutableContainer;
+            import io.codelaser.maddi.annotation.ImmutableContainer;
             import org.slf4j.Logger;
             import org.slf4j.LoggerFactory;
             import java.sql.Date;
@@ -110,7 +110,7 @@ public class TestJavaInspector3RealClasspath {
         TypeInfo logger = C.getFieldByName("LOGGER", true).type().typeInfo();
         assertEquals(SLF4J_API_JAR, logger.compilationUnit().sourceSet().name());
 
-        TypeInfo immutableContainer = runtime.getFullyQualified("org.e2immu.annotation.ImmutableContainer",
+        TypeInfo immutableContainer = runtime.getFullyQualified("io.codelaser.maddi.annotation.ImmutableContainer",
                 true);
         assertTrue(immutableContainer.typeNature().isAnnotation());
         assertEquals("maddi-support", immutableContainer.compilationUnit().sourceSet().name());

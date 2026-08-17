@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.other;
+package io.codelaser.maddi.inspection.integration.java.other;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.integration.java.CommonTest;
-import org.e2immu.language.inspection.resource.ParseResultImpl;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.inspection.resource.ParseResultImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ public class TestRecord extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-            import org.e2immu.annotation.method.GetSet;
+            import io.codelaser.maddi.annotation.method.GetSet;
             import java.util.ArrayList;
             import java.util.HashSet;
             import java.util.Set;

@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.eventual;
+package io.codelaser.maddi.modification.analyzer.eventual;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +48,7 @@ public class TestEventualPropagation extends CommonTest {
      */
     @Language("java")
     private static final String INPUT1 = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();
@@ -128,7 +128,7 @@ public class TestEventualPropagation extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.support.SetOnce;
 
             public class B {
               private final SetOnce<String> one = new SetOnce<>();
@@ -160,8 +160,8 @@ public class TestEventualPropagation extends CommonTest {
 
     @Language("java")
     private static final String INPUT3 = """
-            import org.e2immu.annotation.eventual.Mark;
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.annotation.eventual.Mark;
+            import io.codelaser.maddi.support.SetOnce;
 
             public class B {
               private final SetOnce<String> t = new SetOnce<>();
@@ -210,7 +210,7 @@ public class TestEventualPropagation extends CommonTest {
 
     @Language("java")
     private static final String INPUT4 = """
-            import org.e2immu.support.Freezable;
+            import io.codelaser.maddi.support.Freezable;
 
             public class B extends Freezable {
               public void add() {
@@ -245,7 +245,7 @@ public class TestEventualPropagation extends CommonTest {
     // implementation holds the eventually immutable field
     @Language("java")
     private static final String INPUT5 = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               interface I {
@@ -296,9 +296,9 @@ public class TestEventualPropagation extends CommonTest {
     */
     @Language("java")
     private static final String INPUT6 = """
-            import org.e2immu.annotation.eventual.Mark;
-            import org.e2immu.annotation.eventual.Only;
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.annotation.eventual.Mark;
+            import io.codelaser.maddi.annotation.eventual.Only;
+            import io.codelaser.maddi.support.SetOnce;
 
             public class B {
               interface I {
@@ -343,9 +343,9 @@ public class TestEventualPropagation extends CommonTest {
     private static final String INPUT7 = """
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.annotation.eventual.Mark;
-            import org.e2immu.annotation.eventual.Only;
-            import org.e2immu.support.SetOnce;
+            import io.codelaser.maddi.annotation.eventual.Mark;
+            import io.codelaser.maddi.annotation.eventual.Only;
+            import io.codelaser.maddi.support.SetOnce;
 
             public class B {
               interface I {
@@ -483,7 +483,7 @@ public class TestEventualPropagation extends CommonTest {
     // drags every implementation to MUTABLE.
     @Language("java")
     private static final String INPUT10 = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               interface I {
@@ -534,7 +534,7 @@ public class TestEventualPropagation extends CommonTest {
     // source. This is the case that needs computeTypeLevel to read EVENTUALLY_NON_MODIFYING_METHOD.
     @Language("java")
     private static final String INPUT11 = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               interface Reader {
@@ -585,7 +585,7 @@ public class TestEventualPropagation extends CommonTest {
     @Language("java")
     private static final String INPUT13 = """
             import java.util.*;
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               private final List<String> items = new ArrayList<>();
@@ -618,7 +618,7 @@ public class TestEventualPropagation extends CommonTest {
     // one accessor forwarding to another (this.length()) rides along with its after-label
     @Language("java")
     private static final String INPUT14 = """
-            import org.e2immu.support.EventuallyFinalOnDemand;
+            import io.codelaser.maddi.support.EventuallyFinalOnDemand;
 
             public class B {
               private final EventuallyFinalOnDemand<String> inspection = new EventuallyFinalOnDemand<>();

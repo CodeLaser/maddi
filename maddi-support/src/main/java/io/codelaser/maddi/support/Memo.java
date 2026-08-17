@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
-import org.e2immu.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 import java.util.Objects;
 import java.util.function.Supplier;

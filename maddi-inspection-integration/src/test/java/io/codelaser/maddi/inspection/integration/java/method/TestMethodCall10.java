@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.method;
+package io.codelaser.maddi.inspection.integration.java.method;
 
-import org.e2immu.language.inspection.integration.java.CommonTest2;
+import io.codelaser.maddi.inspection.integration.java.CommonTest2;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

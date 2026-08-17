@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.prepwork.variable;
+package io.codelaser.maddi.modification.prepwork.variable;
 
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;

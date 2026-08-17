@@ -55,7 +55,7 @@ What we publish (Package 1)
 === 1. Annotations — Maven Central
 
 `maddi-support` (`io.codelaser:maddi-support`) contains the user-facing annotations
-(`org.e2immu.annotation.*` — `@Immutable`, `@Container`, `@Independent`, …). This is the one artifact
+(`io.codelaser.maddi.annotation.*` — `@Immutable`, `@Container`, `@Independent`, …). This is the one artifact
 a user's *own code* compiles against, so it is a small, stable library on Maven Central. It already has
 the `maven-publish` + jreleaser configuration; publish it per the appendix below.
 
@@ -67,7 +67,7 @@ self-contained. This is viable precisely because both plugins use only the openj
 no K2 — and they run it on a classpath (a forked worker for Gradle), where the stripped module
 descriptors do not matter.
 
-* *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `org.e2immu.analyzer-plugin`.
+* *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `io.codelaser.maddi.analyzer`.
   **Shading + publication wiring DONE** (`com.gradleup.shadow` + `maven-publish`): a dedicated `shade`
   configuration lists the analyzer modules; `implementation` extends it; `shadowJar` bundles only
   `shade`, so `gradleApi()` and `kotlin-stdlib` (Gradle-provided) are excluded and the analyzer +
@@ -92,7 +92,7 @@ descriptors do not matter.
   that evening — say so in the release notes rather than promising an install line that 404s.
 
   The same page requires that "the plugin ID and group ID share the same top-level namespace". The
-  group is `io.codelaser`, so the current id `org.e2immu.analyzer-plugin` **would be refused at
+  group is `io.codelaser`, so the current id `io.codelaser.maddi.analyzer` **would be refused at
   review**: publishing the plugin before the rename was never actually available. After the cutover
   the id is `io.codelaser.maddi.analyzer` (`tools/rename/name-map.tsv` section 3), which satisfies it.
 * *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. **Descriptor + shading DONE.** A hand-maintained

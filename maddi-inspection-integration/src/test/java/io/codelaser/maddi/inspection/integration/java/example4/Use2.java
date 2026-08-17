@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example4;
+package io.codelaser.maddi.inspection.integration.java.example4;
 
 
-import static org.e2immu.language.inspection.integration.java.example4.impl.StaticValuesImpl.SV;
-import static org.e2immu.language.inspection.integration.java.example4.impl.StaticValuesImpl.SubValue;
+import static io.codelaser.maddi.inspection.integration.java.example4.impl.StaticValuesImpl.SV;
+import static io.codelaser.maddi.inspection.integration.java.example4.impl.StaticValuesImpl.SubValue;
 
 public class Use2 {
     SubValue sv;

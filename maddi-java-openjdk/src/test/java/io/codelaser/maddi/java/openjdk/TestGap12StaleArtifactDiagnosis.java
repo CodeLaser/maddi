@@ -1,4 +1,4 @@
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

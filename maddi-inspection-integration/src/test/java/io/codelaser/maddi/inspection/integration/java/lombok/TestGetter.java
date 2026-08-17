@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.lombok;
+package io.codelaser.maddi.inspection.integration.java.lombok;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ public class TestGetter extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.Getter;
             import java.util.List;
@@ -51,21 +51,21 @@ public class TestGetter extends CommonTest {
         {
             MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
             assertTrue(getList.isSynthetic());
-            assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.getList()", getList.fullyQualifiedName());
             assertEquals("{return this.list;}", getList.methodBody().toString());
         }
         {
             MethodInfo i = typeInfo.findUniqueMethod("getI", 0);
             assertTrue(i.isSynthetic());
             assertTrue(i.isStatic());
-            assertEquals("org.e2immu.test.X.getI()", i.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.getI()", i.fullyQualifiedName());
             assertEquals("{return X.i;}", i.methodBody().toString());
         }
     }
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
             
             import lombok.Getter;
             import java.util.List;
@@ -86,7 +86,7 @@ public class TestGetter extends CommonTest {
         {
             MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
             assertTrue(getList.isSynthetic());
-            assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.getList()", getList.fullyQualifiedName());
             assertEquals("{return this.list;}", getList.methodBody().toString());
         }
         assertThrows(NoSuchElementException.class, () -> typeInfo.findUniqueMethod("getI", 0));

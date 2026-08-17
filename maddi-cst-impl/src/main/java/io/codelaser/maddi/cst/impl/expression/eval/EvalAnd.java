@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.eval;
+package io.codelaser.maddi.cst.impl.expression.eval;
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.expression.AndImpl;
-import org.e2immu.language.cst.impl.expression.SumImpl;
-import org.e2immu.language.cst.impl.expression.util.AndOrSorter;
-import org.e2immu.language.cst.impl.expression.util.InequalitySolver;
-import org.e2immu.language.cst.impl.expression.util.LhsRhs;
-import org.e2immu.util.internal.util.IntUtil;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.expression.AndImpl;
+import io.codelaser.maddi.cst.impl.expression.SumImpl;
+import io.codelaser.maddi.cst.impl.expression.util.AndOrSorter;
+import io.codelaser.maddi.cst.impl.expression.util.InequalitySolver;
+import io.codelaser.maddi.cst.impl.expression.util.LhsRhs;
+import io.codelaser.maddi.util.IntUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

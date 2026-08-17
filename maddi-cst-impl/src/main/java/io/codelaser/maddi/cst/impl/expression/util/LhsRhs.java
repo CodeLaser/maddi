@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.util;
+package io.codelaser.maddi.cst.impl.expression.util;
 
 
-import org.e2immu.language.cst.api.expression.And;
-import org.e2immu.language.cst.api.expression.Equals;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.And;
+import io.codelaser.maddi.cst.api.expression.Equals;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 
 import java.util.List;
 

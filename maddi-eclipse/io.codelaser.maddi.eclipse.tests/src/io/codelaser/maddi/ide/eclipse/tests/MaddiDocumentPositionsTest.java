@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse.tests;
+package io.codelaser.maddi.ide.eclipse.tests;
 
-import org.e2immu.analyzer.ide.eclipse.MaddiDocumentPositions;
+import io.codelaser.maddi.ide.eclipse.MaddiDocumentPositions;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.Position;

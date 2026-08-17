@@ -1,7 +1,7 @@
 [[gradle-plugin]]
 = The Gradle plugin
 
-The Gradle plugin (id `org.e2immu.analyzer-plugin`) derives the input configuration from your project's
+The Gradle plugin (id `io.codelaser.maddi.analyzer`) derives the input configuration from your project's
 source sets and resolved classpath, then runs the analyzer in a forked worker JVM (so the required
 `--add-exports` are injected without touching your build's daemon).
 
@@ -11,7 +11,7 @@ source sets and resolved classpath, then runs the analyzer in a forked worker JV
 ----
 plugins {
     java                               // or java-library
-    id("org.e2immu.analyzer-plugin")
+    id("io.codelaser.maddi.analyzer")
 }
 ----
 

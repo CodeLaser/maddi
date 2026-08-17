@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.rare.Finalizer;
-import org.e2immu.annotation.type.UtilityClass;
+package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;

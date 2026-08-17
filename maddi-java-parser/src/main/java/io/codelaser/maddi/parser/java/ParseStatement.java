@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.*;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.util.StringUtil;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
@@ -65,7 +65,7 @@ public class ParseStatement extends CommonParse {
         super(runtime, parsers);
     }
 
-    public org.e2immu.language.cst.api.statement.Statement parse(Context context, String index, Statement statement) {
+    public io.codelaser.maddi.cst.api.statement.Statement parse(Context context, String index, Statement statement) {
         try {
             return internalParse(context, index, statement);
         } catch (Throwable t) {
@@ -74,7 +74,7 @@ public class ParseStatement extends CommonParse {
         }
     }
 
-    private org.e2immu.language.cst.api.statement.Statement internalParse(Context context, String index, Statement statementIn) {
+    private io.codelaser.maddi.cst.api.statement.Statement internalParse(Context context, String index, Statement statementIn) {
         String label;
         Statement statement;
         if (statementIn instanceof LabeledStatement ls) {
@@ -207,7 +207,7 @@ public class ParseStatement extends CommonParse {
         }
 
         if (statement instanceof TryStatement tryStatement) {
-            org.e2immu.language.cst.api.statement.TryStatement.Builder builder = runtime.newTryBuilder();
+            io.codelaser.maddi.cst.api.statement.TryStatement.Builder builder = runtime.newTryBuilder();
             ++i;
             Context newContext = context.newVariableContext("tryBlock");
             if (tryStatement.get(i) instanceof ResourcesInTryBlock r) {
@@ -218,7 +218,7 @@ public class ParseStatement extends CommonParse {
                     // resources
                     String newIndex = index + "+" + StringUtil.pad(rCount, n);
                     Node resourceNode = r.get(j);
-                    org.e2immu.language.cst.api.statement.Statement resource;
+                    io.codelaser.maddi.cst.api.statement.Statement resource;
                     if (resourceNode instanceof Statement) {
                         resource = parse(newContext, newIndex, (Statement) resourceNode);
                     } else if (resourceNode instanceof Name) {
@@ -246,7 +246,7 @@ public class ParseStatement extends CommonParse {
             while (i < tryStatement.size() && tryStatement.get(i) instanceof CatchBlock catchBlock) {
                 Context catchContext = context.newVariableContext("catchBlock" + blockCount);
                 DetailedSources.Builder detailedSourcesBuilderCb = context.newDetailedSourcesBuilder();
-                org.e2immu.language.cst.api.statement.TryStatement.CatchClause.Builder ccBuilder
+                io.codelaser.maddi.cst.api.statement.TryStatement.CatchClause.Builder ccBuilder
                         = runtime.newCatchClauseBuilder();
                 int j = 2;
                 if (catchBlock.get(j) instanceof KeyWord kw) {
@@ -329,7 +329,7 @@ public class ParseStatement extends CommonParse {
         }
 
         if (statement instanceof BasicForStatement) {
-            org.e2immu.language.cst.api.statement.ForStatement.Builder builder = runtime.newForBuilder();
+            io.codelaser.maddi.cst.api.statement.ForStatement.Builder builder = runtime.newForBuilder();
             Context newContext = context.newVariableContext("for-loop");
 
             // initializers
@@ -751,7 +751,7 @@ public class ParseStatement extends CommonParse {
                             Node node = csl.get(k);
                             SwitchStatementOldStyle.SwitchLabel sl;
                             if (node instanceof TypePattern || node instanceof RecordPattern) {
-                                org.e2immu.language.cst.api.element.RecordPattern recordPattern;
+                                io.codelaser.maddi.cst.api.element.RecordPattern recordPattern;
                                 if (node instanceof TypePattern lvd) {
                                     recordPattern = parsers.parseRecordPattern()
                                             .parseLocalVariableDeclaration(context, lvd, 0, null);
@@ -780,7 +780,7 @@ public class ParseStatement extends CommonParse {
                 for (int j = 1; j < ccs.size(); j++) {
                     if (ccs.get(j) instanceof Statement s) {
                         String newIndex = index + ".0." + StringUtil.pad(pos, n);
-                        org.e2immu.language.cst.api.statement.Statement st
+                        io.codelaser.maddi.cst.api.statement.Statement st
                                 = parse(context, newIndex, s);
                         builder.addStatement(st);
                         pos++;
@@ -816,7 +816,7 @@ public class ParseStatement extends CommonParse {
             return parsers.parseBlock().parse(context, index, null, codeBlock);
         }
         if (node instanceof Statement s) {
-            org.e2immu.language.cst.api.statement.Statement st = parse(context, index + FIRST_STATEMENT, s);
+            io.codelaser.maddi.cst.api.statement.Statement st = parse(context, index + FIRST_STATEMENT, s);
             return runtime.newBlockBuilder().addStatement(st).build();
         }
         throw new UnsupportedOperationException();

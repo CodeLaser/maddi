@@ -1,6 +1,6 @@
-package org.e2immu.test.ignore;
+package io.codelaser.maddi.test.ignore;
 
-import org.e2immu.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 
 @ImmutableContainer
 public abstract class SomeOtherClass<T> {

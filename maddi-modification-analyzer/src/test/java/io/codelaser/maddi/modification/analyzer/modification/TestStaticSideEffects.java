@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.modification;
+package io.codelaser.maddi.modification.analyzer.modification;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,7 +82,7 @@ public class TestStaticSideEffects extends CommonTest {
     @Language("java")
     private static final String PROPAGATION = """
             package a.b;
-            import org.e2immu.annotation.rare.StaticSideEffects;
+            import io.codelaser.maddi.annotation.rare.StaticSideEffects;
             public class X {
                 @StaticSideEffects void reconfigure() { }   // effect invisible from body, asserted by contract
                 void direct() { reconfigure(); }            // calls an SSE method -> SSE

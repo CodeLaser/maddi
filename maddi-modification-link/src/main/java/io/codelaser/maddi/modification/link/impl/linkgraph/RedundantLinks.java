@@ -1,16 +1,16 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph;
+package io.codelaser.maddi.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.*;
 
 /*
  Ported from the pre-sv engine (openjdk branch, graph/RedundantLinks): a cross-variable, per-statement

@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.variable;
+package io.codelaser.maddi.cst.api.variable;
 
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * The pseudo-variable representing the {@code this} or {@code super} reference.

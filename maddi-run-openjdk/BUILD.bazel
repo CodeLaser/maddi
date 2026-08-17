@@ -48,7 +48,7 @@ maddi_java_library(
 # 'application' plugin equivalent: the openjdk-parser-based `maddi` CLI
 java_binary(
     name = "maddi",
-    main_class = "org.e2immu.analyzer.run.openjdkmain.Main",
+    main_class = "io.codelaser.maddi.run.openjdkmain.Main",
     visibility = ["//visibility:public"],
     jvm_flags = OPENJDK_JAVAC_EXPORTS,
     runtime_deps = [

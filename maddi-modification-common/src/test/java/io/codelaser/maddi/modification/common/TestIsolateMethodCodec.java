@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.modification.common;
+package io.codelaser.maddi.modification.common;
 
-import org.e2immu.analyzer.modification.common.util.IsolateMethod;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.modification.common.util.IsolateMethod;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ public class TestIsolateMethodCodec extends CommonTest {
     @Test
     public void test() throws IOException {
 
-        TypeInfo codecImpl = parseResult.findType("org.e2immu.language.cst.io.ExpressionCodec");
+        TypeInfo codecImpl = parseResult.findType("io.codelaser.maddi.cst.io.ExpressionCodec");
         IsolateMethod isolateMethod = new IsolateMethod(javaInspector, "codec");
 
         MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);

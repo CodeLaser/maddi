@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork;
+package io.codelaser.maddi.modification.prepwork;
 
-import org.e2immu.analyzer.modification.common.AnalyzerException;
-import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.modification.common.AnalyzerException;
+import io.codelaser.maddi.modification.common.getset.GetSetHelper;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -238,12 +238,12 @@ public class PrepAnalyzer {
                 // degradation marker (task #36): the whole type's methods lack prep data; per-call
                 // consumers (VL2O) must treat them pessimistically
                 typeInfo.recursiveSubTypeStream()
-                        .flatMap(org.e2immu.language.cst.api.info.TypeInfo::constructorAndMethodStream)
+                        .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::constructorAndMethodStream)
                         .forEach(mi -> {
                     if (!mi.analysis().haveAnalyzedValueFor(
-                        org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-                    mi.analysis().set(org.e2immu.language.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
-                            org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
+                    mi.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
                 }
                         });
                 exceptions.add(new AnalyzerException(typeInfo, t));

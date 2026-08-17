@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.text.Format;
 import java.text.ParsePosition;
 import java.time.Period;
@@ -27,10 +27,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.NotModified;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotModified;
 public class JavaTimeFormat {
     public static final String PACKAGE_NAME = "java.time.format";
     //public final class DateTimeFormatter

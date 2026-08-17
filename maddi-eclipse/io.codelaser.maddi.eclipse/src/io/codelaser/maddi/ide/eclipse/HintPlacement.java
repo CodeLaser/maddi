@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.eclipse;
+package io.codelaser.maddi.ide.eclipse;
 
 /**
  * Where a declaration's computed annotations are drawn, mirroring the IntelliJ plugin's setting of the same

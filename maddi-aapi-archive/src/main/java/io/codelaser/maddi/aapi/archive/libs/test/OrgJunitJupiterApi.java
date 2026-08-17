@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.libs.test;
+package io.codelaser.maddi.aapi.archive.libs.test;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -20,7 +20,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.e2immu.annotation.Immutable;
+import io.codelaser.maddi.annotation.Immutable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.function.ThrowingSupplier;

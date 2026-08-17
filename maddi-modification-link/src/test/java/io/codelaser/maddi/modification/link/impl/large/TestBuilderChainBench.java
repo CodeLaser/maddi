@@ -1,10 +1,10 @@
-package org.e2immu.analyzer.modification.link.impl.large;
+package io.codelaser.maddi.modification.link.impl.large;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.link.impl.localvar.SharedVariable;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code FollowGraph.followGraph} — per group sibling, per rep expansion, per graph vertex — and that whole walk
  * runs once per method call in a statement. Each call rebuilt a forward adjacency map over the group's
  * assignments and re-walked it, and every {@code addCell} adds an assignment to the same group. Both halves are
- * now memoized on {@link org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable}, where every
+ * now memoized on {@link io.codelaser.maddi.modification.link.impl.localvar.SharedVariable}, where every
  * mutation of the group passes:
  * <pre>
  *   n     before      after

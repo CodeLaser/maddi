@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.info;
+package io.codelaser.maddi.cst.api.info;
 
 /**
  * Declaration-site variance of a {@link TypeParameter}.
  * <p>
  * Java has no declaration-site variance (its variance is use-site, via wildcards in
- * {@link org.e2immu.language.cst.api.type.ParameterizedType}); Java type parameters are therefore
+ * {@link io.codelaser.maddi.cst.api.type.ParameterizedType}); Java type parameters are therefore
  * always {@link #INVARIANT}, the default everywhere. Kotlin annotates the parameter itself:
  * {@code class Box<out T>} is {@link #COVARIANT}, {@code class Sink<in T>} is {@link #CONTRAVARIANT}.
  */

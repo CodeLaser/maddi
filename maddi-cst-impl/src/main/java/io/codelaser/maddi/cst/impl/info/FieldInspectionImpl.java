@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
 
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.Access;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.FieldModifier;
-import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.Access;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.FieldModifier;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 
 import java.util.HashSet;
 import java.util.Set;

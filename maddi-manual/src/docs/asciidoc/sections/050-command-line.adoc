@@ -4,8 +4,8 @@
 There are two command-line entry points, both requiring the javac `--add-exports` from <<overview>>
 on the launching JVM:
 
-* the *openjdk runner* (`org.e2immu.analyzer.run.openjdkmain.Main`) — the primary CLI, for Java projects;
-* the *Kotlin/mixed runner* (`org.e2immu.analyzer.run.kotlinmain.Main`) — for mixed Java+Kotlin, prep
+* the *openjdk runner* (`io.codelaser.maddi.run.openjdkmain.Main`) — the primary CLI, for Java projects;
+* the *Kotlin/mixed runner* (`io.codelaser.maddi.run.kotlinmain.Main`) — for mixed Java+Kotlin, prep
   only (see <<kotlin>>).
 
 In the examples below, `maddi` stands for a launcher that starts the appropriate main class with the

@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
 
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;

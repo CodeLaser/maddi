@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.analyzer.CycleBreakingStrategy;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.SingleIterationAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,10 +43,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     // ModificationAnalysisResource#incrementalAnalyze.
     private boolean certifiedWithoutFrozenValues;
 
-    private org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed valueFeed;
+    private io.codelaser.maddi.modification.analyzer.AnalysisValueFeed valueFeed;
 
     @Override
-    public void setValueFeed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed feed) {
+    public void setValueFeed(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed feed) {
         this.valueFeed = feed;
     }
 
@@ -63,7 +63,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     }
 
     // feed exceptions must never disturb the analysis
-    private void feed(java.util.function.Consumer<org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed> action) {
+    private void feed(java.util.function.Consumer<io.codelaser.maddi.modification.analyzer.AnalysisValueFeed> action) {
         if (valueFeed != null) {
             try {
                 action.accept(valueFeed);
@@ -170,28 +170,28 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
      */
     private static int clearDerivedFamily(List<Info> analysisOrder) {
         java.util.Set<String> keys = new java.util.HashSet<>(java.util.Set.of(
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_METHOD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key()));
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_TYPE.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_PARAMETER.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_METHOD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_PARAMETER.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.CONTAINER_FIELD.key()));
         if (EventualCluster.ENABLED) {
             // EVENTUALCLUSTER: the eventual layer derives from modification exactly like the immutability
             // family. Computed pre-cutover, an abstract enm union freezes on optimistic TRUEs and survives
             // the downgrade (the measured Element.complexity race: honest 9-label vs stale 2-label union
             // depending on the run). Clear it with the family; contracts re-materialize on the next pass,
             // and the cluster ledger is reset alongside (the witnessed edges belong to cleared computations).
-            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key());
-            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key());
-            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key());
-            keys.add(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
+            keys.add(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key());
+            keys.add(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key());
+            keys.add(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key());
+            keys.add(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
         }
         int[] cleared = {0};
         for (Info info : analysisOrder) {
@@ -200,8 +200,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 if (remove) cleared[0]++;
                 return remove;
             });
-            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
-                for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+            if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
+                for (io.codelaser.maddi.cst.api.info.ParameterInfo pi : mi.parameters()) {
                     pi.analysis().removeIf(p -> {
                         boolean remove = keys.contains(p.key());
                         if (remove) cleared[0]++;
@@ -223,10 +223,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
      */
     private static int clearEventualFamily(List<Info> analysisOrder) {
         java.util.Set<String> keys = java.util.Set.of(
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key(),
-                org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER.key(),
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE.key());
         int[] cleared = {0};
         for (Info info : analysisOrder) {
             info.analysis().removeIf(p -> {
@@ -234,8 +234,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 if (remove) cleared[0]++;
                 return remove;
             });
-            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
-                for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+            if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
+                for (io.codelaser.maddi.cst.api.info.ParameterInfo pi : mi.parameters()) {
                     pi.analysis().removeIf(p -> {
                         boolean remove = keys.contains(p.key());
                         if (remove) cleared[0]++;
@@ -255,17 +255,17 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
         for (Info info : analysisOrder) {
             String key;
-            if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
-                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+            if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo) {
+                var v = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
                 key = "method.nonModifying=" + (v == null ? "?" : v);
-            } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
-                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
-                        org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+            } else if (info instanceof io.codelaser.maddi.cst.api.info.FieldInfo) {
+                var v = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
                 key = "field.unmodified=" + (v == null ? "?" : v);
-            } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
-                var v = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
-                        org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+            } else if (info instanceof io.codelaser.maddi.cst.api.info.TypeInfo) {
+                var v = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
                 key = "type.immutable=" + (v == null ? "?" : v);
             } else {
                 key = "other";
@@ -274,67 +274,67 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         }
         LOGGER.info("Verdict fingerprint: {}", counts);
         if (System.getenv("VL2OTIER") != null) {
-            LOGGER.info(org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.vl2oTierStats());
+            LOGGER.info(io.codelaser.maddi.modification.link.impl.LinkComputerImpl.vl2oTierStats());
         }
         // task #35 Phase A: consumption-edge sparsity report (CONSEDGES gate; GO/NO-GO for the
         // giant-SCC incremental design, see DESIGN-incremental-v2.md)
-        if (org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
-            LOGGER.info(org.e2immu.language.cst.impl.analysis.ConsumptionEdgeRecorder.statistics());
+        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            LOGGER.info(io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.statistics());
         }
         String dump = System.getenv("FPDUMP");
         if (dump != null) {
             try (java.io.PrintWriter pw = new java.io.PrintWriter(dump)) {
                 for (Info info : analysisOrder) {
                     String v;
-                    if (info instanceof org.e2immu.language.cst.api.info.MethodInfo) {
-                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        var gs = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
+                    if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo) {
+                        var b = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        var gs = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.GET_SET_FIELD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.GetSetValueImpl.class);
                         String getset = gs != null && gs.field() != null
                                 ? " getset=" + gs.field().name() + (gs.setter() ? "(set)" : "(get)") : "";
                         // eventual-cluster diagnostic: the after-mark non-modification label (why a read-through
                         // accessor is excused after the mark) and the @Mark/@Only verdict, to see why an interface
                         // does or does not surface an eventual type-level verdict
-                        var enm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                        var enm = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
                         String evNonMod = enm != null && !enm.set().isEmpty()
                                 ? " eventuallyNonMod=" + new java.util.TreeSet<>(enm.set()) : "";
-                        var evm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventualImpl.class);
+                        var evm = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUAL_METHOD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.EventualImpl.class);
                         String evMethod = evm != null && evm.isEventual() ? " eventual=" + evm : "";
                         v = "method nonModifying=" + b + getset + evNonMod + evMethod;
-                    } else if (info instanceof org.e2immu.language.cst.api.info.FieldInfo) {
-                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
-                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
-                        var igm = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                    } else if (info instanceof io.codelaser.maddi.cst.api.info.FieldInfo) {
+                        var b = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_FIELD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                        var ind = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_FIELD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                        var igm = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
                         v = "field unmodified=" + b + " independent=" + ind + " ignoreMod=" + igm;
-                    } else if (info instanceof org.e2immu.language.cst.api.info.TypeInfo) {
-                        var b = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
-                        var ev = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl.class);
-                        var ind = info.analysis().getOrNull(org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                    } else if (info instanceof io.codelaser.maddi.cst.api.info.TypeInfo) {
+                        var b = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.class);
+                        var ev = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl.class);
+                        var ind = info.analysis().getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.class);
                         v = "type immutable=" + b + " eventual=" + ev + " independent=" + ind;
                     } else continue;
                     pw.println(v + " " + info.fullyQualifiedName());
                     // FPDUMP_PARAMS: parameter-level lines (separate gate so the A/B corpus format is unchanged)
                     if (System.getenv("FPDUMP_PARAMS") != null
-                        && info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
-                        for (org.e2immu.language.cst.api.info.ParameterInfo pi : mi.parameters()) {
+                        && info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
+                        for (io.codelaser.maddi.cst.api.info.ParameterInfo pi : mi.parameters()) {
                             var um = pi.analysis().getOrNull(
-                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                                    org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                                    io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
                             var ind = pi.analysis().getOrNull(
-                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER,
-                                    org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.class);
+                                    io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER,
+                                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.class);
                             var eup = pi.analysis().getOrNull(
-                                    org.e2immu.language.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER,
-                                    org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
+                                    io.codelaser.maddi.cst.impl.analysis.PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER,
+                                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.SetOfStringsImpl.class);
                             String evUnmod = eup != null && !eup.set().isEmpty()
                                     ? " eventuallyUnmod=" + new java.util.TreeSet<>(eup.set()) : "";
                             pw.println("param unmodified=" + um + " independent=" + ind + evUnmod
@@ -377,18 +377,18 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     private static final boolean WORKLIST = System.getenv("NOWORKLIST") == null;
 
     @Override
-    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph) {
+    public void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph) {
         analyze(analysisOrder, dependencyGraph, null, null);
     }
 
     @Override
-    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+    public void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph,
                         java.util.Set<Info> initialDirty) {
         analyze(analysisOrder, dependencyGraph, initialDirty, null);
     }
 
     @Override
-    public void analyze(List<Info> analysisOrder, org.e2immu.util.internal.graph.G<Info> dependencyGraph,
+    public void analyze(List<Info> analysisOrder, io.codelaser.maddi.graph.G<Info> dependencyGraph,
                         java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
@@ -416,7 +416,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // wave-barrier above fires only once (at the end). Method ref = no per-element allocation; feed()
             // keeps the exception-swallowing contract. Runs on parallel workers, so the feed must be cheap.
             sia.setElementCompletedCallback(() ->
-                    feed(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed::elementCompleted));
+                    feed(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed::elementCompleted));
         }
         // a stale warm-up window from a previous run on the same universe (the seeded incremental entry
         // point) would withhold this run's type-level writes: close it before the first iteration
@@ -442,8 +442,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             });
             // overrides may span source sets beyond the graph's vertex subset: keep the explicit relation
             for (Info info : analysisOrder) {
-                if (info instanceof org.e2immu.language.cst.api.info.MethodInfo mi) {
-                    for (org.e2immu.language.cst.api.info.MethodInfo overridden : mi.overrides()) {
+                if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
+                    for (io.codelaser.maddi.cst.api.info.MethodInfo overridden : mi.overrides()) {
                         dependersOf.computeIfAbsent(mi, _ -> new java.util.HashSet<>()).add(overridden);
                         dependersOf.computeIfAbsent(overridden, _ -> new java.util.HashSet<>()).add(mi);
                     }
@@ -470,7 +470,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
         if (!incremental && SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
             && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
-            firstIterationWaves = org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder
+            firstIterationWaves = io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder
                     .waves(dependencyGraph);
             LOGGER.info("Computed {} first-iteration waves", firstIterationWaves.size());
         } else {
@@ -563,10 +563,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // broken-cycle conclusions. Opt-out NOCYCLEBREAKING=1.
             if (done && !cycleBreakingActive && !incremental && System.getenv("NOCYCLEBREAKING") == null) {
                 long undecided = analysisOrder.stream()
-                        .filter(i -> i instanceof org.e2immu.language.cst.api.info.TypeInfo t
+                        .filter(i -> i instanceof io.codelaser.maddi.cst.api.info.TypeInfo t
                                      && t.analysis().getOrNull(
-                                org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
-                                org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.class) == null)
+                                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.class) == null)
                         .count();
                 if (undecided > 0) {
                     LOGGER.info("Certification point, but {} types immutability-undecided: activating cycle breaking",
@@ -574,7 +574,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     cycleBreakingActive = true;
                     {
                         int it = iterations;
-                        feed(f -> f.phase(org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase
+                        feed(f -> f.phase(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase
                                 .CYCLE_BREAKING_ACTIVATED, it));
                     }
                     dirty = null; // one more FULL pass, now with cycle breaking
@@ -610,7 +610,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     // fixpoint; guava measured 2 second-round downgrades, fernflower 0), bounded.
                     modReachRounds++;
                     try {
-                        var pass = new org.e2immu.analyzer.modification.analyzer.shadow.ShadowModificationPass();
+                        var pass = new io.codelaser.maddi.modification.analyzer.shadow.ShadowModificationPass();
                         var report = pass.go(analysisOrder);
                         // MODREACH_DEBUG (presence-only): dump the reverse-divergence class — fixpoint says
                         // modified, reachability finds no modifying frontier. Zero on the certified corpora;
@@ -625,7 +625,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         String explain = System.getenv("MODREACH_EXPLAIN");
                         if (explain != null) {
                             for (Object node : report.reached()) {
-                                if (node instanceof org.e2immu.language.cst.api.info.MethodInfo rm
+                                if (node instanceof io.codelaser.maddi.cst.api.info.MethodInfo rm
                                     && rm.fullyQualifiedName().contains(explain)) {
                                     System.out.println("MODREACH_EXPLAIN " + report.explain(node));
                                 }
@@ -693,10 +693,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 try {
                     {
                         var terminal = done
-                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
+                                ? io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
                                 : plateau
-                                ? org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
-                                : org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
+                                ? io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
+                                : io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
                         int it = iterations;
                         feed(f -> f.phase(terminal, it));
                     }
@@ -728,12 +728,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 // when a summary it ACTUALLY READ changes. Catches value-mediated flows (functional-
                 // interface application) with no syntactic call-graph edge — the measured source of the
                 // verification passes' residue (timefold: 142 modified-set changes per full pass).
-                for (java.util.Map.Entry<org.e2immu.language.cst.api.info.MethodInfo,
-                        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo>> e
+                for (java.util.Map.Entry<io.codelaser.maddi.cst.api.info.MethodInfo,
+                        java.util.Set<io.codelaser.maddi.cst.api.info.MethodInfo>> e
                         : singleIterationAnalyzer.consumedSummaries().entrySet()) {
                     Info consumer = mapToOrderElement(e.getKey(), orderSet);
                     if (consumer == null) continue;
-                    for (org.e2immu.language.cst.api.info.MethodInfo consumed : e.getValue()) {
+                    for (io.codelaser.maddi.cst.api.info.MethodInfo consumed : e.getValue()) {
                         dependersOf.computeIfAbsent(consumed, _ -> new java.util.HashSet<>()).add(consumer);
                     }
                 }
@@ -823,9 +823,9 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             member, so no value analysis depends on it and nothing downstream can be lost by leaving it out
             of the dirty set.
              */
-            if (c instanceof org.e2immu.language.cst.api.element.ModuleInfo) return null;
-            org.e2immu.language.cst.api.info.TypeInfo t =
-                    c instanceof org.e2immu.language.cst.api.info.TypeInfo ti ? ti : c.typeInfo();
+            if (c instanceof io.codelaser.maddi.cst.api.element.ModuleInfo) return null;
+            io.codelaser.maddi.cst.api.info.TypeInfo t =
+                    c instanceof io.codelaser.maddi.cst.api.info.TypeInfo ti ? ti : c.typeInfo();
             c = t == null ? null : t.enclosingMethod();
         }
         return c != null && orderSet.contains(c) ? c : null;

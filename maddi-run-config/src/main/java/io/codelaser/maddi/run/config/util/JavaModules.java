@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.run.config.util;
+package io.codelaser.maddi.run.config.util;
 
 import java.util.Collections;
 import java.util.HashSet;

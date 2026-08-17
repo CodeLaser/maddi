@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.runtime;
+package io.codelaser.maddi.cst.api.runtime;
 
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.ComputeMethodOverrides;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.ComputeMethodOverrides;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 public interface Runtime extends Predefined, Factory, Eval, Types {
 

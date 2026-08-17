@@ -12,18 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.guard;
+package io.codelaser.maddi.modification.analyzer.guard;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.GuardAnalyzerImpl;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.language.cst.api.analysis.Message;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.GuardAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -83,7 +83,7 @@ public class TestGuardDynamicImmutable extends CommonTest {
     private static final String FALSE_CONTRACT = """
             package a.b;
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable(hc = true)
@@ -141,7 +141,7 @@ public class TestGuardDynamicImmutable extends CommonTest {
             package a.b;
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable(hc = true)
@@ -180,7 +180,7 @@ public class TestGuardDynamicImmutable extends CommonTest {
             package a.b;
             import java.util.ArrayList;
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable(hc = true)
@@ -212,7 +212,7 @@ public class TestGuardDynamicImmutable extends CommonTest {
     private static final String TRUE_CONTRACT = """
             package a.b;
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable(hc = true)
@@ -246,7 +246,7 @@ public class TestGuardDynamicImmutable extends CommonTest {
     private static final String FALSE_CONTRACT_PLUS_REAL_VIOLATION = """
             package a.b;
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
 
             public class X {
                 @Immutable(hc = true)

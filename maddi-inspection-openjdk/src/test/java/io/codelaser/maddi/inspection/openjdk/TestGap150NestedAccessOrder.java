@@ -1,11 +1,11 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +16,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -182,7 +182,7 @@ public class TestGap150NestedAccessOrder {
         Throwable t = problems.getFirst();
         StringBuilder sb = new StringBuilder(String.valueOf(t.getMessage()));
         for (StackTraceElement e : t.getStackTrace()) {
-            if (e.getClassName().startsWith("org.e2immu")) sb.append("\n      at ").append(e);
+            if (e.getClassName().startsWith("io.codelaser.maddi")) sb.append("\n      at ").append(e);
         }
         return sb.toString();
     }

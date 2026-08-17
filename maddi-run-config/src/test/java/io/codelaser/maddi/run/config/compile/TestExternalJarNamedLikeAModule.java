@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.run.config.compile;
+package io.codelaser.maddi.run.config.compile;
 
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

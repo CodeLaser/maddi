@@ -22,17 +22,17 @@
  *
  * <h2>Which type for which slot</h2>
  * <ul>
- *     <li>{@link org.e2immu.support.SetOnce} — a slot written exactly once, read only after
+ *     <li>{@link io.codelaser.maddi.support.SetOnce} — a slot written exactly once, read only after
  *     ({@code @Mark("t")} on {@code set}, {@code @Only(after="t")} on {@code get}). The transition is
  *     observable, and the type's immutability is genuinely eventual.</li>
- *     <li>{@link org.e2immu.support.EventuallyFinal} / {@link org.e2immu.support.EventuallyFinalOnDemand}
+ *     <li>{@link io.codelaser.maddi.support.EventuallyFinal} / {@link io.codelaser.maddi.support.EventuallyFinalOnDemand}
  *     — a slot that may be rewritten while variable and is then frozen; the on-demand variant computes
  *     its value on first read, which is why the eventually-non-modifying layer had to exist.</li>
- *     <li>{@link org.e2immu.support.Memo} / {@link org.e2immu.support.IntMemo} — an idempotent lazy cache.
+ *     <li>{@link io.codelaser.maddi.support.Memo} / {@link io.codelaser.maddi.support.IntMemo} — an idempotent lazy cache.
  *     <b>Not</b> an eventual transition: the write is observationally invisible, so the class is disclaimed
  *     with {@code @IgnoreModifications} and a field of that type inherits the disclaimer.</li>
- *     <li>{@link org.e2immu.support.Freezable}, {@link org.e2immu.support.AddOnceSet},
- *     {@link org.e2immu.support.SetOnceMap} — collections with the same discipline.</li>
+ *     <li>{@link io.codelaser.maddi.support.Freezable}, {@link io.codelaser.maddi.support.AddOnceSet},
+ *     {@link io.codelaser.maddi.support.SetOnceMap} — collections with the same discipline.</li>
  * </ul>
  *
  * <h2>Resolve-once: a pattern, not a type</h2>
@@ -55,4 +55,4 @@
  * hierarchy its immutability verdict — which is exactly what happened to {@code ModuleInfoImpl.ProvidesImpl}
  * and, through it, to the entire {@code Element} hierarchy. {@code TestEventualConformance} enforces this.
  */
-package org.e2immu.support;
+package io.codelaser.maddi.support;

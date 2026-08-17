@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.stub;
+package io.codelaser.maddi.java.openjdk.stub;
 
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -27,7 +27,7 @@ public class TestStub1 extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             public class X {
                 private Y y;
@@ -41,7 +41,7 @@ public class TestStub1 extends CommonTest {
     @Test
     public void test() {
         assertThrows(Summary.FailFastException.class, () ->
-                scan("org.e2immu.test.X", INPUT1));
+                scan("io.codelaser.maddi.test.X", INPUT1));
     }
 
 }

@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;
 
 
-import org.e2immu.annotation.Fluent;
+import io.codelaser.maddi.annotation.Fluent;
 
 import java.util.List;
 

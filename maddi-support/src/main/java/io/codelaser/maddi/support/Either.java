@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.Nullable;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 import java.util.Objects;
 

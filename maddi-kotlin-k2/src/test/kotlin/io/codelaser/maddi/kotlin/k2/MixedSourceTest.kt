@@ -1,4 +1,4 @@
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

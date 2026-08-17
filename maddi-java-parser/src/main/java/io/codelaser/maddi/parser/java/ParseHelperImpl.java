@@ -12,27 +12,27 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package io.codelaser.maddi.parser.java;
 
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.NamedType;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.language.inspection.api.parser.ForwardType;
-import org.e2immu.language.inspection.api.parser.ParseHelper;
-import org.e2immu.language.inspection.api.parser.Summary;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.ParseHelper;
+import io.codelaser.maddi.inspection.api.parser.Summary;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
@@ -42,7 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.util.internal.util.StringUtil.pad;
+import static io.codelaser.maddi.util.StringUtil.pad;
 
 public class ParseHelperImpl extends CommonParse implements ParseHelper {
     public ParseHelperImpl(Runtime runtime) {
@@ -109,7 +109,7 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
                                   List<Statement> recordAssignments) {
         int n = (recordAssignments == null ? 0 : recordAssignments.size())
                 + countTopLevelStatements(unparsedEci, expression);
-        org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation eci;
+        io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci;
         if (unparsedEci == null) {
             eci = null;
         } else {
@@ -233,7 +233,7 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
         return b.build();
     }
 
-    private org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation parseEci(Context context,
+    private io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation parseEci(Context context,
                                                                                          Object eciObject,
                                                                                          int n) {
         ExplicitConstructorInvocation unparsedEci = (ExplicitConstructorInvocation) eciObject;

@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.io;
+package io.codelaser.maddi.modification.prepwork.io;
 
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.io.CodecImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.io.CodecImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.parsers.json.JSONParser;
 import org.parsers.json.Node;
 import org.parsers.json.ast.Array;
@@ -57,8 +57,8 @@ import java.util.stream.Stream;
  * </ul>
  */
 public class LoadAnalysisResults {
-    public static final String ANALYZED_RESULTS_JDK = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk";
-    public static final String ANALYZED_RESULTS_LIBS = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs";
+    public static final String ANALYZED_RESULTS_JDK = "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk";
+    public static final String ANALYZED_RESULTS_LIBS = "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs";
     public static final List<String> ANALYZED_RESULTS = List.of(ANALYZED_RESULTS_JDK, ANALYZED_RESULTS_LIBS + "/test",
             ANALYZED_RESULTS_LIBS+"/log");
     private static final Logger LOGGER = LoggerFactory.getLogger(LoadAnalysisResults.class);

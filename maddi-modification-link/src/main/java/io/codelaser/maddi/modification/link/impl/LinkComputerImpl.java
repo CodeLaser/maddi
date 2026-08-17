@@ -1,41 +1,41 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.graph.DegradedAnalysisException;
-import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.Graph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.MakeGraph;
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.NullConstant;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.*;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.util.internal.graph.util.TimedLogger;
+import io.codelaser.maddi.modification.common.defaults.ShallowMethodAnalyzer;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.graph.DegradedAnalysisException;
+import io.codelaser.maddi.modification.link.impl.graph.IncrementalFixpointEngine;
+import io.codelaser.maddi.modification.link.impl.linkgraph.FollowGraph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.Graph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.LinkGraph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.MakeGraph;
+import io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.impl.translate.TranslateConstants;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.*;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.ReturnVariableImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.*;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,10 +46,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.ExpressionVisitor.EMPTY;
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
+import static io.codelaser.maddi.modification.link.impl.ExpressionVisitor.EMPTY;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
+import static io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 /*
 convention:
@@ -296,7 +296,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             String linkTrace = System.getenv("LINKTRACE");
             boolean trace = linkTrace != null && methodInfo.fullyQualifiedName().contains(linkTrace);
             if (trace) {
-                org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = true;
+                io.codelaser.maddi.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = true;
                 System.out.println("LT >>> " + methodInfo.fullyQualifiedName());
             }
             SourceMethodComputer computer = new SourceMethodComputer(methodInfo);
@@ -329,7 +329,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             } finally {
                 recursionPrevention.doneSource(methodInfo);
                 if (trace) {
-                    org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = false;
+                    io.codelaser.maddi.modification.link.impl.graph.IncrementalFixpointEngine.TRACE = false;
                     System.out.println("LT <<< " + methodInfo.fullyQualifiedName());
                 }
             }

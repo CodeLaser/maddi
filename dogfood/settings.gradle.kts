@@ -42,7 +42,7 @@ pluginManagement {
     // the plugin is requested without a version in build.gradle.kts; it gets the project's
     resolutionStrategy {
         eachPlugin {
-            if (requested.id.id == "org.e2immu.analyzer-plugin") useVersion(maddiVersion)
+            if (requested.id.id == "io.codelaser.maddi.analyzer") useVersion(maddiVersion)
         }
     }
 }

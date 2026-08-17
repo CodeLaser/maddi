@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.config.compile;
+package io.codelaser.maddi.run.config.compile;
 
 import java.util.List;
 

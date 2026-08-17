@@ -13,7 +13,7 @@
 load("//:java_library_conventions.bzl", "maddi_java_library")
 # module-info.java makes this a named module, so the javac-internals exports must
 # target that module rather than ALL-UNNAMED (see maddi-java-openjdk/build.gradle.kts).
-_MODULE = "org.e2immu.language.java.openjdk"
+_MODULE = "io.codelaser.maddi.java.openjdk"
 
 maddi_java_library(
     name = "maddi-java-openjdk",

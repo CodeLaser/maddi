@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.runtime;
+package io.codelaser.maddi.cst.api.runtime;
 
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.*;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.OutputElement;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.output.element.ElementarySpace;
-import org.e2immu.language.cst.api.output.element.Split;
-import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
-import org.e2immu.language.cst.api.statement.*;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.Diamond;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.language.cst.api.type.Wildcard;
-import org.e2immu.language.cst.api.variable.*;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
+import io.codelaser.maddi.cst.api.output.element.Split;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
+import io.codelaser.maddi.cst.api.type.Wildcard;
+import io.codelaser.maddi.cst.api.variable.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
@@ -346,7 +346,7 @@ public interface Factory {
 
     /**
      * As {@link #newMethodPrinter(MethodInfo)}, but with the owner and the formatter2 flag that
-     * {@link org.e2immu.language.cst.api.info.TypePrinter.MethodPrinterFactory} hands out — the single-argument
+     * {@link io.codelaser.maddi.cst.api.info.TypePrinter.MethodPrinterFactory} hands out — the single-argument
      * version silently formats as if formatter2 were false, which changes the layout of the printed method.
      */
     MethodPrinter newMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2);

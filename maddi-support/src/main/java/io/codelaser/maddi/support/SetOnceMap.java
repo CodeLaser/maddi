@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.e2immu.support;
+package io.codelaser.maddi.support;
 
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.Only;
 
 import java.util.HashMap;
 import java.util.Map;

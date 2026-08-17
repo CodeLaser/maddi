@@ -1,6 +1,6 @@
-package org.e2immu.language.inspection.api.integration;
+package io.codelaser.maddi.inspection.api.integration;
 
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 
 import java.io.IOException;
 import java.util.List;

@@ -12,22 +12,22 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.integration;
+package io.codelaser.maddi.inspection.api.integration;
 
 
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.api.resource.SourceFile;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.SourceFile;
 
 import java.io.IOException;
 import java.net.URI;
@@ -311,7 +311,7 @@ public interface JavaInspector {
      * qualified {@code exports} in it has to gain the name of a module that did not exist before the refactoring.
      * <p>
      * Purely syntactic: it neither loads types nor resolves the names in {@code uses} / {@code provides ... with},
-     * and it never puts javac in module mode. The returned descriptor carries {@link org.e2immu.language.cst.api.element.Source}
+     * and it never puts javac in module mode. The returned descriptor carries {@link io.codelaser.maddi.cst.api.element.Source}
      * for each directive, so it can be printed back over the original text; its compilation unit has the file's URI
      * and no source set. Returns {@code null} when the file cannot be read or does not parse as a module
      * declaration — this is a best-effort read of a file outside the analysed tree, never a reason to fail a run.
@@ -330,12 +330,12 @@ public interface JavaInspector {
     ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException;
 
     /**
-     * The read-only {@link org.e2immu.language.cst.api.info.InfoMapView} of the most recent re-parse's rewire (old
+     * The read-only {@link io.codelaser.maddi.cst.api.info.InfoMapView} of the most recent re-parse's rewire (old
      * object → new object), or {@code null} if the last parse did no rewiring. Lets a caller carry a spared REWIRE
      * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
      * see {@code docs/analysis-rewiring.md}. Valid until the next parse.
      */
-    default org.e2immu.language.cst.api.info.InfoMapView lastRewireInfoMap() {
+    default io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
         return null;
     }
 }

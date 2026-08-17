@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -21,9 +21,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import org.e2immu.annotation.Container;
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.NotModified;
+import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotModified;
 
 public class JavaUtilRegex {
     public static final String PACKAGE_NAME = "java.util.regex";

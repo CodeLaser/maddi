@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.method.GetSet;
+package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.method.GetSet;
 
 import java.io.InputStream;
 import java.net.URI;

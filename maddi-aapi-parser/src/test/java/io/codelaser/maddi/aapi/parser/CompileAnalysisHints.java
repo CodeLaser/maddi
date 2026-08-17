@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import org.slf4j.Logger;
@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
-import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
+import static io.codelaser.maddi.modification.common.CommonTest.javaInspectorFactory;
 
 /**
  * Compiles the hand-written analysis hints in {@code maddi-aapi-archive/src/main/java} into the analysis-result
@@ -41,14 +41,14 @@ public class CompileAnalysisHints {
 
     static final String HINTS_PATH = "../maddi-aapi-archive/src/main/java";
     static final String RESULTS_BASE =
-            "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/";
+            "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/";
     static final List<String> LIBRARIES = List.of("jdk", "libs/test", "libs/log");
     // fixed entry timestamp (2020-01-01T00:00:00Z) so a regenerated jar only differs when its content does
     private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
 
     public static void main(String[] args) throws IOException {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.aapi")).setLevel(Level.INFO);
         compileAll();
         packageJars();
     }
@@ -68,7 +68,7 @@ public class CompileAnalysisHints {
                 .setLibraryName(library)
                 .setAnalysisResultsDir(Path.of(RESULTS_BASE + library))
                 .setHintsPath(Path.of(HINTS_PATH))
-                .setPackagePrefix("org.e2immu.analyzer.aapi.archive." + library.replace("/", "."))
+                .setPackagePrefix("io.codelaser.maddi.aapi.archive." + library.replace("/", "."))
                 .build();
         LOGGER.info("Compiling analysis hints for library '{}'", library);
         compiler.go(analysisHints);

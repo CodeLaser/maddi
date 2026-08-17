@@ -90,7 +90,7 @@ env JAVA_TOOL_OPTIONS="$MADDI_EXPORTS -Xmx6G" maddi \
   --input-configuration inputConfiguration.json --analysis-steps prep
 ```
 
-(`maddi` = the openjdk runner, `org.e2immu.analyzer.run.openjdkmain.Main`; the `--compile-log` path adds the
+(`maddi` = the openjdk runner, `io.codelaser.maddi.run.openjdkmain.Main`; the `--compile-log` path adds the
 `java.se` jmod closure automatically. See `maddi-run-openjdk/running-examples.md` in the maddi repo.)
 
 ## Cycle structure of the wired corpus

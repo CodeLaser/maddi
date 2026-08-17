@@ -12,8 +12,8 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.libs.test;
-import org.e2immu.annotation.Independent;
+package io.codelaser.maddi.aapi.archive.libs.test;
+import io.codelaser.maddi.annotation.Independent;
 public class OrgJunitJupiterApiFunction {
     public static final String PACKAGE_NAME = "org.junit.jupiter.api.function";
     //public interface Executable

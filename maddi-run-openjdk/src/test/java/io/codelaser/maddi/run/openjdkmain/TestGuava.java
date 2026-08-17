@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
@@ -27,9 +27,9 @@ public class TestGuava {
     @BeforeAll
     public static void beforeAll() {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.shallow")).setLevel(Level.DEBUG);
         ((ch.qos.logback.classic.Logger) LoggerFactory
-                .getLogger("org.e2immu.analyzer.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
+                .getLogger("io.codelaser.maddi.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
     }
 
     private static final Path CONFIG = TestOssCorpus.config("guava");
@@ -41,11 +41,11 @@ public class TestGuava {
         int exitValue = Main.execute(new String[]{
                 "--input-configuration=" + CONFIG
                 , "--analysis-steps=modification"
-                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"
+                , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"
                 // ⚠ REQUIRED SINCE THE CONFIG COVERS guava-tests (corpus commit b1a95656f). That module holds
                 // MacHashFunctionTest, which imports sun.security.jca.ProviderList/Providers -- a non-exported
                 // java.base package. Without this flag the unit is dropped and the run ends at
-                // EXIT_PARSER_ERROR before the analyser is reached at all, so the test would be guarding the
+                // EXIT_PARSER_ERROR before the analyzer is reached at all, so the test would be guarding the
                 // parse and nothing else.
                 , "--jdk-internals"
         });

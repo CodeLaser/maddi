@@ -12,29 +12,29 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.libs.support;
+package io.codelaser.maddi.aapi.archive.libs.support;
 
-import org.e2immu.annotation.ImmutableContainer;
-import org.e2immu.annotation.Modified;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.NotNull;
-import org.e2immu.annotation.Nullable;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
-import org.e2immu.support.SetOnce;
+import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Modified;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
+import io.codelaser.maddi.support.SetOnce;
 
 /**
  * The e2immu support library: the original eventually-immutable containers the CST leans on
  * (TypeInfoImpl.compilationUnitOrEnclosingType is an Either, the inspections sit in SetOnce /
  * EventuallyFinal / EventuallyFinalOnDemand). The annotations mirror the library sources verbatim
- * (maddi-support/src/main/java/org/e2immu/support) -- the jar carries them as class-file annotations,
+ * (maddi-support/src/main/java/io/codelaser/maddi/support) -- the jar carries them as class-file annotations,
  * but nothing materializes external-library bytecode annotations into analysis(), so without this
  * package the whole family reads as absent = MUTABLE and every exposure of an Either or an inspection
  * holder is DEPENDENT (the TypeInfo/TypeParameter cap of the 2026-08 climb, Quest T).
  */
 public class OrgE2immuSupport {
-    public static final String PACKAGE_NAME = "org.e2immu.support";
+    public static final String PACKAGE_NAME = "io.codelaser.maddi.support";
 
     //public class Either<A, B>
     @ImmutableContainer(hc = true)
@@ -43,8 +43,8 @@ public class OrgE2immuSupport {
         @NotModified B getRight() { return null; }
         @NotModified boolean isLeft() { return false; }
         @NotModified boolean isRight() { return false; }
-        @NotModified static <L, R> org.e2immu.support.Either<L, R> right(@NotNull R right) { return null; }
-        @NotModified static <L, R> org.e2immu.support.Either<L, R> left(@NotNull L left) { return null; }
+        @NotModified static <L, R> io.codelaser.maddi.support.Either<L, R> right(@NotNull R right) { return null; }
+        @NotModified static <L, R> io.codelaser.maddi.support.Either<L, R> left(@NotNull L left) { return null; }
         @NotModified A getLeftOrElse(@NotNull A orElse) { return null; }
         @NotModified B getRightOrElse(@NotNull B orElse) { return null; }
     }

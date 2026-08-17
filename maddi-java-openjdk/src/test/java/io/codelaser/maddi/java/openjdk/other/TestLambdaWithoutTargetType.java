@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.java.openjdk.CommonTest;
-import org.e2immu.language.java.openjdk.ScanCompilationUnits;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ⛔ The null used to reach {@code ClassSymbolScanner.convert}, fall through every {@code instanceof} case and
  * surface at the bottom as {@code Cannot invoke "Type.toString()" because "type" is null} — a javac internal,
  * one frame past the site, naming neither the lambda nor the unresolved call. Because the message carried no
- * {@link org.e2immu.language.java.openjdk.UnresolvedSymbolException}, fault isolation graded it a hard
+ * {@link io.codelaser.maddi.java.openjdk.UnresolvedSymbolException}, fault isolation graded it a hard
  * <em>error</em> rather than the tolerable partial-classpath miss it is, so a single such lambda failed the
  * whole run.
  * <p>

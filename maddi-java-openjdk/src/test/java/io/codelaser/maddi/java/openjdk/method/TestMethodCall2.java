@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.method;
+package io.codelaser.maddi.java.openjdk.method;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +69,7 @@ public class TestMethodCall2 extends CommonTest {
     private static final String INPUT2 = """
             package a.b;
             
-            import org.e2immu.annotation.NotNull;
+            import io.codelaser.maddi.annotation.NotNull;
             
             import java.util.List;
             
@@ -115,11 +115,11 @@ public class TestMethodCall2 extends CommonTest {
             
             public class C {
             
-                interface Analyser {
+                interface Analyzer {
                     record SharedState(int iteration, String context) {}
                 }
             
-                static class MethodAnalyser implements Analyser {
+                static class MethodAnalyzer implements Analyzer {
             
                     private record SharedState(boolean allowBreaking) {}
             

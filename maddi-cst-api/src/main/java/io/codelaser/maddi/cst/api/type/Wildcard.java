@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.api.type;
+package io.codelaser.maddi.cst.api.type;
 
 public interface Wildcard {
     boolean isUnbound();

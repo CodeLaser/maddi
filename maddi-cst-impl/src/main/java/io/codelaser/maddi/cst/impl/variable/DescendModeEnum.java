@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.variable;
+package io.codelaser.maddi.cst.impl.variable;
 
-import org.e2immu.language.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
 
 public enum DescendModeEnum implements DescendMode {
     YES,

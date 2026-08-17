@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.print.formatter2;
+package io.codelaser.maddi.cst.print.formatter2;
 
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputElement;
-import org.e2immu.language.cst.api.output.element.Space;
-import org.e2immu.language.cst.api.output.element.Symbol;
-import org.e2immu.language.cst.api.output.element.Text;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.element.Space;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
+import io.codelaser.maddi.cst.api.output.element.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

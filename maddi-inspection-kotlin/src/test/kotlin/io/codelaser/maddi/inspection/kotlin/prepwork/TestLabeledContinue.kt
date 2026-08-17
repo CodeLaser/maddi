@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin.prepwork
+package io.codelaser.maddi.inspection.kotlin.prepwork
 
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl
-import org.e2immu.language.cst.api.statement.LoopStatement
-import org.e2immu.language.cst.api.statement.Statement
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl
+import io.codelaser.maddi.cst.api.statement.LoopStatement
+import io.codelaser.maddi.cst.api.statement.Statement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

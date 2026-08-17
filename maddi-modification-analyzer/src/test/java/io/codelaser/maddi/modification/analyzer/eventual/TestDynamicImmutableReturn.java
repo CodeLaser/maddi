@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.eventual;
+package io.codelaser.maddi.modification.analyzer.eventual;
 
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.common.defaults.ContractReader;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -103,7 +103,7 @@ public class TestDynamicImmutableReturn extends CommonTest {
     @Language("java")
     private static final String B_ANNOTATED = """
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             public class B {
               private final List<String> items;
               public B(List<String> items) { this.items = items; }
@@ -182,7 +182,7 @@ public class TestDynamicImmutableReturn extends CommonTest {
     @Language("java")
     private static final String E_ANNOTATED_COPY_IN = """
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             public class B {
               private final List<String> items;
               public B(List<String> items) { this.items = List.copyOf(items); }
@@ -207,7 +207,7 @@ public class TestDynamicImmutableReturn extends CommonTest {
     @Language("java")
     private static final String G_ANNOTATED_FIELD = """
             import java.util.List;
-            import org.e2immu.annotation.Immutable;
+            import io.codelaser.maddi.annotation.Immutable;
             public class B {
               @Immutable(hc = true)
               private final List<String> items;

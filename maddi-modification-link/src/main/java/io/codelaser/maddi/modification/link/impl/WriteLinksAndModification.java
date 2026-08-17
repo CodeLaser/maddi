@@ -1,36 +1,36 @@
-package org.e2immu.analyzer.modification.link.impl;
+package io.codelaser.maddi.modification.link.impl;
 
-import org.e2immu.analyzer.modification.common.util.TolerantWrite;
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.graph.Fact;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph.RedundantLinks;
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
-import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.common.AnalysisHelper;
+import io.codelaser.maddi.modification.link.impl.graph.Fact;
+import io.codelaser.maddi.modification.link.impl.linkgraph.FollowGraph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.RedundantLinks;
+import io.codelaser.maddi.modification.link.impl.localvar.IntermediateVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.SharedVariable;
+import io.codelaser.maddi.modification.link.impl.translate.VariableTranslationMap;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.*;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.*;
+import static io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 class WriteLinksAndModification {
     private final Runtime runtime;
@@ -237,7 +237,7 @@ class WriteLinksAndModification {
         // while cached links carry the redundancy suppression (see the NORL guard below).
         if (reuse != null
             && !(variable instanceof ReturnVariable)
-            && !(lastStatement && variable instanceof org.e2immu.language.cst.api.info.ParameterInfo)
+            && !(lastStatement && variable instanceof io.codelaser.maddi.cst.api.info.ParameterInfo)
             && !reuse.dirty.contains(variable)) {
             Links prev = lastExtracted.get(variable);
             if (prev != null) {
@@ -361,7 +361,7 @@ class WriteLinksAndModification {
             // Returns stay complete (handled above); in the last statement, parameters stay complete too — the
             // method summary reads them there.
             if (!Gate.isSet("NORL")
-                && (!lastStatement || !(variable instanceof org.e2immu.language.cst.api.info.ParameterInfo))) {
+                && (!lastStatement || !(variable instanceof io.codelaser.maddi.cst.api.info.ParameterInfo))) {
                 redundantLinks.redundantLinks(builder);
             }
             verdictAndFlips(statement, vi, variable, builder, previouslyModified, modifiedInThisEvaluation,
@@ -555,7 +555,7 @@ class WriteLinksAndModification {
     // structural depth of a variable's access chain: b=0, b.variables=1, b.variables[0]=2
     private static int depth(Variable v) {
         if (v instanceof FieldReference fr && fr.scopeVariable() != null) return 1 + depth(fr.scopeVariable());
-        if (v instanceof org.e2immu.language.cst.api.variable.DependentVariable dv && dv.arrayVariable() != null) {
+        if (v instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv && dv.arrayVariable() != null) {
             return 1 + depth(dv.arrayVariable());
         }
         return 0;
@@ -573,9 +573,9 @@ class WriteLinksAndModification {
          */
         record VPair(Variable from, Variable to) {
         }
-        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> fromUp = new HashMap<>();
-        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> toUp = new HashMap<>();
-        Map<VPair, Set<org.e2immu.analyzer.modification.prepwork.variable.LinkNature>> bothUp = new HashMap<>();
+        Map<VPair, Set<io.codelaser.maddi.modification.prepwork.variable.LinkNature>> fromUp = new HashMap<>();
+        Map<VPair, Set<io.codelaser.maddi.modification.prepwork.variable.LinkNature>> toUp = new HashMap<>();
+        Map<VPair, Set<io.codelaser.maddi.modification.prepwork.variable.LinkNature>> bothUp = new HashMap<>();
         for (Link fine : links) {
             Set<Variable> svFrom = Util.scopeVariables(fine.from());
             Set<Variable> svTo = Util.scopeVariables(fine.to());

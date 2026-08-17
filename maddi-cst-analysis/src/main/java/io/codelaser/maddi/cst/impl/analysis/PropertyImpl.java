@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.analysis;
+package io.codelaser.maddi.cst.impl.analysis;
 
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Property.AnalysisTier;
-import org.e2immu.language.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Property.AnalysisTier;
+import io.codelaser.maddi.cst.api.analysis.Value;
 
 public class PropertyImpl implements Property {
     // type

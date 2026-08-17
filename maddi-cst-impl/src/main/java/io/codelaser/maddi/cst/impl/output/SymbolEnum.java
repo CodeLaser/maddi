@@ -12,15 +12,15 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.element.Space;
-import org.e2immu.language.cst.api.output.element.Symbol;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.element.Space;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
+import io.codelaser.maddi.util.StringUtil;
 
-import static org.e2immu.language.cst.impl.output.SpaceEnum.*;
+import static io.codelaser.maddi.cst.impl.output.SpaceEnum.*;
 
 public record SymbolEnum(String symbol, Space left, Space right, String constant) implements Symbol {
 

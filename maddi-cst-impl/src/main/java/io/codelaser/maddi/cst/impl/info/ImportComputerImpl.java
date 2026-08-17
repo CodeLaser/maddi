@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.ImportStatement;
-import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.impl.output.QualificationImpl;
-import org.e2immu.language.cst.impl.output.TypeNameImpl;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.info.ImportComputer;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.impl.output.QualificationImpl;
+import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public class ImportComputerImpl implements ImportComputer {
      * that copies text and one that prints the CST need different imports; hand out both rather than pick.
      * Returns {@code null} whenever the ordinary single import suffices.
      *
-     * @see org.e2immu.language.cst.api.element.DetailedSources#qualifier(TypeInfo)
+     * @see io.codelaser.maddi.cst.api.element.DetailedSources#qualifier(TypeInfo)
      */
     private static TypeInfo declaringQualifierIfDifferent(TypeInfo typeInfo, TypeInfo writtenQualifier) {
         if (writtenQualifier == typeInfo) return null; // written without qualification

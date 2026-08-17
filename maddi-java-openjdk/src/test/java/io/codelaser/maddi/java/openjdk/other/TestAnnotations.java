@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.other;
+package io.codelaser.maddi.java.openjdk.other;
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.statement.TryStatement;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.impl.element.SourceImpl;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.TryStatement;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -601,7 +601,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT13 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             class C {
               static void assertArrayEquals(boolean [] expected, boolean @Nullable ... actual) {
               }
@@ -624,7 +624,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT14 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             class C {
               static void assertArrayEquals(boolean @Nullable [] expected, boolean @Nullable [] actual) {
               }
@@ -645,7 +645,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT15 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             abstract class C {
               abstract boolean @Nullable [] findBooleans();
               void assertArrayEquals() {
@@ -667,7 +667,7 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT16 = """
             package a.b;
-            import org.e2immu.annotation.Nullable;
+            import io.codelaser.maddi.annotation.Nullable;
             abstract class C {
               abstract String @Nullable [] findStrings();
               void assertArrayEquals() {
@@ -690,10 +690,10 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT17 = """
             package a.b;
-            import org.e2immu.annotation.Independent
-            ;import org.e2immu.annotation.Modified;
-            import org.e2immu.annotation.NotModified;
-            import org.e2immu.annotation.NotNull;
+            import io.codelaser.maddi.annotation.Independent
+            ;import io.codelaser.maddi.annotation.Modified;
+            import io.codelaser.maddi.annotation.NotModified;
+            import io.codelaser.maddi.annotation.NotNull;
             import java.util.Collection;
             abstract class C {
                <T> boolean addAll(@NotNull @Modified @Independent(hcParameters = {1}) Collection<? super T> c, @NotModified T... elements);

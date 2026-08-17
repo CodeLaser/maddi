@@ -1,23 +1,23 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph;
+package io.codelaser.maddi.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.link.impl.Gate;
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.graph.Fact;
-import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
-import org.e2immu.analyzer.modification.link.impl.graph.LabeledGraph;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
-import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
+import io.codelaser.maddi.modification.link.impl.Gate;
+import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
+import io.codelaser.maddi.modification.link.impl.graph.Fact;
+import io.codelaser.maddi.modification.link.impl.graph.IncrementalFixpointEngine;
+import io.codelaser.maddi.modification.link.impl.graph.LabeledGraph;
+import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.SharedVariable;
+import io.codelaser.maddi.modification.link.impl.translate.VariableTranslationMap;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.*;
 import java.util.function.Function;
@@ -25,7 +25,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
+import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
 
 public class Graph {
     private final Runtime runtime;
@@ -559,7 +559,7 @@ public class Graph {
             touchAll(sharedVariables.allShared(from));
             touchAll(sharedVariables.allShared(to));
             boolean fromInGroups = sharedVariables.isKnown(from);
-            if (fromInGroups && !(from instanceof org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable)
+            if (fromInGroups && !(from instanceof io.codelaser.maddi.modification.prepwork.variable.ReturnVariable)
                 && sharedVariables.isReassignment(from, statementIndex)) {
                 // genuine reassignment ('from' was assigned at an earlier statement, now assigned again): drop its
                 // old group membership. A second value assigned in the SAME statement (multi-valued 'm = cond ? a : b'

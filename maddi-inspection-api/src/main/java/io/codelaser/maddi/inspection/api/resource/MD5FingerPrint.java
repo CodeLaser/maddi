@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.api.resource;
+package io.codelaser.maddi.inspection.api.resource;
 
-import org.e2immu.language.cst.api.element.FingerPrint;
+import io.codelaser.maddi.cst.api.element.FingerPrint;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

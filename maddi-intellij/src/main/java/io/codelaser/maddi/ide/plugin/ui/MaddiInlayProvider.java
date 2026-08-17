@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.ui;
+package io.codelaser.maddi.ide.plugin.ui;
 
 import com.intellij.codeInsight.hints.declarative.AboveLineIndentedPosition;
 import com.intellij.codeInsight.hints.declarative.HintFormat;
@@ -33,11 +33,11 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiIdentifier;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiParameter;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
-import org.e2immu.analyzer.ide.client.AnalysisModel;
-import org.e2immu.analyzer.ide.plugin.settings.HintPlacement;
-import org.e2immu.analyzer.ide.plugin.settings.InlineHintsMode;
-import org.e2immu.analyzer.ide.plugin.settings.MaddiSettings;
+import io.codelaser.maddi.ide.plugin.analysis.MaddiAnalysisService;
+import io.codelaser.maddi.ide.client.AnalysisModel;
+import io.codelaser.maddi.ide.plugin.settings.HintPlacement;
+import io.codelaser.maddi.ide.plugin.settings.InlineHintsMode;
+import io.codelaser.maddi.ide.plugin.settings.MaddiSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

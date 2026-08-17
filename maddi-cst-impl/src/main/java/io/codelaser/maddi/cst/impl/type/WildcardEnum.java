@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.type;
+package io.codelaser.maddi.cst.impl.type;
 
-import org.e2immu.language.cst.api.type.Wildcard;
+import io.codelaser.maddi.cst.api.type.Wildcard;
 
 public enum WildcardEnum implements Wildcard {
     EXTENDS, EXTENDS_INTERSECTION, SUPER, UNBOUND,

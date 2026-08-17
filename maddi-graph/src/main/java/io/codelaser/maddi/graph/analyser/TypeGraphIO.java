@@ -12,10 +12,10 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.util.internal.graph.analyser;
+package io.codelaser.maddi.graph.analyzer;
 
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
+import io.codelaser.maddi.graph.G;
+import io.codelaser.maddi.graph.V;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.builder.GraphTypeBuilder;

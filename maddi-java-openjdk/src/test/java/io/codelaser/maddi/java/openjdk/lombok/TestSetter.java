@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk.lombok;
+package io.codelaser.maddi.java.openjdk.lombok;
 
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ public class TestSetter extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             import lombok.Setter;
             import java.util.List;
@@ -43,7 +43,7 @@ public class TestSetter extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT1);
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
@@ -51,7 +51,7 @@ public class TestSetter extends CommonTest {
             assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
 
             assertFalse(m.isStatic());
-            assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         {
@@ -59,7 +59,7 @@ public class TestSetter extends CommonTest {
             assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
 
             assertTrue(m.isStatic());
-            assertEquals("org.e2immu.test.X.setI(int)", m.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.setI(int)", m.fullyQualifiedName());
             assertEquals("{X.i=i;}", m.methodBody().toString());
         }
 
@@ -67,7 +67,7 @@ public class TestSetter extends CommonTest {
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.test;
+            package io.codelaser.maddi.test;
 
             import lombok.Setter;
             import java.util.List;
@@ -82,7 +82,7 @@ public class TestSetter extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT2);
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.X", INPUT2);
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
@@ -90,7 +90,7 @@ public class TestSetter extends CommonTest {
             assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
 
             assertFalse(m.isStatic());
-            assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
+            assertEquals("io.codelaser.maddi.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         assertThrows(NoSuchElementException.class, () -> typeInfo.findUniqueMethod("setI", 1));

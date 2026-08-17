@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.expression.util;
+package io.codelaser.maddi.cst.impl.expression.util;
 
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.ExpressionWrapper;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.ExpressionWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

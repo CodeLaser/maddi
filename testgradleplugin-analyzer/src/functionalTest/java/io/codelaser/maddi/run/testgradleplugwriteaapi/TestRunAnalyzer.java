@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.run.testgradleplugwriteaapi;
+package io.codelaser.maddi.run.testgradleplugwriteaapi;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;

@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.math.*;
 import java.util.Random;
 
-import org.e2immu.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 public class JavaMath {
     public static final String PACKAGE_NAME = "java.math";
     //public class BigDecimal extends Number implements Comparable<BigDecimal>

@@ -293,7 +293,7 @@ def plan(entry, phase):
         # does everything in it parse", which is a property of the CONFIG. Running the analyzer
         # here instead conflates that with "is the analyzer working", so a red says nothing
         # about which of the two broke -- and it costs 60x more: fernflower is 13s parse-only
-        # against 13m under `modification`, timefold 25m. The analyser run is `analyse`, below.
+        # against 13m under `modification`, timefold 25m. The analyzer run is `analyse`, below.
         p = entry.get('parse') or {}
         cfg = config_path(entry)
         maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()

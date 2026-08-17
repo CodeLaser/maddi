@@ -1,15 +1,15 @@
-package org.e2immu.language.inspection.openjdk;
+package io.codelaser.maddi.inspection.openjdk;
 
-import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.support.SetOnce;
-import org.e2immu.util.internal.util.StringUtil;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnce;
+import io.codelaser.maddi.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetModuleOf;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetModuleOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -67,7 +67,7 @@ public class TestJavaInspector5RealClasspathModule {
         ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
         assertEquals(13, moduleInfo.exports().size());
 
-        TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
+        TypeInfo element = parseResult.findType("io.codelaser.maddi.cst.api.element.Element");
         assertTrue(element.isInterface());
     }
 
@@ -105,9 +105,9 @@ public class TestJavaInspector5RealClasspathModule {
         String onDisk = Files.readString(Path.of("../maddi-cst-api/src/main/java/module-info.java"));
 
         // non-vacuity: normalise() must not be comparing two empty strings, and the body must really be there
-        assertTrue(printed.contains("module org.e2immu.language.cst.api {"), printed);
+        assertTrue(printed.contains("module io.codelaser.maddi.cst.api {"), printed);
         assertTrue(printed.contains("requires org.jetbrains.annotations;"), printed);
-        assertTrue(printed.contains("exports org.e2immu.language.cst.api.element;"), printed);
+        assertTrue(printed.contains("exports io.codelaser.maddi.cst.api.element;"), printed);
 
         assertEquals(normalise(onDisk), normalise(printed));
     }
@@ -127,7 +127,7 @@ public class TestJavaInspector5RealClasspathModule {
                 Path.of("../maddi-cst-api/src/main/java/module-info.java"));
 
         assertNotNull(moduleInfo);
-        assertEquals("org.e2immu.language.cst.api", moduleInfo.name());
+        assertEquals("io.codelaser.maddi.cst.api", moduleInfo.name());
         assertEquals(13, moduleInfo.exports().size(), "the same descriptor the two parsing paths produce");
 
         assertTrue(moduleInfo.compilationUnit().uri().toString().startsWith("file:"),
@@ -143,7 +143,7 @@ public class TestJavaInspector5RealClasspathModule {
         // a best-effort read of a file outside the analysed tree must never fail a run
         assertNull(javaInspector.parseModuleInfo(Path.of("../maddi-cst-api/src/main/java/does-not-exist.java")));
         assertNull(javaInspector.parseModuleInfo(
-                Path.of("../maddi-cst-api/src/main/java/org/e2immu/language/cst/api/element/Element.java")),
+                Path.of("../maddi-cst-api/src/main/java/io/codelaser/maddi/cst/api/element/Element.java")),
                 "an ordinary compilation unit is not a module declaration");
     }
 

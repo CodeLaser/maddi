@@ -12,25 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.impl;
+package io.codelaser.maddi.modification.analyzer.impl;
 
-import org.e2immu.analyzer.modification.common.defaults.ContractReader;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFECTS_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFECTS_METHOD;
 
 /**
  * Writes a user's <em>dynamic type</em> contract on a SOURCE field or method into {@code analysis()}.
@@ -47,8 +47,8 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFF
  * Materializing a contract means the analyzer <b>trusts</b> the user rather than computing. That is defensible
  * exactly when the analyzer has no way of deriving the value for itself:
  * <ul>
- *   <li>{@link org.e2immu.language.cst.impl.analysis.PropertyImpl#IMMUTABLE_FIELD} and
- *       {@link org.e2immu.language.cst.impl.analysis.PropertyImpl#IMMUTABLE_METHOD} are <em>dynamic</em> type
+ *   <li>{@link io.codelaser.maddi.cst.impl.analysis.PropertyImpl#IMMUTABLE_FIELD} and
+ *       {@link io.codelaser.maddi.cst.impl.analysis.PropertyImpl#IMMUTABLE_METHOD} are <em>dynamic</em> type
  *       information: the declared type is {@code List<X>} while the object actually held or returned is
  *       immutable. Nothing in the declared type says so, and no source-level inference computes it today, so
  *       the contract is the only possible source. (Inferring it is a separate, inter-procedural problem — see
@@ -69,7 +69,7 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFF
  * derived family; a first-iteration-only materialization would be silently dropped on that path.
  */
 public class SourceContractMaterializer {
-    private static final String IGNORE_MODIFICATIONS_FQN = "org.e2immu.annotation.rare.IgnoreModifications";
+    private static final String IGNORE_MODIFICATIONS_FQN = "io.codelaser.maddi.annotation.rare.IgnoreModifications";
 
     private final ContractReader contractReader;
     private final AtomicInteger propertyChanges;
@@ -95,19 +95,19 @@ public class SourceContractMaterializer {
         // disclaimer filters consume it. A contract on a declaration binds every override: the annotation
         // is written once, on the interface (the shallow analyzer gives jar methods the same inheritance),
         // so an implementation's parameter inherits the disclaimer from any overridden declaration.
-        for (org.e2immu.language.cst.api.info.ParameterInfo pi : methodInfo.parameters()) {
-            materializeTrueBool(pi, org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER);
+        for (io.codelaser.maddi.cst.api.info.ParameterInfo pi : methodInfo.parameters()) {
+            materializeTrueBool(pi, io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER);
             if (!pi.analysis().haveAnalyzedValueFor(
-                    org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)) {
+                    io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)) {
                 for (MethodInfo overridden : methodInfo.overrides()) {
                     if (pi.index() >= overridden.parameters().size()) continue;
-                    org.e2immu.language.cst.api.info.ParameterInfo opi = overridden.parameters().get(pi.index());
+                    io.codelaser.maddi.cst.api.info.ParameterInfo opi = overridden.parameters().get(pi.index());
                     if (opi.annotations().isEmpty()) continue;
                     if (contractReader.contracts(opi).get(
-                            org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)
                                 instanceof Value.Bool bool && bool.isTrue()) {
                         pi.analysis().set(
-                                org.e2immu.language.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, bool);
+                                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, bool);
                         CommonAnalyzerImpl.DECIDE.debug("SCM: Inherited @IgnoreModifications on {} from {}", pi, opi);
                         propertyChanges.incrementAndGet();
                         break;
@@ -130,7 +130,7 @@ public class SourceContractMaterializer {
 
     /**
      * A field whose <em>type</em> carries a class-level {@code @IgnoreModifications} inherits the disclaimer,
-     * so the memo idiom is declared once on the class whose whole purpose it is ({@code org.e2immu.support.Memo},
+     * so the memo idiom is declared once on the class whose whole purpose it is ({@code io.codelaser.maddi.support.Memo},
      * {@code IntMemo}) instead of being repeated on every field. Writing it into {@code analysis()} — rather
      * than special-casing it at each of the dozen read sites — is what makes every consumer agree.
      * <p>

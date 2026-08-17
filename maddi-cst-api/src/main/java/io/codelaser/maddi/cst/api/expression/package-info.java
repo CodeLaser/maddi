@@ -15,49 +15,49 @@
 /**
  * Expression nodes of the common syntax tree (CST).
  *
- * <p>Every node here is an {@link org.e2immu.language.cst.api.expression.Expression}, which extends
- * {@link org.e2immu.language.cst.api.element.Element} (so it has a
- * {@link org.e2immu.language.cst.api.element.Source source}, comments and annotations) and additionally
- * carries a {@link org.e2immu.language.cst.api.type.ParameterizedType type}. This overview documents the
+ * <p>Every node here is an {@link io.codelaser.maddi.cst.api.expression.Expression}, which extends
+ * {@link io.codelaser.maddi.cst.api.element.Element} (so it has a
+ * {@link io.codelaser.maddi.cst.api.element.Source source}, comments and annotations) and additionally
+ * carries a {@link io.codelaser.maddi.cst.api.type.ParameterizedType type}. This overview documents the
  * high-level base and the mid-level grouping interfaces; the concrete leaves (constants, operators,
  * calls, …) follow these conventions.
  *
  * <h2>Typing and the canonical order</h2>
- * Each expression reports its static {@link org.e2immu.language.cst.api.expression.Expression#parameterizedType()
+ * Each expression reports its static {@link io.codelaser.maddi.cst.api.expression.Expression#parameterizedType()
  * type}. Expressions are {@link java.lang.Comparable}, which the analyzer relies on to keep symbolic
- * values in a canonical form: {@link org.e2immu.language.cst.api.expression.Expression#order()} orders
+ * values in a canonical form: {@link io.codelaser.maddi.cst.api.expression.Expression#order()} orders
  * expressions of <em>different</em> kinds, while
- * {@link org.e2immu.language.cst.api.expression.Expression#internalCompareTo(org.e2immu.language.cst.api.expression.Expression)}
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#internalCompareTo(io.codelaser.maddi.cst.api.expression.Expression)}
  * breaks ties <em>within</em> a single kind.
  *
  * <h2>Naming and printing</h2>
  * As with statements, most concrete expressions declare a {@code String NAME} kind tag and override
- * {@link org.e2immu.language.cst.api.expression.Expression#name()}. For output,
- * {@link org.e2immu.language.cst.api.expression.Expression#precedence()} returns a
- * {@link org.e2immu.language.cst.api.expression.Precedence} so the printer can parenthesise correctly.
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#name()}. For output,
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#precedence()} returns a
+ * {@link io.codelaser.maddi.cst.api.expression.Precedence} so the printer can parenthesise correctly.
  *
  * <h2>The main families</h2>
  * <ul>
- *   <li><b>Constants</b> — {@link org.e2immu.language.cst.api.expression.ConstantExpression
+ *   <li><b>Constants</b> — {@link io.codelaser.maddi.cst.api.expression.ConstantExpression
  *       ConstantExpression&lt;T&gt;} wraps a compile-time value (its {@code constant()}). The numeric
- *       constants additionally implement {@link org.e2immu.language.cst.api.expression.Numeric}.</li>
- *   <li><b>Operators</b> — {@link org.e2immu.language.cst.api.expression.BinaryOperator} (such as
+ *       constants additionally implement {@link io.codelaser.maddi.cst.api.expression.Numeric}.</li>
+ *   <li><b>Operators</b> — {@link io.codelaser.maddi.cst.api.expression.BinaryOperator} (such as
  *       {@code Sum}, {@code Product}, {@code Divide}, {@code Equals}) and
- *       {@link org.e2immu.language.cst.api.expression.UnaryOperator} (such as {@code Negation}). Both
- *       identify the operator as a {@link org.e2immu.language.cst.api.info.MethodInfo}, so an operator is
+ *       {@link io.codelaser.maddi.cst.api.expression.UnaryOperator} (such as {@code Negation}). Both
+ *       identify the operator as a {@link io.codelaser.maddi.cst.api.info.MethodInfo}, so an operator is
  *       modelled like a method on its operand type(s).</li>
- *   <li><b>Wrappers</b> — {@link org.e2immu.language.cst.api.expression.ExpressionWrapper}, implemented
+ *   <li><b>Wrappers</b> — {@link io.codelaser.maddi.cst.api.expression.ExpressionWrapper}, implemented
  *       by nodes that wrap a single other expression (parentheses, negations).</li>
  * </ul>
  *
  * <h2>Lifecycle</h2>
  * Expressions are immutable. They support the same transformations as other elements —
- * {@link org.e2immu.language.cst.api.expression.Expression#translate(org.e2immu.language.cst.api.translate.TranslationMap)
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#translate(io.codelaser.maddi.cst.api.translate.TranslationMap)
  * translate} (source-to-source rewrite, returning a single expression),
- * {@link org.e2immu.language.cst.api.expression.Expression#rewire(org.e2immu.language.cst.api.info.InfoMap)
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#rewire(io.codelaser.maddi.cst.api.info.InfoMap)
  * rewire} (clone into a new {@code Info} graph), and
- * {@link org.e2immu.language.cst.api.expression.Expression#withSource(org.e2immu.language.cst.api.element.Source)
+ * {@link io.codelaser.maddi.cst.api.expression.Expression#withSource(io.codelaser.maddi.cst.api.element.Source)
  * withSource} — and are built through fluent builders ({@code Expression.Builder}, inherited from
- * {@link org.e2immu.language.cst.api.element.Element.Builder}).
+ * {@link io.codelaser.maddi.cst.api.element.Element.Builder}).
  */
-package org.e2immu.language.cst.api.expression;
+package io.codelaser.maddi.cst.api.expression;

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.java.openjdk;
+package io.codelaser.maddi.java.openjdk;
 
 /**
  * A referenced type, constructor or method could not be resolved during the openjdk scan — typically because

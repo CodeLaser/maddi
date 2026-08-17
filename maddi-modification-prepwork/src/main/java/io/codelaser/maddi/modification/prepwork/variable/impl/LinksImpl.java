@@ -1,21 +1,21 @@
-package org.e2immu.analyzer.modification.prepwork.variable.impl;
+package io.codelaser.maddi.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
-import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.InfoMapView;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.VirtualFieldTranslationMap;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,7 +99,7 @@ public class LinksImpl implements Links {
         // Iterator.remove-style annotations) additionally carries its method set, so it encodes as a list
         // [symbol, methodInfo...] — the decoder branches on isList. Deterministic order for stable output.
         Codec.EncodedValue natureEv;
-        java.util.Set<org.e2immu.language.cst.api.info.MethodInfo> pass = link.linkNature().pass();
+        java.util.Set<io.codelaser.maddi.cst.api.info.MethodInfo> pass = link.linkNature().pass();
         if (pass == null || pass.isEmpty()) {
             natureEv = codec.encodeString(context, link.linkNature().toString());
         } else {
@@ -107,7 +107,7 @@ public class LinksImpl implements Links {
             natureList.add(codec.encodeString(context, link.linkNature().toString()));
             pass.stream()
                     .sorted(java.util.Comparator.comparing(
-                            org.e2immu.language.cst.api.info.MethodInfo::fullyQualifiedName))
+                            io.codelaser.maddi.cst.api.info.MethodInfo::fullyQualifiedName))
                     .forEach(mi -> natureList.add(codec.encodeMethodInfo(context, mi)));
             natureEv = codec.encodeList(context, natureList);
         }
@@ -152,7 +152,7 @@ public class LinksImpl implements Links {
      * back to the lexicographically smaller rendering.
      */
     @Override
-    public boolean strictlyRicherThan(org.e2immu.language.cst.api.analysis.Value other) {
+    public boolean strictlyRicherThan(io.codelaser.maddi.cst.api.analysis.Value other) {
         if (!(other instanceof LinksImpl o)) return false;
         int c = Integer.compare(linkSet.size(), o.linkSet.size());
         if (c != 0) return c > 0;

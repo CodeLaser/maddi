@@ -12,12 +12,12 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
-import org.e2immu.language.cst.api.info.MethodInfo
-import org.e2immu.language.cst.api.info.TypeInfo
-import org.e2immu.language.cst.api.info.TypeParameter
-import org.e2immu.language.cst.api.type.ParameterizedType
+import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.cst.api.info.TypeParameter
+import io.codelaser.maddi.cst.api.type.ParameterizedType
 
 /**
  * Generates a **signature-only Java stub** source for a CST [TypeInfo] — Phase 3 of the mixed-language
@@ -145,7 +145,7 @@ object JavaStubGenerator {
     }
 
     /** An enum constant: a static field whose declared type is the enum itself (not a synthetic `name()` etc.). */
-    private fun isEnumConstant(f: org.e2immu.language.cst.api.info.FieldInfo, enumType: TypeInfo): Boolean =
+    private fun isEnumConstant(f: io.codelaser.maddi.cst.api.info.FieldInfo, enumType: TypeInfo): Boolean =
         f.isStatic && f.type().typeInfo() === enumType
 
     private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String) {

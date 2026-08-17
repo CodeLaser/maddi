@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.archive.jdk;
+package io.codelaser.maddi.aapi.archive.jdk;
 import java.awt.*;
 import java.awt.color.ColorSpace;
 import java.awt.dnd.DropTarget;
@@ -30,11 +30,11 @@ import java.util.EventListener;
 import java.util.Locale;
 import java.util.Set;
 import javax.accessibility.AccessibleContext;
-import org.e2immu.annotation.NotModified;
-import org.e2immu.annotation.Commutable;
-import org.e2immu.annotation.Immutable;
-import org.e2immu.annotation.Independent;
-import org.e2immu.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.Commutable;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.method.GetSet;
 
 public class JavaAwt {
     public static final String PACKAGE_NAME = "java.awt";

@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.info;
+package io.codelaser.maddi.cst.impl.info;
 
-import org.e2immu.annotation.NotModified;
-import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.*;
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
 
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.support.EventuallyFinal;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.support.EventuallyFinal;
 
 import java.util.List;
 import java.util.Objects;
@@ -124,7 +124,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
      * 9.3 makes every real interface field implicitly {@code public static final}: maddi also models synthetic
      * <i>instance</i> fields on interface types — {@code CreateSyntheticFieldsForGetSet} attaches
      * {@code _synthetic_list} to {@code java.util.List} with {@code isStatic == false} on purpose, so that a
-     * {@link org.e2immu.language.cst.api.variable.FieldReference} to it keeps its scope and two lists' elements
+     * {@link io.codelaser.maddi.cst.api.variable.FieldReference} to it keeps its scope and two lists' elements
      * stay different variables. An accessor cannot tell that apart from a constant, so the implicit-static rule is
      * applied where the declaration is read instead ({@code ScanCompilationUnit.field}).
      */

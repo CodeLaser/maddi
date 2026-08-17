@@ -1,20 +1,20 @@
-package org.e2immu.analyzer.modification.link.impl.large;
+package io.codelaser.maddi.modification.link.impl.large;
 
-import org.e2immu.analyzer.modification.link.CommonTest;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @Disabled("sv-integration: elaborate synthetic mock does not type-check under openjdk javac, and stresses WIP engine stability; re-enable after mock rewrite + engine completion")
@@ -81,7 +81,7 @@ public class Test1 extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package a.b;
-            import org.e2immu.annotation.Independent;import java.util.HashMap;import java.util.Map;import java.util.Objects;
+            import io.codelaser.maddi.annotation.Independent;import java.util.HashMap;import java.util.Map;import java.util.Objects;
             public class C<K, V> {
                 private final Map<K, V> map = new HashMap<>();
                 public void put(K k, V v) {

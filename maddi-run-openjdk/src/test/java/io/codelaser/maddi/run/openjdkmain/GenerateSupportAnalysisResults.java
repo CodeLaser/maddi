@@ -1,11 +1,11 @@
-package org.e2immu.analyzer.run.openjdkmain;
+package io.codelaser.maddi.run.openjdkmain;
 
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsConfigurationImpl;
-import org.e2immu.analyzer.run.config.Configuration;
-import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +29,7 @@ public class GenerateSupportAnalysisResults {
     @Disabled("manual: regenerates analyzedPackageFiles/libs/support from the curated hints")
     @Test
     public void generate() throws Exception {
-        Path target = Path.of("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/support");
+        Path target = Path.of("../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/support");
         Files.createDirectories(target);
         SourceSet aapiSource = new SourceSetImpl.Builder()
                 .setName("archive")
@@ -40,13 +40,13 @@ public class GenerateSupportAnalysisResults {
                 .setWorkingDirectory(".")
                 .addSourceSets(aapiSource)
                 .addClassPathParts(SourceSetImpl.javaBase(),
-                        SourceSetImpl.sourceSetOf(org.e2immu.annotation.Container.class),
-                        SourceSetImpl.sourceSetOf(org.e2immu.support.Either.class),
+                        SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.Container.class),
+                        SourceSetImpl.sourceSetOf(io.codelaser.maddi.support.Either.class),
                         SourceSetImpl.sourceSetOf(org.slf4j.Logger.class))
                 .build();
         AnalysisHintsConfigurationImpl aapi = (AnalysisHintsConfigurationImpl) new AnalysisHintsConfigurationImpl.Builder()
                 .setAnalysisResultsTargetDir(target.toString())
-                .addHintsPackages("org.e2immu.analyzer.aapi.archive.libs.support")
+                .addHintsPackages("io.codelaser.maddi.aapi.archive.libs.support")
                 .build();
         Configuration configuration = new Configuration.Builder()
                 .setInputConfiguration(inputConfiguration)

@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java.util;
+package io.codelaser.maddi.parser.java.util;
 
-import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.element.JavaDoc;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

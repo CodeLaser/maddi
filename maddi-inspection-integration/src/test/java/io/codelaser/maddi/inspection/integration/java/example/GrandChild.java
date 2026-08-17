@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.example;
+package io.codelaser.maddi.inspection.integration.java.example;
 
-import org.e2immu.language.inspection.integration.java.example.sub.Child;
+import io.codelaser.maddi.inspection.integration.java.example.sub.Child;
 
 public class GrandChild extends Child {
 

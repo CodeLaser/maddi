@@ -12,19 +12,19 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.analyzer.integration;
+package io.codelaser.maddi.modification.analyzer.integration;
 
-import org.e2immu.analyzer.modification.analyzer.AnalysisValueFeed;
-import org.e2immu.analyzer.modification.analyzer.CheckpointWriter;
-import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.link.io.LinkCodec;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.modification.analyzer.AnalysisValueFeed;
+import io.codelaser.maddi.modification.analyzer.CheckpointWriter;
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.link.io.LinkCodec;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -149,7 +149,7 @@ public class TestCheckpointResume extends CommonTest {
         Map<String, String> map = new LinkedHashMap<>();
         typeInfo.recursiveSubTypeStream().forEach(ti -> {
             var imm = ti.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE,
-                    org.e2immu.language.cst.api.analysis.Value.Immutable.class);
+                    io.codelaser.maddi.cst.api.analysis.Value.Immutable.class);
             map.put(ti.fullyQualifiedName(), "immutable=" + imm);
             ti.constructorAndMethodStream().forEach(mi -> map.put(mi.fullyQualifiedName(),
                     "nonModifying=" + nonModifying(mi)));
@@ -159,7 +159,7 @@ public class TestCheckpointResume extends CommonTest {
 
     private String nonModifying(MethodInfo mi) {
         var v = mi.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD,
-                org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.class);
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.class);
         return v == null ? "null" : String.valueOf(v.isTrue());
     }
 }

@@ -1,20 +1,20 @@
-module org.e2immu.language.cst.impl {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.analysis;
-    requires org.e2immu.util.internal.util;
+module io.codelaser.maddi.cst.impl {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.analysis;
+    requires io.codelaser.maddi.util;
     requires org.slf4j;
     requires org.jetbrains.annotations;
 
-    exports org.e2immu.language.cst.impl.element;
-    exports org.e2immu.language.cst.impl.expression;
-    exports org.e2immu.language.cst.impl.expression.eval;
-    exports org.e2immu.language.cst.impl.expression.util;
-    exports org.e2immu.language.cst.impl.info;
-    exports org.e2immu.language.cst.impl.output;
-    exports org.e2immu.language.cst.impl.runtime;
-    exports org.e2immu.language.cst.impl.statement;
-    exports org.e2immu.language.cst.impl.translate;
-    exports org.e2immu.language.cst.impl.type;
-    exports org.e2immu.language.cst.impl.variable;
+    exports io.codelaser.maddi.cst.impl.element;
+    exports io.codelaser.maddi.cst.impl.expression;
+    exports io.codelaser.maddi.cst.impl.expression.eval;
+    exports io.codelaser.maddi.cst.impl.expression.util;
+    exports io.codelaser.maddi.cst.impl.info;
+    exports io.codelaser.maddi.cst.impl.output;
+    exports io.codelaser.maddi.cst.impl.runtime;
+    exports io.codelaser.maddi.cst.impl.statement;
+    exports io.codelaser.maddi.cst.impl.translate;
+    exports io.codelaser.maddi.cst.impl.type;
+    exports io.codelaser.maddi.cst.impl.variable;
 }

@@ -1,16 +1,16 @@
-module org.e2immu.analyzer.run.main {
-    requires org.e2immu.analyzer.aapi.parser;
-    requires org.e2immu.analyzer.modification.analyzer;
-    requires org.e2immu.analyzer.modification.prepwork;
-    requires org.e2immu.analyzer.run.config;
-    requires org.e2immu.analyzer.run.rewire;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.language.inspection.integration;
-    requires org.e2immu.language.inspection.resource;
-    requires org.e2immu.util.internal.graph;
-    requires org.e2immu.util.internal.util;
+module io.codelaser.maddi.run.main {
+    requires io.codelaser.maddi.aapi.parser;
+    requires io.codelaser.maddi.modification.analyzer;
+    requires io.codelaser.maddi.modification.prepwork;
+    requires io.codelaser.maddi.run.config;
+    requires io.codelaser.maddi.run.rewire;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.inspection.integration;
+    requires io.codelaser.maddi.inspection.resource;
+    requires io.codelaser.maddi.graph;
+    requires io.codelaser.maddi.util;
 
     requires ch.qos.logback.classic;
     requires com.fasterxml.jackson.databind;
@@ -18,5 +18,5 @@ module org.e2immu.analyzer.run.main {
     requires org.apache.commons.cli;
     requires org.slf4j;
 
-    exports org.e2immu.analyzer.run.main;
+    exports io.codelaser.maddi.run.main;
 }

@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java.util;
+package io.codelaser.maddi.parser.java.util;
 
 import org.junit.jupiter.api.Test;
 

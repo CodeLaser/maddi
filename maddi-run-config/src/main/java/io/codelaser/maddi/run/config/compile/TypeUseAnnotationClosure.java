@@ -11,9 +11,9 @@
  * more details. You should have received a copy of the GNU Lesser General Public
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.e2immu.analyzer.run.config.compile;
+package io.codelaser.maddi.run.config.compile;
 
-import org.e2immu.language.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

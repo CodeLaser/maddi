@@ -1,15 +1,15 @@
-module org.e2immu.analyzer.aapi.archive {
+module io.codelaser.maddi.aapi.archive {
     requires ch.qos.logback.classic;
     requires java.datatransfer;
     requires java.desktop;
     requires java.net.http;
     requires java.xml;
-    requires org.e2immu.util.external.support;
+    requires io.codelaser.maddi.support;
     requires org.junit.jupiter.api;
     requires org.slf4j;
 
-    exports org.e2immu.analyzer.aapi.archive.jdk;
-    exports org.e2immu.analyzer.aapi.archive.libs.log;
-    exports org.e2immu.analyzer.aapi.archive.libs.support;
-    exports org.e2immu.analyzer.aapi.archive.libs.test;
+    exports io.codelaser.maddi.aapi.archive.jdk;
+    exports io.codelaser.maddi.aapi.archive.libs.log;
+    exports io.codelaser.maddi.aapi.archive.libs.support;
+    exports io.codelaser.maddi.aapi.archive.libs.test;
 }

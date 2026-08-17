@@ -1,17 +1,17 @@
-package org.e2immu.language.java.openjdk.initial;
+package io.codelaser.maddi.java.openjdk.initial;
 
-import org.e2immu.language.cst.api.expression.*;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.java.openjdk.CommonTest;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +23,7 @@ public class TestClass1 extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
-            package org.e2immu.example;
+            package io.codelaser.maddi.example;
             
             import org.jetbrains.annotations.NotNull;
             import org.slf4j.Logger;
@@ -66,18 +66,18 @@ public class TestClass1 extends CommonTest {
 
     @Test
     public void test() throws IOException {
-        TypeInfo class1 = scan("org.e2immu.example.Class1", INPUT);
+        TypeInfo class1 = scan("io.codelaser.maddi.example.Class1", INPUT);
         assertTrue(class1.hasBeenInspected());
-        assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.example.Class1", class1.fullyQualifiedName());
         assertEquals(runtime.objectParameterizedType(), class1.parentClass());
 
         MethodInfo constructor = class1.findConstructor(0);
-        assertEquals("org.e2immu.example.Class1.<init>()", constructor.fullyQualifiedName());
+        assertEquals("io.codelaser.maddi.example.Class1.<init>()", constructor.fullyQualifiedName());
         assertTrue(constructor.isSynthetic());
         assertTrue(constructor.methodModifiers().contains(runtime.methodModifierPublic()));
 
         MethodInfo method = class1.findUniqueMethod("method", 0);
-        assertEquals("source::org.e2immu.example.Class1.method()", method.descriptor());
+        assertEquals("source::io.codelaser.maddi.example.Class1.method()", method.descriptor());
         assertFalse(method.isSynthetic());
         assertTrue(method.methodModifiers().contains(runtime.methodModifierPrivate()));
         assertEquals(runtime.intParameterizedType(), method.returnType());
@@ -110,7 +110,7 @@ public class TestClass1 extends CommonTest {
         } else fail();
 
         MethodInfo voidMethod = class1.findUniqueMethod("voidMethod", 0);
-        assertEquals("source::org.e2immu.example.Class1.voidMethod()", voidMethod.descriptor());
+        assertEquals("source::io.codelaser.maddi.example.Class1.voidMethod()", voidMethod.descriptor());
         assertFalse(voidMethod.isSynthetic());
         assertTrue(voidMethod.methodModifiers().contains(runtime.methodModifierProtected()));
         assertEquals(runtime.voidParameterizedType(), voidMethod.returnType());
@@ -135,13 +135,13 @@ public class TestClass1 extends CommonTest {
         assertSame(class1, enclosed.compilationUnitOrEnclosingType().getRight());
         assertEquals("T", enclosed.typeParameters().getFirst().simpleName());
 
-        assertEquals("Type Comparable<org.e2immu.example.Class1.Enclosed<T>>",
+        assertEquals("Type Comparable<io.codelaser.maddi.example.Class1.Enclosed<T>>",
                 enclosed.interfacesImplemented().getFirst().toString());
 
         MethodInfo compareTo = enclosed.findUniqueMethod("compareTo", 1);
         assertEquals(1, compareTo.parameters().size());
         ParameterInfo p0 = compareTo.parameters().getFirst();
-        assertEquals("Type org.e2immu.example.Class1.Enclosed<T>", p0.parameterizedType().toString());
+        assertEquals("Type io.codelaser.maddi.example.Class1.Enclosed<T>", p0.parameterizedType().toString());
         assertEquals(1, p0.annotations().size());
         assertEquals("org.jetbrains.annotations.NotNull",
                 p0.annotations().getFirst().typeInfo().fullyQualifiedName());

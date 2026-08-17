@@ -12,17 +12,17 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.kotlin
+package io.codelaser.maddi.inspection.kotlin
 
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer
-import org.e2immu.language.cst.impl.info.ImportComputerImpl
-import org.e2immu.language.cst.print.FormattingOptionsImpl
-import org.e2immu.language.cst.print.formatter2.Formatter2Impl
-import org.e2immu.language.cst.print.kotlin.KotlinTypePrinter
-import org.e2immu.language.inspection.api.integration.JavaInspector
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl
-import org.e2immu.language.inspection.resource.InputConfigurationImpl
-import org.e2immu.language.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl
+import io.codelaser.maddi.cst.print.kotlin.KotlinTypePrinter
+import io.codelaser.maddi.inspection.api.integration.JavaInspector
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI

@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package io.codelaser.maddi.modification.link.impl.graph;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

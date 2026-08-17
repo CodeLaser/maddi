@@ -12,13 +12,13 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.kotlin.k2
+package io.codelaser.maddi.kotlin.k2
 
 import com.intellij.psi.PsiElement
-import org.e2immu.language.cst.api.element.DetailedSources
-import org.e2immu.language.cst.api.element.Source
-import org.e2immu.language.cst.api.runtime.Runtime
-import org.e2immu.language.cst.api.type.ParameterizedType
+import io.codelaser.maddi.cst.api.element.DetailedSources
+import io.codelaser.maddi.cst.api.element.Source
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.api.type.ParameterizedType
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtModifierListOwner

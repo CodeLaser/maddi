@@ -12,14 +12,14 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.ide.plugin.action;
+package io.codelaser.maddi.ide.plugin.action;
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.compiler.CompilerManager;
 import com.intellij.openapi.project.Project;
-import org.e2immu.analyzer.ide.plugin.analysis.MaddiAnalysisService;
+import io.codelaser.maddi.ide.plugin.analysis.MaddiAnalysisService;
 import org.jetbrains.annotations.NotNull;
 
 /**

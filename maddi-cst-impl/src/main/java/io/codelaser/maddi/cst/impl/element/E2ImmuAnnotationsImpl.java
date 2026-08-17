@@ -12,24 +12,24 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.element;
+package io.codelaser.maddi.cst.impl.element;
 
-import org.e2immu.annotation.*;
-import org.e2immu.annotation.eventual.BeforeMark;
-import org.e2immu.annotation.eventual.Mark;
-import org.e2immu.annotation.eventual.Only;
-import org.e2immu.annotation.eventual.TestMark;
-import org.e2immu.annotation.method.GetSet;
-import org.e2immu.annotation.rare.AllowsInterrupt;
-import org.e2immu.annotation.rare.Finalizer;
-import org.e2immu.annotation.rare.IgnoreModifications;
-import org.e2immu.annotation.type.ExtensionClass;
-import org.e2immu.annotation.type.Singleton;
-import org.e2immu.annotation.type.UtilityClass;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.impl.expression.AnnotationExpressionImpl;
-import org.e2immu.language.cst.impl.info.TypeInfoImpl;
+import io.codelaser.maddi.annotation.*;
+import io.codelaser.maddi.annotation.eventual.BeforeMark;
+import io.codelaser.maddi.annotation.eventual.Mark;
+import io.codelaser.maddi.annotation.eventual.Only;
+import io.codelaser.maddi.annotation.eventual.TestMark;
+import io.codelaser.maddi.annotation.method.GetSet;
+import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
+import io.codelaser.maddi.annotation.rare.Finalizer;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.type.ExtensionClass;
+import io.codelaser.maddi.annotation.type.Singleton;
+import io.codelaser.maddi.annotation.type.UtilityClass;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl;
+import io.codelaser.maddi.cst.impl.info.TypeInfoImpl;
 
 import java.util.HashMap;
 import java.util.List;

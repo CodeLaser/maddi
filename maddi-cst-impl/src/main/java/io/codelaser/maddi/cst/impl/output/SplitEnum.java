@@ -12,9 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.cst.impl.output;
+package io.codelaser.maddi.cst.impl.output;
 
-import org.e2immu.language.cst.api.output.element.Split;
+import io.codelaser.maddi.cst.api.output.element.Split;
 
 public enum SplitEnum implements Split {
     NEVER(0),

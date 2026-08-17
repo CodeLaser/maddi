@@ -1,5 +1,5 @@
-module org.e2immu.analyzer.ide.client {
+module io.codelaser.maddi.ide.client {
     requires com.fasterxml.jackson.databind;
 
-    exports org.e2immu.analyzer.ide.client;
+    exports io.codelaser.maddi.ide.client;
 }
