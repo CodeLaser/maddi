@@ -146,8 +146,31 @@ Release checklist
 -----------------
 
 . Bump the version in `gradle.properties` (once centralized).
-. Annotations: `./gradlew :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy` (see the appendix for the credentials/GPG setup).
+. Annotations — **two artifacts since 0.9.1, and the ORDER matters.** `maddi-support`'s POM carries
+  a dependency on `maddi-annotation`, so publishing support first puts an artifact on Central whose
+  dependency does not exist yet. Central will not stop you; consumers find out instead.
++
+--
+./gradlew :maddi-annotation:clean :maddi-annotation:publishMavenJavaPublicationToStagingRepository :maddi-annotation:jreleaserDeploy
+./gradlew :maddi-support:clean    :maddi-support:publishMavenJavaPublicationToStagingRepository    :maddi-support:jreleaserDeploy
+--
++
+Let the first reach `repo1.maven.org` before starting the second — see the note at the top of this
+document about the polling loop and the Portal→repo1 delay. Credentials/GPG setup: see the appendix.
++
+Check both against the resolvability rule above before deploying. Verified for 0.9.1 on 2026-08-17:
+`maddi-annotation`'s POM has no `<dependencies>` and all four module-metadata variants are empty;
+`maddi-support` has exactly one, `io.codelaser:maddi-annotation:<version>` at `compile`, with
+`apiElements`/`runtimeElements` matching it and javadoc/sources empty.
++
+⛔ `withJavadocJar()` makes **javadoc a release blocker, not a warning** — a failed javadoc task
+means no artifact at all. This bit at the split: `IgnoreModifications` moved into `maddi-annotation`
+still carrying `{@link io.codelaser.maddi.support.Memo}`, a type that stayed in `maddi-support`,
+which `maddi-annotation` must never depend on. Nothing but running javadoc finds it — the reference
+is correctly *named*, merely unreachable from where the class now lives. In this module, name
+cross-module types as `{@code}` text, never `{@link}`.
 . Gradle plugin: `./gradlew :maddi-gradleplugin:publishPlugins` (Gradle Plugin Portal key required).
+  Expect a wait — a first publication under a new namespace is reviewed by hand before it appears.
 . Maven plugin: publish to Central once the descriptor is generated.
 . CLI: `./release-cli.sh <tag>` (builds both `distZip`s and attaches `maddi-<version>.zip` +
   `maddi-kotlin-<version>.zip` to the GitHub Release for `<tag>`; needs an authenticated `gh`).
