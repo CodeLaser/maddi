@@ -15,12 +15,35 @@
 // A STANDALONE build: deliberately NOT listed in the root settings.gradle.kts, so nothing here can
 // affect the normal maddi build. See README.md.
 
+// Everything this build consumes from maddi -- the analyzer plugin, and the maddi-support / maddi-util
+// jars -- is pinned at the PROJECT's own version, read here from the real build's gradle.properties (a
+// standalone build does not inherit it). No version literal lives anywhere under dogfood/.
+//
+// This is not tidiness. The jar pins used to carry a frozen 0.8.2 while the project stood at 0.9.0, and a
+// frozen literal is a hole in the ratchet: TestEventualRatchet then measures whatever those two modules
+// looked like at some past release, so a change to either reads as "no change" rather than as a
+// regression. `./gradlew build` in the parent must have produced all of these at this version; if it has
+// not, resolution fails loudly here rather than quietly serving the old ones.
+//
+// The read sits inside pluginManagement because that block has to come first in a settings script, and
+// the plugin version is one of the things it feeds.
 pluginManagement {
+    val maddiVersion: String = java.util.Properties().apply {
+        settingsDir.resolve("../gradle.properties").inputStream().use { load(it) }
+    }.getProperty("version") ?: error("no `version` in ../gradle.properties")
+    gradle.beforeProject { extra["maddiVersion"] = maddiVersion }
+
     repositories {
         // the plugin's own local file repository, filled by
         //   ./gradlew :maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository
         maven(url = uri("../maddi-gradleplugin/build/local-plugin-repo"))
         gradlePluginPortal()
+    }
+    // the plugin is requested without a version in build.gradle.kts; it gets the project's
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "org.e2immu.analyzer-plugin") useVersion(maddiVersion)
+        }
     }
 }
 

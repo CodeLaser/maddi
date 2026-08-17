@@ -1467,6 +1467,8 @@ layer and retracted count all identical across two runs. Gate-off Fernflower A/B
 *Operational note:* the dogfood `inputConfiguration.json` still references `maddi-util-0.8.2.jar`
 (generated 2026-07-23) while the build now produces 0.9.0 — the 0.8.2 file was refreshed in place for
 these runs; regenerate the configuration per `dogfood/README.md` at the next opportunity.
+**Closed 2026-08-17**: the pins now follow `gradle.properties`, and `TestEventualRatchet` fails on a
+configuration generated at any other version, so this cannot go stale silently again.
 
 **Remaining roots: `Runtime`(23) — sunk by `Factory`'s unconditional `@FinalFields`, whose two stuck
 methods (`commonType`, `newInlineConditional`) both funnel into the wrapper-capture shape
@@ -1762,6 +1764,14 @@ run and reads as "no change". This is why the maddi-util contracts added below a
 commit, *unmeasured on the dogfood*: they are inert until the pins are bumped, the plugin re-published
 and the input configuration regenerated — at which point the baseline must be re-derived, since the
 jars moving forward will move verdicts with them.
+
+**Closed 2026-08-17.** The pins now read the project version out of `gradle.properties`
+(`dogfood/settings.gradle.kts`), and `TestEventualRatchet.assertCoverage` *fails* rather than logs when
+the input configuration was generated at any other version — the disclaimer was doing no work, because
+the file it describes is generated, uncommitted, and therefore whatever the developer last produced.
+The re-derivation at 0.9.0 returned **the same 285 types, membership identical**: the maddi-util
+contracts predicted above to "move verdicts with them" moved none. Worth recording as the negative
+result it is — the prediction was that bumping the pins would shift the baseline, and it did not.
 
 ### The conformance rules (§2)
 

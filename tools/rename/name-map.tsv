@@ -67,8 +67,9 @@ org.e2immu	io.codelaser	*pom.xml
 #   surviving descriptor is generated as io.codelaser.maddi.properties.
 #
 # MANUAL, not scriptable:
-#   dogfood/build.gradle.kts:28 pins `version "0.8.2"` of the old plugin id;
-#     0.8.2 will not exist under the new id -> move to 0.9.1 + new id together.
+#   dogfood/build.gradle.kts requests the old plugin id -> rename the id. No version
+#     travels with it since 2026-08-17: dogfood names no version anywhere, it reads
+#     the project's own out of gradle.properties (dogfood/settings.gradle.kts).
 #   testmvnplugin-export/pom.xml artifactIds e2immu-external-support /
 #     -internal-util / -internal-graph -> maddi-annotation / maddi-support /
 #     maddi-util / maddi-graph.

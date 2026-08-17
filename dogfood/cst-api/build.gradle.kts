@@ -15,10 +15,12 @@ sourceSets {
     }
 }
 
+val maddiVersion = extra["maddiVersion"] as String // the project's own version; see settings.gradle.kts
+
 dependencies {
     // 'api', matching the real maddi-cst-api: cst-impl's own sources need these too, and only an api
     // dependency reaches its compile classpath -- and therefore its input configuration
-    api(":maddi-support:0.8.2")
+    api(":maddi-support:$maddiVersion")
     api("org.slf4j:slf4j-api:2.0.17")
     api("org.jetbrains:annotations:26.1.0")
 }

@@ -114,7 +114,7 @@ with `apply`). Add it only if a branch actually needs it; quiescing is cheaper.
 |---|---|
 | `gradle.properties` 0.9.0 → **0.9.1** | done |
 | deleted `org.e2immu.analyser.properties` descriptor | Gradle generates `io.codelaser.maddi.properties`; jar verified |
-| `dogfood` plugin pin 0.8.2 → 0.9.1 + new id | done |
+| `dogfood` plugin pin 0.8.2 → 0.9.1 + new id | done (the version half is now moot: dogfood pins none) |
 | `testmvnplugin-export/pom.xml` coords + `maddi.version` | done |
 | 4 prose statements the rename made false | rewritten |
 | 5 dead `\|\| startsWith("org.e2immu")` stack filters | removed, compiles |
@@ -174,8 +174,10 @@ These are not scriptable and each breaks the build if forgotten:
 - `gradle.properties`: `version` 0.9.0 → **0.9.1**
 - **Delete** `maddi-gradleplugin/src/main/resources/META-INF/gradle-plugins/org.e2immu.analyser.properties`
   (a dead second plugin id; the real descriptor is generated)
-- `dogfood/build.gradle.kts:28` pins `version "0.8.2"` of the **old** plugin id —
-  move it to the new id at 0.9.1 or dogfood stops resolving
+- `dogfood/build.gradle.kts` requests the **old** plugin id — rename it, or dogfood stops
+  resolving. Since 2026-08-17 there is no version to move with it: nothing under `dogfood/`
+  names a version any more (`settings.gradle.kts` reads it from `gradle.properties`), so the
+  plugin and the maddi-support/maddi-util jars follow the bump for free
 - `testmvnplugin-export/pom.xml`: artifactIds `e2immu-external-support` /
   `-internal-util` / `-internal-graph` → `maddi-annotation` / `maddi-support` /
   `maddi-util` / `maddi-graph`
