@@ -41,6 +41,8 @@ public class SourceSetImpl implements SourceSet {
     private final Set<String> restrictToPackages;
     private final List<SourceSet> dependencies;
     private final String buildUnit;
+    private final int sourceRelease;
+    private final List<String> addModules;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
@@ -52,7 +54,9 @@ public class SourceSetImpl implements SourceSet {
                           boolean isModule, boolean runtimeOnly,
                           Set<String> restrictToPackages,
                           List<SourceSet> dependencies,
-                          String buildUnit) {
+                          String buildUnit,
+                          int sourceRelease,
+                          List<String> addModules) {
         this.name = Objects.requireNonNull(name);
         this.buildUnit = buildUnit;
         this.sourceDirectories = sourceDirectories;
@@ -67,6 +71,8 @@ public class SourceSetImpl implements SourceSet {
         this.isModule = isModule;
         this.restrictToPackages = restrictToPackages;
         this.dependencies = dependencies;
+        this.sourceRelease = sourceRelease;
+        this.addModules = addModules == null ? List.of() : List.copyOf(addModules);
 
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
         assert !partOfJdk || externalLibrary : "Parts of the JDK are also external libraries: " + name;
@@ -229,6 +235,16 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
+    public int sourceRelease() {
+        return sourceRelease;
+    }
+
+    @Override
+    public List<String> addModules() {
+        return addModules;
+    }
+
+    @Override
     public List<SourceSet> dependencies() {
         return dependencies;
     }
@@ -278,19 +294,19 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
         return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
     }
 
     @Override
     public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
     }
 
     @Override
@@ -332,6 +348,8 @@ public class SourceSetImpl implements SourceSet {
         private Set<String> restrictToPackages = Set.of();
         private List<SourceSet> dependencies = List.of();
         private String buildUnit;
+        private int sourceRelease;
+        private List<String> addModules = List.of();
 
         public Builder() {
         }
@@ -350,6 +368,12 @@ public class SourceSetImpl implements SourceSet {
             runtimeOnly = set.runtimeOnly();
             restrictToPackages = set.restrictToPackages();
             dependencies = set.dependencies();
+            // ⛔ Field by field, so a new one added above and forgotten here is dropped SILENTLY -- unlike the
+            // positional constructor, which stops compiling. That is what the runtimeOnly test guards against
+            // ("losing it silently widens that classpath"), and these two are in the same position: a dropped
+            // sourceRelease reinstates "whatever JDK maddi runs on" for that set, invisibly.
+            sourceRelease = set.sourceRelease();
+            addModules = set.addModules();
         }
 
         public Builder setName(String name) {
@@ -417,9 +441,21 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
+        /** The set's own {@code javac --release}; {@code <= 0} leaves it unstated. */
+        public Builder setSourceRelease(int sourceRelease) {
+            this.sourceRelease = sourceRelease;
+            return this;
+        }
+
+        /** The set's own {@code javac --add-modules}, module names only. */
+        public Builder setAddModules(List<String> addModules) {
+            this.addModules = addModules == null ? List.of() : List.copyOf(addModules);
+            return this;
+        }
+
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit);
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
         }
     }
 }

@@ -22,7 +22,8 @@ public record Javac(int sourceRelease,
                     List<String> sourceFiles,
                     List<String> processorPath,
                     String annotationProcessing,
-                    String encoding) implements CompileInvocation {
+                    String encoding,
+                    List<String> addModules) implements CompileInvocation {
     public static class Builder {
         int sourceRelease;
         int targetRelease;
@@ -38,13 +39,14 @@ public record Javac(int sourceRelease,
         String annotationProcessing;
 
         String encoding;
+        List<String> addModules = List.of();
 
         public Javac build() {
             return new Javac(sourceRelease, targetRelease, release,
                     destination, generatedHeadersDestination, generatedSourceFilesDestination,
                     classpath, modulePath, sourcePath, List.copyOf(sourceFiles),
                     processorPath, annotationProcessing,
-                    encoding);
+                    encoding, addModules);
         }
     }
 
@@ -114,7 +116,10 @@ public record Javac(int sourceRelease,
             "--source", "-source", "--target", "-target", "--release", "-release",
             "--module-path", "-p",
             "-classpath", "-cp", "--class-path",
-            "-sourcepath", "--source-path");
+            "-sourcepath", "--source-path",
+            // ⚠ VALUED: `--add-modules jdk.incubator.vector`. Without it here the module name is read as a
+            // source FILE, so the flag is lost AND a bogus compilation unit is added.
+            "--add-modules");
 
     /**
      * A long option carrying its value inline. Restricted to {@code --} so that a value containing an {@code '='}
@@ -137,6 +142,10 @@ public record Javac(int sourceRelease,
             case "--module-path", "-p" -> builder.modulePath = splitPath(value);
             case "-classpath", "-cp", "--class-path" -> builder.classpath = splitPath(value);
             case "-sourcepath", "--source-path" -> builder.sourcePath = splitPath(value);
+            // comma-separated, per javac's own grammar; ALL/ALL-MODULE-PATH and friends are carried through
+            // unchanged -- this records what the build said, it does not interpret it
+            case "--add-modules" -> builder.addModules = Arrays.stream(value.split(","))
+                    .map(String::strip).filter(m -> !m.isBlank()).toList();
             default -> LOGGER.debug("Ignoring parameter option {}", option);
         }
     }

@@ -140,6 +140,15 @@ public class JsonStreaming {
             // absent in configurations written before build units were recorded, and by importers that cannot
             // determine them; null then means 'unknown', not 'no build unit'
             String buildUnit = getString(node, "buildUnit", null);
+            // absent in every configuration written before per-set javac options existed: 0 / empty then means
+            // "this set says nothing", and the global InputConfiguration.sourceRelease still applies
+            JsonNode sourceReleaseNode = node.get("sourceRelease");
+            int sourceRelease = sourceReleaseNode == null ? 0 : sourceReleaseNode.asInt(0);
+            List<String> addModules = new ArrayList<>();
+            JsonNode addModulesNode = node.get("addModules");
+            if (addModulesNode != null) {
+                for (JsonNode m : addModulesNode) addModules.add(m.asText());
+            }
             SourceSet ssi = new SourceSetImpl.Builder().setName(name)
                     .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourceDirectories)
@@ -150,6 +159,8 @@ public class JsonStreaming {
                     .setRuntimeOnly(runtimeOnly)
                     .setRestrictToPackages(Set.copyOf(restrictToPackages))
                     .setDependencies(List.copyOf(dependencies))
+                    .setSourceRelease(sourceRelease)
+                    .setAddModules(List.copyOf(addModules))
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {
@@ -194,6 +205,14 @@ public class JsonStreaming {
             // something -- but write it we must, or a modular project cannot survive this round trip.
             if (value.isModule() && !value.partOfJdk()) gen.writeBooleanField("module", value.isModule());
             if (value.runtimeOnly()) gen.writeBooleanField("runtimeOnly", value.runtimeOnly());
+            // conditional, like every optional field above: a configuration that states neither is written
+            // exactly as it was before these existed, so old and new writers agree on old corpora
+            if (value.sourceRelease() > 0) gen.writeNumberField("sourceRelease", value.sourceRelease());
+            if (!value.addModules().isEmpty()) {
+                gen.writeArrayFieldStart("addModules");
+                for (String m : value.addModules()) gen.writeString(m);
+                gen.writeEndArray();
+            }
             if (value.restrictToPackages() != null) {
                 gen.writeArrayFieldStart("restrictToPackages");
                 for (String pkg : value.restrictToPackages()) gen.writeString(pkg);

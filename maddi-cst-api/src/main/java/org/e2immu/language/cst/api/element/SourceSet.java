@@ -44,6 +44,42 @@ public interface SourceSet {
         return StandardCharsets.UTF_8;
     }
 
+    /**
+     * The Java API level THIS source set was compiled against ({@code javac --release}/{@code -source}), or
+     * {@code <= 0} when its build said nothing. Overrides {@code InputConfiguration.sourceRelease()} — the same
+     * fact stated for the whole configuration — which lives in maddi-inspection-api and so cannot be linked
+     * from here.
+     * <p>
+     * ⛔ <b>THE GLOBAL FIELD CANNOT EXPRESS A REACTOR, AND ABSTAINING FROM IT IS NOT FREE.</b> A build may
+     * compile its modules against different releases — OpenSearch states three (44 sets at 21, buildSrc/reaper
+     * at 11, libs/common at 8) — and there is no single right answer for such a corpus: picking the maximum
+     * hides an API removed after it from the module that still uses it, picking the minimum invents compile
+     * errors in the module that does not. So the global field is left unset for a mixed corpus, and the parse
+     * falls back to the JDK it happens to run on, where every API removed since reads as "cannot find symbol",
+     * drops the unit, and can cost the whole ParseResult. Per set there IS a right answer: the set's own.
+     * <p>
+     * ⚠ This governs javac ATTRIBUTION only. Platform types are recorded once per fully-qualified name for the
+     * whole parse ({@code CompiledTypesManagerImpl}), so a JDK type has ONE shape however many releases the
+     * sets state — deliberately, because the alternative is keeping every JDK type uncommitted until the last
+     * source set, which inverts the commit discipline on the most widely shared types there are.
+     */
+    default int sourceRelease() {
+        return 0;
+    }
+
+    /**
+     * The modules this source set's build resolves against beyond the default root set
+     * ({@code javac --add-modules}); empty when it passed none.
+     * <p>
+     * Not cosmetic: OpenSearch's {@code libs/common} compiles with {@code --add-modules jdk.incubator.vector},
+     * and without it the two units that use the vector API ({@code BtreeSearcher}, {@code RoundableFactory})
+     * do not resolve and are dropped. Incubator and preview modules are the recurring family — one set in a
+     * reactor needs them and the rest must not have them, which is exactly why this is per set and not global.
+     */
+    default List<String> addModules() {
+        return List.of();
+    }
+
     /** Returns the logical name of this source set (e.g. {@code "main"}, {@code "test"}, or a library name). */
     String name();
 

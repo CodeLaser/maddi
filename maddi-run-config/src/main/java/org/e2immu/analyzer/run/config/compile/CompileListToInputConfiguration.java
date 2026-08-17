@@ -114,6 +114,7 @@ public class CompileListToInputConfiguration {
         classPathParts.forEach(builder::addClassPathParts);
         checkNamesAreIdentities(sourceSets, classPathParts, closure);
         checkEveryDependencyResolves(sourceSets, classPathParts, closure);
+        checkDependencyReleases(sourceSets);
         setSourceRelease(result, builder);
         return builder.build();
     }
@@ -326,6 +327,35 @@ public class CompileListToInputConfiguration {
                                             + " dependency references: " + duplicates
                                             + ". Expect the symptom to look like a dependency cycle rather than"
                                             + " like a name clash.");
+        }
+    }
+
+    /**
+     * A set may not be compiled against an OLDER Java release than something it depends on.
+     * <p>
+     * ⚠ <b>A WARNING, NOT A REFUSAL, AND ON PURPOSE.</b> The rule is real — class files of release N are not
+     * consumable by a compilation at a release below N, so a build in that shape could not have produced the
+     * log this configuration was scraped from — which is exactly why the finding is far more likely to be a
+     * MIS-SCRAPE than a real corpus. Refusing would turn a scrape defect into "maddi cannot read this project";
+     * saying it loudly turns it into one line naming the two sets. It is also the only cross-set statement the
+     * per-set releases make, so if the scrape ever attributes a release to the wrong set, this is what notices.
+     * <p>
+     * Sets that state nothing ({@code <= 0}) are skipped on both sides: absent is not release 0, and a corpus
+     * where nothing states a release must not produce a wall of warnings about it.
+     */
+    private static void checkDependencyReleases(List<SourceSet> sourceSets) {
+        for (SourceSet consumer : sourceSets) {
+            int consumerRelease = consumer.sourceRelease();
+            if (consumerRelease <= 0) continue;
+            for (SourceSet dependency : consumer.dependencies()) {
+                int dependencyRelease = dependency.sourceRelease();
+                if (dependencyRelease <= 0 || dependencyRelease <= consumerRelease) continue;
+                LOGGER.warn("Source set '{}' states release {} but depends on '{}', which states {}."
+                            + " A compilation cannot consume class files from a newer release, so the build this"
+                            + " configuration describes could not have run: expect a mis-scraped release rather"
+                            + " than a real one.",
+                        consumer.name(), consumerRelease, dependency.name(), dependencyRelease);
+            }
         }
     }
 }

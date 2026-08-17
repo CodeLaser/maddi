@@ -118,6 +118,68 @@ public class TestStreaming {
         Assertions.assertEquals(0, copy.sourceRelease());
     }
 
+    /**
+     * The per-set javac options, which exist because a REACTOR has no single answer: OpenSearch states three
+     * releases (44 sets at 21, buildSrc/reaper at 11, libs/common at 8) and the global field can only abstain.
+     * <p>
+     * ⛔ The copy Builder is asserted too, and deliberately: it copies field by field, so a field added to
+     * SourceSetImpl and forgotten there is dropped SILENTLY — the positional constructor stops compiling, this
+     * does not. That is the failure {@code testRuntimeOnlySurvives} already guards for {@code runtimeOnly}, and
+     * a dropped {@code sourceRelease} is worse: it silently reinstates "whatever JDK maddi runs on" for that
+     * one set, which is the bug this whole field exists to remove.
+     */
+    @Test
+    public void testPerSourceSetJavacOptionsSurvive() throws JsonProcessingException {
+        SourceSet old = new SourceSetImpl.Builder()
+                .setName("libs-common")
+                .setUri(URI.create("file:/repo/libs/common"))
+                .setSourceRelease(8)
+                .setAddModules(List.of("jdk.incubator.vector"))
+                .build();
+        SourceSet modern = new SourceSetImpl.Builder()
+                .setName("server-main")
+                .setUri(URI.create("file:/repo/server"))
+                .setSourceRelease(21)
+                .build();
+        SourceSet silent = new SourceSetImpl.Builder()
+                .setName("says-nothing")
+                .setUri(URI.create("file:/repo/other"))
+                .build();
+
+        // the copy Builder must carry both over
+        SourceSet renamed = new SourceSetImpl.Builder(old).setName("renamed").build();
+        Assertions.assertEquals(8, renamed.sourceRelease());
+        Assertions.assertEquals(List.of("jdk.incubator.vector"), renamed.addModules());
+
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        // global sourceRelease 0: the mixed corpus the global field cannot express
+        InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
+                List.of(old, modern, silent), List.of(), Path.of("/"), 0);
+        String json = objectMapper.writeValueAsString(inputConfiguration);
+        InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
+
+        Assertions.assertEquals(8, copy.sourceSets().get(0).sourceRelease());
+        Assertions.assertEquals(List.of("jdk.incubator.vector"), copy.sourceSets().get(0).addModules());
+        Assertions.assertEquals(21, copy.sourceSets().get(1).sourceRelease());
+        // a set that states nothing keeps stating nothing, and says so by omission rather than by a 0 key
+        Assertions.assertEquals(0, copy.sourceSets().get(2).sourceRelease());
+        Assertions.assertTrue(copy.sourceSets().get(2).addModules().isEmpty());
+        Assertions.assertFalse(json.contains("\"sourceRelease\":0"), json);
+        Assertions.assertFalse(json.contains("\"addModules\":[]"), json);
+    }
+
+    @Test
+    public void testPerSetOptionsAbsentInAnOlderConfiguration() throws JsonProcessingException {
+        // the same backwards-compatibility rule the global field's test states: a configuration written before
+        // these fields existed has no such keys, and must read rather than fail
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        String json = "{\"workingDirectory\":\".\",\"classPathParts\":[],\"sourceSets\":["
+                      + "{\"name\":\"main\",\"uri\":\"file:/x\"}],\"alternativeJREDirectory\":null}";
+        InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
+        Assertions.assertEquals(0, copy.sourceSets().getFirst().sourceRelease());
+        Assertions.assertTrue(copy.sourceSets().getFirst().addModules().isEmpty());
+    }
+
     @Test
     public void testAnalysisHintsConfiguration() throws JsonProcessingException {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
