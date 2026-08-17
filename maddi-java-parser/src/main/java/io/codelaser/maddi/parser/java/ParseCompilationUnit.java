@@ -1,0 +1,140 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.parser.java;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import io.codelaser.maddi.inspection.api.parser.TypeContext;
+import io.codelaser.maddi.support.Either;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/*
+Second round! ScanCompilationUnit has already run.
+We parse the import statements, add them to the compilation unit object, and then continue with the
+actual parsing of types.
+ */
+public class ParseCompilationUnit extends CommonParse {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ParseCompilationUnit.class);
+
+    private final Context rootContext;
+
+    public ParseCompilationUnit(Context rootContext) {
+        super(rootContext.runtime(), new Parsers(rootContext.runtime()));
+        this.rootContext = rootContext;
+    }
+
+    public List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>>
+    parse(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
+        assert compilationUnit.packageName() != null;
+        assert compilationUnit.uri() != null;
+        try {
+            return internalParse(compilationUnit, cu);
+        } catch (Summary.FailFastException ffe) {
+            throw ffe;
+        } catch (RuntimeException re) {
+            //re.printStackTrace(System.err);
+            LOGGER.error("Caught exception parsing compilation unit {}", compilationUnit.uri());
+            rootContext.summary().addParseException(new Summary.ParseException(compilationUnit, compilationUnit,
+                    re.getMessage(), re));
+            return List.of();
+        }
+    }
+
+    private List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>>
+    internalParse(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit, CompilationUnit cu) {
+        assert compilationUnit.packageName() != null;
+
+        Context newContext = rootContext.newCompilationUnit(compilationUnit);
+        TypeContext typeContext = newContext.typeContext();
+        AtomicBoolean mustDelayForStaticImportTypeHierarchy = new AtomicBoolean();
+        handleImportStatements(compilationUnit, typeContext, mustDelayForStaticImportTypeHierarchy, false);
+
+        // then, with lower priority, add type names from the same package
+        List<TypeInfo> typesInSamePackage = rootContext.typeContext().typesInSamePackage(compilationUnit.packageName(),
+                compilationUnit.sourceSet());
+        typesInSamePackage.forEach(ti -> typeContext.addToContext(ti, TypeContext.SAME_PACKAGE_PRIORITY));
+
+        // finally, add * imports
+        handleImportStatements(compilationUnit, typeContext, mustDelayForStaticImportTypeHierarchy, true);
+
+        List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>> types = new ArrayList<>();
+        String uriString = compilationUnit.uri().toString();
+        if (uriString.endsWith("package-info.java")) {
+            TypeInfo typeInfo = buildPackageInfoType(compilationUnit, cu, newContext);
+            types.add(Either.left(typeInfo));
+            LOGGER.debug("Added {}, test? {}", typeInfo, typeInfo.compilationUnit().sourceSet().test());
+        } else if (!uriString.endsWith("module-info.java")) {
+            for (TypeDeclaration td : cu.childrenOfType(TypeDeclaration.class)) {
+                if (td instanceof EmptyDeclaration) {
+                    LOGGER.debug("Skipping empty declaration in {}", compilationUnit.uri());
+                } else {
+                    Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation> either
+                            = parsers.parseTypeDeclaration().parse(newContext, Either.left(compilationUnit), td,
+                            mustDelayForStaticImportTypeHierarchy.get());
+                    if (either != null) {
+                        types.add(either);
+                    } // else: error...
+                }
+            }
+        } // else: has been parsed elsewhere
+        return types;
+    }
+
+    private static void handleImportStatements(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit,
+                                               TypeContext typeContext,
+                                               AtomicBoolean mustDelayForStaticImportTypeHierarchy,
+                                               boolean isStar) {
+        compilationUnit.importStatements()
+                .stream()
+                .filter(is -> isStar == is.isStar())
+                .forEach(is -> {
+                    if (is.isStatic()) {
+                        if (!typeContext.addToStaticImportMap(compilationUnit, is)) {
+                            mustDelayForStaticImportTypeHierarchy.set(true);
+                        }
+                    } else {
+                        typeContext.addNonStaticImportToContext(is);
+                    }
+                });
+    }
+
+    private TypeInfo buildPackageInfoType(io.codelaser.maddi.cst.api.element.CompilationUnit compilationUnit,
+                                          CompilationUnit cu,
+                                          Context context) {
+        PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
+        List<Annotation> annotations = packageDeclaration.childrenOfType(Annotation.class);
+        String suffix = compilationUnit.sourceSet().test() ? "-test" : "";
+        TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, "package-info" + suffix);
+        TypeInfo.Builder builder = typeInfo.builder();
+        parseAnnotations(context, builder, annotations);
+        builder.setTypeNature(runtime.typeNaturePackageInfo())
+                .setParentClass(runtime.objectParameterizedType())
+                .setAccess(runtime.accessPublic())
+                .setSource(source(cu))
+                .commit();
+        return typeInfo;
+    }
+
+    public Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation> parseDelayedType(ParseTypeDeclaration.DelayedParsingInformation d) {
+        return parsers.parseTypeDeclaration().continueParsingTypeDeclaration(d);
+    }
+}

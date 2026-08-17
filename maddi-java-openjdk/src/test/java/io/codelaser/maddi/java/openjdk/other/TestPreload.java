@@ -1,0 +1,50 @@
+package io.codelaser.maddi.java.openjdk.other;
+
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.ClassExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestPreload extends CommonTest {
+    @Test
+    public void test() {
+        scan("a.b.X", "package a.b; class X { }");
+        TypeInfo functionalInterface = classSymbolScanner.getType("java.lang.FunctionalInterface");
+        assertNotNull(functionalInterface);
+        assertEquals(3, functionalInterface.annotations().size());
+        assertEquals("@Documented", functionalInterface.annotations().getFirst().toString());
+        assertEquals("@Retention(RetentionPolicy.RUNTIME)", functionalInterface.annotations().get(1).toString());
+        assertEquals("@Target({ElementType.TYPE})", functionalInterface.annotations().get(2).toString());
+        assertEquals("Type java.lang.annotation.Annotation",
+                functionalInterface.interfacesImplemented().getFirst().toString());
+        SourceSet set = functionalInterface.compilationUnit().sourceSet();
+        assertTrue(set.partOfJdk());
+        assertTrue(set.externalLibrary());
+    }
+
+    @Test
+    public void testClassValuedAnnotation() {
+        // reference ExtendWith so it is loaded from its class file (getType only returns already-loaded types)
+        scan("a.b.X", "package a.b; class X { org.junit.jupiter.api.extension.ExtendWith e; }");
+        // @ExtendWith is meta-annotated with @Repeatable(Extensions.class): a Class-valued annotation element,
+        // loaded from the class file, must become a ClassExpression referencing Extensions
+        TypeInfo extendWith = classSymbolScanner.getType("org.junit.jupiter.api.extension.ExtendWith");
+        assertNotNull(extendWith);
+        AnnotationExpression repeatable = extendWith.annotations().stream()
+                .filter(a -> "java.lang.annotation.Repeatable".equals(a.typeInfo().fullyQualifiedName()))
+                .findFirst().orElseThrow();
+        Expression value = repeatable.keyValuePairs().getFirst().value();
+        ClassExpression classExpression = assertInstanceOf(ClassExpression.class, value);
+        assertEquals("org.junit.jupiter.api.extension.Extensions",
+                classExpression.type().typeInfo().fullyQualifiedName());
+
+        SourceSet set = extendWith.compilationUnit().sourceSet();
+        assertFalse(set.partOfJdk());
+        assertTrue(set.externalLibrary());
+    }
+}

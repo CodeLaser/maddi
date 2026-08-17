@@ -1,0 +1,515 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.run.openjdkmain;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.cli.*;
+import org.apache.commons.cli.help.HelpFormatter;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.run.config.util.JsonStreaming;
+import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
+import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+public class Main {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+
+    public static final int EXIT_OK = 0;
+    public static final int EXIT_INTERNAL_EXCEPTION = 1;
+    public static final int EXIT_PARSER_ERROR = 2;
+    public static final int EXIT_INSPECTION_ERROR = 3;
+    public static final int EXIT_IO_EXCEPTION = 4;
+    public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
+
+    public static final String HELP = "help";
+
+    public static final String JRE = "jre";
+    public static final String QUIET = "quiet";
+    public static final String PARALLEL = "parallel";
+    public static final String SOURCE_ENCODING = "source-encoding";
+    public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
+    public static final String JDK_INTERNALS = "jdk-internals";
+    public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String ANALYSIS_STEPS = "analysis-steps";
+
+    public static final String AS_NONE = "none";
+    public static final String AS_PREP = "prep";
+    public static final String AS_MODIFICATION = "modification";
+    public static final String AS_REWIRE_TESTS = "rewire-tests";
+
+    public static final String ANALYSIS_RESULTS_DIR = "analysis-results-dir";
+    public static final String DEBUG = "debug";
+
+    public static final String INPUT_CONFIGURATION = "input-configuration";
+    // third way to obtain the input configuration: derive it from a build/javac log (see javac.ParseJavacList)
+    public static final String COMPILE_LOG = "compile-log";
+    public static final String EXTRA_JMOD = "extra-jmod";
+    public static final String WRITE_INPUT_CONFIGURATION = "write-input-configuration";
+
+    public static final String SOURCE = "source";
+    public static final String TEST_SOURCE = "test-source";
+    public static final String SOURCE_PACKAGES = "source-packages";
+    public static final String TEST_SOURCE_PACKAGES = "test-source-packages";
+
+    public static final String JMOD = "jmod"; // java jdk modules
+    public static final String CLASSPATH = "classpath"; // ~ compileClassPath in Gradle
+    public static final String RUNTIME_CLASSPATH = "runtime-classpath";
+    public static final String TEST_CLASSPATH = "test-classpath";
+    public static final String TESTS_RUNTIME_CLASSPATH = "test-runtime-classpath";
+    public static final String EXCLUDE_FROM_CLASSPATH = "exclude-from-classpath";
+
+    public static final String DEPENDENCIES = "dependencies";
+
+    // use case 1
+    public static final String PRELOAD_ANALYSIS_RESULTS_DIRS = "preload-analysis-results-dirs";
+    // use case 2
+    public static final String ANALYSIS_RESULTS_TARGET_DIR = "analysis-results-target-dir";
+    // use case 3
+    public static final String UPDATED_HINTS_DIR = "updated-hints-dir";
+    public static final String UPDATED_HINTS_PACKAGE = "updated-hints-package";
+    public static final String HINTS_PACKAGES = "hints-packages";
+
+    public static final String COMMA = ",";
+
+    public static String exitMessage(int exitValue) {
+        return switch (exitValue) {
+            case EXIT_OK -> "OK";
+            case EXIT_INTERNAL_EXCEPTION -> "Internal exception";
+            case EXIT_PARSER_ERROR -> "Parser error(s)";
+            case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
+            case EXIT_IO_EXCEPTION -> "IO exception";
+            case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
+            default -> throw new UnsupportedOperationException("don't know value " + exitValue);
+        };
+    }
+
+    public static void main(String[] args) {
+        try {
+            int exitValue = execute(args);
+            if (exitValue != EXIT_OK) {
+                LOGGER.error(exitMessage(exitValue));
+                System.exit(exitValue);
+            }
+        } catch (ParseException parseException) {
+            LOGGER.error("Parse exception: ", parseException);
+            System.exit(EXIT_INTERNAL_EXCEPTION);
+        } catch (IOException ioException) {
+            LOGGER.error("IOException: ", ioException);
+            System.exit(EXIT_IO_EXCEPTION);
+        }
+    }
+
+    static int execute(String[] args) throws ParseException, IOException {
+        CommandLineParser commandLineParser = new DefaultParser();
+        Options options = createOptions();
+        CommandLine cmd = commandLineParser.parse(options, args);
+        Configuration configuration = parseConfiguration(cmd, options);
+
+        String writeInputConfiguration = cmd.getOptionValue(WRITE_INPUT_CONFIGURATION);
+        if (writeInputConfiguration != null) {
+            File file = new File(writeInputConfiguration);
+            LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
+            JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValue(file, configuration.inputConfiguration());
+            return EXIT_OK;
+        }
+
+        // the following will be output if the CONFIGURATION logger is active!
+        LOGGER.debug("Configuration:\n{}", configuration);
+        RunAnalyzer runAnalyzer = new RunAnalyzer(configuration);
+        runAnalyzer.run();
+        if (!configuration.generalConfiguration().quiet()) {
+            runAnalyzer.printSummaries();
+        }
+        return runAnalyzer.exitValue();
+    }
+
+
+    private static Options createOptions() {
+        Options options = new Options();
+        options.addOption("h", HELP, false, "Print help.");
+        addGeneralConfigurationOptions(options);
+        addInputConfigurationOptions(options);
+        addAnalysisHintsConfigurationOptions(options);
+        return options;
+    }
+
+    private static Configuration parseConfiguration(CommandLine cmd, Options options) throws IOException {
+        if (cmd.hasOption(HELP)) {
+            HelpFormatter formatter = HelpFormatter.builder().get();
+            //formatter.setWidth(128);
+            formatter.printHelp("e2immu-analyzer", "", options, "", true);
+            System.exit(EXIT_OK);
+        }
+        Configuration.Builder builder = new Configuration.Builder();
+
+        GeneralConfiguration generalConfiguration = parseGeneralConfiguration(cmd);
+        builder.setGeneralConfiguration(generalConfiguration);
+
+        InputConfiguration inputConfiguration = parseInputConfiguration(cmd);
+        builder.setInputConfiguration(inputConfiguration);
+
+        AnalysisHintsConfiguration analysisHintsConfiguration = parseAnalysisHintsConfiguration(cmd);
+        builder.setAnalysisHintsConfiguration(analysisHintsConfiguration);
+
+        builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
+
+        return builder.build();
+    }
+
+    public static Configuration fromPropertyMap(Map<String, String> kvMap) {
+        Configuration.Builder builder = new Configuration.Builder();
+
+        GeneralConfiguration generalConfiguration = generalConfiguration(kvMap);
+        builder.setGeneralConfiguration(generalConfiguration);
+        builder.setInputConfiguration(inputConfiguration(kvMap));
+        builder.setAnalysisHintsConfiguration(analysisHintsConfiguration(kvMap));
+
+        builder.setLanguageConfiguration(new LanguageConfigurationImpl(true));
+
+        return builder.build();
+    }
+
+    /* ******* general configuration ******** */
+
+    private static void addGeneralConfigurationOptions(Options options) {
+        options.addOption(Option.builder().longOpt(ANALYSIS_STEPS).hasArg().argName("STEPS")
+                .desc("""
+                        Provide an alternative list of analysis steps, separated by comma, or with multiple values \
+                        of this property. Choose from:
+                         - 'none': must be present as the only one.
+                         - 'prep' runs the prep-analyzer:
+                              hidden content types, hidden content selector,
+                              variable data, part of construction, final fields,
+                              analysis order
+                         - 'analysis-order' implies prep, and prints out the order
+                         - 'modification' runs
+                              linked variables, static assignments,
+                              fluent, identity,
+                              modification, independence, immutability.
+                        """).get());
+        options.addOption(Option.builder().longOpt(ANALYSIS_RESULTS_DIR).hasArg().argName("DIR")
+                .desc("""
+                        Directory to write results of analyzer.
+                        """).get());
+        options.addOption(Option.builder("d").longOpt(DEBUG).hasArg().argName("TARGETS")
+                .desc("""
+                        Debug targets. Choose from: X Y Z
+                        """).get());
+        options.addOption("i", INCREMENTAL_ANALYSIS, false, "Incremental analysis mode.");
+        options.addOption("p", PARALLEL, false, "Parallelize as much as possible.");
+        options.addOption("q", QUIET, false, "Silent mode. Do not write warnings, errors, etc. to stdout.");
+        options.addOption(null, JDK_INTERNALS, false, "We're working with JDK internals: load jdk.internal.*/sun.* "
+                + "types, and open the JDK modules to javac (add-exports every non-exported package, bypass ct.sym, "
+                + "avoid system-module package clashes). Needed to parse the JDK's own sources.");
+        options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
+                + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
+    }
+
+    public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
+        GeneralConfiguration.Builder builder = new GeneralConfiguration.Builder();
+        setBooleanProperty(kvMap, QUIET, builder::setQuiet);
+        setBooleanProperty(kvMap, PARALLEL, builder::setParallel);
+        setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
+        setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
+        setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
+        setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
+        setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
+        return builder.build();
+    }
+
+    private static GeneralConfiguration parseGeneralConfiguration(CommandLine cmd) {
+        GeneralConfiguration.Builder builder = new GeneralConfiguration.Builder();
+
+        builder.setParallel(cmd.hasOption(PARALLEL));
+        builder.setQuiet(cmd.hasOption(QUIET));
+        builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
+        builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
+        builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+
+        String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
+        splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);
+
+        String[] debugTargets = cmd.getOptionValues(DEBUG);
+        splitAndAdd(debugTargets, COMMA, builder::addDebugTargets);
+
+        builder.setAnalysisResultsDir(cmd.getOptionValue(ANALYSIS_RESULTS_DIR));
+
+        return builder.build();
+    }
+
+    /* ******* input configuration ******** */
+
+    private static void addInputConfigurationOptions(Options options) {
+        options.addOption(Option.builder().longOpt(INPUT_CONFIGURATION).hasArg().argName("FILE")
+                .desc("Directly specify the input configuration file").get());
+
+        options.addOption(Option.builder().longOpt(COMPILE_LOG).hasArg().argName("FILE")
+                .desc("Derive the input configuration from a build/javac log (raw 'javac ...', Gradle " +
+                      "'Compiler arguments: ...' or Maven '[DEBUG] -d ...' markers; .gz accepted). A third way to " +
+                      "obtain the input configuration, next to --" + INPUT_CONFIGURATION + " and the explicit --" +
+                      SOURCE + "/--" + CLASSPATH + " options.").get());
+        options.addOption(Option.builder().longOpt(EXTRA_JMOD).hasArg().argName("JMOD")
+                .desc("Extra Java module(s) (e.g. java.sql) to add to the classpath closure when deriving the input " +
+                      "configuration from --" + COMPILE_LOG + ". Repeatable.").get());
+        options.addOption(Option.builder().longOpt(WRITE_INPUT_CONFIGURATION).hasArg().argName("FILE")
+                .desc("Write the (derived) input configuration to FILE as JSON and exit, without running the " +
+                      "analysis. Combine with --" + COMPILE_LOG + " to capture a project's configuration for later " +
+                      "runs via --" + INPUT_CONFIGURATION + ".").get());
+
+        options.addOption(Option.builder().longOpt(JRE).hasArg().argName("DIR")
+                .desc("Provide an alternative location for the Java Runtime Environment (JRE). " +
+                      "If absent, the JRE from the analyzer is used: '" + System.getProperty("java.home") + "'.").get());
+        options.addOption(Option.builder().longOpt(SOURCE_ENCODING).hasArg().argName("ENCODING")
+                .desc("Alternative source encoding. Default is UTF-8").get());
+
+        options.addOption(Option.builder("s").longOpt(SOURCE).hasArg().argName("DIRS")
+                .desc("Add a directory where the source files can be found. Use the Java path separator '" +
+                      File.pathSeparator + "' to separate directories, " +
+                      "or use this options multiple times. Default, when this option is absent, is '"
+                      + InputConfigurationImpl.MAVEN_MAIN + "'.").get());
+
+        options.addOption(Option.builder().longOpt(TEST_SOURCE).hasArg().argName("DIRS")
+                .desc("Add a directory where the test source files can be found. Use the Java path separator '" +
+                      File.pathSeparator + "' to separate directories, " +
+                      "or use this options multiple times. Default, when this option is absent, is '"
+                      + InputConfigurationImpl.MAVEN_TEST + "'.").get());
+
+        options.addOption(Option.builder("cp").longOpt(CLASSPATH).hasArg().argName("CLASSPATH")
+                .desc("Add classpath components, separated by the Java path separator '"
+                      + File.pathSeparator + "'.").get());
+
+        options.addOption(Option.builder("jm").longOpt(JMOD).hasArg().argName("JMOD")
+                .desc("Add java modules (in the form java.xml, jdk.jcmd) to the class path. Separate by '"
+                      + File.pathSeparator + "'. Default, when this option is absent, is '"
+                      + Arrays.toString(InputConfigurationImpl.DEFAULT_MODULES) + "'.").get());
+
+        options.addOption(Option.builder().longOpt(SOURCE_PACKAGES).hasArg().argName("PACKAGES")
+                .desc("LEGACY, avoid: restrict the sources parsed to the paths" +
+                      " specified in the argument. Use ',' to separate paths, or use this option multiple times." +
+                      " Use a dot at the end of a package name to accept sub-packages." +
+                      " Dates from the hand-written parser and is fatal on modular projects;" +
+                      " see SourceSet.restrictToPackages().").get());
+
+        options.addOption(Option.builder().longOpt(TEST_SOURCE_PACKAGES).hasArg().argName("PACKAGES")
+                .desc("LEGACY, avoid: as --" + SOURCE_PACKAGES + ", for test sources.").get());
+
+        options.addOption(Option.builder().longOpt(EXCLUDE_FROM_CLASSPATH).hasArg().argName("PATH")
+                .desc("Jar names to be excluded from the classpath, to give priority to others").get());
+    }
+
+    private static InputConfiguration inputConfiguration(Map<String, String> kvMap) {
+        String dependencies = kvMap.getOrDefault(DEPENDENCIES, "");
+        String excludeFromClasspath = kvMap.getOrDefault(EXCLUDE_FROM_CLASSPATH, "");
+
+        LOGGER.info("Building input configuration, dependencies are {}, exclude is {}", dependencies, excludeFromClasspath);
+
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+        setStringProperty(kvMap, JRE, builder::setAlternativeJREDirectory);
+        setStringProperty(kvMap, SOURCE_ENCODING, builder::setSourceEncoding);
+
+        setSplitStringProperty(kvMap, File.pathSeparator, SOURCE, builder::addSources);
+        setSplitStringProperty(kvMap, File.pathSeparator, TEST_SOURCE, builder::addTestSources);
+        setSplitStringProperty(kvMap, ",", SOURCE_PACKAGES, builder::addRestrictSourceToPackages);
+        setSplitStringProperty(kvMap, ",", TEST_SOURCE_PACKAGES, builder::addRestrictTestSourceToPackages);
+
+        setSplitStringProperty(kvMap, File.pathSeparator, CLASSPATH, builder::addClassPath);
+        setSplitStringProperty(kvMap, File.pathSeparator, JMOD, builder::addJmodToClassPath);
+        setSplitStringProperty(kvMap, File.pathSeparator, TEST_CLASSPATH, builder::addTestClassPath);
+        setSplitStringProperty(kvMap, File.pathSeparator, RUNTIME_CLASSPATH, builder::addRuntimeClassPath);
+        setSplitStringProperty(kvMap, File.pathSeparator, TESTS_RUNTIME_CLASSPATH, builder::addTestRuntimeClassPath);
+
+        return builder.build();
+    }
+
+    private static InputConfiguration parseInputConfiguration(CommandLine cmd) throws IOException {
+        String inputConfigurationFile = cmd.getOptionValue(INPUT_CONFIGURATION);
+        if (inputConfigurationFile != null) {
+            ObjectMapper objectMapper = JsonStreaming.objectMapper();
+            File file = new File(inputConfigurationFile);
+            LOGGER.info("Reading inputConfiguration from file {}", inputConfigurationFile);
+            return objectMapper.readValue(file, InputConfigurationImpl.class);
+        }
+        String compileLog = cmd.getOptionValue(COMPILE_LOG);
+        if (compileLog != null) {
+            String[] extraJmods = cmd.getOptionValues(EXTRA_JMOD);
+            List<String> extraJmodList = extraJmods == null ? List.of() : Arrays.asList(extraJmods);
+            LOGGER.info("Deriving inputConfiguration from compile log {} (extra jmods {})", compileLog, extraJmodList);
+            return new ParseJavacList().parse(Path.of(compileLog), extraJmodList);
+        }
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+
+        String alternativeJREDirectory = cmd.getOptionValue(JRE);
+        builder.setAlternativeJREDirectory(alternativeJREDirectory);
+
+        String sourceEncoding = cmd.getOptionValue(SOURCE_ENCODING);
+        builder.setSourceEncoding(sourceEncoding);
+
+        String[] sources = cmd.getOptionValues(SOURCE);
+        splitAndAdd(sources, File.pathSeparator, builder::addSources);
+
+        String[] testSources = cmd.getOptionValues(TEST_SOURCE);
+        splitAndAdd(testSources, File.pathSeparator, builder::addTestSources);
+
+        String[] classPaths = cmd.getOptionValues(CLASSPATH);
+        splitAndAdd(classPaths, File.pathSeparator, builder::addClassPath);
+
+        String[] jmods = cmd.getOptionValues(JMOD);
+        splitAndAdd(jmods, File.pathSeparator, builder::addJmodToClassPath);
+
+        String[] restrictSourceToPackages = cmd.getOptionValues(SOURCE_PACKAGES);
+        splitAndAdd(restrictSourceToPackages, COMMA, builder::addRestrictSourceToPackages);
+
+        String[] restrictTestSourceToPackages = cmd.getOptionValues(TEST_SOURCE_PACKAGES);
+        splitAndAdd(restrictTestSourceToPackages, COMMA, builder::addRestrictTestSourceToPackages);
+
+        return builder.build();
+    }
+
+    /* ******* AnalysisHints configuration ******** */
+
+    /*
+    Use cases.
+    1: normal reading of analysis results files: specify PRELOAD_ANALYSIS_RESULTS_DIRS directories
+         = normal parsing, with analysis hints files for libraries and partial results for sources.
+         When in incremental mode, the analysis results files containing source packages may be updated.
+         The first directory is chosen to write new analysis results files.
+    2: compiling analysis hints -> analysis results: write packages HINTS_PACKAGES from the source path
+         in to WRITE_PRELOAD_ANALYSIS_RESULTS_DIRS_DIR. The source path may contain analysis hints classes, and regular classes.
+         = running the shallow analyzer to prepare libraries for use by e2immu
+    3: writing analysis hints skeletons: use WRITE_ANNOTATED_API_DIR as the target directory for the skeletons.
+        WRITE_HINTS_PACKAGES contains the classes for which a skeleton will be generated.
+        WRITE_UPDATED_HINTS_PACKAGE contains the package to write to.
+         = running the composer
+
+
+    Apply use case 3 to generate the analysis hints files for a library.
+    Edit them, then apply use case 2 to compile the edited analysis hints files into analysis results files for use in a project.
+    */
+
+    private static void addAnalysisHintsConfigurationOptions(Options options) {
+        options.addOption(Option.builder("s").longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
+                .desc("Add a directory where the analyzed analysis hints files can be found." +
+                      " Use the Java path separator '" + File.pathSeparator + "' to separate directories, " +
+                      "or use this options multiple times.").get());
+
+        options.addOption(Option.builder().longOpt(ANALYSIS_RESULTS_TARGET_DIR).hasArg().argName("DIR")
+                .desc("Where to write analyzed AnalysisHints files.").get());
+
+        options.addOption(Option.builder().longOpt(UPDATED_HINTS_DIR).hasArg().argName("DIR")
+                .desc("Where to write AnalysisHints skeleton files, extracted from sources.").get());
+
+        options.addOption(Option.builder().longOpt(UPDATED_HINTS_PACKAGE).hasArg().argName("PACKAGE")
+                .desc("Which package to write the AnalysisHints skeleton files to").get());
+
+        options.addOption(Option.builder().longOpt(HINTS_PACKAGES).hasArg().argName("PACKAGES")
+                .desc("Create analysis hints skeletons from the following packages of the source.").get());
+
+    }
+
+    public static AnalysisHintsConfiguration analysisHintsConfiguration(Map<String, String> kvMap) {
+        AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
+
+        setSplitStringProperty(kvMap, ",", PRELOAD_ANALYSIS_RESULTS_DIRS, builder::addPreloadAnalysisResultsDirs);
+
+        setStringProperty(kvMap, ANALYSIS_RESULTS_TARGET_DIR, builder::setAnalysisResultsTargetDir);
+        setStringProperty(kvMap, UPDATED_HINTS_DIR, builder::setUpdatedHintsDir);
+        setStringProperty(kvMap, UPDATED_HINTS_PACKAGE, builder::setUpdatedHintsPackage);
+
+        setSplitStringProperty(kvMap, COMMA, HINTS_PACKAGES, builder::addHintsPackages);
+
+        return builder.build();
+    }
+
+    private static AnalysisHintsConfiguration parseAnalysisHintsConfiguration(CommandLine cmd) {
+        AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
+
+        String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
+        splitAndAdd(analyzedDirs, ",", builder::addPreloadAnalysisResultsDirs);
+
+        String writeAnalyzedDir = cmd.getOptionValue(ANALYSIS_RESULTS_TARGET_DIR);
+        builder.setAnalysisResultsTargetDir(writeAnalyzedDir);
+
+        String writeDir = cmd.getOptionValue(UPDATED_HINTS_DIR);
+        builder.setUpdatedHintsDir(writeDir);
+
+        String targetPackage = cmd.getOptionValue(UPDATED_HINTS_PACKAGE);
+        builder.setUpdatedHintsPackage(targetPackage);
+
+        String[] writePackages = cmd.getOptionValues(HINTS_PACKAGES);
+        splitAndAdd(writePackages, COMMA, builder::addHintsPackages);
+        return builder.build();
+    }
+
+    // *************************************** */
+    private static final String DO_NOT_SPLIT = "__DO_NOT_SPLIT__";
+
+    private static void splitAndAdd(String[] strings, String separator, Consumer<String> adder) {
+        if (strings != null) {
+            for (String string : strings) {
+                String s = string.replace("::", DO_NOT_SPLIT);
+                String[] parts = s.split(separator);
+                for (String part : parts) {
+                    if (part != null && !part.trim().isEmpty()) {
+                        adder.accept(part.replace(DO_NOT_SPLIT, ":"));
+                    }
+                }
+            }
+        }
+    }
+
+    static void setStringProperty(Map<String, String> properties, String key, Consumer<String> consumer) {
+        String value = properties.get(key);
+        if (value != null) {
+            String trim = value.trim();
+            if (!trim.isEmpty()) consumer.accept(trim);
+        }
+    }
+
+    public static void setSplitStringProperty(Map<String, String> properties, String separator, String key, Consumer<String> consumer) {
+        String value = properties.get(key);
+        if (value != null) {
+            String[] parts = value.split(separator);
+            for (String part : parts) {
+                if (part != null && !part.trim().isEmpty()) {
+                    consumer.accept(part);
+                }
+            }
+        }
+    }
+
+    public static void setBooleanProperty(Map<String, String> properties, String key, Consumer<Boolean> consumer) {
+        String value = properties.get(key);
+        if (value != null) {
+            consumer.accept("true".equalsIgnoreCase(value.trim()));
+        }
+    }
+
+}

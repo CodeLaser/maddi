@@ -1,0 +1,133 @@
+package io.codelaser.maddi.modification.analyzer;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.ModAnalyzerForTesting;
+import io.codelaser.maddi.modification.analyzer.impl.SingleIterationAnalyzerImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.support.SetOnceMap;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.testProtocolSourceSet;
+
+
+public abstract class CommonTest {
+    protected JavaInspector javaInspector;
+    protected PrepAnalyzer prepAnalyzer;
+    protected Runtime runtime;
+    protected ModAnalyzerForTesting analyzer;
+    // extra JDK modules a test needs on the classpath, given as "jmod:java.sql" etc.
+    protected final String[] jmods;
+    // per-directory source sets a clone-bench style test needs registered for openjdk single-file parsing; each
+    // must be distinct so identically-named types in different directories do not collide (keyed by (fqn, set))
+    protected final SetOnceMap<String, SourceSet> openJdkSourceSetsByName = new SetOnceMap<>();
+
+    protected CommonTest() {
+        this.jmods = new String[0];
+    }
+
+    protected CommonTest(String... jmods) {
+        this.jmods = jmods;
+    }
+
+    // names of extra (per-directory) source sets a subclass needs registered for openjdk single-file parsing
+    protected List<String> openJdkExtraSourceSetNames() {
+        return List.of();
+    }
+
+    @BeforeAll
+    public static void beforeAll() {
+        ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification.link")).setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("io.codelaser.maddi.modification.analyzer")).setLevel(Level.DEBUG);
+    }
+
+    // A fully-configured, independent analyzer stack (its own JavaInspector + runtime + analyzers). The runtime's
+    // type cache is not thread-safe, so tests that parse concurrently (e.g. TestCloneBench) build one bundle per
+    // worker thread and never share a bundle across threads.
+    public record AnalyzerBundle(JavaInspector javaInspector,
+                                 Map<String, SourceSet> sourceSetsByName,
+                                 PrepAnalyzer prepAnalyzer,
+                                 ModAnalyzerForTesting analyzer) {
+    }
+
+    // Build one independent bundle. Mirrors the original beforeEach setup exactly; called once for the main test
+    // instance, and once more per extra worker thread by clone-bench style tests.
+    protected AnalyzerBundle buildAnalyzerBundle() throws IOException {
+        SourceSet testProtocol = testProtocolSourceSet();
+        List<String> extraSourceSetNames = openJdkExtraSourceSetNames();
+        JavaInspector ji;
+        Map<String, SourceSet> sourceSetsByName = new HashMap<>();
+        List<String> jdkModules = Arrays.stream(jmods)
+                .map(s -> s.startsWith("jmod:") ? s.substring("jmod:".length()) : s).toList();
+        if (extraSourceSetNames.isEmpty()) {
+            // lean default classpath, plus any JDK modules the test declared via jmods (e.g. "jmod:java.desktop")
+            ji = io.codelaser.maddi.modification.common.CommonTest
+                    .javaInspectorWithExtras(testProtocol, List.of(), jdkModules);
+        } else {
+            // clone-bench style test: register one source set per directory (JDK types resolve via the global
+            // input configuration; the per-directory sets keep identically-named types apart) and add the
+            // requested extra JDK modules (jmods entries look like "jmod:java.sql")
+            List<SourceSet> extraSets = new ArrayList<>();
+            for (String name : extraSourceSetNames) {
+                SourceSet set = new SourceSetImpl.Builder().setName(name).setUri(URI.create("file:/")).build();
+                sourceSetsByName.put(name, set);
+                extraSets.add(set);
+            }
+            ji = io.codelaser.maddi.modification.common.CommonTest
+                    .javaInspectorWithExtras(testProtocol, extraSets, jdkModules);
+            extraSets.forEach(SourceSet::computePriorityDependencies);
+        }
+        ji.setParameterNames(true); // faithful class-file parameter names; must precede any loading
+        ji.onlyPreload(); // we'll run more later
+        new LoadAnalysisResults(ji.runtime(), testProtocol).go(ANALYZED_RESULTS);
+        PrepAnalyzer prep = new PrepAnalyzer(ji.runtime(), new PrepAnalyzer.Options.Builder().build());
+        IteratingAnalyzer.Configuration configuration = new IteratingAnalyzerImpl.ConfigurationBuilder().build();
+        ModAnalyzerForTesting an = new SingleIterationAnalyzerImpl(ji, configuration);
+        return new AnalyzerBundle(ji, sourceSetsByName, prep, an);
+    }
+
+    @BeforeEach
+    public void beforeEach() throws IOException {
+        AnalyzerBundle b = buildAnalyzerBundle();
+        javaInspector = b.javaInspector();
+        b.sourceSetsByName().forEach(openJdkSourceSetsByName::put);
+        runtime = javaInspector.runtime();
+        prepAnalyzer = b.prepAnalyzer();
+        analyzer = b.analyzer();
+    }
+
+    // the openjdk parser keeps the implicit super() as a (synthetic) first statement of a constructor; the
+    // maddi parser omits it. Tests that index into constructor statements use this to skip it.
+    protected static List<Statement> realStatements(MethodInfo methodInfo) {
+        return methodInfo.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
+    }
+
+    protected List<Info> prepWork(TypeInfo typeInfo) {
+        List<Info> analysisOrder = prepAnalyzer.doPrimaryType(typeInfo);
+        assert analysisOrder.stream().noneMatch(i -> i instanceof TypeInfo ti && ti.simpleName().endsWith("$"))
+                : "It looks like annotated API types are part of the analysis info list.";
+        return analysisOrder;
+    }
+}

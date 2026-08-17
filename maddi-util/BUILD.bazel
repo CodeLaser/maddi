@@ -33,5 +33,5 @@ maddi_java_test(
         ":maddi-util",  # Depend on the main library
         "//maddi-support",
     ],
-    test_packages = [ "org.e2immu.util.internal.util", ],
+    test_packages = [ "io.codelaser.maddi.util", ],
 )

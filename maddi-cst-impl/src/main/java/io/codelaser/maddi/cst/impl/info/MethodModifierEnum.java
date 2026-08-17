@@ -1,0 +1,89 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.info;
+
+
+import io.codelaser.maddi.cst.api.info.MethodModifier;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
+
+public enum MethodModifierEnum implements MethodModifier {
+    PUBLIC(KeywordImpl.PUBLIC),
+    PRIVATE(KeywordImpl.PRIVATE),
+    PROTECTED(KeywordImpl.PROTECTED),
+    INTERNAL(KeywordImpl.INTERNAL),
+    ABSTRACT(KeywordImpl.ABSTRACT),
+    DEFAULT(KeywordImpl.DEFAULT),
+    FINAL(KeywordImpl.FINAL),
+    NATIVE(KeywordImpl.NATIVE),
+    STATIC(KeywordImpl.STATIC),
+    SYNCHRONIZED(KeywordImpl.SYNCHRONIZED);
+
+    public final Keyword keyword;
+
+    MethodModifierEnum(Keyword keyword) {
+        this.keyword = keyword;
+    }
+
+    @Override
+    public boolean isPublic() {
+        return this == PUBLIC;
+    }
+
+    @Override
+    public boolean isPrivate() {
+        return this == PRIVATE;
+    }
+
+    @Override
+    public boolean isProtected() {
+        return this == PROTECTED;
+    }
+
+    @Override
+    public boolean isInternal() {
+        return this == INTERNAL;
+    }
+
+    @Override
+    public boolean isAbstract() {
+        return this == ABSTRACT;
+    }
+
+    @Override
+    public boolean isFinal() {
+        return this == FINAL;
+    }
+
+    @Override
+    public boolean isDefault() {
+        return this == DEFAULT;
+    }
+
+    @Override
+    public boolean isSynchronized() {
+        return this == SYNCHRONIZED;
+    }
+
+    @Override
+    public boolean isStatic() {
+        return this == STATIC;
+    }
+
+    @Override
+    public Keyword keyword() {
+        return keyword;
+    }
+}

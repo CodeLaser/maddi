@@ -70,13 +70,13 @@ $ ./gradlew build                                    # the dependency jars must 
 $ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration
 $ cd .. && ./gradlew :maddi-run-openjdk:run --args="\
     --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
-    --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs/log \
+    --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/log \
     --analysis-steps prep,modification \
     --analysis-results-dir /tmp/dogfood-out"
 ```
 
 After changing the plugin, re-publish it and pass `--refresh-dependencies`: the version does not
-change, so Gradle otherwise serves the cached jar. Exit code 5 is `ANALYSER_ERROR` (cycle protection
+change, so Gradle otherwise serves the cached jar. Exit code 5 is `ANALYZER_ERROR` (cycle protection
 trips on a few of the printer methods); the analysis results are still written.
 
 Why the modules are not merged
@@ -99,7 +99,7 @@ Setting it triggers an analyzer bug that is fatal for any **modular** project. `
 package restriction makes `JavaInspectorImpl` put the source roots on javac's `SOURCE_PATH`, where javac
 finds that same `module-info.java` and compiles it *implicitly*. The compilation is then a named module
 after all, everything on the class path belongs to the unnamed module, and every cross-module reference
-fails with "package org.e2immu.language.cst.api.info does not exist".
+fails with "package io.codelaser.maddi.cst.api.info does not exist".
 
 Symptom to recognise: `restrictToPackages` set + `module-info.java` present ⇒ a flood of "package X does
 not exist" that disappears the moment the restriction is dropped.

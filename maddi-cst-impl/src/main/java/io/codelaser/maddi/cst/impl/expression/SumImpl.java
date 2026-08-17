@@ -1,0 +1,133 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+
+import java.util.List;
+
+
+public class SumImpl extends BinaryOperatorImpl implements Sum {
+
+    public SumImpl(Runtime runtime, Expression lhs, Expression rhs) {
+        super(List.of(), null, runtime.plusOperatorInt(), runtime.precedenceAdditive(), lhs, rhs,
+                runtime.widestTypeUnbox(lhs.parameterizedType(), rhs.parameterizedType()));
+        assert lhs.isNumeric() : "Have " + lhs + ", " + lhs.parameterizedType(); // and definitely not StringConstant!
+        assert rhs.isNumeric() : "Have " + rhs + ", " + rhs.parameterizedType();
+    }
+
+    public SumImpl(List<Comment> comments, Source source, MethodInfo operator, Precedence precedence,
+                   Expression lhs, Expression rhs, ParameterizedType parameterizedType) {
+        super(comments, source, operator, precedence, lhs, rhs, parameterizedType);
+    }
+
+    @Override
+    public Expression withSource(Source source) {
+        return new SumImpl(comments(), source, operator, precedence, lhs, rhs, parameterizedType);
+    }
+
+    @Override
+    public int order() {
+        return ExpressionComparator.ORDER_SUM;
+    }
+
+    /*
+        Generate the expression lhs+rhs == 0.
+        Handle lhs-rhs==0  === lhs==rhs, etc.
+        This is part of the system that computes equality.
+         */
+    @Override
+    public Expression isZero(Runtime runtime) {
+        if (lhs instanceof Negation negation && !(rhs instanceof Negation)) {
+            return runtime.equals(negation.expression(), rhs);
+        }
+        if (rhs instanceof Negation negation && !(lhs instanceof Negation)) {
+            return runtime.equals(lhs, negation.expression());
+        }
+        if (lhs instanceof Negation nLhs) {
+            return runtime.equals(nLhs, rhs);
+        }
+        return runtime.equals(lhs, runtime.negate(rhs));
+    }
+
+    /*
+    extra code to avoid writing a+-b ~ a-b
+     */
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl().add(outputInParenthesis(qualification, precedence(), lhs));
+        boolean ignoreOperator = rhs instanceof Negation || rhs instanceof Sum sum2 && (sum2.lhs() instanceof Negation);
+        if (!ignoreOperator) {
+            outputBuilder.add(SymbolEnum.binaryOperator(operator.name()));
+        }
+        return outputBuilder.add(outputInParenthesis(qualification, precedence(), rhs));
+    }
+
+    // recursive method
+    public Double numericPartOfLhs() {
+        Numeric n;
+        if ((n = lhs.asInstanceOf(Numeric.class)) != null) return n.doubleValue();
+        Sum s;
+        if ((s = lhs.asInstanceOf(Sum.class)) != null) return s.numericPartOfLhs();
+        return null;
+    }
+
+    // can only be called when there is a numeric part somewhere!
+    public Expression nonNumericPartOfLhs(Runtime runtime) {
+        if (lhs.isInstanceOf(Numeric.class)) return rhs;
+        Sum s;
+        if ((s = lhs.asInstanceOf(Sum.class)) != null) {
+            // the numeric part is somewhere inside lhs
+            Expression nonNumeric = s.nonNumericPartOfLhs(runtime);
+            return runtime.sum(nonNumeric, rhs);
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Expression translate(TranslationMap translationMap) {
+        Expression translated = translationMap.translateExpression(this);
+        if (translated != this) return translated;
+        Expression tl = lhs.translate(translationMap);
+        Expression tr = rhs.translate(translationMap);
+        if (tl == lhs && tr == rhs) return this;
+        Expression result = new SumImpl(comments(), source(), operator, precedence, tl, tr, parameterizedType);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    @Override
+    public boolean isNumeric() {
+        return true;
+    }
+
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        return new SumImpl(comments(), source(), operator, precedence, lhs.rewire(infoMap), rhs.rewire(infoMap),
+                parameterizedType);
+    }
+}

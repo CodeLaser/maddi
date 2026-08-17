@@ -49,11 +49,11 @@ and `SumImpl`'s constructor asserts its operands are numeric:
 
 ```
 java.lang.AssertionError: Have stringConstant@11-20:11-22, Type String
-  at org.e2immu.language.cst.impl.expression.SumImpl.<init>(SumImpl.java:39)
-  at org.e2immu.language.cst.impl.expression.eval.EvalSum.eval(EvalSum.java:70)
-  at org.e2immu.language.cst.impl.runtime.EvalImpl.sum(EvalImpl.java:100)
-  at org.e2immu.language.cst.impl.expression.eval.EvalBinaryOperator.determineValue(EvalBinaryOperator.java:62)
-  at org.e2immu.language.cst.api.runtime.Eval.sortAndSimplify(Eval.java:168)
+  at io.codelaser.maddi.cst.impl.expression.SumImpl.<init>(SumImpl.java:39)
+  at io.codelaser.maddi.cst.impl.expression.eval.EvalSum.eval(EvalSum.java:70)
+  at io.codelaser.maddi.cst.impl.runtime.EvalImpl.sum(EvalImpl.java:100)
+  at io.codelaser.maddi.cst.impl.expression.eval.EvalBinaryOperator.determineValue(EvalBinaryOperator.java:62)
+  at io.codelaser.maddi.cst.api.runtime.Eval.sortAndSimplify(Eval.java:168)
   at io.codelaser.jfocus.standardize.analyzer.parse.ExpressionVisitor.handleBinaryOperator(...)
 ```
 

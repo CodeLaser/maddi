@@ -11,7 +11,7 @@ Apply the plugin and configure the `e2immu` extension:
 ----
 plugins {
     java
-    id("org.e2immu.analyzer-plugin")
+    id("io.codelaser.maddi.analyzer")
 }
 
 e2immu {

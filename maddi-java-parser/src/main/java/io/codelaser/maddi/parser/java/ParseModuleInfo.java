@@ -1,0 +1,199 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.parser.java;
+
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ParseModuleInfo extends CommonParse {
+    public ParseModuleInfo(Runtime runtime, Parsers parsers) {
+        super(runtime, parsers);
+    }
+
+    /**
+     * ⛔⛔ IT TAKES THE COMPILATION-UNIT <b>BUILDER</b>, BECAUSE THE IMPORTS BELONG IN IT. This method used to
+     * receive a finished {@code CompilationUnit} and skip the import declarations on its way to the
+     * {@code module} keyword — the comment below even says what they are for. So every module descriptor came
+     * out with an EMPTY import list, and a short name in {@code uses}/{@code provides} could not be resolved by
+     * anyone: a module declaration has no package, so the imports are the only resolution rule there is
+     * (gap {@code #201}). Building the unit here is what keeps the two halves — the directives and the imports
+     * they are written against — in one object.
+     */
+    public ModuleInfo parse(ModularCompilationUnit mcu,
+                            CompilationUnit.Builder compilationUnitBuilder,
+                            Context context) {
+        for (ImportDeclaration id : mcu.childrenOfType(ImportDeclaration.class)) {
+            compilationUnitBuilder.addImportStatement(parseImportDeclaration(id));
+        }
+        CompilationUnit compilationUnit = compilationUnitBuilder.build();
+        ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
+        DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
+        int i = 0;
+        // A module-info compilation unit may carry leading import declarations (imports are legal in module-info.java,
+        // used to shorten the names in 'uses'/'provides ... with') and comment nodes before the module declaration
+        // proper. Skip anything up to the 'open'/'module' keyword. (Real-world example: the Elasticsearch server
+        // module-info opens with a license comment, an import, and a Javadoc.)
+        while (i < mcu.size() && !(mcu.get(i) instanceof Token leading
+                                   && (leading.getType() == Token.TokenType.OPEN
+                                       || leading.getType() == Token.TokenType.MODULE))) {
+            ++i;
+        }
+        boolean openModule;
+        if (mcu.get(i) instanceof Token kwOpen && kwOpen.getType() == Token.TokenType.OPEN) {
+            ++i;
+            openModule = true;
+        } else {
+            openModule = false;
+        }
+        if (mcu.get(i) instanceof Token kw && kw.getType() == Token.TokenType.MODULE) {
+            ++i;
+        } else throw new Summary.ParseException(context, "Expect keyword 'module'");
+        if (mcu.get(i) instanceof Name name) {
+            String n = name.getSource();
+            builder.setName(n);
+            if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(n, source(name));
+            i += 2;
+        } else throw new Summary.ParseException(context, "Expect name after keyword 'module'");
+        for (; i < mcu.size(); ++i) {
+            Node nodeI = mcu.get(i);
+            switch (nodeI) {
+                case RequiresDirective rd -> processRequired(context, rd, builder);
+                case ExportsDirective ed -> processExportsDirective(context, ed, builder);
+                case OpensDirective od -> processOpensDirective(context, od, builder);
+                case UsesDirective ud -> processUsesDirective(context, ud, builder);
+                case ProvidesDirective pd -> processProvidesDirective(context, pd, builder);
+                default -> {
+                }
+            }
+        }
+        Source source = source(mcu);
+        ModuleInfo moduleInfo = builder
+                .setOpen(openModule)
+                .setCompilationUnit(compilationUnit)
+                .setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()))
+                .addComments(comments(mcu)).build();
+        // the link back, so that anything starting from the compilation unit can reach the declaration -- printing
+        // in particular. A ModuleInfo is not a TypeInfo, so it never appears in compilationUnit.types().
+        compilationUnit.setModuleInfo(moduleInfo);
+        return moduleInfo;
+    }
+
+    private void processProvidesDirective(Context context, ProvidesDirective pd, ModuleInfo.Builder builder) {
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        Node apiNode = pd.get(1);
+        String api = apiNode.getSource();
+        if (dsb != null) dsb.put(api, source(apiNode));
+        // 'provides <api> with A, B, C;' -- collect EVERY implementation name (indices 3, 5, 7, ... ; the even
+        // indices in between are the commas). Keeping only the first (the old behaviour) silently dropped B, C, so a
+        // later repackage never retargeted them.
+        List<String> implementations = new ArrayList<>();
+        if (pd.get(2) instanceof Token kwTo && Token.TokenType.WITH == kwTo.getType()) {
+            for (int i = 3; i < pd.size(); i++) {
+                Node iNode = pd.get(i);
+                if (iNode instanceof Token) continue; // comma or terminating semicolon
+                String implementation = iNode.getSource();
+                implementations.add(implementation);
+                if (dsb != null) dsb.put(implementation, source(iNode));
+            }
+        }
+        Source source = source(pd);
+        builder.addProvides(dsb == null ? source : source.withDetailedSources(dsb.build()),
+                comments(pd), api, implementations);
+    }
+
+    private void processUsesDirective(Context context, UsesDirective ud, ModuleInfo.Builder builder) {
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        Node apiNode = ud.get(1);
+        String api = apiNode.getSource();
+        if (dsb != null) dsb.put(api, source(apiNode));
+        Source source = source(ud);
+        builder.addUses(dsb == null ? source : source.withDetailedSources(dsb.build()), comments(ud), api);
+    }
+
+    private void processOpensDirective(Context context, OpensDirective ed, ModuleInfo.Builder builder) {
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        Node packageNameNode = ed.get(1);
+        String packageName = packageNameNode.getSource();
+        if (dsb != null) dsb.put(packageName, source(packageNameNode));
+        List<String> toModules = moduleTargets(ed, dsb);
+        Source source = source(ed);
+        builder.addOpens(dsb == null ? source : source.withDetailedSources(dsb.build()),
+                comments(ed), packageName, toModules);
+    }
+
+
+    private void processExportsDirective(Context context, ExportsDirective ed, ModuleInfo.Builder builder) {
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        Node packageNameNode = ed.get(1);
+        String packageName = packageNameNode.getSource();
+        if (dsb != null) dsb.put(packageName, source(packageNameNode));
+        List<String> toModules = moduleTargets(ed, dsb);
+        Source source = source(ed);
+        builder.addExports(dsb == null ? source : source.withDetailedSources(dsb.build()),
+                comments(ed), packageName, toModules);
+    }
+
+    // Collect all target modules of a qualified 'exports/opens p to a, b, c' directive. The target names follow the
+    // 'to' keyword (index 2); the remaining children alternate name, comma, name, ... and end with a semicolon token,
+    // so skip the Token nodes. Each target's source is recorded so it can later be located individually.
+    private List<String> moduleTargets(Node directive, DetailedSources.Builder dsb) {
+        List<String> toModules = new ArrayList<>();
+        if (directive.get(2) instanceof Token kwTo && Token.TokenType.TO == kwTo.getType()) {
+            for (int i = 3; i < directive.size(); i++) {
+                Node n = directive.get(i);
+                if (n instanceof Token) continue;
+                String name = n.getSource();
+                toModules.add(name);
+                if (dsb != null) dsb.put(name, source(n));
+            }
+        }
+        return toModules;
+    }
+
+    private void processRequired(Context context, RequiresDirective rd, ModuleInfo.Builder builder) {
+        int j = 1;
+        boolean isStatic = false;
+        boolean isTransitive = false;
+        while (rd.get(j) instanceof Token modifier) {
+            if (Token.TokenType.STATIC == modifier.getType()) {
+                isStatic = true;
+            } else if (Token.TokenType.TRANSITIVE == modifier.getType()) {
+                isTransitive = true;
+            } else {
+                throw new Summary.ParseException(context, "Unexpected modifier " + modifier.getSource()
+                                                          + " in 'requires'");
+            }
+            ++j;
+        }
+        Name reqName = (Name) rd.get(j);
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        String n = reqName.getSource();
+        Source source = source(rd);
+        if (dsb != null) dsb.put(n, source(reqName));
+        builder.addRequires(dsb == null ? source : source.withDetailedSources(dsb.build()),
+                comments(rd), n, isStatic, isTransitive);
+    }
+}

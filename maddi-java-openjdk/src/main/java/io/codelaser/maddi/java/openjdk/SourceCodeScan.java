@@ -1,0 +1,762 @@
+package io.codelaser.maddi.java.openjdk;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import org.jetbrains.annotations.Nullable;
+import org.parsers.java.JavaParser;
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public final class SourceCodeScan {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
+    private final Runtime runtime;
+    private final Set<Source> seen = new HashSet<>();
+    private final NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
+    private final NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
+    private final NavigableMap<Source, String> keywords = new TreeMap<>();
+    private final NavigableMap<Source, Map<Object, Object>> argumentLists = new TreeMap<>();
+    // element source -> (modifier keyword string -> its source); for types/methods/fields/parameters
+    private final NavigableMap<Source, Map<String, Source>> modifiers = new TreeMap<>();
+    // type source -> source of its nature keyword (class/interface/enum/record/@interface)
+    private final NavigableMap<Source, Source> typeKeyword = new TreeMap<>();
+    // type source -> source of its simple name (the identifier following the nature keyword)
+    private final NavigableMap<Source, Source> typeName = new TreeMap<>();
+
+    public SourceCodeScan(Runtime runtime) {
+        this.runtime = runtime;
+    }
+
+    public record Result(NavigableMap<Source, List<Comment>> comments,
+                         NavigableMap<Source, List<Comment>> trailingComments,
+                         NavigableMap<Source, String> keywords,
+                         NavigableMap<Source, Map<Object, Object>> argumentLists,
+                         NavigableMap<Source, Map<String, Source>> modifiers,
+                         NavigableMap<Source, Source> typeKeyword,
+                         NavigableMap<Source, Source> typeName) {
+        // keyed by the element source: type=source(td), method=source(md), field=per-declarator source(vd),
+        // parameter=source(fp); returns (modifier keyword -> keyword source) or null
+        public Map<String, Source> findModifiers(Source elementSource) {
+            return modifiers.get(elementSource);
+        }
+
+        // keyed by the type source; returns the source of the class/interface/enum/record/@interface keyword, or null
+        public Source findTypeKeyword(Source typeSource) {
+            return typeKeyword.get(typeSource);
+        }
+
+        // keyed by the type source; returns the source of the type's simple name, or null
+        public Source findTypeName(Source typeSource) {
+            return typeName.get(typeSource);
+        }
+
+        public Source find(String keyword, Source source) {
+            Map.Entry<Source, String> entry = keywords.floorEntry(source);
+            while (entry != null) {
+                if (keyword.equals(entry.getValue())) {
+                    return entry.getKey();
+                }
+                entry = keywords.lowerEntry(entry.getKey());
+            }
+            throw new UnsupportedOperationException("Cannot find keyword " + keyword);
+        }
+
+        public List<Comment> findComments(Source source) {
+            return findComments(source, comments);
+        }
+
+        public List<Comment> findTrailingComments(Source source) {
+            return findComments(source, trailingComments);
+        }
+
+        private static List<Comment> findComments(Source source, NavigableMap<Source, List<Comment>> map) {
+            Map.Entry<Source, List<Comment>> entry = map.floorEntry(source);
+            if (entry == null) {
+                if (!map.isEmpty()) {
+                    // see TestComments; javac's source of the whole compilation unit differs from the parser's.
+                    // javac does not include the trailing comments, while the parser does.
+                    entry = map.firstEntry();
+                } else {
+                    return List.of();
+                }
+            }
+            Source s = entry.getKey();
+            boolean accept = s.beginLine() == source.beginLine() && s.beginPos() == source.beginPos();
+            return accept ? entry.getValue() : List.of();
+        }
+
+        public Source findEndOfArgumentList(Source sourceOfMethodCallConstructorCall) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
+            return map == null ? null : (Source) map.get(DetailedSources.END_OF_ARGUMENT_LIST);
+        }
+
+        // keyed by the source of the method/constructor declaration
+        public Source findEndOfParameterList(Source sourceOfMethodOrConstructor) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodOrConstructor);
+            return map == null ? null : (Source) map.get(DetailedSources.END_OF_PARAMETER_LIST);
+        }
+
+        // keyed by the source of a list element: a formal parameter, type parameter, or field declarator
+        public Source findPrecedingComma(Source elementSource) {
+            Map<Object, Object> map = argumentLists.get(elementSource);
+            return map == null ? null : (Source) map.get(DetailedSources.PRECEDING_COMMA);
+        }
+
+        public Source findSucceedingComma(Source elementSource) {
+            Map<Object, Object> map = argumentLists.get(elementSource);
+            return map == null ? null : (Source) map.get(DetailedSources.SUCCEEDING_COMMA);
+        }
+
+        // keyed by the source of a field declarator's name identifier
+        public Source findSucceedingEquals(Source nameSource) {
+            Map<Object, Object> map = argumentLists.get(nameSource);
+            return map == null ? null : (Source) map.get(DetailedSources.SUCCEEDING_EQUALS);
+        }
+
+        @SuppressWarnings("unchecked")
+        public List<Source> findArgumentCommas(Source sourceOfMethodCallConstructorCall) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
+            if (map == null) return null;
+            Object value = map.get(DetailedSources.ARGUMENT_COMMAS);
+            return value == null ? null : ((List<Object>) value).stream().map(o -> (Source) o).toList();
+        }
+
+        // generic list-comma accessor for EXTENDS_COMMAS/IMPLEMENTS_COMMAS/PERMITS_COMMAS (keyed by the
+        // keyword source), THROWS_COMMAS (keyed by the method source) and TYPE_ARGUMENT_COMMAS (keyed by the
+        // parameterized type source)
+        @SuppressWarnings("unchecked")
+        public List<Source> findCommaList(Source source, Object commaKey) {
+            Map<Object, Object> map = argumentLists.get(source);
+            if (map == null) return null;
+            Object value = map.get(commaKey);
+            return value == null ? null : ((List<Object>) value).stream().map(o -> (Source) o).toList();
+        }
+
+    }
+
+    public Result go(CharSequence input, boolean isModule) {
+        JavaParser p = new JavaParser(input);
+        p.setParserTolerant(false);
+        if (isModule) {
+            p.ModularCompilationUnit();
+            Node root = p.rootNode();
+            if (root instanceof ModularCompilationUnit mcu) {
+                for (Node child : mcu.children()) {
+                    switch (child) {
+                        case RequiresDirective _, ExportsDirective _, OpensDirective _, UsesDirective _,
+                             ProvidesDirective _ -> scanModuleDirective(child);
+                        default -> {
+                        }
+                    }
+                }
+            } else throw new UnsupportedOperationException("? expected module");
+        } else {
+            handleCompilationUnit(p);
+        }
+        return new Result(Collections.unmodifiableNavigableMap(comments),
+                Collections.unmodifiableNavigableMap(trailingComments),
+                Collections.unmodifiableNavigableMap(keywords),
+                Collections.unmodifiableNavigableMap(argumentLists),
+                Collections.unmodifiableNavigableMap(modifiers),
+                Collections.unmodifiableNavigableMap(typeKeyword),
+                Collections.unmodifiableNavigableMap(typeName));
+    }
+
+    private void handleCompilationUnit(JavaParser p) {
+        CompilationUnit cu = p.CompilationUnit();
+        PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
+        if (packageDeclaration != null) {
+            addComments(packageDeclaration, false);
+            Node pkgDeclaration0 = packageDeclaration.getFirst();
+            keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
+        }
+        for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
+            addComments(id, false);
+            keywords.put(source(id.getFirst()), id.getFirst().toString());
+            if (id.get(1) instanceof KeyWord kwStatic) {
+                keywords.put(source(kwStatic), kwStatic.toString());
+            }
+        }
+        for (Node node : cu) {
+            if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
+                scanTypeDeclaration(td);
+                // a single recursive pass per top-level type captures all type-argument lists, including
+                // those in nested types and in method bodies
+                scanTypeArgumentCommas(td);
+            }
+        }
+
+        Node lastChild = cu.getLastChild();
+        if (lastChild != null && lastChild.getType().isEOF()) {
+            addTrailingComments(source(cu), lastChild);
+        }
+    }
+
+    private void scanModuleDirective(Node md) {
+        addComments(md, true);
+        for (Node node : md) {
+            switch (node) {
+                case KeyWord _, Name _ -> keywords.put(source(node), node.getSource());
+                case Token t -> {
+                    switch (t.getType()) {
+                        case REQUIRES, PROVIDES, USES, EXPORTS, OPENS -> keywords.put(source(node), node.getSource());
+                        default -> {
+                        }
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+    }
+
+    private static final Set<String> MODIFIER_KEYWORDS = Set.of(
+            "public", "private", "protected", "static", "final", "abstract",
+            "synchronized", "native", "default", "volatile", "transient",
+            "sealed", "non-sealed", "strictfp");
+    // 'record' arrives as a Token rather than a KeyWord, so it is handled separately
+    // the updated CongoCC grammar emits 'record' as a KeyWord (like class/interface/enum), not a bare Token, so it
+    // must be listed here for the KeyWord branch to register its nature-keyword source (the separate Token case below
+    // is now dead for records, but harmless).
+    private static final Set<String> TYPE_NATURE_KEYWORDS = Set.of("class", "interface", "enum", "@interface", "record");
+
+    // collects the modifier keywords of an element declaration node, whether they are wrapped in a Modifiers
+    // child node (types, fields, parameters) or appear as direct KeyWord children (methods), as keyword -> source
+    private Map<String, Source> collectModifiers(Node elementNode) {
+        Map<String, Source> mods = new LinkedHashMap<>();
+        for (Node child : elementNode.children()) {
+            if (child instanceof Modifiers m) {
+                for (Node n : m.children()) {
+                    if (n instanceof KeyWord && MODIFIER_KEYWORDS.contains(n.getSource())) {
+                        mods.put(n.getSource(), source(n));
+                    }
+                }
+            } else if (child instanceof KeyWord && MODIFIER_KEYWORDS.contains(child.getSource())) {
+                mods.put(child.getSource(), source(child));
+            }
+        }
+        return mods;
+    }
+
+    private void scanTypeDeclaration(TypeDeclaration td) {
+        addComments(td, false);
+        Map<String, Source> typeMods = collectModifiers(td);
+        if (!typeMods.isEmpty()) modifiers.put(source(td), typeMods);
+
+        for (Node node : td.children()) {
+            String string = node.getSource();
+            switch (node) {
+                case Modifiers modifiers -> scanModifiers(modifiers);
+                case KeyWord _ -> {
+                    keywords.put(source(node), string);
+                    if (TYPE_NATURE_KEYWORDS.contains(string)) typeKeyword.put(source(td), source(node));
+                }
+                case Token _ when "record".equals(string) -> {
+                    keywords.put(source(node), string);
+                    typeKeyword.put(source(td), source(node));
+                }
+                // the type's simple name: the first identifier child, immediately following the nature keyword
+                case Identifier _ -> typeName.putIfAbsent(source(td), source(node));
+                case ExtendsList el -> {
+                    Node extendsKeyword = el.getFirst();
+                    keywords.put(source(extendsKeyword), extendsKeyword.getSource());
+                    scanCommaList(el, source(extendsKeyword), DetailedSources.EXTENDS_COMMAS);
+                }
+                case ImplementsList il -> {
+                    Node implementsKeyword = il.getFirst();
+                    keywords.put(source(implementsKeyword), implementsKeyword.getSource());
+                    scanCommaList(il, source(implementsKeyword), DetailedSources.IMPLEMENTS_COMMAS);
+                }
+                case PermitsList pl -> {
+                    Node permitsKeyword = pl.getFirst();
+                    keywords.put(source(permitsKeyword), permitsKeyword.getSource());
+                    scanCommaList(pl, source(permitsKeyword), DetailedSources.PERMITS_COMMAS);
+                }
+                case TypeParameters tps -> {
+                    scanTypeParameters(tps);
+                }
+                case RecordHeader rh -> {
+                    // the closing ')' of the record header's component list, keyed by the type source (mirrors how
+                    // a method's END_OF_PARAMETER_LIST is recorded); consumers use it to locate where to append an
+                    // 'implements ...' clause after 'record R(...)'.
+                    for (Node child : rh.children()) {
+                        if (child instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
+                            argumentLists.put(source(td), Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
+                        } else if (child instanceof RecordComponent rc) {
+                            // the commas around each record component, keyed by the component's source (mirrors how
+                            // formal parameters and field declarators are recorded); a consumer removing a component
+                            // needs the adjacent comma to take with it.
+                            Map<Object, Object> commaMap = new HashMap<>();
+                            Node preceding = rc.previousSibling();
+                            if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                            }
+                            Node succeeding = rc.nextSibling();
+                            if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                            }
+                            if (!commaMap.isEmpty()) {
+                                argumentLists.put(source(rc), Map.copyOf(commaMap));
+                            }
+                        }
+                    }
+                }
+                case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _, RecordBody _ -> {
+                    scanTypeBody(node);
+                    Node lastChild = node.getLastChild();
+                    if (lastChild != null) {
+                        addTrailingComments(source(td), lastChild);
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+    }
+
+    /**
+     * The members of a type body: nested types, constructors, methods, fields. Shared by a named type
+     * declaration and by an ANONYMOUS class body, which is not a {@link TypeDeclaration} — it hangs off the
+     * allocation expression that creates it, so it is reached from {@link #scanCodeBlock} instead. Its members
+     * are ordinary members and carry ordinary modifiers, and a consumer rewriting an access modifier needs
+     * their tokens.
+     */
+    private void scanTypeBody(Node body) {
+        for (Node node2 : body.children()) {
+            switch (node2) {
+                case TypeDeclaration sub -> scanTypeDeclaration(sub);
+                case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
+                case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
+                case FieldDeclaration fd -> scanFieldDeclaration(fd);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private void scanModifiers(Modifiers modifiers) {
+        for (Node node : modifiers.children()) {
+            String string = node.getSource();
+            switch (node) {
+                case Annotation _ -> scanAnnotation(node);
+                case KeyWord _ -> keywords.put(source(node), string);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private void scanAnnotation(Node node) {
+        // what to do?
+    }
+
+    private void scanTypeParameters(Node tps) {
+        for (Node node : tps.children()) {
+            if (node instanceof TypeParameter || node instanceof Identifier) {
+                addComments(node, true);
+                Map<Object, Object> commaMap = new HashMap<>();
+                Node preceding = node.previousSibling();
+                if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                }
+                Node succeeding = node.nextSibling();
+                if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                }
+                if (node instanceof TypeParameter tp) {
+                    // the '&' separators of an intersection bound 'T extends A & B & C' live in the TypeBound
+                    // child as Operator nodes at the odd positions after each bound
+                    TypeBound tb = tp.firstChildOfType(TypeBound.class);
+                    if (tb != null) {
+                        List<Source> ampersands = new ArrayList<>();
+                        for (int j = 2; j < tb.size(); j += 2) {
+                            if (tb.get(j) instanceof Operator op) {
+                                ampersands.add(source(op));
+                            }
+                        }
+                        if (!ampersands.isEmpty()) {
+                            commaMap.put(DetailedSources.TYPE_BOUND_AMPERSANDS, List.copyOf(ampersands));
+                        }
+                    }
+                }
+                argumentLists.put(source(node), Map.copyOf(commaMap));
+            }
+        }
+    }
+
+
+    private void scanFieldDeclaration(Node fd) {
+        addComments(fd, true);
+        // the modifiers are shared by all declarators; record them under each declarator's source, which is the
+        // source the consumer uses for the individual FieldInfo (name + initializer)
+        Map<String, Source> fieldMods = collectModifiers(fd);
+        if (!fieldMods.isEmpty()) {
+            for (Node node : fd.children()) {
+                if (node instanceof VariableDeclarator vd) {
+                    modifiers.put(source(vd), fieldMods);
+                }
+            }
+        }
+        scanVariableDeclarators(fd);
+        // and the initializers themselves: an anonymous class can be created there, directly or inside a lambda
+        // (`static final Parser P = new Parser(name -> new Builder(name) { ... })`, the Elasticsearch shape).
+        scanCodeBlock(fd);
+    }
+
+    // records PRECEDING_COMMA/SUCCEEDING_COMMA (keyed by the declarator) and SUCCEEDING_EQUALS (keyed by the
+    // name identifier) for each VariableDeclarator; shared by field and local-variable declarations
+    private void scanVariableDeclarators(Node decl) {
+        for (Node node : decl.children()) {
+            if (node instanceof VariableDeclarator vd) {
+                Map<Object, Object> commaMap = new HashMap<>();
+                Node preceding = vd.previousSibling();
+                if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                }
+                Node succeeding = vd.nextSibling();
+                if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                }
+                if (!commaMap.isEmpty()) {
+                    argumentLists.put(source(vd), Map.copyOf(commaMap));
+                }
+                for (Node n : vd.children()) {
+                    if (n instanceof Identifier) {
+                        Node succeedingEq = n.nextSibling();
+                        if (succeedingEq != null && succeedingEq.getType() == Token.TokenType.ASSIGN) {
+                            argumentLists.put(source(n),
+                                    Map.of(DetailedSources.SUCCEEDING_EQUALS, source(succeedingEq)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void scanMethodDeclaration(Node md) {
+        addComments(md, false);
+        Map<String, Source> methodMods = collectModifiers(md);
+        if (!methodMods.isEmpty()) modifiers.put(source(md), methodMods);
+        for (Node node : md.children()) {
+            String string = node.getSource();
+            LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
+            switch (node) {
+                case DefaultValue _ -> {
+                    if (node.getFirst() instanceof KeyWord kw) {
+                        keywords.put(source(kw), kw.getSource());
+                    }
+                }
+                case KeyWord _ -> keywords.put(source(node), string);
+                case TypeParameters tps -> scanTypeParameters(tps);
+                case FormalParameters fps -> {
+                    for (Node param : fps.children()) {
+                        if (param instanceof FormalParameter fp) {
+                            addComments(fp, true);
+
+                            Map<String, Source> paramMods = collectModifiers(fp);
+                            if (!paramMods.isEmpty()) modifiers.put(source(fp), paramMods);
+
+                            Map<Object, Object> commaMap = new HashMap<>();
+                            Node preceding = param.previousSibling();
+                            if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                            }
+                            Node succeeding = param.nextSibling();
+                            if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                            }
+                            Source formalSource = source(fp);
+                            argumentLists.put(formalSource, Map.copyOf(commaMap));
+                        } else if (param instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
+                            Source methodSource = source(md);
+                            argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
+                        }
+                    }
+                }
+                case ThrowsList tl -> scanCommaList(tl, source(md), DetailedSources.THROWS_COMMAS);
+                case ExplicitConstructorInvocation eci -> scanCodeBlock(eci);
+                case Statement st -> scanCodeBlock(st);
+                default -> {
+                }
+            }
+        }
+    }
+
+    // collects the comma delimiters that are direct children of listNode, in the same shape as ARGUMENT_COMMAS
+    // (a List<Source>), recorded under commaKey at keySource (merged into any existing entry); records nothing
+    // when there are no commas. keySource is chosen so the consumer can reproduce it: the keyword for
+    // extends/implements/permits, the method source for throws, the parameterized type for type arguments.
+    private void scanCommaList(Node listNode, Source keySource, Object commaKey) {
+        List<Source> commas = new ArrayList<>();
+        for (Node child : listNode.children()) {
+            if (child instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                commas.add(source(d));
+            }
+        }
+        if (!commas.isEmpty()) {
+            mergeIntoArgumentLists(keySource, commaKey, List.copyOf(commas));
+        }
+    }
+
+    private void mergeIntoArgumentLists(Source key, Object detailKey, Object value) {
+        Map<Object, Object> existing = argumentLists.get(key);
+        if (existing == null) {
+            argumentLists.put(key, Map.of(detailKey, value));
+        } else {
+            Map<Object, Object> merged = new HashMap<>(existing);
+            merged.put(detailKey, value);
+            argumentLists.put(key, Map.copyOf(merged));
+        }
+    }
+
+    // records TYPE_ARGUMENT_COMMAS for every TypeArguments list (e.g. Map<String, Integer>) anywhere under
+    // the given node, keyed by the enclosing parameterized type (the node holding the TypeArguments), so the
+    // consumer can look it up by that type's source; covers nested generics and those in expressions
+    private void scanTypeArgumentCommas(Node node) {
+        visit(node, parent -> {
+            for (Node child : parent.children()) {
+                if (child instanceof TypeArguments ta) {
+                    scanCommaList(ta, source(parent), DetailedSources.TYPE_ARGUMENT_COMMAS);
+                }
+            }
+            return true;
+        });
+    }
+
+    private static String limit(String s) {
+        if (s.length() < 100) return s;
+        return s.substring(0, 99) + "...";
+    }
+
+    private void scanCodeBlock(Node cb) {
+        LOGGER.debug("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
+        visit(cb, child -> {
+            if (child instanceof Statement st) {
+                addComments(st, true);
+                if (st instanceof CodeBlock sub && !sub.isEmpty()) {
+                    addTrailingComments(source(sub), sub.getLastChild());
+                }
+            }
+            if (child instanceof TypeDeclaration td) {
+                scanTypeDeclaration(td);
+                return false;
+            }
+            // an anonymous class body: `new X() { ... }`. Not a TypeDeclaration, so the branch above misses it;
+            // scanTypeBody recurses through scanMethodDeclaration -> scanCodeBlock, so nested ones are covered
+            // and there is no need to descend here again.
+            if (child instanceof ClassOrInterfaceBody body) {
+                scanTypeBody(body);
+                return false;
+            }
+            if (child instanceof LocalVariableDeclaration lvd) {
+                scanVariableDeclarators(lvd);
+            }
+            if (child instanceof MethodCall || child instanceof AllocationExpression
+                || child instanceof ExplicitConstructorInvocation) {
+                scanCall(child);
+            }
+            return true;
+        });
+    }
+
+    private void scanCall(Node child) {
+        Source source;
+        if (child instanceof ExplicitConstructorInvocation) {
+            // NOTE: specific code to exclude the ';' because OpenJDK sees an ECI as an expression (method call)
+            // rather than a statement.
+            source = source(child.getFirst(), child.get(child.size() - 2));
+        } else {
+            source = source(child);
+        }
+        LOGGER.debug("*** scan call {}: {}: {}", source.compact2(), child.getClass(), limit(child.getSource()));
+        InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
+        if (ia != null) {
+            Map<Object, Object> argList = new HashMap<>();
+            for (Node node : ia.children()) {
+                if (node instanceof Delimiter d) {
+                    if (d.getType() == Token.TokenType.RPAREN) {
+                        argList.put(DetailedSources.END_OF_ARGUMENT_LIST, source(d));
+                    } else if (d.getType() == Token.TokenType.COMMA) {
+                        mergeList(argList, DetailedSources.ARGUMENT_COMMAS, source(d));
+                    }
+                }
+            }
+            LOGGER.debug("*** ... result is {}", argList);
+            argumentLists.put(source, Map.copyOf(argList));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void mergeList(Map<Object, Object> map, Object key, Object element) {
+        List<Object> list = (List<Object>) map.get(key);
+        if (list == null) {
+            list = new ArrayList<>();
+            map.put(key, list);
+        }
+        list.add(element);
+    }
+
+
+    private void visit(Node node, Predicate<Node> test) {
+        if (test.test(node)) {
+            for (Node child : node.children()) {
+                visit(child, test);
+            }
+        }
+    }
+
+    /*
+    All visitors must use this method.
+
+    2 situations
+
+    regular:
+
+    // comment about max
+    call(MAX)
+    // comment about min
+    call(MIN)
+
+     alternative:
+
+     call(MAX); // comment about max
+     call(MIN); // (potentially trailing) comment about min
+     */
+
+    private void addComments(Node node, boolean lookahead) {
+        Source source = source(node);
+        if (lookahead) {
+            Node nextSibling = node.nextSibling();
+            if (nextSibling != null) {
+                List<Comment> comments = comments(nextSibling)
+                        .filter(c -> c.source().endLine() == c.source().beginLine()
+                                     && c.source().beginLine() == source.endLine())
+                        .filter(c -> seen.add(c.source()))
+                        .toList();
+                if (!comments.isEmpty()) {
+                    List<Comment> prev = this.comments.put(source, comments);
+                    assert prev == null;
+                }
+            }
+        }
+        List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();
+        if (!comments.isEmpty()) {
+            this.comments.merge(source, comments,
+                    // note the order: the current one is the lookahead, it must come last
+                    (c1, c2) -> Stream.concat(c2.stream(), c1.stream()).toList());
+        }
+    }
+
+    private void addTrailingComments(Source sourceOwner, Node lastChild) {
+        List<Comment> trailingComments = comments(lastChild).filter(c -> seen.add(c.source())).toList();
+        if (!trailingComments.isEmpty()) {
+            List<Comment> prev = this.trailingComments.put(sourceOwner, trailingComments);
+            assert prev == null;
+        }
+    }
+
+    /*
+    This is the only provider of Comment objects.
+
+    Note: we're not using Node.getAllTokens(), because that method recurses down unconditionally
+     */
+    private Stream<Comment> comments(Node node) {
+        Node.TerminalNode tn = firstTerminal(node);
+        if (tn != null) {
+            return tn.precedingUnparsedTokens().stream()
+                    .map(this::commentsFromTerminal)
+                    .filter(Objects::nonNull);
+        }
+        return Stream.empty();
+    }
+
+    private @Nullable Comment commentsFromTerminal(Node.TerminalNode t) {
+        if (t instanceof SingleLineComment slc) {
+            return runtime.newSingleLineComment(source(slc), slc.getSource());
+        }
+        if (t instanceof MultiLineComment multiLineComment) {
+            if (multiLineComment.getSource().startsWith("/**")) {
+                return null;
+            }
+            boolean addNewline = true; // FIXME
+            return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource(),
+                    addNewline);
+        }
+        return null;
+    }
+
+    private Node.TerminalNode firstTerminal(Node node) {
+        if (node instanceof Node.TerminalNode tn) return tn;
+        for (Node child : node) {
+            Node.TerminalNode tn = firstTerminal(child);
+            if (tn != null) return tn;
+        }
+        return null;
+    }
+
+    /*
+    this implementation gives an "imperfect" parent... See e.g. parseBlock: we cannot pass on the parent during
+    parsing, because we still have the builder at that point in time.
+     */
+    public Source source(String index, Node node) {
+        return runtime.newParserSource(index, node.getBeginLine(), node.getBeginColumn(), node.getEndLine(),
+                node.getEndColumn());
+    }
+
+    // meant for detailed sources
+    public Source source(Node node) {
+        return runtime.newParserSource("", node.getBeginLine(), node.getBeginColumn(),
+                node.getEndLine(), node.getEndColumn());
+    }
+
+    public Source source(Node beginNode, Node endNodeIncl) {
+        return runtime.newParserSource("", beginNode.getBeginLine(), beginNode.getBeginColumn(),
+                endNodeIncl.getEndLine(), endNodeIncl.getEndColumn());
+    }
+
+    public Source source(String index, Node beginNode, Node endNodeIncl) {
+        return runtime.newParserSource(index, beginNode.getBeginLine(), beginNode.getBeginColumn(),
+                endNodeIncl.getEndLine(), endNodeIncl.getEndColumn());
+    }
+
+    // meant for detailed sources
+    public Source source(Node node, int start, int end) {
+        Node s = node.get(start);
+        Node e = node.get(end);
+        return runtime.newParserSource("", s.getBeginLine(), s.getBeginColumn(),
+                e.getEndLine(), e.getEndColumn());
+    }
+
+    public Runtime runtime() {
+        return runtime;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || obj.getClass() != this.getClass()) return false;
+        var that = (SourceCodeScan) obj;
+        return Objects.equals(this.runtime, that.runtime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(runtime);
+    }
+
+    @Override
+    public String toString() {
+        return "SourceCodeScan[" +
+               "runtime=" + runtime + ']';
+    }
+
+
+}

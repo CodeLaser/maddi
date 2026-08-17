@@ -1,0 +1,260 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.element;
+
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.support.SetOnce;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class CompilationUnitImpl extends ElementImpl implements CompilationUnit {
+    private final URI uri;
+    private final String packageName;
+    private final List<ImportStatement> importStatements;
+    private final List<Comment> comments;
+    private final List<Comment> trailingComments;
+    private final Source source;
+    private final SourceSet sourceSet;
+    private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
+    private final SetOnce<List<TypeInfo>> types = new SetOnce<>();
+    // null for an ordinary compilation unit; a module-info.java carries its declaration here
+    private final SetOnce<ModuleInfo> moduleInfo = new SetOnce<>();
+
+    public CompilationUnitImpl(SourceSet sourceSet,
+                               URI uri,
+                               List<Comment> comments,
+                               Source source,
+                               List<ImportStatement> importStatements,
+                               String packageName,
+                               FingerPrint fingerPrint,
+                               List<Comment> trailingComments) {
+        this.sourceSet = sourceSet;
+        this.uri = uri;
+        this.packageName = packageName;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
+        this.source = source;
+        this.importStatements = importStatements;
+        if (fingerPrint != null) {
+            this.fingerPrint.set(fingerPrint);
+        }
+        this.trailingComments = trailingComments;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof CompilationUnitImpl that)) return false;
+        return Objects.equals(uri, that.uri) && Objects.equals(sourceSet, that.sourceSet);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(uri, sourceSet);
+    }
+
+    @Override
+    public List<Comment> trailingComments() {
+        return trailingComments;
+    }
+
+    @Override
+    public FingerPrint fingerPrintOrNull() {
+        return fingerPrint.getOrDefaultNull();
+    }
+
+    @Override
+    public void setFingerPrint(FingerPrint fingerPrint) {
+        this.fingerPrint.set(fingerPrint);
+    }
+
+    @Override
+    public URI uri() {
+        return uri;
+    }
+
+    @Override
+    public String packageName() {
+        return packageName;
+    }
+
+    @Override
+    public List<ImportStatement> importStatements() {
+        return importStatements;
+    }
+
+    @Override
+    public int complexity() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Comment> comments() {
+        return comments;
+    }
+
+    @Override
+    public Source source() {
+        return source;
+    }
+
+    @Override
+    public SourceSet sourceSet() {
+        return sourceSet;
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        importStatements.forEach(predicate::test);
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        importStatements.forEach(is -> is.visit(visitor));
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder ob = new OutputBuilderImpl();
+        if (packageName != null && !packageName.isBlank()) ob.add(new TextImpl(packageName));
+        if (uri != null) ob.add(new TextImpl(" [" + uri + "]"));
+        return ob;
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<TypeInfo> types() {
+        return types.get();
+    }
+
+    @Override
+    public void setTypes(List<TypeInfo> types) {
+        this.types.set(types);
+    }
+
+    @Override
+    public ModuleInfo moduleInfo() {
+        return moduleInfo.getOrDefaultNull();
+    }
+
+    @Override
+    public void setModuleInfo(ModuleInfo moduleInfo) {
+        this.moduleInfo.set(moduleInfo);
+    }
+
+    @Override
+    public Element rewire(InfoMapView infoMap) {
+        CompilationUnitImpl copy = new CompilationUnitImpl(sourceSet, uri, comments,
+                source, importStatements, packageName, fingerPrint.getOrDefaultNull(), trailingComments);
+        copy.setTypes(types().stream().map(infoMap::typeInfo).toList());
+        return copy;
+    }
+
+    public static class Builder extends ElementImpl.Builder<CompilationUnit.Builder> implements CompilationUnit.Builder {
+        private String packageName;
+        private URI uri;
+        private final List<ImportStatement> importStatements = new LinkedList<>();
+        private SourceSet sourceSet;
+        private FingerPrint fingerPrint;
+        private final List<Comment> trailingComments = new ArrayList<>();
+
+        @Override
+        public String packageName() {
+            return packageName;
+        }
+
+        @Override
+        public CompilationUnit.Builder addTrailingComments(List<Comment> comments) {
+            this.trailingComments.addAll(comments);
+            return this;
+        }
+
+        @Override
+        public Builder setFingerPrint(FingerPrint fingerPrint) {
+            this.fingerPrint = fingerPrint;
+            return this;
+        }
+
+        @Override
+        public Builder setSourceSet(SourceSet sourceSet) {
+            this.sourceSet = sourceSet;
+            return this;
+        }
+
+        @Override
+        public CompilationUnit.Builder addImportStatement(ImportStatement importStatement) {
+            this.importStatements.add(importStatement);
+            return this;
+        }
+
+        @Override
+        public CompilationUnit.Builder setURI(URI uri) {
+            this.uri = uri;
+            return this;
+        }
+
+        @Override
+        public CompilationUnit.Builder setURIString(String s) {
+            try {
+                this.uri = new URI(s);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+            return this;
+        }
+
+
+        @Override
+        public CompilationUnit.Builder setPackageName(String packageName) {
+            this.packageName = packageName;
+            return this;
+        }
+
+        @Override
+        public CompilationUnit build() {
+            return new CompilationUnitImpl(sourceSet, uri, comments, source, List.copyOf(importStatements), packageName,
+                    fingerPrint, List.copyOf(trailingComments));
+        }
+    }
+
+    @Override
+    public CompilationUnit copy() {
+        return new CompilationUnitImpl(sourceSet, uri, comments, source, importStatements, packageName,
+                fingerPrint.getOrDefaultNull(), trailingComments);
+    }
+}

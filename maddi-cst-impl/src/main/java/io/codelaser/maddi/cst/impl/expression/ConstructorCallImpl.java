@@ -1,0 +1,470 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.element.DetailedSourcesImpl;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
+import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
+import io.codelaser.maddi.util.ListUtil;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCall {
+    private final MethodInfo constructor;
+    private final Diamond diamond;
+    private final Expression object;
+    private final List<Expression> parameterExpressions;
+    private final List<ParameterizedType> typeArguments;
+    private final ArrayInitializer arrayInitializer;
+    private final TypeInfo anonymousClass;
+    private final ParameterizedType concreteReturnType;
+    // the analysis overlay is manual hidden content, exactly as on InfoImpl (road §050)
+    @IgnoreModifications
+    private final PropertyValueMap analysis;
+
+    public ConstructorCallImpl(List<Comment> comments, Source source, MethodInfo constructor,
+                               ParameterizedType concreteReturnType,
+                               Diamond diamond, Expression object, List<Expression> expressions,
+                               List<ParameterizedType> typeArguments,
+                               ArrayInitializer arrayInitializer, TypeInfo anonymousClass) {
+        this(comments, source, constructor, concreteReturnType, diamond, object, expressions,
+                typeArguments, arrayInitializer, anonymousClass, new PropertyValueMapImpl());
+    }
+
+    public ConstructorCallImpl(List<Comment> comments, Source source, MethodInfo constructor,
+                               ParameterizedType concreteReturnType,
+                               Diamond diamond, Expression object, List<Expression> expressions,
+                               List<ParameterizedType> typeArguments,
+                               ArrayInitializer arrayInitializer, TypeInfo anonymousClass, PropertyValueMap analysis) {
+        super(comments, source, 1 + (object == null ? 0 : object.complexity())
+                                + expressions.stream().mapToInt(Expression::complexity).sum());
+        assert constructor != null || anonymousClass != null;
+        this.constructor = constructor;
+        this.diamond = Objects.requireNonNull(diamond);
+        this.object = object;
+        parameterExpressions = Objects.requireNonNull(expressions);
+        this.typeArguments = Objects.requireNonNull(typeArguments);
+        this.arrayInitializer = arrayInitializer;
+        this.anonymousClass = anonymousClass;
+        this.concreteReturnType = Objects.requireNonNull(concreteReturnType);
+        assert anonymousClass == null || anonymousClass.compilationUnitOrEnclosingType().isRight();
+        this.analysis = analysis;
+    }
+
+    @Override
+    public Expression withSource(Source source) {
+        return new ConstructorCallImpl(comments(), source, constructor, concreteReturnType, diamond, object,
+                parameterExpressions, typeArguments, arrayInitializer, anonymousClass, analysis);
+    }
+
+    public static class Builder extends ElementImpl.Builder<ConstructorCall.Builder> implements ConstructorCall.Builder {
+        private MethodInfo constructor;
+        private Diamond diamond;
+        private Expression object;
+        private List<Expression> parameterExpressions;
+        private List<ParameterizedType> typeArguments;
+        private ArrayInitializer arrayInitializer;
+        private TypeInfo anonymousClass;
+        private ParameterizedType concreteReturnType;
+
+        @Override
+        public ConstructorCall build() {
+            return new ConstructorCallImpl(comments, source, constructor, concreteReturnType, diamond, object,
+                    List.copyOf(parameterExpressions),
+                    typeArguments == null ? List.of() : List.copyOf(typeArguments),
+                    arrayInitializer, anonymousClass);
+        }
+
+        @Override
+        public Builder setObject(Expression object) {
+            this.object = object;
+            return this;
+        }
+
+        @Override
+        public Builder setDiamond(Diamond diamond) {
+            this.diamond = diamond;
+            return this;
+        }
+
+        @Override
+        public Builder setConstructor(MethodInfo constructor) {
+            this.constructor = constructor;
+            return this;
+        }
+
+        @Override
+        public Builder setAnonymousClass(TypeInfo anonymousClass) {
+            this.anonymousClass = anonymousClass;
+            return this;
+        }
+
+        @Override
+        public Builder setArrayInitializer(ArrayInitializer arrayInitializer) {
+            this.arrayInitializer = arrayInitializer;
+            return this;
+        }
+
+        @Override
+        public Builder setParameterExpressions(List<Expression> expressions) {
+            this.parameterExpressions = expressions;
+            return this;
+        }
+
+        @Override
+        public Builder setTypeArguments(List<ParameterizedType> typeArguments) {
+            this.typeArguments = typeArguments;
+            return this;
+        }
+
+        @Override
+        public Builder setConcreteReturnType(ParameterizedType returnType) {
+            this.concreteReturnType = returnType;
+            return this;
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ConstructorCallImpl that)) return false;
+        return Objects.equals(constructor, that.constructor)
+               && Objects.equals(concreteReturnType, that.concreteReturnType)
+               && Objects.equals(object, that.object)
+               && Objects.equals(parameterExpressions, that.parameterExpressions)
+               && Objects.equals(source(), that.source())
+               && Objects.equals(arrayInitializer, that.arrayInitializer)
+               && Objects.equals(anonymousClass, that.anonymousClass);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(source(), constructor, concreteReturnType, object, parameterExpressions, arrayInitializer,
+                anonymousClass);
+    }
+
+    @Override
+    public MethodInfo constructor() {
+        return constructor;
+    }
+
+    @Override
+    public Expression object() {
+        return object;
+    }
+
+    @Override
+    public List<Expression> parameterExpressions() {
+        return parameterExpressions;
+    }
+
+    @Override
+    public TypeInfo anonymousClass() {
+        return anonymousClass;
+    }
+
+    @Override
+    public ArrayInitializer arrayInitializer() {
+        return arrayInitializer;
+    }
+
+    @Override
+    public ParameterizedType parameterizedType() {
+        return concreteReturnType;
+    }
+
+    @Override
+    public List<ParameterizedType> typeArguments() {
+        return typeArguments;
+    }
+
+    @Override
+    public Precedence precedence() {
+        return PrecedenceEnum.ACCESS;
+    }
+
+    @Override
+    public int order() {
+        return ExpressionComparator.ORDER_NEW_INSTANCE;
+    }
+
+    @Override
+    public int internalCompareTo(Expression expression) {
+        if (expression instanceof ConstructorCall cc) {
+            int c = constructor.fullyQualifiedName().compareTo(cc.constructor().fullyQualifiedName());
+            if (c != 0) return c;
+            int d = ListUtil.compare(parameterExpressions, cc.parameterExpressions());
+            if (d != 0) return d;
+            if (object == null && cc.object() != null) return -1;
+            if (object != null && cc.object() == null) return 1;
+            if (object != null) {
+                return object.compareTo(cc.object());
+            }
+            return 0;
+        }
+        throw new InternalCompareToException();
+    }
+
+    /*
+    NEITHER overload descends into anonymousClass, and that is a DESIGN CHOICE, not an omission.
+
+    An anonymous class body is written here but does not run here: its methods run when the object is invoked
+    through its supertype, which is elsewhere and may be never. A walk over a method body asks about THIS
+    scope, so folding in code from another one silently changes the answer, and the caller cannot tell that it
+    happened. Two concrete failures when this was briefly made automatic (2026-07-28, reverted):
+
+      - jfocus-transform's ComputeCheckedExceptions asks what the code here can throw, and began attributing
+        'new PrivilegedExceptionAction<>() { public Object run() throws IOException {...} }' to the enclosing
+        method, which then declared IOException it cannot receive;
+      - five walkers that ALREADY recursed into the anonymous class by hand started traversing it twice, so a
+        list, a queue and an emitted edge stream each acquired duplicates.
+
+    The second point is the argument. Descending into a type is the CALLER's decision, and the callers had
+    already made it -- uniformly, in about a dozen places, with the idiom
+
+        if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) { ...walk its members... }
+
+    and 'return false' when the walker takes the recursion over entirely. Callers legitimately disagree about
+    the answer: ComputeCheckedExceptions must NOT enter, while Matcher.collect in jfocus-metrics must, because
+    a call site inside an anonymous class is a call site like any other. A framework default cannot be right
+    for both, so there is none; see IsolationCore, EdgeReferenceScanner, RenameField and Matcher.collect.
+     */
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            if (object != null) object.visit(predicate);
+            parameterExpressions.forEach(p -> p.visit(predicate));
+            if (arrayInitializer != null) arrayInitializer.visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeExpression(this)) {
+            if (object != null) object.visit(visitor);
+            parameterExpressions.forEach(p -> p.visit(visitor));
+            if (arrayInitializer != null) arrayInitializer.visit(visitor);
+            // as above, and additionally: the Visitor protocol has no hook for entering a type, so the
+            // anonymous class's statements would arrive with no signal that the scope changed.
+        }
+        visitor.afterExpression(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        if (object != null) {
+            outputBuilder.add(outputInParenthesis(qualification, precedence(), object));
+            outputBuilder.add(SymbolEnum.DOT);
+        }
+        if (constructor != null || anonymousClass != null) {
+            outputBuilder.add(KeywordImpl.NEW);
+            if (!typeArguments.isEmpty()) {
+                outputBuilder.add(SpaceEnum.ONE).add(typeArguments.stream()
+                        .map(pt -> pt.print(qualification, false, DiamondEnum.SHOW_ALL))
+                        .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_ANGLE_BRACKET,
+                                SymbolEnum.RIGHT_ANGLE_BRACKET, GuideImpl.defaultGuideGenerator())));
+            }
+            outputBuilder.add(SpaceEnum.ONE)
+                    .add(concreteReturnType.copyWithoutArrays().print(qualification, false, diamond));
+            if (concreteReturnType.arrays() > 0) {
+                for (int i = 0; i < concreteReturnType.arrays(); i++) {
+                    if (i < parameterExpressions.size()) {
+                        outputBuilder.add(SymbolEnum.LEFT_BRACKET);
+                        Expression size = parameterExpressions.get(i);
+                        if (!(size.isEmpty())) {
+                            outputBuilder.add(size.print(qualification));
+                        }
+                        outputBuilder.add(SymbolEnum.RIGHT_BRACKET);
+                    } else {
+                        outputBuilder.add(SymbolEnum.OPEN_CLOSE_BRACKETS);
+                    }
+                }
+            } else {
+                if (parameterExpressions.isEmpty()) {
+                    outputBuilder.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+                } else {
+                    outputBuilder
+                            .add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(parameterExpressions.stream().map(expression -> expression.print(qualification))
+                                    .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                }
+            }
+            //    }
+        }
+        if (anonymousClass != null) {
+            outputBuilder.add(anonymousClass.print(qualification, false));
+        }
+        if (arrayInitializer != null) {
+            outputBuilder.add(arrayInitializer.print(qualification));
+        }
+        return outputBuilder;
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.concat(Stream.concat(object == null ? Stream.of() : object.variables(descendMode),
+                        parameterExpressions.stream().flatMap(e -> e.variables(descendMode))),
+                arrayInitializer == null ? Stream.of() : arrayInitializer.variables(descendMode));
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        Stream<Element.TypeReference> typeStream;
+        if (constructor == null) {
+            typeStream = Stream.of();
+        } else {
+            TypeInfo qualifier = detailedSources == null ? constructor.typeInfo()
+                    : detailedSources.qualifier(constructor.typeInfo());
+            typeStream = Stream.of(new ElementImpl.TypeReference(constructor.typeInfo(),
+                    TypeReferenceNature.EXPLICIT, qualifier));
+        }
+        Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
+                pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
+        Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
+                : arrayInitializer.typesReferenced(predicate);
+        Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of()
+                : anonymousClass.typesReferenced(predicate);
+        Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced(predicate);
+        Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
+        Stream<Element.TypeReference> ccTypeStream = concreteReturnType
+                .typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
+        return Stream.concat(typeStream, Stream.concat(typeArgStream, Stream.concat(arrayInitStream,
+                Stream.concat(anonStream, Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream))))));
+    }
+
+    @Override
+    public ConstructorCall withParameterExpressions(List<Expression> newParameterExpressions) {
+        return new ConstructorCallImpl(comments(), source(), constructor, concreteReturnType, diamond, object,
+                newParameterExpressions, typeArguments, arrayInitializer, anonymousClass);
+    }
+
+    @Override
+    public ConstructorCall withAnonymousClass(TypeInfo newAnonymous) {
+        return new ConstructorCallImpl(comments(), source(), constructor, concreteReturnType, diamond, object,
+                parameterExpressions, typeArguments, arrayInitializer, newAnonymous);
+    }
+
+    @Override
+    public Diamond diamond() {
+        return diamond;
+    }
+
+    @Override
+    public Expression translate(TranslationMap translationMap) {
+        Expression translated = translationMap.translateExpression(this);
+        if (translated == null) return this;
+        if (translated != this) return translated;
+
+        Expression translatedObject = object == null ? null : translationMap.translateExpression(object);
+        MethodInfo translatedConstructor = constructor == null ? null : translationMap.translateMethodInfo(constructor);
+        ParameterizedType translatedType = translationMap.translateType(this.parameterizedType());
+        List<Expression> translatedParameterExpressions = parameterExpressions.isEmpty() ? parameterExpressions
+                : parameterExpressions.stream().map(e -> e.translate(translationMap))
+                .collect(translationMap.toList(parameterExpressions));
+        List<ParameterizedType> trTypeArgs = typeArguments.stream()
+                .map(translationMap::translateType)
+                .collect(translationMap.toList(typeArguments));
+        ArrayInitializer translatedInitializer = arrayInitializer == null ? null :
+                (ArrayInitializer) arrayInitializer.translate(translationMap);
+        TypeInfo tAnonymous = anonymousClass == null ? null : anonymousClass.translate(translationMap).getFirst();
+        if (translatedObject == object
+            && translatedConstructor == constructor
+            && translatedType == this.parameterizedType()
+            && translatedParameterExpressions == this.parameterExpressions
+            && trTypeArgs == typeArguments
+            && translatedInitializer == arrayInitializer
+            && tAnonymous == anonymousClass
+            && (analysis.isEmpty() || !translationMap.isClearAnalysis())) {
+            return this;
+        }
+        Source source = source();
+        if (source.detailedSources() != null && translationMap.correctSources()
+            && concreteReturnType != translatedType) {
+            Source rt = source().detailedSources().detail(concreteReturnType);
+            if (rt != null) {
+                source = source.withDetailedSources(new DetailedSourcesImpl.BuilderImpl()
+                        .addAll(source().detailedSources())
+                        .put(translatedType, rt)
+                        .build());
+            }
+        }
+        Expression result = new ConstructorCallImpl(comments(), source,
+                translatedConstructor,
+                translatedType,
+                guessDiamond(translatedConstructor),
+                translatedObject,
+                translatedParameterExpressions,
+                trTypeArgs,
+                translatedInitializer,
+                tAnonymous);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    private Diamond guessDiamond(MethodInfo translatedConstructor) {
+        if (translatedConstructor == null || translatedConstructor == this.constructor) return diamond;
+        return translatedConstructor.typeParameters().isEmpty()
+               && translatedConstructor.typeInfo().typeParameters().isEmpty()
+                ? DiamondEnum.NO : diamond;
+    }
+
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        List<Expression> rewiredArgs = parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList();
+        return new ConstructorCallImpl(comments(), source(),
+                constructor == null ? null : infoMap.methodInfo(constructor),
+                concreteReturnType.rewire(infoMap), diamond,
+                object == null ? null : object.rewire(infoMap),
+                rewiredArgs,
+                typeArguments.stream().map(pt -> pt.rewire(infoMap)).toList(),
+                arrayInitializer == null ? null : (ArrayInitializer) arrayInitializer.rewire(infoMap),
+                anonymousClass == null ? null : infoMap.typeInfoRecurseAllPhases(anonymousClass),
+                analysis.rewire(infoMap));
+    }
+
+    @Override
+    public PropertyValueMap analysis() {
+        return analysis;
+    }
+}

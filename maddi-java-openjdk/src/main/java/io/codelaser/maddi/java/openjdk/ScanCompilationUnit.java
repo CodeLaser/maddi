@@ -1,0 +1,3362 @@
+package io.codelaser.maddi.java.openjdk;
+
+import com.sun.source.doctree.DocCommentTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.tree.*;
+import com.sun.source.util.*;
+import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import io.codelaser.maddi.inspection.api.util.RecordSynthetics;
+import io.codelaser.maddi.parser.java.util.TextBlockParser;
+import io.codelaser.maddi.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.tools.Diagnostic;
+import java.io.IOException;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.stream.Collectors;
+
+class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
+
+    private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
+    }
+
+    private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
+    private final ElementStack elementStack = new ElementStack();
+    private final Runtime runtime;
+    private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
+    private final List<ModuleInfo> collectedModules = new ArrayList<>();
+    private final Trees trees;
+    private MethodInfo currentMethod;
+    private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
+    private Expression currentExpression;
+    private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
+    private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
+    // fields whose commit createField deferred, so that ScanCompilationUnits can resolve their javadoc first
+    private final List<FieldInfo> deferredFieldCommits = new ArrayList<>();
+    private final CompilationUnit.Builder compilationUnitBuilder;
+    private CompilationUnit compilationUnit;
+    private Source compilationUnitSource;
+    // false during the primary-type registration pass (phase 1), true during the body-scanning pass (phase 2)
+    private boolean bodiesPhase;
+    private final SourcePositions sourcePositions;
+    private final LineMap lineMap;
+    private final CompilationUnitTree compilationUnitTree;
+    private final FlagHelper flagHelper;
+    private final ConvertType convertType;
+    private final TypeData typeData;
+    private final SourceCodeScan.Result scanResult;
+    private final Types types;
+    private final Elements elements;
+    private final ComputeMethodOverrides computeMethodOverrides;
+    private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
+    private final DocTrees docTrees;
+    private final ScanJavaDoc scanJavaDoc;
+
+    ScanCompilationUnit(Runtime runtime,
+                        TypeData typeData,
+                        CompilationUnit.Builder compilationUnitBuilder,
+                        CompilationUnitTree compilationUnitTree,
+                        Trees trees,
+                        SourcePositions sourcePositions,
+                        LineMap lineMap,
+                        Elements elements,
+                        Types types,
+                        DocTrees docTrees,
+                        SourceCodeScan.Result scanResult,
+                        ComputeMethodOverrides computeMethodOverrides,
+                        FlagHelper flagHelper,
+                        ClassSymbolScanner classSymbolScanner,
+                        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols) {
+        this.runtime = runtime;
+        this.typeData = typeData;
+        this.compilationUnitBuilder = compilationUnitBuilder;
+        this.trees = trees;
+        this.lineMap = lineMap;
+        this.sourcePositions = sourcePositions;
+        this.compilationUnitTree = compilationUnitTree;
+        this.scanResult = scanResult;
+        this.types = types;
+        this.elements = elements;
+        this.flagHelper = flagHelper;
+        this.computeMethodOverrides = computeMethodOverrides;
+        this.docTrees = docTrees;
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime,
+                classSymbolScanner.syntheticListField());
+
+        DocSourcePositions docSourcePositions = docTrees.getSourcePositions();
+        this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
+
+        convertType = classSymbolScanner;
+        convertType.startCompilationUnit(this, elementStack);
+    }
+
+    @Override
+    public CompilationUnit currentCompilationUnit() {
+        return compilationUnit;
+    }
+
+    // result
+    public List<TypeInfo> types() {
+        return collectedPrimaryTypes;
+    }
+
+    public List<ModuleInfo> modules() {
+        return collectedModules;
+    }
+
+    /**
+     * Commit the fields whose commit {@code createField} deferred and that the end-of-scan pass in
+     * {@link ScanCompilationUnits} did not reach. That pass walks the named subtype tree of each primary type;
+     * fields of ANONYMOUS and LOCAL types are outside it (the same blind spot the anonymous-body member-type
+     * commit and {@code handleLocalType}'s {@code recursivelyCommit} already work around). Their javadoc is
+     * therefore left unresolved — as it already is for the types and methods declared there.
+     * Exactly the inverse of the deferral, so no construct can slip through uncommitted.
+     */
+    public void commitDeferredFields() {
+        for (FieldInfo fieldInfo : deferredFieldCommits) {
+            if (!fieldInfo.hasBeenInspected()) {
+                if (fieldInfo.initializer() == null) {
+                    fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
+                }
+                fieldInfo.builder().commit();
+            }
+        }
+    }
+
+    // -- Class declarations ----------------------------------------------
+
+
+    @Override
+    public Void visitModule(ModuleTree node, Void unused) {
+        boolean open = node.getModuleType() == ModuleTree.ModuleKind.OPEN;
+        ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        String name = node.getName().toString();
+        // the module name identifier, keyed by the name so a consumer's
+        // moduleInfo.source().detailedSources().detail(moduleInfo.name()) resolves (moduleInfo.name() returns this
+        // same instance). The name is a (possibly qualified) expression, so use its javac source range directly
+        // rather than scanResult.find (which matches single keyword tokens, not dotted names).
+        dsb.put(name, sourceForNode(node.getName()));
+        for (DirectiveTree d : node.getDirectives()) {
+            visitDirective(d, builder);
+        }
+        ModuleInfo moduleInfo = builder
+                .setOpen(open)
+                .setCompilationUnit(compilationUnit)
+                .setName(name)
+                .setSource(sourceForNode(node, dsb))
+                .build();
+        collectedModules.add(moduleInfo);
+        return null;
+    }
+
+    // Collect all target modules of a qualified 'exports p to a, b, c' / 'opens p to a, b, c' directive, recording a
+    // detailed source for each target name so a single target can later be located (and renamed) individually.
+    private List<String> scanModuleTargets(Iterable<? extends JCTree.JCExpression> moduleNames,
+                                           DetailedSources.Builder dsb) {
+        List<String> toModules = new ArrayList<>();
+        if (moduleNames != null) {
+            for (JCTree.JCExpression mn : moduleNames) {
+                String moduleName = mn.toString();
+                dsb.put(moduleName, scanResult.find(moduleName, scanSource(mn)));
+                toModules.add(moduleName);
+            }
+        }
+        return toModules;
+    }
+
+    private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
+        Source source = scanSource(dt);
+        List<Comment> comments = commentsForNode(source);
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        switch (dt) {
+            case JCTree.JCRequires rd -> {
+                String moduleName = rd.moduleName.toString();
+                dsb.put(moduleName, scanResult.find(moduleName, scanSource(rd.getModuleName())));
+                builder.addRequires(source.withDetailedSources(dsb.build()), comments,
+                        moduleName, rd.isStatic(), rd.isTransitive());
+            }
+            case JCTree.JCExports ed -> {
+                String packageName = ed.getPackageName().toString();
+                dsb.put(packageName, scanResult.find(packageName, scanSource(ed.getPackageName())));
+                List<String> toModules = scanModuleTargets(ed.moduleNames, dsb);
+                builder.addExports(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
+            }
+            case JCTree.JCOpens od -> {
+                String packageName = od.getPackageName().toString();
+                dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
+                List<String> toModules = scanModuleTargets(od.moduleNames, dsb);
+                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, toModules);
+            }
+            case JCTree.JCProvides p -> builder.addProvides(source, comments, p.getServiceName().toString(),
+                    p.implNames == null ? List.of()
+                            : p.implNames.stream().map(Object::toString).toList());
+            case JCTree.JCUses u -> builder.addUses(source, comments, u.getServiceName().toString());
+            case null, default -> throw new UnsupportedOperationException();
+        }
+    }
+
+    /**
+     * Phase 1: build this unit's {@link CompilationUnit} only (no bodies, no types). {@link ScanCompilationUnits}
+     * builds every source unit's CU before any body is scanned and registers them with the class-symbol scanner,
+     * so that when a source type is referenced before its own source is scanned (e.g. {@code a.A} naming
+     * {@code b.B}), the lazy class-symbol load reuses this source-bearing CU instead of minting a source-less twin
+     * CompilationUnit that the later source scan would then reuse.
+     */
+    void buildCompilationUnit(CompilationUnitTree unit) {
+        this.bodiesPhase = false;
+        scan(unit, null);
+    }
+
+    /** Phase 2: scan the bodies. */
+    void scanBodies(CompilationUnitTree unit) {
+        convertType.startCompilationUnit(this, elementStack); // (re)assert as the current source provider
+        this.bodiesPhase = true;
+        scan(unit, null);
+    }
+
+    @Override
+    public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
+        try {
+            if (compilationUnit == null) {
+                // build the compilation unit exactly once (shared by both phases): imports, package, source, comments
+                for (ImportTree importTree : node.getImports()) {
+                    ImportStatement is = parseImportStatement(importTree);
+                    compilationUnitBuilder.addImportStatement(is);
+                }
+                DetailedSources.Builder cuDsb = runtime.newDetailedSourcesBuilder();
+                if (node.getPackageName() != null) {
+                    // the package name, keyed by the package-name string
+                    String packageName = compilationUnitBuilder.packageName();
+                    assert packageName != null;
+                    cuDsb.put(packageName, sourceForNode(node.getPackageName()));
+                }
+                compilationUnitSource = sourceForNode(node, cuDsb);
+                compilationUnitBuilder.setSource(compilationUnitSource)
+                        .addComments(commentsForNode(compilationUnitSource))
+                        .addTrailingComments(trailingCommentsForNode(compilationUnitSource));
+                compilationUnit = compilationUnitBuilder.build();
+            }
+
+            if (!bodiesPhase) {
+                // PHASE 1: the CU has been built (above); nothing else to do until bodies are scanned
+                return null;
+            }
+
+            // PHASE 2: scan the bodies
+            if (node.getTypeDecls().isEmpty()) {
+                // package-info
+                List<AnnotationExpression> annotations = new ArrayList<>();
+                for (AnnotationTree at : node.getPackageAnnotations()) {
+                    annotations.add(convertAnnotation((JCTree.JCAnnotation) at));
+                }
+                TypeInfo pkgInfoType = runtime.newTypeInfo(compilationUnit, "package-info");
+                pkgInfoType.builder().setTypeNature(runtime.typeNaturePackageInfo())
+                        .addAnnotations(annotations)
+                        .setParentClass(runtime.objectParameterizedType())
+                        .setAccess(runtime.accessPublic())
+                        .setSource(compilationUnitSource);
+                // The javadoc of a package-info belongs to the PACKAGE DECLARATION, and it was never attached to
+                // the package-info type -- so javaDoc() was null, typesReferenced() was empty, and every consumer
+                // was blind to it. A refactoring that moves a type therefore left
+                //     /** … {@link a.Moved} … */ package p;
+                // naming a package the move had emptied. Measured on Elasticsearch:
+                // modules/reindex/…/package-info.java kept {@link org.elasticsearch.index.reindex.UpdateByQueryAction}
+                // after that type was lifted, and javac (doclint) failed with "reference not found".
+                // The comment hangs off the PACKAGE DECLARATION node, not off the compilation unit: asking for the
+                // compilation-unit path returns null (measured, not assumed).
+                DocCommentTree packageDocComment = node.getPackage() == null ? null
+                        : docTrees.getDocCommentTree(new TreePath(getCurrentPath(), node.getPackage()));
+                if (packageDocComment != null) {
+                    JavaDoc packageJavaDoc = scanJavaDoc.scan(packageDocComment);
+                    pkgInfoType.builder().setJavaDoc(packageJavaDoc);
+                }
+                // don't commit yet
+                collectedPrimaryTypes.add(pkgInfoType);
+            } else {
+                for (Tree ct : node.getTypeDecls()) {
+                    scan(ct, null);
+                }
+            }
+            if (node.getModule() != null) {
+                scan(node.getModule(), null);
+            }
+            compilationUnit.setTypes(collectedPrimaryTypes);
+            return null;
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
+            // ⛔ THE THROWABLE GOES IN. Same defect, same week, as ClassSymbolScanner's: these five sites all
+            // rethrow, so the stack is not lost -- but the REPORT above only records the exception's class
+            // name, and pulsar's day-zero parse produced 1,826 errors of which 1,820 were one
+            // UnsupportedOperationException with not a single frame anywhere in the log. A census that
+            // cannot name a frame cannot find the defect.
+            LOGGER.error("Caught exception in compilation unit {}", compilationUnit, re);
+            throw re;
+        }
+    }
+
+    /**
+     * Message for a javac node or symbol this scanner has no case for. A bare {@code "NYI"} cannot be acted on:
+     * the same throw serves both "this case is not implemented yet" and "this state should be unreachable", and
+     * those want opposite responses — implement the missing case, versus find out why the input is malformed.
+     * Naming the value settles it at the throw site, instead of costing a patched build and a re-run.
+     */
+    private static String unexpected(String where, Object node) {
+        if (node == null) return "Unexpected null " + where;
+        String s = String.valueOf(node).replace('\n', ' ');
+        if (s.length() > 160) s = s.substring(0, 160) + "...";
+        return "Unexpected " + where + ": '" + s + "', class " + node.getClass().getName();
+    }
+
+    private ImportStatement parseImportStatement(ImportTree importTree) {
+        boolean isStatic = importTree.isStatic();
+        String im = importTree.getQualifiedIdentifier().toString();
+        Source source = sourceForNode(importTree);
+        return runtime.newImportStatementBuilder()
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setImport(im)
+                .setIsStatic(isStatic)
+                .build();
+    }
+
+    @Override
+    public Void visitClass(ClassTree node, Void p) {
+        try {
+            JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
+            TypeInfo typeInfo;
+            String fullyQualifiedName = jcClassDecl.sym.fullname.toString();
+            TypeInfo known = typeData.getType(fullyQualifiedName);
+            String simpleName = node.getSimpleName().toString();
+            if (known == null && !typeStack.isEmpty()) {
+                // the fullname lookup above misses a local class nested in a method/anonymous body (its canonical
+                // name doesn't match maddi's synthetic FQN). A forward reference (e.g. 'new MapEntry(...)'
+                // textually before the 'class MapEntry' declaration in the same body) may already have registered
+                // it as a subtype of the enclosing type; reuse that rather than duplicating ('Duplicating type').
+                // Only fires when such a subtype already exists, so it is a no-op for the normal case.
+                known = typeStack.getLast().findSubType(simpleName, false);
+            }
+
+            if (known != null && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
+                typeInfo = known; // was already created because of the order
+            } else {
+                if (typeStack.isEmpty()) {
+                    typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+                } else {
+                    TypeInfo enclosed = typeStack.getLast();
+                    typeInfo = runtime.newTypeInfo(enclosed, simpleName);
+                    enclosed.builder().addSubType(typeInfo);
+                }
+                typeData.put(typeInfo);
+            }
+            if (typeInfo.isPrimaryType()) {
+                collectedPrimaryTypes.add(typeInfo);
+            }
+            continueType(typeInfo, jcClassDecl);
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
+            return null;
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
+            LOGGER.error("Caught exception in type {}", node.getSimpleName(), re);
+            throw re;
+        }
+    }
+
+    // attaches, to dsb, the source position of each explicit modifier keyword the scanner recorded for the
+    // element; keyed by the modifier object (mapper turns the keyword into the same object the builder holds),
+    // matching the hand-written parser. Implicit modifiers (e.g. interface methods' public/abstract) are not in
+    // the scanner's per-element map, so they correctly get no source.
+    private void attachModifiers(Source elementSource, DetailedSources.Builder dsb, Function<String, Object> mapper) {
+        if (scanResult == null || elementSource == null) return;
+        Map<String, Source> mods = scanResult.findModifiers(elementSource);
+        if (mods == null) return;
+        mods.forEach((keyword, src) -> {
+            Object modifier = mapper.apply(keyword);
+            if (modifier != null) dsb.put(modifier, src);
+        });
+    }
+
+    // a parameter has no modifier object, only isFinal(); its 'final' keyword source sits under FINAL
+    private void attachParameterFinal(Source paramSource, DetailedSources.Builder dsb) {
+        if (scanResult == null || paramSource == null) return;
+        Map<String, Source> mods = scanResult.findModifiers(paramSource);
+        if (mods != null && mods.get("final") != null) dsb.put(DetailedSources.FINAL, mods.get("final"));
+    }
+
+    private void continueType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl) {
+        typeStack.addLast(typeInfo);
+        elementStack.push();
+
+        // flags: modifiers, type nature
+        TypeInfo.Builder builder = typeInfo.builder();
+        flagHelper.type(jcClassDecl.sym, builder);
+        builder.computeAccess();
+
+        // type parameters; must be done in 2 stages
+        if (!jcClassDecl.getTypeParameters().isEmpty()) {
+            int index = 0;
+            List<TypeParameter> newTypeParameters = new ArrayList<>();
+            for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+                String name = jcTypeParameter.getName().toString();
+                TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
+                builder.addOrSetTypeParameter(tp);
+                elementStack.put(name, tp);
+                newTypeParameters.add(tp);
+                ++index;
+            }
+            int i = 0;
+            for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+                TypeParameter tp = newTypeParameters.get(i++);
+                parseTypeBoundsAndCommit(jcClassDecl.sym, tp, jcTypeParameter);
+            }
+        }
+
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType parentClass;
+        if (typeInfo.typeNature().isEnum() || typeInfo.typeNature().isRecord()) {
+            if (jcClassDecl.type instanceof Type.ClassType ct) {
+                parentClass = convertType.convert(ct.supertype_field);
+            } else throw new UnsupportedOperationException(unexpected("type of enum/record "
+                                                                     + jcClassDecl.name, jcClassDecl.type));
+        } else {
+            ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
+            parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
+                    : explicitParentClass;
+            if (scanResult != null && jcClassDecl.extending != null) {
+                Source source = scanResult.find("extends", sourceForNode(jcClassDecl.extending));
+                dsb.put(DetailedSources.EXTENDS, source);
+            }
+        }
+        assert parentClass != null;
+        builder.setParentClass(parentClass);
+        if (!jcClassDecl.implementing.isEmpty()) {
+            if (scanResult != null) {
+                boolean isExtends = typeInfo.isInterface();
+                String keyword = isExtends ? "extends" : "implements";
+                Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
+                dsb.put(isExtends ? DetailedSources.EXTENDS : DetailedSources.IMPLEMENTS, source);
+                Object commaKey = isExtends ? DetailedSources.EXTENDS_COMMAS : DetailedSources.IMPLEMENTS_COMMAS;
+                dsb.putListIfNotNull(commaKey, scanResult.findCommaList(source, commaKey));
+            }
+            for (JCTree.JCExpression i : jcClassDecl.implementing) {
+                builder.addInterfaceImplemented(convertType.convertTree(i, dsb));
+            }
+        }
+        if (typeInfo.typeNature().isAnnotation()) {
+            ParameterizedType javaLangAnnotationAnnotation = convertType.convert(jcClassDecl.sym.getInterfaces().getFirst());
+            builder.addInterfaceImplemented(javaLangAnnotationAnnotation);
+        }
+        for (JCTree.JCExpression permits : jcClassDecl.permitting) {
+            TypeInfo permitted = convertType.convert(permits.type).typeInfo();
+            builder.addPermittedType(permitted);
+            dsb.put(permitted, sourceForNode(permits));
+        }
+        if (scanResult != null && !jcClassDecl.permitting.isEmpty()) {
+            Source source = scanResult.find("permits", sourceForNode(jcClassDecl.permitting.getFirst()));
+            dsb.put(DetailedSources.PERMITS, source);
+            dsb.putListIfNotNull(DetailedSources.PERMITS_COMMAS,
+                    scanResult.findCommaList(source, DetailedSources.PERMITS_COMMAS));
+        }
+
+        // record components: fields and accessors
+        if (typeInfo.typeNature().isRecord()) {
+            handleRecordType(typeInfo, jcClassDecl, builder);
+        }
+        // annotations
+        for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
+            AnnotationExpression ae = convertAnnotation(annotation);
+            builder.addAnnotation(ae);
+        }
+
+        // members: methods, fields
+        recordWholeFieldDeclarationSources(jcClassDecl.defs);
+        for (var member : jcClassDecl.getMembers()) {
+            currentMethod = null;
+            scan(member, null);
+        }
+        if (typeInfo.typeNature().isEnum()) {
+            for (var symbol : jcClassDecl.sym.members().getSymbols()) {
+                if (symbol instanceof Symbol.MethodSymbol ms
+                    && ("values".equals(ms.name.toString()) && ms.params().isEmpty()
+                        || "valueOf".equals(ms.name.toString())
+                           && ms.params().size() == 1
+                           && ms.params().head.type.tsym.flatName().contentEquals("java.lang.String"))
+                    && typeData.getMethod(ms) == null) {
+                    convertType.ensureMethod(ms, true);
+                }
+            }
+        }
+        MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
+        builder.setSingleAbstractMethod(singleAbstractMethod);
+
+        // add synthetic getters and setters for methods annotated with @GetSet
+        if (typeInfo.typeNature().isInterface() || typeInfo.typeNature().isClass() && builder.isAbstract()) {
+            createSyntheticFieldsForGetSet.createSyntheticFields(typeInfo);
+        }
+
+        DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+        if (docComment != null) {
+            JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+            builder.addComment(javaDoc);
+            builder.setJavaDoc(javaDoc);
+        }
+
+        if (scanResult != null) {
+            attachModifiers(scanSource(jcClassDecl), dsb, flagHelper::typeModifier);
+            // the class/interface/enum/record/@interface keyword, keyed by the TypeNature object
+            dsb.putIfNotNull(typeInfo.typeNature(), scanResult.findTypeKeyword(scanSource(jcClassDecl)));
+            // the type's simple name, keyed by the simple-name string
+            dsb.putIfNotNull(typeInfo.simpleName(), scanResult.findTypeName(scanSource(jcClassDecl)));
+            if (typeInfo.typeNature().isRecord()) {
+                // the closing ')' of the record header's component list, so consumers can locate where to append
+                // an 'implements ...' clause after 'record R(...)'
+                dsb.putIfNotNull(DetailedSources.END_OF_PARAMETER_LIST,
+                        scanResult.findEndOfParameterList(scanSource(jcClassDecl)));
+            }
+        }
+        Source source = sourceForNode(jcClassDecl, dsb);
+
+        // going to commit the methods, so we'll sort
+        // they may be out of order because of the ClassSymbolScanner
+        // this is expensive but essential when reproducing code
+        // synthetic members (e.g. @GetSet backing fields created during scanning) have no source; sort them
+        // last rather than letting the comparator NPE on a null source
+        builder.methods().sort(Comparator.comparing(MethodInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
+        builder.fields().sort(Comparator.comparing(FieldInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
+        builder.subTypes().sort(Comparator.comparing(TypeInfo::source, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        builder.addTrailingComments(trailingCommentsForNode(source))
+                .addComments(commentsForNode(source))
+                .setSource(source)
+                .commitMethods();
+
+        typeStack.removeLast();
+        elementStack.pop();
+    }
+
+    private void handleRecordType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl, TypeInfo.Builder builder) {
+        RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
+        int i = 0;
+        for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
+            String fieldName = rc.name.toString();
+            // we may have to skip a constructor... but we try to use the tree elements for the source
+            while (!(jcClassDecl.defs.get(i) instanceof JCTree.JCVariableDecl definition)) ++i;
+            FieldInfo fieldInfo;
+            // check presence
+            FieldInfo inMap = typeInfo.getFieldByName(fieldName, false);
+            DetailedSources.Builder dsbField = runtime.newDetailedSourcesBuilder();
+            if (inMap == null) {
+                ParameterizedType pt = convertType.convertTree(definition.getType(), dsbField);
+                fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
+                Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
+                        .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
+                typeData.put(varSym, fieldInfo);
+                builder.addField(fieldInfo);
+            } else {
+                fieldInfo = inMap;
+                // we must add detailed sources
+                convertType.convertTree(definition.getType(), dsbField);
+            }
+            if (fieldInfo.modifiers().isEmpty()) {
+                fieldInfo.builder()
+                        .addFieldModifier(runtime.fieldModifierFinal())
+                        .addFieldModifier(runtime.fieldModifierPrivate());
+            }
+            // the commas around this component in the record header, so a consumer removing a component can take the
+            // adjacent comma with it (SourceCodeScan records them keyed by the component's source; mirrors formal
+            // parameters and field declarators).
+            if (scanResult != null) {
+                Source componentKey = scanSource(definition);
+                dsbField.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(componentKey));
+                dsbField.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(componentKey));
+            }
+            // the field-name identifier, as for a regular field (detail(fieldInfo.name())). A record component is
+            // modelled by javac as a constructor parameter rather than a field declaration, so the name detail is
+            // not otherwise recorded; add it explicitly, keyed by the canonical name instance so a consumer's
+            // field.source().detailedSources().detail(field.simpleName()) resolves.
+            dsbField.put(fieldInfo.name(), sourceOfIdentifier(fieldName, definition.pos));
+            Source source = sourceForNode(definition, dsbField);
+            fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
+
+            if (hasSyntheticMethod(jcClassDecl, fieldName, 0)) {
+                MethodInfo existing = typeInfo.methodStream()
+                        .filter(mi -> mi.name().equals(fieldName) && mi.parameters().isEmpty())
+                        .findFirst().orElse(null);
+                if (existing == null) {
+                    MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                    List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
+                            .stream()
+                            .map(typeData::getOrLoadMethod)
+                            .toList();
+                    accessor.builder().addOverrides(overrides).commit();
+                    // NOTE: we (currently) deviate from the Java spec here, we're not actually overriding.
+                    builder.addMethod(accessor);
+                    typeData.put(rc.accessor, accessor);
+                } else {
+                    // A call-site resolution (ClassSymbolScanner.ensureMethod) can materialise a BARE accessor stub
+                    // for this record component — non-synthetic, empty body, no GET_SET_FIELD link — before this
+                    // record scan runs. Whether that happens is scan-order dependent, which used to make GET_SET_FIELD
+                    // non-deterministic (createAccessor sets it on line 94; the stub path never did). Set the link
+                    // here so it no longer depends on which path materialised the accessor first.
+                    runtime.setGetSetField(existing, fieldInfo, false, -1, false);
+                }
+            }
+            ++i;
+        }
+        // we also must add synthetic equals(), hashCode(), toString(), because javac will expect them to be there
+        if (notPresent(typeInfo, "toString", 0)
+            && hasSyntheticMethod(jcClassDecl, "toString", 0)) {
+            builder.addMethod(recordSynthetics.createToString());
+        }
+        if (notPresent(typeInfo, "equals", 1)
+            && hasSyntheticMethod(jcClassDecl, "equals", 1)) {
+            builder.addMethod(recordSynthetics.createEquals());
+        }
+        if (notPresent(typeInfo, "hashCode", 0)
+            && hasSyntheticMethod(jcClassDecl, "hashCode", 0)) {
+            builder.addMethod(recordSynthetics.createHashCode());
+        }
+    }
+
+    private boolean notPresent(TypeInfo typeInfo, String name, int numParams) {
+        return typeInfo.methodStream()
+                .noneMatch(mi -> name.equals(mi.name()) && numParams == mi.parameters().size());
+    }
+
+    private boolean hasSyntheticMethod(JCTree.JCClassDecl jcClassDecl, String name, int numParams) {
+        return jcClassDecl.sym.getEnclosedElements().stream()
+                .anyMatch(m -> m instanceof Symbol.MethodSymbol ms
+                               && ms.name.toString().equals(name)
+                               && ms.params.size() == numParams
+                               && (ms.flags() & Flags.GENERATED_MEMBER) != 0);
+    }
+
+    private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        List<ParameterizedType> typeBounds = new ArrayList<>();
+        for (JCTree.JCExpression expression : jcTypeParameter.getBounds()) {
+            ParameterizedType bound = parseTypeBoundCheckSelfReference(owner, tp, expression, dsb);
+            typeBounds.add(bound);
+        }
+        List<AnnotationExpression> annotationExpressions = jcTypeParameter.annotations.stream()
+                .map(this::convertAnnotation).toList();
+        if (scanResult != null) {
+            Source tpKey = scanSource(jcTypeParameter);
+            dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(tpKey));
+            dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(tpKey));
+            dsb.putListIfNotNull(DetailedSources.TYPE_BOUND_AMPERSANDS,
+                    scanResult.findCommaList(tpKey, DetailedSources.TYPE_BOUND_AMPERSANDS));
+        }
+        tp.builder()
+                .setSource(sourceForNode(jcTypeParameter, dsb))
+                .addAnnotations(annotationExpressions)
+                .setTypeBounds(List.copyOf(typeBounds))
+                .commit();
+    }
+
+    private ParameterizedType parseTypeBoundCheckSelfReference(Symbol owner,
+                                                               TypeParameter tp,
+                                                               JCTree.JCExpression expression,
+                                                               DetailedSources.Builder dsb) {
+        if (expression.type.tsym == owner) {
+            // self-reference! we must build a loop-safe parameterized type rather than calling convertTree.
+            // But we still record the detailed source of the type-name identifier (keyed by the self type), which
+            // convertTree would otherwise have done; without it, rename/move cannot locate the reference in the
+            // bound (e.g. class A<X extends A<X>> -> the 'A' in the bound).
+            JCTree.JCExpression nameExpression = expression instanceof JCTree.JCTypeApply apply
+                    ? apply.clazz : expression;
+            dsb.put(tp.typeInfo(), sourceForNode(nameExpression));
+            return runtime.newParameterizedType(tp.getOwner().getLeft(),
+                    tp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList());
+        }
+        // the '&' separators between bounds are recorded as TYPE_BOUND_AMPERSANDS by SourceCodeScan
+        return convertType.convertTree(expression, dsb);
+    }
+
+    // -- Method declarations ---------------------------------------------
+
+    @Override
+    public Void visitMethod(MethodTree node, Void p) {
+        try {
+            JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
+            String methodName = node.getName().toString();
+            boolean isConstructor = "<init>".equals(methodName);
+            long methodFlags = jcMethod.getModifiers().flags;
+            TypeInfo currentType = typeStack.getLast();
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+            Map<String, Element> parameterMap = elementStack.push();
+
+            MethodInfo methodInfo;
+            MethodInfo known = typeData.getMethod(jcMethod.sym);
+            boolean isKnown = known != null;
+            MethodInfo.Builder builder;
+            if (isKnown) {
+                methodInfo = known;
+                builder = methodInfo.builder();
+                methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
+                methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
+
+                // The type parameters may have been created from this method's symbol before its declaration was
+                // reached -- a call site or method reference in a compilation unit scanned earlier -- in which
+                // case ClassSymbolScanner.addMethodToType deliberately left them with no bounds and uncommitted,
+                // so that the declaration can supply both. It is the declaration that has the source (nothing
+                // else can locate the `<T ...>` token) and the bounds AS WRITTEN (the symbol path widens them
+                // with '? extends'). See TestMethodTypeParameterSource.
+                //
+                // Filled in, never replaced: these instances are already in parameterMap above, so the return
+                // type, the parameters and the body all resolve their occurrences of T to them. This runs first
+                // for that reason -- everything below may mention T.
+                //
+                // hasBeenInspected() is the guard rather than source() == null: it is exactly the precondition
+                // for calling builder(), which asserts the inspection is still open. A type parameter the
+                // symbol path DID commit (a synthetic method, another source set) also has no source, and
+                // reaching for its builder would trip that assertion rather than fill anything in.
+                var jcTypeParameters = jcMethod.getTypeParameters();
+                List<TypeParameter> existingTypeParameters = methodInfo.typeParameters();
+                for (int tpIndex = 0;
+                     tpIndex < existingTypeParameters.size() && tpIndex < jcTypeParameters.size(); tpIndex++) {
+                    TypeParameter typeParameter = existingTypeParameters.get(tpIndex);
+                    if (!typeParameter.hasBeenInspected()) {
+                        parseTypeBoundsAndCommit(jcMethod.sym, typeParameter, jcTypeParameters.get(tpIndex));
+                    }
+                }
+
+                // when already known, a number of source details are missed out! (e.g. return type)
+                if (!methodInfo.isConstructor()) {
+                    convertType.convertTree(jcMethod.getReturnType(), dsb);
+                    // Exactly the parameter situation handled below, for the return type. This method was created
+                    // earlier from its symbol -- e.g. via a method reference scanned before this declaration is
+                    // reached -- so methodInfo.returnType() is a symbol-built instance, while convertTree just
+                    // keyed the tree-built one into dsb. DetailedSources is identity-keyed, so a consumer asking
+                    // for the source of the method's OWN return type misses. It needs that source to place a
+                    // type-replacement edit when the method is moved to another class; without it the rewrite is
+                    // silently skipped and the moved code keeps a name that no longer resolves there.
+                    // See TestReturnTypeSource.
+                    Source returnTypeSource = sourceForNode(jcMethod.getReturnType());
+                    if (returnTypeSource != null && !returnTypeSource.isNoSource()) {
+                        dsb.put(methodInfo.returnType(), returnTypeSource);
+                    }
+                }
+                jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
+
+                // The method (and hence its parameters) may have been created earlier from its symbol -- e.g. via a
+                // method reference scanned before this declaration is reached -- in which case the parameters carry
+                // no source yet (their commit was deferred in ClassSymbolScanner.addMethodToType). Set the sources
+                // now from the declaration, then commit. See TestParameterInfoSource.
+                var jcParameters = jcMethod.getParameters();
+                List<ParameterInfo> existingParameters = methodInfo.parameters();
+                for (int pIndex = 0; pIndex < existingParameters.size() && pIndex < jcParameters.size(); pIndex++) {
+                    ParameterInfo parameterInfo = existingParameters.get(pIndex);
+                    if (parameterInfo.source() == null) {
+                        JCTree.JCVariableDecl jcVariableDecl = jcParameters.get(pIndex);
+                        DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                        convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
+                        });
+                        // This method (and hence its parameters) was created earlier from its symbol -- e.g. via a
+                        // method reference scanned before this declaration is reached -- so parameterInfo has a
+                        // symbol-built type instance, distinct from the tree-built instance convertTypeWithAnnotations
+                        // just keyed into dsbParam. DetailedSources is identity-keyed, so detail(...) by the
+                        // parameter's own type would miss. Whether the two instances happen to coincide depends on
+                        // scan order, which varies between JVM runs, so the miss is intermittent: a caller that looks
+                        // up the parameter type's source (e.g. to place a type-replacement edit) then NPEs on a null
+                        // Source in some runs but not others. Key the parameter's own type instance to the same type
+                        // source so the lookup resolves deterministically. (The fresh-method path at addParameter
+                        // already stores the tree-built instance as the parameter type, so it needs no fix-up.)
+                        Source paramTypeSource = sourceForNode(jcVariableDecl.getType());
+                        if (paramTypeSource != null && !paramTypeSource.isNoSource()) {
+                            dsbParam.put(parameterInfo.parameterizedType(), paramTypeSource);
+                        }
+                        // The symbol path could not supply the declaration's parameter ANNOTATIONS either
+                        // (loadAnnotations on a source VarSymbol is empty at symbol-load time -- attribution
+                        // has not run), so a contract like Expression.translate's @Independent(hc=true) was
+                        // silently absent from every symbol-created method while the fresh-method path kept
+                        // it. Add them here exactly as that path does; guarded on emptiness so a symbol that
+                        // DID carry annotations is never duplicated.
+                        if (parameterInfo.annotations().isEmpty()) {
+                            for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                                parameterInfo.builder().addAnnotation(convertAnnotation(annotation));
+                            }
+                        }
+                        setParameterSource(jcVariableDecl, parameterInfo, dsbParam,
+                                methodInfo.isConstructor(), methodInfo, currentType);
+                    }
+                }
+                builder.commitParameters();
+            } else {
+                // construction of the method
+                if (isConstructor) {
+                    methodInfo = runtime.newConstructor(currentType, flagHelper.constructorType(methodFlags));
+                    builder = methodInfo.builder();
+                    currentType.builder().addConstructor(methodInfo);
+                    builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+                } else {
+                    MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags,
+                            currentType.isInterface() || currentType.isAnnotation());
+                    methodInfo = runtime.newMethod(currentType, methodName, methodType);
+                    builder = methodInfo.builder();
+                    currentType.builder().addMethod(methodInfo);
+                }
+                typeData.put(jcMethod.sym, methodInfo);
+
+
+                // flags
+                flagHelper.method(methodFlags, builder);
+
+                // type parameters; must be done in 2 stages
+                if (!jcMethod.getTypeParameters().isEmpty()) {
+                    int index = 0;
+                    List<TypeParameter> newTypeParameters = new ArrayList<>();
+                    for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                        String name = typeParameter.getName().toString();
+                        TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
+                        builder.addTypeParameter(tp);
+                        elementStack.put(name, tp);
+                        newTypeParameters.add(tp);
+                        ++index;
+                    }
+                    int i = 0;
+                    for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                        TypeParameter tp = newTypeParameters.get(i++);
+                        parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
+                    }
+                }
+
+                // return type
+                if (isConstructor) {
+                    builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+                } else {
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
+                    builder.setReturnType(returnType).addAnnotations(annots);
+                }
+
+                // parameters
+                for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
+                    String name = jcVariableDecl.getName().toString();
+                    DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
+                    ParameterInfo parameterInfo = builder.addParameter(name, type);
+                    parameterInfo.builder().addAnnotations(annots);
+
+                    // flags
+                    long flags = jcVariableDecl.getModifiers().flags;
+                    boolean isFinal = (flags & Flags.FINAL) != 0;
+                    boolean varargs = (flags & Flags.VARARGS) != 0;
+                    parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
+
+                    // annotations
+                    for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                        AnnotationExpression ae = convertAnnotation(annotation);
+                        parameterInfo.builder().addAnnotation(ae);
+                    }
+                    setParameterSource(jcVariableDecl, parameterInfo, dsbParam, isConstructor, methodInfo, currentType);
+                    parameterMap.put(parameterInfo.simpleName(), parameterInfo);
+                }
+
+                // exception types
+                if (!jcMethod.thrown.isEmpty()) {
+                    jcMethod.thrown.stream()
+                            .map(e -> convertType.convertTree(e, dsb))
+                            .forEach(builder::addExceptionType);
+                }
+                builder.commitParameters();
+            }
+
+            // method name. Key the source by the method's canonical name instance (methodInfo.name()), NOT the local
+            // javac-derived 'methodName': detailed-sources lookup is by object identity, and a consumer retrieves
+            // this via 'method.source().detailedSources().detail(method.simpleName())' (== name()). The two String
+            // instances differ for a constructor (name() is the interned MethodInfo.CONSTRUCTOR_NAME "<init>", not
+            // javac's), and for an already-known method (its name was created earlier, e.g. by the class-symbol
+            // scanner). For a freshly-built regular method they are the same instance, so this is a no-op there.
+            String sourceMethodName = isConstructor ? currentType.simpleName() : methodName;
+            dsb.put(methodInfo.name(), sourceOfIdentifier(sourceMethodName, jcMethod.pos));
+
+            // annotations
+            for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation(annotation);
+                builder.addAnnotation(ae);
+            }
+
+            Block methodBody;
+            // method body
+            if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
+                methodBody = runtime.emptyBlock();
+                // TODO: an idea is to add a "return defaultValue;" statement so that we don't drop the value
+            } else {
+                currentMethod = methodInfo;
+                // the sum of statements in a compact constructor may be > 9 so we need to pad correctly
+                int addToStatementsSize = methodInfo.methodType().isCompactConstructor()
+                                          && currentType.typeNature().isRecord()
+                        ? methodInfo.parameters().size() : 0;
+                methodBody = parseBlock("", node.getBody(), addToStatementsSize, false);
+                elementStack.pop();
+                currentMethod = null;
+            }
+            if ((methodInfo.methodType().isSyntheticConstructor() || methodInfo.methodType().isCompactConstructor())
+                && currentType.typeNature().isRecord()) {
+                methodBody = syntheticOrCompactConstructorInRecords(methodBody, methodInfo, currentType);
+            }
+
+            //overrides
+            List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
+            Set<MethodInfo> overrides = overridden.stream()
+                    .map(typeData::getOrLoadMethod)
+                    .collect(Collectors.toUnmodifiableSet());
+
+            DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+            if (docComment != null) {
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+                builder.addComment(javaDoc);
+                builder.setJavaDoc(javaDoc);
+            }
+
+            if (scanResult != null) {
+                // position of the closing ')' of the formal-parameter list, and the throws-list commas, both
+                // keyed by the method source
+                dsb.putIfNotNull(DetailedSources.END_OF_PARAMETER_LIST,
+                        scanResult.findEndOfParameterList(scanSource(node)));
+                dsb.putListIfNotNull(DetailedSources.THROWS_COMMAS,
+                        scanResult.findCommaList(scanSource(node), DetailedSources.THROWS_COMMAS));
+                attachModifiers(scanSource(node), dsb, flagHelper::methodModifier);
+            }
+            Source source = sourceForNode(node, dsb);
+            assert source != null;
+            builder.addOverrides(overrides)
+                    .setSource(source)
+                    .addComments(commentsForNode(source))
+                    .setMethodBody(methodBody)
+                    .computeAccess();
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
+            return null;
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
+            LOGGER.error("Caught exception in method {}", node.getName().toString(), re);
+            throw re;
+        }
+    }
+
+    private Block syntheticOrCompactConstructorInRecords(Block methodBody, MethodInfo methodInfo, TypeInfo currentType) {
+        Block.Builder bb = runtime.newBlockBuilder();
+        bb.addStatements(methodBody.statements());
+        int n = methodBody.statements().size() - 1; // 1 for the synthetic super() statement to be ignored
+        int sum = methodInfo.parameters().size() + methodBody.statements().size();
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            FieldInfo field = currentType.getFieldByName(pi.name(), true);
+            Assignment a = runtime.newAssignmentBuilder()
+                    .setValue(runtime.newVariableExpressionBuilder()
+                            .setSource(runtime.noSource()).setVariable(pi)
+                            .build())
+                    .setTarget(runtime.newVariableExpressionBuilder().setSource(runtime.noSource())
+                            .setVariable(runtime.newFieldReference(field)).build())
+                    .build();
+            bb.addStatement(runtime.newExpressionAsStatementBuilder()
+                    .setSource(runtime.noSource().withIndex(StringUtil.pad(n + pi.index(), sum)))
+                    .setExpression(a)
+                    .build());
+        }
+        return bb.build();
+    }
+
+    // -- Annotations ---------------------------------------------
+
+    private ParameterizedType convertTypeWithAnnotations(Tree node,
+                                                         DetailedSources.Builder dsb,
+                                                         Consumer<AnnotationExpression> consumer) {
+        Tree rt;
+        if (node instanceof JCTree.JCAnnotatedType at) {
+            rt = at.getUnderlyingType();
+            for (JCTree.JCAnnotation annotationTree : at.getAnnotations()) {
+                consumer.accept(convertAnnotation(annotationTree));
+            }
+        } else {
+            rt = node;
+        }
+        return convertType.convertTree(rt, dsb);
+    }
+
+    private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType at = convertType.convertTree(annotation.getAnnotationType(), dsb);
+        List<AnnotationExpression.KV> kvs = new ArrayList<>();
+        for (var c : annotation.getArguments()) {
+            kvs.add(convertAnnotationKv(c));
+        }
+        return runtime.newAnnotationExpressionBuilder()
+                .setKeyValuesPairs(kvs)
+                .setSource(sourceForNode(annotation, dsb))
+                .setTypeInfo(at.typeInfo())
+                .build();
+    }
+
+    private AnnotationExpression.KV convertAnnotationKv(JCTree.JCExpression c) {
+        String key;
+        Expression value;
+        if (c instanceof JCTree.JCAssign assign) {
+            if (assign.lhs instanceof JCTree.JCIdent ident) {
+                key = ident.name.toString();
+            } else throw new UnsupportedOperationException();
+            scan(assign.rhs, null);
+        } else {
+            key = "value";
+            scan(c, null);
+        }
+        value = currentExpression;
+        return runtime.newAnnotationExpressionKeyValuePair(key, value);
+    }
+
+    // -- Statements ---------------------------------------------
+
+
+    private void replaceLastStatement(Statement statement) {
+        List<Statement> statements = blockBuilders.getLast().blockBuilder.statements();
+        statements.removeLast();
+        statements.add(statement);
+    }
+
+    private Statement lastStatement() {
+        BlockData bd = blockBuilders.getLast();
+        if (bd.blockBuilder.statements().isEmpty()) return null;
+        return bd.blockBuilder.statements().getLast();
+    }
+
+    private void addStatement(Statement statement) {
+        blockBuilders.getLast().blockBuilder.addStatement(statement);
+    }
+
+    // walk outward through the enclosing-type chain (starting at 'start') to the innermost type that is
+    // assignable to 'methodOwner', i.e. that can invoke an unqualified instance method declared/inherited there.
+    // This is the type of the implicit 'this' receiver. Falls back to 'start' if nothing matches (should not
+    // happen for code that compiled).
+    private TypeInfo enclosingThisForMethod(TypeInfo start, TypeInfo methodOwner) {
+        if (start == methodOwner) return start; // fast path: own method
+        ParameterizedType ownerType = methodOwner.asParameterizedType();
+        TypeInfo t = start;
+        while (t != null && !runtime.isAssignableFrom(ownerType, t.asParameterizedType())) {
+            if (t.enclosingMethod() != null) {
+                t = t.enclosingMethod().typeInfo();
+            } else if (t.compilationUnitOrEnclosingType().isRight()) {
+                t = t.compilationUnitOrEnclosingType().getRight();
+            } else {
+                t = null;
+            }
+        }
+        return t == null ? start : t;
+    }
+
+    private String statementIndex() {
+        if (blockBuilders.isEmpty()) return "-";
+        BlockData bd = blockBuilders.getLast();
+        List<Statement> statements = bd.blockBuilder.statements();
+        // a synthetic (implicit) super() occupies the first slot of a constructor body but is not a written
+        // statement; the maddi/congocc parser omits it, so it must not shift the index of the real statements
+        // (which start at 0). The synthetic super() itself keeps its null index (noSource).
+        int adjust = !statements.isEmpty() && isSyntheticConstructorInvocation(statements.getFirst()) ? 1 : 0;
+        String padded = StringUtil.pad(statements.size() - adjust, bd.numberOfStatements - adjust);
+        return (bd.index.isEmpty() ? "" : bd.index + ".") + padded;
+    }
+
+    private static boolean isSyntheticConstructorInvocation(Statement statement) {
+        return statement instanceof ExplicitConstructorInvocation && statement.isSynthetic();
+    }
+
+    private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
+        return parseBlock(blockIndex, node, 0, false, variablesToAdd);
+    }
+
+    // the block source index: a sub-component block (an if/while/for/try body, an else, ...) sits at 'i.<blockIndex>'
+    // relative to its statement 'i'; a standalone '{ }' block, however, *is* the statement, so it keeps that index.
+    // The top-level block (a method body) has the empty block index, hence an empty source index.
+    private Source blockSource(boolean blockAsStatement, String blockIndexAtStatement, Source source) {
+        return blockAsStatement ? source : source.withIndex(blockIndexAtStatement);
+    }
+
+    private Block parseBlock(String blockIndex, Tree node, int addToStatementsSize, boolean blockAsStatement,
+                             LocalVariable... variablesToAdd) {
+        List<JCTree.JCStatement> statements;
+        Source source = statementSourceForNode(node);
+
+        switch (node) {
+            case JCTree.JCBlock block -> statements = block.stats;
+            case JCTree.JCStatement statement -> statements = List.of(statement);
+            case null -> {
+                String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
+                return runtime.newBlockBuilder()
+                        .setSource(blockSource(blockAsStatement, i, source))
+                        .addComments(commentsForNode(source))
+                        .build();
+            }
+            default -> throw new UnsupportedOperationException(unexpected("block node", node));
+        }
+        return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
+                statementLabels.get(node), source, commentsForNode(source), variablesToAdd);
+    }
+
+    /**
+     * @param comments the block's own leading comments. Handed in rather than looked up from {@code source},
+     *                 because a block is not always at the position its source names: the old-style switch has no
+     *                 block in the javac tree and one is SYNTHESISED for its case statements, carrying the switch's
+     *                 source. Looking up "the comments preceding this position" there answers with the SWITCH's
+     *                 leading comment, and the block took it -- so the switch had none, and the comment then
+     *                 vanished on output, the old-style switch printer not printing its block's comments. That
+     *                 caller passes an empty list and the switch keeps its own; see TestCommentBeforeSwitch.
+     */
+    private Block parseBlock(String blockIndex,
+                             List<JCTree.JCStatement> statements,
+                             int addToStatementsSize,
+                             boolean blockAsStatement,
+                             String label,
+                             Source source,
+                             List<Comment> comments,
+                             LocalVariable... variablesToAdd) {
+        Map<String, Element> localVariableMap = elementStack.push();
+        for (LocalVariable lv : variablesToAdd) {
+            localVariableMap.put(lv.simpleName(), lv);
+        }
+        int n = statements.size() + addToStatementsSize;
+        String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
+        blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
+
+        for (JCTree.JCStatement statement : statements) {
+            if (statement instanceof JCTree.JCBlock subBlock) {
+                // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
+                Block parsedSub = parseBlock("0", subBlock, 0, true);
+                addStatement(parsedSub);
+            } else if (statement instanceof JCTree.JCClassDecl localType) {
+                Statement localTypeCreation = handleLocalType(localType);
+                addStatement(localTypeCreation);
+            } else {
+                scan(statement, null);
+            }
+        }
+
+        elementStack.pop();
+
+        return blockBuilders.removeLast().blockBuilder
+                .setLabel(label)
+                .setSource(blockSource(blockAsStatement, i, source))
+                .addTrailingComments(trailingCommentsForNode(source))
+                .addComments(comments)
+                .build();
+    }
+
+    private Statement handleLocalType(JCTree.JCClassDecl localType) {
+        String simpleName = localType.getSimpleName().toString();
+        int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
+        TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
+        MethodInfo here = currentMethod;
+        elementStack.put(simpleName, typeInfo);
+        continueType(typeInfo, localType);
+        currentMethod = here;
+        // we won't have a chance later to commit, since we're not keeping track of these types at top level
+        // see TestRecord,5
+        recursivelyCommit(typeInfo);
+
+        return runtime.newLocalTypeDeclarationBuilder()
+                .setLabel(statementLabels.get(localType))
+                .setTypeInfo(typeInfo)
+                .setSource(statementSourceForNode(localType))
+                .build();
+    }
+
+    private void recursivelyCommit(TypeInfo typeInfo) {
+        typeInfo.fields()
+                .stream().filter(fi -> !fi.hasBeenInspected())
+                .forEach(fi -> {
+                    if (fi.initializer() == null) fi.builder().setInitializer(runtime.newEmptyExpression());
+                    fi.builder().commit();
+                });
+        typeInfo.constructorAndMethodStream()
+                .filter(mi -> !mi.hasBeenInspected())
+                .forEach(mi -> mi.builder().commit());
+        typeInfo.subTypes().stream().filter(st -> !st.hasBeenInspected()).forEach(this::recursivelyCommit);
+        typeInfo.builder()
+                .setAccess(runtime.accessPrivate())
+                .commit();
+    }
+
+    @Override
+    public Void visitAssert(AssertTree node, Void unused) {
+        JCTree.JCAssert jcAssert = (JCTree.JCAssert) node;
+        currentExpression = null;
+        scan(jcAssert.getCondition(), unused);
+        Expression condition = currentExpression;
+        currentExpression = null;
+        scan(jcAssert.getDetail(), unused);
+        Expression message = Objects.requireNonNullElseGet(currentExpression, runtime::newEmptyExpression);
+
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newAssertBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setExpression(condition)
+                .setMessage(message)
+                .build());
+        return null;
+    }
+
+    // only for (static and instance) initializer blocks
+    @Override
+    public Void visitBlock(BlockTree node, Void unused) {
+        if (node instanceof JCTree.JCBlock jcBlock && (jcBlock.flags & Flags.STATIC) != 0) {
+            TypeInfo typeInfo = typeStack.getLast();
+            int index = (int) typeInfo.methods().stream().filter(MethodInfo::isStaticInitializer).count();
+            MethodInfo methodInfo = runtime.newMethod(typeInfo, "<static_" + index + ">",
+                    runtime.methodTypeStaticInitializer());
+            methodInfo.builder().setReturnType(runtime.voidParameterizedType())
+                    .setSource(sourceForNode(node))
+                    .setAccess(runtime.accessPrivate())
+                    .addMethodModifier(runtime.methodModifierPrivate())
+                    .addMethodModifier(runtime.methodModifierStatic())
+                    .commitParameters();
+            currentMethod = methodInfo;
+            Block block = parseBlock("", jcBlock);
+            currentMethod = null;
+            methodInfo.builder().setMethodBody(block);
+            typeInfo.builder().addMethod(methodInfo);
+            return null;
+        } else {
+            Tree parent = getCurrentPath().getParentPath().getLeaf();
+            if (parent instanceof ClassTree) {
+                TypeInfo typeInfo = typeStack.getLast();
+                int index = (int) typeInfo.methods().stream().filter(MethodInfo::isInstanceInitializer).count();
+                MethodInfo methodInfo = runtime.newMethod(typeInfo,
+                        "<init_" + index + ">", runtime.methodTypeInstanceInitializer());
+                methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                        .setSource(sourceForNode(node))
+                        .setAccess(runtime.accessPrivate())
+                        .addMethodModifier(runtime.methodModifierPrivate())
+                        .commitParameters();
+                currentMethod = methodInfo;
+                Block block = parseBlock("", node);
+                currentMethod = null;
+                methodInfo.builder().setMethodBody(block);
+                typeInfo.builder().addMethod(methodInfo);
+                return null;
+            }
+            if (parent instanceof NewClassTree) {
+                throw new UnsupportedOperationException();
+            }
+        }
+        return super.visitBlock(node, unused);
+    }
+
+    @Override
+    public Void visitBreak(BreakTree node, Void unused) {
+        String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newBreakBuilder()
+                .setLabel(statementLabels.get(node))
+                .setGoToLabel(gotoLabel)
+                .addComments(commentsForNode(source))
+                .setSource(source).build());
+        return null;
+    }
+
+    @Override
+    public Void visitContinue(ContinueTree node, Void unused) {
+        String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newContinueBuilder()
+                .setLabel(statementLabels.get(node))
+                .setGoToLabel(gotoLabel)
+                .addComments(commentsForNode(source))
+                .setSource(source).build());
+        return null;
+    }
+
+    @Override
+    public Void visitDoWhileLoop(DoWhileLoopTree node, Void unused) {
+        Block block = parseBlock("0", node.getStatement());
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newDoBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setBlock(block)
+                .setExpression(condition)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
+        super.visitExpressionStatement(node, unused);
+        if (currentExpression != null) {
+            Source source = statementSourceForNode(node);
+            ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
+                    .setLabel(statementLabels.get(node))
+                    .setSource(source)
+                    .addComments(commentsForNode(source))
+                    .setExpression(currentExpression)
+                    .build();
+            addStatement(statement);
+        } // else: was explicit constructor invocation, a statement
+        return null;
+    }
+
+    @Override
+    public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getExpression(), unused);
+        Expression iterable = currentExpression;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+
+        LocalVariableCreation lvc;
+        if (node.getVariable() instanceof JCTree.JCVariableDecl variableDecl) {
+            String name = variableDecl.name.toString();
+            List<AnnotationExpression> annotations = new ArrayList<>();
+            // Same rule as visitVariable, which this loop was missing: for 'var' javac fills in the INFERRED type,
+            // but the tree it hangs it on still carries the position of the 'var' keyword. Measured on
+            // `for (var s : list)` at line 6 column 9, the span it yields is 6-14:6-18 -- from the 'v' to the 's',
+            // i.e. FIVE characters, the keyword plus the first letter of the variable name. A token editor handed
+            // that span writes the new type over 'var s', which is how timefold's
+            // `for (var termination : solverTerminationList)` became
+            // `for (SolverLifecycleListenerermination : solverTerminationList)`: eight compilation errors out of
+            // four loops. There is no written type token in a 'var' declaration to rewrite at all, so resolve the
+            // type but throw its detailed sources away, and let the callers that ask "is there a token here?"
+            // (jfocus' hasWrittenTypeToken, on both the suggestion and the apply half) get the honest no.
+            DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
+                    ? runtime.newDetailedSourcesBuilder() : dsb;
+            ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), typeDsb,
+                    annotations::add);
+            currentExpression = runtime.newEmptyExpression();
+            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
+        } else throw new UnsupportedOperationException(unexpected("for-each loop variable", node.getVariable()));
+
+        Block block = parseBlock("0", node.getStatement());
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newForEachBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setBlock(block)
+                .setExpression(iterable)
+                .setInitializer(lvc)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitForLoop(ForLoopTree node, Void unused) {
+        ForStatement.Builder forBuilder = runtime.newForBuilder();
+
+        Map<String, Element> map = elementStack.push();
+        if (!node.getInitializer().isEmpty()) {
+            if (node.getInitializer().getFirst() instanceof JCTree.JCVariableDecl) {
+                // sequence of LVCs, but we want them all together in one statement. Keep the fully-built (and
+                // hence sourced; see continueLocalVariableCreation) LocalVariableCreation that parseBlock yields,
+                // and merge any further declarators into it -- rebuilding from just the LocalVariable would drop
+                // the source (and detailed sources). withAdditionalLocalVariable spans the merged source.
+                LocalVariableCreation built = null;
+                for (StatementTree statementTree : node.getInitializer()) {
+                    Block initBlock = parseBlock("?", statementTree);
+                    assert !initBlock.statements().isEmpty();
+                    Statement first = initBlock.statements().getFirst();
+                    if (first instanceof LocalVariableCreation f) {
+                        built = built == null ? f : built.withAdditionalLocalVariable(f);
+                        map.put(f.localVariable().simpleName(), f.localVariable());
+                    } else throw new UnsupportedOperationException(
+                            unexpected("for-loop initializer (expected a local variable creation)", first));
+                }
+                assert built != null;
+                forBuilder.addInitializer(built);
+            } else {
+                for (StatementTree statementTree : node.getInitializer()) {
+                    Block initBlock = parseBlock("?", statementTree);
+                    Statement first = initBlock.statements().getFirst();
+                    if (first instanceof ExpressionAsStatement eas) {
+                        forBuilder.addInitializer(eas.expression());
+                    } else throw new UnsupportedOperationException(
+                            unexpected("for-loop initializer (expected an expression)", first));
+                }
+            }
+        }
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        forBuilder.setExpression(currentExpression == null ? runtime.constantTrue() : currentExpression);
+
+        for (ExpressionStatementTree est : node.getUpdate()) {
+            Block initBlock = parseBlock("?", est);
+            Statement first = initBlock.statements().getFirst();
+            if (first instanceof ExpressionAsStatement eas) {
+                forBuilder.addUpdater(eas.expression());
+            }
+        }
+
+        Block block = parseBlock("0", node.getStatement());
+        elementStack.pop();
+        Source source = statementSourceForNode(node);
+        addStatement(forBuilder
+                .setLabel(statementLabels.get(node))
+                .setBlock(block)
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitIf(IfTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+
+        Block block = parseBlock("0", node.getThenStatement());
+        Block elseBlock = parseBlock("1", node.getElseStatement());
+
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newIfElseBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setIfBlock(block)
+                .setElseBlock(elseBlock)
+                .setExpression(condition)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitLabeledStatement(LabeledStatementTree node, Void unused) {
+        statementLabels.put(node.getStatement(), node.getLabel().toString());
+        return super.visitLabeledStatement(node, unused);
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getExpression(), unused);
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newReturnBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setExpression(currentExpression == null ? runtime.newEmptyExpression() : currentExpression)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitYield(YieldTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getValue(), unused);
+        assert currentExpression != null;
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newYieldBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setExpression(currentExpression)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitSwitch(SwitchTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression selector = currentExpression;
+
+        JCTree.JCSwitch jcSwitch = (JCTree.JCSwitch) node;
+        // an empty switch body (switch(x){}) has no cases; treat it as old-style with no labels
+        boolean newStyle = !jcSwitch.cases.isEmpty()
+                && jcSwitch.cases.getFirst().caseKind == CaseTree.CaseKind.RULE;
+
+        Statement s;
+        Source switchSource = statementSourceForNode(node);
+        List<Comment> switchComments = commentsForNode(switchSource);
+        if (newStyle) {
+            List<SwitchEntry> switchEntries = doSwitchEntries(unused, jcSwitch.cases);
+            s = runtime.newSwitchStatementNewStyleBuilder()
+                    .setSelector(selector)
+                    .setSource(switchSource)
+                    .addComments(switchComments)
+                    .addSwitchEntries(switchEntries)
+                    .build();
+        } else {
+            List<SwitchStatementOldStyle.SwitchLabel> switchLabels = new ArrayList<>();
+            int statementCount = 0;
+            List<JCTree.JCStatement> statementsToParse = new ArrayList<>();
+            for (JCTree.JCCase jcCase : jcSwitch.cases) {
+                for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
+
+                    RecordPattern patternVariable;
+                    Expression expression;
+                    switch (caseLabel) {
+                        case JCTree.JCConstantCaseLabel ccl -> {
+                            scan(ccl.getConstantExpression(), unused);
+                            expression = currentExpression;
+                            patternVariable = null;
+                        }
+                        case JCTree.JCDefaultCaseLabel _ -> {
+                            expression = runtime.newEmptyExpression();
+                            patternVariable = null;
+                        }
+                        case JCTree.JCPatternCaseLabel pcl -> {
+                            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                            List<AnnotationExpression> annotations = new ArrayList<>();
+                            RecordPatternResult rpr = parseRecordPattern(pcl.getPattern(), dsb, annotations);
+                            patternVariable = rpr.rp;
+                            expression = runtime.newEmptyExpression();
+                            rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
+                        }
+                        case null, default ->
+                                throw new UnsupportedOperationException(unexpected("case label", caseLabel));
+                    }
+
+                    currentExpression = null;
+                    scan(jcCase.getGuard(), null);
+                    Expression whenExpression = currentExpression;
+
+                    SwitchStatementOldStyle.SwitchLabel switchLabel = runtime.newSwitchLabelOldStyle
+                            (expression, statementCount, patternVariable, whenExpression);
+                    switchLabels.add(switchLabel);
+                }
+                statementsToParse.addAll(jcCase.stats);
+                statementCount += jcCase.stats.size();
+            }
+            // no comments for the synthesised block: at the switch's own source, the lookup would answer with the
+            // SWITCH's leading comment, and then the switch has none -- see the parseBlock parameter's javadoc
+            Block block = parseBlock("0", statementsToParse, 0, false,
+                    null, sourceForNode(node), List.of());
+            s = runtime.newSwitchStatementOldStyleBuilder()
+                    .setLabel(statementLabels.get(node))
+                    .setSelector(selector)
+                    .addSwitchLabels(switchLabels)
+                    .setSource(switchSource)
+                    .addComments(switchComments)
+                    .setBlock(block)
+                    .build();
+        }
+        addStatement(s);
+        return null;
+    }
+
+    @Override
+    public Void visitSynchronized(SynchronizedTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+        Block block = parseBlock("0", node.getBlock());
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newSynchronizedBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .setBlock(block)
+                .setExpression(expression)
+                .addComments(commentsForNode(source))
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitThrow(ThrowTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newThrowBuilder()
+                .setLabel(statementLabels.get(node))
+                .setExpression(expression)
+                .addComments(commentsForNode(source))
+                .setSource(source)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitTry(TryTree node, Void unused) {
+        TryStatement.Builder tryBuilder = runtime.newTryBuilder();
+        Source source = statementSourceForNode(node);
+
+        List<LocalVariable> resourceVariables = new ArrayList<>();
+        int resourceCount = 0;
+        for (Tree resource : node.getResources()) {
+            String index = source.index() + "+" + resourceCount;
+            Statement first;
+            if (resource instanceof JCTree.JCIdent) {
+                scan(resource, unused);
+                Expression expression = currentExpression;
+                first = runtime.newExpressionAsStatementBuilder()
+                        .setSource(sourceForNode(resource, index))
+                        .setExpression(expression).build();
+            } else {
+                Block b = parseBlock("?", resource, resourceVariables.toArray(LocalVariable[]::new));
+                assert b.statements().size() == 1;
+                Statement s = b.statements().getFirst();
+                if (s instanceof LocalVariableCreation lvc) {
+                    lvc.localVariableStream().forEach(resourceVariables::add);
+                    first = lvc.withSource(s.source().withIndex(index));
+                } else throw new UnsupportedOperationException(unexpected("try-with-resources resource", s));
+            }
+            tryBuilder.addResource(first);
+            ++resourceCount;
+        }
+        int n = 1 + node.getCatches().size() + (node.getFinallyBlock() != null ? 1 : 0);
+        Block block = parseBlock(StringUtil.pad(0, n), node.getBlock(), resourceVariables.toArray(LocalVariable[]::new));
+        int i = 1;
+        for (CatchTree c : node.getCatches()) {
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+            TryStatement.CatchClause.Builder builder = runtime.newCatchClauseBuilder();
+            Tree typeOfParameter = c.getParameter().getType();
+            ParameterizedType unionType;
+            List<AnnotationExpression> annots = new ArrayList<>();
+
+            if (typeOfParameter instanceof JCTree.JCTypeUnion typeUnion) {
+                unionType = convertType.convert(typeUnion.type);
+                for (Tree alternative : typeUnion.alternatives) {
+                    ParameterizedType type = convertTypeWithAnnotations(alternative, dsb, annots::add);
+                    builder.addType(type);
+                }
+            } else {
+                ParameterizedType type = convertTypeWithAnnotations(typeOfParameter, dsb, annots::add);
+                builder.addType(type);
+                unionType = type;
+            }
+            LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), unionType);
+            boolean isFinal = c.getParameter().getModifiers().getFlags().contains(javax.lang.model.element.Modifier.FINAL);
+            Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
+
+            // annotations
+            builder.addAnnotations(annots);
+            for (AnnotationTree at : c.getParameter().getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation((JCTree.JCAnnotation) at);
+                builder.addAnnotation(ae);
+            }
+
+            tryBuilder.addCatchClause(builder
+                    .setCatchVariable(lv)
+                    .setFinal(isFinal)
+                    .setBlock(catchBlock)
+                    .setSource(sourceForNode(c, dsb))
+                    .build());
+            ++i;
+        }
+        Block finallyBlock;
+        if (node.getFinallyBlock() != null) {
+            finallyBlock = parseBlock(StringUtil.pad(i, n), node.getFinallyBlock());
+        } else {
+            finallyBlock = runtime.emptyBlock();
+        }
+        Statement s = tryBuilder
+                .setLabel(statementLabels.get(node))
+                .setBlock(block)
+                .setFinallyBlock(finallyBlock)
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .build();
+        addStatement(s);
+        return null;
+    }
+
+    // note: also field declarations
+
+    @Override
+    public Void visitVariable(VariableTree node, Void p) {
+        try {
+            if (node instanceof JCTree.JCVariableDecl variableDecl) {
+                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                    String name = varSymbol.toString();
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType type;
+                    // For an explicit-type local variable, convert the type and register the variable on the element
+                    // stack BEFORE its initializer is scanned, so a self-referencing initializer such as
+                    // 'Matcher m = m = pattern.matcher(s);' can resolve the variable. For 'var' the type is only
+                    // known after the initializer (which may even create the anonymous type it infers), so keep the
+                    // original order there. Fields (currentMethod == null) keep the original order too.
+                    boolean explicitTypeLocal = currentMethod != null
+                                                && !variableDecl.declaredUsingVar() && variableDecl.vartype != null;
+                    currentExpression = null;
+                    if (explicitTypeLocal) {
+                        type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                        elementStack.put(name, runtime.newLocalVariable(name, type));
+                        scan(node.getInitializer(), p);
+                    } else {
+                        scan(node.getInitializer(), p);
+                        // must come after evaluation of initializer (when it creates a lambda, anonymous type)
+                        // For 'var', javac fills in the inferred type but its source points at the 'var' keyword;
+                        // recording a detailed source for it would make rename/move clobber the 'var <name>' text
+                        // (there is no explicit type token to rename). Resolve the type but discard its detailed
+                        // sources in that case.
+                        DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
+                                ? runtime.newDetailedSourcesBuilder() : dsb;
+                        type = convertTypeWithAnnotations(variableDecl.vartype, typeDsb, annots::add);
+                    }
+                    if (currentExpression == null) {
+                        currentExpression = runtime.newEmptyExpression();
+                    }
+                    Expression initializer = currentExpression;
+                    if (currentMethod == null) {
+                        createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
+                    } else {
+
+                        // local variable
+                        Statement prev = lastStatement();
+                        LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
+                        LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb,
+                                annots);
+                        if (prevLvc != null && sameLvc(prevLvc, lvc)) {
+                            LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
+                            replaceLastStatement(merged);
+                        } else {
+                            addStatement(lvc);
+                        }
+                    }
+                }
+            }
+            return null;
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node), e);
+            throw e;
+        }
+    }
+
+    // A multi-declarator field declaration such as 'private String a, b;' produces one JCVariableDecl per
+    // declarator; they share the same start position but each ends at its own comma/semicolon. So that every
+    // sibling reports the SAME whole-declaration FIELD_DECLARATION (as the native parser does), map each
+    // declarator to the span [first-declarator-start .. last-declarator-end].
+    private void recordWholeFieldDeclarationSources(List<JCTree> defs) {
+        int i = 0;
+        while (i < defs.size()) {
+            if (defs.get(i) instanceof JCTree.JCVariableDecl first) {
+                int j = i;
+                while (j + 1 < defs.size()
+                       && defs.get(j + 1) instanceof JCTree.JCVariableDecl next
+                       && next.getStartPosition() == first.getStartPosition()) {
+                    j++;
+                }
+                if (j > i) {
+                    Source whole = sourceForNode(first).max(sourceForNode(defs.get(j)));
+                    for (int k = i; k <= j; k++) {
+                        wholeFieldDeclarationSources.put((JCTree.JCVariableDecl) defs.get(k), whole);
+                    }
+                }
+                i = j + 1;
+            } else {
+                i++;
+            }
+        }
+    }
+
+    private void createField(JCTree.JCVariableDecl variableDecl,
+                             Symbol.VarSymbol varSymbol,
+                             String name,
+                             ParameterizedType type,
+                             List<AnnotationExpression> annots,
+                             DetailedSources.Builder dsb,
+                             Expression initializer) {
+        long flags = variableDecl.getModifiers().flags;
+        TypeInfo owner = typeStack.getLast();
+        // JLS 9.3: every field of an interface is implicitly public static final, and JCModifiers.flags carries
+        // only what was WRITTEN -- so an interface constant declared 'String NAME = "x";' arrives here without
+        // Flags.STATIC. The other inspection path does not have that gap: ClassSymbolScanner reads javac's symbol
+        // flags (vs.flags(), vs.isStatic()), where the implicit modifiers are present. So the same interface
+        // reported its field static or not depending on whether it reached maddi from the classpath or from source
+        // in this JVM, and a caller's answer changed between runs -- found by a class isolate that emitted an
+        // interface constant as an INSTANCE field of the isolated type, in a test that passed alone and failed in
+        // a warm JVM.
+        //
+        // Applied here rather than in FieldInfo.isStatic(), which would look like the tidier place: maddi models
+        // synthetic instance fields on interface types too (CreateSyntheticFieldsForGetSet gives java.util.List a
+        // non-static '_synthetic_list'), and an accessor cannot tell those from a constant. Here the declaration is
+        // in hand, so there is no ambiguity. The nature is available: the line below already branches on it.
+        boolean isStatic = (flags & Flags.STATIC) != 0 || owner.typeNature().isInterface();
+        if (!owner.typeNature().isRecord() || isStatic) {
+            FieldInfo inMap = owner.getFieldByName(name, false);
+            FieldInfo fieldInfo;
+            if (inMap == null) {
+                fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                owner.builder().addField(fieldInfo);
+                typeData.put(varSymbol, fieldInfo);
+            } else {
+                fieldInfo = inMap;
+            }
+            fieldInfo.builder().addAnnotations(annots);
+
+            flagHelper.field(flags, fieldInfo.builder());
+
+            // annotations
+            for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation(annotation);
+                fieldInfo.builder().addAnnotation(ae);
+            }
+
+            // javadoc, exactly as for types and methods: the congocc pre-scan drops '/**' comments
+            // (SourceCodeScan.commentsFromTerminal), so addComment is what carries it. Its references are resolved at
+            // the end of ScanCompilationUnits, which is why the commit below is deferred to there.
+            DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+            if (docComment != null) {
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+                fieldInfo.builder().addComment(javaDoc);
+                fieldInfo.builder().setJavaDoc(javaDoc);
+            }
+
+            // source, source of name
+            Source vdSource = sourceForNode(variableDecl); // declaration, but only of one field
+            Source nameSource = sourceOfIdentifier(name, variableDecl.pos);
+            // key by the canonical fieldInfo.name() instance: DetailedSources is identity-keyed and callers look up
+            // with fieldInfo.name(). The transient 'name' (varSymbol.toString()) is a fresh instance on each parse
+            // phase, so on a re-visit (inMap != null) it would no longer match fieldInfo.name(). Mirrors the
+            // parameter path (setParameterSource).
+            dsb.put(fieldInfo.name(), nameSource);
+            Source nameAndInitSource;
+            if (variableDecl.init != null) {
+                Source s = sourceForNode(variableDecl.init);
+                nameAndInitSource = nameSource.max(s);
+            } else {
+                nameAndInitSource = nameSource;
+            }
+            if (scanResult != null) {
+                // the scanner keys field-declarator commas by the declarator (name + initialiser, no type),
+                // which corresponds to nameAndInitSource rather than the javac vdSource (which includes the type);
+                // SUCCEEDING_EQUALS is keyed by the name identifier alone (nameSource).
+                dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(nameAndInitSource));
+                dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(nameAndInitSource));
+                dsb.putIfNotNull(DetailedSources.SUCCEEDING_EQUALS, scanResult.findSucceedingEquals(nameSource));
+                // field modifiers are recorded per declarator under the same nameAndInitSource key
+                attachModifiers(nameAndInitSource, dsb, flagHelper::fieldModifier);
+            }
+            dsb.put(DetailedSources.FIELD_DECLARATION,
+                    wholeFieldDeclarationSources.getOrDefault(variableDecl, vdSource));
+
+            fieldInfo.builder()
+                    .addComments(commentsForNode(vdSource))
+                    .setSource(nameAndInitSource.withDetailedSources(dsb.build()))
+                    .setInitializer(initializer)
+                    .computeAccess();
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
+            deferredFieldCommits.add(fieldInfo);
+            assert fieldInfo.access() != null;
+        } // else: non-static record components are dealt with in the type visitor
+    }
+
+    private boolean sameLvc(LocalVariableCreation lvc1, LocalVariableCreation lvc2) {
+        Source s1 = lvc1.source();
+        Source s2 = lvc2.source();
+        return s1.beginPos() == s2.beginPos() && s1.beginLine() == s2.beginLine();
+    }
+
+    // Computes and sets (committing the builder) the source of a method/constructor parameter. The given dsbParam
+    // must already carry the parameter type's detailed sources; this adds the surrounding commas, a 'final'
+    // modifier, and — keyed by parameterInfo.name() — the parameter NAME, so callers can do
+    // pi.source().detailedSources().detail(pi.name()). Shared by both the freshly-built and the already-known
+    // (method-reference/override) method paths in visitMethod.
+    private void setParameterSource(JCTree.JCVariableDecl jcVariableDecl, ParameterInfo parameterInfo,
+                                    DetailedSources.Builder dsbParam, boolean isConstructor,
+                                    MethodInfo methodInfo, TypeInfo currentType) {
+        if (scanResult != null) {
+            Source paramKey = scanSource(jcVariableDecl);
+            dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
+            dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
+            attachParameterFinal(paramKey, dsbParam);
+        }
+        // the parameter name; keyed by the exact parameterInfo.name() instance (DetailedSources is identity-keyed,
+        // callers look up with pi.name()). javac's variableDecl.pos points at the name.
+        String name = parameterInfo.name();
+        dsbParam.put(name, sourceOfIdentifier(name.isEmpty() ? "_" : name, jcVariableDecl.pos));
+        Source source;
+        if (isConstructor && currentType.typeNature().isRecord()
+            && (methodInfo.isCompactConstructor() || methodInfo.isSynthetic())) {
+            // javac synthesises the canonical-constructor parameters (both for the implicit canonical constructor
+            // and for a compact one); their tree positions -- and hence the type/name detailed sources gathered
+            // above from jcVariableDecl -- are unreliable: the type range is off by a character, the name detail
+            // lands in the 'record' keyword, and the whole-parameter source is sometimes truncated. The record
+            // component FIELD, scanned earlier in handleRecordType from the real component declaration, carries the
+            // correct source; mirror it onto the parameter, re-keyed to the parameter's own name-string and
+            // parameterized-type instances (DetailedSources is identity-keyed).
+            FieldInfo field = currentType.getFieldByName(name, false);
+            Source fieldSource = field == null ? null : field.source();
+            if (fieldSource != null && fieldSource.detailedSources() != null) {
+                DetailedSources fieldDs = fieldSource.detailedSources();
+                DetailedSources.Builder fixed = runtime.newDetailedSourcesBuilder();
+                Source typeDetail = fieldDs.detail(field.type());
+                if (typeDetail != null) fixed.put(parameterInfo.parameterizedType(), typeDetail);
+                Source nameDetail = fieldDs.detail(field.name());
+                if (nameDetail != null) fixed.put(name, nameDetail);
+                if (scanResult != null) {
+                    fixed.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(fieldSource));
+                    fixed.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(fieldSource));
+                }
+                source = fieldSource.withDetailedSources(fixed.build());
+            } else {
+                Source base = sourceForNode(jcVariableDecl);
+                String string = jcVariableDecl.toString();
+                source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
+            }
+        } else {
+            source = sourceForNode(jcVariableDecl, dsbParam);
+        }
+        parameterInfo.builder().setSource(source).commit();
+    }
+
+    private @NotNull LocalVariableCreation continueLocalVariableCreation(JCTree.JCVariableDecl variableDecl,
+                                                                         String name,
+                                                                         ParameterizedType type,
+                                                                         DetailedSources.Builder dsb,
+                                                                         List<AnnotationExpression> annotations) {
+        boolean isUnnamed = name.isEmpty();
+        LocalVariable localVariable = runtime.newLocalVariable(isUnnamed ? ":" : name, type, currentExpression);
+        LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
+                .setSource(sourceForNode(variableDecl))
+                .setLocalVariable(localVariable);
+        long flags = variableDecl.getModifiers().flags;
+        boolean isFinal = (flags & Flags.FINAL) != 0;
+        if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+        if (variableDecl.declaredUsingVar()) lvcb.addModifier(runtime.localVariableModifierVar());
+
+        lvcb.addAnnotations(annotations);
+        // annotations
+        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+            AnnotationExpression ae = convertAnnotation(annotation);
+            lvcb.addAnnotation(ae);
+        }
+
+        // The name comes from javac's reliable variableDecl.pos (which points at the name even for the 2nd+
+        // declarator of 'int a = 4, b = 3'); the '=' position is supplied by the scanner, keyed by that same
+        // name source. This replaces the former string-search on variableDecl.toString() + startAtEnd kludge.
+        Source namePos = sourceOfIdentifier(isUnnamed ? "_" : name, variableDecl.pos);
+        if (scanResult != null) {
+            // the scanner records per-declarator commas and '=' keyed exactly as for fields (commas by the
+            // declarator span, '=' by the name). For a local these are nested in the variable's name source,
+            // since several declarators may share a single LocalVariableCreation (mirrors SUCCEEDING_EQUALS;
+            // replaces the former flat LOCAL_VARIABLE_COMMAS / LOCAL_VARIABLE_ASSIGNMENT_OPERATORS lists)
+            Source declaratorSource = variableDecl.init == null ? namePos
+                    : namePos.max(sourceForNode(variableDecl.init));
+            Source preceding = scanResult.findPrecedingComma(declaratorSource);
+            Source succeeding = scanResult.findSucceedingComma(declaratorSource);
+            Source equals = variableDecl.init == null ? null : scanResult.findSucceedingEquals(namePos);
+            if (preceding != null || succeeding != null || equals != null) {
+                DetailedSources.Builder nameDsb = runtime.newDetailedSourcesBuilder();
+                nameDsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, preceding);
+                nameDsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, succeeding);
+                nameDsb.putIfNotNull(DetailedSources.SUCCEEDING_EQUALS, equals);
+                namePos = namePos.withDetailedSources(nameDsb.build());
+            }
+        }
+        // key by the canonical localVariable.simpleName() instance (DetailedSources is identity-keyed, callers look
+        // up with it), consistent with the field and parameter paths.
+        dsb.put(localVariable.simpleName(), namePos);
+        Source statementSource = statementSourceForNode(variableDecl, dsb);
+        lvcb.setSource(statementSource);
+        elementStack.put(localVariable.simpleName(), localVariable);
+        return lvcb
+                .addComments(commentsForNode(statementSource))
+                .setLabel(statementLabels.get(variableDecl))
+                .build();
+    }
+
+    @Override
+    public Void visitWhileLoop(WhileLoopTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        Block block = parseBlock("0", node.getStatement());
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newWhileBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setBlock(block)
+                .setExpression(condition)
+                .build());
+        return null;
+    }
+
+    // -- Expressions ---------------------------------------------
+
+
+    @Override
+    public Void visitAnnotation(AnnotationTree node, Void unused) {
+        JCTree.JCAnnotation annotation = (JCTree.JCAnnotation) node;
+        currentExpression = convertAnnotation(annotation);
+        return null;
+    }
+
+    @Override
+    public Void visitArrayAccess(ArrayAccessTree node, Void unused) {
+        JCTree.JCArrayAccess aa = (JCTree.JCArrayAccess) node;
+        scan(aa.indexed, unused);
+        Expression array = currentExpression;
+        scan(aa.index, unused);
+        Expression index = currentExpression;
+        currentExpression = runtime.newVariableExpressionBuilder()
+                .setSource(sourceForNode(node))
+                .setVariable(runtime.newDependentVariable(array, index))
+                .build();
+        return null;
+    }
+
+    // an assignment target may be parenthesised, e.g. '(ch) = in.read()'; strip the parentheses to reach the
+    // underlying variable expression
+    private static VariableExpression asAssignmentTarget(Expression expression) {
+        Expression e = expression;
+        while (e instanceof EnclosedExpression enclosed) {
+            e = enclosed.inner();
+        }
+        return (VariableExpression) e;
+    }
+
+    @Override
+    public Void visitAssignment(AssignmentTree node, Void unused) {
+        JCTree.JCAssign assign = (JCTree.JCAssign) node;
+        scan(assign.rhs, unused);
+        Expression value = currentExpression;
+        scan(assign.lhs, unused);
+        VariableExpression target = asAssignmentTarget(currentExpression);
+        currentExpression = runtime.newAssignmentBuilder()
+                .setSource(sourceForNode(node))
+                .setTarget(target)
+                .setValue(value)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitCompoundAssignment(CompoundAssignmentTree node, Void p) {
+        JCTree.JCAssignOp assignOp = (JCTree.JCAssignOp) node;
+        scan(assignOp.rhs, p);
+        Expression value = currentExpression;
+        scan(assignOp.lhs, p);
+        VariableExpression target = asAssignmentTarget(currentExpression);
+        Tree.Kind kind = node.getKind();
+        MethodInfo operator = switch (kind) {
+            // s += x on a String is concatenation, not numeric addition: pick the String operator so
+            // assignOperatorToBinary yields plusOperatorString, and a consumer reconstructing s = s + x does not
+            // route a String into runtime.sum() (SumImpl asserts numeric operands). String is the only type with
+            // a compound operator that is a different operation, not a widened numeric one.
+            case PLUS_ASSIGNMENT -> target.parameterizedType().isJavaLangString()
+                    ? runtime.assignPlusOperatorString()
+                    : runtime.assignPlusOperatorInt();
+            case MINUS_ASSIGNMENT -> runtime.assignMinusOperatorInt();
+            case MULTIPLY_ASSIGNMENT -> runtime.assignMultiplyOperatorInt();
+            case DIVIDE_ASSIGNMENT -> runtime.assignDivideOperatorInt();
+            case REMAINDER_ASSIGNMENT -> runtime.assignRemainderOperatorInt();
+            case AND_ASSIGNMENT -> runtime.assignAndOperatorInt();
+            case OR_ASSIGNMENT -> runtime.assignOrOperatorInt();
+            case XOR_ASSIGNMENT -> runtime.assignXorOperatorInt();
+            case LEFT_SHIFT_ASSIGNMENT -> runtime.assignLeftShiftOperatorInt();
+            case RIGHT_SHIFT_ASSIGNMENT -> runtime.assignSignedRightShiftOperatorInt();
+            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> runtime.assignUnsignedRightShiftOperatorInt();
+            default -> throw new UnsupportedOperationException("Unexpected compound assignment operator: " + kind);
+        };
+        currentExpression = runtime.newAssignmentBuilder()
+                .setAssignmentOperator(operator)
+                // the underlying binary operator (i += x  ≡  i = i <op> x); must be set exactly as the unary
+                // (i++/i--) path does, or consumers reconstructing the semantics lose the target and read i = x
+                .setBinaryOperator(runtime.assignOperatorToBinary(operator))
+                .setAssignmentOperatorIsPlus(kind == Tree.Kind.PLUS_ASSIGNMENT)
+                .setValue(value)
+                .setTarget(target)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitBinary(BinaryTree node, Void unused) {
+        JCTree.JCBinary binary = (JCTree.JCBinary) node;
+        JCTree.Tag opcode = binary.getTag();
+        if (JCTree.Tag.AND.equals(opcode)) {
+            List<Expression> expressions = andOrExpressions(JCTree.Tag.AND, binary);
+            currentExpression = runtime.newAndBuilder()
+                    .setSource(sourceForNode(node))
+                    .addExpressions(expressions)
+                    .build();
+            return null;
+        }
+        if (JCTree.Tag.OR.equals(opcode)) {
+            List<Expression> expressions = andOrExpressions(JCTree.Tag.OR, binary);
+            currentExpression = runtime.newOrBuilder()
+                    .setSource(sourceForNode(node))
+                    .addExpressions(expressions)
+                    .build();
+            return null;
+        }
+
+        scan(node.getLeftOperand(), unused);
+        Expression lhs = currentExpression;
+        scan(node.getRightOperand(), unused);
+        Expression rhs = currentExpression;
+
+        MethodInfo operator = switch (opcode) {
+            case PLUS -> {
+                if (lhs.parameterizedType().isJavaLangString() || rhs.parameterizedType().isJavaLangString()) {
+                    yield runtime.plusOperatorString();
+                }
+                yield runtime.plusOperatorInt();
+            }
+            case BITXOR -> runtime.xorOperatorInt();
+            case BITAND -> runtime.andOperatorInt();
+            case BITOR -> runtime.orOperatorInt();
+            case MINUS -> runtime.minusOperatorInt();
+            case MUL -> runtime.multiplyOperatorInt();
+            case DIV -> runtime.divideOperatorInt();
+            case MOD -> runtime.remainderOperatorInt();
+            case EQ -> {
+                if (lhs.isNumeric() && rhs.isNumeric()) {
+                    yield runtime.equalsOperatorInt();
+                }
+                yield runtime.equalsOperatorObject();
+            }
+            case NE -> {
+                if (lhs.isNumeric() && rhs.isNumeric()) {
+                    yield runtime.notEqualsOperatorInt();
+                }
+                yield runtime.notEqualsOperatorObject();
+            }
+            case GE -> runtime.greaterEqualsOperatorInt();
+            case GT -> runtime.greaterOperatorInt();
+            case LE -> runtime.lessEqualsOperatorInt();
+            case LT -> runtime.lessOperatorInt();
+            case SL -> runtime.leftShiftOperatorInt();
+            case SR -> runtime.signedRightShiftOperatorInt();
+            case USR -> runtime.unsignedRightShiftOperatorInt();
+            default -> throw new UnsupportedOperationException("Unexpected binary operator opcode: " + opcode);
+        };
+        Precedence precedence = switch (opcode) {
+            case PLUS, MINUS -> runtime.precedenceAdditive();
+            case MUL, DIV, MOD -> runtime.precedenceMultiplicative();
+            case EQ, NE -> runtime.precedenceEquality();
+            case BITOR -> runtime.precedenceBitwiseOr();
+            case BITXOR -> runtime.precedenceBitwiseXor();
+            case BITAND -> runtime.precedenceBitwiseAnd();
+            case LT, LE, GT, GE -> runtime.precedenceRelational();
+            case SR, SL, USR -> runtime.precedenceShift();
+            default -> throw new UnsupportedOperationException();
+        };
+        ParameterizedType type = convertType.convert(binary.type);
+        currentExpression = runtime.newBinaryOperatorBuilder()
+                .setLhs(lhs).setOperator(operator).setRhs(rhs)
+                .setSource(sourceForNode(node))
+                .setPrecedence(precedence)
+                .setParameterizedType(type)
+                .build();
+        return null;
+    }
+
+    private List<Expression> andOrExpressions(JCTree.Tag tag, JCTree.JCBinary binary) {
+        JCTree.JCBinary b = binary;
+        List<JCTree.JCExpression> toParse = new ArrayList<>();
+        toParse.add(binary.rhs);
+        while (b.getLeftOperand() instanceof JCTree.JCBinary sub && tag.equals(sub.getTag())) {
+            toParse.addFirst(sub.rhs);
+            b = sub;
+        }
+        toParse.addFirst(b.lhs);
+        // now we have all the clauses in order; important when they contain instanceof pattern variables
+        // which must exist sequentially...
+        return toParse.stream().map(jce -> {
+            scan(jce, null);
+            return currentExpression;
+        }).toList();
+    }
+
+    @Override
+    public Void visitTypeCast(TypeCastTree node, Void unused) {
+        JCTree.JCTypeCast jcTypeCast = (JCTree.JCTypeCast) node;
+        scan(jcTypeCast.expr, unused);
+        Expression expression = currentExpression;
+        List<AnnotationExpression> annotations = new ArrayList<>();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType type = convertTypeWithAnnotations(jcTypeCast.getType(), dsb, annotations::add);
+        currentExpression = runtime.newCastBuilder()
+                .addAnnotations(annotations)
+                .setSource(sourceForNode(node, dsb))
+                .setExpression(expression)
+                .setParameterizedType(type)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitConditionalExpression(ConditionalExpressionTree node, Void unused) {
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        scan(node.getTrueExpression(), unused);
+        Expression ifTrue = currentExpression;
+        scan(node.getFalseExpression(), unused);
+        Expression ifFalse = currentExpression;
+        currentExpression = runtime.newInlineConditionalBuilder()
+                .setSource(sourceForNode(node))
+                .setCondition(condition)
+                .setIfTrue(ifTrue)
+                .setIfFalse(ifFalse)
+                .build(runtime);
+        return null;
+    }
+
+    private record RecordPatternResult(ParameterizedType type, RecordPattern rp, List<LocalVariable> newVariables) {
+    }
+
+    private RecordPatternResult parseRecordPattern(JCTree.JCPattern p,
+                                                   DetailedSources.Builder dsb,
+                                                   List<AnnotationExpression> annotations) {
+        if (p instanceof JCTree.JCBindingPattern bp) {
+            ParameterizedType type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
+            String name = bp.var.name.toString();
+            LocalVariable lv = runtime.newLocalVariable(name, type);
+            Source source = sourceForNode(bp, dsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setLocalVariable(lv)
+                    .build();
+            dsb.put(recordPattern, source);
+            dsb.put(lv, source);
+            dsb.put(lv.simpleName(), sourceOfIdentifier(lv.simpleName(), bp.var.pos));
+            return new RecordPatternResult(type, recordPattern, List.of(lv));
+        }
+        if (p instanceof JCTree.JCRecordPattern rp) {
+            DetailedSources.Builder newDsb = runtime.newDetailedSourcesBuilder();
+            ParameterizedType type = convertTypeWithAnnotations(rp.getDeconstructor(), newDsb, annotations::add);
+            List<RecordPattern> patterns = new ArrayList<>();
+            List<LocalVariable> newVariables = new ArrayList<>();
+            for (JCTree.JCPattern pattern : rp.getNestedPatterns()) {
+                RecordPatternResult recordPatternResult = parseRecordPattern(pattern, newDsb, annotations);
+                patterns.add(recordPatternResult.rp);
+                newVariables.addAll(recordPatternResult.newVariables);
+            }
+            Source source = sourceForNode(rp, newDsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setRecordType(type)
+                    .setPatterns(patterns)
+                    .build();
+            dsb.put(recordPattern, sourceForNode(rp));
+            return new RecordPatternResult(type, recordPattern, newVariables);
+        }
+        if (p instanceof JCTree.JCAnyPattern anyPattern) {
+            ParameterizedType type = convertType.convert(anyPattern.type);
+            Source source = sourceForNode(anyPattern, dsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setUnnamedPattern(true)
+                    .build();
+            dsb.put(recordPattern, sourceForNode(anyPattern));
+            return new RecordPatternResult(type, recordPattern, List.of());
+        }
+        throw new UnsupportedOperationException(unexpected("pattern", p));
+    }
+
+    @Override
+    public Void visitInstanceOf(InstanceOfTree node, Void unused) {
+        JCTree.JCInstanceOf jcInstanceOf = (JCTree.JCInstanceOf) node;
+        scan(jcInstanceOf.expr, unused);
+        Expression expression = currentExpression;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType type;
+        RecordPattern recordPattern;
+        List<AnnotationExpression> annotations = new ArrayList<>();
+        if (jcInstanceOf.pattern instanceof JCTree.JCPattern p) {
+            RecordPatternResult rpr = parseRecordPattern(p, dsb, annotations);
+            type = rpr.type;
+            recordPattern = rpr.rp;
+            rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
+        } else {
+            type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
+            recordPattern = null;
+        }
+        currentExpression = runtime.newInstanceOfBuilder()
+                .addAnnotations(annotations)
+                .setSource(sourceForNode(node, dsb))
+                .setExpression(expression)
+                .setTestType(type)
+                .setPatternVariable(recordPattern)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
+        JCTree.JCLambda lambda = (JCTree.JCLambda) node;
+        Source source = sourceForNode(node);
+
+        // ⛔ 'target' is the functional interface javac inferred for this lambda, and it is NULL when there was
+        // nothing to infer it from: the enclosing call did not resolve, so its method symbol is an error symbol with
+        // no parameter types. Everything below dereferences it (convert(lambda.target), then findInstantiatedSAM),
+        // and the null used to travel into convert() and surface as `Cannot invoke "Type.toString()" because "type"
+        // is null` -- a javac internal, one frame away from the site, naming neither the lambda nor the call that
+        // failed to resolve. It is an unresolved symbol, so it is reported as one: the unit is dropped with a
+        // warning and the run proceeds. Found on 'EnterpriseService.loadOrNull(b -> ...)' where EnterpriseService
+        // itself was not on the (partial) classpath.
+        if (lambda.target == null) {
+            throw new UnresolvedSymbolException("No target type for lambda '" + node
+                                                + "'; the call it is an argument of did not resolve");
+        }
+
+        TypeInfo enclosingType = typeStack.getLast();
+        int typeIndex = enclosingType.builder().getAndIncrementAnonymousTypes();
+        TypeInfo anonymousType = runtime.newAnonymousType(enclosingType, typeIndex);
+        anonymousType.builder()
+                .setAccess(runtime.accessPrivate())
+                .setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType());
+
+        ParameterizedType functionalType = convertType.convert(lambda.target);
+        ConvertType.SAMDescriptor sd = convertType.findInstantiatedSAM(lambda.target);
+        MethodInfo sam = sd.methodInfo();
+        assert sam != null;
+        String methodName = sam.name();
+        MethodInfo methodInfo = runtime.newMethod(anonymousType, methodName, runtime.methodTypeMethod());
+        MethodInfo.Builder miBuilder = methodInfo.builder();
+
+        ParameterizedType concreteReturnType = convertType.convert(sd.instantiatedType().restype);
+
+        List<Lambda.OutputVariant> outputVariants = new ArrayList<>();
+
+        Map<String, Element> lambdaParameters = elementStack.push();
+        for (var parameter : lambda.getParameters()) {
+            if (parameter instanceof JCTree.JCVariableDecl vd) {
+                DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                ParameterInfo pi;
+                String name = vd.name.toString();
+                List<AnnotationExpression> annots = new ArrayList<>();
+                ParameterizedType type = convertTypeWithAnnotations(vd.getType(), dsbParam, annots::add);
+                if (name.isEmpty()) {
+                    pi = miBuilder.addUnnamedParameter(type);
+                } else {
+                    pi = miBuilder.addParameter(name, type);
+                }
+                pi.builder()
+                        .addAnnotations(annots)
+                        .setSource(sourceForNode(parameter, dsbParam))
+                        .commit();
+                Lambda.OutputVariant ov;
+                if (vd.declaredUsingVar()) {
+                    ov = runtime.lambdaOutputVariantVar();
+                } else if (vd.vartype == null || vd.vartype.pos == vd.pos) {
+                    ov = runtime.lambdaOutputVariantEmpty();
+                } else {
+                    ov = runtime.lambdaOutputVariantTyped();
+                }
+                outputVariants.add(ov);
+                lambdaParameters.put(name, pi);
+            } else throw new UnsupportedOperationException(unexpected("lambda parameter", parameter));
+        }
+        Block methodBody;
+        if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
+            scan(lambda.body, unused);
+            Expression tExpression = currentExpression;
+
+            Statement returnStatement = runtime.newReturnBuilder()
+                    .setSource(sourceForNode(lambda.body))
+                    .setExpression(tExpression)
+                    .build();
+            methodBody = runtime.newBlockBuilder()
+                    .setSource(sourceForNode(lambda.body))
+                    .addStatement(returnStatement).build();
+        } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
+            MethodInfo outer = currentMethod;
+            currentMethod = methodInfo;
+            methodBody = parseBlock("", lambda.body);
+            currentMethod = outer;
+        } else {
+            throw new UnsupportedOperationException("Unexpected lambda body kind: " + lambda.getBodyKind());
+        }
+
+        elementStack.pop();
+
+        miBuilder.setAccess(runtime.accessPublic())
+                .setSynthetic(true)
+                .setSource(source)
+                .setMethodBody(methodBody)
+                .setReturnType(concreteReturnType)
+                .commit();
+
+        anonymousType.builder()
+                .addMethod(methodInfo)
+                .addInterfaceImplemented(functionalType)
+                .setEnclosingMethod(currentMethod)
+                .setSingleAbstractMethod(methodInfo)
+                .setSource(source)
+                .commit();
+
+        currentExpression = runtime.newLambdaBuilder()
+                .addAnnotations(List.of()) // TODO
+                .addComments(List.of()) // TODO
+                .setSource(source)
+                .setMethodInfo(methodInfo)
+                .setOutputVariants(outputVariants)
+                .build();
+        return null;
+    }
+
+    private String getRawTextBlock(JCTree.JCLiteral literal) throws IOException {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, literal);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, literal);
+        if (startPos == Diagnostic.NOPOS || endPos == Diagnostic.NOPOS)
+            return null;
+
+        CharSequence source = compilationUnitTree.getSourceFile().getCharContent(false);
+        return source.subSequence((int) startPos, (int) endPos).toString();
+        // returns """...""" including the delimiters and original whitespace
+    }
+
+    @Override
+    public Void visitLiteral(LiteralTree node, Void unused) {
+        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
+
+        List<Comment> comments = List.of();
+        Source source = sourceForNode(node);
+        currentExpression = switch (literal.typetag) {
+            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
+            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
+            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
+            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
+            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
+            case BOOLEAN -> runtime.newBoolean(comments, source, ((Integer) literal.value) == 1);
+            case CHAR -> runtime.newChar(comments, source, (char) (int) (Integer) literal.value);
+            case CLASS -> {
+                Tree.Kind kind = literal.typetag.getKindLiteral();
+                if (Tree.Kind.STRING_LITERAL == kind) {
+                    try {
+                        String rawTextBlock = getRawTextBlock(literal);
+                        if (rawTextBlock != null && rawTextBlock.startsWith("\"\"\"") && rawTextBlock.endsWith("\"\"\"")) {
+                            yield new TextBlockParser(runtime).parseTextBlock(comments, source, rawTextBlock);
+                        }
+                    } catch (IOException ioe) {
+                        throw new UnsupportedOperationException("Cannot read sources");
+                    }
+                    yield runtime.newStringConstant(comments, source, (String) literal.value);
+                }
+                throw new UnsupportedOperationException("?");
+            }
+            case BOT -> runtime.newNullConstant(comments, source);
+            default -> throw new UnsupportedOperationException();
+        };
+
+        return super.visitLiteral(node, unused);
+    }
+
+    @Override
+    public Void visitIdentifier(IdentifierTree node, Void p) {
+        var element = trees.getElement(getCurrentPath());
+        if (element != null) {
+            String name = node.getName().toString();
+            final Source source = sourceForNode(node);
+            switch (element.getKind()) {
+                case FIELD -> {
+                    if (element instanceof Symbol.VarSymbol vs) {
+                        TypeInfo typeInfoOwner = convertType.convert(vs.owner.type).bestTypeInfo();
+                        assert typeInfoOwner != null;
+                        boolean isThis = "this".equals(name);
+                        boolean isSuper = "super".equals(name);
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                        Variable variable;
+                        if (isThis || isSuper) {
+                            // TODO explicitly write type
+                            variable = runtime.newThis(typeInfoOwner.asParameterizedType(), null, isSuper);
+                            dsb.put(variable, source);
+                        } else {
+                            FieldInfo fieldInfo = Objects.requireNonNullElseGet(
+                                    typeInfoOwner.getFieldByName(name, false), () -> convertType.ensureField(vs));
+                            variable = runtime.newFieldReference(fieldInfo);
+                            dsb.put(fieldInfo, source);
+                        }
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setVariable(variable)
+                                .build();
+
+                    } else throw new UnsupportedOperationException();
+                }
+                case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE, RESOURCE_VARIABLE, EXCEPTION_PARAMETER -> {
+                    Variable variable = (Variable) elementStack.find(name);
+                    currentExpression = runtime.newVariableExpressionBuilder()
+                            .setSource(source)
+                            .setVariable(variable)
+                            .build();
+                }
+                case PACKAGE -> {
+                }
+                case ENUM, CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
+                    if (element instanceof Symbol.ClassSymbol) {
+                        List<AnnotationExpression> annots = new ArrayList<>();
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                        ParameterizedType type = convertTypeWithAnnotations(node, dsb, annots::add);
+                        currentExpression = runtime.newTypeExpressionBuilder()
+                                .addAnnotations(annots)
+                                .setSource(sourceForNode(node, dsb))
+                                .setDiamond(runtime.diamondNo()) // TODO
+                                .setParameterizedType(type)
+                                .build();
+                    } else throw new UnsupportedOperationException(
+                            unexpected("symbol for type '" + name + "' (expected a class symbol)", element));
+                }
+                case ENUM_CONSTANT -> {
+                    if (element instanceof Symbol.VarSymbol vs) {
+                        FieldInfo fieldInfo = typeData.getOrLoadField(vs);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source)
+                                .setVariable(runtime.newFieldReference(fieldInfo))
+                                .build();
+                    } else throw new UnsupportedOperationException(
+                            unexpected("symbol for enum constant '" + name + "'", element));
+                }
+                case TYPE_PARAMETER -> {
+                    if (element instanceof Symbol.TypeVariableSymbol tvs) {
+                        TypeParameter typeParameter = (TypeParameter) elementStack.find(tvs.name.toString());
+                        currentExpression = runtime.newTypeExpressionBuilder()
+                                .setDiamond(runtime.diamondNo()) // TODO
+                                .setParameterizedType(runtime.newParameterizedType(typeParameter, 0, null))
+                                .build();
+                    }
+                }
+                default -> throw new UnsupportedOperationException("Unexpected element kind " + element.getKind()
+                                                                   + " for identifier '" + name + "'");
+            }
+        }
+        return null;// super.visitIdentifier(node, p);
+    }
+
+    @Override
+    public Void visitMemberReference(MemberReferenceTree node, Void unused) {
+        JCTree.JCMemberReference mr = (JCTree.JCMemberReference) node;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        currentExpression = null;
+        scan(mr.getQualifierExpression(), unused);
+        Expression evaluatedScope = currentExpression;
+        MethodInfo method;
+        ParameterizedType concreteFunctionalType;
+        ParameterizedType concreteReturnType;
+        List<ParameterizedType> concreteParameterTypes;
+        Expression scope;
+
+        if (mr.sym instanceof Symbol.MethodSymbol ms) {
+            // javac models an array type's own members on a synthetic ClassSymbol named 'Array', owned by
+            // nothing (Kinds.Kind.NIL). It must never reach getOrLoadMethod/lazilyLoadTypeFromClassFile,
+            // which would try to resolve 'Array' as a named type and throw UnresolvedSymbolException
+            // ("Type Array not found"), dropping the whole compilation unit -- and a dropped unit is
+            // invisible to the refactoring levers too, so their edits silently skip its call sites.
+            boolean arrayOwner = "Array".equals(ms.owner.getQualifiedName().toString());
+            if (ms.isConstructor() && arrayOwner) {
+                // array construction. For a primitive component ('byte[]::new', elasticsearch zstd) the
+                // qualifier scan yields no expression: derive the array type from javac's own type instead.
+                if (evaluatedScope == null) {
+                    concreteReturnType = convertType.convert(((JCTree) mr.getQualifierExpression()).type);
+                } else {
+                    concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
+                }
+                scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
+                        .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
+                        .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())
+                        .setParameterizedType(concreteReturnType).build();
+                method = runtime.newArrayCreationConstructor(concreteReturnType);
+                TypeElement typeElement = elements.getTypeElement(IntFunction.class.getCanonicalName());
+                TypeInfo intFunction = convertType.convert(((Symbol.ClassSymbol) typeElement).type).typeInfo();
+                concreteFunctionalType = runtime.newParameterizedType(intFunction, List.of(concreteReturnType));
+                concreteParameterTypes = List.of(runtime.intParameterizedType());
+            } else if (arrayOwner) {
+                // 'long[]::clone' -- the only member javac attributes to the Array symbol; equals/hashCode/
+                // toString on an array resolve to java.lang.Object and take the ordinary path below.
+                // As for array construction, a primitive component yields no scope expression, so derive
+                // the array type from javac's own type (ClassSymbolScanner converts Type.ArrayType already).
+                ParameterizedType arrayType = evaluatedScope == null
+                        ? convertType.convert(((JCTree) mr.getQualifierExpression()).type)
+                        : evaluatedScope.parameterizedType();
+                scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
+                        .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
+                        .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())
+                        .setParameterizedType(arrayType).build();
+                method = runtime.newArrayCloneMethod(arrayType);
+                concreteFunctionalType = convertType.convert(mr.type);
+                Type cloneDescriptor = types.findDescriptorType(mr.type);
+                Type.MethodType cloneSam = cloneDescriptor instanceof Type.ForAll forAll
+                        ? (Type.MethodType) forAll.qtype
+                        : (Type.MethodType) cloneDescriptor;
+                concreteReturnType = convertType.convert(cloneSam.getReturnType());
+                concreteParameterTypes = cloneSam.getParameterTypes().stream().map(convertType::convert).toList();
+            } else {
+                method = typeData.getOrLoadMethod(ms);
+                concreteFunctionalType = convertType.convert(mr.type);
+                // a generic SAM ('<T> T sam(...)') yields a ForAll; unwrap to the underlying method type,
+                // same idiom as ClassSymbolScanner.methodType (elasticsearch TransportService)
+                Type descriptorType = types.findDescriptorType(mr.type);
+                Type.MethodType instantiatedSam = descriptorType instanceof Type.ForAll forAll
+                        ? (Type.MethodType) forAll.qtype
+                        : (Type.MethodType) descriptorType;
+                Type returnType = instantiatedSam.getReturnType();
+                List<Type> paramTypes = instantiatedSam.getParameterTypes();
+                // Thrown types: List<Type> thrownTypes = instantiatedSam.getThrownTypes();
+                scope = evaluatedScope;
+                concreteReturnType = convertType.convert(returnType);
+                concreteParameterTypes = paramTypes.stream().map(convertType::convert).toList();
+            }
+        } else throw new UnsupportedOperationException();
+
+        // the referenced method's simple name (the identifier after '::', the last identifier of the whole
+        // 'scope::name' span), so callers can do mr.source().detailedSources().detail(mr.methodInfo().name()) to
+        // locate/rename it, exactly as for a MethodCall. Keyed by method.name() (DetailedSources is identity-keyed
+        // and mr.methodInfo() == method). Skipped for constructor references (X::new has no method-name identifier).
+        if (!method.isConstructor()) {
+            dsb.put(method.name(), lastIdentifierSource(sourceForNode(node), method.name()));
+        }
+        currentExpression = runtime.newMethodReferenceBuilder()
+                .setScope(scope)
+                .setMethod(method)
+                .setConcreteFunctionalType(concreteFunctionalType)
+                .setConcreteParameterTypes(concreteParameterTypes)
+                .setConcreteReturnType(concreteReturnType)
+                .setSource(sourceForNode(node, dsb))
+                .build();
+        return null;
+    }
+
+    /**
+     * Is {@code x.length} an ARRAY length rather than a field read?
+     * <p>
+     * ⛔ <b>THE DECLARED TYPE OF THE SCOPE IS NOT THE QUESTION; THE SUBSTITUTED ONE IS.</b> This used to ask
+     * {@code scope.parameterizedType().arrays() > 0}, which is the type as WRITTEN. For a field inherited from a
+     * generic supertype that is the type VARIABLE: guava's {@code ByteSourceTester extends
+     * SourceSinkTester<ByteSource, byte[], ByteSourceFactory>} reads the inherited {@code protected final T
+     * expected}, so the declared type is {@code T}, {@code arrays()} is 0, and the test failed on an expression
+     * that is plainly an array length.
+     * <p>
+     * ⚠ What made it expensive to read is where it landed. Falling through, {@code getOrLoadField} met javac's
+     * model of {@code .length} — a field of a SYNTHETIC pseudo-class named {@code Array} with no owner — tripped
+     * {@code owner.kind == NIL}, and reported {@code Type Array not found}: a symbol that appears nowhere in the
+     * source, naming neither the field nor the expression that produced it.
+     * <p>
+     * javac has already substituted, so {@code fieldAccess.selected.type} is {@code byte[]} where the declared
+     * type is {@code T} — asking it is both simpler and more correct than substituting again here. The
+     * declared-type test is kept as the fallback for the paths where javac left no attributed type.
+     */
+    private static boolean isArrayLength(JCTree.JCFieldAccess fieldAccess, Expression scope) {
+        Type selectedType = fieldAccess.selected == null ? null : fieldAccess.selected.type;
+        if (selectedType != null) return selectedType instanceof Type.ArrayType;
+        return scope.parameterizedType().arrays() > 0;
+    }
+
+    @Override
+    public Void visitMemberSelect(MemberSelectTree node, Void unused) {
+        try {
+            if (node instanceof JCTree.JCFieldAccess fieldAccess) {
+                // class literal
+                if ("class".equals(fieldAccess.name.toString())) {
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    ParameterizedType classType = convertType.convertTree(fieldAccess, dsb);
+                    ParameterizedType realType = convertType.convertTree(fieldAccess.selected, dsb);
+                    currentExpression = runtime.newClassExpressionBuilder(realType)
+                            .setSource(sourceForNode(node, dsb))
+                            .setClassType(classType).build();
+                    return null;
+                }
+
+                // static field access, no need to generate a TypeExpression
+                if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
+                    currentExpression = null;
+                    scan(fieldAccess.getExpression(), unused);
+                    assert currentExpression != null;
+                    Expression scope = currentExpression;
+                    ParameterizedType concreteType = convertType.convert(fieldAccess.type);
+                    String fieldName = vs.name.toString();
+                    boolean isSuper = false;
+                    Source source = sourceForNode(node);
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    String s = node.toString();
+                    Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
+                    dsb.put(fieldName, sourceName);
+                    if ("length".equals(fieldName) && isArrayLength(fieldAccess, scope)) {
+                        currentExpression = runtime.newArrayLengthBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setSource(source)
+                                .setExpression(scope)
+                                .build();
+                    } else if ("this".equals(fieldName) || (isSuper = "super".equals(fieldName))) {
+                        ParameterizedType explicitType = convertType.convertTree(fieldAccess.selected, dsb);
+                        Variable thisVar = runtime.newThis(explicitType, explicitType.typeInfo(), isSuper);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setVariable(thisVar)
+                                .build();
+                    } else {
+                        FieldInfo fieldInfo = typeData.getOrLoadField(vs);
+                        FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                        dsb.put(fieldInfo, sourceName);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setVariable(fr).build();
+                    }
+                    return null;
+                }
+                if (fieldAccess.sym instanceof Symbol.ClassSymbol) {
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    ParameterizedType type = convertType.convertTree(node, dsb);
+                    currentExpression = runtime.newTypeExpressionBuilder()
+                            .setParameterizedType(type)
+                            .setDiamond(runtime.diamondNo())
+                            .setSource(sourceForNode(node, dsb))
+                            .build();
+                    return null;
+                }
+            }
+            super.visitMemberSelect(node, unused);
+            return null;
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node), e);
+            throw e;
+        }
+    }
+
+    @Override
+    public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+        JCTree.JCMethodInvocation methodInvocation = (JCTree.JCMethodInvocation) node;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+
+        ExpressionTree methodSelect = node.getMethodSelect();
+        Expression object;
+        String methodName;
+        boolean objectIsImplicit;
+        boolean explicitConstructorInvocation;
+        ParameterizedType concreteReturnType;
+        MethodInfo methodInfo;
+
+        // TestLambda,6 and TestAnonymousType,5 show the importance of evaluating arguments before the return type
+        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
+                .map(expr -> convertType.convertTree(expr, dsb))
+                .toList();
+
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            currentExpression = null;
+            scan(arg, p);
+            arguments.add(currentExpression);
+        }
+
+        if (methodSelect instanceof IdentifierTree it) {
+            TypeInfo currentType = typeStack.getLast();
+            methodName = it.getName().toString();
+            if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                methodInfo = typeData.getOrLoadMethod(methodSymbol);
+
+                if ("super".equals(methodName) || "this".equals(methodName)) {
+                    explicitConstructorInvocation = true;
+                    object = null;
+                    concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
+                } else {
+                    if (methodInfo.isStatic()) {
+                        object = runtime.newTypeExpressionBuilder()
+                                .setParameterizedType(methodInfo.typeInfo().asSimpleParameterizedType())
+                                .setDiamond(runtime.diamondNo())
+                                .build();
+                    } else {
+                        // the receiver of an unqualified instance-method call is 'this' of the innermost type,
+                        // in the enclosing-type chain starting at currentType, that can actually invoke the
+                        // method (i.e. that is assignable to the method's declaring type). For an own/inherited
+                        // method that is currentType; for a method from an enclosing type (e.g. an enclosing
+                        // method called inside an anonymous class, possibly several levels up, possibly inherited
+                        // by that enclosing type) it is the matching enclosing instance — otherwise its field
+                        // modifications would be wrongly attributed to the anonymous/inner type.
+                        TypeInfo thisType = enclosingThisForMethod(currentType, methodInfo.typeInfo());
+                        object = runtime.newVariableExpressionBuilder()
+                                .setVariable(runtime.newThis(thisType.asParameterizedType()))
+                                .setSource(runtime.noSource()).build();
+                    }
+                    concreteReturnType = convertType.convert(methodInvocation.type);
+                    explicitConstructorInvocation = false;
+                }
+                objectIsImplicit = true;
+            } else throw new UnsupportedOperationException(unexpected("symbol for unqualified call to '"
+                                                                     + methodName + "' (expected a method symbol)",
+                    it instanceof JCTree.JCIdent ji ? ji.sym : it));
+        } else if (methodSelect instanceof MemberSelectTree mst) {
+            scan(mst.getExpression(), p);
+            object = currentExpression;
+            methodName = mst.getIdentifier().toString();
+            objectIsImplicit = false;
+            concreteReturnType = convertType.convert(methodInvocation.type);
+            explicitConstructorInvocation = false;
+            if ("clone".equals(methodName) && object.parameterizedType().arrays() > 0) {
+                methodInfo = runtime.objectTypeInfo().findUniqueMethod("clone", 0);
+            } else if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess) {
+                if (fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                    methodInfo = typeData.getOrLoadMethod(methodSymbol);
+                } else if (fieldAccess.type instanceof Type.ErrorType) {
+                    throw new UnresolvedSymbolException("Unresolved method call '" + methodName + "'");
+                } else throw new UnsupportedOperationException(unexpected("symbol for qualified call to '"
+                                                                         + methodName + "' (expected a method"
+                                                                         + " symbol)", fieldAccess.sym));
+            } else {
+                throw new UnsupportedOperationException(unexpected("method-select tree for call to '"
+                                                                  + methodName + "'", methodInvocation.meth));
+            }
+        } else throw new UnsupportedOperationException(unexpected("method select", methodSelect));
+
+        Source src = scanSource(node);
+        if (scanResult != null) {
+            dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));
+            dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(src));
+        }
+        if (explicitConstructorInvocation) {
+            boolean isSuper = "super".equals(methodName);
+            boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
+            Source source = isSyntheticSuperCall ? runtime.noSource() : statementSourceForNode(node, dsb);
+            Statement statement = runtime.newExplicitConstructorInvocationBuilder()
+                    .setSynthetic(isSyntheticSuperCall)
+                    .setSource(source)
+                    .setIsSuper(isSuper)
+                    .setMethodInfo(methodInfo)
+                    .setParameterExpressions(arguments)
+                    .build();
+            addStatement(statement);
+            currentExpression = null; // as a marker for ExpressionAsStatement
+        } else {
+            // the method's simple name, e.g. detail("add") for 'list.add(...)'. Keyed by methodInfo.name() (NOT
+            // javac's identifier string): DetailedSources uses an IdentityHashMap, and callers look the entry up
+            // with mc.methodInfo().name(), so the key must be that exact String instance. For an
+            // 'object.method(...)' call the name is the last identifier of the member-select span; for an implicit
+            // call ('method(...)') the method-select identifier is the name itself.
+            Source methodNameSource = methodSelect instanceof MemberSelectTree mstName
+                    ? lastIdentifierSource(sourceForNode(mstName), methodInfo.name())
+                    : sourceForNode(methodSelect);
+            dsb.put(methodInfo.name(), methodNameSource);
+            currentExpression = runtime.newMethodCallBuilder()
+                    .setSource(sourceForNode(node, dsb))
+                    .setObjectIsImplicit(objectIsImplicit)
+                    .setObject(object == null ? runtime.newEmptyExpression() : object)
+                    .setMethodInfo(methodInfo)
+                    .setParameterExpressions(arguments)
+                    .setConcreteReturnType(concreteReturnType)
+                    .setTypeArguments(typeArguments)
+                    .build();
+        }
+        return null;
+    }
+
+    boolean isSyntheticSuperCall(JCTree.JCMethodInvocation call, CompilationUnitTree unit) {
+        // A synthetic super() has no corresponding source token —
+        // verify by checking what's actually in the source at call.pos
+        try {
+            CharSequence source = unit.getSourceFile().getCharContent(false);
+            int pos = call.meth.pos;
+
+            // Check if "super" actually appears at this position in the source
+            if (pos < 0 || pos + 5 > source.length()) return true; // no source = synthetic
+
+            String atPos = source.subSequence(pos, pos + 5).toString();
+            return !(atPos.equals("super") || atPos.startsWith("();"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // new Node[3]
+    // { ... }
+    @Override
+    public Void visitNewArray(NewArrayTree node, Void unused) {
+        JCTree.JCNewArray newArray = (JCTree.JCNewArray) node;
+        List<Expression> dimensions = new ArrayList<>();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType elementType = newArray.elemtype == null ? null : convertType.convertTree(newArray.elemtype, dsb);
+        ArrayInitializer arrayInitializer;
+        if (newArray.getInitializers() != null) {
+            List<Expression> expressions = new ArrayList<>(newArray.getInitializers().size());
+            ParameterizedType commonType = null;
+            for (JCTree.JCExpression e : newArray.getInitializers()) {
+                scan(e, unused);
+                expressions.add(currentExpression);
+                commonType = commonType == null ? currentExpression.parameterizedType()
+                        : runtime.commonType(commonType, currentExpression.parameterizedType());
+            }
+            if (commonType == null) {
+                // empty initializer, e.g. 'int[] x = {};': derive the element type from the array's attributed type
+                // (the common-type fold produced nothing). ArrayInitializer.parameterizedType() adds one array
+                // dimension back, so store the element type here.
+                ParameterizedType arrayType = convertType.convert(newArray.type);
+                commonType = arrayType.copyWithArrays(Math.max(0, arrayType.arrays() - 1));
+            }
+            arrayInitializer = runtime.newArrayInitializerBuilder()
+                    .setSource(sourceForNode(node))
+                    .setCommonType(commonType)
+                    .setExpressions(expressions)
+                    .build();
+            ParameterizedType type = convertType.convert(newArray.type);
+            for (int i = 0; i < type.arrays(); ++i) {
+                dimensions.add(runtime.newEmptyExpression());
+            }
+            if (elementType == null) {
+                currentExpression = arrayInitializer;
+                // see TestArrayInitializer; String[]names = {"a", "b"}
+                return null;
+            } // else see TestTypeParameter; double[] doubles = new double[] { 0.1, 0.2 }
+        } else {
+            for (var dim : newArray.dims) {
+                scan(dim, unused);
+                Expression dimension = currentExpression;
+                dimensions.add(dimension);
+            }
+            arrayInitializer = null;
+        }
+        ParameterizedType concreteReturnType = elementType.copyWithArrays(dimensions.size());
+        MethodInfo constructor = runtime.newArrayCreationConstructor(concreteReturnType);
+        currentExpression = runtime.newConstructorCallBuilder()
+                .setSource(sourceForNode(node, dsb))
+                .setConstructor(constructor)
+                .setConcreteReturnType(concreteReturnType)
+                .setDiamond(runtime.diamondNo())
+                .setParameterExpressions(dimensions)
+                .setArrayInitializer(arrayInitializer)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitNewClass(NewClassTree node, Void unused) {
+        JCTree.JCNewClass newClass = (JCTree.JCNewClass) node;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            currentExpression = null;
+            scan(arg, unused);
+            arguments.add(currentExpression);
+        }
+        Expression object;
+        if (newClass.encl != null) {
+            currentExpression = null;
+            scan(newClass.encl, unused);
+            object = currentExpression;
+        } else {
+            object = null;
+        }
+
+        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
+                .map(expr -> convertType.convertTree(expr, dsb))
+                .toList();
+
+        TypeInfo anonymousType;
+        ParameterizedType concreteReturnType;
+        MethodInfo constructor;
+        Diamond diamond = newClass.clazz instanceof JCTree.JCTypeApply apply
+                ? (apply.arguments.isEmpty() ? runtime.diamondYes() : runtime.diamondShowAll()) : runtime.diamondNo();
+        if (newClass.def != null) {
+            JCTree.JCClassDecl anonBody = newClass.def;
+            if (!anonBody.implementing.isEmpty() || anonBody.extending != null) {
+                JCTree.JCExpression newTypeExpression = anonBody.extending != null
+                        ? anonBody.extending : anonBody.implementing.getFirst();
+                // Register the WRITTEN supertype's source token into dsb, mirroring the non-anonymous branch below
+                // (convertTree(newClass.clazz, dsb)). convert(Type) alone works off the resolved type and never
+                // touches dsb, so an anonymous-class supertype FQN ('new p.Moved(){}') carried no detailed source --
+                // a dependent-side MoveType rewrite then found no token and left the FQN stale (ES carve
+                // StableApiWrappers: interface anon supertypes not retargeted). Keep convert(type) for the precise
+                // (resolved) return type used downstream; convertTree runs purely for its dsb side effect.
+                convertType.convertTree(newTypeExpression, dsb);
+                concreteReturnType = convertType.convert(newTypeExpression.type);
+                constructor = null;
+                TypeInfo enclosingType = typeStack.getLast();
+                anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
+                TypeInfo.Builder builder = anonymousType.builder()
+                        .setTypeNature(runtime.typeNatureClass())
+                        .setAccess(runtime.accessPrivate())
+                        .setEnclosingMethod(currentMethod);
+                if (concreteReturnType.typeInfo().isInterface()) {
+                    builder.setParentClass(runtime.objectParameterizedType())
+                            .addInterfaceImplemented(concreteReturnType);
+                } else {
+                    builder.setParentClass(concreteReturnType);
+                }
+                MethodInfo enclosingMethod = currentMethod;
+                // note that we use the compiler's notation, not ours
+                typeData.put(newClass.def.sym.toString(), anonymousType);
+                currentMethod = null;
+                typeStack.addLast(anonymousType);
+                for (JCTree member : anonBody.defs) {
+                    if (member instanceof JCTree.JCBlock jcBlock) {
+                        // {{ }} extended constructor
+                        MethodInfo c2 = runtime.newConstructor(anonymousType);
+                        c2.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                                .setSource(sourceForNode(node))
+                                .setAccess(runtime.accessPrivate())
+                                .addMethodModifier(runtime.methodModifierPrivate())
+                                .commitParameters();
+                        currentMethod = c2;
+                        Block block = parseBlock("", jcBlock);
+                        currentMethod = null;
+                        c2.builder().setMethodBody(block);
+                        builder.addConstructor(c2);
+                    } else if (!(member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString()))) {
+                        scan(member, unused);
+                    } // else: ignore default constructor
+                }
+                typeStack.removeLast();
+                currentMethod = enclosingMethod;
+                // member types of the anonymous body (e.g. a member record, task #33) are, like local
+                // types, invisible to the end-of-scan commit walk — they are not in the named subtype
+                // tree, and a forward-reference registration bypasses the typeData walk. Default their
+                // fields' initializers and commit, exactly as handleLocalType does.
+                anonymousType.subTypes().stream()
+                        .filter(st -> !st.hasBeenInspected())
+                        .forEach(this::recursivelyCommit);
+                builder.setSource(sourceForNode(node)).commit();
+            } else {
+                throw new UnsupportedOperationException();
+            }
+        } else {
+            concreteReturnType = convertType.convertTree(newClass.clazz, dsb);
+            // for a diamond 'new X<>(...)' the syntactic tree has no type arguments, so convertTree yields a raw
+            // type; javac, however, fully infers them (incl. target-typing) into the resolved type. Use that, so
+            // downstream analysis (linking, virtual fields) sees the real type arguments. We still ran convertTree
+            // above to populate detailed sources for the base type name; the diamond suppresses arg printing.
+            if (diamond == runtime.diamondYes() && newClass.clazz.type instanceof Type.ClassType) {
+                concreteReturnType = convertType.convert(newClass.clazz.type);
+            }
+            anonymousType = null;
+            if (newClass.constructor instanceof Symbol.MethodSymbol ms) {
+                constructor = typeData.getOrLoadMethod(ms);
+            } else {
+                throw new UnresolvedSymbolException(
+                        "Compilation error in " + typeStack.getLast() + "? Cannot resolve " + newClass);
+            }
+        }
+        if (scanResult != null) {
+            Source callSrc = scanSource(node);
+            dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(callSrc));
+            dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(callSrc));
+        }
+        currentExpression = runtime.newConstructorCallBuilder()
+                .setObject(object)
+                .setSource(sourceForNode(node, dsb))
+                .setConstructor(constructor)
+                .setDiamond(diamond)
+                .setConcreteReturnType(concreteReturnType)
+                .setAnonymousClass(anonymousType)
+                .setParameterExpressions(arguments)
+                .setTypeArguments(typeArguments)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitParenthesized(ParenthesizedTree node, Void unused) {
+        Tree parent = getCurrentPath().getParentPath().getLeaf();
+
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+
+        boolean isControlFlowParent = switch (parent.getKind()) {
+            case IF, WHILE_LOOP, DO_WHILE_LOOP, FOR_LOOP, ENHANCED_FOR_LOOP,
+                 SWITCH, SWITCH_EXPRESSION, SYNCHRONIZED -> true;
+            default -> false;
+        };
+        if (!isControlFlowParent) {
+            currentExpression = runtime.newEnclosedExpressionBuilder()
+                    .setSource(sourceForNode(node))
+                    .setExpression(expression)
+                    .build();
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitSwitchExpression(SwitchExpressionTree node, Void unused) {
+        JCTree.JCSwitchExpression se = (JCTree.JCSwitchExpression) node;
+        currentExpression = null;
+        scan(se.getExpression(), unused);
+        Expression selector = currentExpression;
+        List<SwitchEntry> switchEntries = doSwitchEntries(unused, se.cases);
+        currentExpression = runtime.newSwitchExpressionBuilder()
+                .setSelector(selector)
+                .setSource(sourceForNode(node))
+                .setParameterizedType(convertType.convert(se.type))
+                .addSwitchEntries(switchEntries)
+                .build();
+        return null;
+    }
+
+    private @NotNull List<SwitchEntry> doSwitchEntries(Void unused, List<JCTree.JCCase> cases) {
+        List<SwitchEntry> switchEntries = new ArrayList<>();
+        int i = 0;
+        int n = cases.size();
+        for (JCTree.JCCase jcCase : cases) {
+            List<Expression> conditions = new ArrayList<>();
+            RecordPatternResult recordPatternResult = null;
+            for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
+                switch (caseLabel) {
+                    case JCTree.JCConstantCaseLabel ccl -> {
+                        scan(ccl.getConstantExpression(), unused);
+                        Expression constantExpression = currentExpression;
+                        conditions.add(constantExpression);
+                    }
+                    case JCTree.JCDefaultCaseLabel _ -> conditions.add(runtime.newEmptyExpression());
+                    case JCTree.JCPatternCaseLabel pcl -> {
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                        List<AnnotationExpression> annotations = new ArrayList<>();
+                        RecordPatternResult rpr = parseRecordPattern(pcl.getPattern(), dsb, annotations);
+                        if (recordPatternResult == null) {
+                            recordPatternResult = rpr;
+                        }
+                        // else: a case with several patterns, e.g. 'case BaseTypeSig _, TypeVarSig _ ->' (JEP 456).
+                        // Java permits this only when none of them declares a (named) pattern variable (JLS
+                        // 14.11.1), so the arm body cannot reference a binding. The switch-entry model carries a
+                        // single pattern, so keep the first and ignore the binding-free alternatives.
+                    }
+                    case null, default ->
+                            throw new UnsupportedOperationException(unexpected("case label", caseLabel));
+                }
+            }
+            LocalVariable[] newVariablesArray = recordPatternResult == null
+                    ? new LocalVariable[0] : recordPatternResult.newVariables.toArray(LocalVariable[]::new);
+            boolean haveExtraVariables = newVariablesArray.length > 0;
+
+            /*
+            ⛔ ONE SCOPE SPANS THE GUARD AND THE BODY, because Java's flow scoping does.
+
+            In `case IntBlock ei when actual instanceof IntBlock ai -> ... ai ...` the guard introduces a
+            pattern variable of its own, and JLS 6.3.1 keeps it in scope in the arm body whenever the guard
+            is true. The previous code pushed a scope for the guard and POPPED IT before parsing the body, so
+            `ai` was created and immediately discarded: resolving it in the body threw
+            `UnsupportedOperationException: Cannot find element 'ai' on stack`, which aborts the compilation
+            unit -- and one aborted unit refuses the whole ParseResult.
+
+            The failure needed BOTH bindings to bite: with no pattern variable on the label, no scope was
+            pushed, so the guard's variable leaked into the ENCLOSING block instead and happened to resolve.
+            That leak is the same bug seen from the other side (a `case` binding outliving its arm), and one
+            arm-scoped push fixes both. Found in Elasticsearch,
+            x-pack/plugin/esql-datasource-parquet/.../PageColumnReaderCorrectnessTests.java:558.
+             */
+            boolean pushedForArm = haveExtraVariables || jcCase.getGuard() != null;
+            if (pushedForArm) {
+                Map<String, Element> map = elementStack.push();
+                if (haveExtraVariables) {
+                    recordPatternResult.newVariables.forEach(lv -> map.put(lv.simpleName(), lv));
+                }
+            }
+
+            Expression whenExpression;
+            if (jcCase.getGuard() != null) {
+                scan(jcCase.getGuard(), unused);
+                whenExpression = currentExpression;
+            } else {
+                whenExpression = runtime.newEmptyExpression();
+            }
+
+            Statement statement;
+            String index = StringUtil.pad(i, n);
+            if (jcCase.getBody() instanceof JCTree.JCBlock block) {
+                // parseBlock indexes the block with statementIndex() (the switch's own index); here that is wrong,
+                // the arm block sits at the entry index 'switchIndex.entry' (e.g. 1.1, matching the inner 1.1.0)
+                Block parsedBlock = parseBlock(index, block, newVariablesArray);
+                statement = parsedBlock.withSource(parsedBlock.source().withIndex(statementIndex() + "." + index));
+            } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
+                // the arm scope pushed above already holds the label's pattern variables AND any the guard
+                // introduced, so this branch needs no scope of its own
+                scan(e, unused);
+                Expression expression = currentExpression;
+                statement = runtime.newExpressionAsStatementBuilder()
+                        .setSource(sourceForNode(e).withIndex(statementIndex() + "." + index + ".0"))
+                        .setExpression(expression).build();
+            } else {
+                Block block = parseBlock(index, jcCase.body, newVariablesArray);
+                if (jcCase.body instanceof JCTree.JCBlock || block.isEmpty()) {
+                    statement = block;
+                } else {
+                    statement = block.statements().getFirst();
+                }
+            }
+            if (pushedForArm) {
+                elementStack.pop();
+            }
+
+            Source source = sourceForNode(jcCase);
+            SwitchEntry switchEntry = runtime.newSwitchEntryBuilder()
+                    .setSource(sourceForNode(jcCase))
+                    .addComments(commentsForNode(source))
+                    .addConditions(conditions)
+                    .setStatement(statement)
+                    .setWhenExpression(whenExpression)
+                    .setPatternVariable(recordPatternResult == null ? null : recordPatternResult.rp)
+                    .build();
+            switchEntries.add(switchEntry);
+            ++i;
+        }
+        return switchEntries;
+    }
+
+    @Override
+    public Void visitUnary(UnaryTree node, Void unused) {
+        JCTree.JCUnary unary = (JCTree.JCUnary) node;
+        scan(unary.getExpression(), unused);
+        Expression expression = currentExpression;
+        JCTree.Tag opcode = unary.getTag();
+        MethodInfo operator;
+        boolean assign;
+        switch (opcode) {
+            case BITXOR -> {
+                operator = runtime.bitwiseXorOperatorInt();
+                assign = false;
+            }
+            case COMPL -> {
+                operator = runtime.bitWiseNotOperatorInt();
+                assign = false;
+            }
+            case NEG -> {
+                operator = runtime.unaryMinusOperatorInt();
+                assign = false;
+            }
+            case NOT -> {
+                operator = runtime.logicalNotOperatorBool();
+                assign = false;
+            }
+            case POS -> {
+                operator = runtime.unaryPlusOperatorInt();
+                assign = false;
+            }
+            case POSTINC, PREINC -> {
+                assign = true;
+                operator = runtime.assignPlusOperatorInt();
+            }
+            case POSTDEC, PREDEC -> {
+                operator = runtime.assignMinusOperatorInt();
+                assign = true;
+            }
+            default -> throw new UnsupportedOperationException();
+        }
+        if (assign) {
+            boolean isPlus = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.POSTINC;
+            boolean isPrefix = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.PREDEC;
+            currentExpression = runtime.newAssignmentBuilder().setAssignmentOperator(operator)
+                    .setPrefixPrimitiveOperator(isPrefix)
+                    .setAssignmentOperatorIsPlus(isPlus)
+                    .setBinaryOperator(isPlus ? runtime.plusOperatorInt() : runtime.minusOperatorInt())
+                    .setTarget(asAssignmentTarget(expression))
+                    .setValue(runtime.intOne(runtime.noSource()))
+                    .setSource(sourceForNode(node))
+                    .build();
+        } else {
+            Precedence precedence = runtime.precedenceUnary();
+            currentExpression = runtime.newUnaryOperator(List.of(), sourceForNode(node), operator, expression, precedence);
+        }
+        return null;
+    }
+
+    // -- HELPERS ------------------
+
+    // the source of the trailing identifier of a span (e.g. 'add' in 'list.add'): same end as the span, beginning
+    // 'identifier.length()' characters before the (inclusive) end, on the end line
+    private Source lastIdentifierSource(Source span, String identifier) {
+        return runtime.newParserSource(span.index(), span.endLine(),
+                span.endPos() - identifier.length() + 1, span.endLine(), span.endPos());
+    }
+
+    private Source sourceOfIdentifier(String identifier, int pos) {
+        long line = lineMap.getLineNumber(pos);
+        long begin = getExactColumn(pos, line);
+        return runtime.newParserSource("-", (int) line, (int) begin, (int) line,
+                (int) (begin + identifier.length() - 1));
+    }
+
+    private Source sourceForNode(Tree node, DetailedSources.Builder dsb) {
+        return sourceForNode(node).withDetailedSources(dsb.build());
+    }
+
+    @Override
+    public Source sourceForNode(Tree node) {
+        return sourceForNode(node, "-");
+    }
+
+    @Override
+    public List<Source> typeArgumentCommas(Source typeSource) {
+        return scanResult == null ? null
+                : scanResult.findCommaList(typeSource, DetailedSources.TYPE_ARGUMENT_COMMAS);
+    }
+
+    private Source statementSourceForNode(Tree node) {
+        return sourceForNode(node, statementIndex());
+    }
+
+    private Source statementSourceForNode(Tree node, DetailedSources.Builder dsb) {
+        return sourceForNode(node, statementIndex()).withDetailedSources(dsb.build());
+    }
+
+    private Source scanSource(Tree tree) {
+        return sourceForNode(tree, "");
+    }
+
+    private Source sourceForNode(String index, long startPos, long endPos) {
+        if (startPos == Diagnostic.NOPOS) {
+            return runtime.noSource(); // synthetic
+        }
+        long startLine = lineMap.getLineNumber(startPos);
+        long startCol = getExactColumn(startPos, startLine);
+        long endLine;
+        long endCol;
+        if (endPos == Diagnostic.NOPOS) {
+            // quirk in javac, super() call only at the moment
+            endLine = startLine;
+            endCol = startCol + 4;
+        } else {
+            endLine = lineMap.getLineNumber(endPos);
+            endCol = getExactColumn(endPos, endLine) - 1; // we work inclusively
+        }
+        return runtime.newParserSource(index, (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+    }
+
+    private Source sourceForNode(Tree node, String index) {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
+        if (startPos == 0 && endPos == 0) return runtime.noSource(); // empty source file, for example
+        return sourceForNode(index, startPos, endPos);
+    }
+
+    private List<Comment> commentsForNode(Source source) {
+        return scanResult == null ? List.of() : scanResult.findComments(source);
+    }
+
+    private List<Comment> trailingCommentsForNode(Source source) {
+        return scanResult == null ? List.of() : scanResult.findTrailingComments(source);
+    }
+
+    private Source extendSource(Source base, String all, String sub) {
+        int startInAll = base.endPos() - base.beginPos() + 2;
+        int startSub = all.indexOf(sub, startInAll);
+        if (startSub < 0) {
+            assert all.endsWith(sub);
+            return base;
+        }
+        String inBetween = all.substring(startInAll, startSub);
+        int endLine = base.endLine();
+        int endPos = base.endPos();
+        for (char c : inBetween.toCharArray()) {
+            if (c == ' ') endPos++;
+            if (c == '\n') {
+                endLine++;
+                endPos = 1;
+            }
+        }
+        endPos += 1 + sub.length();
+        return runtime.newParserSource(base.index(), base.beginLine(), base.beginPos(), endLine, endPos);
+    }
+
+    // use this instead of lineMap.getColumnNumber(offset), which uses 8 spaces for a TAB
+    // we want to see a single character.
+    private int getExactColumn(long startOffset, long lineNumber) {
+        if (startOffset == javax.tools.Diagnostic.NOPOS) return -1;
+        // 1. Find the character offset where this specific line starts
+        long lineStartOffset = lineMap.getStartPosition(lineNumber);
+        // 2. The true character column is simply the absolute offset minus the line's start offset
+        // Adding 1 makes it 1-indexed to match standard compiler behavior
+        return (int) (startOffset - lineStartOffset) + 1;
+    }
+}

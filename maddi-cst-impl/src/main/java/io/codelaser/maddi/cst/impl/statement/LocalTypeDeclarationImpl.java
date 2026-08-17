@@ -1,0 +1,128 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class LocalTypeDeclarationImpl extends StatementImpl implements LocalTypeDeclaration {
+    private final TypeInfo typeInfo;
+
+    public LocalTypeDeclarationImpl(List<Comment> comments, Source source, List<AnnotationExpression> annotations,
+                                    String label, TypeInfo typeInfo) {
+        super(comments, source, annotations, 100, label);
+        this.typeInfo = typeInfo;
+    }
+
+    public static class Builder extends StatementImpl.Builder<LocalTypeDeclaration.Builder>
+            implements LocalTypeDeclaration.Builder {
+        private TypeInfo typeInfo;
+
+        @Override
+        public Builder setTypeInfo(TypeInfo typeInfo) {
+            this.typeInfo = typeInfo;
+            return this;
+        }
+
+        @Override
+        public LocalTypeDeclaration build() {
+            return new LocalTypeDeclarationImpl(comments, source, annotations, label, typeInfo);
+        }
+    }
+
+    @Override
+    public TypeInfo typeInfo() {
+        return typeInfo;
+    }
+
+    @Override
+    public boolean hasSubBlocks() {
+        return false;
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        return this;
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (hasBeenTranslated(direct, this)) return direct;
+        List<TypeInfo> translated = typeInfo.translate(translationMap);
+        List<Statement> result = translated.stream().map(tt -> tt == typeInfo ? this :
+                        (Statement) new LocalTypeDeclarationImpl(comments(), source(), annotations(), label(), tt))
+                .toList();
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new LocalTypeDeclarationImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+                infoMap.typeInfoRecurseAllPhases(typeInfo));
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        predicate.test(this);
+        // following anonymous class, we're not going deeper
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        visitor.beforeStatement(this);
+        visitor.afterStatement(this);
+        // following anonymous class, we're not going deeper here
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return typeInfo.print(qualification, true);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.empty(); // see anonymous class in ConstructorCallImpl
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return typeInfo.typesReferenced(predicate);
+    }
+
+    @Override
+    public LocalTypeDeclaration withSource(Source newSource) {
+        return new LocalTypeDeclarationImpl(comments(), newSource, annotations(), label(), typeInfo);
+    }
+}

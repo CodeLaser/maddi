@@ -10,19 +10,19 @@ Every test that runs a real analysis fails during JDK preload:
 
 ```
 java.lang.AssertionError: Type nature of jdk.internal.vm.ThreadContainer has not been set
-	at org.e2immu.language.cst.impl.info.TypeInfoImpl.isInterface(TypeInfoImpl.java:329)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.addMethodToType(ClassSymbolScanner.java:743)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.ensureMethod(ClassSymbolScanner.java:874)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.getOrLoadMethod(ClassSymbolScanner.java:1419)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.addMethodToType(ClassSymbolScanner.java:819)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.addMemberToType(ClassSymbolScanner.java:606)
-	at org.e2immu.language.java.openjdk.ClassSymbolScanner.loadType(ClassSymbolScanner.java:356)
-	at org.e2immu.language.java.openjdk.ScanCompilationUnits.preload(ScanCompilationUnits.java:454)
-	at org.e2immu.language.java.openjdk.ScanCompilationUnits.preloadJdk(ScanCompilationUnits.java:428)
-	at org.e2immu.language.java.openjdk.ScanCompilationUnits.scan(ScanCompilationUnits.java:151)
-	at org.e2immu.language.inspection.openjdk.JavaInspectorImpl.singleSourceSet(JavaInspectorImpl.java:474)
+	at io.codelaser.maddi.cst.impl.info.TypeInfoImpl.isInterface(TypeInfoImpl.java:329)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.addMethodToType(ClassSymbolScanner.java:743)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.ensureMethod(ClassSymbolScanner.java:874)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.getOrLoadMethod(ClassSymbolScanner.java:1419)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.addMethodToType(ClassSymbolScanner.java:819)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.addMemberToType(ClassSymbolScanner.java:606)
+	at io.codelaser.maddi.java.openjdk.ClassSymbolScanner.loadType(ClassSymbolScanner.java:356)
+	at io.codelaser.maddi.java.openjdk.ScanCompilationUnits.preload(ScanCompilationUnits.java:454)
+	at io.codelaser.maddi.java.openjdk.ScanCompilationUnits.preloadJdk(ScanCompilationUnits.java:428)
+	at io.codelaser.maddi.java.openjdk.ScanCompilationUnits.scan(ScanCompilationUnits.java:151)
+	at io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl.singleSourceSet(JavaInspectorImpl.java:474)
 	...
-	at org.e2immu.analyzer.ide.daemon.WarmAnalysisService.analyze(WarmAnalysisService.java:64)
+	at io.codelaser.maddi.ide.daemon.WarmAnalysisService.analyze(WarmAnalysisService.java:64)
 ```
 
 It is `preloadJdk`, i.e. loading platform types — not anything about the analysed sources. `ThreadContainer` is

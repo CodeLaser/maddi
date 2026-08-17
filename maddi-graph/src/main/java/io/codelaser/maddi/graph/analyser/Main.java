@@ -1,0 +1,101 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.graph.analyzer;
+
+import io.codelaser.maddi.graph.*;
+import io.codelaser.maddi.graph.op.BreakCycles;
+import io.codelaser.maddi.graph.op.GreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.ParallelGreedyEdgeRemoval;
+import io.codelaser.maddi.graph.op.RemoveEdgesByVertexWeight;
+import io.codelaser.maddi.graph.util.TimedLogger;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+public class Main {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    public static final String CLASSPATH = "classpath:";
+
+    public static final String SEQUENTIAL = "sequential";
+    public static final String PARALLEL = "parallel";
+    public static final String VERTEX_WEIGHT = "vertexWeight";
+
+    public static void main(String[] args) throws IOException {
+        new Main().go(args);
+    }
+
+    public BreakCycles.Linearization<TypeGraphIO.Node> go(String[] args) throws IOException {
+        String gmlFileName = args[0];
+        try (InputStream inputStream = makeInputStream(gmlFileName)) {
+            String method = args.length > 1 ? args[1] : SEQUENTIAL;
+            return test(inputStream, method);
+        }
+    }
+
+    private InputStream makeInputStream(String location) throws IOException {
+        if (location.startsWith(CLASSPATH)) {
+            String classPathLocation = location.substring(CLASSPATH.length());
+            return Objects.requireNonNull(
+                    this.getClass().getClassLoader().getResourceAsStream(classPathLocation),
+                    "Cannot read from classpath: " + classPathLocation);
+        }
+        return new FileInputStream(location);
+    }
+
+    private static BreakCycles.Linearization<TypeGraphIO.Node> test(InputStream inputStream,
+                                                                    String method) throws IOException {
+        Graph<TypeGraphIO.Node, DefaultWeightedEdge> graph = TypeGraphIO.createPackageGraph();
+        TypeGraphIO.importGraph(inputStream, graph);
+        Map<TypeGraphIO.Node, Map<TypeGraphIO.Node, Long>> map = TypeGraphIO.convertGraphToMap(graph);
+        G<TypeGraphIO.Node> g = ImmutableGraph.create(map);
+        LOGGER.info("Have graph of {} nodes, {} edges", g.vertices().size(), g.edgeStream().count());
+
+        BreakCycles.ActionComputer<TypeGraphIO.Node> actionComputer;
+        if (VERTEX_WEIGHT.equals(method)) {
+            LOGGER.info("Minimal vertex weight edge removal algorithm");
+            Map<V<TypeGraphIO.Node>, Long> vertexWeights = g.incomingVertexWeight(PackedInt::longSum);
+            actionComputer = new RemoveEdgesByVertexWeight<>(vertexWeights);
+        } else {
+            EdgePrinter<TypeGraphIO.Node> edgePrinter = m -> m == null ? "[]"
+                    : m.entrySet().stream().map(e ->
+                            e.getKey() + "->" + e.getValue().entrySet().stream()
+                                    .map(e2 -> e2.getKey() + ":"
+                                               + PackedInt.nice((int) (long) e2.getValue())).collect(Collectors.joining(",")))
+                    .collect(Collectors.joining(";"));
+            long limit = PackedInt.FIELD.of(1);
+            EdgeIterator<TypeGraphIO.Node> edgeIterator = gg ->
+                    BreakCycles.edgeIterator2(gg, Long::compareTo, limit, PackedInt::longSum);
+            TimedLogger timedLogger = new TimedLogger(LOGGER, 1000L);
+            if (PARALLEL.equalsIgnoreCase(method)) {
+                actionComputer = new ParallelGreedyEdgeRemoval<>(edgePrinter, edgeIterator, timedLogger);
+                LOGGER.info("Parallel greedy edge removal algorithm");
+            } else {
+                LOGGER.info("Sequential greedy edge removal algorithm");
+                actionComputer = new GreedyEdgeRemoval<>(edgePrinter, edgeIterator, timedLogger);
+            }
+        }
+        BreakCycles<TypeGraphIO.Node> bc = new BreakCycles<>(actionComputer);
+        return bc.go(g);
+    }
+
+}

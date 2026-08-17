@@ -45,7 +45,7 @@ re-derives the survivor set and diffs.
   line, sorted — the survivor set of the composed run (254 entries as of `54b895ab`). Generate with
   `grep -E '^type .*eventual=@' <fpdump> | awk '{print $NF}' | sort`.
 - **Allowlist** `dogfood/eventual-survivor-wobble.txt` for the known boundary nondeterminism.
-  Current members: `org.e2immu.language.cst.api.info.ImportComputer.ImportDetails` (flips in/out
+  Current members: `io.codelaser.maddi.cst.api.info.ImportComputer.ImportDetails` (flips in/out
   run-to-run; the verification-residue boundary — same family as the historical
   `CompilationUnitPrinterImpl` wobble). A type on the allowlist may be present or absent without
   failing the ratchet.
@@ -83,12 +83,12 @@ time with a one-line diagnosis.
 **Where.** As built: `maddi-inspection-openjdk/src/test/java/...` (`TestEventualConformance`), NOT
 cst-impl — rules 3 and 4 need method bodies, so they need maddi's own `JavaInspector`, which cst-impl's
 test source set does not have. The paragraph below assumed reflection would do; it will not. First check the retention
-of `org.e2immu.annotation.rare.IgnoreModifications`: if `RUNTIME`, plain reflection over the
+of `io.codelaser.maddi.annotation.rare.IgnoreModifications`: if `RUNTIME`, plain reflection over the
 production classes is enough (walk the jar/classes dir, `Class.getDeclaredFields()`); if only
 `CLASS`, reuse the byte-code route maddi already has (the inspector reads these annotations from
 jars — the maddi-support classes prove it). Reflection is preferred for simplicity.
 
-**Scope.** All production types in `org.e2immu.language.cst.impl.*`, excluding nested `Builder`
+**Scope.** All production types in `io.codelaser.maddi.cst.impl.*`, excluding nested `Builder`
 types (setter-bearing by design, the before-state face) and test fixtures.
 
 **The four rules.**
@@ -119,7 +119,7 @@ justification), so a deliberate exception is visible in review rather than silen
 
 **Extension (cheap, recommended):** the same test class asserts that every public static method in
 `maddi-util` carries `@NotModified`/`@Independent` contracts on parameters/return where the
-parameters are mutable types — the `ZipLists.zip` gap. Scope it to `org.e2immu.util.internal.util`.
+parameters are mutable types — the `ZipLists.zip` gap. Scope it to `io.codelaser.maddi.util`.
 
 ## 3. New support types (maddi-support)
 
@@ -130,7 +130,7 @@ parameters are mutable types — the `ZipLists.zip` gap. Scope it to `org.e2immu
 The idempotent lazy cache (`cachedFqn`, `cachedHash`, `hash`) as a first-class support type:
 
 ```java
-// org.e2immu.support.Memo — annotate the CLASS with @IgnoreModifications (see engine note)
+// io.codelaser.maddi.support.Memo — annotate the CLASS with @IgnoreModifications (see engine note)
 public final class Memo<T> {
     private volatile T value;                      // idempotent slot: any two writers write equal values
     public T get(Supplier<? extends T> compute);   // return cached or compute-and-cache

@@ -1,0 +1,126 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.inspection.integration;
+
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestPreloadJavaBase {
+
+    @Test
+    public void testPreload() throws IOException {
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        javaInspector.initialize(inputConfiguration);
+        javaInspector.javaBase().computePriorityDependencies();
+
+        // NOTE: this may be very dependent on the current JDK and pre-loading settings.
+
+        TypeInfo consumer = javaInspector.compiledTypesManager().typeIfLoaded(Consumer.class);
+        assertNotNull(consumer);
+        assertTrue(consumer.hasBeenInspected());
+
+        TypeInfo iterable = javaInspector.compiledTypesManager().typeIfLoaded(Iterable.class);
+        assertNotNull(iterable);
+        assertTrue(iterable.hasBeenInspected());
+        MethodInfo iterator = iterable.singleAbstractMethod();
+        assertEquals("java.lang.Iterable.iterator()", iterator.fullyQualifiedName());
+        MethodInfo forEach = iterable.findUniqueMethod("forEach", 1);
+        ParameterInfo forEach0 = forEach.parameters().getFirst();
+        assertSame(consumer, forEach0.parameterizedType().typeInfo());
+
+        TypeInfo biConsumer = javaInspector.compiledTypesManager().typeIfLoaded(BiConsumer.class);
+        assertNotNull(biConsumer);
+        assertTrue(biConsumer.hasBeenInspected());
+        
+        TypeInfo list = javaInspector.compiledTypesManager().typeIfLoaded(List.class);
+        assertNotNull(list);
+        assertTrue(list.hasBeenInspected());
+
+        TypeInfo map = javaInspector.compiledTypesManager().typeIfLoaded(Map.class);
+        assertNotNull(map);
+        //in re-implementation end of September 2025
+        TypeInfo entry = map.findSubType("Entry");
+        assertTrue(entry.hasBeenInspected());
+        assertFalse(entry.haveOnDemandInspection());
+
+        TypeInfo string = javaInspector.compiledTypesManager().typeIfLoaded(String.class);
+        assertFalse(string.isExtensible());
+
+        TypeInfo asb = javaInspector.compiledTypesManager().typeIfLoaded("java.lang.AbstractStringBuilder", null);
+        assertFalse(asb.isPublic());
+
+        TypeInfo comparable = javaInspector.compiledTypesManager().typeIfLoaded(Comparable.class);
+        MethodInfo compareTo = comparable.findUniqueMethod("compareTo", 1);
+        assertTrue(compareTo.isAbstract());
+        assertTrue(compareTo.isPublic());
+    }
+
+    @Test
+    public void testPreloadJavaUtilStream() throws IOException {
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        javaInspector.initialize(inputConfiguration);
+        javaInspector.preload("java.util.stream");
+
+        TypeInfo spinedBuffer = javaInspector.compiledTypesManager().typeIfLoaded("java.util.stream.SpinedBuffer",
+                null);
+        assertNotNull(spinedBuffer);
+        assertFalse(spinedBuffer.isPublic());
+        TypeInfo ofPrimitive = spinedBuffer.findSubType("OfPrimitive");
+        TypeParameter ofPrimitive0 = ofPrimitive.typeParameters().getFirst();
+        TypeInfo baseSpliterator = ofPrimitive.findSubType("BaseSpliterator");
+        TypeParameter tp0 = baseSpliterator.typeParameters().getFirst();
+        assertEquals("T_SPLITR=TP#0 in BaseSpliterator", tp0.toString());
+        assertEquals("Type java.util.Spliterator.OfPrimitive<E,T_CONS,T_SPLITR extends java.util.Spliterator.OfPrimitive<E,T_CONS,T_SPLITR>>",
+                tp0.typeBounds().getFirst().toString());
+        // check that the E in the type bound is indeed the E of OfPrimitive
+        assertEquals(ofPrimitive0, tp0.typeBounds().getFirst().parameters().getFirst().typeParameter());
+    }
+
+    @Test
+    public void testPreloadJavaNet() throws IOException {
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        javaInspector.initialize(inputConfiguration);
+        javaInspector.preload("java.net.http");
+        TypeInfo httpResponse = javaInspector.compiledTypesManager().typeIfLoaded("java.net.http.HttpResponse",
+                null);
+        assertNotNull(httpResponse);
+        TypeInfo bodyHandler = javaInspector.compiledTypesManager().typeIfLoaded("java.net.http.HttpResponse.BodyHandler",
+                null);
+        assertNotNull(bodyHandler);
+    }
+}

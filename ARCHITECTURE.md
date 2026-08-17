@@ -53,9 +53,9 @@ Dependencies point strictly downward. Layer by layer, bottom up:
 | Module | Purpose | Start reading |
 |---|---|---|
 | `platform` | Gradle `java-platform` BOM; single source of external dependency versions. | `platform/build.gradle.kts` |
-| `maddi-support` | The published annotations (`@Immutable`, `@Container`, `@Modified`, …) plus "eventually final" support classes (`SetOnce`, `Freezable`). The only library a user's own code compiles against (Java 17; on Maven Central as `io.codelaser:maddi-support`). | `org.e2immu.annotation.Immutable`, `org.e2immu.support.SetOnce` |
-| `maddi-util` | Small utilities (Trie, string/list helpers, get/set name derivation). | `org.e2immu.util.internal.util.Trie` |
-| `maddi-graph` | Graph layer over JGraphT: dependency graphs, SCCs, cycle breaking. | `org.e2immu.util.internal.graph.G`, packages `graph/op`, `graph/analyser` |
+| `maddi-support` | The published annotations (`@Immutable`, `@Container`, `@Modified`, …) plus "eventually final" support classes (`SetOnce`, `Freezable`). The only library a user's own code compiles against (Java 17; on Maven Central as `io.codelaser:maddi-support`). | `io.codelaser.maddi.annotation.Immutable`, `io.codelaser.maddi.support.SetOnce` |
+| `maddi-util` | Small utilities (Trie, string/list helpers, get/set name derivation). | `io.codelaser.maddi.util.Trie` |
+| `maddi-graph` | Graph layer over JGraphT: dependency graphs, SCCs, cycle breaking. | `io.codelaser.maddi.graph.G`, packages `graph/op`, `graph/analyzer` |
 
 ### CST — the Common Syntax Tree
 
@@ -137,7 +137,7 @@ metrics until it was found.
 | `maddi-run-kotlin` | CLI for mixed Java+Kotlin projects (`bin/maddi-kotlin`); how Kotlin support ships (the K2 jars are not on Maven Central, they ride along in `lib/`). |
 | `maddi-run-main` | CLI on the hand-written-parser front end. |
 | `maddi-run-rewire` | Small driver for incremental/partial re-analysis (rewiring), inspector-implementation-agnostic. |
-| `maddi-gradleplugin` | Gradle plugin (`org.e2immu.analyzer-plugin`); shades the whole Java analyzer stack so it is self-contained. |
+| `maddi-gradleplugin` | Gradle plugin (`io.codelaser.maddi.analyzer`); shades the whole Java analyzer stack so it is self-contained. |
 | `maddi-mvnplugin` | Maven plugin, same shading approach; hand-maintained `plugin.xml`. |
 | `maddi-ide-daemon` | Out-of-process analysis daemon (NDJSON over a loopback socket) that all IDE front ends launch and query. |
 | `maddi-ide-client` | IDE-agnostic daemon client + DTOs; plain JDK + Jackson, Java 21, published to Maven local for the Eclipse build. |

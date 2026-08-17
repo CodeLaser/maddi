@@ -40,13 +40,13 @@ ERROR IteratingAnalyzerImpl -- Certification reached with 78 refused downgrade a
   optimistic values survive the fixpoint (see PLAN-modification-reachability):
   {immutableType=2, independentMethod=1, independentType=22, methodLinks=15, unmodifiedParameter=7,
    unmodifiedVariable=31}
-INFO  IteratingAnalyzerImpl -- Verification-pass residue (587 elements): org.e2immu.language.cst.api
+INFO  IteratingAnalyzerImpl -- Verification-pass residue (587 elements): io.codelaser.maddi.cst.api
   .analysis.Codec, Codec.Context, Codec.DI, Codec.DecoderException, ... CompilationUnit.Builder,
   Element.$0, Element.$1, Element.$2, ...
 INFO  IteratingAnalyzerImpl -- Verification-pass residue (2 elements): ParameterizedTypeImpl.$9, ...
 ```
 
-plus the historical note in `dogfood/README.md`: exit code 5 = `ANALYSER_ERROR` ("cycle protection trips on
+plus the historical note in `dogfood/README.md`: exit code 5 = `ANALYZER_ERROR` ("cycle protection trips on
 a few of the printer methods; the analysis results are still written").
 
 Quantified consequence in the FPDUMP (`FPDUMP=<file>` on the run): `grep -c "^method nonModifying=null"`
@@ -97,7 +97,7 @@ Part B handoff §8.2.
   contraction line (base value **36 retracted**).
 
 ```
-AAPI=$PWD/maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles
+AAPI=$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles
 EVENTUALCLUSTER=1 EC_RETRACT_DEBUG=1 FPDUMP=/tmp/fp.txt ./gradlew :maddi-run-openjdk:run --args="\
   --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
   --preload-analysis-results-dirs $AAPI/jdk,$AAPI/libs/test,$AAPI/libs/log \

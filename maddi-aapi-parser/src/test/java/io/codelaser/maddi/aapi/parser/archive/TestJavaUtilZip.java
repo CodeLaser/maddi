@@ -1,0 +1,44 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.aapi.parser.archive;
+
+import io.codelaser.maddi.aapi.parser.CommonTest;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import org.junit.jupiter.api.Test;
+
+import java.util.zip.ZipOutputStream;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestJavaUtilZip extends CommonTest {
+
+    @Test
+    public void testZipOutputStreamClose() {
+        TypeInfo typeInfo = compiledTypesManager().type(ZipOutputStream.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("close", 0);
+
+        // must be "false" when the class is not present in the AAPI, and true otherwise
+        // if not present, then the shallow analyzer is never run, so we don't even have a value
+        assertTrue(methodInfo.isModifying());
+    }
+
+    @Test
+    public void testZipOutputStreamPutNextEntry() {
+        TypeInfo typeInfo = compiledTypesManager().type(ZipOutputStream.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("putNextEntry", 1);
+        assertTrue(methodInfo.isModifying());
+    }
+}

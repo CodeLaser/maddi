@@ -1,0 +1,132 @@
+package io.codelaser.maddi.run.mvnplugin;
+
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.DependencyResolutionException;
+import io.codelaser.maddi.aapi.parser.AnalysisHintsComposer;
+import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * Generate first-cut analysis-hint ({@code .java}) skeletons for the library types the project's sources call into
+ * (use case 3), annotated with call-frequency comments. Uses {@link AnalysisHintsComposer} (the former
+ * {@code Composer}). Runs on the in-house parser via {@link #parseSources()}, so no {@code --add-exports} is needed.
+ */
+@Mojo(name = WriteAnalysisHintsMojo.WRITE_HINTS_GOAL, defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
+        requiresDependencyResolution = ResolutionScope.TEST)
+public class WriteAnalysisHintsMojo extends CommonMojo {
+    public static final String WRITE_HINTS_GOAL = "write-analysis-hints";
+
+    @Parameter(property = "outputDirectory", defaultValue = "${project.build.directory}/annotatedAPI")
+    private File outputDirectory;
+
+    // not part of the output directory
+    @Parameter(property = "packagePrefix", defaultValue = "")
+    private String packagePrefix;
+
+    @Override
+    public void execute() throws MojoExecutionException {
+        try {
+            if (outputDirectory.mkdirs()) {
+                getLog().info("Created " + outputDirectory.getAbsolutePath());
+            }
+            ParseSourcesResult psr = parseSources();
+            Map<MethodInfo, Integer> methodCallFrequencies = methodCallFrequencies(psr.parseResult());
+            getLog().info("Have method call frequencies for " + methodCallFrequencies.size() + " methods");
+
+            Set<TypeInfo> acceptedTypes = computeAcceptedTypes(methodCallFrequencies.keySet());
+            Map<MethodInfo, Integer> overrideFrequencies = new HashMap<>();
+            methodCallFrequencies.forEach((mi, f) ->
+                    mi.overrides().forEach(o -> overrideFrequencies.putIfAbsent(o, f)));
+            AnalysisHintsComposer composer = new AnalysisHintsComposer(psr.javaInspector(),
+                    set -> packagePrefixGenerator(packagePrefix, set),
+                    info -> acceptedTypes.contains(info.typeInfo()));
+            Set<TypeInfo> primaryTypes = psr.javaInspector().compiledTypesManager()
+                    .typesLoaded(true).stream().map(TypeInfo::primaryType)
+                    .collect(Collectors.toUnmodifiableSet());
+            getLog().info("Have " + primaryTypes.size() + " primary types loaded");
+
+            Collection<TypeInfo> apiTypes = composer.compose(primaryTypes);
+            Map<Element, Element> dollarMap = composer.translateFromDollarToReal();
+
+            Qualification.Decorator decorator = new DecoratorWithComments(getLog(), psr.javaInspector().runtime(),
+                    dollarMap, methodCallFrequencies, overrideFrequencies);
+            composer.write(apiTypes, outputDirectory, decorator);
+
+        } catch (RuntimeException | IOException | DependencyResolutionException e) {
+            throw new MojoExecutionException("Failed to write analysis hints", e);
+        }
+    }
+
+    private Set<TypeInfo> computeAcceptedTypes(Set<MethodInfo> methodInfos) {
+        Set<TypeInfo> initial = methodInfos.stream().map(MethodInfo::typeInfo).collect(Collectors.toUnmodifiableSet());
+        Set<TypeInfo> superTypes = initial.stream().flatMap(TypeInfo::recursiveSuperTypeStream)
+                .collect(Collectors.toUnmodifiableSet());
+        Stream<TypeInfo> enclosing = Stream.concat(superTypes.stream(), initial.stream())
+                .flatMap(TypeInfo::enclosingTypeStream);
+        return Stream.concat(enclosing, Stream.concat(initial.stream(), superTypes.stream()))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    static class DecoratorWithComments extends DecoratorImpl {
+        private final Map<MethodInfo, Integer> methodCallFrequencies;
+        private final Map<MethodInfo, Integer> overrideFrequencies;
+        private final Runtime runtime;
+        private final Map<Element, Element> translationMap;
+        private final Log log;
+
+        public DecoratorWithComments(Log log,
+                                     Runtime runtime,
+                                     Map<Element, Element> translationMap,
+                                     Map<MethodInfo, Integer> methodCallFrequencies,
+                                     Map<MethodInfo, Integer> overrideFrequencies) {
+            super(runtime, null, translationMap);
+            this.translationMap = translationMap;
+            this.log = log;
+            this.runtime = runtime;
+            this.methodCallFrequencies = methodCallFrequencies;
+            this.overrideFrequencies = overrideFrequencies;
+        }
+
+        @Override
+        public List<Comment> comments(Element infoIn) {
+            Element info = translationMap == null ? infoIn : translationMap.getOrDefault(infoIn, infoIn);
+            List<Comment> comments = super.comments(info);
+            if (info instanceof MethodInfo mi) {
+                Integer frequency = methodCallFrequencies.get(mi);
+                Comment comment;
+                if (frequency != null) {
+                    comment = runtime.newSingleLineComment(runtime.noSource(), "frequency " + frequency);
+                } else {
+                    Integer overrideFrequency = overrideFrequencies.get(mi);
+                    if (overrideFrequency != null) {
+                        comment = runtime.newSingleLineComment(runtime.noSource(), "override has frequency " + overrideFrequency);
+                        return Stream.concat(Stream.of(comment), comments.stream()).toList();
+                    } else {
+                        comment = null;
+                    }
+                }
+                if (comment != null) log.debug("Annotating " + mi + " with " + comment.comment());
+                return Stream.concat(Stream.ofNullable(comment), comments.stream()).toList();
+            }
+            return comments;
+        }
+    }
+
+}

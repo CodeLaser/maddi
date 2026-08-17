@@ -53,7 +53,13 @@ Analyser	Analyzer
 ANALYSER	ANALYZER
 
 ## SECTION 3	published identifiers the prefix rules do not reach
-org.e2immu.analyzer-plugin	io.codelaser.maddi
+# The Gradle Plugin Portal requires the plugin id and the Maven group to share a top-level
+# namespace, so the id must move with the group: `io.codelaser` + `org.e2immu.analyzer-plugin`
+# would be refused at review. `io.codelaser.maddi.analyzer` is chosen over a bare
+# `io.codelaser.maddi` because an id that is exactly the package prefix reads as a namespace
+# rather than as a plugin. Treat it as permanent: the Portal re-triggers manual approval on any
+# id change, so a later correction costs a second review and strands the first id.
+org.e2immu.analyzer-plugin	io.codelaser.maddi.analyzer
 org.e2immu	io.codelaser	*pom.xml
 #
 # The bare groupId rule is SCOPED TO pom.xml ON PURPOSE. Unscoped it would
@@ -119,6 +125,18 @@ README.md	ACKNOWLEDGED
 AGENTS.md	ACKNOWLEDGED
 docs/eventual-immutability.md	ACKNOWLEDGED
 docs/eventual-info-hierarchy.md	ACKNOWLEDGED
+# Added at the cutover, 2026-08-17. Each names the old prefix in order to say something TRUE about
+# it, so a rule that rewrote them would make each one false:
+#   release notes — tells users their imports move away FROM org.e2immu.annotation. That is the
+#                   whole point of the document; rewriting it leaves migration instructions that
+#                   instruct nobody to change anything.
+#   PUBLISHING.md — records that neither `io.codelaser` nor `org.e2immu` exists on the Gradle
+#                   Plugin Portal, and that the old plugin id could not have been approved under
+#                   group io.codelaser. Both are claims about the old name.
+#   HANDOFF       — a recorded debugging session, quoting the stack frames as they read then.
+docs/release-notes-0.9.1.md	ACKNOWLEDGED
+PUBLISHING.md	ACKNOWLEDGED
+HANDOFF-SLOWTEST-FAILURES.md	ACKNOWLEDGED
 
 ## SECTION 4	frozen content — never substituted
 # Opaque test data: a recorded dependency graph OF THE OLD e2immu-analyser

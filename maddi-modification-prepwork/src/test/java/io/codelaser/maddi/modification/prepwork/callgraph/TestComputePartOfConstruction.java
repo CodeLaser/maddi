@@ -1,0 +1,169 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.prepwork.callgraph;
+
+import io.codelaser.maddi.modification.prepwork.CommonTest;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.graph.G;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
+import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestComputePartOfConstruction extends CommonTest {
+
+    @DisplayName("part of construction of CallGraph test 3")
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(ABX, TestCallGraph.INPUT3);
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
+        prepAnalyzer.doPrimaryType(X);
+
+        Value.SetOfInfo setOfInfo = X.analysis().getOrNull(PART_OF_CONSTRUCTION, ValueImpl.SetOfInfoImpl.class);
+        assertNotNull(setOfInfo);
+        assertEquals("[a.b.X.<init>(int), a.b.X.initList(String)]",
+                setOfInfo.infoSet().stream().map(Object::toString).sorted().toList().toString());
+
+        FieldInfo list = X.getFieldByName("list", true);
+        assertSame(TRUE, list.analysis().getOrDefault(PropertyImpl.FINAL_FIELD, FALSE));
+    }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            class X {
+                interface Exit { }
+            
+                record ExceptionThrown(Exception exception) implements Exit { }
+            
+                interface LoopData {
+                    LoopData withException(Exception e);
+                }
+            
+                static class LoopDataImpl implements LoopData {
+                    private Exit exit;
+                    LoopDataImpl(Exit exit) {
+                        this.exit = exit;
+                    }
+            
+                    @Override
+                    public LoopData withException(Exception e) {
+                        Exit ee = new ExceptionThrown(e);
+                        return new LoopDataImpl(ee);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("final field")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
+        prepAnalyzer.doPrimaryType(X);
+
+        TypeInfo exceptionThrown = X.findSubType("ExceptionThrown");
+        assertEquals("SetOfInfoImpl[infoSet=[a.b.X.ExceptionThrown.<init>(Exception)]]",
+                exceptionThrown.analysis().getOrDefault(PART_OF_CONSTRUCTION, EMPTY_PART_OF_CONSTRUCTION).toString());
+
+        TypeInfo loopDataImpl = X.findSubType("LoopDataImpl");
+        assertEquals("SetOfInfoImpl[infoSet=[a.b.X.LoopDataImpl.<init>(a.b.X.Exit)]]",
+                loopDataImpl.analysis().getOrDefault(PART_OF_CONSTRUCTION, EMPTY_PART_OF_CONSTRUCTION).toString());
+
+        FieldInfo exit = loopDataImpl.getFieldByName("exit", true);
+        assertTrue(exit.isPropertyFinal());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            class X {
+                private int i;
+                public X() {
+                    update();
+                }
+                public void init() {
+                    Runnable r = ()->update();
+                    r.run();
+                }
+            
+                private void update() {
+                    ++i;
+                }
+            }
+            """;
+
+    @DisplayName("lambda and part of construction")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
+        prepAnalyzer.doPrimaryType(X);
+
+        assertEquals("[a.b.X.<init>()]",
+                X.analysis().getOrDefault(PART_OF_CONSTRUCTION, EMPTY_PART_OF_CONSTRUCTION).infoSet().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class X {
+                private int i;
+                public X() {
+                    update(); 
+                }
+                public void init() {
+                    Runnable r = new Runnable() {
+                        @Override public void run() {
+                            update();
+                        }
+                    };
+                    r.run();
+                }
+            
+                private void update() {
+                    ++i;
+                }
+            }
+            """;
+
+    @DisplayName("anonymous type and part of construction")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
+        prepAnalyzer.doPrimaryType(X);
+
+        assertEquals("[a.b.X.<init>()]",
+                X.analysis().getOrDefault(PART_OF_CONSTRUCTION, EMPTY_PART_OF_CONSTRUCTION).infoSet().toString());
+    }
+}

@@ -1,5 +1,5 @@
-module org.e2immu.util.internal.util {
-    requires org.e2immu.util.external.support;
+module io.codelaser.maddi.util {
+    requires io.codelaser.maddi.support;
     requires org.slf4j;
-    exports org.e2immu.util.internal.util;
+    exports io.codelaser.maddi.util;
 }

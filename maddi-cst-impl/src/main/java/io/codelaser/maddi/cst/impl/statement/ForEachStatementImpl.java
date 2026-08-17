@@ -1,0 +1,205 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class ForEachStatementImpl extends StatementImpl implements ForEachStatement {
+    private final LocalVariableCreation initializer;
+    private final Expression expression;
+    private final Block block;
+
+    public ForEachStatementImpl(List<Comment> comments,
+                                Source source,
+                                List<AnnotationExpression> annotations,
+                                String label,
+                                LocalVariableCreation initializer,
+                                Expression expression, Block block) {
+        super(comments, source, annotations, 0, label);
+        this.initializer = initializer;
+        this.expression = expression;
+        this.block = block;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ForEachStatementImpl that)) return false;
+        return Objects.equals(initializer, that.initializer) && Objects.equals(expression, that.expression)
+               && Objects.equals(block, that.block);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(initializer, expression, block);
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        return new ForEachStatementImpl(comments(), source(), annotations(), label(), initializer, expression,
+                tSubBlocks.getFirst());
+    }
+
+    public static class Builder extends StatementImpl.Builder<ForEachStatement.Builder> implements ForEachStatement.Builder {
+        private LocalVariableCreation initializer;
+        private Expression expression;
+        private Block block;
+
+        @Override
+        public ForEachStatement.Builder setInitializer(LocalVariableCreation initializer) {
+            this.initializer = initializer;
+            return this;
+        }
+
+        @Override
+        public ForEachStatement.Builder setExpression(Expression expression) {
+            this.expression = expression;
+            return this;
+        }
+
+        @Override
+        public ForEachStatement.Builder setBlock(Block block) {
+            this.block = block;
+            return this;
+        }
+
+        @Override
+        public ForEachStatement build() {
+            return new ForEachStatementImpl(comments, source, annotations, label, initializer, expression, block);
+        }
+    }
+
+    @Override
+    public LocalVariableCreation initializer() {
+        return initializer;
+    }
+
+    @Override
+    public Expression expression() {
+        return expression;
+    }
+
+    @Override
+    public Block block() {
+        return block;
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            initializer.visit(predicate);
+            expression.visit(predicate);
+            block.visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeStatement(this)) {
+            initializer.visit(visitor);
+            expression.visit(visitor);
+            visitor.startSubBlock(0);
+            block.visit(visitor);
+            visitor.endSubBlock(0);
+        }
+        visitor.afterStatement(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = outputBuilder(qualification);
+        LocalVariable lv = initializer.localVariable();
+        return outputBuilder.add(KeywordImpl.FOR)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
+                .add(initializer.isVar() ? new OutputBuilderImpl().add(KeywordImpl.VAR)
+                        : lv.parameterizedType().print(qualification, false, DiamondEnum.SHOW_ALL))
+                .add(SpaceEnum.ONE)
+                .add(new TextImpl(lv.simpleName()))
+                .add(SymbolEnum.COLON)
+                .add(expression.print(qualification))
+                .add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(block.print(qualification));
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.concat(expression.variables(descendMode), block.variables(descendMode));
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(initializer.typesReferenced(predicate),
+                Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate)));
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (hasBeenTranslated(direct, this)) return direct;
+
+        // translations in order of appearance
+        LocalVariableCreation translatedLvc = (LocalVariableCreation) initializer.translate(translationMap).getFirst();
+        Expression translated = expression.translate(translationMap);
+        List<Statement> translatedBlock = block.translate(translationMap);
+        List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
+        if (translatedLvc != initializer
+            || expression != translated
+            || translatedBlock.getFirst() != block
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tAnnotations != annotations()) {
+            ForEachStatementImpl fs = new ForEachStatementImpl(comments(), source(), tAnnotations, label(),
+                    translatedLvc, translated, ensureBlock(translatedBlock));
+            if (!translationMap.isClearAnalysis()) fs.analysis().setAll(analysis());
+            return translationMap.postTranslationHandler(this, List.of(fs));
+        }
+        return List.of(this);
+    }
+
+    @Override
+    public ForEachStatement withSource(Source newSource) {
+        return new ForEachStatementImpl(comments(), newSource, annotations(), label(), initializer, expression, block);
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new ForEachStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+                (LocalVariableCreation) initializer.rewire(infoMap), expression.rewire(infoMap), block.rewire(infoMap));
+    }
+}

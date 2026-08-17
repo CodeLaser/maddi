@@ -1,0 +1,292 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
+import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
+
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class LambdaImpl extends ExpressionImpl implements Lambda {
+    private final MethodInfo methodInfo;
+    private final List<OutputVariant> outputVariants;
+
+    public LambdaImpl(List<Comment> comments,
+                      Source source,
+                      MethodInfo methodInfo,
+                      List<OutputVariant> outputVariants) {
+        super(comments, source, 1 + methodInfo.complexity());
+        this.methodInfo = methodInfo;
+        assert methodInfo.typeInfo().compilationUnitOrEnclosingType().isRight();
+        assert methodInfo.typeInfo().methods().size() == 1;
+        assert methodInfo.isPublic() : "This method implements a functional interface, so it must be public";
+        this.outputVariants = outputVariants;
+    }
+
+    @Override
+    public Lambda withMethodInfoAndMethodBody(MethodInfo methodInfo) {
+        return new LambdaImpl(comments(), source(), methodInfo, outputVariants);
+    }
+
+    @Override
+    public Expression withSource(Source source) {
+        return new LambdaImpl(comments(), source, methodInfo, outputVariants);
+    }
+
+    public enum OutputVariantImpl implements OutputVariant {
+        TYPED, VAR, EMPTY;
+
+        @Override
+        public OutputBuilder print(ParameterInfo parameterInfo, Qualification qualification) {
+            OutputBuilder ob = new OutputBuilderImpl();
+            if (this != EMPTY) {
+                //Stream<OutputBuilder> annotationStream = parameterInfo.buildAnnotationOutput(qualification);
+                //OutputBuilder annotationOutput = annotationStream
+                //       .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_REQUIRED_EASY_SPLIT, Guide.generatorForAnnotationList()));
+                if (this == TYPED) {
+                    ob.add(parameterInfo.parameterizedType()
+                                    .print(qualification, parameterInfo.isVarArgs(), DiamondEnum.SHOW_ALL))
+                            .add(SpaceEnum.ONE);
+                }
+                if (this == VAR) {
+                    ob.add(KeywordImpl.VAR).add(SpaceEnum.ONE);
+                }
+                //if (!annotationOutput.isEmpty()) {
+                //    return annotationOutput.add(SpaceEnum.ONE_REQUIRED_EASY_SPLIT).add(ob);
+                //}
+            }
+            return ob;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return this == EMPTY;
+        }
+
+        @Override
+        public boolean isVar() {
+            return this == VAR;
+        }
+
+        @Override
+        public boolean isTyped() {
+            return this == TYPED;
+        }
+    }
+
+    public static class Builder extends ElementImpl.Builder<Lambda.Builder> implements Lambda.Builder {
+        private MethodInfo methodInfo;
+        private List<OutputVariant> outputVariants;
+
+        @Override
+        public Builder setMethodInfo(MethodInfo methodInfo) {
+            this.methodInfo = methodInfo;
+            return this;
+        }
+
+
+        @Override
+        public Builder setOutputVariants(List<OutputVariant> outputVariants) {
+            this.outputVariants = outputVariants;
+            return this;
+        }
+
+        @Override
+        public Lambda build() {
+            return new LambdaImpl(comments, source, methodInfo, outputVariants);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof LambdaImpl lambda)) return false;
+        return methodInfo.equals(lambda.methodInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        return methodInfo.hashCode();
+    }
+
+    @Override
+    public MethodInfo methodInfo() {
+        return methodInfo;
+    }
+
+    @Override
+    public List<OutputVariant> outputVariants() {
+        return outputVariants;
+    }
+
+    @Override
+    public Precedence precedence() {
+        return PrecedenceEnum.BOTTOM;
+    }
+
+    @Override
+    public int order() {
+        return ExpressionComparator.ORDER_LAMBDA;
+    }
+
+    @Override
+    public int internalCompareTo(Expression expression) {
+        if (expression instanceof Lambda l) {
+            return methodInfo.fullyQualifiedName().compareTo(l.methodInfo().fullyQualifiedName());
+        }
+        throw new InternalCompareToException();
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            Expression single = singleExpression();
+            if (single != null) {
+                single.visit(predicate);
+            } else {
+                methodInfo.methodBody().visit(predicate);
+            }
+        }
+    }
+
+    @Override
+    public Expression singleExpression() {
+        List<Statement> statements = methodInfo.methodBody().statements();
+        if (statements.size() == 1) {
+            Statement statement = statements.getFirst();
+            /*
+             The `x -> expr` form parses to exactly one statement whose whole content IS that expression:
+             a ReturnStatement when the lambda yields a value, an ExpressionAsStatement when it is void.
+             Any other single statement -- an if, a loop, a try, a switch -- has sub-blocks that
+             expression() does not reach: for an if it is the CONDITION. Returning it claimed the lambda
+             was `() -> condition` and the body vanished, silently, from both print() and visit().
+             */
+            if (statement instanceof ReturnStatement || statement instanceof ExpressionAsStatement) {
+                Expression expression = statement.expression();
+                // `() -> { return; }` has a return with nothing to return; that is not the single-expression form
+                if (expression != null && !expression.isEmpty()) return expression;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeExpression(this)) {
+            Expression single = singleExpression();
+            if (single != null) {
+                single.visit(visitor);
+            } else {
+                visitor.startSubBlock(0);
+                methodInfo.methodBody().visit(visitor);
+                visitor.endSubBlock(0);
+            }
+        }
+        visitor.afterExpression(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        List<ParameterInfo> parameters = methodInfo.parameters();
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        if (parameters.isEmpty()) {
+            outputBuilder.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        } else if (parameters.size() == 1 && outputVariants.get(0).isEmpty()) {
+            outputBuilder.add(parameters.get(0).print(qualification));
+        } else {
+            outputBuilder.add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(parameters.stream().map(pi -> outputVariants.get(pi.index())
+                                    .print(pi, qualification)
+                                    .add(pi.print(qualification)))
+                            .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        outputBuilder.add(SymbolEnum.LAMBDA);
+
+        Expression singleExpression = singleExpression();
+        if (singleExpression != null) {
+            outputBuilder.add(outputInParenthesis(qualification, precedence(), singleExpression));
+        } else {
+            outputBuilder.add(methodInfo.methodBody().print(qualification));
+        }
+        return outputBuilder;
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return methodInfo.methodBody().variables(descendMode);
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(methodInfo.parameters().stream().flatMap(
+                        pi -> outputVariants.get(pi.index()).isTyped()
+                                ? pi.parameterizedType().typesReferenced(TypeReferenceNature.EXPLICIT,
+                                source().detailedSources())
+                                : pi.parameterizedType().typesReferenced(TypeReferenceNature.IMPLICIT,
+                                null)),
+                methodInfo.methodBody().typesReferenced(predicate));
+    }
+
+    @Override
+    public Expression translate(TranslationMap translationMap) {
+        Expression tLambda = translationMap.translateExpression(this);
+        if (tLambda == null) return this;
+        if (tLambda != this) return tLambda;
+        TypeInfo tTypeInfo = methodInfo.typeInfo().translate(translationMap).getFirst();
+        if (tTypeInfo == methodInfo.typeInfo()) return this;
+        assert tTypeInfo.methods().size() == 1;
+        MethodInfo implementationOfSam = tTypeInfo.methods().getFirst();
+        Expression result = new LambdaImpl(comments(), source(), implementationOfSam, outputVariants);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        MethodInfo rewired = infoMap.typeInfoRecurseAllPhases(methodInfo.typeInfo()).singleAbstractMethod();
+        assert rewired != null;
+        return new LambdaImpl(comments(), source(), rewired, outputVariants);
+    }
+}

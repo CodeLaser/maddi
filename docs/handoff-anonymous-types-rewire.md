@@ -25,10 +25,10 @@ Rewiring a carried analysis value that references an anonymous class's member:
 ```
 java.lang.NullPointerException: Cannot find
   org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionsGraph.$0.getReversePostOrderList()
-	at org.e2immu.language.cst.impl.info.InfoMapImpl.methodInfo(InfoMapImpl.java:187)
+	at io.codelaser.maddi.cst.impl.info.InfoMapImpl.methodInfo(InfoMapImpl.java:187)
 	at ...
-	at org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl.rewire(LinksImpl.java:541)
-	at org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.rewire(...:189)
+	at io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl.rewire(LinksImpl.java:541)
+	at io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.rewire(...:189)
 ```
 
 The first observation of it came through `FieldReferenceImpl.rewire` → `InfoMapImpl.fieldInfo`

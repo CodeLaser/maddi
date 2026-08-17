@@ -18,7 +18,7 @@ certify its own code, which makes dogfooding (running the IDE plugins on maddi i
 
 ## The key observation
 
-The old e2immu analyser (`DetectEventual`, `ComputingTypeAnalyser.computeApprovedPreconditions*`) computed
+The old e2immu analyzer (`DetectEventual`, `ComputingTypeAnalyzer.computeApprovedPreconditions*`) computed
 eventuality from **preconditions**. We do not need that machinery, because maddi's own eventual types are
 almost all *consumers* rather than *definers*:
 
@@ -117,7 +117,7 @@ property map.
 
 - **Field finality is not relaxed.** A type whose transition is a plain assignable flag (`private boolean
   frozen`) still fails rule 0. That is the stage 3 case, and it is why `Freezable` itself is contracted.
-- **Guarded fields.** `findFieldsGuardedByEventuallyImmutableFields` from `ComputingTypeAnalyser` is not
+- **Guarded fields.** `findFieldsGuardedByEventuallyImmutableFields` from `ComputingTypeAnalyzer` is not
   ported yet: a private field assigned only inside methods guarded by the mark should ride along with it
   (this is what lets `EventuallyFinal.value` ride along with `isFinal`). Pure set containment, no dataflow.
   Worth doing once a run over maddi itself shows which types need it.
@@ -176,9 +176,9 @@ configurations.
 
 ## Reference material
 
-The old implementation lives outside this repo, in the e2immu analyser (`analyser/src/main/java/org/e2immu/
-analyser/analyser/util/`): `DetectEventual`, `AssignmentIncompatibleWithPrecondition`,
-`MethodCallIncompatibleWithPrecondition`, plus `analyser/impl/computing/ComputingTypeAnalyser` and
-`analyser/check/CheckEventual`. It is ~4 years old and written against the old delay model (`CausesOfDelay`,
+The old implementation lives outside this repo, in the e2immu analyzer (`analyzer/src/main/java/org/e2immu/
+analyzer/analyzer/util/`): `DetectEventual`, `AssignmentIncompatibleWithPrecondition`,
+`MethodCallIncompatibleWithPrecondition`, plus `analyzer/impl/computing/ComputingTypeAnalyzer` and
+`analyzer/check/CheckEventual`. It is ~4 years old and written against the old delay model (`CausesOfDelay`,
 `DV`, per-statement `VariableInfo`), so it is a design reference, not code to port line by line — with the
 exception of `findFieldsGuardedByEventuallyImmutableFields`, which transfers nearly verbatim.

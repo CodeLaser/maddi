@@ -59,7 +59,7 @@ that itself fans out (e.g. `TestCloneBench`'s parallel workers) — intermittent
 java.lang.IllegalStateException: java.lang.NullPointerException:
   Cannot invoke "com.sun.tools.javac.code.Scope$StarImportScope.isFilled()" because "tree.starImportScope" is null
 ```
-and, less often, `org.e2immu.language.java.openjdk.CompilationProblems`.
+and, less often, `io.codelaser.maddi.java.openjdk.CompilationProblems`.
 
 Observed in **`maddi-modification-analyzer`** (2026-07-13): the *full* suite fails with a **small, different set
 of tests each run** (e.g. one run `TestNeedMethodReturnTypeInHCT`, `TestHCSConstructor`,

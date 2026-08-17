@@ -47,6 +47,12 @@ java {
 // Explicit versions rather than the platform BOM, so nothing enters the published metadata.
 // Test-only: these do not appear in any published variant.
 dependencies {
+    // The ONE published dependency, added at 0.9.1 when the annotations were split out. `api`, to
+    // match `requires transitive` in module-info: consumers of maddi-support see the annotations
+    // without a second declaration. maddi-annotation is published to Central alongside this
+    // artifact, so the resulting POM resolves -- which the internal `platform` BOM would not.
+    api(project(":maddi-annotation"))
+
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
@@ -65,7 +71,7 @@ publishing {
 
             pom {
                 name.set("maddi-support")
-                description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+                description = "Support library for Maddi, a modification analyzer for duplication detection and immutability."
 
                 groupId = project.group.toString()
                 artifactId = "maddi-support"
@@ -107,7 +113,7 @@ jreleaser {
 
     project {
         name.set("maddi-support")
-        description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+        description = "Support library for Maddi, a modification analyzer for duplication detection and immutability."
         license.set("Apache-2.0")
         authors.set(listOf("Bart Naudts"))
         copyright.set("2020-2026 Bart Naudts")

@@ -314,7 +314,7 @@ current captured-Result machinery loses modification. Findings that constrain th
 5. **External application sites** (shape 5, `List.forEach`): annotated-API callees have no analyzed
    body; the fiv's captured Result is the only carrier, attributed at the call site.
 
-Location: `maddi-modification-analyzer/src/test/java/org/e2immu/analyzer/modification/analyzer/modification/TestModificationFunctionalE7.java`,
+Location: `maddi-modification-analyzer/src/test/java/io/codelaser/maddi/modification/analyzer/modification/TestModificationFunctionalE7.java`,
 committed on branch `kotlin` (metrics thread's dedicated checkout). Next from this side: the
 phase-1 shadow pass.
 

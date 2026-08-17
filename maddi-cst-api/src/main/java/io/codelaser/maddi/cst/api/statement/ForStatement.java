@@ -1,0 +1,72 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.statement;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+
+import java.util.List;
+
+/**
+ * The classic {@code for (init; condition; update) body} loop. The condition is
+ * {@link Statement#expression()} and the body is the primary {@link Statement#block()}; the init and
+ * update clauses are {@link #initializers()} and {@link #updaters()}.
+ */
+public interface ForStatement extends LoopStatement {
+    /**
+     * @return the init clause elements. Each is either a {@link LocalVariableCreation} (when the loop
+     * declares a variable) or an {@link Expression} (an expression statement); hence the common
+     * {@link Element} supertype.
+     */
+    List<Element> initializers();
+
+    /**
+     * @return the update clause expressions, evaluated after each iteration.
+     */
+    List<Expression> updaters();
+
+    /**
+     * Return an immutable copy of this loop with its init clause replaced.
+     *
+     * @param elements the replacement initializers (see {@link #initializers()})
+     * @return a new statement; this instance is unchanged
+     */
+    ForStatement withInitializers(List<Element> elements);
+
+    interface Builder extends Statement.Builder<Builder> {
+
+        @Fluent
+        Builder addInitializer(Element initializer);
+
+        @Fluent
+        Builder setExpression(Expression expression);
+
+        @Fluent
+        Builder addUpdater(Expression expression);
+
+        @Fluent
+        Builder setBlock(Block block);
+
+        ForStatement build();
+    }
+
+    String NAME = "for";
+
+    @Override
+    default String name() {
+        return NAME;
+    }
+}

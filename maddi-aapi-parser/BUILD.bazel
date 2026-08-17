@@ -43,7 +43,7 @@ maddi_java_test(
     name = "maddi-aapi-parser_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.analyzer.aapi.parser"],
+    test_packages = ["io.codelaser.maddi.aapi.parser"],
     deps = [
         ":maddi-aapi-parser",  # Depend on the main library
         "//maddi-aapi-archive",

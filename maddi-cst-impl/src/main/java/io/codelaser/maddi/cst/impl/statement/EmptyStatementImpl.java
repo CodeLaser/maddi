@@ -1,0 +1,128 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.EmptyStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class EmptyStatementImpl extends StatementImpl implements EmptyStatement {
+
+    public EmptyStatementImpl(List<Comment> comments, Source source, List<AnnotationExpression> annotations, String label) {
+        super(comments, source, annotations, 1, label);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        return o instanceof EmptyStatementImpl;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(1);
+    }
+
+    public static class Builder extends StatementImpl.Builder<EmptyStatement.Builder> implements EmptyStatement.Builder {
+
+        @Override
+        public EmptyStatement build() {
+            return new EmptyStatementImpl(comments, source, annotations, label);
+        }
+    }
+
+    @Override
+    public Expression expression() {
+        return null;
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        predicate.test(this);
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        visitor.beforeStatement(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return outputBuilder(qualification).add(SymbolEnum.SEMICOLON);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.of();
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.of();
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (hasBeenTranslated(direct, this)) return direct;
+        List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
+        if (!analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tAnnotations != annotations()) {
+            EmptyStatement es = new EmptyStatementImpl(comments(), source(), tAnnotations, label());
+            return translationMap.postTranslationHandler(this, List.of(es));
+        }
+        return List.of(this);
+    }
+
+    @Override
+    public boolean hasSubBlocks() {
+        return false;
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        return this;// no blocks
+    }
+
+    @Override
+    public EmptyStatement withSource(Source newSource) {
+        return new EmptyStatementImpl(comments(), newSource, annotations(), label());
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new EmptyStatementImpl(comments(), source(), rewireAnnotations(infoMap), label());
+    }
+}

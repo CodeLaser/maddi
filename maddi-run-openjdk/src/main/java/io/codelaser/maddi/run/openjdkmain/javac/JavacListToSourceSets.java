@@ -1,0 +1,20 @@
+package io.codelaser.maddi.run.openjdkmain.javac;
+
+import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
+
+/**
+ * The javac view of the shared {@link CompileListToSourceSets} engine. All logic now lives in the superclass
+ * (generalized so the kotlin front-end reuses it); this subclass exists only to keep the historical name and
+ * its inherited nested types ({@code JavacListToSourceSets.Result} / {@code .JSourceSet}) available to callers.
+ */
+public class JavacListToSourceSets extends CompileListToSourceSets {
+
+    public JavacListToSourceSets() {
+        super(null);
+    }
+
+    /** @param buildRoot see {@link CompileListToSourceSets#CompileListToSourceSets(String)}: it decides the names. */
+    public JavacListToSourceSets(String buildRoot) {
+        super(buildRoot);
+    }
+}

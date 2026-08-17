@@ -1,0 +1,68 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.TextBlock;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+
+import java.util.List;
+
+public class TextBlockImpl extends StringConstantImpl implements TextBlock {
+    private final TextBlockFormatting textBlockFormatting;
+
+    public TextBlockImpl(List<Comment> comments,
+                         Source source,
+                         ParameterizedType stringPt,
+                         String constant,
+                         TextBlockFormatting textBlockFormatting) {
+        super(comments, source, stringPt, constant);
+        this.textBlockFormatting = textBlockFormatting;
+    }
+
+    @Override
+    public TextBlockFormatting textBlockFormatting() {
+        return textBlockFormatting;
+    }
+
+    @Override
+    public Expression withSource(Source source) {
+        return new TextBlockImpl(comments(), source, parameterizedType(), constant(), textBlockFormatting);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof TextBlock that)) return false;
+        return constant().equals(that.constant());
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return new OutputBuilderImpl().add(new TextImpl(constant(), textBlockFormatting));
+    }
+
+    @Override
+    public String toString() {
+        return "textBlock@" + source().compact2();
+    }
+}

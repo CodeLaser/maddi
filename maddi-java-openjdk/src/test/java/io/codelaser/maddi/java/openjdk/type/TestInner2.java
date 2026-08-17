@@ -1,0 +1,65 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.java.openjdk.type;
+
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class TestInner2 extends CommonTest {
+    @Language("java")
+    private static final String aA = """
+            package a;
+            class A {
+                public static class Inner {
+                    public static void m() {}
+                }
+            }
+            """;
+    @Language("java")
+    private static final String aB = """
+            package a;
+            class B {
+                void m() {
+                    A.Inner.m();
+                }
+            }
+            """;
+
+    @Test
+    public void test() {
+        Map<String, TypeInfo> result = scan(false, "a.A", aA, "a.B", aB);
+        TypeInfo b = result.get("a.B");
+        MethodInfo m = b.findUniqueMethod("m", 0);
+        MethodCall mc = (MethodCall) m.methodBody().statements().getFirst().expression();
+        if (mc.object() instanceof TypeExpression te) {
+            assertEquals("4-9:4-15", te.source().compact2());
+            assertEquals("4-9:4-15", te.source().detailedSources()
+                    .detail(te.parameterizedType().typeInfo()).compact2());
+            TypeInfo a = te.parameterizedType().typeInfo().compilationUnitOrEnclosingType().getRight();
+            assertEquals("4-9:4-9", te.source().detailedSources().detail(a).compact2());
+        }
+    }
+}

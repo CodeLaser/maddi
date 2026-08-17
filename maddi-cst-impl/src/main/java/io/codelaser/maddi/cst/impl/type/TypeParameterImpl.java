@@ -1,0 +1,329 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.type;
+
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.info.InfoImpl;
+import io.codelaser.maddi.cst.impl.info.TypeParameterInspection;
+import io.codelaser.maddi.cst.impl.info.TypeParameterInspectionImpl;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.support.Either;
+import io.codelaser.maddi.support.EventuallyFinal;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class TypeParameterImpl extends InfoImpl implements TypeParameter {
+    private final int index;
+    private final String name;
+    private final Either<TypeInfo, MethodInfo> owner;
+    private final EventuallyFinal<TypeParameterInspection> inspection = new EventuallyFinal<>();
+    // Manual hidden content: derived analyzer metadata, orthogonal to this type parameter's immutability.
+    // TypeParameterImpl overrides analysis() to return this own store rather than the one inherited from InfoImpl;
+    // @IgnoreModifications gives it the same treatment for the same reason. See road-to-immutability section 050.
+    @IgnoreModifications
+    private final PropertyValueMap analysis = new PropertyValueMapImpl();
+
+    public TypeParameterImpl(int index, String name, Either<TypeInfo, MethodInfo> owner) {
+        this.index = index;
+        this.name = name;
+        this.owner = owner;
+        this.inspection.setVariable(new TypeParameterInspectionImpl.Builder(this));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof TypeParameterImpl that)) return false;
+        return getIndex() == that.getIndex() && Objects.equals(getOwner(), that.getOwner());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getIndex(), getOwner());
+    }
+
+    public void commit(TypeParameterInspection typeParameterInspection) {
+        this.inspection.setFinal(typeParameterInspection);
+    }
+
+    @Override
+    public boolean hasBeenInspected() {
+        return this.inspection.isFinal();
+    }
+
+    @Override
+    public int complexity() {
+        return 0;
+    }
+
+    @Override
+    public List<Comment> comments() {
+        return inspection.get().comments();
+    }
+
+    // builds a fresh mirror; receiver reads go through the inspection face only
+    @NotModified(after = "inspection")
+    @Override
+    public TypeParameter rewire(InfoMapView infoMap) {
+        return rewire(infoMap, new HashMap<>());
+    }
+
+    @Override
+    public TypeParameter rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> done) {
+        Either<TypeInfo, MethodInfo> rewiredOwner = owner.isLeft()
+                ? Either.left(infoMap.typeInfo(owner.getLeft()))
+                : Either.right(infoMap.methodInfo(owner.getRight()));
+        List<AnnotationExpression> rewiredAnnotations = annotations().stream()
+                .map(ae -> (AnnotationExpression) ae.rewire(infoMap)).toList();
+        TypeParameter rewired = new TypeParameterImpl(index, name, rewiredOwner);
+        done.put(this, rewired);
+        List<ParameterizedType> rewiredTypeBounds = typeBounds().stream()
+                .map(pt -> pt.rewire(infoMap, done)).toList();
+        rewired.builder().setSource(source()).addAnnotations(rewiredAnnotations).setTypeBounds(rewiredTypeBounds).commit();
+        return rewired;
+    }
+
+    @Override
+    public Source source() {
+        return inspection.get().source();
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        predicate.test(this);
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        visitor.beforeElement(this);
+        visitor.afterElement(this);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.empty();
+    }
+
+    @Override
+    public TypeParameter withOwnerVariableTypeBounds(MethodInfo methodInfo) {
+        return withOwner(Either.right(methodInfo));
+    }
+
+    @Override
+    public TypeParameter withOwnerVariableTypeBounds(TypeInfo typeInfo) {
+        return withOwner(Either.left(typeInfo));
+    }
+
+    private TypeParameter withOwner(Either<TypeInfo, MethodInfo> owner) {
+        TypeParameterImpl tpi = new TypeParameterImpl(getIndex(), simpleName(), owner);
+        List<ParameterizedType> newBounds = typeBounds().stream()
+                .map(pt -> pt.replaceTypeParameter(this, tpi)).toList();
+        tpi.builder().setTypeBounds(newBounds).setSource(source()).addAnnotations(annotations());
+        return tpi;
+    }
+
+    @Override
+    public TypeParameter.Builder builder() {
+        assert inspection.isVariable();
+        return (TypeParameter.Builder) inspection.get();
+    }
+
+    @Override
+    public boolean typeBoundsAreSet(Set<TypeParameter> visited) {
+        // already on the stack: the bounds are being verified higher up, so there is nothing to add here
+        if (!visited.add(this)) return true;
+        if (!inspection.get().typeBoundsAreSet()) return false;
+        return inspection.get().typeBounds().stream().allMatch(pt -> pt.typeBoundsAreSet(visited));
+    }
+
+    @Override
+    public int getIndex() {
+        return index;
+    }
+
+    @Override
+    public Either<TypeInfo, MethodInfo> getOwner() {
+        return owner;
+    }
+
+    @Override
+    public List<ParameterizedType> typeBounds() {
+        return inspection.get().typeBounds();
+    }
+
+    @Override
+    public io.codelaser.maddi.cst.api.info.Variance variance() {
+        return inspection.get().variance();
+    }
+
+    @Override
+    public ParameterizedType asParameterizedType() {
+        // NOTE: we do not add the type bounds
+        return new ParameterizedTypeImpl(this, 0);
+    }
+
+    @Override
+    public ParameterizedType asSimpleParameterizedType() {
+        return new ParameterizedTypeImpl(this, 0);
+    }
+
+    // a reader over the inspection face: any receiver modification happens before the inspection commit
+    @NotModified(after = "inspection")
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return print(qualification, true);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification, boolean printTypeBounds) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        List<AnnotationExpression> allAnnotations = Stream.concat(annotations().stream(),
+                        qualification.decorator() == null ? Stream.of()
+                                : qualification.decorator().annotations(this).stream())
+                .toList();
+        if (!allAnnotations.isEmpty()) {
+            OutputBuilder ob = allAnnotations.stream().map(ae -> ae.print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.ONE));
+            outputBuilder.add(ob).add(SpaceEnum.ONE);
+        }
+        outputBuilder.add(new TextImpl(name));
+        if (!typeBounds().isEmpty() && printTypeBounds) {
+            outputBuilder.add(SpaceEnum.ONE).add(KeywordImpl.EXTENDS).add(SpaceEnum.ONE);
+            outputBuilder.add(typeBounds()
+                    .stream()
+                    // a bound is an upper bound by definition; the 'extends' keyword is already printed, so drop any
+                    // leading wildcard the bound carries (bytecode models 'T extends X' as 'T extends ? extends X')
+                    .map(pt -> ParameterizedTypePrinter.print(qualification, pt.withWildcard(null), false,
+                            DiamondEnum.SHOW_ALL, false, false))
+                    .collect(OutputBuilderImpl.joining(SymbolEnum.AND_TYPES)));
+        }
+        return outputBuilder;
+    }
+
+    @Override
+    public String info() {
+        return "typeParameter";
+    }
+
+    @Override
+    public Access access() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompilationUnit compilationUnit() {
+        return typeInfo().primaryType().compilationUnit();
+    }
+
+    @Override
+    public String simpleName() {
+        return name;
+    }
+
+    @Override
+    public String fullyQualifiedName() {
+        String ownerFqn = owner.isLeft() ? owner.getLeft().fullyQualifiedName() : owner.getRight().fullyQualifiedName();
+        return ownerFqn + ":TP" + index;
+    }
+
+    @Override
+    public String descriptor() {
+        String ownerDesc = owner.isLeft() ? owner.getLeft().descriptor() : owner.getRight().descriptor();
+        return ownerDesc + "[" + name + "]";
+    }
+
+    @Override
+    public boolean isSynthetic() {
+        return inspection.get().isSynthetic();
+    }
+
+    @Override
+    public TypeInfo typeInfo() {
+        return owner.isLeft() ? owner.getLeft() : owner.getRight().typeInfo();
+    }
+
+    @Override
+    public JavaDoc javaDoc() {
+        return null;
+    }
+
+    @Override
+    public List<? extends Info> translate(TranslationMap translationMap) {
+        return List.of();
+    }
+
+    @Override
+    public String toString() {
+        String shortOwner = owner.isLeft() ? owner.getLeft().simpleName()
+                : owner.getRight().typeInfo().simpleName() + "." + owner.getRight().name();
+        return simpleName() + "=TP#" + index + " in " + shortOwner;
+    }
+
+    @Override
+    public String toStringWithTypeBounds() {
+        return this + " " + typeBounds();
+    }
+
+    @Override
+    public List<AnnotationExpression> annotations() {
+        return inspection.get().annotations();
+    }
+
+    @Override
+    public Stream<TypeReference> typesReferenced(TypeReferenceNature typeReferenceNature,
+                                                 DetailedSources detailedSources,
+                                                 Set<TypeParameter> visited) {
+        assert visited != null : "Must be set in ParameterizedTypeImpl";
+        if (visited.add(this)) {
+            Stream<Element.TypeReference> s1 = annotations().stream().
+                    flatMap(annotationExpression -> annotationExpression.typesReferenced(null));
+            Stream<Element.TypeReference> s2 = typeBounds().stream()
+                    .flatMap(pt -> pt.typesReferenced(typeReferenceNature, detailedSources, visited));
+            Stream<Element.TypeReference> s3 = owner.isLeft()
+                    ? Stream.of(new ElementImpl.TypeReference(owner.getLeft(), TypeReferenceNature.IMPLICIT,
+                    null))
+                    : Stream.of();
+            return Stream.concat(s1, Stream.concat(s2, s3));
+        }
+        return Stream.of();
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null :
+                source().detailedSources(), new HashSet<>());
+    }
+
+    @Override
+    public PropertyValueMap analysis() {
+        return analysis;
+    }
+}

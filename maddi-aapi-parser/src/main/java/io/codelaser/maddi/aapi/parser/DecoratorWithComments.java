@@ -1,0 +1,143 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.aapi.parser;
+
+
+import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Stream;
+
+class DecoratorWithComments extends DecoratorImpl {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DecoratorWithComments.class);
+
+    private final io.codelaser.maddi.cst.api.runtime.Runtime runtime;
+    private final Map<Element, Element> translationMap;
+    private final Function<Element, AnalysisHintsParser.Data> dataProvider;
+    private final Function<Element, ShallowAnalyzer.InfoData> infoDataProvider;
+    private final Qualification simpleNames;
+
+    public DecoratorWithComments(Runtime runtime,
+                                 SourceSet sourceSetOfRequest,
+                                 Map<Element, Element> translationMap,
+                                 Function<Element, ShallowAnalyzer.InfoData> infoDataProvider,
+                                 Function<Element, AnalysisHintsParser.Data> dataProvider) {
+        super(runtime, sourceSetOfRequest, translationMap);
+        this.translationMap = translationMap;
+        this.runtime = runtime;
+        this.dataProvider = dataProvider;
+        this.infoDataProvider = infoDataProvider;
+        simpleNames = runtime.qualificationSimpleNames();
+    }
+
+    @Override
+    public List<AnnotationExpression> annotations(Element infoIn) {
+        return annotationAndProperties(infoIn).stream()
+                .filter(ap -> acceptAnnotation(ap.property(), infoIn))
+                .map(AnnotationProperty::annotationExpression)
+                .toList();
+    }
+
+    private boolean acceptAnnotation(Property property, Element infoIn) {
+        Element translatedInfo = translationMap == null ? infoIn : translationMap.getOrDefault(infoIn, infoIn);
+        ShallowAnalyzer.InfoData infoData = infoDataProvider.apply(translatedInfo);
+        if (infoData == null) return true;
+        ShallowAnalyzer.AnnotationOrigin ao = infoData.origin(property);
+        return ao == ShallowAnalyzer.AnnotationOrigin.ANNOTATED;
+    }
+
+    private Stream<Comment> annotationsInComments(Element translatedInfo) {
+        ShallowAnalyzer.InfoData infoData = infoDataProvider.apply(translatedInfo);
+        if (infoData == null) return Stream.of();
+        AnalysisHintsParser.Data data = dataProvider.apply(translatedInfo);
+        boolean explain = data != null && data.explainAnnotationInComment();
+        List<String> commentParts = new ArrayList<>();
+        for (AnnotationProperty ap : annotationAndProperties(translatedInfo)) {
+            ShallowAnalyzer.AnnotationOrigin origin = infoData.origin(ap.property());
+            if (origin != ShallowAnalyzer.AnnotationOrigin.ANNOTATED &&
+                (explain || origin != ShallowAnalyzer.AnnotationOrigin.DEFAULT)) {
+                commentParts.add(ap.annotationExpression().print(simpleNames) + originSuffix(origin, translatedInfo));
+            }
+        }
+        if (commentParts.isEmpty()) return Stream.of();
+        String comment = String.join(" ", commentParts);
+        if (translatedInfo instanceof ParameterInfo) {
+            return Stream.of(runtime.newMultilineComment(null, comment, true));
+        }
+        return Stream.of(runtime.newSingleLineComment(null, comment));
+    }
+
+    private static String originSuffix(ShallowAnalyzer.AnnotationOrigin origin, Element cause) {
+        char code = switch (origin) {
+            case ANNOTATED -> 'A';
+            case FROM_FIELD -> 'F';
+            case FROM_METHOD -> 'M';
+            case FROM_OWNER -> 'O';
+            case FROM_OVERRIDE -> 'H';
+            case FROM_TYPE -> 'T';
+            default -> {
+                throw new UnsupportedOperationException("Origin " + origin + " for " + cause);
+            }
+        };
+        return "[" + code + "]";
+    }
+
+    @Override
+    public List<Comment> comments(Element infoIn) {
+        Element translatedInfo = translationMap == null ? infoIn : translationMap.getOrDefault(infoIn, infoIn);
+        AnalysisHintsParser.Data data = dataProvider.apply(translatedInfo);
+        List<Comment> comments = data == null ? List.of() : data.comments();
+        Stream<Comment> annotationStream = annotationsInComments(translatedInfo);
+        if (translatedInfo instanceof MethodInfo mi) {
+            Integer frequency = data != null ? data.frequency() : null;
+            Comment comment;
+            if (frequency != null) {
+                comment = runtime.newSingleLineComment(null, "frequency " + frequency);
+            } else {
+                Integer overrideFrequency = data != null ? data.overrideHasFrequency() : null;
+                if (overrideFrequency != null) {
+                    comment = runtime.newSingleLineComment(null, "override has frequency " + overrideFrequency);
+                } else {
+                    comment = null;
+                }
+            }
+            return Stream.concat(comments.stream(), Stream.concat(Stream.ofNullable(comment), annotationStream)).toList();
+        }
+        return Stream.concat(comments.stream(), annotationStream).toList();
+    }
+
+    @Override
+    protected boolean isAnnotated(Info info, Property property) {
+        ShallowAnalyzer.InfoData id = infoDataProvider.apply(info);
+        ShallowAnalyzer.AnnotationOrigin origin = id.originMap().get(property);
+        return origin == ShallowAnalyzer.AnnotationOrigin.ANNOTATED;
+    }
+}

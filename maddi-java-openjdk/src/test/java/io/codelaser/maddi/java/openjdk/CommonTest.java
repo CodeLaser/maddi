@@ -1,0 +1,161 @@
+package io.codelaser.maddi.java.openjdk;
+
+import ch.qos.logback.classic.Level;
+import com.sun.source.util.JavacTask;
+import lombok.Data;
+import org.assertj.core.api.Assert;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.support.SetOnce;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
+import org.slf4j.Logger;
+
+import javax.tools.*;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
+import static org.junit.jupiter.api.Assertions.fail;
+
+public class CommonTest {
+
+    protected final Runtime runtime;
+    protected final List<String> preload;
+    protected final InfoByFqn infoByFqn = new InfoByFqn();
+    protected JavacTask javacTask;
+    protected SourceSet sourceSet;
+    protected ClassSymbolScanner classSymbolScanner;
+    // set by a test before scan() to supply faithful class-file parameter names
+    protected ParameterNameIndex parameterNameIndex;
+    // mirrors JavaInspector.ParseOptions.syntheticListField; a test may set false before scan() to check the gate
+    protected boolean syntheticListField = true;
+    // when non-empty, REPLACES javac's class path with exactly these entries (see createTask). A test uses this
+    // to parse against a deliberately partial class path -- the shape that produces javac's unresolved-symbol
+    // and unresolved-annotation-element markers, which the default (full test runtime) class path never does.
+    protected List<File> classPathOverride = List.of();
+
+    public CommonTest() {
+        this(List.of());
+    }
+
+    public CommonTest(List<String> preload) {
+        this.preload = preload;
+        this.runtime = new RuntimeImpl();
+    }
+
+    // Returns the type NAMED by fqn, not simply the first one parsed. A compilation unit may legally declare
+    // several top-level types (at most one public), and getFirst() then hands back whichever was declared first
+    // -- silently, and ignoring the fqn the caller passed. That cost a day: a test asserting on 'a.b.C' was
+    // reading 'a.b.InterfaceC' declared above it, saw empty overrides(), and was written up as a parser defect.
+    public TypeInfo scan(String fqn, String content) {
+        List<TypeInfo> primaryTypes = scan(false, Map.of(fqn, content)).primaryTypes();
+        return primaryTypes.stream().filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst()
+                .orElseThrow(() -> new AssertionError("No type " + fqn + " among the primary types "
+                                                      + primaryTypes.stream().map(TypeInfo::fullyQualifiedName)
+                                                              .toList()));
+    }
+
+    public Map<String, TypeInfo> scan(boolean ignoreErrorss, String... fqnContentPairs) {
+        Map<String, String> map = new HashMap<>();
+        for (int i = 0; i < fqnContentPairs.length; i += 2) {
+            map.put(fqnContentPairs[i], fqnContentPairs[i + 1]);
+        }
+        List<TypeInfo> typeInfoList = scan(ignoreErrorss, map).primaryTypes();
+        return typeInfoList.stream().collect(Collectors.toUnmodifiableMap(Info::fullyQualifiedName, ti -> ti));
+    }
+
+    public ScanCompilationUnits.Result scan(boolean ignoreErrors, Map<String, String> sourcesByClassName) {
+        sourceSet = new SourceSetImpl.Builder().setName("source").setUri(URI.create("file:/")).build();
+        try {
+            SourceSet javaBase = SourceSetImpl.javaBase();
+
+            SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
+                    .setLibrary(true)
+                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(List.of(javaBase))
+                    .build();
+
+            SourceSet orgSlf4j = sourceSetOf(Logger.class, javaBase);
+            SourceSet logBackClassic = sourceSetOf(Level.class);
+            SourceSet logBackCore = sourceSetOf(ch.qos.logback.core.util.CloseUtil.class);
+            SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
+            // maddi-annotation split out of maddi-support at 0.9.1; `annotations` above is JetBrains'
+            // @NotNull, not maddi's. Without this part every test that names a maddi annotation fails.
+            SourceSet maddiAnnotation = sourceSetOf(Immutable.class, javaBase);
+            SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase, maddiAnnotation);
+            SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
+            SourceSet assertJ = sourceSetOf(Assert.class, javaBase);
+            SourceSet lombok = sourceSetOf(Data.class, javaBase);
+
+            MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
+            javacTask = createTask(sourcesByClassName, classPathOverride, diagnostics);
+
+            InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                    .addSourceSets(sourceSet)
+                    .addClassPathParts(javaBase, javaNetHttp)
+                    .addClassPathParts(orgSlf4j, logBackClassic, logBackCore,
+                            annotations, maddiAnnotation, maddiSupport, junitJupiter, assertJ, lombok)
+                    .build();
+            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
+                    javacTask, sourceSet, infoByFqn, true, diagnostics,
+                    preload, parameterNameIndex, false, true, syntheticListField);
+            classSymbolScanner = scanCompilationUnits.classSymbolScanner();
+            return scanCompilationUnits.scan();
+        } catch (IOException io) {
+            fail(io);
+            return null;
+        }
+    }
+
+    private JavacTask createTask(Map<String, String> sourcesByClassName,
+                                 List<File> jars,
+                                 MaddiDiagnosticCollector diagnostics) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager fm = compiler.getStandardFileManager(diagnostics, null, null);
+
+        if (!jars.isEmpty()) {
+            fm.setLocation(StandardLocation.CLASS_PATH, jars);
+        }
+
+        // Wrap each source string in an InMemoryJavaFileObject
+        List<JavaFileObject> compilationUnits = sourcesByClassName.entrySet().stream()
+                .map(e -> new InMemoryJavaFileObject("source", e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+
+        return (JavacTask) compiler.getTask(
+                null, fm, diagnostics,
+                List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+                        "--enable-preview", "--release=26"),
+                null,
+                compilationUnits
+        );
+    }
+
+    public String print2(CompilationUnit compilationUnit) {
+        OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
+                .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        return formatter.write(ob);
+    }
+}

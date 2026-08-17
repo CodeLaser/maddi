@@ -40,5 +40,5 @@ maddi_java_test(
         # Add additional test-specific dependencies here
     ],
     size = "small",  # or "medium", "large"
-    test_packages = [ "org.e2immu.support", ],
+    test_packages = [ "io.codelaser.maddi.support", ],
 )

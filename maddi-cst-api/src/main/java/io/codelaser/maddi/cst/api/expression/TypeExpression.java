@@ -1,0 +1,46 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.expression;
+
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+
+/**
+ * A bare type used in expression position — the type-name qualifier of a static member access, e.g. the
+ * {@code Integer} in {@code Integer.MAX_VALUE} or {@code Math} in {@code Math.max(...)}. Contrast with
+ * {@link ClassExpression} ({@code X.class}).
+ */
+public interface TypeExpression extends Expression {
+    /**
+     * @return the referenced type.
+     */
+    ParameterizedType parameterizedType();
+
+    String NAME = "typeExpression";
+
+    @Override
+    default String name() {
+        return NAME;
+    }
+
+
+    interface Builder extends Expression.Builder<Builder> {
+        Builder setParameterizedType(ParameterizedType parameterizedType);
+
+        Builder setDiamond(Diamond diamond);
+
+        TypeExpression build();
+    }
+}

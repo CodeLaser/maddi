@@ -29,7 +29,7 @@ maddi-eclipse/
   pom.xml                                       # Tycho 5.0.3 parent, 0.1.0-SNAPSHOT
   io.codelaser.maddi.eclipse/                   # packaging: eclipse-plugin  (13 files, ~1085 LOC)
     plugin.xml  build.properties  META-INF/MANIFEST.MF
-    src/org/e2immu/analyzer/ide/eclipse/*.java
+    src/io/codelaser/maddi/ide/eclipse/*.java
     lib/                                        # generated: maddi-ide-client.jar + 3 jackson jars
     daemon/                                     # generated: bin/ + lib/ of the daemon installDist
   io.codelaser.maddi.eclipse.tests/             # packaging: eclipse-test-plugin
@@ -65,7 +65,7 @@ Extension points contributed (`io.codelaser.maddi.eclipse/plugin.xml`):
 **No builder and no project nature.** Auto-analysis is a programmatically registered `POST_BUILD`
 resource-change listener instead.
 
-Key classes, all under `io.codelaser.maddi.eclipse/src/org/e2immu/analyzer/ide/eclipse/`:
+Key classes, all under `io.codelaser.maddi.eclipse/src/io/codelaser/maddi/ide/eclipse/`:
 
 - **`MaddiEclipsePlugin`** — `AbstractUIPlugin` activator. Owns the single long-lived
   `MaddiDaemonProcess` for the workspace; registers `MaddiBuildListener` in `start()`, unregisters and
@@ -147,7 +147,7 @@ Two install-time facts worth not rediscovering: the bundle **must** be installed
 daemon distribution, whose launch script has to be a real file), which is why the manifest says
 `Eclipse-BundleShape: dir` *and* the feature says `unpack="true"`; and **p2 does not preserve the executable
 bit** on that script, so `DaemonLauncher.setExecutable` is what makes an installed plugin able to start its
-analyser at all.
+analyzer at all.
 
 ## 7. Gaps
 

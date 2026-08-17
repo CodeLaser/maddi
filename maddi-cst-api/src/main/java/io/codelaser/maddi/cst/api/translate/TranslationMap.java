@@ -1,0 +1,413 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.translate;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.Variable;
+
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+
+public interface TranslationMap {
+
+    // only called upon change
+    interface PostTranslationHandler {
+        default <T extends Element> T handle(T original, T translation) {
+            return translation;
+        }
+
+        default <T extends Element> List<T> handle(T original, List<T> translation) {
+            return translation;
+        }
+
+        default ParameterizedType handle(ParameterizedType original, ParameterizedType translation) {
+            return translation;
+        }
+    }
+
+    /*
+    The method body is translated 2x during the translation of a whole method, see MethodInfoImpl.translate(..).
+    The result of the first iteration is discarded except for the knowledge whether translation is needed or not.
+    The following two methods mark such a "test" translation.
+     */
+    default void methodTranslationInfo(MethodInfo methodInfo, boolean startEnd, boolean test) {
+    }
+
+    // used for the single purpose of replacing references; NOT used to replace the declaration
+    @NotNull
+    default FieldInfo translateFieldInfo(FieldInfo fieldInfo) {
+        return fieldInfo;
+    }
+
+    // used for the single purpose of replacing references; NOT used to replace the declaration
+    @NotNull
+    default MethodInfo translateMethodInfo(MethodInfo methodInfo) {
+        return methodInfo;
+    }
+
+    // used for the single purpose of replacing the declaration; NOT used to replace references
+
+    @NotNull
+    default List<MethodInfo> translateMethodDeclaration(MethodInfo methodInfo) {
+        return List.of(methodInfo);
+    }
+    // used for the single purpose of replacing the declaration; NOT used to replace references
+
+    @NotNull
+    default List<FieldInfo> translateFieldDeclaration(FieldInfo fieldInfo) {
+        return List.of(fieldInfo);
+    }
+    // used for the dual purpose of declaration and references
+    // contrary to methods and fields, you can always add extra types as subtypes; that's why we're not returning a list
+
+    @NotNull
+    default TypeInfo translateTypeInfo(TypeInfo typeInfo) {
+        return typeInfo;
+    }
+
+    @NotNull
+    default Expression translateExpression(Expression expression) {
+        return expression;
+    }
+
+    @NotNull
+    default Variable translateVariable(Variable variable) {
+        return variable;
+    }
+
+    /*
+    You must implement this method. If you want the default behavior, use
+
+    @Override
+    public Variable translateVariableRecursively(Variable variable) {
+        return runtime.translateVariableRecursively(this, variable);
+    }
+
+    which calls the code of TranslationMapImpl.translateVariableRecursively()
+     */
+    @NotNull
+    Variable translateVariableRecursively(Variable variable);
+
+    @NotNull(content = true)
+    default List<Statement> translateStatement(Statement statement) {
+        return List.of(statement);
+    }
+
+    @NotNull
+    default ParameterizedType translateType(ParameterizedType parameterizedType) {
+        return parameterizedType;
+    }
+
+    default boolean isEmpty() {
+        return true;
+    }
+
+    /*
+     because equality of delayed variables is based on ==
+     */
+    default Expression translateVariableExpressionNullIfNotTranslated(Variable variable) {
+        return null;
+    }
+
+    default boolean hasVariableTranslations() {
+        return false;
+    }
+
+    default boolean expandDelayedWrappedExpressions() {
+        return false;
+    }
+
+    default boolean translateYieldIntoReturn() {
+        return false;
+    }
+
+    default boolean correctSources() {
+        return false;
+    }
+
+    default Map<FieldInfo, List<FieldInfo>> fieldDeclarations() {
+        return Map.of();
+    }
+
+    default Map<MethodInfo, MethodInfo> methodInfoMap() {
+        return Map.of();
+    }
+
+    default Map<TypeInfo, TypeInfo> typeInfoMap() {
+        return Map.of();
+    }
+
+    default Map<? extends Variable, ? extends Variable> variables() {
+        return Map.of();
+    }
+
+    default Map<? extends Expression, ? extends Expression> expressions() {
+        return Map.of();
+    }
+
+    default Map<? extends Variable, ? extends Expression> variableExpressions() {
+        return Map.of();
+    }
+
+    default Map<MethodInfo, List<MethodInfo>> methodsDeclarations() {
+        return Map.of();
+    }
+
+    default Map<? extends Statement, List<Statement>> statements() {
+        return Map.of();
+    }
+
+    default Map<ParameterizedType, ParameterizedType> types() {
+        return Map.of();
+    }
+
+    default boolean isClearAnalysis() {
+        return true;
+    }
+
+    default Map<FieldInfo, FieldInfo> fieldInfoMap() {
+        return Map.of();
+    }
+
+    /*
+        used by CM
+         */
+    default boolean translateAgain() {
+        return false;
+    }
+
+    default TranslationMap delegate() {
+        return null;
+    }
+
+    default <T extends Element> T postTranslationHandler(T original, T translated) {
+        return translated;
+    }
+
+    default <T extends Element> List<T> postTranslationHandler(T original, List<T> translated) {
+        return translated;
+    }
+
+    interface ModificationTimesHandler {
+        String modificationTimes(MethodCall beforeTranslation,
+                                 Expression translatedObject, List<Expression> translatedParameters);
+    }
+
+    /*
+    Note: to avoid cyclic type dependencies, the first parameter takes 'Expression' rather than 'MethodCall'
+     */
+    default String modificationTimes(Expression methodCallBeforeTranslation,
+                                     Expression translatedObject,
+                                     List<Expression> translatedParameters) {
+        return null;
+    }
+
+    default <T> Collector<T, List<T>, List<T>> toList(List<T> original) {
+        return staticToList(original);
+    }
+
+    // used by ParameterizedTypeImpl
+    static <T> Collector<T, List<T>, List<T>> staticToList(List<T> original) {
+        return new Collector<>() {
+            boolean changes;
+
+            @Override
+            public Supplier<List<T>> supplier() {
+                return () -> new ArrayList<T>(original.size());
+            }
+
+            @Override
+            public BiConsumer<List<T>, T> accumulator() {
+                return (list, t) -> {
+                    if (list.size() < original.size()) {
+                        T inOriginal = original.get(list.size());
+                        changes |= inOriginal != t;
+                    } else {
+                        changes = true;
+                    }
+                    list.add(t);
+                };
+            }
+
+            @Override
+            public BinaryOperator<List<T>> combiner() {
+                return (l1, l2) -> {
+                    throw new UnsupportedOperationException("Combiner not implemented");
+                };
+            }
+
+            @Override
+            public Function<List<T>, List<T>> finisher() {
+                // we also test for different size: this allows for the removal of objects outside a strict
+                // Translation setting (see ParameterizedType.replaceTypeBounds)
+                return list -> changes || list.size() != original.size() ? List.copyOf(list) : original;
+            }
+
+            @Override
+            public Set<Characteristics> characteristics() {
+                return Set.of();
+            }
+        };
+    }
+
+    default <T> Collector<T, Set<T>, Set<T>> toSet(Set<T> original) {
+        return staticToSet(original);
+    }
+
+    static <T> Collector<T, Set<T>, Set<T>> staticToSet(Set<T> original) {
+        return new Collector<>() {
+            boolean changes;
+
+            @Override
+            public Supplier<Set<T>> supplier() {
+                return () -> new HashSet<>(original.size());
+            }
+
+            @Override
+            public BiConsumer<Set<T>, T> accumulator() {
+                return (set, t) -> {
+                    boolean inOriginal = original.contains(t);
+                    changes |= !inOriginal;
+                    set.add(t);
+                };
+            }
+
+            @Override
+            public BinaryOperator<Set<T>> combiner() {
+                return (l1, l2) -> {
+                    throw new UnsupportedOperationException("Combiner not implemented");
+                };
+            }
+
+            @Override
+            public Function<Set<T>, Set<T>> finisher() {
+                return set -> changes || set.size() != original.size() ? Set.copyOf(set) : original;
+            }
+
+            @Override
+            public Set<Characteristics> characteristics() {
+                return Set.of();
+            }
+        };
+    }
+
+    default <K, V> Collector<Map.Entry<K, V>, Map<K, V>, Map<K, V>> toMap(Map<K, V> original) {
+        return staticToMap(original);
+    }
+
+    static <K, V> Collector<Map.Entry<K, V>, Map<K, V>, Map<K, V>> staticToMap(Map<K, V> original) {
+        return new Collector<>() {
+            boolean changes;
+
+            @Override
+            public Supplier<Map<K, V>> supplier() {
+                return () -> new HashMap<>(original.size());
+            }
+
+            @Override
+            public BiConsumer<Map<K, V>, Map.Entry<K, V>> accumulator() {
+                return (map, entry) -> {
+                    K key = entry.getKey();
+                    V inOriginal = original.get(key);
+                    V value = entry.getValue();
+                    changes |= !Objects.equals(inOriginal, value);
+                    map.put(key, value);
+                };
+            }
+
+            @Override
+            public BinaryOperator<Map<K, V>> combiner() {
+                return (l1, l2) -> {
+                    throw new UnsupportedOperationException("Combiner not implemented");
+                };
+            }
+
+            @Override
+            public Function<Map<K, V>, Map<K, V>> finisher() {
+                return map -> changes || map.size() != original.size() ? Map.copyOf(map) : original;
+            }
+
+            @Override
+            public Set<Characteristics> characteristics() {
+                return Set.of();
+            }
+        };
+    }
+
+    interface Builder {
+        TranslationMap build();
+
+        @Fluent
+        Builder setTranslateAgain(boolean translateAgain);
+
+        Builder put(TypeParameter template, TypeParameter actual);
+
+        Builder put(Statement template, Statement actual);
+
+        Builder put(TypeInfo template, TypeInfo actual);
+
+        Builder putDeclaration(MethodInfo template, List<MethodInfo> actual);
+
+        Builder put(MethodInfo template, MethodInfo actual);
+
+        Builder putDeclaration(FieldInfo template, List<FieldInfo> actual);
+
+        Builder put(FieldInfo template, FieldInfo actual);
+
+        Builder put(Statement template, List<Statement> statements);
+
+        Builder put(Expression template, Expression actual);
+
+        Builder addVariableExpression(Variable variable, Expression actual);
+
+        Builder renameVariable(Variable variable, Expression actual);
+
+        Builder put(ParameterizedType template, ParameterizedType actual);
+
+        Builder put(Variable template, Variable actual);
+
+        Builder setYieldToReturn(boolean b);
+
+        Builder setExpandDelayedWrapperExpressions(boolean expandDelayedWrappedExpressions);
+
+        Builder setCorrectSources(boolean correctSources);
+
+        boolean translateMethod(MethodInfo methodInfo);
+
+        Builder setModificationTimesHandler(ModificationTimesHandler modificationTimesHandler);
+
+        Builder setClearAnalysis(boolean clearAnalysis);
+
+        Builder setDelegate(TranslationMap delegate);
+
+        Builder setPostTranslationHandler(PostTranslationHandler postTranslationHandler);
+
+        boolean isEmpty();
+    }
+}

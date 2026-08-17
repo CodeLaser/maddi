@@ -1,0 +1,302 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.info;
+
+import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.support.EventuallyFinal;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class ParameterInfoImpl implements ParameterInfo {
+    private final int index;
+    private final String name;
+    private final MethodInfo methodInfo;
+    private final ParameterizedType parameterizedType;
+    private final EventuallyFinal<ParameterInspection> inspection;
+    // Manual hidden content: the analysis overlay is derived analyzer metadata, orthogonal to the immutability of
+    // the parameter it decorates. Unlike its Info siblings, ParameterInfoImpl owns its store directly rather than
+    // inheriting it from InfoImpl; @IgnoreModifications gives it the same treatment for the same reason (the
+    // modifications are confined to the ignored stratum). See road-to-immutability section 050.
+    @IgnoreModifications
+    private final PropertyValueMap analysis = new PropertyValueMapImpl();
+
+    public ParameterInfoImpl(MethodInfo methodInfo, int index, String name, ParameterizedType parameterizedType) {
+        this.methodInfo = methodInfo;
+        this.index = index;
+        this.name = name;
+        this.parameterizedType = parameterizedType;
+        inspection = new EventuallyFinal<>();
+        inspection.setVariable(new ParameterInspectionImpl.Builder(this));
+    }
+
+    @Override
+    public boolean hasBeenInspected() {
+        return inspection.isFinal();
+    }
+
+    @Override
+    public boolean isUnnamed() {
+        return LocalVariableImpl.UNNAMED.equals(name);
+    }
+
+    @Override
+    public String descriptor() {
+        return methodInfo.descriptor() + ":" + index + ":" + simpleName();
+    }
+
+    @Override
+    public String info() {
+        return "parameter";
+    }
+
+    @Override
+    public TypeInfo typeInfo() {
+        return methodInfo.typeInfo();
+    }
+
+    @Override
+    public boolean hasBeenAnalyzed() {
+        return methodInfo.hasBeenAnalyzed();
+    }
+
+    @Override
+    public Access access() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompilationUnit compilationUnit() {
+        return methodInfo.compilationUnit();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ParameterInfoImpl that)) return false;
+        return index == that.index && Objects.equals(methodInfo, that.methodInfo);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(index, methodInfo);
+    }
+
+    @Override
+    public int compareTo(Variable o) {
+        if (o instanceof ParameterInfoImpl pi && methodInfo == pi.methodInfo) return index - pi.index;
+        return fullyQualifiedName().compareTo(o.fullyQualifiedName());
+    }
+
+    @Override
+    public Builder builder() {
+        if (inspection.isVariable()) return (ParameterInfo.Builder) inspection.get();
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String toString() {
+        return fullyQualifiedName();
+    }
+
+    public boolean hasBeenCommitted() {
+        return inspection.isFinal();
+    }
+
+    @Override
+    public int index() {
+        return index;
+    }
+
+    @Override
+    public String name() {
+        return name;
+    }
+
+    @Override
+    public boolean isVarArgs() {
+        return inspection.get().isVarArgs();
+    }
+
+    @Override
+    public boolean isFinal() {
+        return inspection.get().isFinal();
+    }
+
+    @Override
+    public String fullyQualifiedName() {
+        return methodInfo.fullyQualifiedName() + ":" + index + ":" + simpleName();
+    }
+
+    @Override
+    public String simpleName() {
+        return isUnnamed() ? "_" : name;
+    }
+
+    @Override
+    public ParameterizedType parameterizedType() {
+        return parameterizedType;
+    }
+
+    @Override
+    public int complexity() {
+        return 2;
+    }
+
+    @Override
+    public List<Comment> comments() {
+        return inspection.get().comments();
+    }
+
+    @Override
+    public Source source() {
+        return inspection.get().source();
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        predicate.test(this);
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        visitor.beforeVariable(this);
+        visitor.afterVariable(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return new OutputBuilderImpl().add(new TextImpl(simpleName()));
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.of(this);
+    }
+
+    @Override
+    public Stream<TypeReference> explicitTypesReferenced() {
+        Stream<TypeReference> fromAnnotations = annotations().stream()
+                .flatMap(annotationExpression -> annotationExpression.typesReferenced(null));
+        return Stream.concat(fromAnnotations, parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT,
+                source() == null ? null : source().detailedSources()));
+    }
+
+    @Override
+    public Stream<Variable> variableStreamDescend() {
+        return variables(DescendModeEnum.YES);
+    }
+
+    @Override
+    public Stream<Variable> variableStreamDoNotDescend() {
+        return variables(DescendModeEnum.NO);
+    }
+
+    @Override
+    public PropertyValueMap analysis() {
+        if (io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.ENABLED) {
+            io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.record(this);
+        }
+        return analysis;
+    }
+
+    @Override
+    public boolean isUnmodified() {
+        return analysis.getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
+    public boolean isIgnoreModifications() {
+        return analysis.getOrDefault(PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
+    public Value.AssignedToField assignedToField() {
+        return analysis.getOrDefault(PropertyImpl.PARAMETER_ASSIGNED_TO_FIELD, ValueImpl.AssignedToFieldImpl.EMPTY);
+    }
+
+    public void commit(ParameterInspection pi) {
+        inspection.setFinal(pi);
+    }
+
+    @Override
+    public boolean isSynthetic() {
+        return inspection.get().isSynthetic();
+    }
+
+    @Override
+    public MethodInfo methodInfo() {
+        return methodInfo;
+    }
+
+    @Override
+    public List<AnnotationExpression> annotations() {
+        return inspection.get().annotations();
+    }
+
+    @Override
+    public List<ParameterInfo> translate(TranslationMap translationMap) {
+        throw new UnsupportedOperationException("because of the back-link, translation takes place in MethodImpl");
+    }
+
+    // a lookup in the map view; the receiver is a key, never modified
+    @NotModified(after = "inspection")
+    @Override
+    public Variable rewire(InfoMapView infoMap) {
+        return infoMap.parameterInfo(this);
+    }
+
+    @Override
+    public JavaDoc javaDoc() {
+        return null; // parameters have no JavaDoc
+    }
+
+    @Override
+    public ParameterInfo withParameterizedType(ParameterizedType parameterizedType) {
+        return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
+    }
+
+    @Override
+    public ParameterInfo with(String name, ParameterizedType parameterizedType) {
+        return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
+    }
+
+    // as variable, not as parameter declaration
+    @Override
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return parameterizedType.typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
+    }
+}

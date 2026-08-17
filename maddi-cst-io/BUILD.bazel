@@ -32,7 +32,7 @@ maddi_java_test(
     name = "maddi-cst-io_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.language.cst.io"],
+    test_packages = ["io.codelaser.maddi.cst.io"],
     deps = [
         ":maddi-cst-io",  # Depend on the main library
         "//maddi-cst-analysis",

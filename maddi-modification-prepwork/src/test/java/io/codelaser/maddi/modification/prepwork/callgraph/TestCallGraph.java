@@ -1,0 +1,432 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.prepwork.callgraph;
+
+import io.codelaser.maddi.modification.prepwork.CommonTest;
+import io.codelaser.maddi.cst.api.element.ModuleInfo;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestCallGraph extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            class X {
+                int unused;
+                int j = square(10);
+                void m1() {
+                    m2();
+                }
+                void m2() {
+                    j++;
+                }
+                static int square(int i) {
+                    return i*i;
+                }
+                void recursive(int k) {
+                    if(k <= 0) {
+                        System.out.println("done");
+                    } else {
+                        System.out.println("k = "+k);
+                        recursive(k-1);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("basics of call graph")
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.j, a.b.X->S->a.b.X.m1(), a.b.X->S->a.b.X.m2(), \
+                a.b.X->S->a.b.X.recursive(int), a.b.X->S->a.b.X.square(int), a.b.X->S->a.b.X.unused, \
+                a.b.X.j->R->a.b.X.m2(), a.b.X.j->R->a.b.X.square(int), a.b.X.m1()->R->a.b.X.m2()\
+                """, ComputeCallGraph.print(graph));
+
+        FieldInfo unused = X.getFieldByName("unused", true);
+        assertNotNull(graph.vertex(unused));
+
+        MethodInfo methodInfo = X.findUniqueMethod("recursive", 1);
+        assertTrue(ccg.recursiveMethods().contains(methodInfo));
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.<init>(), a.b.X.m2(), a.b.X.recursive(int), a.b.X.square(int), a.b.X.unused, a.b.X.j, a.b.X.m1(), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.List;class X {
+                static void method(List<String> list) {
+                    list.forEach(s -> {
+                        if(list.isEmpty()) {
+                            System.out.println("empty");
+                        } else {
+                            System.out.println("s = "+s);
+                            method(list.subList(0, list.size()-1));
+                        }
+                    });
+                }
+            }
+            """;
+
+    @DisplayName("recursion in lambda")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.method(java.util.List), \
+                a.b.X.$0->S->a.b.X.$0.accept(String), a.b.X.method(java.util.List)->S->a.b.X.$0\
+                """, ComputeCallGraph.print(graph));
+
+        // NOTE: at the moment, both the lambda method and 'method' are marked recursive
+        assertEquals("[a.b.X.$0.accept(String), a.b.X.method(java.util.List)]",
+                ccg.recursiveMethods().stream().map(MethodInfo::fullyQualifiedName).sorted().toList().toString());
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.$0.accept(String), a.b.X.<init>(), a.b.X.$0, a.b.X.method(java.util.List), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    static final String INPUT3 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            
+            class X {
+                private List<String> list;
+                X(int i) {
+                    initList(i+"");
+                    print();
+                    sleep();
+                }
+                private void initList(String i) {
+                    list = new ArrayList<>();
+                    list.add(i);
+                }
+                private void sleep() {
+                    list.clear();
+                }
+                void print() {
+                    System.out.println("print!");
+                }
+                public void rest() {
+                    sleep();
+                    System.out.println("awake");
+                }
+            }
+            """;
+
+    @DisplayName("part of construction")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->S->a.b.X.<init>(int)
+                a.b.X->S->a.b.X.initList(String)
+                a.b.X->S->a.b.X.list
+                a.b.X->S->a.b.X.print()
+                a.b.X->S->a.b.X.rest()
+                a.b.X->S->a.b.X.sleep()
+                a.b.X.<init>(int)->R->a.b.X.initList(String)
+                a.b.X.<init>(int)->R->a.b.X.print()
+                a.b.X.<init>(int)->R->a.b.X.sleep()
+                a.b.X.list->R->a.b.X.initList(String)
+                a.b.X.list->R->a.b.X.sleep()
+                a.b.X.rest()->R->a.b.X.sleep()\
+                """, graph.toString("\n", ComputeCallGraph::edgeValuePrinter));
+
+        assertTrue(ccg.recursiveMethods().isEmpty());
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.initList(String), a.b.X.print(), a.b.X.sleep(), a.b.X.<init>(int), a.b.X.list, a.b.X.rest(), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class X {
+                interface I { int i(); }
+                record Y(int i) implements I {}
+                record Z(Y y) {}
+                Z z;
+                Z getZ() { return z; }
+            }
+            """;
+
+    @DisplayName("subtypes in call graph")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
+        G<Info> graph = ccg.go().graph();
+        if (openJdkParser) {
+            // openJdkParser adds equals, toString, hashCode to records
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X->S->a.b.X.Z, \
+                    a.b.X->S->a.b.X.getZ(), a.b.X->S->a.b.X.z, a.b.X.I->S->a.b.X.I.i(), a.b.X.Y->H->a.b.X.I, \
+                    a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.equals(Object), a.b.X.Y->S->a.b.X.Y.hashCode(), \
+                    a.b.X.Y->S->a.b.X.Y.i, a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y->S->a.b.X.Y.toString(), \
+                    a.b.X.Y.i()->S->a.b.X.I.i(), a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i(), \
+                    a.b.X.Z->S->a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z->S->a.b.X.Z.equals(Object), \
+                    a.b.X.Z->S->a.b.X.Z.hashCode(), a.b.X.Z->S->a.b.X.Z.toString(), a.b.X.Z->S->a.b.X.Z.y, \
+                    a.b.X.Z->S->a.b.X.Z.y(), a.b.X.Z.<init>(a.b.X.Y)->D->a.b.X.Y, a.b.X.Z.y()->D->a.b.X.Y, \
+                    a.b.X.Z.y->D->a.b.X.Y, a.b.X.Z.y->R->a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y->R->a.b.X.Z.y(), \
+                    a.b.X.getZ()->D->a.b.X.Z, a.b.X.z->D->a.b.X.Z, a.b.X.z->R->a.b.X.getZ()\
+                    """, ComputeCallGraph.print(graph));
+        } else {
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, \
+                    a.b.X->S->a.b.X.Z, a.b.X->S->a.b.X.getZ(), a.b.X->S->a.b.X.z, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, a.b.X.Y->S->a.b.X.Y.i(), \
+                    a.b.X.Y.i()->S->a.b.X.I.i(), \
+                    a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i(), a.b.X.Z->S->a.b.X.Z.<init>(a.b.X.Y), \
+                    a.b.X.Z->S->a.b.X.Z.y, a.b.X.Z->S->a.b.X.Z.y(), a.b.X.Z.<init>(a.b.X.Y)->D->a.b.X.Y, \
+                    a.b.X.Z.y()->D->a.b.X.Y, a.b.X.Z.y->D->a.b.X.Y, a.b.X.Z.y->R->a.b.X.Z.<init>(a.b.X.Y), \
+                    a.b.X.Z.y->R->a.b.X.Z.y(), a.b.X.getZ()->D->a.b.X.Z, a.b.X.z->D->a.b.X.Z, a.b.X.z->R->a.b.X.getZ()\
+                    """, ComputeCallGraph.print(graph));
+        }
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        if(openJdkParser) {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.Y.equals(Object), a.b.X.Y.hashCode(), \
+                    a.b.X.Y.toString(), a.b.X.Z.equals(Object), a.b.X.Z.hashCode(), a.b.X.Z.toString(), \
+                    a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y(), a.b.X.Z.y, \
+                    a.b.X.Z, a.b.X.getZ(), a.b.X.z, a.b.X]\
+                    """, analysisOrder.toString());
+        } else {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, \
+                    a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y(), a.b.X.Z.y, a.b.X.Z, a.b.X.getZ(), a.b.X.z, a.b.X]\
+                    """, analysisOrder.toString());
+        }
+    }
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            class X {
+                /**
+                 * link to {@link Y}
+                 */
+                interface I { int i(); }
+                record Y(int i) implements I {}
+            }
+            """;
+
+    @DisplayName("javadoc reference")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
+        G<Info> graph = ccg.go().graph();
+        if (openJdkParser) {
+            // openJdkParser adds equals, toString, hashCode to records
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.I->d->a.b.X.Y, a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), \
+                    a.b.X.Y->S->a.b.X.Y.equals(Object), a.b.X.Y->S->a.b.X.Y.hashCode(), a.b.X.Y->S->a.b.X.Y.i, \
+                    a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y->S->a.b.X.Y.toString(), a.b.X.Y.i()->S->a.b.X.I.i(), \
+                    a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i()\
+                    """, ComputeCallGraph.print(graph));
+        } else {
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.I->d->a.b.X.Y, a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, \
+                    a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y.i()->S->a.b.X.I.i(), a.b.X.Y.i->R->a.b.X.Y.<init>(int), \
+                    a.b.X.Y.i->R->a.b.X.Y.i()\
+                    """, ComputeCallGraph.print(graph));
+        }
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        if (openJdkParser) {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.Y.equals(Object), a.b.X.Y.hashCode(), \
+                    a.b.X.Y.toString(), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X]\
+                    """, analysisOrder.toString());
+        } else {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X]\
+                    """, analysisOrder.toString());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            class X {
+                public void m() {
+                    try {
+                        System.out.println("A");
+                    } catch(AssertionError | RuntimeException ioe) {
+                        System.out.println("B");
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("catch clauses")
+    @Test
+    public void test6() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT6);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), Set.of(), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(), \
+                a.b.X.m()->R->java.io.PrintStream.println(String), a.b.X.m()->R->java.lang.AssertionError, \
+                a.b.X.m()->R->java.lang.RuntimeException, a.b.X.m()->R->java.lang.System, \
+                a.b.X.m()->R->java.lang.System.out\
+                """, ComputeCallGraph.print(graph));
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.<init>(), a.b.X.m(), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.io.IOException;
+            class X {
+                public void m(Exception e) {
+                    switch(e) {
+                        case IOException ioe -> System.out.println("A");
+                        case RuntimeException ice -> System.out.println("B");
+                        default -> { }
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("switch cases")
+    @Test
+    public void test7() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT7);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(Exception), \
+                a.b.X.m(Exception)->D->java.lang.Exception, a.b.X.m(Exception)->R->java.io.IOException, \
+                a.b.X.m(Exception)->R->java.io.PrintStream.println(String), \
+                a.b.X.m(Exception)->R->java.lang.RuntimeException, a.b.X.m(Exception)->R->java.lang.System, \
+                a.b.X.m(Exception)->R->java.lang.System.out\
+                """, ComputeCallGraph.print(graph));
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.<init>(), a.b.X.m(Exception), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            class X {
+                interface I { }
+            }
+            """;
+
+    @DisplayName("module")
+    @Test
+    public void test8() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT8);
+        ModuleInfo moduleInfo = runtime.newModuleInfoBuilder()
+                .setName("a.b.module-info")
+                .addUses(runtime.noSource(), List.of(), "X.I")
+                .addProvides(runtime.noSource(), List.of(), "X.J", List.of("X")).build();
+        moduleInfo.provides().getFirst().setImplementationsResolved(List.of(X));
+        moduleInfo.uses().getFirst().setApiResolved(X.findSubType("I"));
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(moduleInfo), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X.I->H->java.lang.Object, \
+                a.b.module-info->R->a.b.X, a.b.module-info->R->a.b.X.I\
+                """, ComputeCallGraph.print(graph));
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.<init>(), a.b.X.I, a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            class X {
+                @interface Tag {
+                    String field();
+                }
+                @Tag(field=B.C)
+                class A {}
+                class B { public static String C = "test"; }
+            }
+            """;
+
+    @DisplayName("subtypes in annotations")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT9, ALLOW_COMPILATION_ERRORS);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.A, a.b.X->S->a.b.X.B, \
+                a.b.X->S->a.b.X.Tag, a.b.X.A->D->a.b.X.Tag, a.b.X.A->H->java.lang.Object, a.b.X.A->R->a.b.X.B, \
+                a.b.X.A->R->a.b.X.B.C, a.b.X.A->S->a.b.X.A.<init>(), a.b.X.B->H->java.lang.Object, \
+                a.b.X.B->S->a.b.X.B.<init>(), a.b.X.B->S->a.b.X.B.C, a.b.X.B.C->D->java.lang.String, \
+                a.b.X.Tag->H->java.lang.Object, a.b.X.Tag->H->java.lang.annotation.Annotation, \
+                a.b.X.Tag->S->a.b.X.Tag.field(), a.b.X.Tag.field()->D->java.lang.String\
+                """, ComputeCallGraph.print(graph));
+    }
+}

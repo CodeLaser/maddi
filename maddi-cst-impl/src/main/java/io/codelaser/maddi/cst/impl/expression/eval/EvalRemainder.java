@@ -1,0 +1,43 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression.eval;
+
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.expression.Numeric;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.expression.DivideImpl;
+import io.codelaser.maddi.cst.impl.expression.RemainderImpl;
+
+public class EvalRemainder {
+    private final Runtime runtime;
+
+    public EvalRemainder(Runtime runtime) {
+        this.runtime = runtime;
+    }
+
+    public Expression remainder(Expression lhs, Expression rhs) {
+        if (lhs instanceof Numeric ln && ln.doubleValue() == 0) return lhs;
+        if (rhs instanceof Numeric rn && rn.doubleValue() == 1) return lhs;
+        if (lhs instanceof IntConstant li && rhs instanceof IntConstant ri)
+            return runtime.newInt(li.constant() % ri.constant());
+
+        // any unknown lingering
+        if (lhs.isEmpty() || rhs.isEmpty()) throw new UnsupportedOperationException();
+
+        return new RemainderImpl(runtime, lhs, rhs);
+    }
+
+}

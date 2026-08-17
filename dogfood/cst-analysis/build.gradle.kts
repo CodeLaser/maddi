@@ -1,6 +1,6 @@
 plugins {
     `java-library`
-    id("org.e2immu.analyzer-plugin")
+    id("io.codelaser.maddi.analyzer")
 }
 
 java {

@@ -1,0 +1,161 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.inspection.kotlin
+
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl
+import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
+import io.codelaser.maddi.inspection.resource.SourceSetImpl
+import io.codelaser.maddi.kotlin.k2.KotlinScan
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.net.URI
+
+/**
+ * Tier-1: feed Kotlin-derived CST into maddi's modification analyzer and check it runs. The point is not
+ * (yet) to assert deep analysis results, but to prove the end-to-end path works and to surface the first
+ * real gaps — the same runtime instance is shared between the Kotlin parser and the analyzer.
+ */
+class KotlinAnalyzerSmokeTest {
+
+    private val runtime: Runtime = RuntimeImpl()
+    private val sourceSet: SourceSet =
+        SourceSetImpl.Builder().setName("source").setUri(URI.create("file:/")).build()
+
+    @Test
+    fun analyzerRunsOnAKotlinMethod() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "A.kt",
+            "class A { fun m(x: Int): Int { var y = x; y = y + 1; return y } }\n"
+        )
+        val method = types.first().findUniqueMethod("m", 1)
+
+        // run the prep analyzer on the method (computes the per-statement variable data)
+        PrepAnalyzer(runtime).doMethod(method)
+
+        val variableData = VariableDataImpl.of(method.methodBody().lastStatement())
+        assertNotNull(variableData)
+        // the analyzer saw the parameter `x` and the local `y`
+        val names = variableData.knownVariableNamesToString()
+        assertTrue(names.contains("x"), "variables: $names")
+        assertTrue(names.contains("y"), "variables: $names")
+    }
+
+    @Test
+    fun analyzerRunsOnAKotlinClass() {
+        // a class with a primary-constructor property (-> backing field + getter/setter) and a method
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Counter.kt",
+            "class Counter(var count: Int) { fun inc() { count = count + 1 } }\n"
+        )
+        // full prep analysis over the primary type: constructor body, accessors, and inc()
+        PrepAnalyzer(runtime).doPrimaryTypes(types.toSet())
+
+        val inc = types.first().findUniqueMethod("inc", 0)
+        val variableData = VariableDataImpl.of(inc.methodBody().lastStatement())
+        assertNotNull(variableData)
+    }
+
+    @Test
+    fun variableDataAssignmentsAreCorrect() {
+        // var a = p (stmt 0); a = a + 1 (stmt 1); return a (stmt 2)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "X.kt",
+            "class X { fun m(p: Int): Int { var a = p; a = a + 1; return a } }\n"
+        )
+        val m = types.first().findUniqueMethod("m", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // `a` is defined+assigned at statement 0 and reassigned at statement 1; `p` is a read-only parameter
+        assertEquals("D:0, A:[0, 1]", vd.variableInfo("a").assignments().toString())
+        // the method, its parameter `p` (Kotlin Int -> JVM int), and the local `a`
+        assertEquals("X.m(int), X.m(int):0:p, a", vd.knownVariableNamesToString())
+    }
+
+    @Test
+    fun controlFlowVariableData() {
+        // var a = 0 (0); if (p>0) { a=1 (1.0.0) } else { a=2 (1.1.0) } (1); return a (2)
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "C.kt",
+            "class C { fun m(p: Int): Int { var a = 0; if (p > 0) { a = 1 } else { a = 2 }; return a } }\n"
+        )
+        val m = types.first().findUniqueMethod("m", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // assigned in the init (0), then-branch (1.0.0), else-branch (1.1.0), merged at the if (1=M):
+        // proves the nested statement indices AND the analyzer's branch-merge logic work on Kotlin
+        assertEquals("D:0, A:[0, 1.0.0, 1.1.0, 1=M]", vd.variableInfo("a").assignments().toString())
+    }
+
+    @Test
+    fun propertyAssignmentTrackedAsFieldModification() {
+        // `value` is a `var` property -> backing field; `value = value + 1` assigns that field
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Box.kt",
+            "class Box(var value: Int) { fun update() { value = value + 1 } }\n"
+        )
+        val update = types.first().findUniqueMethod("update", 0)
+        PrepAnalyzer(runtime).doMethod(update)
+
+        val vd = VariableDataImpl.of(update.methodBody().lastStatement())
+        // the analyzer sees a write to the backing field `Box.value` (the getter/setter harmonization
+        // makes Kotlin property access look like Java field access)
+        assertEquals("Box.this, Box.value", vd.knownVariableNamesToString())
+    }
+
+    @Test
+    fun whileLoopVariableData() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "W.kt",
+            "class W { fun count(n: Int): Int { var i = 0; while (i < n) { i = i + 1 }; return i } }\n"
+        )
+        val m = types.first().findUniqueMethod("count", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // init (0) + the loop body `i = i + 1` at the nested index (1.0.0)
+        assertEquals("D:0, A:[0, 1.0.0]", vd.variableInfo("i").assignments().toString())
+    }
+
+    @Test
+    fun whenStatementVariableData() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "S.kt",
+            "class S { fun pick(x: Int): Int { var r = 0; when (x) { 1 -> { r = 1 } else -> { r = 2 } }; return r } }\n"
+        )
+        val m = types.first().findUniqueMethod("pick", 1)
+        PrepAnalyzer(runtime).doMethod(m)
+        val vd = VariableDataImpl.of(m.methodBody().lastStatement())
+        // both `when` arms (1.0.0, 1.1.0) + merge (1=M): switch-entry indices flow through the analyzer
+        assertEquals("D:0, A:[0, 1.0.0, 1.1.0, 1=M]", vd.variableInfo("r").assignments().toString())
+    }
+
+    @Test
+    fun lambdaThroughAnalyzer() {
+        // a method returning a lambda: exercises the synthetic anonymous type + invoke SAM through analysis
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "L.kt",
+            "class L { fun make(): (Int) -> Int = { x -> x + 1 } }\n"
+        )
+        val make = types.first().findUniqueMethod("make", 0)
+        PrepAnalyzer(runtime).doMethod(make)
+        assertNotNull(VariableDataImpl.of(make.methodBody().lastStatement()))
+    }
+}

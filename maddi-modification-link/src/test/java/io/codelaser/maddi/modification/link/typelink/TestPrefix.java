@@ -1,0 +1,198 @@
+package io.codelaser.maddi.modification.link.typelink;
+
+import io.codelaser.maddi.modification.link.CommonTest;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import java.util.AbstractMap;
+import java.util.stream.Stream;
+
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class TestPrefix extends CommonTest {
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+            
+                public Stream<Map.Entry<X, Y>> one(X x, Y y) {
+                    Map.Entry<X, Y> entry = new AbstractMap.SimpleEntry<>(x, y);
+                    Stream<Map.Entry<X,Y>> stream1 = Stream.of(entry);
+                    return stream1;
+                }
+            }
+            """;
+    public static final String EXPECTED12 = "[-, -] --> one.§$s≥0:x,one.§$s≥1:y";
+
+    @Test
+    public void test1() {
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+        MethodInfo one = C.findUniqueMethod("one", 2);
+
+        // test Stream.of()
+        TypeInfo stream = javaInspector.compiledTypesManager().typeIfLoaded(Stream.class);
+        MethodInfo of1 = stream.methodStream()
+                .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size()
+                             && m.parameters().getFirst().parameterizedType().arrays() == 0)
+                .findFirst().orElseThrow();
+        assertEquals("java.util.stream.Stream.of(Object)", of1.fullyQualifiedName());
+        MethodLinkedVariables tlvOf1 = of1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> of.§ts∋0:t", tlvOf1.toString());
+
+        // test SimpleEntry constructor
+        // get(nested.class) resolves by canonical name, which the openjdk loader does not key nested types on;
+        // fetch the enclosing type and navigate to the sub-type instead
+        TypeInfo simpleEntry = javaInspector.compiledTypesManager().typeIfLoaded(AbstractMap.class).findSubType("SimpleEntry");
+        MethodInfo constructor1 = simpleEntry.findConstructor(2);
+        assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
+        MethodLinkedVariables tlvConstructor1 = constructor1.analysis()
+                .getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[0:key→this*.§kv.§k, 1:value→this*.§kv.§v] --> -", tlvConstructor1.toString());
+
+        VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
+        VariableInfo viEntry = vd0.variableInfo("entry");
+        Links tlvEntry = viEntry.linkedVariablesOrEmpty();
+        assertEquals("entry.§xy.§x←0:x,entry.§xy.§y←1:y", tlvEntry.toString());
+
+        VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
+        VariableInfo viStream1 = vd1.variableInfo("stream1");
+        Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
+        assertEquals("""
+                stream1.§$s≥0:x,stream1.§$s≥1:y,stream1.§$s∋entry,stream1.§$s≥entry.§xy.§x,stream1.§$s≥entry.§xy.§y,stream1≥entry.§xy\
+                """, tlvStream1.toString());
+
+        MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(EXPECTED12, tlvOne.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+            
+                public Stream<Map.Entry<X, Y>> one(X x, Y y) {
+                    return Stream.of(new AbstractMap.SimpleEntry<>(x, y));
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+
+        MethodInfo one = C.findUniqueMethod("one", 2);
+        MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(EXPECTED12, tlvOne.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+            
+                public Map.Entry<Stream<X>, Stream<Y>> oneInstance(X x, Y y) {
+                    Stream<X> xs = Stream.of(x);
+                    Stream<Y> ys = Stream.of(y);
+                    return new AbstractMap.SimpleEntry<>(xs, ys);
+                }
+            
+                public static <X, Y> Map.Entry<Stream<X>, Stream<Y>> oneStatic(X x, Y y) {
+                    Stream<X> xs = Stream.of(x);
+                    Stream<Y> ys = Stream.of(y);
+                    return new AbstractMap.SimpleEntry<>(xs, ys);
+                }
+            }
+            """;
+
+    private static final String EXPECTED_34 = "[0:x∩1:y, 1:y∩0:x] --> oneStatic.§xsys.§xs∋0:x,oneStatic.§xsys.§xs∩1:y,oneStatic.§xsys.§ys∩0:x,oneStatic.§xsys.§ys∋1:y";
+
+    // see also TestShallowPrefix, which computes the shallow version
+    @Test
+    public void test3() {
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT3);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
+        assertEquals(EXPECTED_34, tlv1Static.toString());
+
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
+        assertEquals(EXPECTED_34.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+            
+                public Map.Entry<Stream<X>, Stream<Y>> oneInstance(X x, Y y) {
+                    return new AbstractMap.SimpleEntry<>(Stream.of(x), Stream.of(y));
+                }
+            
+                public static <X, Y> Map.Entry<Stream<X>, Stream<Y>> oneStatic(X x, Y y) {
+                    return new AbstractMap.SimpleEntry<>(Stream.of(x), Stream.of(y));
+                }
+            }
+            """;
+
+    // see also TestShallowPrefix, which computes the shallow version
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+
+        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+
+        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(EXPECTED_34, tlv1Static.toString());
+
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+
+        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(EXPECTED_34.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
+    }
+}

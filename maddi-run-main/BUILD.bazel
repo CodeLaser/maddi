@@ -47,7 +47,7 @@ maddi_java_library(
 # 'application' plugin equivalent
 java_binary(
     name = "maddi-main",
-    main_class = "org.e2immu.analyzer.run.main.Main",
+    main_class = "io.codelaser.maddi.run.main.Main",
     visibility = ["//visibility:public"],
     jvm_flags = ["--enable-preview"],
     runtime_deps = [

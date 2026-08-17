@@ -1,0 +1,214 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator;
+import io.codelaser.maddi.cst.impl.expression.util.InternalCompareToException;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class VariableExpressionImpl extends ExpressionImpl implements VariableExpression {
+
+    private final Variable variable;
+    private final Suffix suffix;
+
+    public VariableExpressionImpl(Variable variable) {
+        this(List.of(), null, variable, null);
+    }
+
+    public VariableExpressionImpl(List<Comment> comments, Source source, Variable variable, Suffix suffix) {
+        super(comments, source, variable.complexity());
+        this.variable = variable;
+        this.suffix = suffix;
+    }
+
+    @Override
+    public Suffix suffix() {
+        return suffix;
+    }
+
+    @Override
+    public Variable variable() {
+        return variable;
+    }
+
+    public static class Builder extends ElementImpl.Builder<VariableExpression.Builder> implements VariableExpression.Builder {
+        private Variable variable;
+        private Suffix suffix;
+
+        @Override
+        public VariableExpression.Builder setVariable(Variable variable) {
+            this.variable = variable;
+            return this;
+        }
+
+        @Override
+        public VariableExpression.Builder setSuffix(Suffix suffix) {
+            this.suffix = suffix;
+            return this;
+        }
+
+        @Override
+        public VariableExpression build() {
+            return new VariableExpressionImpl(comments, source, variable, suffix);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        VariableExpressionImpl that = (VariableExpressionImpl) o;
+        return Objects.equals(variable, that.variable) && Objects.equals(suffix, that.suffix);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(variable, suffix);
+    }
+
+    @Override
+    public VariableExpression withSuffix(Suffix suffix) {
+        return new VariableExpressionImpl(comments(), source(), variable, suffix);
+    }
+
+    @Override
+    public VariableExpression withVariable(Variable variable) {
+        return new VariableExpressionImpl(comments(), source(), variable, suffix);
+    }
+
+    @Override
+    public ParameterizedType parameterizedType() {
+        return variable.parameterizedType();
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            variable.visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeExpression(this)) {
+            variable.visit(visitor);
+        }
+        visitor.afterExpression(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl().add(variable.print(qualification));
+        if (suffix != null) outputBuilder.add(suffix.print());
+        return outputBuilder;
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return variable.variables(descendMode);
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return variable.typesReferenced(predicate);
+    }
+
+    @Override
+    public Precedence precedence() {
+        return PrecedenceEnum.TOP;
+    }
+
+    @Override
+    public int order() {
+        return ExpressionComparator.ORDER_VARIABLE;
+    }
+
+    @Override
+    public int internalCompareTo(Expression expression) {
+        VariableExpression ve;
+        if ((ve = expression.asInstanceOf(VariableExpression.class)) != null) {
+            return variable.fullyQualifiedName().compareTo(ve.variable().fullyQualifiedName());
+        }
+        throw new InternalCompareToException();
+    }
+
+    public record VariableFieldSuffix(int statementTime,
+                                      String latestAssignment) implements VariableExpression.VariableField {
+
+        @Override
+        public OutputBuilder print() {
+            OutputBuilder outputBuilder = new OutputBuilderImpl();
+            if (latestAssignment != null) outputBuilder.add(new TextImpl("$" + latestAssignment));
+            outputBuilder.add(new TextImpl("$" + statementTime));
+            return outputBuilder;
+        }
+    }
+
+    @Override
+    public Expression translate(TranslationMap translationMap) {
+        // see explanation in TranslationMapImpl for the order of translation.
+        Expression translated1 = translationMap.translateExpression(this);
+        if (translated1 != this) {
+            return translated1;
+        }
+        Expression translated2 = translationMap.translateVariableExpressionNullIfNotTranslated(variable);
+        if (translated2 != null) {
+            return translationMap.postTranslationHandler(this, translated2);
+        }
+        Variable translated3 = translationMap.translateVariableRecursively(variable);
+        if (translated3 == variable) return this;
+        Expression result = new VariableExpressionImpl(comments(), source(), translated3, suffix);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    @Override
+    public boolean isNumeric() {
+        return parameterizedType().isNumeric();
+    }
+
+    @Override
+    public VariableExpression withSource(Source newSource) {
+        return new VariableExpressionImpl(comments(), newSource, variable, suffix);
+    }
+
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        return new VariableExpressionImpl(comments(), source(), variable.rewire(infoMap), suffix);
+    }
+}

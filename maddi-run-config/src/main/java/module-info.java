@@ -1,10 +1,10 @@
-module org.e2immu.analyzer.run.config {
-    requires org.e2immu.analyzer.aapi.parser;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.impl;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.language.inspection.resource;
-    requires org.e2immu.util.internal.graph;
+module io.codelaser.maddi.run.config {
+    requires io.codelaser.maddi.aapi.parser;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.inspection.resource;
+    requires io.codelaser.maddi.graph;
 
     // TypeUseAnnotationClosure reads the type-annotation attributes of classpath bytecode
     requires org.objectweb.asm;
@@ -14,8 +14,8 @@ module org.e2immu.analyzer.run.config {
     requires com.fasterxml.jackson.databind;
     requires org.slf4j;
 
-    exports org.e2immu.analyzer.run.config;
-    exports org.e2immu.analyzer.run.config.compile;
-    exports org.e2immu.analyzer.run.config.report;
-    exports org.e2immu.analyzer.run.config.util;
+    exports io.codelaser.maddi.run.config;
+    exports io.codelaser.maddi.run.config.compile;
+    exports io.codelaser.maddi.run.config.report;
+    exports io.codelaser.maddi.run.config.util;
 }

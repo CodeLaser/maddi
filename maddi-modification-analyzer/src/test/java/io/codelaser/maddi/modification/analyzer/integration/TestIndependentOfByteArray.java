@@ -1,0 +1,128 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.analyzer.integration;
+
+
+import io.codelaser.maddi.modification.analyzer.CommonTest;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
+import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
+import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.IfElseStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestIndependentOfByteArray extends CommonTest {
+    @Language("java")
+    private static final String INPUT1 = """
+            import java.io.EOFException;
+            import java.io.IOException;
+            import java.io.RandomAccessFile;
+            
+            public class B {
+              public void readFully(byte[] b, int off, int len) throws IOException {
+                int n = 0;
+                do {
+                  int count = read(b, off + n, len - n);
+                  if (count < 0) throw new EOFException();
+                  n += count;
+                } while (n < len);
+              }
+            
+              RandomAccessFile rf;
+              byte[] arrayIn;
+              int arrayInPtr;
+              byte back;
+              boolean isBack = false;
+            
+              public int read(byte[] b, int off, int len) throws IOException {
+                if (len == 0) return 0;
+                int n = 0;
+                if (isBack) {
+                  isBack = false;
+                  if (len == 1) {
+                    b[off] = back;
+                    return 1;
+                  } else {
+                    n = 1;
+                    b[off++] = back;
+                    --len;
+                  }
+                }
+                if (arrayIn == null) {
+                  return rf.read(b, off, len) + n;
+                } else {
+                  if (arrayInPtr >= arrayIn.length) return -1;
+                  if (arrayInPtr + len > arrayIn.length) len = arrayIn.length - arrayInPtr;
+                  System.arraycopy(arrayIn, arrayInPtr, b, off, len);
+                  arrayInPtr += len;
+                  return len + n;
+                }
+              }
+            }
+            """;
+
+    @DisplayName("byte array independent?")
+    @Test
+    public void test1() {
+        TypeInfo B = javaInspector.parse("B", INPUT1);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        MethodInfo readFully = B.findUniqueMethod("readFully", 3);
+        assertEquals("""
+                [0:b*∋this*.back,0:b*.§$←this*.arrayIn.§$, -, -] --> -\
+                """, readFully.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        MethodInfo read = B.findUniqueMethod("read", 3);
+        assertEquals("""
+                [0:b*∋this*.back,0:b*[1:off]←this*.back,0:b*[1:off]→0:b*[off++],0:b*[off++]←this*.back,\
+                0:b*.§$←this*.arrayIn.§$, 1:off←$_ce7, 2:len←$_ce8,2:len→this*.arrayInPtr] --> -\
+                """, read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        ParameterInfo b = read.parameters().getFirst();
+        Statement s3 = read.methodBody().statements().get(3);
+        {
+            Statement s312 = ((IfElseStatement) s3).elseBlock().statements().get(2);
+            VariableData vd312 = VariableDataImpl.of(s312);
+            VariableInfo viB = vd312.variableInfo(b);
+            assertEquals("""
+                    0:b∋this.back,0:b[1:off]←this.back,0:b[1:off]→0:b[off++],0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
+                    """, viB.linkedVariables().toString());
+        }
+        {
+            VariableData vd3 = VariableDataImpl.of(s3);
+            VariableInfo viB = vd3.variableInfo(b);
+            assertEquals("""
+                    0:b∋this.back,0:b[1:off]←this.back,0:b[1:off]→0:b[off++],0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
+                    """, viB.linkedVariables().toString());
+        }
+        assertTrue(b.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT).isIndependent());
+    }
+}

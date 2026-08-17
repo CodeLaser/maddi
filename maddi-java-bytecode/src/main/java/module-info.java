@@ -1,12 +1,12 @@
-module org.e2immu.language.java.bytecode {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.inspection.api;
+module io.codelaser.maddi.java.bytecode {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.inspection.api;
 
     requires org.slf4j;
     requires org.objectweb.asm;
-    requires org.e2immu.util.internal.util;
+    requires io.codelaser.maddi.util;
 
-    exports org.e2immu.bytecode.java;
-    exports org.e2immu.bytecode.java.asm;
+    exports io.codelaser.maddi.bytecode.java;
+    exports io.codelaser.maddi.bytecode.java.asm;
 }

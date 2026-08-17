@@ -4,7 +4,7 @@
 inline hints — all verified in a running VS Code against a real project. Packaging is not done. See
 *What is missing*.
 
-Third front-end after IntelliJ and Eclipse. Same architecture — the analyser runs out of process and is
+Third front-end after IntelliJ and Eclipse. Same architecture — the analyzer runs out of process and is
 spoken to over a socket in plain JSON — with one thing that is genuinely different here.
 
 ## The problem this front-end had to solve

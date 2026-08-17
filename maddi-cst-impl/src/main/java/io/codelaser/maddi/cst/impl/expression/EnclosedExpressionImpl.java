@@ -1,0 +1,169 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.expression;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.EnclosedExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Precedence;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedExpression {
+    private final Expression inner;
+
+    public EnclosedExpressionImpl(List<Comment> comments, Source source, Expression inner) {
+        super(comments, source, 1 + inner.complexity());
+        this.inner = inner;
+    }
+
+    @Override
+    public Expression withSource(Source source) {
+        return new EnclosedExpressionImpl(comments(), source, inner);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        EnclosedExpressionImpl that = (EnclosedExpressionImpl) o;
+        return Objects.equals(inner, that.inner);
+    }
+
+    @Override
+    public Expression expression() {
+        return inner;
+    }
+
+    @Override
+    public int wrapperOrder() {
+        return 1;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(inner);
+    }
+
+    @Override
+    public Expression inner() {
+        return inner;
+    }
+
+    @Override
+    public ParameterizedType parameterizedType() {
+        return inner.parameterizedType();
+    }
+
+    @Override
+    public Precedence precedence() {
+        return PrecedenceEnum.ACCESS;
+    }
+
+    @Override
+    public int order() {
+        return inner.order();
+    }
+
+    @Override
+    public int internalCompareTo(Expression expression) {
+        // order() delegates to inner, so the comparator can pair us with a NON-enclosed expression of the
+        // inner's order (guava first contact: BinaryOperator vs enclosed binary operator) — compare against
+        // the other side as-is rather than blind-casting
+        Expression other = expression instanceof EnclosedExpression ee ? ee.inner() : expression;
+        return inner.compareTo(other);
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            inner.visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeExpression(this)) {
+            inner.visit(visitor);
+        }
+        visitor.afterExpression(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(inner.print(qualification)).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return inner.variables(descendMode);
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return inner.typesReferenced(predicate);
+    }
+
+    @Override
+    public Expression translate(TranslationMap translationMap) {
+        Expression translated = translationMap.translateExpression(this);
+        if (translated != this) return translated;
+
+        Expression translatedInner = inner.translate(translationMap);
+        if (translatedInner == inner) return this;
+        Expression result = new EnclosedExpressionImpl(comments(), source(), translatedInner);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    public static class Builder extends ElementImpl.Builder<EnclosedExpression.Builder> implements EnclosedExpression.Builder {
+        private Expression expression;
+
+        @Override
+        public EnclosedExpression.Builder setExpression(Expression expression) {
+            this.expression = expression;
+            return this;
+        }
+
+        @Override
+        public EnclosedExpression build() {
+            return new EnclosedExpressionImpl(comments, source, expression);
+        }
+    }
+
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        return new EnclosedExpressionImpl(comments(), source(), inner.rewire(infoMap));
+    }
+}

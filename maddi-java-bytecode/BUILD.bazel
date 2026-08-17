@@ -36,7 +36,7 @@ maddi_java_test(
     name = "maddi-java-bytecode_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.bytecode.java"],
+    test_packages = ["io.codelaser.maddi.bytecode.java"],
     #    resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":maddi-java-bytecode",  # Depend on the main library

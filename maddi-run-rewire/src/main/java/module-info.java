@@ -1,10 +1,10 @@
-module org.e2immu.analyzer.run.rewire {
-    requires org.e2immu.analyzer.modification.prepwork;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.util.internal.graph;
+module io.codelaser.maddi.run.rewire {
+    requires io.codelaser.maddi.modification.prepwork;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.graph;
 
     requires org.slf4j;
 
-    exports org.e2immu.analyzer.run.rewire;
+    exports io.codelaser.maddi.run.rewire;
 }

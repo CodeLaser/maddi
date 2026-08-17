@@ -1,0 +1,408 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.info;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.variable.LocalVariableImpl;
+import io.codelaser.maddi.support.SetOnce;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class MethodInspectionImpl extends InspectionImpl implements MethodInspection {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodInspectionImpl.class);
+
+    public enum MissingDataEnum {
+        METHOD_BODY, OVERRIDES;
+    }
+
+    public record MissingDataImpl(EnumSet<MissingDataEnum> set) implements MethodInfo.MissingData {
+
+        @Override
+        public boolean methodBody() {
+            return set.contains(MissingDataEnum.METHOD_BODY);
+        }
+
+        @Override
+        public boolean overrides() {
+            return set.contains(MissingDataEnum.OVERRIDES);
+        }
+    }
+
+    private final ParameterizedType returnType;
+    private final OperatorType operatorType;
+    private final Block methodBody;
+    private final String fullyQualifiedName;
+    private final Set<MethodInfo> overrides;
+    private final List<TypeParameter> typeParameters;
+    private final List<ParameterInfo> parameters;
+    private final Set<MethodModifier> methodModifiers;
+    private final List<ParameterizedType> exceptionTypes;
+    private final MethodInfo.MissingData missingData;
+
+    // private: the Builder is the only construction route, so every caller of this constructor is inside
+    // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
+    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    private MethodInspectionImpl(Inspection inspection,
+                                ParameterizedType returnType,
+                                List<TypeParameter> typeParameters,
+                                List<ParameterInfo> parameters,
+                                Set<MethodModifier> methodModifiers,
+                                List<ParameterizedType> exceptionTypes,
+                                OperatorType operatorType,
+                                Block methodBody,
+                                String fullyQualifiedName,
+                                Set<MethodInfo> overrides,
+                                MethodInfo.MissingData missingData) {
+        this(inspection, inspection.isSynthetic(), returnType, typeParameters, parameters, methodModifiers,
+                exceptionTypes, operatorType, methodBody, fullyQualifiedName, overrides, missingData);
+    }
+
+    private MethodInspectionImpl(Inspection inspection,
+                                boolean synthetic,
+                                ParameterizedType returnType,
+                                List<TypeParameter> typeParameters,
+                                List<ParameterInfo> parameters,
+                                Set<MethodModifier> methodModifiers,
+                                List<ParameterizedType> exceptionTypes,
+                                OperatorType operatorType,
+                                Block methodBody,
+                                String fullyQualifiedName,
+                                Set<MethodInfo> overrides,
+                                MethodInfo.MissingData missingData) {
+        super(inspection.access(), inspection.comments(), inspection.source(), synthetic, inspection.annotations(),
+                inspection.javaDoc());
+        this.returnType = returnType;
+        this.operatorType = operatorType;
+        this.parameters = parameters;
+        this.methodBody = methodBody;
+        this.fullyQualifiedName = fullyQualifiedName;
+        this.overrides = overrides;
+        this.typeParameters = typeParameters;
+        this.methodModifiers = methodModifiers;
+        this.exceptionTypes = exceptionTypes;
+        this.missingData = missingData;
+    }
+
+    /**
+     * Deliberately NOT on {@link MethodInspection}: here it returns a NEW inspection, while the Builder mutated
+     * itself and returned {@code this} — one signature, two contracts, which made the read-only interface's
+     * method modifying. The Builder's variant is gone; callers on the variable path use {@code setSynthetic}
+     * directly. See {@code docs/builder-interface-split-impact.md}.
+     */
+    public MethodInspection withSynthetic(boolean synthetic) {
+        return new MethodInspectionImpl(this, synthetic, returnType, typeParameters, parameters,
+                methodModifiers, exceptionTypes, operatorType, methodBody, fullyQualifiedName, overrides, missingData);
+    }
+
+    @Override
+    public List<ParameterizedType> exceptionTypes() {
+        return exceptionTypes;
+    }
+
+    @Override
+    public List<TypeParameter> typeParameters() {
+        return typeParameters;
+    }
+
+    @Override
+    public Set<MethodModifier> modifiers() {
+        return methodModifiers;
+    }
+
+    @Override
+    public Set<MethodInfo> overrides() {
+        return overrides;
+    }
+
+    @Override
+    public ParameterizedType returnType() {
+        return returnType;
+    }
+
+    @Override
+    public OperatorType operatorType() {
+        return operatorType;
+    }
+
+    @Override
+    public Block methodBody() {
+        return methodBody;
+    }
+
+    @Override
+    public String fullyQualifiedName() {
+        return fullyQualifiedName;
+    }
+
+    @Override
+    public List<ParameterInfo> parameters() {
+        return parameters;
+    }
+
+    @Override
+    public MethodInfo.MissingData missingData() {
+        return missingData;
+    }
+
+    public static class Builder extends InspectionImpl.Builder<MethodInfo.Builder> implements MethodInspection, MethodInfo.Builder {
+        private ParameterizedType returnType;
+        private OperatorType operatorType;
+        private Block methodBody;
+        private MethodInfo.MissingData missingData = new MissingDataImpl(EnumSet.noneOf(MissingDataEnum.class));
+        private final SetOnce<String> fullyQualifiedName = new SetOnce<>();
+        private final List<ParameterInfo> parameters = new ArrayList<>();
+        private final List<TypeParameter> typeParameters = new ArrayList<>();
+        private final Set<MethodInfo> overrides = new HashSet<>();
+        private final MethodInfoImpl methodInfo;
+        private final Set<MethodModifier> methodModifiers = new HashSet<>();
+        private final List<ParameterizedType> exceptionTypes = new ArrayList<>();
+
+        public Builder(MethodInfoImpl methodInfo) {
+            this.methodInfo = methodInfo;
+            if (methodInfo.isStatic()) {
+                addMethodModifier(MethodModifierEnum.STATIC);
+            }
+        }
+
+        @Override
+        public MethodInfo.MissingData missingData() {
+            return missingData;
+        }
+
+        @Override
+        public MethodInfo.Builder addExceptionType(ParameterizedType exceptionType) {
+            this.exceptionTypes.add(exceptionType);
+            return this;
+        }
+
+        @Override
+        public List<ParameterizedType> exceptionTypes() {
+            return exceptionTypes;
+        }
+
+        @Fluent
+        public Builder setReturnType(ParameterizedType returnType) {
+            this.returnType = returnType;
+            return this;
+        }
+
+        @Override
+        public ParameterInfo addParameter(String name, ParameterizedType type) {
+            assert name != null;
+            assert type != null;
+            ParameterInfo pi = new ParameterInfoImpl(methodInfo, parameters.size(), name, type);
+            parameters.add(pi);
+            return pi;
+        }
+
+        @Override
+        public ParameterInfo addUnnamedParameter(ParameterizedType type) {
+            assert type != null;
+            ParameterInfo pi = new ParameterInfoImpl(methodInfo, parameters.size(), LocalVariableImpl.UNNAMED, type);
+            parameters.add(pi);
+            return pi;
+        }
+
+        @Override
+        public Builder addTypeParameter(TypeParameter typeParameter) {
+            assert typeParameter.isMethodTypeParameter();
+            assert typeParameter.getOwner().getRight() == methodInfo;
+            typeParameters.add(typeParameter);
+            return this;
+        }
+
+        @Override
+        public Set<MethodInfo> overrides() {
+            return overrides;
+        }
+
+        @Override
+        public Builder addOverrides(Collection<MethodInfo> overrides) {
+            this.overrides.addAll(overrides);
+            return this;
+        }
+
+        @Override
+        public List<TypeParameter> typeParameters() {
+            return typeParameters;
+        }
+
+        @Override
+        public Set<MethodModifier> modifiers() {
+            return methodModifiers;
+        }
+
+        @Override
+        public ParameterizedType returnType() {
+            return returnType;
+        }
+
+        @Override
+        public OperatorType operatorType() {
+            return operatorType;
+        }
+
+        @Fluent
+        public Builder setOperatorType(OperatorType operatorType) {
+            this.operatorType = operatorType;
+            return this;
+        }
+
+        @Override
+        public Block methodBody() {
+            return methodBody;
+        }
+
+        @Override
+        public Builder commitParameters() {
+            // idempotent for an unchanged FQN: a still-open method builder can be re-committed when a type is
+            // both source-scanned and lazily COMPLETE-loaded from bytecode by a later source set (elasticsearch
+            // build-tools ReaperService.Params, a compiled dependency of build-tools-internal). A DIFFERENT
+            // recomputed FQN still trips the SetOnce, as it should.
+            String fqn = computeFQN();
+            if (!fullyQualifiedName.isSet() || !fullyQualifiedName.get().equals(fqn)) {
+                fullyQualifiedName.set(fqn);
+            }
+            return this;
+        }
+
+        private String computeFQN() {
+            String owner = methodInfo.typeInfo().fullyQualifiedName();
+            try {
+                return owner + "." + methodInfo.name() + "(" + parameterTypesForFQN() + ")";
+            } catch (RuntimeException re) {
+                LOGGER.error("Cannot compute fully qualified method name, type {}, method {}, {} params",
+                        owner, methodInfo.name(), parameters.size());
+                throw re;
+            }
+        }
+
+        private String parameterTypesForFQN() {
+            return parameters.stream()
+                    .map(p -> p.parameterizedType().erasedForFQN().printForMethodFQN())
+                    .collect(Collectors.joining(","));
+        }
+
+        @Override
+        public boolean hasBeenCommitted() {
+            return methodInfo.hasBeenCommitted();
+        }
+
+        @Override
+        public Builder computeAccess() {
+            if (methodInfo.isCompactConstructor()) {
+                setAccess(AccessEnum.PUBLIC);
+            } else if (methodModifiers.stream().anyMatch(MethodModifier::isPrivate)) {
+                setAccess(AccessEnum.PRIVATE);
+            } else {
+                boolean isInterface = methodInfo.typeInfo().isInterface();
+                if (isInterface && (methodInfo.isAbstract() || methodInfo.isDefault() || methodInfo.isStatic())) {
+                    setAccess(AccessEnum.PUBLIC);
+                } else {
+                    Access fromModifier = accessFromMethodModifier();
+                    setAccess(fromModifier);
+                }
+            }
+            return this;
+        }
+
+        private Access accessFromMethodModifier() {
+            for (MethodModifier methodModifier : methodModifiers) {
+                if (methodModifier.isPrivate()) return AccessEnum.PRIVATE;
+                if (methodModifier.isPublic()) return AccessEnum.PUBLIC;
+                if (methodModifier.isProtected()) return AccessEnum.PROTECTED;
+                if (methodModifier.isInternal()) return AccessEnum.INTERNAL;
+            }
+            return AccessEnum.PACKAGE;
+        }
+
+        @Override
+        public void commit() {
+            if (!fullyQualifiedName.isSet()) commitParameters();
+            MethodInspection mi = new MethodInspectionImpl(this, returnType, List.copyOf(typeParameters),
+                    List.copyOf(parameters), Set.copyOf(methodModifiers), List.copyOf(exceptionTypes),
+                    operatorType, methodBody, fullyQualifiedName.get(), Set.copyOf(overrides), missingData);
+            methodInfo.commit(mi);
+        }
+
+        @Fluent
+        public Builder setMethodBody(Block methodBody) {
+            this.methodBody = methodBody;
+            return this;
+        }
+
+        @Override
+        public Builder addMethodModifier(MethodModifier methodModifier) {
+            methodModifiers.add(methodModifier);
+            return this;
+        }
+
+        @Override
+        public Builder addAndCommitParameter(String name, ParameterizedType type) {
+            ParameterInfo pi = addParameter(name, type);
+            pi.builder().commit();
+            return this;
+        }
+
+        /*
+        A method's IDENTITY is its fully qualified name: MethodInfoImpl.equals/hashCode delegate to this method.
+        Until commitParameters() runs it used to answer "?.?." + name -- which made every uncommitted method of
+        that name equal to, and share a hash with, every other one. Any hash-based collection holding methods
+        mid-scan then silently kept one of them: a class implementing two interfaces that both declare void m()
+        ended up with ONE override instead of two (ScanCompilationUnit collects them into a Set), and which one
+        survived depended on the order the compilation units happened to be scanned in.
+
+        The commit is deferred on purpose -- a source method's declaration is visited later and must still be
+        able to attach parameter sources (see ClassSymbolScanner.addMethodToType, TestParameterInfoSource) -- so
+        the fix is not to commit earlier but to answer the real name meanwhile. The parameters are already
+        present and typed by the time anything hashes the method; only if a parameter type is not yet resolvable
+        do we fall back to the old placeholder. Note this can only ever make two methods LESS equal than before.
+         */
+        @Override
+        public String fullyQualifiedName() {
+            if (fullyQualifiedName.isSet()) return fullyQualifiedName.get();
+            try {
+                return methodInfo.typeInfo().fullyQualifiedName() + "." + methodInfo.name()
+                       + "(" + parameterTypesForFQN() + ")";
+            } catch (RuntimeException re) {
+                return "?.?." + methodInfo.name();
+            }
+        }
+
+        @Override
+        public List<ParameterInfo> parameters() {
+            return parameters;
+        }
+
+        @Override
+        public MethodInfo.Builder addParameter(ParameterInfo parameterInfo) {
+            parameters.add(parameterInfo);
+            return this;
+        }
+
+        @Override
+        public Builder setMissingData(MethodInfo.MissingData missingData) {
+            this.missingData = missingData;
+            return this;
+        }
+    }
+
+}

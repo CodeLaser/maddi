@@ -1,0 +1,428 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.prepwork.escape;
+
+import io.codelaser.maddi.modification.prepwork.CommonTest;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.IfElseStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.TryStatement;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestAlwaysEscapes extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            class X {
+                static int method1(String in) {
+                    int i = in.length();
+                    return i;
+                }
+                static int method2(String in) {
+                    if(in.isEmpty()) {
+                        return 1;
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                static int method3(String in) {
+                    if(in.isEmpty()) {
+                        return 1;
+                    } else {
+                        System.out.println(in);
+                    }
+                    return 0;
+                }
+            }
+            """;
+
+    @DisplayName("basics")
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
+        {
+            MethodInfo method = X.findUniqueMethod("method1", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertFalse(s0.alwaysEscapes());
+            Statement s1 = method.methodBody().statements().get(1);
+            assertTrue(s1.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method2", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
+            assertTrue(s000.alwaysEscapes());
+            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().getFirst();
+            assertTrue(s010.alwaysEscapes());
+            assertTrue(s0.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method3", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
+            assertTrue(s000.alwaysEscapes());
+            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().getFirst();
+            assertFalse(s010.alwaysEscapes());
+            assertFalse(s0.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            abstract class X {
+                static int method1(String in) {
+                    for(int i=0; ; i++) { }
+                }
+                static int method2(String in) {
+                    for(int i=0; ; i++) { break; } return 1;
+                }
+                static int method3(String in) {
+                   for(int i=0; ; i++) { System.out.println("?"); return 0; }
+                }
+            
+                abstract int read();
+                abstract void write(int i);
+                void method4() {
+                    while (true) {
+                        int read = read();
+                        if (read == -1) {
+                            break;
+                        }
+                        write(read);
+                    }
+                }
+                void method5() {
+                    while (true) {
+                        int read = read();
+                        if (read == -1) {
+                            return;
+                        }
+                        write(read);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("loops with condition 'true'")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
+        {
+            MethodInfo method = X.findUniqueMethod("method1", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method2", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
+            assertFalse(s000.alwaysEscapes());
+            assertFalse(s0.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method3", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method4", 0);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s001 = s0.block().statements().get(1);
+            assertFalse(s001.alwaysEscapes());
+            assertFalse(s0.alwaysEscapes());
+        }
+        {
+            MethodInfo method = X.findUniqueMethod("method5", 0);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            abstract class X {
+                static final Object object = new Object();
+                static String method1(String in) {
+                   synchronized (object) {
+                        System.out.println(in);
+                        return in;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("synchronized with return")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
+        {
+            MethodInfo method = X.findUniqueMethod("method1", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            abstract class X {
+                static final Object object = new Object();
+                static String method1(String in) {
+                   try {
+                        if(in.isEmpty()) System.out.println("empty");
+                        return in.toLowerCase();
+                   } finally {
+                        System.out.println(object);
+                   }
+                }
+            }
+            """;
+
+    @DisplayName("try-finally")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
+        {
+            MethodInfo method = X.findUniqueMethod("method1", 1);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            import java.util.Date;
+            import java.util.Random;
+            import java.util.WeakHashMap;
+            
+            public class X {
+              public static int method1() {
+                do {
+                  int random_num = randomNumberGenerator.nextInt();
+                  if (random_num <= 0) continue;
+                  synchronized (aceThreadList) {
+                    if (aceThreadList.get(random_num) == null) {
+                      return random_num;
+                    }
+                  }
+                } while (true);
+              }
+            
+              private static WeakHashMap aceThreadList = new WeakHashMap();
+              private static Random randomNumberGenerator = new Random((new Date()).getTime());
+            }
+            """;
+
+    @DisplayName("synchronized in infinite loop")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse("X", INPUT5);
+        {
+            MethodInfo method = X.findUniqueMethod("method1", 0);
+            ComputeAlwaysEscapes.go(method);
+            Statement s0 = method.methodBody().statements().getFirst();
+            assertTrue(s0.alwaysEscapes());
+            Statement s001 = s0.block().statements().get(1);
+            assertFalse(s001.alwaysEscapes());
+            Statement s002 = s0.block().statements().get(2);
+            assertFalse(s002.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            import java.io.File;
+            import java.io.FileFilter;
+            import java.util.ArrayList;
+            import java.util.Arrays;
+            import java.util.List;
+            
+            public class X {
+              public static List<File> listFiles(final File file, final FileFilter fileFilter) {
+                final List<File> list = new ArrayList<File>();
+                final File[] files = file.listFiles(fileFilter);
+                list.addAll(Arrays.asList(files));
+                if (files.length != 0) {
+                  for (final File f : files) {
+                    list.addAll(listFiles(f, fileFilter));
+                    return list;
+                  }
+                } else return list;
+                return list;
+              }
+            }
+            """;
+
+    @DisplayName("return in for-each")
+    @Test
+    public void test6() {
+        TypeInfo X = javaInspector.parse("X", INPUT6);
+        {
+            MethodInfo method = X.findUniqueMethod("listFiles", 2);
+            ComputeAlwaysEscapes.go(method);
+            Statement s3 = method.methodBody().statements().get(3);
+            Statement s300 = s3.block().statements().getFirst();
+            assertFalse(s300.alwaysEscapes());
+            assertFalse(s3.alwaysEscapes());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.io.IOException;
+            import java.net.HttpURLConnection;
+            import java.net.MalformedURLException;
+            import java.net.URI;
+            import java.net.URL;
+            public class X {
+                public int getResponseCode(URI uri) {
+                    int response = -1;
+                    try {
+                        URL url = uri.toURL();
+                        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                        response = connection.getResponseCode();
+                    } catch (MalformedURLException m) {
+                        throw new MalformedURLException("URL not correct");
+                    } catch (IOException e) {
+                        throw new IOException("can open connection");
+                    } finally {
+                        return response;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("return in finally block")
+    @Test
+    public void test7() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT7);
+        MethodInfo method = X.findUniqueMethod("getResponseCode", 1);
+        ComputeAlwaysEscapes.go(method);
+        TryStatement s1 = (TryStatement) method.methodBody().statements().get(1);
+        assertTrue(s1.finallyBlock().alwaysEscapes());
+    }
+
+
+    // BUG #1: in a 'while(true)' body, an earlier (conditional) 'break' is masked by a later unconditional escape:
+    // the block reduction uses 'or', where ALWAYS has priority over BREAK, so the loop no longer sees the break and
+    // is wrongly marked as always-escaping. The loop can in fact be left via the break.
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            class X {
+                static int method1(java.util.List<String> list) {
+                    while (true) {
+                        if (list.isEmpty()) break;
+                        return list.size();
+                    }
+                    return -1;
+                }
+            }
+            """;
+
+    @DisplayName("break masked by a later return inside while(true)")
+    @Test
+    public void test8() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT8);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // the while can be left through the break, so it does not always escape
+        assertFalse(s0.alwaysEscapes());
+    }
+
+
+    // BUG #2: a new-style switch statement without a 'default' (and not provably exhaustive) can fall through, but the
+    // reduce(ALWAYS, and) over the entries reports it as always-escaping when every listed case escapes.
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            class X {
+                static int method1(int x) {
+                    switch (x) {
+                        case 1 -> { return 1; }
+                        case 2 -> { return 2; }
+                    }
+                    return 0;
+                }
+            }
+            """;
+
+    @DisplayName("new-style switch without default falls through")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT9);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // no default: control reaches the 'return 0' below, so the switch does not always escape
+        assertFalse(s0.alwaysEscapes());
+    }
+
+
+    // BUG #3: a 'break' inside an (old-style) switch leaves the switch, not an enclosing loop, but it is propagated as
+    // a loop BREAK. The 'while(true)' is therefore wrongly judged able to exit, while it is in fact infinite.
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            class X {
+                static int method1(int x) {
+                    while (true) {
+                        switch (x) {
+                            case 1: break;
+                        }
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("switch break inside while(true) does not exit the loop")
+    @Test
+    public void test10() {
+        TypeInfo X = javaInspector.parse(ABX, INPUT10);
+        MethodInfo method = X.findUniqueMethod("method1", 1);
+        ComputeAlwaysEscapes.go(method);
+        Statement s0 = method.methodBody().statements().getFirst();
+        // the switch break exits the switch only; the while(true) is infinite and always escapes
+        assertTrue(s0.alwaysEscapes());
+    }
+
+}

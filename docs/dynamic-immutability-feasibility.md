@@ -213,7 +213,7 @@ exercise before any code is written.
 ```
 public class TypeInspectionImpl ...                 // public type
     public TypeInspectionImpl(Inspection, Set<TypeModifier>, List<MethodInfo>, ...)   // public constructor
-exports org.e2immu.language.cst.impl.info;          // exported package
+exports io.codelaser.maddi.cst.impl.info;          // exported package
 ```
 
 There is exactly **one** caller inside the analyzed source set (`Builder.commit()`, which does pass

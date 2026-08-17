@@ -1,0 +1,59 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.java.openjdk.other;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ForEachStatement;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestForLoop extends CommonTest {
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            
+            class X {
+               interface I { String get(); }
+               static class Y {
+                   final I data[] = new I[3];
+               }
+               void method(Y y) {
+                   for(var i: y.data) {
+                       System.out.println(i.get());
+                   }
+               }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT1);
+        TypeInfo y = typeInfo.findSubType("Y");
+        FieldInfo data = y.getFieldByName("data", true);
+        assertEquals("Type a.b.X.I[]", data.type().toString());
+        assertEquals("new I[3]", data.initializer().toString());
+        MethodInfo method = typeInfo.findUniqueMethod("method", 1);
+        ForEachStatement fes = (ForEachStatement) method.methodBody().statements().getLast();
+        assertEquals("var i;", fes.initializer().toString());
+        assertTrue(fes.initializer().isVar());
+        assertEquals("Type a.b.X.I", fes.initializer().localVariable().parameterizedType().toString());
+    }
+}

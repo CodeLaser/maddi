@@ -1,0 +1,65 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.print.formatter2;
+
+import io.codelaser.maddi.cst.api.output.Formatter;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
+import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class Test4 {
+    private final Runtime runtime = new RuntimeImpl();
+
+    static OutputBuilder createExample0() {
+
+        GuideImpl.GuideGenerator gg2044 = GuideImpl.defaultGuideGenerator();
+
+        return new OutputBuilderImpl().add(new TypeNameImpl("EnumMap"))
+                .add(SymbolEnum.LEFT_ANGLE_BRACKET)
+                .add(gg2044.start()) // priority=false, startNL=false, endNL=false
+                .add(new TextImpl("K"))
+                .add(SpaceEnum.ONE)
+                .add(new TextImpl("extends"))
+                .add(SpaceEnum.ONE)
+                .add(new TypeNameImpl("Enum"))
+                .add(SymbolEnum.LEFT_ANGLE_BRACKET)
+                .add(new TextImpl("K"))
+                .add(SymbolEnum.RIGHT_ANGLE_BRACKET)
+                .add(SymbolEnum.COMMA)
+                .add(gg2044.mid()) // priority=false, startNL=false, endNL=false
+                .add(new TextImpl("V"))
+                .add(gg2044.end()) // priority=false, startNL=false, endNL=false
+                .add(SymbolEnum.RIGHT_ANGLE_BRACKET);
+    }
+
+    @Test
+    public void test1() {
+        OutputBuilder outputBuilder = createExample0();
+        FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(120).setSpacesInTab(4).build();
+        Formatter formatter = new Formatter2Impl(runtime, options);
+        String string = formatter.write(outputBuilder);
+        String expect = """
+                EnumMap<K extends Enum<K>, V>
+                """;
+        assertEquals(expect, string);
+    }
+
+}

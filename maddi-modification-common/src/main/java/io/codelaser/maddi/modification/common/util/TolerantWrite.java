@@ -1,0 +1,225 @@
+package io.codelaser.maddi.modification.common.util;
+
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Iteration-tolerant property write. The controlled-overwrite policy only allows strengthening (e.g.
+ * unmodified false→true, @Mutable→@FinalFields); an attempted WEAKENING across analyzer iterations (a premature
+ * optimistic conclusion contradicted once callee summaries on a call cycle become available) threw and — under
+ * per-element fault isolation — cost the element its whole analysis, while still leaving the stale strong value
+ * in place. This helper keeps the stronger existing value and logs, which strictly dominates the crash.
+ * <p>
+ * OPEN DESIGN QUESTION (real-world corpus, timefold-solver): whether the iterating analyzer should instead allow
+ * the weakening direction for the evidence-accumulating properties (UNMODIFIED_*, NON_MODIFYING_METHOD,
+ * IMMUTABLE_TYPE), making 'modified'/'@Mutable' absorbing. That changes verdicts and is not decided here.
+ */
+public final class TolerantWrite {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TolerantWrite.class);
+
+    private TolerantWrite() {
+    }
+
+    // convergence diagnosis: successful (value-changing) writes per property key, reset per iteration by the
+    // iterating analyzer. Covers every setAllowControlledOverwrite in link+analyzer (they all route through
+    // here); plain set() sites (write-once) do not oscillate and are not counted.
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.LongAdder>
+            CHANGES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static java.util.Map<String, Long> changeCounts() {
+        java.util.Map<String, Long> result = new java.util.TreeMap<>();
+        CHANGES.forEach((k, v) -> result.put(k, v.sum()));
+        return result;
+    }
+
+    public static void resetChangeCounts() {
+        CHANGES.clear();
+        REFUSED_DOWNGRADES.clear();
+    }
+
+    // certification blind spot (PLAN-modification-reachability §9): a REFUSED downgrade returns false =
+    // "no change" = invisible to the verification passes, so a fixpoint can certify prematurely-frozen
+    // optimistic values. Count refusals per property so the iterating analyzer can surface (and, under
+    // STRICTCERT=1, refuse) such a certification.
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.LongAdder>
+            REFUSED_DOWNGRADES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static java.util.Map<String, Long> refusedDowngrades() {
+        java.util.Map<String, Long> result = new java.util.TreeMap<>();
+        REFUSED_DOWNGRADES.forEach((k, v) -> result.put(k, v.sum()));
+        return result;
+    }
+
+    /** convergence diagnosis for write sites that do not go through this class (plain set() + counter) */
+    public static void count(String key) {
+        CHANGES.computeIfAbsent(key, _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+    }
+
+    /**
+     * Write-once {@code set()} with the same diagnosis/worklist bookkeeping as the controlled-overwrite path.
+     * Without target attribution here, the worklist missed dependents of the abstract-method batch's decisions
+     * (run13: 138 verdicts more conservative than the full-re-analysis baseline).
+     */
+    public static <V extends Value> void setOnce(PropertyValueMap analysis, Property property, V value,
+                                                 Object context) {
+        if (MODIFICATION_FROZEN && MODIFICATION_PROPERTIES.contains(property.key())) return;
+        analysis.set(property, value);
+        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+            CHANGED_TARGETS.add(context);
+        }
+    }
+
+    // element-INTERNAL (statement-level) properties: their changes are invisible to dependents and must not
+    // propagate through the worklist (a ParameterInfo context can reach here via UNMODIFIED_VARIABLE)
+    private static final java.util.Set<String> INTERNAL_PROPERTIES =
+            java.util.Set.of("unmodifiedVariable", "downcastVariable", "variablesLinkedToObject",
+                    "linkedVariablesArguments");
+
+    // worklist support: the targets (Info / ParameterInfo contexts) of value-CHANGING writes this iteration.
+    // Captures writes that land on an element OTHER than the one currently being processed (the link computer's
+    // on-demand recursion writing a callee's METHOD_LINKS) — counter-delta attribution alone misses those.
+    private static final java.util.Set<Object> CHANGED_TARGETS =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    public static java.util.Set<Object> changedTargets() {
+        synchronized (CHANGED_TARGETS) {
+            return new java.util.HashSet<>(CHANGED_TARGETS);
+        }
+    }
+
+    public static void resetChangedTargets() {
+        CHANGED_TARGETS.clear();
+    }
+
+    // gate MLTRACE=1: log old->new on every value-CHANGING methodLinks write of an existing value. Diagnostic
+    // for the non-idempotent summary tail (~36 methods rewrite their methodLinks on every full pass over a
+    // settled state, blocking certification); the value diff shows which slot/face is unstable.
+    private static final boolean MLTRACE = System.getenv("MLTRACE") != null;
+
+    // gate RETAINTRACE=1 (bistability forensics, docs/eventual-info-hierarchy.md §"The trace round"):
+    // the composed dogfood's 24↔10 flip happens with byte-identical engine event traces — the divergence
+    // is WHICH equals()-equal value/instance is RETAINED. Log, for methodLinks: (a) every FIRST write
+    // per element ("RT first"), because presence/absence of methodLinks on the statement translate()
+    // methods is where the two worlds visibly fork; (b) every equal-value keep where the incoming object
+    // is a DIFFERENT INSTANCE ("RT keepEq"), with both toStrings only when they differ. Diffing two runs'
+    // RETAINTRACE streams names the first divergent retention decision.
+    private static final boolean RETAINTRACE = System.getenv("RETAINTRACE") != null;
+
+    // gate UNMODOWN=1: allow the true->false / weakening direction for the evidence-accumulating modification
+    // properties (see the downgrade branch below); OFF by default pending the verdict A/B
+    private static final boolean UNMODOWN = System.getenv("UNMODOWN") != null;
+    private static final java.util.Set<String> EVIDENCE_ACCUMULATING = java.util.Set.of(
+            "unmodifiedVariable", "unmodifiedParameter", "unmodifiedField", "nonModifyingMethod");
+
+    // single-writer discipline for the modification reachability cutover (PLAN-modification-reachability
+    // §14 P2.3): once the pass has written its verdicts, no other writer may touch the three element-level
+    // modification properties — Bool's legal overwrite direction is FALSE->TRUE, so a re-derivation writer
+    // could silently undo a pass downgrade. Set by the iterating analyzer after the pass, RESET at the
+    // start of every analyze() (JVM-wide static; tests run several analyses per JVM).
+    private static volatile boolean MODIFICATION_FROZEN;
+    private static final java.util.Set<String> MODIFICATION_PROPERTIES = java.util.Set.of(
+            "unmodifiedParameter", "unmodifiedField", "nonModifyingMethod");
+
+    public static void freezeModificationProperties() {
+        MODIFICATION_FROZEN = true;
+    }
+
+    public static void unfreezeModificationProperties() {
+        MODIFICATION_FROZEN = false;
+    }
+
+    public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
+                                                                        Property property,
+                                                                        V value) {
+        return setAllowControlledOverwrite(analysis, property, value, "?");
+    }
+
+    public static <V extends Value> boolean setAllowControlledOverwrite(PropertyValueMap analysis,
+                                                                        Property property,
+                                                                        V value,
+                                                                        Object context) {
+        if (MODIFICATION_FROZEN && MODIFICATION_PROPERTIES.contains(property.key())) return false;
+        boolean changed;
+        String traceBefore;
+        // the check-then-act below must be atomic per element map: without the lock, a concurrent write between
+        // the downgrade pre-check and the set can surface the UnsupportedOperationException this guard exists
+        // to prevent (which would fault-fail the element). Same monitor as PropertyValueMapImpl's own methods.
+        synchronized (analysis) {
+            traceBefore = MLTRACE && "methodLinks".equals(property.key())
+                          && analysis.haveAnalyzedValueFor(property)
+                    ? String.valueOf(analysis.getOrDefault(property, value)) : null;
+            if (RETAINTRACE && "methodLinks".equals(property.key()) && !analysis.haveAnalyzedValueFor(property)) {
+                System.out.println("RT first " + context);
+            }
+            if (analysis.haveAnalyzedValueFor(property)) {
+                V current = analysis.getOrDefault(property, value);
+                if (current != value && current.equals(value)
+                    && value.strictlyRicherThan(current)) {
+                    // Content-aware retention for values whose equality is deliberately key-only
+                    // (methodLinks: LinksImpl equality is primary-only): an incoming value EQUAL to the
+                    // current one but strictly RICHER (Value.strictlyRicherThan — e.g. rich links replacing
+                    // an all-empty placeholder) overwrites it, so the retained content is a function of the
+                    // value SET, not the arrival order. Without this, whichever equal value arrives first
+                    // freezes — the measured fork of the composed-dogfood 24↔10 bistability
+                    // (docs/eventual-info-hierarchy.md §"The retention round").
+                    if (RETAINTRACE) System.out.println("RT upgrade " + context);
+                    boolean upgraded = analysis.overwrite(property, value);
+                    if (upgraded) {
+                        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                .increment();
+                        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                            CHANGED_TARGETS.add(context);
+                        }
+                    }
+                    return upgraded;
+                }
+                if (RETAINTRACE && "methodLinks".equals(property.key())
+                    && current != value && current.equals(value)) {
+                    String cs = String.valueOf(current);
+                    String vs = String.valueOf(value);
+                    System.out.println(cs.equals(vs)
+                            ? "RT keepEq " + context
+                            : "RT keepEq* " + context + "\n  kept=" + cs + "\n  drop=" + vs);
+                }
+                if (!current.equals(value) && !current.overwriteAllowed(value)) {
+                    if (UNMODOWN && EVIDENCE_ACCUMULATING.contains(property.key())) {
+                        // EXPERIMENT (gate UNMODOWN=1): for the UNMODIFIED_* family, modification evidence only
+                        // accumulates across iterations — 'modified' (false) is absorbing, so the legal refinement
+                        // direction is true->false, OPPOSITE to Bool's default policy. Apply the downgrade.
+                        LOGGER.debug("Downgrading {} {} -> {} on {}", property.key(), current, value, context);
+                        boolean downgraded = analysis.overwrite(property, value);
+                        if (downgraded) {
+                            CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder())
+                                    .increment();
+                            if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                                CHANGED_TARGETS.add(context);
+                            }
+                        }
+                        return downgraded;
+                    }
+                    LOGGER.warn("Keeping {}={}, refusing downgrade to {} on {}", property.key(), current, value, context);
+                    REFUSED_DOWNGRADES.computeIfAbsent(property.key(),
+                            _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+                    return false;
+                }
+            }
+            changed = analysis.setAllowControlledOverwrite(property, value);
+        }
+        if (changed) {
+            CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+            if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+                CHANGED_TARGETS.add(context);
+            }
+            if (traceBefore != null) {
+                // MLTRACE: only value-CHANGING rewrites of an EXISTING methodLinks value (first-time writes
+                // are not instability)
+                LOGGER.info("MLTRACE {}\n  old={}\n  new={}", context, traceBefore, value);
+            }
+        }
+        return changed;
+    }
+}

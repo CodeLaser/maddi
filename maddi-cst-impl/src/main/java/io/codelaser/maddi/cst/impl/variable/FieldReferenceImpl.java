@@ -1,0 +1,287 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.variable;
+
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.TypeExpression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
+import io.codelaser.maddi.cst.impl.expression.TypeExpressionImpl;
+import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
+import io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.impl.type.DiamondEnum;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import static io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+
+public class FieldReferenceImpl extends VariableImpl implements FieldReference {
+    @NotNull
+    private final FieldInfo fieldInfo;
+
+    @NotNull
+    private final Expression scope;
+
+    @Nullable
+    private final Variable scopeVariable;
+
+    private final boolean isDefaultScope;
+
+    @NotNull
+    private final String fullyQualifiedName;
+
+    public FieldReferenceImpl(FieldInfo fieldInfo) {
+        this(fieldInfo, null, null, fieldInfo.type());
+    }
+
+    public FieldReferenceImpl(FieldInfo fieldInfo,
+                              Expression scope,
+                              Variable overrideScopeVariable,
+                              ParameterizedType parameterizedType) {
+        super(parameterizedType);
+        this.fieldInfo = Objects.requireNonNull(fieldInfo);
+        this.isDefaultScope = scope == null;
+        // NOTE: for the sake of translations: if the scope is given, we take it, even if the result may not compile
+        if (fieldInfo.isStatic()) {
+            this.scope = scope == null
+                    ? new TypeExpressionImpl(List.of(), SourceImpl.NO_SOURCE,
+                    fieldInfo.owner().asSimpleParameterizedType(), DiamondEnum.NO)
+                    : scope;
+            this.scopeVariable = null;
+        } else if (scope == null) {
+            scopeVariable = new ThisImpl(fieldInfo.owner().asParameterizedType());
+            this.scope = new VariableExpressionImpl(List.of(), SourceImpl.NO_SOURCE, scopeVariable, null);
+        } else {
+            this.scope = scope;
+            if (scope instanceof VariableExpression ve) {
+                scopeVariable = ve.variable();
+            } else {
+                // the scope is not a variable, we must introduce a new scope variable
+                scopeVariable = overrideScopeVariable;
+            }
+        }
+        this.fullyQualifiedName = computeFqn(scope);
+        assert !(scopeIsRecursivelyThis() && fieldInfo.isStatic());
+        // know that: assert this.scope != null;
+        // assert this.scope.source() != null;
+    }
+
+    // used by translation of field references, see TranslationMapImpl
+    public static boolean defaultScope(FieldInfo newField, Expression tScope) {
+        if (newField.isStatic()) {
+            return tScope instanceof TypeExpression te && newField.owner().equals(te.parameterizedType().typeInfo());
+        }
+        return tScope instanceof VariableExpression ve && ve.variable() instanceof This thisVar
+               && newField.owner().equals(thisVar.typeInfo()) && thisVar.explicitlyWriteType() == null;
+    }
+
+    @Override
+    public String fullyQualifiedName() {
+        return fullyQualifiedName;
+    }
+
+    @Override
+    public String simpleName() {
+        return fieldInfo.name();
+    }
+
+    @Override
+    public boolean isStatic() {
+        return fieldInfo.isStatic();
+    }
+
+    private String computeFqn(Expression scope) {
+        if (isStatic() || scopeIsThis()) {
+            return fieldInfo.fullyQualifiedName();
+        }
+        String scopeFqn;
+        if (scopeVariable != null) {
+            scopeFqn = scopeVariable.fullyQualifiedName();
+        } else {
+            String suffix;
+            if (scope.source() != null) {
+                suffix = scope.source().compact2();
+            } else {
+                suffix = "" + Math.abs(scope.hashCode());
+            }
+            scopeFqn = "scope" + suffix;
+        }
+        return fieldInfo.fullyQualifiedName() + "#" + scopeFqn;
+    }
+
+    @Override
+    public int complexity() {
+        if (isStatic()) return 2;
+        return 1 + scope.complexity();
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (scope != null) scope.visit(predicate);
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeVariable(this)) {
+            if (scope != null) {
+                scope.visit(visitor);
+            }
+        }
+        visitor.afterVariable(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        QualifiedNameImpl.Required required = !isDefaultScope
+                                              || !qualification.doNotQualifyImplicit()
+                                              || qualification.qualifierRequired(this)
+                ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD;
+
+        if (scope instanceof VariableExpression ve && ve.variable() instanceof This thisVar) {
+            TypeName typeName = TypeNameImpl.typeName(thisVar.typeInfo(),
+                    qualification.qualifierRequired(thisVar.typeInfo()), false);
+            ThisNameImpl thisName = new ThisNameImpl(thisVar.writeSuper(),
+                    typeName,
+                    thisVar.explicitlyWriteType() != null && qualification.qualifierRequired(thisVar));
+            return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), thisName, required));
+        }
+        if (qualification.isSimpleOnly()) {
+            return new OutputBuilderImpl().add(new QualifiedNameImpl(simpleName(), null, QualifiedNameImpl.Required.NEVER));
+        }
+        if (isStatic()) {
+            TypeInfo scopeType = isDefaultScope ? fieldInfo.typeInfo() : scope.parameterizedType().typeInfo();
+            TypeName typeName = TypeNameImpl.typeName(scopeType, qualification.qualifierRequired(scopeType),
+                    false);
+            return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), typeName, required));
+        }
+        // real variable
+        OutputBuilder outputInParenthesis;
+        OutputBuilder printedScope = scope.print(qualification);
+        if (PrecedenceEnum.ACCESS.greaterThan(scope.precedence())) {
+            outputInParenthesis = new OutputBuilderImpl()
+                    .add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(printedScope)
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        } else {
+            outputInParenthesis = printedScope;
+        }
+        return new OutputBuilderImpl().add(outputInParenthesis).add(SymbolEnum.DOT)
+                .add(new QualifiedNameImpl(simpleName(), null, QualifiedNameImpl.Required.NEVER));
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        if (descendMode.isYes()) {
+            Stream<Variable> fromScope = scopeVariable != null
+                    ? scopeVariable.variables(descendMode) : scope.variables(descendMode);
+            return Stream.concat(Stream.of(this), fromScope);
+        }
+        return Stream.of(this);
+    }
+
+    @Override
+    public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
+        Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferenced(IMPLICIT, detailedSources);
+        if (scope != null) {
+            ElementImpl.TypeReference typeReference = new ElementImpl.TypeReference(fieldInfo.owner(), IMPLICIT, null);
+            Stream<TypeReference> implicitOwner = Stream.of(typeReference);
+            // in the scope references, an explicit static scope type/field owner can show up
+            Stream<TypeReference> scopeReferences = scope.typesReferenced(test);
+            return Stream.concat(implicitOwner, Stream.concat(scopeReferences, fieldTypeStream));
+        }
+        return fieldTypeStream;
+    }
+
+    @Override
+    public FieldInfo fieldInfo() {
+        return fieldInfo;
+    }
+
+    @Override
+    public Expression scope() {
+        return scope;
+    }
+
+    @Override
+    public Variable scopeVariable() {
+        return scopeVariable;
+    }
+
+    @Override
+    public boolean scopeIsRecursivelyThis() {
+        if (scopeIsThis()) return true;
+        if (scopeVariable instanceof FieldReference fr) return fr.scopeIsRecursivelyThis();
+        return false;
+    }
+
+    @Override
+    public boolean scopeIsRecursively(Variable variable) {
+        if (variable.equals(scopeVariable)) return true;
+        if (scope instanceof VariableExpression ve) {
+            return ve.variable().scopeIsRecursively(variable);
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isDefaultScope() {
+        return isDefaultScope;
+    }
+
+    @Override
+    public boolean scopeIsThis() {
+        return scopeVariable instanceof This;
+    }
+
+    @Override
+    public Stream<Variable> variableStreamDescendIntoScope() {
+        return Stream.concat(Stream.of(this),
+                scopeVariable == null ? Stream.of() : scopeVariable.variableStreamDescendIntoScope());
+    }
+
+    @Override
+    public Variable rewire(InfoMapView infoMap) {
+        return new FieldReferenceImpl(infoMap.fieldInfo(fieldInfo), scope.rewire(infoMap),
+                scopeVariable == null ? null : scopeVariable.rewire(infoMap),
+                parameterizedType().rewire(infoMap));
+    }
+
+    @Override
+    public boolean isIgnoreModifications() {
+        return fieldInfo.isIgnoreModifications();
+    }
+}

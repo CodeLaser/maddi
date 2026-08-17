@@ -1,0 +1,358 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.analyzer.impl;
+
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
+import io.codelaser.maddi.modification.analyzer.AbstractMethodAnalyzer;
+import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
+import io.codelaser.maddi.cst.api.analysis.Message;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
+import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
+
+public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
+
+    private final EventualCluster eventualCluster;
+
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged,
+                                      List<Message> analyzerMessages, EventualCluster eventualCluster) {
+        super(configuration, propertiesChanged, analyzerMessages);
+        this.eventualCluster = eventualCluster;
+    }
+
+    @Override
+    public void go(boolean firstIteration, List<MethodInfo> abstractMethods) {
+        for (MethodInfo methodInfo : abstractMethods) {
+            Value.SetOfMethodInfo implementations = methodInfo.analysis().getOrDefault(IMPLEMENTATIONS,
+                    ValueImpl.SetOfMethodInfoImpl.EMPTY);
+            if (implementations.isEmpty()) {
+                if (firstIteration) doMethodWithoutImplementation(methodInfo);
+            } else {
+                Iterable<MethodInfo> concreteImplementations = implementations.methodInfoSet();
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    unmodified(concreteImplementations, pi);
+                    independent(concreteImplementations, pi);
+                    collectDowncast(concreteImplementations, pi);
+                    if (EventualCluster.ENABLED) parameterEventuallyUnmodified(concreteImplementations, pi);
+                }
+                methodNonModifying(concreteImplementations, methodInfo);
+                methodIndependent(concreteImplementations, methodInfo);
+                methodEventual(concreteImplementations, methodInfo);
+                methodEventuallyNonModifying(concreteImplementations, methodInfo);
+            }
+        }
+    }
+
+    // no implementation means we can completely ignore it
+    private void doMethodWithoutImplementation(MethodInfo methodInfo) {
+        if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
+            TolerantWrite.setOnce(methodInfo.analysis(), INDEPENDENT_METHOD, INDEPENDENT, methodInfo);
+            DECIDE.debug("AMA: Decide independent method without implementations {}", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
+        if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
+            TolerantWrite.setOnce(methodInfo.analysis(), IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.IMMUTABLE, methodInfo);
+            DECIDE.debug("AMA: Decide immutable method without implementations {}", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
+                TolerantWrite.setOnce(pi.analysis(), INDEPENDENT_PARAMETER, INDEPENDENT, pi);
+                DECIDE.debug("AMA: Decide independent parameter of method without implementations {}", pi);
+                propertyChanges.incrementAndGet();
+            }
+            if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
+                TolerantWrite.setOnce(pi.analysis(), UNMODIFIED_PARAMETER, TRUE, pi);
+                DECIDE.debug("AMA: Decide unmodified parameter of method without implementations {}", pi);
+                propertyChanges.incrementAndGet();
+            }
+        }
+    }
+
+    private void collectDowncast(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        Value.VariableToTypeInfoSet downcastsValue = pi.analysis().getOrNull(DOWNCAST_PARAMETER,
+                ValueImpl.VariableToTypeInfoSetImpl.class);
+        if (downcastsValue == null) {
+            Map<Variable, Set<TypeInfo>> downcasts = new HashMap<>();
+            for (MethodInfo implementation : concreteImplementations) {
+                ParameterInfo pii = implementation.parameters().get(pi.index());
+                Value.VariableToTypeInfoSet downcastsImplValue = pii.analysis().getOrNull(DOWNCAST_PARAMETER,
+                        ValueImpl.VariableToTypeInfoSetImpl.class);
+                if (downcastsImplValue == null) {
+                    UNDECIDED.debug("AMA: Undecided downcast parameter {}", pi);
+                    return;
+                }
+                downcastsImplValue.variableToTypeInfoSet().forEach((v, set) ->
+                        downcasts.merge(v, set,
+                                (s0, s1) -> Stream.concat(s0.stream(), s1.stream()).collect(Collectors.toUnmodifiableSet())));
+            }
+            ValueImpl.VariableToTypeInfoSetImpl value = new ValueImpl.VariableToTypeInfoSetImpl(Map.copyOf(downcasts));
+            if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), DOWNCAST_PARAMETER, value, pi)) {
+                DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
+                propertyChanges.incrementAndGet();
+            }
+        }
+    }
+
+    private void independent(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        Value.Independent independent = pi.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+        if (independent.isIndependent()) {
+            return;
+        }
+        Value.Independent fromImplementations = INDEPENDENT;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.Independent independentImpl = pii.analysis().getOrNull(INDEPENDENT_PARAMETER,
+                    ValueImpl.IndependentImpl.class);
+            if (independentImpl == null) {
+                // an undecided implementation is not DEPENDENT: defaulting it wrote a union whose value depended
+                // on WHEN this batch ran relative to the implementations' own decisions, and the write froze
+                // (the composed-dogfood hc↔FF fork). Wait; cycle breaking decides the implementations if needed.
+                UNDECIDED.debug("AMA: Undecided independent of param {}, implementation {}", pi, implementation);
+                return;
+            }
+            fromImplementations = fromImplementations.min(independentImpl);
+            if (fromImplementations.isDependent()) break; // no need to try others
+        }
+        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), INDEPENDENT_PARAMETER, fromImplementations, pi)) {
+            DECIDE.debug("AMA: Decide independent of param {} = {}", pi, fromImplementations);
+        }
+    }
+
+    private void methodNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        Value.Bool nonModifying = methodInfo.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
+        if (nonModifying.isTrue()) {
+            return;
+        }
+        Value.Bool fromImplementations = TRUE;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Bool nonModImpl = implementation.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
+            if (nonModImpl.isFalse()) {
+                fromImplementations = FALSE;
+                break;
+            }
+        }
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), NON_MODIFYING_METHOD, fromImplementations, methodInfo)) {
+            DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
+        }
+    }
+
+    /**
+     * Eventual immutability travels from implementation to abstract method (road to immutability §060). An
+     * interface such as {@code TypeInfo} declares {@code commit}; the fact that it marks a state transition is
+     * only visible in {@code TypeInfoImpl}, which holds the eventually immutable field. Without this step the
+     * interface stays plain mutable, and -- by the hierarchy rule -- so does every implementation of it.
+     * <p>
+     * All implementations must agree, on the side of the transition <em>and</em> on the mark label. Labels are
+     * field names, and two implementations are free to name their state differently; that is a disagreement we
+     * cannot merge, so we conclude nothing.
+     */
+    private void methodEventual(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUAL_METHOD)) return;
+        Value.Eventual fromImplementations = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Eventual eventual = implementation.analysis().getOrDefault(EVENTUAL_METHOD,
+                    ValueImpl.EventualImpl.NOT_EVENTUAL);
+            if (!eventual.isEventual()) {
+                // EVENTUALCLUSTER: an implementation that never modifies at all (CompilationUnitStub's
+                // throwing setFingerPrint) cannot contradict the transition the real implementations declare
+                if (EventualCluster.ENABLED && implementation.analysis()
+                        .getOrDefault(NON_MODIFYING_METHOD, FALSE).isTrue()) {
+                    continue;
+                }
+                return; // one implementation without a mark: no promise to make
+            }
+            // the implementation's classification may lean on the cluster seed (labelsOfReceiver through a
+            // candidate-typed field); the abstract owner inherits those assumption edges (no-op off the gate)
+            eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
+            if (fromImplementations == null) {
+                fromImplementations = eventual;
+            } else if (!fromImplementations.equals(eventual)) {
+                return;
+            }
+        }
+        if (fromImplementations != null) {
+            if (EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+                EventualCluster.sitePrint("WRITE abstract eventual " + methodInfo.fullyQualifiedName()
+                                          + " = " + fromImplementations);
+            }
+            methodInfo.analysis().set(EVENTUAL_METHOD, fromImplementations);
+            DECIDE.debug("AM: Decide eventual of abstract method {} = {}", methodInfo, fromImplementations);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    /**
+     * Carry {@code @NotModified(after=)} up to the abstract method, the same way {@link #methodEventual} carries
+     * {@code @Mark}/{@code @Only}. This is what makes {@code Info.access()} (and the rest of the read-through
+     * accessors) non-modifying after the mark, so the interface can reach an eventual verdict at all.
+     * <p>
+     * Every implementation must be compatible: either eventually-non-modifying after the same label set, or
+     * unconditionally non-modifying (which holds after any mark). One implementation that modifies with no
+     * after-label -- or whose modification is still undecided -- is a promise we cannot make.
+     */
+    private void methodEventuallyNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_NON_MODIFYING_METHOD)) return;
+        // log-only, side-effect free: the loop below bails at the FIRST incompatible implementation, so a
+        // debug session sees one veto per attempt and has to iterate runs to enumerate them. This pre-pass
+        // prints them all at once (site filter on the ABSTRACT method's FQN).
+        if (EventualCluster.SITE_DEBUG && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+            java.util.List<String> blockers = new java.util.ArrayList<>();
+            for (MethodInfo implementation : concreteImplementations) {
+                Value.SetOfStrings s = implementation.analysis()
+                        .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+                if (s.set().isEmpty()) {
+                    Value.Bool nm = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                    if (nm == null || nm.isFalse()) {
+                        blockers.add(implementation.fullyQualifiedName() + "(nonMod=" + nm + ")");
+                    }
+                }
+            }
+            if (!blockers.isEmpty()) {
+                EventualCluster.sitePrint("enm batch " + methodInfo.fullyQualifiedName()
+                                          + " ALL blockers (" + blockers.size() + "): " + blockers);
+            }
+        }
+        Set<String> agreed = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.SetOfStrings evNonMod = implementation.analysis()
+                    .getOrDefault(EVENTUALLY_NON_MODIFYING_METHOD, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!evNonMod.set().isEmpty()) {
+                // the label rests on whatever the implementation's excusals assumed (commitLabels leans on the
+                // cluster seed): carry the provenance so the contraction can cascade a broken assumption here
+                eventualCluster.noteLabelInheritance(methodInfo.typeInfo(), implementation.typeInfo());
+                if (agreed == null) agreed = evNonMod.set();
+                else if (!agreed.equals(evNonMod.set())) {
+                    // EVENTUALCLUSTER: unlike a @Mark, whose label names THE transition, "non-modifying after L"
+                    // weakens monotonically -- once the union has passed, each implementation's own subset
+                    // certainly has. The union is the weakest common guarantee (ParameterInfoImpl says
+                    // 'methodInfo' where MethodInfoImpl says 'inspection' for the same abstract accessor).
+                    if (!EventualCluster.ENABLED) return; // implementations name different transitions
+                    Set<String> union = new HashSet<>(agreed);
+                    union.addAll(evNonMod.set());
+                    agreed = union;
+                }
+            } else {
+                Value.Bool nonMod = implementation.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                if (nonMod == null || nonMod.isFalse()) {
+                    if (EventualCluster.SITE_DEBUG
+                        && EventualCluster.siteDebugMatches(methodInfo.fullyQualifiedName())) {
+                        EventualCluster.sitePrint("enm batch " + methodInfo.fullyQualifiedName()
+                                                  + " blocked by " + implementation.fullyQualifiedName()
+                                                  + " (nonMod=" + nonMod + ")");
+                    }
+                    return; // modifies with no after-label, or undecided
+                }
+            }
+        }
+        if (agreed != null) {
+            methodInfo.analysis().set(EVENTUALLY_NON_MODIFYING_METHOD, new ValueImpl.SetOfStringsImpl(Set.copyOf(agreed)));
+            DECIDE.debug("AM: Decide eventually-non-modifying of abstract method {} after {}", methodInfo, agreed);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    private void methodIndependent(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        if (independent.isIndependent()) {
+            return;
+        }
+        Value.Independent fromImplementations = INDEPENDENT;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Independent independentImpl = implementation.analysis().getOrNull(INDEPENDENT_METHOD,
+                    ValueImpl.IndependentImpl.class);
+            if (independentImpl == null) {
+                // same discipline as the parameter union: undecided is not DEPENDENT — wait
+                UNDECIDED.debug("AMA: Undecided independent of method {}, implementation {}", methodInfo,
+                        implementation);
+                return;
+            }
+            fromImplementations = fromImplementations.min(independentImpl);
+            if (fromImplementations.isDependent()) break;
+        }
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, fromImplementations, methodInfo)) {
+            DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
+        }
+    }
+
+    /**
+     * Carry {@code EVENTUALLY_UNMODIFIED_PARAMETER} up to the abstract method's parameter, mirroring
+     * {@link #methodEventuallyNonModifying} (EVENTUALCLUSTER only -- checked by the caller). Every
+     * implementation's parameter must be compatible: eventually-unmodified after some label set (the union is
+     * the weakest common guarantee), or unconditionally unmodified (which holds after any mark). One
+     * implementation that modifies its parameter with no after-labels -- or is still undecided -- is a promise
+     * we cannot make.
+     */
+    private void parameterEventuallyUnmodified(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        if (pi.analysis().haveAnalyzedValueFor(EVENTUALLY_UNMODIFIED_PARAMETER)) return;
+        Set<String> agreed = null;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.SetOfStrings evUnmod = pii.analysis()
+                    .getOrDefault(EVENTUALLY_UNMODIFIED_PARAMETER, ValueImpl.SetOfStringsImpl.EMPTY_SET);
+            if (!evUnmod.set().isEmpty()) {
+                // the labels rest on whatever the implementation's excusals assumed: carry the provenance so
+                // the contraction can cascade a broken assumption here
+                eventualCluster.noteLabelInheritance(pi.methodInfo().typeInfo(), implementation.typeInfo());
+                if (agreed == null) agreed = new HashSet<>(evUnmod.set());
+                else agreed.addAll(evUnmod.set());
+            } else {
+                Value.Bool unmod = pii.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+                if (unmod == null || unmod.isFalse()) return; // modifies with no after-labels, or undecided
+            }
+        }
+        if (agreed != null) {
+            pi.analysis().set(EVENTUALLY_UNMODIFIED_PARAMETER, new ValueImpl.SetOfStringsImpl(Set.copyOf(agreed)));
+            DECIDE.debug("AM: Decide eventually-unmodified of abstract method parameter {} after {}", pi, agreed);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    private void unmodified(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        Value.Bool unmodified = pi.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
+        if (unmodified.isTrue()) {
+            return;
+        }
+        Set<MethodInfo> waitFor = new HashSet<>();
+        Value.Bool fromImplementations = TRUE;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.Bool unmodifiedImpl = pii.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
+            if (unmodifiedImpl.isFalse()) {
+                fromImplementations = FALSE;
+                break;
+            }
+        }
+        if (TolerantWrite.setAllowControlledOverwrite(pi.analysis(), UNMODIFIED_PARAMETER, fromImplementations, pi)) {
+            DECIDE.debug("Decide unmodified of param {} = {}", pi, fromImplementations);
+        }
+    }
+}
+

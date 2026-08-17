@@ -1,0 +1,595 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.runtime;
+
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
+import io.codelaser.maddi.cst.api.output.element.Split;
+import io.codelaser.maddi.cst.api.output.element.TextBlockFormatting;
+import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.Diamond;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.TypeNature;
+import io.codelaser.maddi.cst.api.type.Wildcard;
+import io.codelaser.maddi.cst.api.variable.*;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collector;
+
+public interface Factory {
+
+    Access accessInternal();
+
+    Access accessPackage();
+
+    Access accessPrivate();
+
+    Access accessProtected();
+
+    Access accessPublic();
+
+    ParameterizedType commonType(ParameterizedType pt1, ParameterizedType pt2);
+
+    BooleanConstant constantFalse();
+
+    BooleanConstant constantTrue();
+
+    DescendMode descendModeNo();
+
+    DescendMode descendModeYes();
+
+    Diamond diamondNo();
+
+    Diamond diamondShowAll();
+
+    Diamond diamondYes();
+
+    ElementarySpace elementarySpaceNice();
+
+    ElementarySpace elementarySpaceRelaxedNone();
+
+    Block emptyBlock();
+
+    FieldModifier fieldModifierFinal();
+
+    FieldModifier fieldModifierInternal();
+
+    FieldModifier fieldModifierPrivate();
+
+    FieldModifier fieldModifierProtected();
+
+    FieldModifier fieldModifierPublic();
+
+    FieldModifier fieldModifierStatic();
+
+    FieldModifier fieldModifierTransient();
+
+    FieldModifier fieldModifierVolatile();
+
+    IntConstant intMinusOne();
+
+    default IntConstant intOne() {
+        return intOne(noSource());
+    }
+
+    IntConstant intOne(Source source);
+
+    Numeric intOrDouble(double v);
+
+    IntConstant intZero();
+
+    int isAssignableFromCovariantErasure(ParameterizedType typeOfParameter, ParameterizedType actualType);
+
+    int isNotAssignable();
+
+    Lambda.OutputVariant lambdaOutputVariantEmpty();
+
+    Lambda.OutputVariant lambdaOutputVariantTyped();
+
+    Lambda.OutputVariant lambdaOutputVariantVar();
+
+    LocalVariableCreation.Modifier localVariableModifierFinal();
+
+    LocalVariableCreation.Modifier localVariableModifierVar();
+
+    MethodInfo.MissingData methodMissingMethodBody();
+
+    MethodModifier methodModifierAbstract();
+
+    MethodModifier methodModifierDefault();
+
+    MethodModifier methodModifierFinal();
+
+    MethodModifier methodModifierInternal();
+
+    MethodModifier methodModifierNative();
+
+    MethodModifier methodModifierPrivate();
+
+    MethodModifier methodModifierProtected();
+
+    MethodModifier methodModifierPublic();
+
+    MethodModifier methodModifierStatic();
+
+    MethodModifier methodModifierSynchronized();
+
+    MethodInfo.MethodType methodTypeAbstractMethod();
+
+    MethodInfo.MethodType methodTypeCompactConstructor();
+
+    MethodInfo.MethodType methodTypeConstructor();
+
+    MethodInfo.MethodType methodTypeDefaultMethod();
+
+    MethodInfo.MethodType methodTypeInstanceInitializer();
+
+    MethodInfo.MethodType methodTypeMethod();
+
+    MethodInfo.MethodType methodTypeStaticInitializer();
+
+    MethodInfo.MethodType methodTypeStaticMethod();
+
+    MethodInfo.MethodType methodTypeSyntheticArrayConstructor();
+
+    MethodInfo.MethodType methodTypeSyntheticConstructor();
+
+    And.Builder newAndBuilder();
+
+    AnnotationExpression.Builder newAnnotationExpressionBuilder();
+
+    AnnotationExpression.KV newAnnotationExpressionKeyValuePair(String key, Expression value);
+
+    TypeInfo newAnonymousType(TypeInfo enclosingType, int index);
+
+    /**
+     * The synthetic {@code clone()} of an array type, for {@code long[]::clone}. Arrays declare exactly one
+     * member of their own -- javac attributes it to a synthetic {@code Array} symbol owned by nothing -- so
+     * it needs a synthetic MethodInfo, as array construction does. Every other member reachable on an array
+     * ({@code equals}, {@code hashCode}, {@code toString}) resolves to {@code java.lang.Object} and needs
+     * nothing here.
+     *
+     * @param arrayType the array type itself, e.g. {@code long[]}; also the return type of the clone
+     */
+    MethodInfo newArrayCloneMethod(ParameterizedType arrayType);
+
+    MethodInfo newArrayCreationConstructor(ParameterizedType returnType);
+
+    ArrayInitializer.Builder newArrayInitializerBuilder();
+
+    ArrayLength.Builder newArrayLengthBuilder();
+
+    AssertStatement.Builder newAssertBuilder();
+
+    Assignment newAssignment(VariableExpression target, Expression value);
+
+    Assignment.Builder newAssignmentBuilder();
+
+    BinaryOperator.Builder newBinaryOperatorBuilder();
+
+    BitwiseNegation newBitwiseNegation(List<Comment> comments, Source source, Expression value);
+
+    Block.Builder newBlockBuilder();
+
+    BooleanConstant newBoolean(boolean value);
+
+    BooleanConstant newBoolean(List<Comment> comments, Source source, boolean value);
+
+    BreakStatement.Builder newBreakBuilder();
+
+    ByteConstant newByte(byte b);
+
+    ByteConstant newByte(List<Comment> comments, Source source, byte b);
+
+    Cast newCast(Expression e, ParameterizedType parameterizedType);
+
+    Cast.Builder newCastBuilder();
+
+    TryStatement.CatchClause.Builder newCatchClauseBuilder();
+
+    CharConstant newChar(char c);
+
+    CharConstant newChar(List<Comment> comments, Source source, char c);
+
+    ClassExpression.Builder newClassExpressionBuilder(ParameterizedType parameterizedType);
+
+    CommaExpression.Builder newCommaBuilder();
+
+    CompilationUnit.Builder newCompilationUnitBuilder();
+
+    CompilationUnitPrinter newCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2);
+
+    CompilationUnit newCompilationUnitStub(String candidatePackageName);
+
+    Source newCompiledClassSource(CompilationUnit compilationUnit);
+
+    MethodInfo newConstructor(TypeInfo owner);
+
+    MethodInfo newConstructor(TypeInfo owner, MethodInfo.MethodType methodType);
+
+    ConstructorCall.Builder newConstructorCallBuilder();
+
+    ContinueStatement.Builder newContinueBuilder();
+
+    DependentVariable newDependentVariable(Expression arrayExpression, Expression indexExpression);
+
+    // Direct access, useful for synthetic constructs. Preferably use the other method, where
+    // parameterizedType == arrayExpression.parameterizedType().copyWithOneFewerArrays().
+    DependentVariable newDependentVariable(Expression arrayExpression,
+                                           Expression indexExpression,
+                                           ParameterizedType parameterizedType);
+
+    DetailedSources.Builder newDetailedSourcesBuilder();
+
+    DoStatement.Builder newDoBuilder();
+
+    DoubleConstant newDouble(List<Comment> comments, Source source, double v);
+
+    DoubleConstant newDouble(double d);
+
+    EmptyExpression newEmptyExpression();
+
+    EmptyExpression newEmptyExpression(String msg);
+
+    EmptyStatement.Builder newEmptyStatementBuilder();
+
+    EnclosedExpression.Builder newEnclosedExpressionBuilder();
+
+    Equals newEquals(Expression lhs, Expression rhs);
+
+    ExplicitConstructorInvocation.Builder newExplicitConstructorInvocationBuilder();
+
+    ExpressionAsStatement newExpressionAsStatement(Expression standardized);
+
+    ExpressionAsStatement.Builder newExpressionAsStatementBuilder();
+
+    FieldInfo newFieldInfo(String name, boolean isStatic, ParameterizedType parameterizedType, TypeInfo owner);
+
+    FieldPrinter newFieldPrinter(FieldInfo fieldInfo, boolean formatter2);
+
+    FieldReference newFieldReference(FieldInfo fieldInfo);
+
+    FieldReference newFieldReference(FieldInfo fieldInfo, Expression scope, ParameterizedType concreteReturnType);
+
+    FloatConstant newFloat(List<Comment> comments, Source source, float v);
+
+    FloatConstant newFloat(float f);
+
+    ForStatement.Builder newForBuilder();
+
+    ForEachStatement.Builder newForEachBuilder();
+
+    GreaterThanZero newGreaterThanZero(Expression e, boolean allowEquals);
+
+    IfElseStatement.Builder newIfElseBuilder();
+
+    default ImportComputer newImportComputer(int minForAsterisk) {
+        return newImportComputer(minForAsterisk, null);
+    }
+
+    ImportComputer newImportComputer(int minForAsterisk, Function<String, Collection<TypeInfo>> typesPerPackage);
+
+    ImportStatement.Builder newImportStatementBuilder();
+
+    InfoMap newInfoMap(Set<TypeInfo> primaryTypes);
+
+    /**
+     * @param primaryTypes        the primary types to rewire (copy, remapping their references)
+     * @param rebuiltPrimaryTypes primary types already rebuilt from source, which the rewired ones reach. Without
+     *                            them the rewired copies keep pointing at the objects that were replaced; see
+     *                            {@code InfoMap}.
+     */
+    InfoMap newInfoMap(Set<TypeInfo> primaryTypes, Set<TypeInfo> rebuiltPrimaryTypes);
+
+    InlineConditional newInlineConditional(Expression condition, Expression ifTrue, Expression ifFalse);
+
+    InlineConditional.Builder newInlineConditionalBuilder();
+
+    InstanceOf.Builder newInstanceOfBuilder();
+
+    IntConstant newInt(List<Comment> comments, Source source, int i);
+
+    IntConstant newInt(int i);
+
+    JavaDoc newJavaDoc(Source source, String comment, List<JavaDoc.Tag> tags);
+
+    JavaDoc.Tag newJavaDocTag(JavaDoc.TagIdentifier tagIdentifier, String content,
+                              Info resolvedReference, Source source, Source sourceOfReference, boolean blockTag);
+
+    Lambda.Builder newLambdaBuilder();
+
+    LocalTypeDeclaration.Builder newLocalTypeDeclarationBuilder();
+
+    LocalVariable newLocalVariable(ParameterizedType parameterizedType);
+
+    LocalVariable newLocalVariable(String name, ParameterizedType parameterizedType);
+
+    LocalVariable newLocalVariable(String name, ParameterizedType parameterizedType, Expression assignmentExpression);
+
+    LocalVariableCreation newLocalVariableCreation(LocalVariable lvc);
+
+    LocalVariableCreation.Builder newLocalVariableCreationBuilder();
+
+    LongConstant newLong(List<Comment> comments, Source source, long l);
+
+    LongConstant newLong(long l);
+
+    MethodInfo newMethod(TypeInfo owner, String name, MethodInfo.MethodType methodType);
+
+    MethodCall.Builder newMethodCallBuilder();
+
+    MethodCall.Builder newMethodCallBuilder(MethodCall methodCall);
+
+    MethodPrinter newMethodPrinter(MethodInfo methodInfo);
+
+    /**
+     * As {@link #newMethodPrinter(MethodInfo)}, but with the owner and the formatter2 flag that
+     * {@link io.codelaser.maddi.cst.api.info.TypePrinter.MethodPrinterFactory} hands out — the single-argument
+     * version silently formats as if formatter2 were false, which changes the layout of the printed method.
+     */
+    MethodPrinter newMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2);
+
+    MethodReference.Builder newMethodReferenceBuilder();
+
+    ModuleInfo.Builder newModuleInfoBuilder();
+
+    Expression newMultiExpressions(List<Expression> newExpressions);
+
+    MultiLineComment newMultilineComment(Source source, String comment, boolean addNewline);
+
+    NullConstant newNullConstant(List<Comment> comments, Source source);
+
+    Or.Builder newOrBuilder();
+
+    OutputBuilder newOutputBuilder();
+
+    ParameterizedType newParameterizedType(TypeInfo typeInfo, List<ParameterizedType> newParameters);
+
+    ParameterizedType newParameterizedType(TypeInfo typeInfo, int arrays);
+
+    ParameterizedType newParameterizedType(TypeParameter typeParameter, int arrays, Wildcard wildCard);
+
+    /**
+     * Create an intersectionType
+     *
+     * @param typeParameter     when null, we have ? extends A & B, otherwise T extends A & B
+     * @param intersectionTypes the list of types to possibly extend
+     * @return an intersection type
+     */
+    ParameterizedType newIntersectionType(@Nullable TypeParameter typeParameter, List<ParameterizedType> intersectionTypes);
+
+    ParameterizedType newParameterizedType(TypeInfo typeInfo, int arrays, Wildcard wildCard,
+                                           List<ParameterizedType> parameters);
+
+    default Source newParserSource(String index, int beginLine, int beginPos, int endLine, int endPos) {
+        return newParserSource(index, beginLine, beginPos, endLine, endPos, null);
+    }
+
+    Source newParserSource(String index, int beginLine, int beginPos, int endLine, int endPos,
+                           DetailedSources detailedSources);
+
+    RecordPattern.Builder newRecordPatternBuilder();
+
+    ReturnStatement.Builder newReturnBuilder();
+
+    ReturnStatement newReturnStatement(Expression expression);
+
+    ShortConstant newShort(short s);
+
+    ShortConstant newShort(List<Comment> comments, Source source, short s);
+
+    SingleLineComment newSingleLineComment(Source source, String comment);
+
+    SwitchEntry newStatementsSwitchEntry(VariableExpression selector,
+                                         List<Expression> labels, List<Statement> statements);
+
+    Expression newStringConcat(Expression l, Expression r);
+
+    StringConstant newStringConstant(List<Comment> comments, Source source, String string);
+
+    StringConstant newStringConstant(String string);
+
+    SwitchEntry.Builder newSwitchEntryBuilder();
+
+    SwitchExpression.Builder newSwitchExpressionBuilder();
+
+    SwitchStatementOldStyle.SwitchLabel newSwitchLabelOldStyle(Expression literal, int pos,
+                                                               RecordPattern patternVariable,
+                                                               Expression whenExpression);
+
+    SwitchStatementNewStyle.Builder newSwitchStatementNewStyleBuilder();
+
+    SwitchStatementOldStyle.Builder newSwitchStatementOldStyleBuilder();
+
+    SynchronizedStatement.Builder newSynchronizedBuilder();
+
+    OutputElement newText(String text);
+
+    TextBlock newTextBlock(List<Comment> comments, Source source, String content, TextBlockFormatting textBlockFormatting);
+
+    TextBlockFormatting.Builder newTextBlockFormattingBuilder();
+
+    default This newThis(ParameterizedType parameterizedType) {
+        return newThis(parameterizedType, null, false);
+    }
+
+    This newThis(ParameterizedType parameterizedType, TypeInfo explicitlyWriteType, boolean writeSuper);
+
+    ThrowStatement.Builder newThrowBuilder();
+
+    TranslationMap.Builder newTranslationMapBuilder();
+
+    TranslationMap.Builder newTranslationMapBuilder(TranslationMap startingPoint);
+
+    TryStatement.Builder newTryBuilder();
+
+    TypeExpression newTypeExpression(ParameterizedType parameterizedType, Diamond diamond);
+
+    TypeExpression.Builder newTypeExpressionBuilder();
+
+    TypeInfo newTypeInfo(TypeInfo typeInfo, String simpleName);
+
+    TypeInfo newTypeInfo(MethodInfo methodInfo, String simpleName, int index);
+
+    TypeInfo newTypeInfo(CompilationUnit cu, String simpleName);
+
+    TypeParameter newTypeParameter(int index, String simpleName, Info owner);
+
+    TypePrinter newTypePrinter(TypeInfo typeInfo, boolean formatter2);
+
+    UnaryOperator newUnaryOperator(List<Comment> comments, Source source, MethodInfo operator, Expression e,
+                                   Precedence precedence);
+
+    LocalVariable newUnnamedLocalVariable(ParameterizedType parameterizedType, Expression assignmentExpression);
+
+    VariableExpression newVariableExpression(Variable variable);
+
+    VariableExpression.Builder newVariableExpressionBuilder();
+
+    VariableExpression.Suffix newVariableFieldSuffix(int statementTime, String latestAssignment);
+
+    WhileStatement.Builder newWhileBuilder();
+
+    YieldStatement.Builder newYieldBuilder();
+
+    Source noSource();
+
+    Expression notNull(Expression expression);
+
+    Expression nullConstant();
+
+    Expression nullConstant(List<Comment> comments, Source source);
+
+    Expression nullValue(ParameterizedType parameterizedType);
+
+    Expression nullValue(ParameterizedType parameterizedType, Source source);
+
+    Collector<OutputBuilder, OutputBuilder, OutputBuilder> outputBuilderJoining(OutputElement outputElement);
+
+    ParameterizedType parameterizedTypeNullConstant();
+
+    ParameterizedType parameterizedTypeReturnTypeOfConstructor();
+
+    ParameterizedType parameterizedTypeWildcard();
+
+    Source parseSourceFromCompact2(String compact2);
+
+    Precedence precedenceAdditive();
+
+    Precedence precedenceArrayAccess();
+
+    Precedence precedenceAssignment();
+
+    Precedence precedenceBitwiseAnd();
+
+    Precedence precedenceBitwiseOr();
+
+    Precedence precedenceBitwiseXor();
+
+    Precedence precedenceBottom();
+
+    Precedence precedenceEquality();
+
+    Precedence precedenceLogicalAnd();
+
+    Precedence precedenceLogicalOr();
+
+    Precedence precedenceMultiplicative();
+
+    Precedence precedenceOfBinaryOperator(MethodInfo op);
+
+    Precedence precedenceRelational();
+
+    Precedence precedenceShift();
+
+    Precedence precedenceTop();
+
+    Precedence precedenceUnary();
+
+    Qualification qualificationFullyQualifiedNames();
+
+    Qualification qualificationExistingSources();
+
+    Qualification qualificationQualifyFromPrimaryType();
+
+    Qualification qualificationQualifyFromPrimaryType(Qualification.Decorator decorator);
+
+    Qualification qualificationSimpleNames();
+
+    Set<TypeInfo> rewire(Set<TypeInfo> types);
+
+    void setGetSetField(MethodInfo getSetMethod, FieldInfo fieldInfo, boolean setter, int parameterIndexOfIndex,
+                        boolean list);
+
+    void setNonNullProperty(FieldInfo fieldInfo);
+
+    Split splitNever();
+
+    OutputElement symbolColon();
+
+    OutputElement symbolComma();
+
+    OutputElement symbolLeftParenthesis();
+
+    OutputElement symbolRightParenthesis();
+
+    Variable translateVariableRecursively(TranslationMap translationMap, Variable variable);
+
+    TypeModifier typeModifierAbstract();
+
+    TypeModifier typeModifierFinal();
+
+    TypeModifier typeModifierInternal();
+
+    TypeModifier typeModifierNonSealed();
+
+    TypeModifier typeModifierPrivate();
+
+    TypeModifier typeModifierProtected();
+
+    TypeModifier typeModifierPublic();
+
+    TypeModifier typeModifierSealed();
+
+    TypeModifier typeModifierStatic();
+
+    TypeNature typeNatureAnnotation();
+
+    TypeNature typeNatureClass();
+
+    TypeNature typeNatureEnum();
+
+    TypeNature typeNatureInterface();
+
+    TypeNature typeNaturePackageInfo();
+
+    TypeNature typeNatureRecord();
+
+    TypeNature typeNatureStub();
+
+    Wildcard wildcardExtends();
+
+    Wildcard wildcardSuper();
+}

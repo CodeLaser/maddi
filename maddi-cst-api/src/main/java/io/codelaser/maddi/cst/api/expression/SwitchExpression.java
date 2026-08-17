@@ -1,0 +1,68 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.expression;
+
+import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * A switch expression, {@code switch (selector) { case ... -> value; ... }}, which yields a value. Like
+ * the arrow-form switch statement it is modelled as a list of
+ * {@link io.codelaser.maddi.cst.api.statement.SwitchEntry SwitchEntry} arms; the result type is the
+ * overall {@link Expression#parameterizedType()}.
+ */
+public interface SwitchExpression extends Expression {
+
+    /**
+     * @return the value being switched on.
+     */
+    Expression selector();
+
+    /**
+     * @return the arms (each producing a value, via {@code -> value} or {@code yield}).
+     */
+    List<SwitchEntry> entries();
+
+    /**
+     * @return an immutable copy with a different selector; this instance is unchanged.
+     */
+    SwitchExpression withSelector(Expression newSelector);
+
+    interface Builder extends Element.Builder<Builder> {
+
+        @Fluent
+        Builder setParameterizedType(ParameterizedType parameterizedType);
+
+        @Fluent
+        Builder setSelector(Expression selector);
+
+        @Fluent
+        Builder addSwitchEntries(Collection<SwitchEntry> switchEntries);
+
+        SwitchExpression build();
+    }
+
+    String NAME = "switchExpression";
+
+    @Override
+    default String name() {
+        return NAME;
+    }
+}

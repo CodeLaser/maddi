@@ -1,0 +1,193 @@
+package io.codelaser.maddi.modification.link.impl;
+
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.linkgraph.FollowGraph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.Graph;
+import io.codelaser.maddi.modification.link.impl.linkgraph.LinkGraph;
+import io.codelaser.maddi.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.prepwork.variable.*;
+import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+
+import java.util.*;
+import java.util.function.Function;
+
+/*
+Part of the LinkMethodCall code, objectToReturnValue.
+
+Call a method with a method reference argument, knowing that the method reference will be used/called.
+The "$_afi0" applied function interface variable is the marker for the result of calling the method reference.
+
+TestBiFunction
+    link = make ← $_afi0
+    translated = extract ← this.ix, extract ← this.jx
+    toAdd = $__rv1 ← this.ix, $__rv1 ← this.jx
+TestStaticBiFunction
+
+TestModificationFunctional,1: the MR is a direct argument
+TestModificationFunctional,2,2b: the MR is a field inside the argument. What we can do is open up the record variable,
+and find out that it links to a functional interface variable, nr.function ← Λ$_fi1.
+In TestBiFunction, this fiv has already been expanded at the beginning of LinkMethodCall.
+
+In TestModificationFunctional,5, the MR is a "field" defined by a getter on an interface
+ */
+public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
+                                             Runtime runtime,
+                                             LinkComputer.Options linkComputerOptions,
+                                             VirtualFieldComputer virtualFieldComputer,
+                                             MethodInfo currentMethod,
+                                             VariableData variableData,
+                                             Stage stage) {
+    public void go(
+            Links.Builder builder,
+            Function<Variable, List<Links>> paramProvider,
+            AppliedFunctionalInterfaceVariable applied,
+            Set<Variable> extraModified,
+            Variable fromTranslated,
+            LinkNature linkNature,
+            Variable objectPrimary) {
+        // Resolve the '$_afi' marker (a SAM applied to a parameter that holds an as-yet-unknown lambda) now that the
+        // concrete lambda bound to that parameter is visible here. Three leaves, on the parameter's declared type:
+        List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
+        ParameterizedType functionalType;
+        if (!applied.sourceOfFunctionalInterface().parameterizedType().isStandardFunctionalInterface()) {
+            // LEAF — a custom (non-standard) functional interface: search the parameter's links for the concrete
+            // FunctionalInterfaceVariable and expand it (also collecting its modifications). See TestModificationFunctional,7,8.
+            SearchResult sr = searchAndExpand(list);
+            if (sr == null) return;
+            // do the default translation from formal parameter to argument
+            extraModified.addAll(sr.extraModified);
+            functionalType = sr.functionalType;
+            list = List.of(sr.links);
+        } else if (isLinkedToParameter(list)) {
+            // LEAF — an indirection method: the applied SAM is itself linked straight to one of the current method's
+            // parameters, so just assign the marker through (no lifting). See TestModificationFunctional,4.
+            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
+            return;
+        } else {
+            // LEAF — a standard functional interface (Function/Consumer/…) used directly: lift via its own type.
+            functionalType = applied.sourceOfFunctionalInterface().parameterizedType();
+        }
+        // replace the SAM's formal parameters by the actual arguments of the application, then run the lifting engine
+        List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
+        List<LinkFunctionalInterface.Triplet> toAdd = new LinkFunctionalInterface(runtime, virtualFieldComputer,
+                currentMethod).go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
+                objectPrimary);
+        toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+    }
+
+    private boolean isLinkedToParameter(List<Links> list) {
+        return list.stream().anyMatch(links ->
+                links.stream().anyMatch(l -> l.to() instanceof ParameterInfo pi
+                                             && pi.methodInfo().equals(currentMethod)
+                                             && l.linkNature().isAssignedFrom()));
+    }
+
+    private record SearchResult(ParameterizedType functionalType, Links links, Set<Variable> extraModified) {
+    }
+
+    private SearchResult searchAndExpand(List<Links> list) {
+        if (variableData == null) return null; // e.g. inside a lambda body without its own variable data
+        Set<Variable> extraModified = new HashSet<>();
+        int paramIndex = 0;
+        for (Links links : list) {
+            if (links.primary() == null) continue;
+            Variable list0Primary = links.primary();
+            VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
+            if (vic != null) {
+                VariableInfo vi = vic.best(stage);
+                if (vi.linkedVariables() == null) continue; // not yet computed for this variable (guava first contact)
+                List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
+                        .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
+                        .map(l -> (FunctionalInterfaceVariable) l.to())
+                        .toList();
+                for (FunctionalInterfaceVariable fi : fis) {
+                    TranslationMap.Builder builder = runtime.newTranslationMapBuilder();
+                    if (fi.result().links().primary() instanceof ReturnVariable rv) {
+                        // See TestModificationFunctional,5,6,7
+                        builder.put(rv.methodInfo().parameters().get(paramIndex), list0Primary);
+                    }
+                    for (Map.Entry<Variable, Links> entry : fi.result().extra().map().entrySet()) {
+                        if (entry.getKey() instanceof ParameterInfo pi) {
+                            builder.put(pi, list0Primary);
+                        }
+                    }
+                    TranslationMap tm = builder.build();
+                    fi.result().modified().keySet().stream()
+                            .map(tm::translateVariableRecursively)
+                            .filter(this::acceptForExtra)
+                            .forEach(extraModified::add);
+                    Result expanded = fi.result().expandFunctionalInterfaceVariables();
+                    return new SearchResult(fi.parameterizedType(), expanded.links(), extraModified);
+                }
+
+            }
+            ++paramIndex;
+        }
+        return null;
+    }
+
+    private boolean acceptForExtra(Variable v) {
+        return !(v instanceof ParameterInfo pi) || pi.methodInfo().equals(currentMethod);
+    }
+
+    private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
+        return list.stream().map(links -> replaceParametersByEvalInApplied(links, params)).toList();
+    }
+
+    /*
+    the default is to add the link directly, as for TestBiFunction, link to the field this.jx
+    but when the link points to a parameter, we must replace this parameter by the argument to the SAM
+    In the case of TestBiFunction, this is the field ix.
+
+
+     */
+    private Links replaceParametersByEvalInApplied(Links links, List<Result> params) {
+        if (links.primary() == null) return LinksImpl.EMPTY;
+        Links.Builder builder = new LinksImpl.Builder(links.primary());
+        for (Link link : links) {
+            if (link.to() instanceof ParameterInfo pi && isSamParameter(pi, params)) {
+                // replace (TestBiFunction, link to extract:0:x)
+                Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
+                builder.add(link.from(), link.linkNature(), primary);
+            } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi
+                       && isSamParameter(pi, params)) {
+                Result result = params.get(pi.index());
+                Variable primary = Objects.requireNonNullElse(result.links().primary(), link.to());
+                if (primary instanceof LocalVariable) {
+                    // see TestStaticBiFunction,6: no direct mapping exists — deliberately emit nothing.
+                    // (A pre-sv "join" through a private graph was tried and removed; if a legitimate
+                    // case surfaces, route it through the sv expansion, not a side graph.)
+                } else {
+                    builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
+                            runtime.newVariableExpression(primary), fr.fieldInfo().type()));
+                }
+            } else {
+                // copy (TestBiFunction, link to this.jx)
+                builder.add(link.from(), link.linkNature(), link.to());
+            }
+        }
+        return builder.build();
+    }
+
+    /*
+    Only the SAM's own formal parameters may be replaced by the arguments of the application. A link can also point
+    to a parameter of the current (enclosing) method, captured by the lambda: guava's AtomicDouble.accumulateAndGet
+    passes 'oldValue -> f.applyAsDouble(oldValue, x)' to a unary SAM, and the lambda's links include the captured
+    parameter 'x' (index 1) of accumulateAndGet itself -- out of range for the 1-argument application. Such links
+    must be copied through unchanged, not translated.
+     */
+    private boolean isSamParameter(ParameterInfo pi, List<Result> params) {
+        return !currentMethod.equals(pi.methodInfo()) && pi.index() < params.size();
+    }
+}

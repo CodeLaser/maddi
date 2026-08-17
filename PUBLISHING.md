@@ -8,12 +8,19 @@ Publishing strategy
 >
 > Two things learned publishing 0.9.0, worth knowing before the next release:
 >
-> * **The published artifact must stay dependency-free.** `maddi-support` deliberately does *not*
->   apply `java-library-conventions`: that adds `api(platform(project(":platform")))` plus
->   jetbrains-annotations and slf4j, all of which leak into the POM and Gradle module metadata. The
->   internal `io.codelaser:platform` BOM is not on Central, so such a POM is unresolvable for a
->   consumer. Check before every release: the POM must have no `<dependencies>`/`<dependencyManagement>`
->   and all four module-metadata variants must be empty.
+> * **A published artifact must declare no dependency that is not itself on Central.**
+>   `maddi-support` deliberately does *not* apply `java-library-conventions`: that adds
+>   `api(platform(project(":platform")))` plus jetbrains-annotations and slf4j, all of which leak into
+>   the POM and Gradle module metadata. The internal `io.codelaser:platform` BOM is not on Central, so
+>   such a POM is unresolvable for a consumer.
+>
+>   Until 0.9.0 this was checked as the stricter, simpler "the POM must have no
+>   `<dependencies>`/`<dependencyManagement>` and all four module-metadata variants must be empty",
+>   which was true of `maddi-support` and easy to verify. **The `maddi-annotation` split retires that
+>   phrasing**: `maddi-support` now legitimately declares one dependency, on `maddi-annotation`, which
+>   ships to Central in the same release train. Checked literally, the old rule fails on a correct
+>   artifact — so check the resolvability, which is what the rule was always for: every entry in
+>   `<dependencies>` must be an artifact a consumer can actually resolve from Central.
 > * **`Attempt N of 101` in the JReleaser log is a polling loop, not a retry after failure.** The
 >   deployment is already uploaded and publishing; do not re-run the deploy. Portal→`repo1` sync adds
 >   another 10-30 minutes, and `maven-metadata.xml` catches up later still. Verify with
@@ -48,7 +55,7 @@ What we publish (Package 1)
 === 1. Annotations — Maven Central
 
 `maddi-support` (`io.codelaser:maddi-support`) contains the user-facing annotations
-(`org.e2immu.annotation.*` — `@Immutable`, `@Container`, `@Independent`, …). This is the one artifact
+(`io.codelaser.maddi.annotation.*` — `@Immutable`, `@Container`, `@Independent`, …). This is the one artifact
 a user's *own code* compiles against, so it is a small, stable library on Maven Central. It already has
 the `maven-publish` + jreleaser configuration; publish it per the appendix below.
 
@@ -60,7 +67,7 @@ self-contained. This is viable precisely because both plugins use only the openj
 no K2 — and they run it on a classpath (a forked worker for Gradle), where the stripped module
 descriptors do not matter.
 
-* *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `org.e2immu.analyzer-plugin`.
+* *Gradle plugin* (`maddi-gradleplugin`) → **Gradle Plugin Portal**, id `io.codelaser.maddi.analyzer`.
   **Shading + publication wiring DONE** (`com.gradleup.shadow` + `maven-publish`): a dedicated `shade`
   configuration lists the analyzer modules; `implementation` extends it; `shadowJar` bundles only
   `shade`, so `gradleApi()` and `kotlin-stdlib` (Gradle-provided) are excluded and the analyzer +
@@ -71,8 +78,23 @@ descriptors do not matter.
   and a **dependency-free POM** (Gradle Module Metadata disabled, `<dependencies>`/`<dependencyManagement>`
   stripped — nothing to resolve, everything is bundled). Proven self-contained by
   `TestAnalyzerPluginShadedJarIsolation`: it publishes to a local repo and resolves+runs the plugin from
-  there *with no analyzer module on any classpath*. *Remaining:* apply `com.gradle.plugin-publish`
-  (website/vcsUrl/tags) and run `publishPlugins` with a Portal key — the actual push, needs credentials.
+  there *with no analyzer module on any classpath*. **`com.gradle.plugin-publish` 2.1.1 applied
+  2026-08-17** with `website`/`vcsUrl`/`tags`, a sources and a javadoc jar (the Portal requires both,
+  and `setArtifacts` replaces the artifact list, so they are named there explicitly), and a
+  `description` on the plugin declaration — it had been set on the enclosing scope, i.e. on the
+  *project*, so the declaration carried none. *Remaining:* run `publishPlugins`, **after the rename**.
+
+  ⚠️ **The Portal is not instant, and the id cannot be corrected cheaply.** Publishing docs, verified
+  2026-08-17: a new plugin "will go through a manual review process" by a Gradle engineer before it
+  becomes visible, and "any change of Maven group or plugin ID will cause the manual approval process
+  to be triggered again". Nothing exists under `io.codelaser` or `org.e2immu` on the Portal today, so
+  this is a first publish and `publishPlugins` succeeding does **not** mean the plugin is installable
+  that evening — say so in the release notes rather than promising an install line that 404s.
+
+  The same page requires that "the plugin ID and group ID share the same top-level namespace". The
+  group is `io.codelaser`, so the current id `io.codelaser.maddi.analyzer` **would be refused at
+  review**: publishing the plugin before the rename was never actually available. After the cutover
+  the id is `io.codelaser.maddi.analyzer` (`tools/rename/name-map.tsv` section 3), which satisfies it.
 * *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. **Descriptor + shading DONE.** A hand-maintained
   `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the Gradle-9-incompatible
   `maven-plugin-development` tool) describes all 5 goals (`run`, `write-input-configuration`, `statistics`,
@@ -83,9 +105,11 @@ descriptors do not matter.
   resolver (`maven-resolver-*` → `compileOnly`; its `org.eclipse.aether.*` objects come from Maven core's
   injected `ProjectDependenciesResolver`, so a second bundled copy would `LinkageError`), and `slf4j-api`
   (excluded from the jar; Maven core exports it + its binding). The publication ships the shadow jar with a
-  `packaging=maven-plugin`, dependency-free POM. *Remaining:* test against a real `mvn` invocation (not done
-  — no Maven on this laptop); the host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or
-  `MAVEN_OPTS`) for the openjdk-based goals.
+  `packaging=maven-plugin`, dependency-free POM. *Remaining:* test against a real `mvn` invocation — still
+  not done, but **no longer blocked: Maven 3.9.16 is installed on the Mac as of 2026-08-17**, so the
+  "no Maven on this laptop" excuse is spent. Do it before publishing a plugin nobody has ever invoked.
+  The host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or `MAVEN_OPTS`) for the
+  openjdk-based goals.
 
 === 3. Command-line tools — GitHub Releases (not Maven)
 
@@ -122,8 +146,31 @@ Release checklist
 -----------------
 
 . Bump the version in `gradle.properties` (once centralized).
-. Annotations: `./gradlew :maddi-support:clean :maddi-support:publishMavenJavaPublicationToStagingRepository :maddi-support:jreleaserDeploy` (see the appendix for the credentials/GPG setup).
+. Annotations — **two artifacts since 0.9.1, and the ORDER matters.** `maddi-support`'s POM carries
+  a dependency on `maddi-annotation`, so publishing support first puts an artifact on Central whose
+  dependency does not exist yet. Central will not stop you; consumers find out instead.
++
+--
+./gradlew :maddi-annotation:clean :maddi-annotation:publishMavenJavaPublicationToStagingRepository :maddi-annotation:jreleaserDeploy
+./gradlew :maddi-support:clean    :maddi-support:publishMavenJavaPublicationToStagingRepository    :maddi-support:jreleaserDeploy
+--
++
+Let the first reach `repo1.maven.org` before starting the second — see the note at the top of this
+document about the polling loop and the Portal→repo1 delay. Credentials/GPG setup: see the appendix.
++
+Check both against the resolvability rule above before deploying. Verified for 0.9.1 on 2026-08-17:
+`maddi-annotation`'s POM has no `<dependencies>` and all four module-metadata variants are empty;
+`maddi-support` has exactly one, `io.codelaser:maddi-annotation:<version>` at `compile`, with
+`apiElements`/`runtimeElements` matching it and javadoc/sources empty.
++
+⛔ `withJavadocJar()` makes **javadoc a release blocker, not a warning** — a failed javadoc task
+means no artifact at all. This bit at the split: `IgnoreModifications` moved into `maddi-annotation`
+still carrying `{@link io.codelaser.maddi.support.Memo}`, a type that stayed in `maddi-support`,
+which `maddi-annotation` must never depend on. Nothing but running javadoc finds it — the reference
+is correctly *named*, merely unreachable from where the class now lives. In this module, name
+cross-module types as `{@code}` text, never `{@link}`.
 . Gradle plugin: `./gradlew :maddi-gradleplugin:publishPlugins` (Gradle Plugin Portal key required).
+  Expect a wait — a first publication under a new namespace is reviewed by hand before it appears.
 . Maven plugin: publish to Central once the descriptor is generated.
 . CLI: `./release-cli.sh <tag>` (builds both `distZip`s and attaches `maddi-<version>.zip` +
   `maddi-kotlin-<version>.zip` to the GitHub Release for `<tag>`; needs an authenticated `gh`).

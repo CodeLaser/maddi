@@ -1,0 +1,563 @@
+package io.codelaser.maddi.modification.prepwork.variable.impl;
+
+import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.LinkNature;
+import io.codelaser.maddi.modification.prepwork.variable.Links;
+import io.codelaser.maddi.modification.prepwork.variable.VirtualFieldTranslationMap;
+import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class LinksImpl implements Links {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinksImpl.class);
+
+    public static final Links EMPTY = new LinksImpl(null);
+    public static final Property LINKS = new PropertyImpl("links", EMPTY);
+    public static final String LAMBDA = "Λ";
+
+    private final Variable primary;
+    private final List<Link> linkSet;
+
+    // constructor to bypass the non-null requirement for the primary
+    public LinksImpl(Variable variable) {
+        this.primary = variable;
+        this.linkSet = List.of();
+    }
+
+    public LinksImpl(Variable primary, List<Link> linkSet) {
+        this.primary = Objects.requireNonNull(primary);
+        this.linkSet = Objects.requireNonNull(linkSet);
+    }
+
+    @Override
+    public int size() {
+        return linkSet.size();
+    }
+
+    @Override
+    public Variable primary() {
+        return primary;
+    }
+
+    @Override
+    public Link link(int i) {
+        return linkSet.get(i);
+    }
+
+    @Override
+    public Iterable<Link> linkSet() {
+        return linkSet;
+    }
+
+    @Override
+    public Links removeIfFromTo(Predicate<Variable> predicate) {
+        return new LinksImpl(primary, linkSet.stream()
+                .filter(l -> Stream.concat(l.from().variableStreamDescend(),
+                        l.to().variableStreamDescend()).noneMatch(predicate))
+                .toList());
+    }
+
+    @Override
+    public Links removeIfTo(Predicate<Variable> toPredicate) {
+        return new LinksImpl(primary, linkSet.stream()
+                .filter(l -> l.to().variableStreamDescend().noneMatch(toPredicate))
+                .toList());
+    }
+
+    @Override
+    public Stream<Link> stream() {
+        return linkSet.stream();
+    }
+
+    @Override
+    public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+        assert primary != null || linkSet.isEmpty();
+        return codec.encodeList(context, Stream.concat(
+                primary == null ? Stream.empty() : Stream.of(codec.encodeVariable(context, primary)),
+                linkSet.stream().map(l -> encodeLink(codec, context, l))).toList());
+    }
+
+    private Codec.EncodedValue encodeLink(Codec codec, Codec.Context context, Link link) {
+        // a plain nature encodes as its symbol string; the pass-carrying ≡ variant (☷, e.g.
+        // Iterator.remove-style annotations) additionally carries its method set, so it encodes as a list
+        // [symbol, methodInfo...] — the decoder branches on isList. Deterministic order for stable output.
+        Codec.EncodedValue natureEv;
+        java.util.Set<io.codelaser.maddi.cst.api.info.MethodInfo> pass = link.linkNature().pass();
+        if (pass == null || pass.isEmpty()) {
+            natureEv = codec.encodeString(context, link.linkNature().toString());
+        } else {
+            List<Codec.EncodedValue> natureList = new java.util.ArrayList<>();
+            natureList.add(codec.encodeString(context, link.linkNature().toString()));
+            pass.stream()
+                    .sorted(java.util.Comparator.comparing(
+                            io.codelaser.maddi.cst.api.info.MethodInfo::fullyQualifiedName))
+                    .forEach(mi -> natureList.add(codec.encodeMethodInfo(context, mi)));
+            natureEv = codec.encodeList(context, natureList);
+        }
+        List<Codec.EncodedValue> parts = new java.util.ArrayList<>(List.of(
+                codec.encodeVariable(context, link.from()),
+                natureEv,
+                codec.encodeVariable(context, link.to())
+        ));
+        // mediation provenance (task #39): appended only when set, so unmediated output stays byte-identical
+        if (link.mediated()) parts.add(codec.encodeBoolean(context, true));
+        return codec.encodeList(context, parts);
+    }
+
+    @Override
+    public boolean isDefault() {
+        return equals(EMPTY);
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return linkSet.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof LinksImpl other)) return false;
+        return Objects.equals(primary, other.primary);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(primary);
+    }
+
+    /**
+     * Equality above is deliberately PRIMARY-ONLY, so two Links values with the same primary but
+     * different content are "equal" — and under first-arrival retention (TolerantWrite), whichever
+     * arrives first freezes, arrival-order dependently. The composed-dogfood bistability traced to
+     * exactly this shape (docs/eventual-info-hierarchy.md §"The retention round": methodLinks first,
+     * then the field-level {@code links} property keeping the count flipping 39↔53). Same total
+     * canonical order as {@code MethodLinkedVariablesImpl}: more link content wins; equal mass falls
+     * back to the lexicographically smaller rendering.
+     */
+    @Override
+    public boolean strictlyRicherThan(io.codelaser.maddi.cst.api.analysis.Value other) {
+        if (!(other instanceof LinksImpl o)) return false;
+        int c = Integer.compare(linkSet.size(), o.linkSet.size());
+        if (c != 0) return c > 0;
+        String mine = toString();
+        String theirs = o.toString();
+        return mine.compareTo(theirs) < 0; // equal mass: smaller canonical rendering wins, arbitrarily but totally
+    }
+
+    @Override
+    public @NotNull Iterator<Link> iterator() {
+        return linkSet.iterator();
+    }
+
+    @Override
+    public @NotNull String toString() {
+        if (isEmpty()) return "-";
+        // don't sort, they have been sorted by Expand.followGraph
+        return linkSet.stream().map(Object::toString).collect(Collectors.joining(","));
+    }
+
+    public @NotNull String toString(Set<Variable> modified) {
+        if (isEmpty()) return "-";
+        // don't sort, they have been sorted by Expand.followGraph
+        return linkSet.stream().map(link -> link.toString(modified)).collect(Collectors.joining(","));
+    }
+
+    @Override
+    public Links merge(Links links) {
+        return new LinksImpl(primary, Stream.concat(this.linkSet.stream(), links.stream())
+                .toList());
+    }
+
+    public static class Builder implements Links.Builder {
+        private final Variable primary;
+        private final List<Link> links = new ArrayList<>();
+
+        /*
+        contains() and containsPrimaryOf() were linear scans, called from interleaved filter->add stream
+        pipelines: O(edges x builder size) — a single guava method stalled the link phase for minutes.
+        The indexes are lazily built on first query, incrementally maintained on add (so those pipelines
+        stay O(1) per element), and invalidated on any removal/replacement. NOTE Link's own equality is
+        (from,to)-only and its constructor asserts on unrepresentable faces, so the triplet index uses
+        its own key record; addAllDistinct keeps Link's pair equality and stays as it was.
+         */
+        private record TripletKey(Variable from, LinkNature nature, Variable to) {
+        }
+
+        private Set<TripletKey> tripletIndex;
+        private Set<Variable> primaryToIndex;
+
+        public Builder(Variable primary) {
+            this.primary = primary;
+        }
+
+        public Builder(Links existing) {
+            this.primary = existing.primary();
+            existing.forEach(links::add);
+        }
+
+        private void addToIndexes(Link link) {
+            if (tripletIndex != null) {
+                tripletIndex.add(new TripletKey(link.from(), link.linkNature(), link.to()));
+            }
+            if (primaryToIndex != null) {
+                primaryToIndex.add(Util.primary(link.to()));
+            }
+        }
+
+        private void invalidateIndexes() {
+            tripletIndex = null;
+            primaryToIndex = null;
+        }
+
+        @Override
+        public void replace(Link link, LinkNature newLinkNature) {
+            links.replaceAll(l -> {
+                if (l.equals(link)) return new LinkImpl(l.from(), newLinkNature, l.to());
+                return l;
+            });
+            invalidateIndexes();
+        }
+
+        @Override
+        public Variable primary() {
+            return primary;
+        }
+
+        // funnel guard: closures can hand producers a stacked face (x.§m.§m — legal inside VMI/graph
+        // bookkeeping, not representable as a Link). All Builder adds skip such faces, per the
+        // constructor-assert policy; direct LinkImpl constructions keep the assert as a backstop.
+        private static boolean representable(Variable from, Variable to) {
+            return LinkImpl.doNotStackMOnTopOfVirtualField(from) && LinkImpl.doNotStackMOnTopOfVirtualField(to);
+        }
+
+        @Override
+        public Builder add(LinkNature linkNature, Variable to) {
+            return add(linkNature, to, false);
+        }
+
+        /** mediated=true: the link was produced through a cast / pattern binding (see Link.mediated()) */
+        public Builder add(LinkNature linkNature, Variable to, boolean mediated) {
+            if (!representable(primary, to)) return this;
+            LinkImpl link = new LinkImpl(primary, linkNature, to, mediated);
+            links.add(link);
+            addToIndexes(link);
+            return this;
+        }
+
+        @Override
+        public Builder add(Variable from, LinkNature linkNature, Variable to) {
+            return add(from, linkNature, to, false);
+        }
+
+        @Override
+        public Builder add(Variable from, LinkNature linkNature, Variable to, boolean mediated) {
+            assert primary instanceof This || Util.isPartOf(primary, from);
+            if (!representable(from, to)) return this;
+            LinkImpl link = new LinkImpl(from, linkNature, to, mediated);
+            links.add(link);
+            addToIndexes(link);
+            return this;
+        }
+
+        @Override
+        public void prepend(LinkNature linkNature, Variable to) {
+            if (!representable(primary, to)) return;
+            LinkImpl link = new LinkImpl(primary, linkNature, to);
+            links.addFirst(link);
+            addToIndexes(link);
+        }
+
+        @Override
+        public Links.Builder addAllDistinct(Links other) {
+            assert primary.equals(other.primary());
+            other.stream()
+                    .filter(l -> !links.contains(l)) // Link's (from,to)-only equality, deliberately
+                    .forEach(l -> {
+                        links.add(l);
+                        addToIndexes(l);
+                    });
+            return this;
+        }
+
+        @Override
+        public boolean contains(Variable from, LinkNature reverse, Variable to) {
+            if (tripletIndex == null) {
+                tripletIndex = new HashSet<>();
+                for (Link l : links) {
+                    tripletIndex.add(new TripletKey(l.from(), l.linkNature(), l.to()));
+                }
+            }
+            return tripletIndex.contains(new TripletKey(from, reverse, to));
+        }
+
+        @Override
+        public void removeIf(Predicate<Link> linkPredicate) {
+            links.removeIf(linkPredicate);
+            invalidateIndexes();
+        }
+
+        @Override
+        public void removeIfFromTo(Predicate<Variable> predicate) {
+            links.removeIf(l -> Stream.concat(l.from().variableStreamDescend(),
+                    l.to().variableStreamDescend()).anyMatch(predicate));
+            invalidateIndexes();
+        }
+
+        @Override
+        public Collection<Link> linkSet() {
+            return links;
+        }
+
+        @Override
+        public void replaceAll(List<Link> newLinks) {
+            links.clear();
+            links.addAll(newLinks);
+            invalidateIndexes();
+        }
+
+        @Override
+        public @NotNull Iterator<Link> iterator() {
+            return links.iterator();
+        }
+
+        public Links build() {
+            return new LinksImpl(primary, List.copyOf(links));
+        }
+
+        @Override
+        public int size() {
+            return links.size();
+        }
+
+        @Override
+        public Builder sort() {
+            links.sort(Link::compareTo);
+            return this;
+        }
+
+        @Override
+        public boolean containsPrimaryOf(Variable to) {
+            Variable toPrimary = Util.primary(to);
+            // Util.primary is null for an array access on an EXPRESSION base (clone-bench shapes);
+            // HashSet accepts the null element, matching the former Objects.equals-based scan
+            if (primaryToIndex == null) {
+                primaryToIndex = new HashSet<>();
+                for (Link l : links) {
+                    primaryToIndex.add(Util.primary(l.to()));
+                }
+            }
+            return primaryToIndex.contains(toPrimary);
+        }
+    }
+
+    // private so that we can ensure that only the links builder can make link objects
+    public record LinkImpl(Variable from, LinkNature linkNature, Variable to, boolean mediated) implements Link {
+
+        public LinkImpl(Variable from, LinkNature linkNature, Variable to) {
+            this(from, linkNature, to, false);
+        }
+
+        public LinkImpl {
+            assert from != null;
+            assert to != null;
+            assert linkNature != null;
+            assert doNotStackMOnTopOfVirtualField(from) : "§m stacked on virtual field: " + from;
+            assert doNotStackMOnTopOfVirtualField(to) : "§m stacked on virtual field: " + to;
+            assert Util.isVirtualModification(from) == Util.isVirtualModification(to)
+                    : "mixed §m/non-§m link: " + from + " " + linkNature + " " + to;
+        }
+
+        // public: link-producing sites (VirtualModificationIdenticals.expand, the NORVM companions) use this to
+        // SKIP a face that cannot be represented as a Link, rather than trip the constructor assert
+        public static boolean doNotStackMOnTopOfVirtualField(Variable v) {
+            return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
+                     && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (!(object instanceof LinkImpl link)) return false;
+            return Objects.equals(to(), link.to()) && Objects.equals(from(), link.from());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(from(), to());
+        }
+
+        @Override
+        public @NotNull String toString() {
+            return toString(Set.of());
+        }
+
+        public @NotNull String toString(Set<Variable> modified) {
+            String ln;
+            if (linkNature.multiplySymbols()) {
+                int fromArrays = from.parameterizedType().arrays();
+                int toArrays = to.parameterizedType().arrays();
+                int numSymbols = Math.max(1, Math.abs(fromArrays - toArrays));
+                ln = linkNature.toString().repeat(numSymbols);
+            } else {
+                ln = linkNature.toString();
+            }
+            String lambda = to.parameterizedType().isFunctionalInterface() ? LAMBDA : "";
+            return Util.simpleName(from, modified) + ln + lambda + Util.simpleName(to, modified);
+        }
+
+        @Override
+        public Link translate(TranslationMap translationMap) {
+            Variable tFrom = translationMap.translateVariableRecursively(from);
+            Variable tTo = translationMap.translateVariableRecursively(to);
+            return new LinkImpl(tFrom, linkNature, tTo, mediated);
+        }
+
+        @Override
+        public Link translateFrom(TranslationMap translationMap) {
+            Variable tFrom = translationMap.translateVariableRecursively(from);
+            return new LinkImpl(tFrom, linkNature, to, mediated);
+        }
+
+        @Override
+        public boolean containsVirtualFields() {
+            return Util.virtual(from) || Util.virtual(to);
+        }
+    }
+
+    @Override
+    public Links changePrimaryTo(Runtime runtime, Variable newPrimary) {
+        TranslationMap newPrimaryTm = null;
+        Links.Builder builder = new LinksImpl.Builder(newPrimary);
+        for (Link link : linkSet) {
+            if (link.from().equals(primary)) {
+                builder.add(link.linkNature(), link.to());
+            } else {
+                // links that are not 'primary'
+                if (newPrimaryTm == null) {
+                    newPrimaryTm = runtime.newTranslationMapBuilder().put(primary, newPrimary).build();
+                }
+                Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
+                builder.add(fromTranslated, link.linkNature(), link.to());
+            }
+        }
+        return builder.build();
+    }
+
+    @Override
+    public Links translate(TranslationMap translationMap) {
+        if (primary == null) return LinksImpl.EMPTY;
+        Variable newPrimary = translationMap.translateVariableRecursively(primary);
+        if (newPrimary == null) return LinksImpl.EMPTY;
+        if (translationMap instanceof VirtualFieldTranslationMap vfTm) {
+            return new LinksImpl(newPrimary,
+                    linkSet.stream().flatMap(l -> translateCorrect(vfTm, l)).toList());
+        }
+        return new LinksImpl(newPrimary,
+                linkSet.stream().map(l -> l.translate(translationMap)).toList());
+    }
+
+    @Override
+    public Links translateFrom(TranslationMap translationMap) {
+        if (primary == null) return LinksImpl.EMPTY;
+        Variable newPrimary = translationMap.translateVariableRecursively(primary);
+        if (newPrimary == null) return LinksImpl.EMPTY;
+        if (translationMap instanceof VirtualFieldTranslationMap vfTm) {
+            return new LinksImpl(newPrimary,
+                    linkSet.stream().flatMap(l -> translateFromCorrect(vfTm, l)).toList());
+        }
+        return new LinksImpl(newPrimary,
+                linkSet.stream().map(l -> l.translateFrom(translationMap)).toList());
+    }
+
+    private Stream<Link> translateCorrect(VirtualFieldTranslationMap translationMap, Link link) {
+        Link tLink = link.translate(translationMap);
+        // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
+        // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
+        if (link.linkNature().isIdenticalToOrAssignedFromTo() && Util.isPrimary(tLink.from())
+            && Util.hasVirtualFields(tLink.from())
+            && link.to().parameterizedType().arrays() == 0
+            && tLink.to().parameterizedType().arrays() > 0
+            && tLink.to() instanceof FieldReference fr) {
+            return translationMap.upgrade(link, tLink, fr);
+        }
+        return Stream.of(tLink);
+    }
+
+    private Stream<Link> translateFromCorrect(VirtualFieldTranslationMap translationMap, Link link) {
+        Link tLink = link.translateFrom(translationMap);
+        // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
+        // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
+        if (link.linkNature().isIdenticalToOrAssignedFromTo() && Util.isPrimary(tLink.from())
+            && Util.hasVirtualFields(tLink.from())
+            && link.to().parameterizedType().arrays() == 0
+            && tLink.to().parameterizedType().arrays() > 0
+            && tLink.to() instanceof FieldReference fr) {
+            return translationMap.upgrade(link, tLink, fr);
+        }
+        return Stream.of(tLink);
+    }
+
+    @Override
+    public List<Variable> primaryAssigned() {
+        return linkSet.stream()
+                .filter(l -> l.linkNature().isIdenticalToOrAssignedFromTo())
+                .map(Link::to)
+                .filter(Util::isPrimary)
+                .toList();
+    }
+
+    // if primary is a, make a collection of links, with the level below a as the new primaries
+    // e.g. a.b.c -> x becomes b.c -> x in primary b
+    @Override
+    public Iterable<Links> removeThisAsPrimary() {
+        assert primary instanceof This;
+        Map<Variable, Builder> builders = new HashMap<>();
+        for (Link link : this) {
+            Variable newPrimary = Util.oneBelowThis(link.from());
+            if (!(newPrimary instanceof This)) {
+                builders.computeIfAbsent(newPrimary, _ -> new Builder(newPrimary))
+                        .add(link.from(), link.linkNature(), link.to());
+            } // else: ignore
+        }
+        return builders.values().stream().map(Builder::build).toList();
+    }
+
+    @Override
+    public boolean containsVirtualFields() {
+        if (Util.virtual(primary)) return true;
+        return linkSet.stream().anyMatch(Link::containsVirtualFields);
+    }
+
+    /*
+    Holds the primary Variable and a Link per entry, each with a from and a to Variable, so a rewire has to map all
+    of them. Links are derived across types, so a REWIRE type's links are stale by construction and should be
+    recomputed rather than carried; hence not implemented. See docs/rewiring.md.
+     */
+    @Override
+    public Value rewire(InfoMapView infoMap) {
+        // carryOnRewire (LINKS): re-point the primary and every from/to variable through the infoMap.
+        // A null primary is the degenerate empty-links case (e.g. a constructor's return-value links): nothing to
+        // re-point, and the non-null-primary constructor would reject it.
+        if (primary == null) return this;
+        List<Link> rewiredLinks = linkSet.stream()
+                .map(l -> (Link) new LinkImpl(l.from().rewire(infoMap), l.linkNature(), l.to().rewire(infoMap)))
+                .toList();
+        return new LinksImpl(primary.rewire(infoMap), rewiredLinks);
+    }
+}

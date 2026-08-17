@@ -1,0 +1,78 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.inspection.integration.java.type;
+
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.integration.java.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestSealed extends CommonTest {
+    @Language("java")
+    public static final String INPUT1 = """
+            package a.b;
+            class X {
+                static sealed class P permits A, B, a.b.X.C {
+            
+                }
+                static final class A extends P {
+            
+                }
+                static non-sealed class B extends P {
+            
+                }
+                static sealed class C extends P permits D, E {
+            
+                }
+                static final class D extends C {}
+                static final class E extends C {}
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
+
+        TypeInfo P = X.findSubType("P", true);
+        assertTrue(P.isSealed());
+        assertFalse(P.isFinal());
+        assertFalse(P.isNonSealed());
+        assertEquals("@3:27-3:33", P.source().detailedSources().detail(DetailedSources.PERMITS).toString());
+        assertEquals(3, P.permittedWhenSealed().size());
+        assertEquals("[a.b.X.A[E], a.b.X.B[E], a.b.X.C[E FQN]]",
+                P.typesReferenced(null).toList().toString());
+
+        TypeInfo A = X.findSubType("A", true);
+        assertEquals("@6:26-6:32", A.source().detailedSources().detail(DetailedSources.EXTENDS).toString());
+        assertFalse(A.isSealed());
+        assertTrue(A.isFinal());
+        assertFalse(A.typeModifiers().contains(javaInspector.runtime().typeModifierNonSealed()));
+        assertFalse(A.isNonSealed());
+        assertSame(A, P.permittedWhenSealed().getFirst());
+        assertSame(P, A.parentClass().typeInfo());
+
+        TypeInfo B = X.findSubType("B", true);
+        assertFalse(B.isSealed());
+        assertFalse(B.isFinal());
+        assertTrue(B.typeModifiers().contains(javaInspector.runtime().typeModifierNonSealed()));
+        assertTrue(B.isNonSealed());
+        assertSame(B, P.permittedWhenSealed().get(1));
+    }
+
+}

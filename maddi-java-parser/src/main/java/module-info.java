@@ -1,13 +1,13 @@
-module org.e2immu.language.java.parser {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.util.internal.util;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.inspection.api;
+module io.codelaser.maddi.java.parser {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.util;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.inspection.api;
 
     requires org.slf4j;
 
-    exports org.e2immu.parser.java;
-    exports org.e2immu.parser.java.util;
+    exports io.codelaser.maddi.parser.java;
+    exports io.codelaser.maddi.parser.java.util;
     exports org.parsers.java;
     exports org.parsers.java.ast;
 }

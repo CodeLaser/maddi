@@ -16,13 +16,13 @@
         <notificationGroup id="maddi" displayType="BALLOON"/>
         <!-- @Service classes (MaddiSettings, MaddiAnalysisService) auto-register. -->
         <externalAnnotator language="JAVA"
-                           implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiExternalAnnotator"/>
+                           implementationClass="io.codelaser.maddi.ide.plugin.ui.MaddiExternalAnnotator"/>
         <codeInsight.lineMarkerProvider language="JAVA"
-                           implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiLineMarkerProvider"/>
+                           implementationClass="io.codelaser.maddi.ide.plugin.ui.MaddiLineMarkerProvider"/>
         <toolWindow id="maddi" anchor="bottom"
-                    factoryClass="org.e2immu.analyzer.ide.plugin.ui.MaddiToolWindowFactory"/>
+                    factoryClass="io.codelaser.maddi.ide.plugin.ui.MaddiToolWindowFactory"/>
         <codeInsight.declarativeInlayProvider language="JAVA"
-                    implementationClass="org.e2immu.analyzer.ide.plugin.ui.MaddiInlayProvider"
+                    implementationClass="io.codelaser.maddi.ide.plugin.ui.MaddiInlayProvider"
                     providerId="maddi.hints"
                     isEnabledByDefault="true"
                     group="OTHER_GROUP"
@@ -32,17 +32,17 @@
         <applicationConfigurable parentId="tools"
                     id="maddi.settings"
                     displayName="maddi"
-                    instance="org.e2immu.analyzer.ide.plugin.settings.MaddiConfigurable"/>
+                    instance="io.codelaser.maddi.ide.plugin.settings.MaddiConfigurable"/>
     </extensions>
 
     <projectListeners>
-        <listener class="org.e2immu.analyzer.ide.plugin.analysis.MaddiCompilationListener"
+        <listener class="io.codelaser.maddi.ide.plugin.analysis.MaddiCompilationListener"
                   topic="com.intellij.openapi.compiler.CompilationStatusListener"/>
     </projectListeners>
 
     <actions>
         <action id="maddi.AnalyzeProject"
-                class="org.e2immu.analyzer.ide.plugin.action.AnalyzeWithMaddiAction"
+                class="io.codelaser.maddi.ide.plugin.action.AnalyzeWithMaddiAction"
                 text="Analyze with maddi"
                 description="Compile the project and run a whole-project maddi analysis">
             <add-to-group group-id="ToolsMenu" anchor="last"/>

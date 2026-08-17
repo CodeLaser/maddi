@@ -1,0 +1,206 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.statement.SwitchStatementNewStyle;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.GuideImpl;
+import io.codelaser.maddi.cst.impl.output.KeywordImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.util.ZipLists;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class SwitchStatementNewStyleImpl extends StatementImpl implements SwitchStatementNewStyle {
+    private final Expression selector;
+    private final List<SwitchEntry> entries;
+
+    public SwitchStatementNewStyleImpl(List<Comment> comments, Source source, List<AnnotationExpression> annotations,
+                                       String label, Expression selector, List<SwitchEntry> entries) {
+        super(comments, source, annotations,
+                10 + selector.complexity() + entries.stream().mapToInt(SwitchEntry::complexity).sum(), label);
+        this.selector = selector;
+        this.entries = entries;
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        List<SwitchEntry> newEntries = ZipLists.zip(entries, tSubBlocks).map(z -> z.x().withStatement(z.y())).toList();
+        return new SwitchStatementNewStyleImpl(comments(), source(), annotations(), label(), selector, List.copyOf(newEntries));
+    }
+
+    @Override
+    public Expression expression() {
+        return selector;
+    }
+
+    @Override
+    public List<SwitchEntry> entries() {
+        return entries;
+    }
+
+    @Override
+    public boolean hasSubBlocks() {
+        return !entries.isEmpty();
+    }
+
+    @Override
+    public Stream<Block> otherBlocksStream() {
+        return entries.stream().map(SwitchEntry::statementAsBlock);
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        selector.visit(predicate);
+        for (SwitchEntry entry : entries) {
+            entry.conditions().forEach(e -> e.visit(predicate));
+            if (entry.patternVariable() != null) entry.patternVariable().visit(predicate);
+            entry.whenExpression().visit(predicate);
+            entry.statement().visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeStatement(this)) {
+            selector.visit(visitor);
+            int i = 0;
+            for (SwitchEntry entry : entries) {
+                entry.conditions().forEach(e -> e.visit(visitor));
+                if (entry.patternVariable() != null) entry.patternVariable().visit(visitor);
+                entry.whenExpression().visit(visitor);
+                visitor.startSubBlock(i);
+                entry.statement().visit(visitor);
+                visitor.endSubBlock(i);
+                i++;
+            }
+        }
+        visitor.afterStatement(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.SWITCH)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
+                .add(selector.print(qualification))
+                .add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_BRACE);
+        GuideImpl.GuideGenerator guideGenerator = GuideImpl.generatorForBlock();
+        outputBuilder.add(guideGenerator.start());
+        int i = 0;
+        for (SwitchEntry entry : entries) {
+            if (i > 0) outputBuilder.add(guideGenerator.mid());
+            outputBuilder.add(entry.print(qualification));
+            i++;
+        }
+        return outputBuilder.add(guideGenerator.end()).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.concat(selector.variables(descendMode),
+                entries.stream().flatMap(e -> e.variables(descendMode)));
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(selector.typesReferenced(predicate), entries.stream().flatMap(switchEntry -> switchEntry.typesReferenced(predicate)));
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (direct.size() != 1 || direct.getFirst() != this) {
+            return direct;
+        }
+        Expression tSelector = selector.translate(translationMap);
+        List<SwitchEntry> tEntries = entries.stream().map(e -> e.translate(translationMap))
+                .filter(Objects::nonNull) // see translation of switch entry
+                .collect(translationMap.toList(entries));
+        List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
+        if (tEntries != entries || tSelector != selector
+            || tAnnotations != annotations()
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
+            SwitchStatementNewStyleImpl ssns = new SwitchStatementNewStyleImpl(comments(), source(),
+                    tAnnotations, label(), tSelector, tEntries);
+            if (!translationMap.isClearAnalysis()) ssns.analysis().setAll(analysis());
+            return translationMap.postTranslationHandler(this, List.of(ssns));
+        }
+        return List.of(this);
+    }
+
+
+    @Override
+    public SwitchStatementNewStyle withSource(Source newSource) {
+        return new SwitchStatementNewStyleImpl(comments(), newSource, annotations(), label(), selector, entries);
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new SwitchStatementNewStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+                selector.rewire(infoMap), entries.stream().map(e -> (SwitchEntry) e.rewire(infoMap)).toList());
+    }
+
+    public static class BuilderImpl extends StatementImpl.Builder<SwitchStatementNewStyle.Builder>
+            implements SwitchStatementNewStyle.Builder {
+        private Expression selector;
+        private final List<SwitchEntry> entries = new ArrayList<>();
+
+        @Override
+        public SwitchStatementNewStyle.Builder setSelector(Expression selector) {
+            this.selector = selector;
+            return this;
+        }
+
+        @Override
+        public SwitchStatementNewStyle.Builder addSwitchEntry(SwitchEntry switchEntry) {
+            this.entries.add(switchEntry);
+            return this;
+        }
+
+        @Override
+        public SwitchStatementNewStyle.Builder addSwitchEntries(Collection<SwitchEntry> switchEntries) {
+            this.entries.addAll(switchEntries);
+            return this;
+        }
+
+        @Override
+        public SwitchStatementNewStyle build() {
+            return new SwitchStatementNewStyleImpl(comments, source, annotations, label, selector, List.copyOf(entries));
+        }
+    }
+
+}

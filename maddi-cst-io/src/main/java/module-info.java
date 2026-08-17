@@ -1,10 +1,10 @@
-module org.e2immu.language.cst.io {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.cst.analysis;
+module io.codelaser.maddi.cst.io {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.cst.analysis;
     requires org.slf4j;
 
-    exports org.e2immu.language.cst.io;
+    exports io.codelaser.maddi.cst.io;
     exports org.parsers.json;
     exports org.parsers.json.ast;
 }

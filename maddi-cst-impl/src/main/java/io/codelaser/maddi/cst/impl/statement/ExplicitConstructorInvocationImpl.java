@@ -1,0 +1,220 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.Visitor;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class ExplicitConstructorInvocationImpl extends StatementImpl implements ExplicitConstructorInvocation {
+    private final boolean isSuper;
+    private final MethodInfo methodInfo;
+    private final List<Expression> parameterExpressions;
+    private final boolean synthetic;
+
+
+    public ExplicitConstructorInvocationImpl(List<Comment> comments,
+                                             Source source, List<AnnotationExpression> annotations,
+                                             String label,
+                                             boolean isSuper,
+                                             MethodInfo methodInfo,
+                                             boolean synthetic,
+                                             List<Expression> parameterExpressions) {
+        super(comments, source, annotations, 1 + methodInfo.complexity(), label);
+        this.isSuper = isSuper;
+        this.methodInfo = methodInfo;
+        this.parameterExpressions = parameterExpressions;
+        this.synthetic = synthetic;
+        // Java 25 flexible constructor bodies (JEP 482) allow statements before super()/this(), so an explicit
+        // constructor invocation is no longer necessarily the first statement (index 0+); only require a real index.
+        assert synthetic || source.index() != null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ExplicitConstructorInvocationImpl that)) return false;
+        return isSuper() == that.isSuper()
+               && Objects.equals(methodInfo, that.methodInfo)
+               && Objects.equals(parameterExpressions, that.parameterExpressions);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(isSuper(), methodInfo, parameterExpressions);
+    }
+
+    public static class Builder extends StatementImpl.Builder<ExplicitConstructorInvocation.Builder>
+            implements ExplicitConstructorInvocation.Builder {
+        private boolean isSuper;
+        private boolean synthetic;
+        private MethodInfo methodInfo;
+        private List<Expression> parameterExpressions;
+
+        @Override
+        public Builder setSynthetic(boolean synthetic) {
+            this.synthetic = synthetic;
+            return this;
+        }
+
+        @Override
+        public Builder setIsSuper(boolean isSuper) {
+            this.isSuper = isSuper;
+            return this;
+        }
+
+        @Override
+        public Builder setMethodInfo(MethodInfo methodInfo) {
+            this.methodInfo = methodInfo;
+            return this;
+        }
+
+        @Override
+        public Builder setParameterExpressions(List<Expression> parameterExpressions) {
+            this.parameterExpressions = parameterExpressions;
+            return this;
+        }
+
+        @Override
+        public ExplicitConstructorInvocation build() {
+            return new ExplicitConstructorInvocationImpl(comments, source, annotations, label, isSuper,
+                    methodInfo, synthetic, parameterExpressions);
+        }
+    }
+
+    @Override
+    public boolean isSynthetic() {
+        return synthetic;
+    }
+
+    @Override
+    public boolean isSuper() {
+        return isSuper;
+    }
+
+    @Override
+    public MethodInfo methodInfo() {
+        return methodInfo;
+    }
+
+    @Override
+    public List<Expression> parameterExpressions() {
+        return parameterExpressions;
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            parameterExpressions.forEach(e -> e.visit(predicate));
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeStatement(this)) {
+            parameterExpressions.forEach(e -> e.visit(visitor));
+        }
+        visitor.afterStatement(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        String name = isSuper ? "super" : "this";
+        OutputBuilder outputBuilder = outputBuilder(qualification).add(new TextImpl(name));
+        if (parameterExpressions.isEmpty()) {
+            outputBuilder.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        } else {
+            outputBuilder.add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(parameterExpressions.stream()
+                            .map(expression -> expression.print(qualification))
+                            .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return outputBuilder.add(SymbolEnum.SEMICOLON);
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return parameterExpressions.stream().flatMap(e -> e.variables(descendMode));
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
+    }
+
+    @Override
+    public boolean hasSubBlocks() {
+        return false;
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (hasBeenTranslated(direct, this)) return direct;
+        List<Expression> list = parameterExpressions.stream()
+                .map(e -> e.translate(translationMap)).collect(translationMap.toList(parameterExpressions));
+        List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
+        if (list != parameterExpressions || !analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tAnnotations != annotations()) {
+            ExplicitConstructorInvocation eci = new ExplicitConstructorInvocationImpl(comments(),
+                    source(), tAnnotations, label(), isSuper, methodInfo, synthetic, parameterExpressions);
+            if (!translationMap.isClearAnalysis()) eci.analysis().setAll(analysis());
+            return translationMap.postTranslationHandler(this, List.of(eci));
+        }
+        return List.of(this);
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        return this;// no blocks
+    }
+
+    @Override
+    public ExplicitConstructorInvocation withSource(Source newSource) {
+        return new ExplicitConstructorInvocationImpl(comments(), newSource, annotations(), label(), isSuper,
+                methodInfo, synthetic, parameterExpressions);
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new ExplicitConstructorInvocationImpl(comments(), source(), rewireAnnotations(infoMap), label(), isSuper,
+                infoMap.methodInfo(methodInfo), synthetic,
+                parameterExpressions.stream().map(e -> e.rewire(infoMap)).toList());
+    }
+}

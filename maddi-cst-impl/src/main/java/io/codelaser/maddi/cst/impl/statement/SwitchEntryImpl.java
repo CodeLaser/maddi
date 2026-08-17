@@ -1,0 +1,267 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.util.ListUtil;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class SwitchEntryImpl implements SwitchEntry {
+    private final List<Expression> conditions;
+    private final RecordPattern patternVariable;
+    private final Expression whenExpression;
+    private final Statement statement;
+    private final Source source;
+    private final List<Comment> comments;
+
+    public SwitchEntryImpl(List<Comment> comments,
+                           Source source,
+                           List<Expression> conditions,
+                           RecordPattern patternVariable,
+                           Expression whenExpression,
+                           Statement statement) {
+        this.conditions = conditions;
+        this.patternVariable = patternVariable;
+        this.whenExpression = whenExpression;
+        this.statement = statement;
+        this.comments = comments == null ? List.of() : List.copyOf(comments);
+        this.source = source;
+    }
+
+    @Override
+    public int compareTo(SwitchEntry o) {
+        return ListUtil.compare(conditions, o.conditions());
+    }
+
+    @Override
+    public SwitchEntry withStatement(Statement statement) {
+        return new SwitchEntryImpl(comments, source, conditions, patternVariable, whenExpression, statement);
+    }
+
+    @Override
+    public int complexity() {
+        return (patternVariable != null ? 1 : 0)
+               + conditions.stream().mapToInt(Expression::complexity).sum()
+               + whenExpression.complexity() + statement().complexity();
+    }
+
+    @Override
+    public List<Comment> comments() {
+        return comments;
+    }
+
+    @Override
+    public List<Expression> conditions() {
+        return conditions;
+    }
+
+    @Override
+    public RecordPattern patternVariable() {
+        return patternVariable;
+    }
+
+    @Override
+    public Block statementAsBlock() {
+        if (statement instanceof Block b) return b;
+        // NOTE: using the statement's source is not correct index-wise, but it may be better than nothing
+        return new BlockImpl(List.of(), statement.source(), List.of(), null, List.of(statement), List.of());
+    }
+
+    @Override
+    public Expression whenExpression() {
+        return whenExpression;
+    }
+
+    @Override
+    public Statement statement() {
+        return statement;
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        boolean containsDefault = conditions.stream().anyMatch(Expression::isEmpty);
+        boolean first = true;
+        if (containsDefault) {
+            outputBuilder.add(KeywordImpl.DEFAULT);
+            first = false;
+            if (conditions.size() > 1) {
+                outputBuilder.add(SymbolEnum.COMMA).add(KeywordImpl.CASE);
+            }
+        } else {
+            outputBuilder.add(KeywordImpl.CASE);
+            outputBuilder.add(SpaceEnum.ONE);
+        }
+        for (Expression condition : conditions) {
+            if (!condition.isEmpty()) {
+                if (first) {
+                    first = false;
+                } else {
+                    outputBuilder.add(SymbolEnum.COMMA);
+                }
+                outputBuilder.add(condition.print(QualificationImpl.SIMPLE_ONLY));
+            }
+        }
+        // A pattern label carries its pattern in patternVariable, NOT in conditions, which is empty for
+        // 'case Type t ->'. Printing only the conditions therefore emitted a bare 'case ->' and dropped the
+        // binding the arm body goes on to use -- code that does not compile, produced silently. The same
+        // held for the 'when' guard, which is worse: 'case Type t when p ->' printed as 'case Type t ->'
+        // COMPILES and changes behaviour. Found on timefold's MoveSelectorFactory (17 pattern arms) 2026-08-07;
+        // the existing tests assert patternVariable().toString(), i.e. the pattern's own printing, and never
+        // the entry's, so neither was covered.
+        if (patternVariable != null) {
+            if (!first) {
+                outputBuilder.add(SymbolEnum.COMMA);
+            }
+            outputBuilder.add(patternVariable.print(qualification));
+            if (whenExpression != null && !whenExpression.isEmpty()) {
+                outputBuilder.add(SpaceEnum.ONE).add(KeywordImpl.WHEN).add(SpaceEnum.ONE)
+                        .add(whenExpression.print(qualification));
+            }
+        }
+        outputBuilder.add(SymbolEnum.LAMBDA);
+        outputBuilder.add(statement().print(qualification));
+        return outputBuilder;
+    }
+
+    @Override
+    public SwitchEntry translate(TranslationMap translationMap) {
+        List<Expression> tConditions = conditions.stream().map(c -> c.translate(translationMap))
+                .collect(translationMap.toList(conditions));
+        RecordPattern tPattern = patternVariable == null ? null
+                : patternVariable.translate(translationMap);
+        Expression tWhen = whenExpression == null ? null : whenExpression.translate(translationMap);
+        List<Statement> tStatements = statement.translate(translationMap);
+        Statement tStatement = tStatements.isEmpty() ? null : tStatements.getFirst();
+        if (tConditions == conditions && tPattern == patternVariable && tWhen == whenExpression
+            && tStatement == statement) {
+            return this;
+        }
+        if (tStatement == null) return null; // a way for the entry to disappear
+        SwitchEntry result = new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    @Override
+    public SwitchEntry rewire(InfoMapView infoMap) {
+        return new SwitchEntryImpl(comments, source,
+                conditions.stream().map(e -> e.rewire(infoMap)).toList(),
+                patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
+                whenExpression.rewire(infoMap), statement.rewire(infoMap));
+    }
+
+    @Override
+    public Source source() {
+        return source;
+    }
+
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            if (patternVariable != null) patternVariable.visit(predicate);
+            whenExpression.visit(predicate);
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        // nothing a t m
+    }
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return descendMode.isYes() ? variableStreamDescend() : variableStreamDoNotDescend();
+    }
+
+    @Override
+    public Stream<Variable> variableStreamDoNotDescend() {
+        return patternVariable == null || patternVariable.localVariable() != null
+                ? Stream.of()
+                : patternVariable.variableStreamDoNotDescend();
+    }
+
+    @Override
+    public Stream<Variable> variableStreamDescend() {
+        return Stream.concat(Stream.concat(patternVariable == null ? Stream.of() : patternVariable.variableStreamDescend(),
+                        whenExpression.variableStreamDescend()),
+                statement.variableStreamDescend());
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        // the case labels ('case Kind.CONST ->') reference types too; without them, a type used only in a
+        // label is invisible to import maintenance
+        Stream<Element.TypeReference> s0 = conditions.stream().flatMap(c -> c.typesReferenced(predicate));
+        Stream<Element.TypeReference> s1 = patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate);
+        return Stream.concat(s0, Stream.concat(s1,
+                Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate))));
+    }
+
+    public static class EntryBuilderImpl extends ElementImpl.Builder<Builder> implements Builder {
+        private final List<Expression> conditions = new ArrayList<>();
+        private RecordPattern patternVariable;
+        private Expression whenExpression;
+        private Statement statement;
+
+        @Override
+        public Builder addConditions(Collection<Expression> expressions) {
+            this.conditions.addAll(expressions);
+            return this;
+        }
+
+        @Override
+        public Builder setStatement(Statement statement) {
+            this.statement = statement;
+            return this;
+        }
+
+        @Override
+        public Builder setPatternVariable(RecordPattern patternVariable) {
+            this.patternVariable = patternVariable;
+            return this;
+        }
+
+        @Override
+        public Builder setWhenExpression(Expression whenExpression) {
+            this.whenExpression = whenExpression;
+            return this;
+        }
+
+        @Override
+        public SwitchEntry build() {
+            return new SwitchEntryImpl(List.copyOf(comments), source,
+                    List.copyOf(conditions), patternVariable, whenExpression, statement);
+        }
+    }
+}

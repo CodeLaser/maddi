@@ -75,7 +75,7 @@ tasks.register<JavaExec>("compileAnalysisHints") {
     description = "Compile the analysis hints (maddi-aapi-archive) into their analysis-result JSON files"
     dependsOn(tasks.named("testClasses")) // CompileAnalysisHints + its factory live in the test source set
     classpath = sourceSets["test"].runtimeClasspath
-    mainClass.set("org.e2immu.analyzer.aapi.parser.CompileAnalysisHints")
+    mainClass.set("io.codelaser.maddi.aapi.parser.CompileAnalysisHints")
     workingDir = projectDir // paths in CompileAnalysisHints are relative to this module directory
     maxHeapSize = "2G"
     jvmArgs(javacAddExports)

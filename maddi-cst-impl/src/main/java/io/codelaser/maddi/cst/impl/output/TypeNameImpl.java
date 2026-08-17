@@ -1,0 +1,87 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.output;
+
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.FormattingOptions;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.output.element.TypeName;
+import io.codelaser.maddi.util.StringUtil;
+
+public record TypeNameImpl(String simpleName,
+                           String fullyQualifiedName,
+                           String descriptor,
+                           String fromPrimaryTypeDownwards,
+                           TypeNameRequired required,
+                           boolean annotation) implements TypeName {
+
+    public enum Required implements TypeNameRequired {
+        DOLLARIZED_FQN, // com.foo.Bar$Bar2
+        FQN, // com.foo.Bar.Bar2
+        DESCRIPTOR, // source_set::com.foo.Bar.Bar2
+        QUALIFIED_FROM_PRIMARY_TYPE, // Bar.Bar2
+        QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING, // when detailed sources matter
+        SIMPLE // Bar2
+    }
+
+    // for tests
+    public TypeNameImpl(String simpleName) {
+        this(simpleName, simpleName, simpleName, simpleName, Required.SIMPLE, false);
+    }
+
+    public TypeNameImpl {
+        assert simpleName != null;
+        assert fullyQualifiedName != null;
+        assert fromPrimaryTypeDownwards != null;
+        assert required != null;
+    }
+
+    public static TypeName typeName(TypeInfo typeInfo, TypeNameRequired requiresQualifier, boolean annotation) {
+        String simpleName = typeInfo.simpleName();
+        String fqn = typeInfo.doesNotRequirePackage() ? simpleName : typeInfo.fullyQualifiedName();
+        return new TypeNameImpl(simpleName, fqn, typeInfo.descriptor(),
+                typeInfo.isPrimaryType() ? simpleName : typeInfo.fromPrimaryTypeDownwards(),
+                requiresQualifier, annotation);
+    }
+
+    @Override
+    public String minimal() {
+        String addAnnotation = annotation ? "@" : "";
+        return addAnnotation + switch ((Required) required) {
+            case SIMPLE -> simpleName;
+            case FQN -> fullyQualifiedName;
+            case DESCRIPTOR -> descriptor;
+            case QUALIFIED_FROM_PRIMARY_TYPE, QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING -> fromPrimaryTypeDownwards;
+            case DOLLARIZED_FQN ->
+                    fullyQualifiedName.substring(0, fullyQualifiedName.length() - fromPrimaryTypeDownwards.length())
+                    + fromPrimaryTypeDownwards.replace(".", "$");
+        };
+    }
+
+    @Override
+    public int length(FormattingOptions options) {
+        return minimal().length();
+    }
+
+    @Override
+    public String write(FormattingOptions options) {
+        return minimal();
+    }
+
+    @Override
+    public String generateJavaForDebugging() {
+        return ".add(new TypeNameImpl(" + StringUtil.quote(simpleName) + "))";
+    }
+}

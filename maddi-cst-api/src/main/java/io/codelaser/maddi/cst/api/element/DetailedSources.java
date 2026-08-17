@@ -1,0 +1,202 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.element;
+
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+
+import java.util.List;
+
+/**
+ * A fine-grained map from well-known syntactic positions (keywords, punctuation, comma separators)
+ * to their precise {@link Source} coordinates within a single CST element.
+ * <p>
+ * Many keys are singleton sentinel objects defined as constants on this interface
+ * (e.g. {@link #EXTENDS}, {@link #ARGUMENT_COMMAS}). <b>Not all of them are.</b> Where the position belongs
+ * to something the element already owns, that object <em>is</em> the key, and there is no constant to find:
+ * <ul>
+ *     <li>the type-nature keyword ({@code class}, {@code interface}, {@code enum}, {@code record}) is keyed
+ *     by {@link TypeInfo#typeNature()} — this is the token to replace when converting a class to a record;</li>
+ *     <li>a type's simple name is keyed by the name {@code String};</li>
+ *     <li>a type or method modifier is keyed by the modifier object;</li>
+ *     <li>a {@link TypeParameter}, a {@link ParameterizedType} or a {@link TypeInfo} occurring inside the
+ *     element is keyed by itself, which is what lets the same type appear more than once.</li>
+ * </ul>
+ * Reading the constant list alone therefore <em>understates</em> what is recorded; before concluding that a
+ * position is unavailable, check whether it is keyed by the object that owns it.
+ * <p>
+ * Lookup is by object identity (or equality, for the {@code String} keys).
+ * <p>
+ * {@code DetailedSources} is used during source-accurate pretty-printing and when
+ * computing the {@link Element.TypeReference} import information for parameterised types,
+ * where the same {@link TypeInfo} may appear multiple times within one element.
+ */
+public interface DetailedSources {
+
+    /**
+     * Position of the closing {@code )} of a record component list or method formal-parameter list.
+     */
+    Object END_OF_PARAMETER_LIST = new Object();
+    /**
+     * Position of the {@code extends} keyword in a type declaration header.
+     */
+    Object EXTENDS = new Object();
+    /**
+     * Position of the {@code implements} keyword in a type declaration header.
+     */
+    Object IMPLEMENTS = new Object();
+    /**
+     * Position of the {@code permits} keyword in a sealed type declaration header.
+     */
+    Object PERMITS = new Object();
+    /**
+     * Source range spanning the entire field declaration (type + name + initialiser).
+     */
+    Object FIELD_DECLARATION = new Object();
+    /**
+     * Position of the comma that <em>precedes</em> an element in a comma-separated list.
+     * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
+     * local-variable declaration lists. For a local variable it is nested in each variable's name source.
+     */
+    Object PRECEDING_COMMA = new Object();
+    /**
+     * Position of the comma that <em>follows</em> an element in a comma-separated list.
+     * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
+     * local-variable declaration lists. For a local variable it is nested in each variable's name source.
+     */
+    Object SUCCEEDING_COMMA = new Object();
+    /**
+     * Position of the {@code =} sign in a field or local-variable declarator. For a field it sits directly on
+     * the field's source; for a local variable it is nested in each variable's name source, so the multiple
+     * declarators of a single {@code LocalVariableCreation} each carry their own operator.
+     */
+    Object SUCCEEDING_EQUALS = new Object();
+    /**
+     * Positions of all {@code ,} separators in a method-call / constructor-call / annotation argument list.
+     */
+    Object ARGUMENT_COMMAS = new Object();
+    /**
+     * Position of the closing {@code )} of a method-call / constructor-call / annotation argument list.
+     */
+    Object END_OF_ARGUMENT_LIST = new Object();
+
+    Object TYPE_ARGUMENT_COMMAS = new Object();
+    Object EXTENDS_COMMAS = new Object();
+    Object IMPLEMENTS_COMMAS = new Object();
+    Object PERMITS_COMMAS = new Object();
+    Object THROWS_COMMAS = new Object();
+    Object TYPE_BOUND_AMPERSANDS = new Object();
+    /**
+     * Position of the {@code final} keyword on a parameter. Type, method and field modifiers are keyed by their
+     * {@code Modifier} object (e.g. {@code dsb.put(methodModifierPublic(), source)}), but a parameter has only an
+     * {@code isFinal()} flag and no modifier object, so its {@code final} source sits on the parameter's own
+     * source under this sentinel.
+     */
+    Object FINAL = new Object();
+
+    /**
+     * Source-form markers. A surface construct that desugars to a more general CST node carries one of these
+     * on that node's source, recording how it was written so a refactoring engine can reproduce the original
+     * syntax rather than the expansion. The value is the position of the operator token. Cross-language sugar
+     * (Kotlin/C#/Groovy/TypeScript variants), so they live in the language-agnostic API.
+     */
+    /** A null-coalescing operator (e.g. Kotlin {@code a ?: b}) on the {@code InlineConditional} it expands to. */
+    Object NULL_COALESCING = new Object();
+    /** A null-safe access/call operator (e.g. Kotlin {@code a?.b}) on the {@code InlineConditional} it expands to. */
+    Object NULL_SAFE = new Object();
+    /** An index-access operator (e.g. Kotlin {@code a[i]}) on the {@code get}/{@code set} call it expands to. */
+    Object INDEX_ACCESS = new Object();
+    /** A non-null assertion (e.g. Kotlin {@code a!!}) on the asserted expression. */
+    Object NON_NULL_ASSERTION = new Object();
+
+    /**
+     * Returns the single {@link Source} associated with {@code object}, or {@code null} if absent.
+     * Use when at most one position is expected for the given key.
+     */
+    Source detail(Object object);
+
+    /**
+     * Returns all {@link Source} positions associated with {@code object}.
+     * Use for list-valued keys (comma positions, etc.) and when the same {@link TypeInfo} may
+     * appear multiple times.
+     */
+    @NotNull
+    List<Source> details(Object object);
+
+    /**
+     * Returns a new {@code DetailedSources} combining the entries of this and {@code other}.
+     */
+    DetailedSources merge(DetailedSources other);
+
+    /**
+     * Returns the object associated with {@code object} via a put-with-association call,
+     * e.g. the array-stripped version of a parameterised type. Returns {@code null} if none.
+     */
+    Object associatedObject(Object object);
+
+    /**
+     * Returns a copy with the sources for {@code o} replaced by {@code sources}.
+     */
+    DetailedSources withSources(Object o, List<Source> sources);
+
+    interface Builder {
+
+        Builder addAll(DetailedSources detailedSources);
+
+        Builder copy();
+
+        Object getAssociated(Object pt);
+
+        Builder put(Object object, Source source);
+
+        default void putIfNotNull(Object object, Source source) {
+            if (source != null) put(object, source);
+        }
+
+        default void putListIfNotNull(Object object, List<Source> list) {
+            if (list != null) putList(object, list);
+        }
+
+        Builder putList(Object object, List<Source> sourceList);
+
+        DetailedSources build();
+
+        /**
+         * Records the mapping from an array-typed {@link io.codelaser.maddi.cst.api.type.ParameterizedType} to its non-array counterpart.
+         */
+        Builder putWithArrayToWithoutArray(ParameterizedType withArray, ParameterizedType withoutArray);
+
+        record TypeInfoSource(TypeInfo typeInfo, Source source) {
+        }
+
+        /**
+         * Records qualification information: for {@code typeInfo}, which enclosing types were written out.
+         */
+        Builder putTypeQualification(TypeInfo typeInfo, List<TypeInfoSource> associatedList);
+    }
+
+    /**
+     * Returns the explicitly written qualifier type for {@code typeInfo} (e.g. {@code Map}
+     * when the source contains {@code Map.Entry}), {@code typeInfo} itself when it was written
+     * without a qualifier, or {@code null} when it was written out in full and needs no import.
+     * <p>
+     * The qualifier is what the author wrote, which need not be the type that DECLARES {@code typeInfo}:
+     * a nested type may be named through any type that inherits it, so {@code HashMap.Entry} is
+     * {@code java.util.Map.Entry} qualified by {@code java.util.HashMap} — and it is {@code HashMap} that
+     * an import computer must import for that text to compile.
+     */
+    TypeInfo qualifier(TypeInfo typeInfo);
+}

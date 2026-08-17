@@ -1,0 +1,206 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.output;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.api.variable.Variable;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public class QualificationImpl implements Qualification {
+    public static final Qualification FULLY_QUALIFIED_NAMES = new QualificationImpl(false, TypeNameImpl.Required.FQN, null);
+    public static final Qualification DESCRIPTORS = new QualificationImpl(false, TypeNameImpl.Required.DESCRIPTOR, null);
+    public static final Qualification SIMPLE_NAMES = new QualificationImpl(false, TypeNameImpl.Required.SIMPLE, null);
+    public static final Qualification SIMPLE_ONLY = new QualificationImpl(true, TypeNameImpl.Required.SIMPLE, null);
+
+    private final TypeNameRequired typeNameRequired;
+    private final Set<FieldInfo> unqualifiedFields = new HashSet<>();
+    private final Set<FieldInfo> qualifiedFields = new HashSet<>();
+    private final Set<MethodInfo> unqualifiedMethods = new HashSet<>();
+    private final Set<This> unqualifiedThis = new HashSet<>();
+    private final Set<TypeInfo> unqualifiedTypes = new HashSet<>();
+    private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
+    private final Set<String> simpleTypeNames;
+    // simple names declared in this compilation unit; used only to block conflicting imports (a referenced type with
+    // the same simple name must be fully-qualified). Kept separate from simpleTypeNames, which also drives the
+    // simple-vs-qualified decision for *nested* types and must not be polluted by these reservations.
+    private final Set<String> declaredSimpleNames;
+    private final QualificationImpl parent;
+    private final QualificationImpl top;
+    private final boolean doNotQualifyImplicit;
+
+    private final Decorator decorator;
+
+    public QualificationImpl(boolean doNotQualifyImplicit, TypeNameRequired typeNameRequired, Decorator decorator) {
+        parent = null;
+        top = this;
+        this.typeNameRequired = typeNameRequired;
+        typesNotImported = new HashMap<>();
+        simpleTypeNames = new HashSet<>();
+        declaredSimpleNames = new HashSet<>();
+        this.doNotQualifyImplicit = doNotQualifyImplicit;
+        this.decorator = decorator;
+    }
+
+    public QualificationImpl(Qualification parent) {
+        QualificationImpl pi = (QualificationImpl) parent;
+        this.parent = pi;
+        top = pi.top;
+        typesNotImported = null;
+        simpleTypeNames = null;
+        declaredSimpleNames = null;
+        this.typeNameRequired = parent.typeNameRequired();
+        this.doNotQualifyImplicit = parent.doNotQualifyImplicit();
+        this.decorator = pi.decorator;
+    }
+
+    @Override
+    public boolean isFullyQualifiedNames() {
+        return this == FULLY_QUALIFIED_NAMES;
+    }
+
+    @Override
+    public boolean isSimpleOnly() {
+        return this == SIMPLE_ONLY;
+    }
+
+    @Override
+    public TypeNameRequired qualifierRequired(TypeInfo typeInfo) {
+        // a local class (declared inside a method body) has no legal qualified form: its simple name,
+        // in scope, is the only way to reference it
+        if (typeInfo.enclosingMethod() != null) return TypeNameImpl.Required.SIMPLE;
+        if (unqualifiedTypes.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
+        TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
+        if (r != null) {
+            return r;
+        }
+        if (typeNameRequired != null && !top.simpleTypeNames.contains(typeInfo.simpleName())) {
+            return typeNameRequired;
+        }
+        return TypeNameImpl.Required.SIMPLE;
+    }
+
+    @Override
+    public boolean qualifierRequired(MethodInfo methodInfo) {
+        if (unqualifiedMethods.contains(methodInfo)) return false;
+        // we rely on the import computer to explicitly add methods that have been statically imported
+        return parent == null || parent.qualifierRequired(methodInfo);
+    }
+
+    @Override
+    public boolean doNotQualifyImplicit() {
+        return doNotQualifyImplicit;
+    }
+
+    @Override
+    public boolean qualifierRequired(Variable variable) {
+        if (variable instanceof FieldReference fieldReference) {
+            if (qualifiedFields.contains(fieldReference.fieldInfo())) return true;
+            if (unqualifiedFields.contains(fieldReference.fieldInfo())) return false;
+            if (fieldReference.fieldInfo().isStatic()) {
+                // we rely on the import computer to explicitly state which static fields have been imported
+                return parent == null || parent.qualifierRequired(variable);
+            }
+            // instance fields, however, must be explicitly marked as "qualify"
+            return parent != null && parent.qualifierRequired(variable);
+        }
+        if (variable instanceof This thisVar) {
+            if (thisVar.typeInfo().isAnonymous()) return false;
+            QualificationImpl levelWithData = this;
+            while (levelWithData.unqualifiedThis.isEmpty()) {
+                levelWithData = levelWithData.parent;
+                if (levelWithData == null)
+                    return false; // we did not start properly at the top, we're e.g. only outputting a method
+            }
+            return !levelWithData.unqualifiedThis.contains(thisVar);
+        }
+        return false;
+    }
+
+    public void fieldMaskedByLocal(FieldInfo fieldInfo) {
+        qualifiedFields.add(fieldInfo);
+    }
+
+    @Override
+    public void addField(FieldInfo fieldInfo) {
+        boolean newName = unqualifiedFields.stream().noneMatch(fi -> fi.name().equals(fieldInfo.name()));
+        if (newName) {
+            unqualifiedFields.add(fieldInfo);
+        } // else: we'll have to qualify, because the name has already been taken
+    }
+
+    @Override
+    public void addUnqualifiedType(TypeInfo typeInfo) {
+        unqualifiedTypes.add(typeInfo);
+    }
+
+    // reserve a declared type's simple name so a referenced type with the same simple name (e.g. an imported
+    // java.util.ArrayList while this compilation unit declares its own 'ArrayList') is not imported, but
+    // fully-qualified instead -- otherwise both would print as the bare name and collide
+    public void reserveSimpleNameAgainstImport(String simpleName) {
+        if (declaredSimpleNames != null) declaredSimpleNames.add(simpleName);
+    }
+
+    @Override
+    public void addThis(This thisVar) {
+        unqualifiedThis.add(thisVar);
+    }
+
+    @Override
+    public void addMethodUnlessOverride(MethodInfo methodInfo) {
+        boolean newMethod = unqualifiedMethods.stream().noneMatch(mi -> mi.isOverloadOf(methodInfo));
+        if (newMethod) {
+            unqualifiedMethods.add(methodInfo);
+        }
+    }
+
+    public void addTypeNotImported(TypeInfo typeInfo) {
+        assert typesNotImported != null;
+        typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
+    }
+
+    public boolean addTypeReturnImport(TypeInfo typeInfo) {
+        assert parent == null; // only add these at the top level
+        assert typesNotImported != null; // to keep IntelliJ happy
+        assert simpleTypeNames != null;
+        // IMPROVE also code for subtypes!
+        if (simpleTypeNames.contains(typeInfo.simpleName()) || declaredSimpleNames.contains(typeInfo.simpleName())) {
+            typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
+            return false;
+        } else {
+            simpleTypeNames.add(typeInfo.simpleName());
+            return true;
+        }
+    }
+
+    @Override
+    public TypeNameRequired typeNameRequired() {
+        return typeNameRequired;
+    }
+
+    @Override
+    public Decorator decorator() {
+        return decorator;
+    }
+}

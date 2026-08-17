@@ -1,0 +1,353 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.impl.statement;
+
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMap;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.*;
+
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+public class SwitchStatementOldStyleImpl extends StatementImpl implements SwitchStatementOldStyle {
+    private final Expression selector;
+    private final Block block;
+    private final List<SwitchLabel> switchLabels;
+
+    public SwitchStatementOldStyleImpl(List<Comment> comments, Source source, List<AnnotationExpression> annotations,
+                                       String label, Expression selector, Block block, List<SwitchLabel> switchLabels) {
+        super(comments, source, annotations,
+                10 + block.complexity() + selector.complexity() + switchLabels.size(), label);
+        this.selector = selector;
+        this.block = block;
+        this.switchLabels = switchLabels;
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks) {
+        throw new UnsupportedOperationException("Use withBlocks(tSubBlocks, switchLabels)");
+    }
+
+    @Override
+    public Statement withBlocks(List<Block> tSubBlocks, List<SwitchLabel> switchLabels) {
+        return new SwitchStatementOldStyleImpl(comments(), source(), annotations(), label(), selector,
+                tSubBlocks.getFirst(), switchLabels);
+    }
+
+    public static class SwitchLabelImpl implements SwitchLabel {
+        private final Expression literal;
+        private final int startFromPosition;
+        private final RecordPattern patternVariable;
+        private final Expression whenExpression;
+
+        public SwitchLabelImpl(Expression literal, int startFromPosition, RecordPattern patternVariable, Expression whenExpression) {
+            this.literal = literal;
+            this.startFromPosition = startFromPosition;
+            this.patternVariable = patternVariable;
+            this.whenExpression = whenExpression;
+        }
+
+        @Override
+        public OutputBuilder print(Qualification qualification) {
+            OutputBuilder outputBuilder = new OutputBuilderImpl();
+            if (literal.isEmpty()) {
+                outputBuilder.add(KeywordImpl.DEFAULT);
+            } else {
+                outputBuilder.add(KeywordImpl.CASE)
+                        .add(SpaceEnum.ONE)
+                        .add(literal.print(qualification));
+            }
+            if (patternVariable != null) {
+                outputBuilder.add(SpaceEnum.ONE).add(patternVariable.print(qualification));
+
+                if (whenExpression != null && !whenExpression.isEmpty()) {
+                    outputBuilder.add(SpaceEnum.ONE).add(whenExpression.print(qualification));
+                }
+            }
+            return outputBuilder.add(SymbolEnum.COLON_LABEL);
+        }
+
+        @Override
+        public int startFromPosition() {
+            return startFromPosition;
+        }
+
+        @Override
+        public Expression literal() {
+            return literal;
+        }
+
+        @Override
+        public Expression whenExpression() {
+            return whenExpression;
+        }
+
+        @Override
+        public RecordPattern patternVariable() {
+            return patternVariable;
+        }
+
+        @Override
+        public SwitchLabel translate(TranslationMap translationMap) {
+            Expression tLiteral = literal.translate(translationMap);
+            RecordPattern tPatternVariable = patternVariable == null ? null : patternVariable.translate(translationMap);
+            // whenExpression is nullable (a plain old-style label `case 0:` has no `when` guard)
+            Expression tWhen = whenExpression == null ? null : whenExpression.translate(translationMap);
+            if (tLiteral == literal && tPatternVariable == patternVariable && tWhen == whenExpression) return this;
+            return new SwitchLabelImpl(tLiteral, startFromPosition, tPatternVariable, tWhen);
+        }
+
+        @Override
+        public SwitchLabel withStartPosition(int newStartPosition) {
+            return new SwitchLabelImpl(literal, newStartPosition, patternVariable, whenExpression);
+        }
+
+        @Override
+        public SwitchLabel rewire(InfoMapView infoMap) {
+            return new SwitchLabelImpl(literal.rewire(infoMap), startFromPosition,
+                    patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
+                    whenExpression == null ? null : whenExpression.rewire(infoMap));
+        }
+
+        @Override
+        public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+            Stream<Element.TypeReference> s = literal == null ? Stream.of() : literal.typesReferenced(predicate);
+            if (patternVariable != null) s = Stream.concat(s, patternVariable.typesReferenced(predicate));
+            if (whenExpression != null) s = Stream.concat(s, whenExpression.typesReferenced(predicate));
+            return s;
+        }
+
+        @Override
+        public Stream<Variable> variables(DescendMode descendMode) {
+            Stream<Variable> s = Stream.empty();
+            if (patternVariable != null) s = Stream.concat(s, patternVariable.variables(descendMode));
+            if (whenExpression != null) s = Stream.concat(s, whenExpression.variables(descendMode));
+            return s;
+        }
+    }
+
+
+    public static class Builder extends StatementImpl.Builder<SwitchStatementOldStyle.Builder> implements SwitchStatementOldStyle.Builder {
+        private Expression selector;
+        private Block block;
+        private final List<SwitchLabel> switchLabels = new ArrayList<>();
+
+        @Override
+        public SwitchStatementOldStyle.Builder setSelector(Expression selector) {
+            this.selector = selector;
+            return this;
+        }
+
+        @Override
+        public SwitchStatementOldStyle.Builder setBlock(Block block) {
+            this.block = block;
+            return this;
+        }
+
+        @Override
+        public SwitchStatementOldStyle.Builder addSwitchLabels(Collection<SwitchLabel> switchLabels) {
+            this.switchLabels.addAll(switchLabels);
+            return this;
+        }
+
+        @Override
+        public SwitchStatementOldStyle build() {
+            return new SwitchStatementOldStyleImpl(comments, source, annotations, label, selector, block, switchLabels);
+        }
+    }
+
+    @Override
+    public Expression expression() {
+        return selector;
+    }
+
+    @Override
+    public Block block() {
+        return block;
+    }
+
+    @Override
+    public List<SwitchLabel> switchLabels() {
+        return switchLabels;
+    }
+
+
+    /*
+    Both visits take the literal and the pattern INDEPENDENTLY, rather than one or the other.
+
+    A pattern label has no constant expression, but the two front ends express that differently: the congocc
+    parser leaves the literal null, while the javac scanner stores an EMPTY EXPRESSION (see
+    ScanCompilationUnit, JCPatternCaseLabel). An either/or written as "literal != null ? literal : pattern"
+    therefore walked the pattern on one front end and silently skipped it on the other -- and a type named
+    only by `case Type t:` then looked unreferenced to every consumer that walks the element tree, the call
+    graph included. Elasticsearch lost a seam analysis to it.
+     */
+    @Override
+    public void visit(Predicate<Element> predicate) {
+        if (predicate.test(this)) {
+            selector.visit(predicate);
+            block.visit(predicate);
+            switchLabels.forEach(sl -> {
+                if (sl.literal() != null) sl.literal().visit(predicate);
+                if (sl.patternVariable() != null) sl.patternVariable().visit(predicate);
+            });
+        }
+    }
+
+    @Override
+    public void visit(Visitor visitor) {
+        if (visitor.beforeStatement(this)) {
+            selector.visit(visitor);
+            visitor.startSubBlock(0);
+            switchLabels.forEach(sl -> {
+                if (sl.literal() != null) sl.literal().visit(visitor);
+                if (sl.patternVariable() != null) sl.patternVariable().visit(visitor);
+            });
+            block.visit(visitor);
+            visitor.endSubBlock(0);
+        }
+        visitor.afterStatement(this);
+    }
+
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.SWITCH)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD).add(selector.print(qualification)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        outputBuilder.add(SymbolEnum.LEFT_BRACE);
+        if (!block.isEmpty()) {
+            GuideImpl.GuideGenerator guideGenerator = GuideImpl.generatorForBlock();
+            outputBuilder.add(guideGenerator.start());
+            print(qualification, outputBuilder, guideGenerator, block, switchLabelMap());
+            outputBuilder.add(guideGenerator.end());
+        }
+        return outputBuilder.add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    private void print(Qualification qualification, OutputBuilder outputBuilder,
+                       GuideImpl.GuideGenerator gg, Block block, Map<String, List<SwitchLabel>> idToLabels) {
+        GuideImpl.GuideGenerator statementGg = null;
+        boolean notFirst = false;
+        boolean notFirstInCase = false;
+        for (Statement statement : block.statements()) {
+            String index = statement.source().index();
+            if (idToLabels.containsKey(index)) {
+                if (statementGg != null) {
+                    outputBuilder.add(statementGg.end());
+                }
+                if (!notFirst) notFirst = true;
+                else outputBuilder.add(gg.mid());
+                for (SwitchStatementOldStyle.SwitchLabel switchLabel : idToLabels.get(index)) {
+                    outputBuilder.add(switchLabel.print(qualification));
+                    gg.mid();
+                }
+                statementGg = GuideImpl.generatorForBlock();
+                outputBuilder.add(statementGg.start());
+                notFirstInCase = false;
+            }
+            assert statementGg != null;
+            if (!notFirstInCase) notFirstInCase = true;
+            else outputBuilder.add(statementGg.mid());
+
+            outputBuilder.add(statement.print(qualification));
+        }
+        if (statementGg != null) {
+            outputBuilder.add(statementGg.end());
+        }
+    }
+
+    @Override
+    public Map<String, List<SwitchLabel>> switchLabelMap() {
+        Map<String, List<SwitchLabel>> res = new HashMap<>();
+        int i = 0;
+        int labelIndex = 0;
+        for (Statement statement : block.statements()) {
+            while (labelIndex < switchLabels.size() && switchLabels.get(labelIndex).startFromPosition() == i) {
+                res.computeIfAbsent(statement.source().index(), _ -> new ArrayList<>())
+                        .add(switchLabels.get(labelIndex));
+                labelIndex++;
+            }
+            i++;
+        }
+        return res;
+    }
+
+
+    @Override
+    public Stream<Variable> variables(DescendMode descendMode) {
+        return Stream.concat(Stream.concat(selector.variables(descendMode),
+                        switchLabels.stream().flatMap(sl -> sl.variables(descendMode))),
+                block.variables(descendMode));
+    }
+
+    @Override
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        Stream<Element.TypeReference> s1 = selector.typesReferenced(predicate);
+        Stream<Element.TypeReference> s2 = switchLabels.stream().flatMap(sl -> sl.typesReferenced(predicate));
+        Stream<Element.TypeReference> s3 = block.typesReferenced(predicate);
+        return Stream.concat(s1, Stream.concat(s2, s3));
+    }
+
+    @Override
+    public List<Statement> translate(TranslationMap translationMap) {
+        List<Statement> direct = translationMap.translateStatement(this);
+        if (hasBeenTranslated(direct, this)) return direct;
+
+        Expression tSelector = selector.translate(translationMap);
+        List<SwitchLabel> translatedLabels = switchLabels.stream()
+                .map(l -> l.translate(translationMap))
+                .collect(translationMap.toList(switchLabels));
+        Statement tBlock = block.translate(translationMap).getFirst();
+        List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
+        if (tBlock != block || tSelector != selector || translatedLabels != switchLabels
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tAnnotations != annotations()) {
+            SwitchStatementOldStyleImpl ssos = new SwitchStatementOldStyleImpl(comments(), source(),
+                    tAnnotations, label(), tSelector, (Block) tBlock, translatedLabels);
+            if (!translationMap.isClearAnalysis()) ssos.analysis().setAll(analysis());
+            return translationMap.postTranslationHandler(this, List.of(ssos));
+        }
+        return List.of(this);
+    }
+
+    @Override
+    public boolean hasSubBlocks() {
+        return true;
+    }
+
+    @Override
+    public SwitchStatementOldStyle withSource(Source newSource) {
+        return new SwitchStatementOldStyleImpl(comments(), newSource, annotations(), label(), selector, block,
+                switchLabels);
+    }
+
+    @Override
+    public Statement rewire(InfoMapView infoMap) {
+        return new SwitchStatementOldStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
+                selector.rewire(infoMap), block.rewire(infoMap),
+                switchLabels.stream().map(sl -> sl.rewire(infoMap)).toList());
+    }
+}

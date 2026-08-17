@@ -1,0 +1,67 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.aapi.parser.archive;
+
+import io.codelaser.maddi.aapi.parser.CommonTest;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/*
+RULES FOR THE FILES OBJECT
+
+Almost all methods are @AllowsInterrupt.
+We treat the file system as the instance, and ignore the 'static' on the methods.
+Files that do not change the file system are marked @NotModified.
+Files that change the file system are marked @Modified.
+
+Path is immutable.
+ */
+public class TestJavaNioFile extends CommonTest {
+
+    @Test
+    public void testFilesWalkFileTree() {
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("walkFileTree", 4);
+        assertTrue(methodInfo.allowsInterrupts());
+        assertFalse(methodInfo.isModifying());
+        ParameterInfo p3 = methodInfo.parameters().get(3);
+        assertEquals("Type java.nio.file.FileVisitor<? super java.nio.file.Path>",
+                p3.parameterizedType().toString());
+        assertFalse(p3.isIgnoreModifications());
+    }
+
+    @Test
+    public void testFilesCreateFile() {
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("createFile", 2);
+        assertTrue(methodInfo.allowsInterrupts());
+        assertTrue(methodInfo.isModifying());
+    }
+
+    @Test
+    public void testFilesExists() {
+        TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Files.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("exists", 2);
+        assertTrue(methodInfo.allowsInterrupts());
+        assertFalse(methodInfo.isModifying());
+    }
+
+}

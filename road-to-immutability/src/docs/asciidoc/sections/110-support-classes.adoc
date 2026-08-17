@@ -14,7 +14,7 @@ We discuss a selection of the building blocks here.
 Simpler than `FlipSwitch` is not possible for an eventually immutable type: it consists solely of a
 single boolean, which is at the same time the data and the guard:
 
-.Example {counter:example}, most of `org.e2immu.support.FlipSwitch`
+.Example {counter:example}, most of `io.codelaser.maddi.support.FlipSwitch`
 [source,java]
 ----
 @ImmutableContainer(after="t")
@@ -54,7 +54,7 @@ Once it has been done, it can never be 'undone' again.
 
 One step up from `FlipSwitch` is `SetOnce`: a place-holder for one object which can be filled exactly once:
 
-.Example {counter:example}, parts of `org.e2immu.support.SetOnce`
+.Example {counter:example}, parts of `io.codelaser.maddi.support.SetOnce`
 [source,java]
 ----
 @ImmutableContainer(hc=true, after="t")
@@ -112,7 +112,7 @@ Slightly more flexible than `SetOnce` is `EventuallyFinal`: the type allows you 
 `setVariable` method, until you write using `setFinal`.
 Then, the state changes and the type becomes immutable:
 
-.Example {counter:example}, `org.e2immu.support.EventuallyFinal`
+.Example {counter:example}, `io.codelaser.maddi.support.EventuallyFinal`
 [source,java]
 ----
 @ImmutableContainer(hc=true, after="isFinal")
@@ -161,7 +161,7 @@ Note the occurrence of a negated {testMark} annotation: `isVariable` returns the
 The previous support class, `EventuallyFinal`, forms the template for a more general approach to eventual immutability:
 allow free modifications, until the type is _frozen_ and no modifications can be allowed anymore.
 
-.Example {counter:example}, `org.e2immu.support.Freezable`
+.Example {counter:example}, `io.codelaser.maddi.support.Freezable`
 [source,java]
 ----
 @ImmutableContainer(after="frozen") // <1>
@@ -201,7 +201,7 @@ derived classes can never be immutable when their parents are not immutable.
 
 We discuss one example that makes use of (derives from) `Freezable`: a freezable map where no objects can be overwritten:
 
-.Example {counter:example}, part of `org.e2immu.support.SetOnceMap`
+.Example {counter:example}, part of `io.codelaser.maddi.support.SetOnceMap`
 [source,java]
 ----
 @ImmutableContainer(hc=true, after="frozen")
@@ -251,7 +251,7 @@ the same value to a key.
 `Lazy` implements a lazily-initialized immutable field, of unbound generic type `T`.
 Properly implemented, it is an eventually immutable type:
 
-.Example {counter:example}, `org.e2immu.support.Lazy`
+.Example {counter:example}, `io.codelaser.maddi.support.Lazy`
 [source,java]
 ----
 @ImmutableContainer(hc=true, after="t")
@@ -322,7 +322,7 @@ immutable types.
 A variant on `SetOnce` is `FirstThen`, an eventually immutable container which starts off with one
 value, and transitions to another:
 
-.Example {counter:example}, `org.e2immu.support.FirstThen`
+.Example {counter:example}, `io.codelaser.maddi.support.FirstThen`
 [source,java]
 ----
 @ImmutableContainer(hc=true, after="mark")

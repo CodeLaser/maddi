@@ -18,7 +18,7 @@ import { ResultStore } from './results';
 /**
  * The maddi VS Code front-end.
  *
- * Same architecture as the IntelliJ and Eclipse plugins: the analyser is far too heavy — and needs a much
+ * Same architecture as the IntelliJ and Eclipse plugins: the analyzer is far too heavy — and needs a much
  * newer JDK — to live inside the editor, so it runs as a daemon and is spoken to over a socket in plain
  * JSON. What is different here is where the project model comes from: VS Code has none, so it is asked of
  * jdt.ls (see {@link buildConfig}), which also supplies the compiled `.class` files the parser needs.

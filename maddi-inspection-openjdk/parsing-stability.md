@@ -42,7 +42,7 @@ Each compilation is given its **own** name table via the javac option
 `-XDuseUnsharedTable=true`. It is set unconditionally on the one and only
 `JavaCompiler.getTask(...)` call:
 
-- `maddi-inspection-openjdk/src/main/java/org/e2immu/language/inspection/openjdk/JavaInspectorImpl.java`
+- `maddi-inspection-openjdk/src/main/java/io/codelaser/maddi/inspection/openjdk/JavaInspectorImpl.java`
   (the `getTask` call, ~line 393-405), alongside `-parameters`, `-proc:none`,
   `--enable-preview`, `--release=26`.
 
@@ -66,7 +66,7 @@ crash. The rule:
 
 The reference implementation of this pattern is the clone-bench harness:
 
-- `maddi-modification-analyzer/src/test/java/org/e2immu/analyzer/modification/analyzer/clonebench/TestCloneBench.java`
+- `maddi-modification-analyzer/src/test/java/io/codelaser/maddi/modification/analyzer/clonebench/TestCloneBench.java`
   — all directories are parsed up front in one inspector (one `SourceSet` per directory so
   that identically-named default-package types don't collide); only the analysis is fanned
   out across threads.

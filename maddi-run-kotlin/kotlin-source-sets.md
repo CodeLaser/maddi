@@ -26,10 +26,10 @@ front-ends consume it uniformly.
 
 The linking algorithm is entirely language-independent, so it now lives in `maddi-run-config` and is shared:
 
-- **`org.e2immu.analyzer.run.config.compile.CompileInvocation`** — the accessor surface the engine needs:
+- **`io.codelaser.maddi.run.config.compile.CompileInvocation`** — the accessor surface the engine needs:
   `destination`, `classpath`, `modulePath`, `sourcePath`, `sourceFiles`, `encoding`, plus two optional signals
   that Kotlin provides and Java does not: `moduleName()` and `friendPaths()` (Java returns `null` / empty).
-- **`org.e2immu.analyzer.run.config.compile.CompileListToSourceSets`** — the former `JavacListToSourceSets`,
+- **`io.codelaser.maddi.run.config.compile.CompileListToSourceSets`** — the former `JavacListToSourceSets`,
   generalized to `List<? extends CompileInvocation>`. Two Kotlin-aware additions, both no-ops for Java:
   - **friend-paths as dependency edges** — `-Xfriend-paths=<main-out>` on a test compile is resolved (via the
     same output-identity map) to the main source set and added as a dependency; its presence also marks the set

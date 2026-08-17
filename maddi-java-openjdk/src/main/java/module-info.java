@@ -1,16 +1,16 @@
-module org.e2immu.language.java.openjdk {
-    requires org.e2immu.util.external.support;
-    requires org.e2immu.language.cst.api;
-    requires org.e2immu.language.inspection.api;
-    requires org.e2immu.language.inspection.resource;
-    requires org.e2immu.language.java.parser;
-    requires org.e2immu.util.internal.graph;
-    requires org.e2immu.util.internal.util;
+module io.codelaser.maddi.java.openjdk {
+    requires io.codelaser.maddi.support;
+    requires io.codelaser.maddi.cst.api;
+    requires io.codelaser.maddi.inspection.api;
+    requires io.codelaser.maddi.inspection.resource;
+    requires io.codelaser.maddi.java.parser;
+    requires io.codelaser.maddi.graph;
+    requires io.codelaser.maddi.util;
 
     requires java.compiler;
     requires jdk.compiler;
     requires org.jetbrains.annotations;
     requires org.slf4j;
 
-    exports org.e2immu.language.java.openjdk;
+    exports io.codelaser.maddi.java.openjdk;
 }

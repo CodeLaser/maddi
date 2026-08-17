@@ -38,7 +38,7 @@ dependencies {
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-aapi-parser"))
 
-    // to access resource:/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs.jar
+    // to access resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar
     runtimeOnly(project(":maddi-aapi-archive"))
 
     implementation(project(":maddi-run-config"))               // ErrorReport, JsonStreaming reuse
@@ -60,7 +60,7 @@ val openjdkExports = listOf(
 )
 
 application {
-    mainClass = "org.e2immu.analyzer.ide.daemon.DaemonMain"
+    mainClass = "io.codelaser.maddi.ide.daemon.DaemonMain"
     // baked into the generated start script's DEFAULT_JVM_OPTS, so the launched daemon has them
     applicationDefaultJvmArgs = openjdkExports
 }

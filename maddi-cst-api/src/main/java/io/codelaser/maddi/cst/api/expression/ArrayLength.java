@@ -1,0 +1,41 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.api.expression;
+
+import io.codelaser.maddi.cst.api.element.Element;
+
+/**
+ * The array {@code .length} access, {@code scope.length}. Modelled as its own node (rather than a field
+ * access) because {@code length} is not a real field. The result type is {@code int}.
+ */
+public interface ArrayLength extends Expression {
+    /**
+     * @return the array expression whose length is read.
+     */
+    Expression scope();
+
+    interface Builder extends Element.Builder<Builder> {
+        Builder setExpression(Expression e);
+
+        ArrayLength build();
+    }
+
+    String NAME = "arrayLength";
+
+    @Override
+    default String name() {
+        return NAME;
+    }
+}

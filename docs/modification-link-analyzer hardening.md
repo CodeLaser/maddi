@@ -38,7 +38,7 @@ the prep stage is already hardened and is the **template** for what follows.
     `SingleIterationAnalyzer.messages()`.
   - `ErrorReport` gained a third parameter enumerating analysis findings (category, `uri:line-col`, indented
     `because:` cause chains, errors-first, warnings capped at 50); both runners feed it and map ERROR findings to
-    `EXIT_ANALYSER_ERROR`.
+    `EXIT_ANALYZER_ERROR`.
   This is exactly the collector + surfacing §2 needs — so §2 becomes a *small*, trunk-ownable addition on top of
   the merged collector, not a new parallel channel. See §2.
 
@@ -60,7 +60,7 @@ Prep is the *only* fault-tolerant stage. Everything downstream aborts the whole 
   `IteratingAnalyzerImpl.analyze` (`impl/IteratingAnalyzerImpl.java:77-101`) has no catch at all.
 - **Runner asymmetry:** the openjdk `RunAnalyzer` collects and *reports* prep failures per-item and continues
   (`maddi-run-openjdk/.../RunAnalyzer.java:178-204`, prep built with `setFaultTolerant(true)`), but the analyzer
-  call is terminal: one throwable from `analyzer.analyze(order)` sets `EXIT_ANALYSER_ERROR` and ends the run
+  call is terminal: one throwable from `analyzer.analyze(order)` sets `EXIT_ANALYZER_ERROR` and ends the run
   (`RunAnalyzer.java:227-238`). The in-house `maddi-run-main/.../RunAnalyzer.java` builds prep **without** fault
   tolerance (`:164`).
 
@@ -120,7 +120,7 @@ of. The two closest things fall short:
 > catches `RuntimeException | AssertionError | StackOverflowError`, emits an ERROR finding
 > (`analyzer-crash` / `link-crash`, blamed on the `Info`, located) into the guard collector, records the `Info`
 > as failed so it is not retried, and continues. Both production runners flip it on; the findings surface through
-> the existing `messages()` → `ErrorReport` → `EXIT_ANALYSER_ERROR` path. Test `TestFaultIsolation` injects a
+> the existing `messages()` → `ErrorReport` → `EXIT_ANALYZER_ERROR` path. Test `TestFaultIsolation` injects a
 > deterministic crash (an un-prepped method → link `assert vd != null`) and proves the good method is still
 > analyzed; default stays fail-fast. Because link runs inside the per-`Info` loop, this isolates link crashes too.
 
@@ -144,13 +144,13 @@ the one modification-subsystem change the ownership rule permits.
   crash lands in the survey (§1) as one more categorized finding.
 - [ ] **M** Config + surfacing: thread a `faultTolerant` flag through `IteratingAnalyzer.Configuration`
   (`ConfigurationBuilder`); the runners already feed `IteratingAnalyzer.messages()` into `ErrorReport` and map
-  ERROR findings to `EXIT_ANALYSER_ERROR` (guard's `RunAnalyzer` deltas), so crash findings surface **after** the
+  ERROR findings to `EXIT_ANALYZER_ERROR` (guard's `RunAnalyzer` deltas), so crash findings surface **after** the
   run completes rather than aborting it — no extra runner wiring beyond the flag. Also flip the in-house runner's
   prep to fault-tolerant (`maddi-run-main/.../RunAnalyzer.java:164`).
 - [ ] **M** Keep the default **`faultTolerant=false`** so unit tests and direct callers keep fail-fast (prep's
   choice); the survey (§1) and the production runners flip it on.
 - **Now unblocked and trunk-ownable.** The collector, `IteratingAnalyzer.messages()`, the `ErrorReport` findings
-  surface and the ERROR→`EXIT_ANALYSER_ERROR` mapping are all merged (`9bd209ab`), so §2 is just the per-`Info`
+  surface and the ERROR→`EXIT_ANALYZER_ERROR` mapping are all merged (`9bd209ab`), so §2 is just the per-`Info`
   catch-and-emit + the `faultTolerant` flag on top — no cross-branch coordination left. The one remaining external
   seam is `LinkComputerImpl` (owned by `sv-integration`): distinguishing a `link-crash` from an `analyzer-crash`
   reads the throwable's origin but changes nothing in link.
@@ -161,7 +161,7 @@ the one modification-subsystem change the ownership rule permits.
 
 **Do not fix on the trunk.** File as notes + minimal reproducers (distilled from the §1 survey) into the
 `sv-integration` tree, ranked by the recon's real-world crash likelihood. Sites are in
-`maddi-modification-link/src/main/java/org/e2immu/analyzer/modification/link/`:
+`maddi-modification-link/src/main/java/io/codelaser/maddi/modification/link/`:
 
 - [ ] **H** (#22) `impl/ExpressionVisitor.java:87` — the `visit(...)` switch `default -> throw new
   UnsupportedOperationException("Implement: " + …)`. Any CST expression kind not enumerated aborts the method.

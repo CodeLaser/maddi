@@ -1,0 +1,586 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.java.openjdk.method;
+
+import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestMethodCall8 extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package io.codelaser.maddi.test;
+            
+            public class MethodCall_81 {
+                @FunctionalInterface
+                interface Customizer<T> {
+                    void customize(T t);
+                    static <T> Customizer<T> withDefaults() { return null; }
+                }
+                interface HttpSecurityBuilder<H extends HttpSecurityBuilder<H>> { }
+                static abstract class AbstractHttpConfigurer<T extends AbstractHttpConfigurer<T,B>,
+                        B extends HttpSecurityBuilder<B>> {
+                    B disable() { return null; }
+                    T withObjectPostProcessor() { return null; }
+                }
+                interface CorsConfigurer<H extends HttpSecurityBuilder<H>> { }
+                static abstract class CsrfConfigurer<H extends HttpSecurityBuilder<H>>
+                        extends AbstractHttpConfigurer<CsrfConfigurer<H>, H> { }
+            
+                interface HttpSecurity extends HttpSecurityBuilder<HttpSecurity> {
+                    HttpSecurity cors(Customizer<CorsConfigurer<HttpSecurity>> customizer);
+                    HttpSecurity csrf(Customizer<CsrfConfigurer<HttpSecurity>> csrfCustomizer) throws Exception;
+                }
+            
+                public void method(HttpSecurity httpSecurity) throws Exception {
+                    httpSecurity.cors(Customizer.withDefaults())
+                            .csrf(AbstractHttpConfigurer::disable);
+                }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_81", INPUT1);
+        TypeInfo customizer = typeInfo.findSubType("Customizer");
+        assertTrue(customizer.isFunctionalInterface());
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package io.codelaser.maddi.test;
+            
+            public abstract class MethodCall_82 {
+                interface MockMvc {}
+                interface WebApplicationContext {}
+                WebApplicationContext context;
+                interface MockMvcConfigurer { }
+                abstract MockMvcConfigurer springSecurity();
+            
+                interface MockMvcBuilder {
+                    MockMvc build();
+                }
+            
+                interface ConfigurableMockMvcBuilder<B extends ConfigurableMockMvcBuilder<B>> extends MockMvcBuilder {
+                    <T extends B> T apply(MockMvcConfigurer configurer);
+                    <T extends B> T dispatchOptions(boolean dispatchOptions);
+                }
+            
+                static abstract class AbstractMockMvcBuilder<B extends AbstractMockMvcBuilder<B>>
+                    implements ConfigurableMockMvcBuilder<B> {
+                    @Override
+                    public <T extends B> T apply(MockMvcConfigurer configurer) { return null; }
+                    protected <T extends B> T self() { return null; }
+                    @Override
+                    public MockMvc build() { return null; }
+                }
+                static class DefaultMockMvcBuilder extends AbstractMockMvcBuilder<DefaultMockMvcBuilder> {
+                    DefaultMockMvcBuilder(WebApplicationContext webAppContext) { }
+                    @Override public<T extends io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder> T dispatchOptions(boolean dispatchOptions) {
+                        return null;
+                    }
+                }
+                static class MockMvcBuilders {
+                    static DefaultMockMvcBuilder webAppContextSetup(WebApplicationContext context) {
+                        return new DefaultMockMvcBuilder(context);
+                    }
+                }
+                MockMvc method() {
+                   return MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_82", INPUT2);
+        TypeInfo ConfigurableMockMvcBuilder = typeInfo.findSubType("ConfigurableMockMvcBuilder");
+        assertFalse(ConfigurableMockMvcBuilder.isFunctionalInterface());
+        TypeInfo MockMvcBuilder = typeInfo.findSubType("MockMvcBuilder");
+        assertTrue(MockMvcBuilder.isFunctionalInterface());
+
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
+        Statement statement = methodInfo.methodBody().lastStatement();
+        if (statement.expression() instanceof MethodCall mc) {
+            // DIFFERS from maddi parser: ? extends io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_82.DefaultMockMvcBuilder",
+                    mc.object().parameterizedType().toString());
+        }
+    }
+
+
+    /*
+    assertThat method:
+        static <E> org.assertj.core.api.AbstractCollectionAssert<?,java.util.Collection<? extends E>,
+                                                                 E,org.assertj.core.api.ObjectAssert<E>>
+            assertThat(java.util.Collection<? extends E> actual);
+
+        abstract class AbstractCollectionAssert <SELF extends org.assertj.core.api.AbstractCollectionAssert<SELF,ACTUAL,ELEMENT,ELEMENT_ASSERT>,
+                                                ACTUAL extends java.util.Collection<? extends ELEMENT>,
+                                                ELEMENT,
+                                                ELEMENT_ASSERT extends org.assertj.core.api.AbstractAssert<ELEMENT_ASSERT,ELEMENT>>
+            extends org.assertj.core.api.AbstractIterableAssert<SELF,ACTUAL,ELEMENT,ELEMENT_ASSERT> {
+
+        abstract class AbstractIterableAssert <SELF extends org.assertj.core.api.AbstractIterableAssert<SELF,ACTUAL,ELEMENT,ELEMENT_ASSERT>,
+                                               ACTUAL extends java.lang.Iterable<? extends ELEMENT>,
+                                               ELEMENT,
+                                               ELEMENT_ASSERT extends org.assertj.core.api.AbstractAssert<ELEMENT_ASSERT,ELEMENT>>
+           extends org.assertj.core.api.AbstractAssert<SELF,ACTUAL>
+           implements org.assertj.core.api.ObjectEnumerableAssert<SELF,ELEMENT> {
+
+        interface ObjectEnumerableAssert<SELF extends ObjectEnumerableAssert<SELF, ELEMENT>, ELEMENT> extends
+                EnumerableAssert<SELF, ELEMENT>
+        interface EnumerableAssert<SELF extends EnumerableAssert<SELF,ELEMENT>,ELEMENT> { SELF hasSize(int); }
+
+
+        The problem is that the result of assertThat is an ObjectAssert object, rather than an AbstractCollectionAssert.
+        The overload of ObjectAssert should have a lower priority.
+     */
+    @Language("java")
+    private static final String INPUT3 = """
+            package io.codelaser.maddi.test;
+            import org.assertj.core.api.AbstractCollectionAssert;
+            import org.assertj.core.api.ObjectAssert;
+            import java.util.Collection;
+            import java.util.Set;
+            import static org.assertj.core.api.Assertions.assertThat;
+            
+            public class MethodCall_82 {
+                static class LanguageDTO { }
+                static class EventDTO {
+                    Set<LanguageDTO> getProposalLanguages() { return null; }
+                }
+                void method1() {
+                    EventDTO eventDTOResult = new EventDTO();
+                    AbstractCollectionAssert<?,Collection<? extends io.codelaser.maddi.test.MethodCall_82.LanguageDTO>,io.codelaser.maddi.test.MethodCall_82.LanguageDTO,ObjectAssert<io.codelaser.maddi.test.MethodCall_82.LanguageDTO>> collectionLanguageDTOObjectAssertAbstractCollectionAssert
+                      = assertThat(eventDTOResult.getProposalLanguages());
+                    collectionLanguageDTOObjectAssertAbstractCollectionAssert.hasSize(2);
+                }
+                 void method2() {
+                    EventDTO eventDTOResult = new EventDTO();
+                    assertThat(eventDTOResult.getProposalLanguages()).hasSize(2);
+                }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        // Original: after parsing INPUT3, called javaInspector.compiledTypesManager().type(
+        //   "org.assertj.core.api.AbstractCollectionAssert", null) and then javaInspector.print2() to
+        // assert the printed form of the assertj byte-code type. compiledTypesManager is not available
+        // here; the scan call is kept to verify the parse succeeds.
+        scan("io.codelaser.maddi.test.MethodCall_82", INPUT3);
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package io.codelaser.maddi.test;
+            
+            public class MethodCall_84 {
+                interface GenericContainer<SELF extends GenericContainer<SELF>> { }
+                static class GreenMailContainer<SELF extends GreenMailContainer<SELF>> implements GenericContainer<SELF> {
+                    GreenMailContainer() { }
+                    SELF withAuthEnabled(boolean authEnabled) { return (SELF) this; }
+                    SELF withReuse(boolean reuse) { return (SELF) this; }
+                }
+                void method0() {
+                    GreenMailContainer<?> gmc = new GreenMailContainer<>().withAuthEnabled(true);
+                }
+                void method1() {
+                    var gmc = new GreenMailContainer<>().withAuthEnabled(true);
+                }
+                void method2() {
+                    GreenMailContainer<?>  gmc = new GreenMailContainer<>().withAuthEnabled(true).withReuse(true);
+                }
+                void method3() {
+                    var gmc = new GreenMailContainer<>().withAuthEnabled(true).withReuse(true);
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = scan("io.codelaser.maddi.test.MethodCall_84", INPUT4);
+        {
+            MethodInfo method = typeInfo.findUniqueMethod("method1", 0);
+            LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
+            // DIFFERS from maddi parser: Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<?>",
+                    lvc.localVariable().parameterizedType().toString());
+            assertEquals("Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>",
+                    lvc.localVariable().assignmentExpression().parameterizedType().toString());
+        }
+        {
+            MethodInfo method = typeInfo.findUniqueMethod("method3", 0);
+            LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
+            // DIFFERS from maddi parser!
+            assertEquals("Type io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<?>",
+                    lvc.localVariable().parameterizedType().toString());
+            assertEquals("Type param SELF extends io.codelaser.maddi.test.MethodCall_84.GreenMailContainer<SELF>",
+                    lvc.localVariable().assignmentExpression().parameterizedType().toString());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package io.codelaser.maddi.test;
+            import java.util.concurrent.CompletableFuture;
+            
+            public class MethodCall_85 {
+                interface User { String getEmail(); }
+                interface SendMailService {
+                   CompletableFuture<Object> sendMail(String to, String[] bcc, String subject, String content,
+                      boolean isHtml);
+                }
+                SendMailService sendMailService;
+                void method(User user, String content) {
+                    sendMailService.sendMail(user.getEmail(), null, "activation key", content, false);
+                }
+            }
+            """;
+
+    @DisplayName("null to String[]")
+    @Test
+    public void test5() {
+        scan("io.codelaser.maddi.test.MethodCall_85", INPUT5);
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            import java.util.Set;
+            import java.util.List;
+            class X {
+                record R(Set<String> set, List<Integer> list, int i) {}
+                static class Builder {
+                    Set<String> stringSet;
+                    List<Integer> intList;
+                    int j;
+                    Builder setStringSet(Set<String> set) { stringSet = set; return this; }
+                    Builder setIntList(List<Integer>list) { intList = list; return this; }
+                    Builder setJ(int k) { j = k; return this; }
+                    R build() { return new R(stringSet, intList, j); }
+                }
+                R method(Set<String> in) {
+                    Builder b = new Builder().setJ(3).setIntList(List.of(0, 1)).setStringSet(in);
+                    R r = b.build();
+                    return r;
+                }
+            }
+            """;
+
+    @DisplayName("which version of list?")
+    @Test
+    public void test6() {
+        TypeInfo X = scan("a.b.X", INPUT6);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        LocalVariableCreation lvc0 = (LocalVariableCreation) method.methodBody().statements().getFirst();
+        MethodCall setStringSet = (MethodCall) lvc0.localVariable().assignmentExpression();
+        MethodCall setIntList = (MethodCall) setStringSet.object();
+        MethodCall listOf = (MethodCall) setIntList.parameterExpressions().getFirst();
+        assertEquals("java.util.List.of(Object,Object)", listOf.methodInfo().fullyQualifiedName());
+    }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.util.stream.Stream;
+            import java.util.List;
+            import java.util.Collection;
+            class X {
+                Stream<String> method(List<List<String>> stringLists) {
+                    return stringLists.stream().flatMap(Collection::stream);
+                }
+            }
+            """;
+
+    @DisplayName("type parameter forwarding")
+    @Test
+    public void test7() {
+        TypeInfo X = scan("a.b.X", INPUT7);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        ReturnStatement rs = (ReturnStatement) method.methodBody().statements().getFirst();
+        MethodCall flatMap = (MethodCall) rs.expression();
+        MethodCall stream = (MethodCall) flatMap.object();
+        assertEquals("Type java.util.List<java.util.List<String>>", stream.object().parameterizedType().toString());
+        assertEquals("Type java.util.stream.Stream<java.util.List<String>>", stream.concreteReturnType().toString());
+        MethodReference mrMap0 = (MethodReference) flatMap.parameterExpressions().getFirst();
+        // DIFFERS from maddi parser:
+        assertEquals("Type java.util.stream.Stream<? extends String>", mrMap0.concreteReturnType().toString());
+        // DIFFERS from maddi parser:
+        assertEquals("[Type java.util.List<String>]", mrMap0.concreteParameterTypes().toString());
+        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<? extends String>>",
+                mrMap0.parameterizedType().toString());
+
+        assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT7B = """
+            package a.b;
+            import java.util.stream.Stream;
+            import java.util.List;
+            import java.util.Collection;
+            class X {
+                Stream<String> method(List<List<String>> stringLists) {
+                    return stringLists.stream()
+                        .flatMap(Collection::stream)
+                        .map(String::toLowerCase);
+                }
+            }
+            """;
+
+    @DisplayName("type parameter forwarding, 2")
+    @Test
+    public void test7B() {
+        TypeInfo X = scan("a.b.X", INPUT7B);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        ReturnStatement rs = (ReturnStatement) method.methodBody().statements().getFirst();
+        MethodCall map = (MethodCall) rs.expression();
+        MethodCall flatMap = (MethodCall) map.object();
+        MethodCall stream = (MethodCall) flatMap.object();
+        assertEquals("Type java.util.List<java.util.List<String>>", stream.object().parameterizedType().toString());
+        assertEquals("Type java.util.stream.Stream<java.util.List<String>>", stream.concreteReturnType().toString());
+
+        // the first forward type
+        assertEquals("Type java.util.stream.Stream<String>", map.concreteReturnType().toString());
+        assertEquals("Type java.util.stream.Stream<String>", map.object().parameterizedType().toString());
+
+        // that should be enough to make a forward type for the second
+        MethodReference mrMap0 = (MethodReference) flatMap.parameterExpressions().getFirst();
+        // DIFFERS from maddi parser:
+        assertEquals("Type java.util.stream.Stream<? extends String>", mrMap0.concreteReturnType().toString());
+        assertEquals("[Type java.util.List<String>]", mrMap0.concreteParameterTypes().toString());
+        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<? extends String>>",
+                mrMap0.parameterizedType().toString());
+
+        assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
+    }
+
+    @Language("java")
+    private static final String INPUT7C = """
+            package a.b;
+            import java.util.Collection;
+            import java.util.List;
+            class X {
+                List<String> method(List<List<String>> stringLists) {
+                    return stringLists.stream()
+                        .flatMap(Collection::stream)
+                        .map(String::toLowerCase)
+                        .toList();
+                }
+            }
+            """;
+
+    @DisplayName("type parameter forwarding, 3")
+    @Test
+    public void test7C() {
+        TypeInfo X = scan("a.b.X", INPUT7C);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        ReturnStatement rs = (ReturnStatement) method.methodBody().statements().getFirst();
+        MethodCall toList = (MethodCall) rs.expression();
+        MethodCall map = (MethodCall) toList.object();
+        MethodCall flatMap = (MethodCall) map.object();
+        MethodCall stream = (MethodCall) flatMap.object();
+        assertEquals("Type java.util.List<String>", toList.concreteReturnType().toString());
+        assertEquals("Type java.util.List<java.util.List<String>>", stream.object().parameterizedType().toString());
+        assertEquals("Type java.util.stream.Stream<java.util.List<String>>", stream.concreteReturnType().toString());
+        assertEquals("Type java.util.stream.Stream<String>", map.concreteReturnType().toString());
+        MethodReference mrMap0 = (MethodReference) map.parameterExpressions().getFirst();
+        assertEquals("Type String", mrMap0.concreteReturnType().toString());
+        // DIFFERS from maddi parser
+        assertEquals("[Type String]", mrMap0.concreteParameterTypes().toString());
+        assertEquals("Type java.util.function.Function<String,String>", mrMap0.parameterizedType().toString());
+
+        assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+            class X {
+                interface I {
+            
+                }
+                I generate(int i) {
+                    return new I() {};
+                }
+                interface Y {
+                    I generate(I i);
+                }
+                void test(I ii, Y y) {
+                    I i = assertDoesNotThrow(() -> y.generate(ii));
+            
+                }
+            }
+            """;
+
+    @DisplayName("assertDoesNotThrow")
+    @Test
+    public void test8() {
+        TypeInfo X = scan("a.b.X", INPUT8);
+        MethodInfo test = X.findUniqueMethod("test", 2);
+        LocalVariableCreation lvc = (LocalVariableCreation) test.methodBody().statements().getFirst();
+        MethodCall mc = (MethodCall) lvc.localVariable().assignmentExpression();
+        Lambda lambda = (Lambda) mc.parameterExpressions().getFirst();
+        // NOT: Executable. We must choose ThrowingSupplier over Executable, because Executable does not return a value
+        assertEquals("Type org.junit.jupiter.api.function.ThrowingSupplier<a.b.X.I>",
+                lambda.concreteFunctionalType().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            import java.util.Arrays;
+            import java.util.Comparator;
+            import java.util.Map;
+            class X {
+                Map<Long, Integer> map;
+                record Line(String startDate, String endDate, long id, double value) {}
+                public void sort(Line[] lines) {
+                    Arrays.sort(lines, Comparator
+            	    .comparing((Line line) -> line.endDate)
+            	    .thenComparing(line -> line.startDate)
+            	    .thenComparing(line -> map.getOrDefault(line.id, 10))
+            	    .thenComparing(line -> line.value, Comparator.reverseOrder()));
+                }
+            }
+            """;
+
+    @DisplayName("comparing() followed by 3x thenComparing()")
+    @Test
+    public void test9() {
+        scan("a.b.X", INPUT9);
+    }
+
+    @Language("java")
+    private static final String INPUT9b = """
+            package a.b;
+            import java.util.Arrays;
+            import java.util.Comparator;
+            import java.util.Map;
+            class X {
+                Map<Long, Integer> map;
+                record Line(String startDate, String endDate, long id, double value) {}
+                public void sort(Line[] lines) {
+                    Arrays.sort(lines, Comparator
+            	    .comparing((Line line) -> line.endDate)
+            	    .thenComparing(line -> map.getOrDefault(line.id, 10))
+            	    .thenComparing(line -> line.value, Comparator.reverseOrder()));
+                }
+            }
+            """;
+
+    @DisplayName("comparing() followed by 2x thenComparing()")
+    @Test
+    public void test9b() {
+        scan("a.b.X", INPUT9b);
+    }
+
+    @Language("java")
+    private static final String INPUT9c = """
+            package a.b;
+            import java.util.Arrays;
+            import java.util.Comparator;
+            import java.util.Map;
+            class X {
+                Map<Long, Integer> map;
+                record Line(String startDate, String endDate, long id, double value) {}
+                public void sort(Line[] lines) {
+                    Arrays.sort(lines, Comparator
+            	    .comparing((Line line) -> line.endDate)
+            	    .thenComparing(line -> line.value, Comparator.reverseOrder()));
+                }
+            }
+            """;
+
+    @DisplayName("comparing() followed by thenComparing()")
+    @Test
+    public void test9c() {
+        scan("a.b.X", INPUT9c);
+    }
+
+
+    @Language("java")
+    private static final String INPUT9d = """
+            package a.b;
+            import java.util.Arrays;
+            import java.util.Comparator;
+            class X {
+                record Line(String startDate, String endDate, double value) {}
+                public void sort(Line[] lines) {
+                   Comparator<Line> c = Comparator
+            	    .comparing((Line line) -> line.endDate)
+            	    .thenComparing(line -> line.startDate)
+            	    .thenComparing(line -> line.value);
+                }
+            }
+            """;
+
+    @DisplayName("comparing() followed by 2x thenComparing(), less context")
+    @Test
+    public void test9d() {
+        scan("a.b.X", INPUT9d);
+    }
+
+
+    @Language("java")
+    private static final String INPUT9e = """
+            package a.b;
+            import java.util.Arrays;
+            import java.util.Comparator;
+            class X {
+                record Line(String startDate, String endDate, double value) {}
+                public void sort(Line[] lines) {
+                   Comparator.comparing((Line line) -> line.endDate);
+                }
+            }
+            """;
+
+    @DisplayName("concrete return type of Comparator.comparing")
+    @Test
+    public void test9e() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT9e);
+        MethodInfo sort = typeInfo.findUniqueMethod("sort", 1);
+        MethodCall methodCall = (MethodCall) sort.methodBody().statements().getFirst().expression();
+        if (methodCall.parameterExpressions().getFirst() instanceof Lambda lambda) {
+            assertEquals("Type java.util.function.Function<a.b.X.Line,String>",
+                    lambda.concreteFunctionalType().toString());
+            assertEquals("Type String", lambda.methodInfo().returnType().toString());
+            //assertEquals("Type a.b.X.$0", lambda.parameterizedType().toString());
+        }
+        ParameterizedType pt = methodCall.parameterizedType();
+        assertEquals("Type java.util.Comparator<a.b.X.Line>", pt.toString());
+    }
+}

@@ -1,0 +1,505 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.parser.java;
+
+import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.inspection.api.parser.Context;
+import io.codelaser.maddi.inspection.api.parser.ForwardType;
+import io.codelaser.maddi.inspection.api.parser.ParseHelper;
+import io.codelaser.maddi.inspection.api.parser.Summary;
+import org.parsers.java.Node;
+import org.parsers.java.Token;
+import org.parsers.java.ast.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static io.codelaser.maddi.util.StringUtil.pad;
+
+public class ParseHelperImpl extends CommonParse implements ParseHelper {
+    public ParseHelperImpl(Runtime runtime) {
+        this(runtime, new Parsers(runtime));
+    }
+
+    public ParseHelperImpl(Runtime runtime, Parsers parsers) {
+        super(runtime, parsers);
+    }
+
+    @Override
+    public List<AnnotationExpression.KV> parseAnnotationExpression(TypeInfo annotationType, Object annotation, Context context) {
+        List<AnnotationExpression.KV> kvs = new ArrayList<>();
+        if (annotation instanceof SingleMemberAnnotation sma) {
+            MethodInfo methodInfo = annotationType.findUniqueMethod("value", 0);
+            ForwardType forwardType = context.newForwardType(methodInfo.returnType());
+            Expression expression = parsers.parseExpression().parse(context, "", forwardType, sma.get(3));
+            kvs.add(runtime.newAnnotationExpressionKeyValuePair("value", expression));
+        } else if (annotation instanceof NormalAnnotation na) {
+            // delimiter @, annotation name, ( , mvp, delimiter ',', mvp, delimiter )
+            if (na.get(3) instanceof MemberValuePair mvp) {
+                String key = mvp.getFirst().getSource();
+                MethodInfo methodInfo = annotationType.findUniqueMethod(key, 0);
+                ForwardType forwardType = context.newForwardType(methodInfo.returnType());
+                Expression value = parsers.parseExpression().parse(context, "", forwardType, mvp.get(2));
+                kvs.add(runtime.newAnnotationExpressionKeyValuePair(key, value));
+            } else if (na.get(3) instanceof MemberValuePairs pairs) {
+                for (int j = 0; j < pairs.size(); j += 2) {
+                    if (pairs.get(j) instanceof MemberValuePair mvp) {
+                        String key = mvp.getFirst().getSource();
+                        MethodInfo methodInfo = annotationType.findUniqueMethod(key, 0);
+                        ForwardType forwardType = context.newForwardType(methodInfo.returnType());
+                        Expression value = parsers.parseExpression().parse(context, "", forwardType, mvp.get(2));
+                        kvs.add(runtime.newAnnotationExpressionKeyValuePair(key, value));
+                    } else {
+                        throw new Summary.ParseException(context, "Expected mvp");
+                    }
+                }
+            } else {
+                throw new Summary.ParseException(context, "Expected mvp");
+            }
+        } else {
+            throw new UnsupportedOperationException("NYI");
+        }
+        return kvs;
+    }
+
+    @Override
+    public Expression parseExpression(Context context, String index, ForwardType forward, Object expression) {
+        if (expression instanceof InvocationArguments ia) {
+            TypeInfo enumType = forward.type().typeInfo();
+            // we'll have to parse a constructor, new C(invocation arguments)
+            return parsers.parseConstructorCall().parseEnumConstructor(context, index, enumType, ia);
+        }
+        return parsers.parseExpression().parse(context, index, forward, (Node) expression);
+    }
+
+    @Override
+    public void resolveMethodInto(MethodInfo.Builder builder,
+                                  Context context,
+                                  ForwardType forwardType,
+                                  Object unparsedEci,
+                                  Object expression,
+                                  List<Statement> recordAssignments) {
+        int n = (recordAssignments == null ? 0 : recordAssignments.size())
+                + countTopLevelStatements(unparsedEci, expression);
+        io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci;
+        if (unparsedEci == null) {
+            eci = null;
+        } else {
+            eci = parseEci(context, unparsedEci, n);
+        }
+        Element e;
+        if (expression instanceof CompactConstructorDeclaration ccd) {
+            int j = 0;
+            while (!Token.TokenType.LBRACE.equals(ccd.get(j).getType())) j++;
+            j++;
+            if (ccd.get(j) instanceof org.parsers.java.ast.Statement s) {
+                e = parseStatements(context, s, 0, n);
+            } else if (ccd.get(j) instanceof Delimiter) {
+                e = runtime.emptyBlock();
+            } else throw new Summary.ParseException(context, "Expected either empty block, or statements");
+        } else if (expression instanceof CodeBlock codeBlock) {
+            e = parsers.parseBlock().parse(context, "", null, codeBlock, false,
+                    eci == null ? 0 : 1);
+        } else {
+            e = parseStatements(context, forwardType, expression, eci != null, n);
+        }
+        if (e instanceof Block b) {
+            Block bWithEci;
+            if (eci != null) {
+                bWithEci = runtime.newBlockBuilder().addStatement(eci).addStatements(b.statements()).build();
+            } else if (recordAssignments != null) {
+                bWithEci = runtime.newBlockBuilder()
+                        .addStatements(b.statements())
+                        .addStatements(addIndices(recordAssignments, b.statements().size(), n))
+                        .build();
+            } else {
+                bWithEci = b;
+            }
+            builder.setMethodBody(bWithEci);
+        } else if (e instanceof Statement s) {
+            Block.Builder bb = runtime.newBlockBuilder();
+            if (eci != null) bb.addStatement(eci);
+            bb.addStatement(s);
+            if (recordAssignments != null) {
+                bb.addStatements(addIndices(recordAssignments, bb.statements().size(), n));
+            }
+            builder.setMethodBody(bb.build());
+        } else if (e == null && eci != null) {
+            builder.setMethodBody(runtime.newBlockBuilder().addStatement(eci).build());
+        } else if (e == null && recordAssignments != null) {
+            builder.setMethodBody(runtime.newBlockBuilder()
+                    .addStatements(addIndices(recordAssignments, 0, n))
+                    .build());
+        } else {
+            // in Java, we must have a block
+            builder.setMethodBody(runtime.emptyBlock());
+        }
+    }
+
+    private int countTopLevelStatements(Object unparsedEci, Object expression) {
+        int n = unparsedEci instanceof ExplicitConstructorInvocation ? 1 : 0;
+        Node node = (Node) expression;
+        if (node instanceof CompactConstructorDeclaration || node instanceof CodeBlock) {
+            n += node.childrenOfType(org.parsers.java.ast.Statement.class).size();
+        } else if (node instanceof org.parsers.java.ast.Statement) {
+            n += 1;
+            while (node.nextSibling() instanceof org.parsers.java.ast.Statement st) {
+                n += 1;
+                node = st;
+            }
+        } else if (node instanceof org.parsers.java.ast.Expression) {
+            ++n;
+        } else if (node != null) {
+            throw new UnsupportedOperationException();
+        }
+        return n;
+    }
+
+    // each statement must have an index
+    private List<Statement> addIndices(List<Statement> statements, int start, int n) {
+        AtomicInteger count = new AtomicInteger(start);
+        return statements.stream().map(s -> (Statement) ((ExpressionAsStatement) s)
+                        .withSource(runtime.newParserSource(pad(count.getAndIncrement(), n),
+                                0, 0, 0, 0)))
+                .toList();
+    }
+
+    /*
+    we have and the potential "ECI" to deal with, and the fact that sometimes, multiple
+    ExpressionStatements can replace a CodeBlock (no idea why, but we need to deal with it)
+    See TestExplicitConstructorInvocation.
+     */
+    private Element parseStatements(Context context,
+                                    ForwardType forwardType,
+                                    Object expression,
+                                    boolean haveEci,
+                                    int n) {
+        int start = haveEci ? 1 : 0;
+        if (expression instanceof org.parsers.java.ast.Statement est) {
+            return parseStatements(context, est, start, n);
+        }
+        if (expression != null) {
+            return parseExpression(context, pad(start, n), forwardType, expression);
+        }
+        return null;
+    }
+
+    private Statement parseStatements(Context context, org.parsers.java.ast.Statement first, int start, int n) {
+        Statement firstStatement = parsers.parseStatement().parse(context, pad(start, n), first);
+
+        List<org.parsers.java.ast.Statement> siblings = new ArrayList<>();
+        while (first.nextSibling() instanceof org.parsers.java.ast.Statement next) {
+            siblings.add(next);
+            first = next;
+        }
+        if (siblings.isEmpty()) {
+            return firstStatement;
+        }
+        Block.Builder b = runtime.newBlockBuilder();
+        b.addStatement(firstStatement);
+        for (org.parsers.java.ast.Statement es : siblings) {
+            ++start;
+            Statement s2 = parsers.parseStatement().parse(context, pad(start, n), es);
+            b.addStatement(s2);
+        }
+        return b.build();
+    }
+
+    private io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation parseEci(Context context,
+                                                                                         Object eciObject,
+                                                                                         int n) {
+        ExplicitConstructorInvocation unparsedEci = (ExplicitConstructorInvocation) eciObject;
+
+        ConstructorDeclaration cd = (ConstructorDeclaration) unparsedEci.getParent();
+        List<Comment> comments = parsers.parseStatement().comments(cd);
+        Source eciSource = parsers.parseStatement().source(pad(0, n), unparsedEci);
+        boolean isSuper = Token.TokenType.SUPER.equals(unparsedEci.getFirst().getType());
+
+        List<Object> unparsedArguments = new ArrayList<>();
+        int j = 1;
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        List<Node> commas = dsb == null ? null : new ArrayList<>();
+        if (unparsedEci.get(1) instanceof InvocationArguments ia) {
+            while (j < ia.size() && !(ia.get(j) instanceof Delimiter)) {
+                if (dsb != null && j + 1 < ia.size()
+                    && ia.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
+                unparsedArguments.add(ia.get(j));
+                j += 2;
+            }
+        } else throw new UnsupportedOperationException();
+        TypeInfo typeInfo = isSuper ? context.enclosingType().parentClass().typeInfo() : context.enclosingType();
+        ParameterizedType formalType = typeInfo.asParameterizedType();
+        // see TestMethodCall11,8; a super call
+        ParameterizedType expectedConcreteType;
+        if (isSuper) {
+            expectedConcreteType = context.enclosingType().parentClass();
+        } else {
+            expectedConcreteType = formalType;
+        }
+        Expression constructorCall = context.methodResolution().resolveConstructor(context, comments, eciSource,
+                pad(0, n), formalType, expectedConcreteType, runtime.diamondNo(), null, runtime.noSource(),
+                unparsedArguments, List.of(), true, false);
+        if (dsb != null) {
+            addCommaList(commas, dsb, DetailedSources.ARGUMENT_COMMAS);
+            Node last = ia.getLast();
+            assert last.getType() == Token.TokenType.RPAREN;
+            dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(last));
+        }
+        if (constructorCall instanceof ConstructorCall cc) {
+            assert cc.constructor() != null;
+            return runtime.newExplicitConstructorInvocationBuilder()
+                    .addComments(comments)
+                    .setSource(dsb == null ? eciSource : eciSource.withDetailedSources(dsb.build()))
+                    .setIsSuper(isSuper)
+                    .setMethodInfo(cc.constructor())
+                    .setParameterExpressions(cc.parameterExpressions())
+                    .build();
+        }
+        throw new UnsupportedOperationException("No ECI erasure yet");
+    }
+
+    @Override
+    public JavaDoc.Tag parseJavaDocReferenceInTag(Context context, Info info, JavaDoc.Tag tag) {
+        DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
+        JavaDoc.Tag newTag = parseJavaDocReferenceInTag(context, info, tag, detailedSourcesBuilder);
+        if (detailedSourcesBuilder != null) {
+            return newTag.withSource(tag.source().withDetailedSources(detailedSourcesBuilder.build()));
+        }
+        return newTag;
+    }
+
+    private JavaDoc.Tag parseJavaDocReferenceInTag(Context context, Info info, JavaDoc.Tag tag,
+                                                   DetailedSources.Builder detailedSourcesBuilder) {
+        int hash = tag.content().indexOf('#');
+        String packageOrType = (hash < 0 ? tag.content() : tag.content().substring(0, hash)).trim();
+        String memberDescriptor = hash < 0 ? null : tag.content().substring(hash + 1).trim();
+        NamedType namedType;
+        List<? extends NamedType> nts;
+        if (hash == 0) {
+            namedType = info.typeInfo();
+            nts = null;
+        } else {
+            nts = context.typeContext().getWithQualification(packageOrType, false);
+            namedType = nts == null ? null : nts.getLast();
+        }
+        if (namedType instanceof TypeInfo typeInfo) {
+            if (detailedSourcesBuilder != null && nts != null) {
+                addDetailedSources(tag, detailedSourcesBuilder, typeInfo, packageOrType);
+            }
+
+            if (memberDescriptor == null) {
+                return tag.withResolvedReference(typeInfo);
+            }
+            int open = memberDescriptor.indexOf('(');
+            String member;
+            List<String> parameterTypes;
+            List<TypeInfo> referencedParameterTypes = resolveReferencedParameterTypes(context, tag,
+                    detailedSourcesBuilder);
+            if (open < 0) {
+                member = memberDescriptor.trim();
+                parameterTypes = null;
+                Info resolved = typeInfo.getFieldByName(member, false);
+                if (resolved == null) {
+                    resolved = typeInfo.methodStream().filter(m -> m.name().equalsIgnoreCase(member))
+                            .findFirst().orElse(null);
+                }
+                if (resolved != null) {
+                    if (detailedSourcesBuilder != null) {
+                        // offset adds 1 extra for the '#' character itself
+                        detailedSourcesBuilder.put(resolved, makeSource(tag, member, hash + 1));
+                        detailedSourcesBuilder.put(resolved.simpleName(), makeSource(tag, member, hash + 1));
+                    }
+                    return tag.withResolvedReference(resolved)
+                            .withReferencedParameterTypes(referencedParameterTypes);
+                }
+            } else {
+                member = memberDescriptor.substring(0, open);
+                int close = memberDescriptor.indexOf(')', open + 1);
+                if (close < 0) return tag;// cannot continue, not legal
+                String parametersString = memberDescriptor.substring(open + 1, close);
+                if (parametersString.trim().isEmpty()) {
+                    parameterTypes = List.of();
+                } else {
+                    String[] paramStrings = parametersString.split(",\\s*");
+                    parameterTypes = new ArrayList<>(Arrays.asList(paramStrings));
+                }
+            }
+            MethodInfo methodInfo;
+            if (member.equals(typeInfo.simpleName())) {
+                methodInfo = typeInfo.constructors().stream()
+                        .filter(c -> parameterTypes == null || parameterTypesMatch(c.parameters(), parameterTypes))
+                        .findFirst().orElse(null);
+            } else {
+                methodInfo = typeInfo.methodStream()
+                        .filter(m -> member.equals(m.name()))
+                        .filter(m -> parameterTypes == null || parameterTypesMatch(m.parameters(), parameterTypes))
+                        .findFirst().orElse(null);
+            }
+            if (methodInfo != null && detailedSourcesBuilder != null) {
+                // offset adds 1 extra for the '#' character itself
+                detailedSourcesBuilder.put(methodInfo.name(), makeSource(tag, member, hash + 1));
+                detailedSourcesBuilder.put(methodInfo, makeSource(tag, tag.content().substring(hash + 1),
+                        hash + 1));
+            }
+            return tag.withResolvedReference(methodInfo)
+                    .withReferencedParameterTypes(referencedParameterTypes);
+        }
+        return tag;
+    }
+
+    /**
+     * The types named in a member reference's parameter list — the {@code P} of {@code {@link T#m(P)}}. The file
+     * needs {@code P} to resolve exactly as it needs {@code T}, so it is a genuine reference; see
+     * {@link JavaDoc.Tag#referencedParameterTypes()}. Mirrors the javac front end
+     * ({@code ResolveJavaDoc.resolveParameterTypes}), so both produce the same model.
+     * <p>
+     * Offsets are taken on the tag content, whose index 0 coincides with {@code sourceOfReference}'s start, and are
+     * only turned into tokens for a single-line reference: {@link #makeSource} shifts by COLUMNS, so a reference
+     * broken across lines would place the token on the wrong one.
+     */
+    private List<TypeInfo> resolveReferencedParameterTypes(Context context, JavaDoc.Tag tag,
+                                                           DetailedSources.Builder detailedSourcesBuilder) {
+        String content = tag.content();
+        int hash = content.indexOf('#');
+        int open = content.indexOf('(', Math.max(hash, 0));
+        int close = content.lastIndexOf(')');
+        if (open < 0 || close < open) return List.of();
+        Source src = tag.sourceOfReference();
+        boolean singleLine = src != null && src.beginLine() == src.endLine();
+        List<TypeInfo> result = new ArrayList<>();
+        int from = open + 1;
+        while (from < close) {
+            int comma = content.indexOf(',', from);
+            int end = comma < 0 || comma > close ? close : comma;
+            int start = from;
+            while (start < end && Character.isWhitespace(content.charAt(start))) start++;
+            // the name stops at '[' (array), '<' (generics), or whitespace (an optional parameter name follows)
+            int nameEnd = start;
+            while (nameEnd < end && !Character.isWhitespace(content.charAt(nameEnd))
+                   && content.charAt(nameEnd) != '[' && content.charAt(nameEnd) != '<') nameEnd++;
+            if (nameEnd > start) {
+                String name = content.substring(start, nameEnd);
+                List<? extends NamedType> nts = context.typeContext().getWithQualification(name, false);
+                NamedType nt = nts == null ? null : nts.getLast();
+                if (nt instanceof TypeInfo t && !t.isPrimitive()) {
+                    if (!result.contains(t)) result.add(t);
+                    if (detailedSourcesBuilder != null && singleLine) {
+                        detailedSourcesBuilder.put(t, makeSource(tag, name, start));
+                    }
+                }
+            }
+            from = end + 1;
+        }
+        return result;
+    }
+
+    private void addDetailedSources(JavaDoc.Tag tag,
+                                    DetailedSources.Builder detailedSourcesBuilder,
+                                    TypeInfo typeInfo,
+                                    String packageOrType) {
+        detailedSourcesBuilder.put(typeInfo, makeSource(tag, packageOrType, 0));
+        Source pkgNameSource = null;
+        List<DetailedSources.Builder.TypeInfoSource> associatedList = new ArrayList<>();
+
+        String[] split = packageOrType.split("\\.");
+        if (split.length > 1) {
+            TypeInfo ti = typeInfo.compilationUnitOrEnclosingType().isRight()
+                    ? typeInfo.compilationUnitOrEnclosingType().getRight() : null;
+            int i = split.length - 2;
+            while (i >= 0) {
+                if (ti == null) {
+                    // we're at the primary type now. If i>0, we have a package
+
+                    pkgNameSource = makeSource(tag, split, i);
+
+                    break;
+                }
+                // qualification
+                Source src = makeSource(tag, split, i);
+                DetailedSources.Builder.TypeInfoSource tis = new DetailedSources.Builder.TypeInfoSource(ti, src);
+                associatedList.add(tis);
+                ti = ti.compilationUnitOrEnclosingType().isRight() ? ti.compilationUnitOrEnclosingType().getRight()
+                        : null;
+                --i;
+            }
+        }
+
+        if (!associatedList.isEmpty()) {
+            detailedSourcesBuilder.putTypeQualification(typeInfo, List.copyOf(associatedList));
+        }
+        if (pkgNameSource != null) {
+            detailedSourcesBuilder.put(typeInfo.packageName(), pkgNameSource);
+        }
+    }
+
+    private Source makeSource(JavaDoc.Tag tag, String packageOrType, int offset) {
+        Source source = tag.sourceOfReference();
+        int beginContent = offset + source.beginPos();
+        int endPos = beginContent + packageOrType.length() - 1;
+        return runtime.newParserSource(source.index(), source.beginLine(), beginContent, source.endLine(), endPos);
+    }
+
+    private Source makeSource(JavaDoc.Tag tag, String[] split, int i) {
+        Source source = tag.sourceOfReference();
+        int endPos = source.beginPos() - 1;
+        for (int j = 0; j <= i; ++j) {
+            endPos += split[j].length() + 1;
+        }
+        --endPos;
+        return runtime.newParserSource(source.index(), source.beginLine(), source.beginPos(), source.endLine(), endPos);
+    }
+
+    private boolean parameterTypesMatch(List<ParameterInfo> parameters, List<String> parameterTypes) {
+        if (parameters.size() != parameterTypes.size()) return false;
+        for (ParameterInfo pi : parameters) {
+            String typeString = parameterTypes.get(pi.index());
+            if (!parameterTypeMatch(pi.parameterizedType(), typeString)) return false;
+        }
+        return true;
+    }
+
+    private boolean parameterTypeMatch(ParameterizedType parameterizedType, String typeString) {
+        if (parameterizedType.typeParameter() != null) {
+            String print1 = parameterizedType.print(runtime.qualificationFullyQualifiedNames(),
+                    false, runtime.diamondNo()).toString();
+            if (print1.equals(typeString)) return true;
+            // type parameter, maybe written as T... instead of T[]
+            return parameterizedType.arrays() > 0 && parameterizedType.print(runtime.qualificationFullyQualifiedNames(),
+                    true, runtime.diamondNo()).toString().equals(typeString);
+        }
+        String typeInfoFqn = parameterizedType.typeInfo().fullyQualifiedName();
+        if (typeString.equals(typeInfoFqn)) return true;
+        if (typeString.equals(parameterizedType.typeInfo().simpleName())) return true;
+        return typeString.equals(parameterizedType.typeInfo().fromPrimaryTypeDownwards());
+    }
+}

@@ -45,17 +45,17 @@
    <extension point="org.eclipse.ui.commands">
       <command id="io.codelaser.maddi.eclipse.analyze"
                name="Analyze with maddi"
-               defaultHandler="org.e2immu.analyzer.ide.eclipse.AnalyzeMaddiHandler"/>
+               defaultHandler="io.codelaser.maddi.ide.eclipse.AnalyzeMaddiHandler"/>
    </extension>
 
    <!-- Daemon settings under Window → Preferences → maddi. -->
    <extension point="org.eclipse.core.runtime.preferences">
-      <initializer class="org.e2immu.analyzer.ide.eclipse.MaddiPreferenceInitializer"/>
+      <initializer class="io.codelaser.maddi.ide.eclipse.MaddiPreferenceInitializer"/>
    </extension>
    <extension point="org.eclipse.ui.preferencePages">
       <page id="io.codelaser.maddi.eclipse.preferences"
             name="maddi"
-            class="org.e2immu.analyzer.ide.eclipse.MaddiPreferencePage"/>
+            class="io.codelaser.maddi.ide.eclipse.MaddiPreferencePage"/>
    </extension>
 
    <!-- The navigable findings view (Window → Show View → maddi → maddi Findings). -->
@@ -64,7 +64,7 @@
       <view id="io.codelaser.maddi.eclipse.findingsView"
             name="maddi Findings"
             category="io.codelaser.maddi.eclipse"
-            class="org.e2immu.analyzer.ide.eclipse.MaddiFindingsView"/>
+            class="io.codelaser.maddi.ide.eclipse.MaddiFindingsView"/>
    </extension>
 
    <!-- Right-click a Java project → Analyze with maddi. -->
@@ -92,7 +92,7 @@
         gates all minings in its editor on Java > Editor > Code Minings > Enable code minings. -->
    <extension point="org.eclipse.ui.workbench.texteditor.codeMiningProviders">
       <codeMiningProvider
-            class="org.e2immu.analyzer.ide.eclipse.MaddiCodeMiningProvider"
+            class="io.codelaser.maddi.ide.eclipse.MaddiCodeMiningProvider"
             id="io.codelaser.maddi.eclipse.codemining.hints"
             label="maddi analysis hints">
          <enabledWhen>

@@ -41,7 +41,7 @@ maddi_java_test(
     name = "maddi-modification-prepwork_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.analyzer.modification.prepwork"],
+    test_packages = ["io.codelaser.maddi.modification.prepwork"],
     deps = [
         # the main library and its dependencies
         ":maddi-modification-prepwork",

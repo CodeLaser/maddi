@@ -1,0 +1,2002 @@
+package io.codelaser.maddi.java.openjdk;
+
+import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.*;
+import com.sun.tools.javac.tree.JCTree;
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.*;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.type.Wildcard;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
+import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import io.codelaser.maddi.inspection.resource.InfoByFqn;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.util.Elements;
+import javax.tools.JavaFileObject;
+import java.io.File;
+import java.io.IOException;
+import java.net.JarURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+public class ClassSymbolScanner implements ConvertType, TypeData {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
+    private final Runtime runtime;
+    private final FlagHelper flagHelper;
+    private final Elements elements;
+    private final Types types;
+    private final SourceSet sourceSetOfCurrentTask;
+    private final Set<TypeInfo> recursionPrevention = new HashSet<>();
+    // loadType is reachable more than once per type (LAZILY then LOAD_MEMBERS); annotations are appended, so
+    // guard the type-level add to run exactly once
+    private final Set<TypeInfo> typeAnnotationsLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
+    // interfaces are likewise appended (addInterfaceImplemented), so a second pass would duplicate them: guard too
+    private final Set<TypeInfo> typeInterfacesLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
+    // the type-setup block (access, type parameters, parent class, interfaces) must run exactly once per type,
+    // and BEFORE the type is committed. Normally a LAZILY load does it and a later COMPLETE relies on that; but a
+    // type reached only via bytecode (e.g. a transitively-referenced JDK internal) can arrive at COMPLETE without a
+    // prior LAZILY, leaving parentClass/access null -> commit fails. The guard lets COMPLETE run the setup when it
+    // was skipped, while never running it twice (which would re-create/commit type parameters and duplicate the
+    // appended interfaces/annotations). It lives on the shared InfoByFqn -- NOT here -- because TypeInfo instances
+    // outlive any single scanner: a fresh scanner (next parse's on-demand load) must see a prior scanner's setup as
+    // already done. See InfoByFqn.markClassScannerSetupDone.
+    private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
+    private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
+    private final Map<String, SourceSet> sourceSetMap;
+    private final Map<String, SourceSet> sourceSetDirPrefixes;
+    private final ComputeMethodOverrides computeMethodOverrides;
+    private final MaddiDiagnosticCollector diagnosticCollector;
+    // when non-null, supplies faithful formal parameter names for class-file methods (javac only gives arg0,...)
+    private final ParameterNameIndex parameterNameIndex;
+    // "we're working with JDK internals": when true, jdk.internal.* types are loaded from bytecode like any other
+    // type (nature/parent/access set) instead of being left as bare stubs. Needed to analyze code that uses JDK
+    // internals (e.g. the java.net.http sources, for hint deduction).
+    private final boolean jdkInternals;
+
+    // when true, java.util.List.get/set receive a synthetic '_synthetic_list' element field (array-access
+    // standardization); see JavaInspector.ParseOptions.syntheticListField and CreateSyntheticFieldsForGetSet
+    private final boolean syntheticListField;
+
+    public boolean syntheticListField() {
+        return syntheticListField;
+    }
+
+    private final InfoByFqn infoByFqn; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
+    private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
+    private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
+    private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
+    private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
+
+    // not thread-safe: set for each compilation unit
+    private SourceProvider sourceProvider;
+    private ElementStack elementStack;
+    private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
+    // source-file URI -> its CompilationUnit, built up front by ScanCompilationUnits before any body is scanned;
+    // lets a source type referenced before its own scan load onto its real (source-bearing) CU (see
+    // lazilyLoadPrimaryTypeFromClassFile) instead of a source-less twin
+    private final Map<URI, CompilationUnit> sourceCompilationUnits = new HashMap<>();
+
+    public void registerSourceCompilationUnit(CompilationUnit compilationUnit) {
+        if (compilationUnit != null && compilationUnit.uri() != null) {
+            sourceCompilationUnits.put(compilationUnit.uri(), compilationUnit);
+        }
+    }
+
+    public enum LoadMode {
+        LOAD_MEMBERS, // load everything immediately, and commit
+        LAZILY,  // only load what is required, and store in "loaded"
+        COMPLETE, // uses to complete a lazily loaded type; check with "loaded"
+        COMPLETE_SUB,
+    }
+
+    public ClassSymbolScanner(Runtime runtime,
+                              InputConfiguration inputConfiguration,
+                              InfoByFqn infoByFqn,
+                              SourceSet sourceSetOfCurrentTask,
+                              FlagHelper flagHelper,
+                              Types types,
+                              Elements elements,
+                              MaddiDiagnosticCollector maddiDiagnosticCollector,
+                              @Nullable ParameterNameIndex parameterNameIndex,
+                              boolean jdkInternals,
+                              boolean syntheticListField) {
+        this.runtime = runtime;
+        this.flagHelper = flagHelper;
+        this.elements = elements;
+        this.types = types;
+        this.infoByFqn = Objects.requireNonNull(infoByFqn);
+        this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
+        assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
+        this.diagnosticCollector = maddiDiagnosticCollector;
+        this.parameterNameIndex = parameterNameIndex;
+        this.jdkInternals = jdkInternals;
+        this.syntheticListField = syntheticListField;
+        this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime, syntheticListField);
+
+        runtime.predefinedObjects().forEach(pd -> predefinedTypes.put(pd.simpleName(), pd));
+
+        Map<String, SourceSet> map = new HashMap<>();
+        Map<String, SourceSet> prefixes = new HashMap<>();
+        for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
+            map.put(sourceSet.name(), sourceSet);
+        }
+        for (SourceSet cpp : inputConfiguration.classPathParts()) {
+            SourceSet toAdd;
+            // the selector may sit on the name or on the URI; see InputConfiguration#jarOnClasspathSelector
+            String selector = InputConfiguration.jarOnClasspathSelector(cpp);
+            if (selector != null) {
+                toAdd = resolveJarOnClassPath(cpp, selector, prefixes);
+            } else {
+                toAdd = cpp;
+                if (cpp.externalLibrary() && "file".equals(cpp.uri().getScheme())) {
+                    Path path = Path.of(cpp.uri());
+                    if (Files.isDirectory(path)) {
+                        try {
+                            prefixes.put(path.toRealPath().toAbsolutePath().toString(), cpp);
+                        } catch (IOException ioe) {
+                            throw new UnsupportedOperationException("Cannot discover real path of " + path);
+                        }
+                    }
+                }
+            }
+            map.put(toAdd.name(), toAdd);
+        }
+        sourceSetMap = Map.copyOf(map);
+        sourceSetDirPrefixes = Map.copyOf(prefixes);
+    }
+
+    // A 'jar-on-classpath:<selector>' entry does not carry the physical identity of the library: the selector is a
+    // package folder (e.g. org/junit/jupiter/api) whose containing jar sits on this process' classpath, but its
+    // filename and version are unknown until we look. Resolve it here, once, to that real location -- exactly as a
+    // class-directory entry is resolved to its real path just above -- so that ensureSourceSet can later match the
+    // source set by the jar name (or directory) javac reports for a loaded class. A selector that does not resolve
+    // to a folder (e.g. one given directly as a jar filename, the other accepted form) keeps its text as the name.
+    private SourceSet resolveJarOnClassPath(SourceSet cpp, String selector, Map<String, SourceSet> prefixes) {
+        File jar = jarOnClassPathFile(selector);
+        if (jar != null) {
+            return new SourceSetImpl.Builder(cpp).setName(jar.getName()).setUri(jar.toURI()).build();
+        }
+        URL url = resolveOnClassPath(selector);
+        if (url != null && "file".equals(url.getProtocol())) {
+            registerExplodedClassDirectory(cpp, selector, url, prefixes);
+        }
+        return new SourceSetImpl.Builder(cpp).setName(selector).build();
+    }
+
+    // The real jar file backing a 'jar-on-classpath:<selector>' entry, or null if the selector does not resolve to
+    // a jar on this process' classpath. Used both to name the source set (attribution) and to place the jar on
+    // javac's compile classpath (JavaInspectorImpl).
+    public static File jarOnClassPathFile(String selector) {
+        URL url = resolveOnClassPath(selector);
+        if (url != null && "jar".equals(url.getProtocol())) {
+            try {
+                return new File(((JarURLConnection) url.openConnection()).getJarFileURL().toURI());
+            } catch (IOException | URISyntaxException e) {
+                LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a jar: {}", selector, e.toString());
+            }
+        }
+        return null;
+    }
+
+    // The selector resolves to loose .class files in a directory (an exploded classpath). Register the directory
+    // that roots the selector's package folder as a prefix, mirroring the class-directory handling in ensureSourceSet.
+    private void registerExplodedClassDirectory(SourceSet cpp, String selector, URL url, Map<String, SourceSet> prefixes) {
+        try {
+            Path root = Path.of(url.toURI());
+            for (int i = selector.split("/").length; i > 0 && root != null; i--) {
+                root = root.getParent();
+            }
+            if (root != null) {
+                prefixes.put(root.toRealPath().toAbsolutePath().toString(), cpp);
+            }
+        } catch (IOException | URISyntaxException e) {
+            LOGGER.warn("Cannot resolve jar-on-classpath selector {} to a directory: {}", selector, e.toString());
+        }
+    }
+
+    private static URL resolveOnClassPath(String selector) {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        URL url = contextClassLoader == null ? null : contextClassLoader.getResource(selector);
+        return url != null ? url : ClassSymbolScanner.class.getClassLoader().getResource(selector);
+    }
+
+    TypeInfo lazilyLoadTypeFromClassFile(Symbol.ClassSymbol cs) {
+        switch (cs.owner) {
+            case Symbol.PackageSymbol _ -> {
+                return lazilyLoadPrimaryTypeFromClassFile(cs);
+            }
+            case Symbol.ClassSymbol enclosedSymbol -> {
+                TypeInfo owner = convert(enclosedSymbol.type).typeInfo();
+                String simpleName = cs.getSimpleName().toString();
+                TypeInfo inMap = owner.findSubType(simpleName, false);
+                if (inMap == null) {
+                    TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
+                    // a member type of an ANONYMOUS class can arrive here through a stub owner (the anonymous
+                    // symbol resolves before its declaration is linked), so findSubType misses even though the
+                    // source scan already registered the member under the same derived FQN (elasticsearch
+                    // BinaryFieldMapperTests.$13.BytesCompareUnsigned). Reuse the registered type instead of
+                    // colliding in InfoByFqn ('Duplicating type').
+                    TypeInfo registered = getType(enclosed.fullyQualifiedName());
+                    if (registered != null) return registered;
+                    // note: first put the type in typeData, only then load it... self-references are common!
+                    put(enclosed);
+                    loadType(cs, enclosed, LoadMode.LAZILY);
+                    owner.builder().addSubType(enclosed);
+                    return enclosed;
+                }
+                return inMap;
+            }
+            case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
+
+            case null -> throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
+            default -> {
+                if (cs.owner.kind == Kinds.Kind.NIL) {
+                    // ⚠ NAME THE SUBJECT. javac's error symbol for a type it could not resolve carries an
+                    // EMPTY name, so this used to read "Type  not found" -- an error that cannot say what it
+                    // failed on. Measured on trino 2026-08-13: two units dropped with exactly that text and
+                    // nothing else to go on. Report the symbol's kind and owner too, so a blank name is still
+                    // actionable.
+                    throw new UnresolvedSymbolException("Type '" + cs.fullname + "' not found"
+                                                        + " [symbol kind " + cs.kind
+                                                        + ", class " + cs.getClass().getSimpleName()
+                                                        + ", owner " + cs.owner + " kind " + cs.owner.kind + "]");
+                }
+                throw new UnsupportedOperationException();
+            }
+        }
+    }
+
+    // A method-owned anonymous class whose declaration is not (yet) known: create a minimal stub so a reference
+    // to it (e.g. a member reference whose inferred type is the anonymous, resolved before the anonymous's own
+    // 'new(){}' node is scanned) resolves. If the declaration is already known, reuse it. The stub is deliberately
+    // NOT registered: the source scan of the declaration (ScanCompilationUnit.visitNewClass) owns the definitive
+    // registration, and registering here would collide with it ('Duplicating type').
+    private TypeInfo anonymousTypeStub(Symbol.ClassSymbol cs) {
+        TypeInfo existing = getType(cs.toString());
+        if (existing == null) existing = getType(cs.flatName().toString());
+        if (existing != null) return existing;
+        String flat = cs.flatName().toString();
+        String packageName = cs.packge().toString();
+        CompilationUnit cu;
+        if (cs.classfile != null) {
+            URI uri = cs.classfile.toUri();
+            SourceSet sourceSet = ensureSourceSet(cs, uri);
+            cu = sourceSet == null
+                    ? runtime.newCompilationUnitStub(packageName) // off-classpath jar: a minimal stub, as when there is no class file
+                    : runtime.newCompilationUnitBuilder().setPackageName(packageName)
+                    .setSourceSet(sourceSet).setURI(uri).build();
+        } else {
+            cu = runtime.newCompilationUnitStub(packageName);
+        }
+        TypeInfo stub = runtime.newTypeInfo(cu, flat.substring(flat.lastIndexOf('.') + 1));
+        stub.builder().setTypeNature(runtime.typeNatureClass()).setParentClass(runtime.objectParameterizedType());
+        return stub;
+    }
+
+    TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
+        String simpleName = cs.name.toString();
+        assert cs.owner instanceof Symbol.PackageSymbol;
+        String packageName = cs.owner.toString();
+        TypeInfo newTypeInfo;
+        boolean internal;
+        TypeInfo predefinedType;
+        if ("java.lang".equals(packageName) && (predefinedType = predefinedTypes.get(simpleName)) != null) {
+            newTypeInfo = predefinedType;
+            internal = false;
+        } else {
+            try {
+                cs.complete();
+            } catch (Symbol.CompletionFailure completionFailure) {
+                diagnosticCollector.reportMissingClassFile(completionFailure);
+            }
+            URI uri;
+            CompilationUnit cu;
+            CompilationUnit registeredSourceCu = cs.sourcefile == null ? null
+                    : sourceCompilationUnits.get(cs.sourcefile.toUri());
+            CompilationUnit currentCu = sourceProvider == null ? null : sourceProvider.currentCompilationUnit();
+            if (registeredSourceCu != null) {
+                // a source type referenced before (or while) its own source is scanned: reuse the source
+                // CompilationUnit built up front for that file (it carries the file's source), so this lazy load
+                // does not mint a source-less twin CompilationUnit that the source scan would later reuse
+                cu = registeredSourceCu;
+                internal = false;
+            } else if (currentCu != null && cs.sourcefile != null && cs.sourcefile.toUri().equals(currentCu.uri())) {
+                // a forward reference (an 'extends'/'implements' naming a type declared later in the same source file
+                // being scanned): reuse that file's CompilationUnit, so all its top-level types share one instance
+                // rather than this load minting a second, equal-but-not-identical one
+                cu = currentCu;
+                internal = false;
+            } else if (cs.classfile == null) {
+                LOGGER.warn("Creating stub type for {}", cs);
+                cu = runtime.newCompilationUnitStub(packageName);
+                internal = false;
+            } else {
+                // jdk.internal.* is normally left as a stub (not loaded); with the JDK-internals flag we load it
+                // like any other class-file type, so its nature/parent/access are set and referencing types commit.
+                internal = !jdkInternals && cs.packge().toString().startsWith("jdk.internal.");
+                if (internal) {
+                    uri = URI.create("jrt:/internal/");
+                } else {
+                    uri = cs.classfile.toUri();
+                }
+                SourceSet sourceSet = ensureSourceSet(cs, uri);
+                if (sourceSet == null) {
+                    // off-classpath jar (see ensureSourceSet): report a miss rather than minting an unusable type
+                    return null;
+                }
+                cu = runtime.newCompilationUnitBuilder()
+                        .setPackageName(packageName)
+                        .setSourceSet(sourceSet)
+                        .setURI(uri)
+                        .build();
+            }
+            newTypeInfo = runtime.newTypeInfo(cu, simpleName);
+        }
+        put(newTypeInfo);
+        if (internal) {
+            // ⛔ A STUB STILL HAS TO ANSWER THE FIRST QUESTION ASKED OF IT. Skipping loadType is the point of
+            // this branch, but it left typeNature and parentClass NULL, and the very next thing anyone does
+            // with a type is ask what kind it is: addMethodToType calls isInterface() to pick the method type,
+            // and TypeInfoImpl.isInterface() asserts rather than guessing.
+            // ⚠ Measured on pulsar 5.0.0-M1, 2026-08-12: testmocks' PulsarMockBookKeeperReadEvent extends
+            // jdk.jfr.Event, whose supertype IS jdk.internal.event.Event, so loading the JFR type reaches the
+            // internal one and the parse died with "Type nature of jdk.internal.event.Event has not been set".
+            // One unloadable JDK-internal supertype dropped the compilation unit -- and, because the SERVER
+            // refuses a parse with any error at all, the whole project with it.
+            // ⇒ Give the stub the same minimal shape anonymousTypeStub() already gives its own (nature +
+            // Object parent), from the symbol's flags via the ONE definition of that rule. Deliberately NOT
+            // committed: addMethodToType refuses an inspected type, and members may still be attached here.
+            newTypeInfo.builder()
+                    .setTypeNature(flagHelper.typeNature(cs))
+                    .setParentClass(runtime.objectParameterizedType());
+        } else {
+            loadType(cs, newTypeInfo, LoadMode.LAZILY);
+        }
+        return newTypeInfo;
+    }
+
+    /**
+     * GAP #150. Compute the access of the enclosing chain TOP-DOWN, for ancestors that are mid-load on this
+     * very stack, so that {@code computeAccess} of {@code typeInfo} finds a non-null enclosing access.
+     * <p>
+     * Top-down is the whole point: {@code computeAccess} combines the enclosing's access with its own
+     * modifiers, so an inner one cannot be computed before its outer one.
+     * <p>
+     * ⚠ WHY THIS IS SAFE HERE, WHERE THE GAP RECORD SAID IT WOULD NOT BE. The record objected that computing
+     * an enclosing on demand may read {@code typeModifiers} that are not set yet, silently yielding PACKAGE.
+     * On this path {@code flagHelper.type(cs, builder)} runs BEFORE the pre-load, so any ancestor that is
+     * mid-load has its modifiers already final — and {@code recursionPrevention} is exactly the set of
+     * types that are mid-load. An ancestor that is neither computed nor mid-load has NOT had its flags set,
+     * so we compute nothing and let {@code computeAccess} throw with the type named: refusing to guess is
+     * better than a silent PACKAGE.
+     * <p>
+     * Recomputation is idempotent: the ancestor's own {@code loadType} reaches {@code computeAccess} later
+     * with the same modifiers and the same enclosing access, so it sets the identical value.
+     */
+    private void ensureEnclosingAccess(TypeInfo typeInfo) {
+        List<TypeInfo> missing = new ArrayList<>();
+        TypeInfo t = typeInfo;
+        while (t.compilationUnitOrEnclosingType().isRight()) {
+            t = t.compilationUnitOrEnclosingType().getRight();
+            // an ancestor with an access implies all of ITS ancestors have one, by construction of computeAccess
+            if (t.access() != null) break;
+            missing.add(t);
+        }
+        for (TypeInfo ancestor : missing.reversed()) {
+            if (ancestor.access() != null) continue;
+            if (!recursionPrevention.contains(ancestor)) return;
+            ancestor.builder().computeAccess();
+        }
+    }
+
+    void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
+        if (cs == null) return;
+        if (newTypeInfo.hasBeenInspected()) return;
+        LOGGER.debug("Enter loadType: {} {}", newTypeInfo, loadMode);
+        TypeInfo.Builder builder = newTypeInfo.builder();
+
+        if (recursionPrevention.add(newTypeInfo)) {
+            //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
+            List<? extends Element> members = elements.getAllMembers(cs);
+            flagHelper.type(cs, builder);
+            if (infoByFqn.markClassScannerSetupDone(newTypeInfo)) {
+                // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
+                // as soon as possible
+                if (newTypeInfo.compilationUnitOrEnclosingType().isRight()) {
+                    if (cs.owner instanceof Symbol.ClassSymbol enclosing) {
+                        loadType(enclosing, newTypeInfo.compilationUnitOrEnclosingType().getRight(), LoadMode.LAZILY);
+                    }
+                    // GAP #150. The pre-load above is a NO-OP in exactly the one case it exists for: when the
+                    // enclosing type is an ANCESTOR ALREADY ON THIS STACK, `recursionPrevention.add` returns
+                    // false and the whole body -- including its own computeAccess -- is skipped, so the
+                    // enclosing's access stays null and the computeAccess below throws.
+                    // That happens because line 421's `convert(cs.getSuperclass())` reaches back DOWN into a
+                    // nested type: for `Subject extends Base<Subject.Outer.Inner>`, loading Outer pre-loads
+                    // Subject, whose supertype clause resolves the type argument Inner, whose own pre-load of
+                    // Outer is the no-op. ⇒ the enclosing chain is established UPWARD while the supertype
+                    // conversion re-enters DOWNWARD past the type we are in the middle of.
+                    ensureEnclosingAccess(newTypeInfo);
+                }
+                builder.computeAccess();
+                if (typeAnnotationsLoaded.add(newTypeInfo)) {
+                    builder.addAnnotations(loadAnnotations(cs));
+                }
+
+                newTypeParameterMap();
+                // Do not overwrite type parameters the SOURCE scan has already built. A nested type resolved
+                // from a class file is lazily loaded, and loading it lazily loads its enclosing type (the block
+                // just above) -- which may be a type this very task has already visited as source. Its type
+                // parameters then carry the declaration's position and its bounds as written, and the
+                // symbol-built replacements would carry neither: no source at all, and every bound widened with
+                // '? extends' by addTypeBoundsAndCommit. addOrSetTypeParameter REPLACES by index, so without
+                // this the later symbol view silently wins over the earlier source view.
+                //
+                // Measured before the guard: 37 of guava's 698 generic types and 74 of timefold's 1469 -- all
+                // of them types with a nested type, which is the shape that reaches here (Equivalence, HashBiMap,
+                // BloomFilter, Invokable). The mirror of the method-type-parameter case, where the symbol view
+                // came FIRST and could not be replaced; see docs/method-type-parameter-source-loss.md.
+                //
+                // Conservative: only when every one of them is source-built, and only when the counts agree.
+                // Anything else falls through to the symbol path exactly as before.
+                boolean keepSourceBuilt = !newTypeInfo.typeParameters().isEmpty()
+                                          && newTypeInfo.typeParameters().size() == cs.getTypeParameters().size()
+                                          && newTypeInfo.typeParameters().stream().allMatch(tp -> tp.source() != null);
+                if (keepSourceBuilt) {
+                    // still register them, so that the supertype/interface conversions below resolve their
+                    // type variables against the instances the type actually holds
+                    newTypeInfo.typeParameters().forEach(this::putInLastTypeParameterMap);
+                } else {
+                    int index = 0;
+                    List<TypeParameter> created = new ArrayList<>();
+                    for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                        TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
+                        putInLastTypeParameterMap(newTp);
+                        created.add(newTp);
+                        builder.addOrSetTypeParameter(newTp);
+                    }
+                    int i = 0;
+                    for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                        TypeParameter newTp = created.get(i++);
+                        addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
+                    }
+                }
+                popTypeParameterMap();
+
+                ParameterizedType superType = convert(cs.getSuperclass());
+                if (!newTypeInfo.isJavaLangObject()) {
+                    ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
+                    assert parentClass != null;
+                    builder.setParentClass(parentClass);
+                }
+                // Do not load the interfaces of a *source* type here: when such a type is referenced before its own
+                // source is scanned, the class scanner reaches it (via lazilyLoadTypeFromClassFile), and then
+                // ScanCompilationUnit also adds the interfaces from source -- since addInterfaceImplemented appends,
+                // the result is a duplicated interface list. A source type's hierarchy is owned by ScanCompilationUnit
+                // (annotations already have this guard: loadAnnotations() returns empty for source symbols).
+                // The typeInterfacesLoaded set additionally guards the LAZILY-then-LOAD_MEMBERS re-entry for genuine
+                // class-file types (a single TypeInfo whose interface block runs twice in one scan).
+                // STOPGAP: the proper fix is a linear inspection-state on the builder (DEFINED_BY_CLASS_SCANNER vs
+                // DEFINED_IN_SOURCE), which would make the double-load impossible (and assertable) rather than guarded.
+                if (!isSourceSymbol(cs) && typeInterfacesLoaded.add(newTypeInfo)) {
+                    for (Type type : cs.getInterfaces()) {
+                        ParameterizedType pt = convert(type);
+                        builder.addInterfaceImplemented(pt);
+                    }
+                }
+            }
+
+            if (loadMode != LoadMode.LAZILY) {
+                for (var member : members) {
+                    addMemberToType(newTypeInfo, cs, member, loadMode);
+                }
+
+                MethodInfo singleAbstractMethod = computeSAM(cs.type);
+                builder.setSingleAbstractMethod(singleAbstractMethod);
+
+                if (newTypeInfo.typeNature().isInterface() || newTypeInfo.typeNature().isClass()
+                                                              && builder.isAbstract()) {
+                    createSyntheticFieldsForGetSet.createSyntheticFields(newTypeInfo);
+                }
+                builder.commit();
+            }
+            recursionPrevention.remove(newTypeInfo);
+        }
+    }
+
+    private void addTypeBoundsAndCommit(Symbol.ClassSymbol cs,
+                                        TypeInfo newTypeInfo,
+                                        Symbol.TypeVariableSymbol typeParameter,
+                                        TypeParameter newTp) {
+        List<ParameterizedType> bounds = new ArrayList<>();
+        if (typeParameter.type instanceof Type.TypeVar tv) {
+            // the LOWER bound is never null: every javac TypeVar constructor does Assert.checkNonNull(lower), and a
+            // type variable without a 'super' bound gets syms.botType, whose kind is NULL. The UPPER bound is a
+            // different matter entirely -- see upperBoundOrUnresolved.
+            Type lowerBound = tv.getLowerBound();
+            if (lowerBound.getKind() != TypeKind.NULL) {
+                throw new UnsupportedOperationException();
+            } else {
+                Type upperBound = upperBoundOrUnresolved(tv,
+                        "type parameter '" + newTp.simpleName() + "' of " + newTypeInfo);
+                if (upperBound.getKind() != TypeKind.NULL) {
+                    if (upperBound.tsym == cs) {
+                        // self reference, as in java.lang.Enum<E extends Enum<E>>
+                        bounds.add(runtime.newParameterizedType(newTypeInfo,
+                                newTp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList()));
+                    } else if (upperBound instanceof Type.ClassType ct) {
+                        if (ct instanceof Type.IntersectionClassType ict) {
+                            for (Type type : ict.getExplicitComponents()) {
+                                ParameterizedType pt = convert(type);
+                                if (!pt.isJavaLangObject()) {
+                                    bounds.add(pt.withWildcard(runtime.wildcardExtends()));
+                                }
+                            }
+                        } else {
+                            ParameterizedType upper = convert(ct);
+                            if (!upper.isJavaLangObject()) {
+                                bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                            }
+                        }
+                    } else if (upperBound instanceof Type.TypeVar tv2) {
+                        ParameterizedType upper = convert(tv2);
+                        if (!upper.isJavaLangObject()) {
+                            bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                        }
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+            }
+        }
+        newTp.builder().addAnnotations(loadAnnotations(typeParameter)).setTypeBounds(List.copyOf(bounds)).commit();
+    }
+
+    /**
+     * A type variable's upper bound, guaranteed non-null.
+     * <p>
+     * ⛔ {@code Type.TypeVar.getUpperBound()} is a bare field read — there is no lazy completion behind it — and the
+     * field starts out <b>null</b>: {@code TypeVar(Name, Symbol, Type lower)} explicitly calls
+     * {@code setUpperBound(null)}, and the bound is filled in a later pass ({@code ClassReader.sigToTypeParams}'
+     * second phase for a class-file type, {@code TypeEnter.HeaderPhase} for a source type). So a null here says
+     * "the declaring symbol's header has not been attributed", which happens for two very different reasons:
+     * <ol>
+     *   <li>it simply has not been completed yet — completing the owner fills the bound, so that is tried first;</li>
+     *   <li>its header <em>cannot</em> be attributed, because a supertype or a bound did not resolve. javac has
+     *       already reported "cannot find symbol" / "package X does not exist" for it, and the type variable stays
+     *       bound-less for the rest of the run.</li>
+     * </ol>
+     * ⛔ Case 2 must NOT be turned into an empty bound list, which is what a plain null-guard here would produce:
+     * {@code T extends Selector<…>} would silently become an unbounded {@code T}, and every assignability answer
+     * derived from it would widen — a wrong result no gate can see. It is an unresolved symbol, so it is reported as
+     * one ({@link UnresolvedSymbolException}): the compilation unit is dropped with a warning naming the type
+     * parameter, the run proceeds over what did resolve, and the diagnostic points at the classpath instead of at
+     * this scanner.
+     * <p>
+     * Found on a timefold corpus whose parse configuration predated a module split, so three modules were compiled
+     * without the module holding their supertypes: 3 units died on {@code "upperBound" is null} /
+     * {@code "type" is null} (the latter being this same null one frame on, inside {@link #convert}), where the
+     * remaining 11 were already dropped as unresolved symbols.
+     */
+    private Type upperBoundOrUnresolved(Type.TypeVar tv, String context) {
+        Type upperBound = tv.getUpperBound();
+        if (upperBound != null) return upperBound;
+        Symbol owner = tv.tsym == null ? null : tv.tsym.owner;
+        if (owner != null) {
+            try {
+                owner.complete();
+            } catch (Symbol.CompletionFailure completionFailure) {
+                diagnosticCollector.reportMissingClassFile(completionFailure);
+            }
+            upperBound = tv.getUpperBound();
+            if (upperBound != null) return upperBound;
+        }
+        throw new UnresolvedSymbolException("No upper bound for " + context + ": its declaration did not resolve"
+                                           + (owner == null ? "" : " (owner " + owner + ")"));
+    }
+
+    // looks up faithful parameter names for the method being built, keyed on its (erased) signature; null when
+    // there is no index, no parameters, or no entry — callers then keep javac's synthetic arg0, arg1, ... names
+    private List<String> lookupParameterNames(TypeInfo typeInfo, String name, List<ParameterizedType> paramTypes) {
+        if (parameterNameIndex == null || paramTypes.isEmpty()) return null;
+        try {
+            List<String> erasedParamFqns = paramTypes.stream()
+                    .map(pt -> pt.erasedForFQN().fullyQualifiedName()).collect(Collectors.toList());
+            return parameterNameIndex.parameterNames(
+                    ParameterNameIndex.key(typeInfo.fullyQualifiedName(), name, erasedParamFqns));
+        } catch (RuntimeException re) {
+            LOGGER.warn("Cannot look up parameter names for {}.{}: {}", typeInfo, name, re.toString());
+            return null;
+        }
+    }
+
+    // ---- declaration annotations, read from a class file via the symbol's annotation mirrors ----
+    // (only RUNTIME/CLASS-retained annotations are present in bytecode; SOURCE-retained ones are not). Everything
+    // is defensive: a value we cannot represent is skipped, and a failure never aborts the type's loading.
+
+    // true when 'symbol' belongs to a type we are currently parsing from source: those receive their
+    // annotations from ScanCompilationUnit, so we must not also load them here from the (compiled) class file
+    private boolean isSourceSymbol(Symbol symbol) {
+        if (topLevelClassSymbolsOfSources == null) return false;
+        Symbol.ClassSymbol enclosing = symbol.enclClass();
+        return enclosing != null && topLevelClassSymbolsOfSources.containsKey(primary(enclosing));
+    }
+
+    private List<AnnotationExpression> loadAnnotations(Symbol symbol) {
+        if (isSourceSymbol(symbol)) return List.of();
+        List<AnnotationExpression> result = new ArrayList<>();
+        try {
+            for (var mirror : symbol.getAnnotationMirrors()) {
+                if (mirror instanceof Attribute.Compound compound) {
+                    try {
+                        result.add(annotationExpression(compound));
+                    } catch (RuntimeException re) {
+                        LOGGER.warn("Skipping annotation {} on {}: {}", compound.type, symbol, re.toString());
+                    }
+                }
+            }
+        } catch (RuntimeException re) {
+            LOGGER.warn("Cannot read annotations on {}: {}", symbol, re.toString());
+        }
+        return result;
+    }
+
+    private AnnotationExpression annotationExpression(Attribute.Compound compound) {
+        ParameterizedType type = convert(compound.type);
+        List<AnnotationExpression.KV> kvs = new ArrayList<>();
+        for (var pair : compound.values) {
+            Expression value = annotationValue(pair.snd);
+            if (value != null) {
+                kvs.add(runtime.newAnnotationExpressionKeyValuePair(pair.fst.getSimpleName().toString(), value));
+            }
+        }
+        return runtime.newAnnotationExpressionBuilder()
+                .setTypeInfo(type.typeInfo())
+                .setKeyValuesPairs(kvs)
+                .build();
+    }
+
+    // returns null when the value cannot be represented; the key/value pair is then dropped
+    private Expression annotationValue(Attribute attribute) {
+        try {
+            return switch (attribute) {
+                case Attribute.Constant c -> annotationConstant(c);
+                case Attribute.Enum en -> {
+                    if (unresolvedEnumConstant(en)) yield null;
+                    yield runtime.newVariableExpressionBuilder()
+                            .setSource(runtime.noSource())
+                            .setVariable(runtime.newFieldReference(getOrLoadField(en.value)))
+                            .build();
+                }
+                // a class literal 'X.class'; newClassExpressionBuilder wraps X as the Class<X> overall type
+                case Attribute.Class cl -> runtime.newClassExpressionBuilder(convert(cl.classType)).build();
+                case Attribute.Array arr -> {
+                    List<Expression> values = new ArrayList<>();
+                    for (Attribute a : arr.values) {
+                        Expression e = annotationValue(a);
+                        if (e != null) values.add(e);
+                    }
+                    ParameterizedType commonType = arr.type instanceof Type.ArrayType at
+                            ? convert(at.elemtype) : runtime.objectParameterizedType();
+                    yield runtime.newArrayInitializerBuilder().setExpressions(values).setCommonType(commonType).build();
+                }
+                case Attribute.Compound nested -> annotationExpression(nested);
+                default -> null;
+            };
+        } catch (RuntimeException re) {
+            return null;
+        }
+    }
+
+    // one line per (enum type, constant), not one per annotated symbol: a single missing jar accounts for a
+    // constant on every type of the library that uses it (junit-jupiter-api's @API(status=...) alone is ~130)
+    private final Set<String> unresolvedEnumConstantsReported = new HashSet<>();
+
+    /**
+     * True for javac's marker for an enum constant it could not resolve, in an annotation read from a class
+     * file: when the enum's own class file is absent, {@code ClassReader.deproxy} substitutes
+     * {@code new VarSymbol(0, name, syms.botType, enumTypeSym)} and reports "unknown enum constant" as a
+     * <em>warning</em>. So the {@code <nulltype>} here is not the type of {@code null}; it is a failure marker,
+     * and the field it stands for does not exist. Converting {@code vs.type} would reach the no-case throw in
+     * {@link #convert}, and {@link #annotationValue}'s blanket catch would then drop the key/value pair with no
+     * trace at all — silently, because maddi's diagnostic collector keeps only javac ERRORs, not warnings.
+     * Skip the value deliberately instead, and say once what is missing: the annotation is still built, without
+     * this element, and the message names the jar to put on the classpath.
+     */
+    private boolean unresolvedEnumConstant(Attribute.Enum en) {
+        Symbol.VarSymbol vs = en.value;
+        if (vs == null || vs.type == null || !vs.type.hasTag(TypeTag.BOT)) return false;
+        String key = vs.owner + "." + vs.name;
+        if (unresolvedEnumConstantsReported.add(key)) {
+            LOGGER.warn("Unknown enum constant {} in an annotation read from a class file: the enum's own class"
+                        + " file is not on the classpath. Dropping this annotation value; add the library"
+                        + " declaring {} to the class path to keep it.", key, vs.owner);
+        }
+        return true;
+    }
+
+    private Expression annotationConstant(Attribute.Constant c) {
+        Object v = c.value;
+        return switch (c.type.getTag()) {
+            case BOOLEAN -> runtime.newBoolean(((Integer) v) != 0);
+            case CHAR -> runtime.newChar((char) (int) (Integer) v);
+            case BYTE -> runtime.newByte((byte) (int) (Integer) v);
+            case SHORT -> runtime.newShort((short) (int) (Integer) v);
+            case INT -> runtime.newInt((Integer) v);
+            case LONG -> runtime.newLong((Long) v);
+            case FLOAT -> runtime.newFloat((Float) v);
+            case DOUBLE -> runtime.newDouble((Double) v);
+            // TypeTag.CLASS on a *constant* is javac's encoding of a String value (java.lang.String); a real
+            // class literal 'X.class' arrives as Attribute.Class and is handled in annotationValue()
+            case CLASS -> runtime.newStringConstant((String) v);
+            default -> null;
+        };
+    }
+
+    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
+
+    // javac's authoritative source-vs-binary provenance of a type. NOTE: cs.sourcefile is NOT reliable here, as
+    // javac also populates it from the SourceFile debug attribute of a .class file (a synthetic, name-only
+    // SourceFileObject). cs.classfile is a real .class for a binary type, a .java (or null) for a source type of
+    // the current task.
+    static boolean fromClassFile(Symbol.ClassSymbol cs) {
+        return cs.classfile != null && cs.classfile.getKind() == JavaFileObject.Kind.CLASS;
+    }
+
+    private SourceSet ensureSourceSet(Symbol.ClassSymbol cs, URI uri) {
+        if (!fromClassFile(cs)) {
+            return sourceSetOfCurrentTask;
+        }
+        Matcher m = JAR_FILE.matcher(uri.toString());
+        if (m.matches()) {
+            String jarName = m.group(2);
+            SourceSet known = getSourceSet(jarName);
+            if (known == null) {
+                // The jar is not among the configured class-path source sets: this type is genuinely off the
+                // (deliberately partial) classpath. Return null so the load resolves to a miss and callers can skip
+                // it -- e.g. analysis-hint loading skips hints for a library that is not on the project's classpath
+                // -- rather than throwing deep in the scanner.
+                LOGGER.debug("No class-path source set for jar {}; treating type as off-classpath", jarName);
+                return null;
+            }
+            return known;
+        }
+        if ("file".equals(uri.getScheme())) {
+            SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
+                    .filter(e -> uri.getPath().startsWith(e.getKey()))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElse(null);
+            if (dir != null) return dir;
+        }
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module != null && !module.isUnnamed()) {
+            SourceSet known = getSourceSet(module.name.toString());
+            if (known != null) {
+                return known;
+            }
+            LOGGER.warn("Unknown module {}, add to classpath?", module);
+        }
+        return sourceSetOfCurrentTask;
+    }
+
+    Symbol.ModuleSymbol findModule(Symbol.ClassSymbol cs) {
+        Symbol.ClassSymbol primary = cs;
+        while (primary.owner instanceof Symbol.ClassSymbol encl) {
+            primary = encl;
+        }
+        if (primary.owner instanceof Symbol.PackageSymbol ps) {
+            return ps.modle;
+        }
+        return null;
+    }
+
+    /**
+     * Whether {@code cs}'s JDK module is one of the configured class-path parts.
+     * <p>
+     * javac resolves against the whole platform, not against our {@link InputConfiguration}: ask it for
+     * {@code javax.swing.text.JTextComponent} with only {@code java.base} configured and it will happily hand one
+     * over. So a caller that must honour the configured class path has to ask this. Only the <em>lazy, on-demand</em>
+     * load does ({@link ScanCompilationUnits#loadCompiledTypeOrNull}); the scan proper does not, because a type it
+     * meets is one the sources genuinely reference.
+     * <p>
+     * True for anything not borne by a named module (a jar or directory on the class path): those are keyed by jar
+     * name or directory prefix in {@link #ensureSourceSet}, not by module.
+     */
+    boolean moduleOnClassPath(Symbol.ClassSymbol cs) {
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module == null || module.isUnnamed()) return true;
+        return getSourceSet(module.name.toString()) != null;
+    }
+
+    private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
+        boolean alwaysLoad = loadMode == LoadMode.LOAD_MEMBERS || loadMode == LoadMode.COMPLETE_SUB;
+        if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
+            // the check for JLO is actually only for the clone() method.
+            // constructors are loaded even when private: a type's constructors are part of its shape and can be
+            // referenced by analyzed-package files (e.g. the private no-arg constructor of a static-utility class
+            // such as java.lang.Math); skipping them left typeInfo.constructors() empty and broke analysis decode.
+            boolean load = (ms.flags() & Flags.PRIVATE) == 0 || ms.isConstructor();
+            if (load
+                && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
+                && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
+                MethodInfo methodInfo = addMethodToType(typeInfo, ms, false);
+                if (!methodInfo.hasBeenInspected()) methodInfo.builder().computeAccess().commit();
+            }
+
+        } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
+            // load fields even when private: like constructors (see above), a type's fields are part of its shape
+            // and are referenced in analyzed-package files (@GetSet targets, linked variables). Skipping private
+            // ones left typeInfo.fields() short of what the source-side encoder saw (a nested ...Impl.Builder loaded
+            // with 0 fields). Still exclude compiler-synthetic fields (this$0, $VALUES, switch-maps): the encoder
+            // analysed source, which has none. (Field references decode by NAME now, so the exact field-set size no
+            // longer shifts resolution -- see CodecImpl.decodeFieldInfo. JDK ct.sym types carry no private members
+            // at all, so their private fields remain unrecoverable -- same caveat as private constructors.)
+            boolean isPrivate = (vs.flags() & Flags.PRIVATE) != 0;
+            boolean synthetic = (vs.flags() & Flags.SYNTHETIC) != 0;
+            boolean load = !isPrivate || !synthetic;
+            if (load && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
+                && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
+                FieldInfo fieldInfo = addFieldToType(typeInfo, vs);
+                if (!fieldInfo.hasBeenInspected()) {
+                    fieldInfo.builder().computeAccess().commit();
+                    assert fieldInfo.access() != null;
+                }
+            }
+        } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
+            // load nested types even when private: like constructors and fields (see above), a nested type is part
+            // of its owner's shape, and -- unlike them -- skipping it is not merely lossy but FATAL, because the
+            // owner then COMMITS without it and a later reference has nowhere to put it. Measured on
+            // jenkins-test-harness: MockAuthorizationStrategy holds
+            //   private final List<Grant.GrantOn.GrantOnTo> grantsOnTo
+            // whose leaf is recorded `private GrantOnTo of GrantOn` in the InnerClasses attribute. The private
+            // nested type was skipped here, GrantOn committed, and loading that very field then reached
+            // lazilyLoadTypeFromClassFile -> owner.builder() on an immutable GrantOn:
+            //   AssertionError: Inspection of ...Grant.GrantOn.GrantOnTo has already been committed
+            // One such type refused the WHOLE ParseResult for a 493-file source set.
+            // ⚠ A private MEMBER of a class file is reachable from outside its declaring type in exactly the way a
+            // private nested type is: through the signature of another member that is itself loaded.
+            TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
+            if (!enclosed.hasBeenInspected()) {
+                enclosed.builder().computeAccess().commit();
+            }
+        }
+    }
+
+    private TypeInfo addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
+        TypeInfo inMap = getType(cs.fullname.toString());
+        TypeInfo enclosed;
+        if (inMap != null) {
+            if (inMap.hasBeenInspected() || loadMode == LoadMode.LAZILY) {
+                return inMap;
+            }
+            enclosed = inMap;
+        } else {
+            String name = cs.getSimpleName().toString();
+            LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
+            enclosed = runtime.newTypeInfo(typeInfo, name);
+            put(enclosed);
+            typeInfo.builder().addSubType(enclosed);
+        }
+        // we must do type parameters, interfaces, parent class etc.
+        loadType(cs, enclosed, loadMode == LoadMode.COMPLETE ? LoadMode.COMPLETE_SUB : loadMode);
+        return enclosed;
+    }
+
+    private FieldInfo addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
+        FieldInfo inMap = varSymbolMap.get(vs);
+        if (inMap != null) return inMap;
+
+        String name = vs.getSimpleName().toString();
+        // cross-scanner dedup, same reasoning as findInBuilder for methods; fields dedupe by name
+        FieldInfo inBuilder = typeInfo.builder().fields().stream()
+                .filter(fi -> name.equals(fi.name()))
+                .findFirst().orElse(null);
+        if (inBuilder != null) {
+            put(vs, inBuilder);
+            return inBuilder;
+        }
+        LOGGER.debug("Adding field {} to {}", name, typeInfo);
+        ParameterizedType type = convert(vs.type);
+        boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
+        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
+        // we might overwrite them, or not...
+        fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
+        typeInfo.builder().addField(fieldInfo);
+        flagHelper.field(vs.flags(), fieldInfo.builder());
+        fieldInfo.builder().addAnnotations(loadAnnotations(vs));
+
+        put(vs, fieldInfo);
+        return fieldInfo;
+    }
+
+    /*
+    Cross-scanner dedup. The TypeInfo (and its builder) is shared across source-set scans via InfoByFqn, but each
+    scan has its own javac context, so methodSymbolMap/varSymbolMap can never recognize a member that another scan
+    already materialized (typically via ensureMethod resolving a call in its sources). Without this check, a later
+    member pass (loadType COMPLETE/LOAD_MEMBERS through the lazy loader) appends a second MethodInfo for the same
+    method, and commit fails in MethodMapImpl ("Two methods with the same FQN and return type?").
+    The return type takes part in the signature on purpose: covariant bridge methods share name+params with the
+    real method and must remain distinct (see the by-return nesting in MethodMapImpl).
+     */
+    private MethodInfo findInBuilder(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        String simpleName = ms.getSimpleName().toString();
+        if ("<init>".equals(simpleName)) {
+            return typeInfo.builder().constructors().stream()
+                    .filter(mi -> sameTypes(mi.parameters(), ms.params))
+                    .findFirst().orElse(null);
+        }
+        return typeInfo.builder().methods().stream()
+                .filter(mi -> simpleName.equals(mi.name())
+                              && mi.returnType() != null
+                              && sameTypes(mi.parameters(), ms.params)
+                              && mi.returnType().erasedForFQN().fullyQualifiedName()
+                                      .equals(convert(types.erasure(ms.getReturnType())).fullyQualifiedName()))
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * {@code values()} and {@code valueOf(String)} are declared by the compiler for every enum, so they have no
+     * source of their own and cannot be edited as text. Whether they came out synthetic used to depend on which
+     * path materialized them first: the JavaCC front-end builds them through {@code EnumSynthetics} (synthetic,
+     * {@code noSource}), while here the generic member scan created them as ordinary methods with
+     * {@code synthetic=false}, and the enum-specific fix-up in {@code ScanCompilationUnit} then found them
+     * already present and handed back the existing, unflagged instance. Same "which path loaded it decided the
+     * answer" shape as the enum constants in {@link #ensureField}, and the same remedy: decide it here, at the
+     * one place every path goes through, rather than patching it afterwards.
+     */
+    private static boolean isCompilerGeneratedEnumMethod(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        var nature = typeInfo.typeNature();
+        if (nature == null || !nature.isEnum()) return false;
+        String name = ms.getSimpleName().toString();
+        if ("values".equals(name)) return ms.params == null || ms.params.isEmpty();
+        return "valueOf".equals(name)
+               && ms.params != null && ms.params.size() == 1
+               && ms.params.head.type.tsym.flatName().contentEquals("java.lang.String");
+    }
+
+    /**
+     * javac's own errors for one compilation unit, for the refusal message above.
+     * <p>
+     * ⛔ <b>THE SCANNER WAS ALREADY HOLDING THESE WHEN IT THREW.</b> Without them the message could only offer a
+     * jar/no-jar verdict, and its no-jar branch ended "the member lists above are the evidence to read" — which
+     * sent two independent readers within 24 hours to the same wrong conclusion about compact record
+     * constructors, while the actual cause was a missing classpath entry 50 javac errors deep in that very file.
+     * ⚠ Same disease as the rest of GAP #12: the information was never missing, the presentation was.
+     * <p>
+     * Errors only — a MISSING_CLASS diagnostic is the routine "not on the classpath, carry on" case that every
+     * parse of an incomplete classpath produces, and including it would make this fire on healthy parses.
+     */
+    private List<String> javacErrorsFor(CompilationUnit compilationUnit) {
+        // a diagnostic must never be the thing that throws: it runs where the caller has already lost
+        if (diagnosticCollector == null || compilationUnit == null || compilationUnit.uri() == null) return List.of();
+        String path = compilationUnit.uri().getPath();
+        if (path == null || path.isBlank()) return List.of();
+        try {
+            return diagnosticCollector.diagnostics().stream()
+                    .filter(d -> MaddiDiagnosticCollector.DiagnosticKind.ERROR == d.diagnosticKind())
+                    .filter(d -> path.equals(d.path()))
+                    .map(d -> d.line() > 0 ? "line " + d.line() + ": " + d.msg() : d.msg())
+                    .toList();
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
+    MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
+        if (typeInfo.hasBeenInspected()) {
+            // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
+            // that identify the cause, so the parse's top-level verdict named neither the type nor the artifact
+            // and read as a source problem. It cost a session: 18 dropped units, 10 of them never touched by the
+            // edit. ▶ THE INFORMATION WAS NEVER MISSING — THE PRESENTATION WAS. Put it in the exception, where
+            // whoever sees the failure will actually read it, and name the stale jar plus the remedy.
+            // ⚠ javac's own ClassSymbol.classfile is what names the artifact on the INCOMING side — without it
+            // the message can only describe the committed side, and the jar is as often on the other one.
+            URI incomingOrigin = null;
+            if (ms.owner instanceof Symbol.ClassSymbol owner && owner.classfile != null) {
+                try {
+                    incomingOrigin = owner.classfile.toUri();
+                } catch (RuntimeException ignored) {
+                    // a diagnostic must never be the thing that throws
+                }
+            }
+            String message = StaleArtifactDiagnosis.message(typeInfo.descriptor(),
+                    typeInfo.compilationUnit() == null ? null : typeInfo.compilationUnit().uri(),
+                    typeInfo.compilationUnit() == null || typeInfo.compilationUnit().sourceSet() == null
+                            ? null : typeInfo.compilationUnit().sourceSet().name(),
+                    isSourceSymbol(ms),
+                    incomingOrigin,
+                    ms.toString(),
+                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList(),
+                    javacErrorsFor(typeInfo.compilationUnit()));
+            LOGGER.error("{}", message);
+            throw new UnsupportedOperationException(message);
+        }
+        MethodInfo inMap = methodSymbolMap.get(ms);
+        if (inMap != null) return inMap;
+        MethodInfo inBuilder = findInBuilder(typeInfo, ms);
+        if (inBuilder != null) {
+            put(ms, inBuilder);
+            return inBuilder;
+        }
+        String name = ms.getSimpleName().toString();
+        //  assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
+        MethodInfo method;
+        boolean isConstructor;
+        if ("<init>".equals(name)) {
+            LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
+            MethodInfo.MethodType methodType = flagHelper.constructorType(ms.flags());
+            method = runtime.newConstructor(typeInfo, methodType);
+            typeInfo.builder().addConstructor(method);
+            isConstructor = true;
+        } else {
+            LOGGER.debug("Adding method {} to {}", name, typeInfo);
+            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags(),
+                    typeInfo.isInterface() || typeInfo.isAnnotation());
+            method = runtime.newMethod(typeInfo, name, methodType);
+            typeInfo.builder().addMethod(method);
+            isConstructor = false;
+        }
+        // add this early enough to avoid recursion/infinite loop problems with self-referencing type parameters
+        put(ms, method);
+
+        int index = 0;
+        MethodInfo.Builder builder = method.builder();
+
+        // When this method is declared in source being compiled in the CURRENT task, its declaration will be
+        // visited later (ScanCompilationUnit.visitMethod), which sets the parameter and type-parameter sources.
+        // We must therefore NOT commit either of them here, otherwise those sources can never be set (a method
+        // reference or a call site may cause the method to be created from its symbol before its declaration is
+        // reached; see TestParameterInfoSource and TestMethodTypeParameterSource).
+        // Both conditions are needed: (1) !fromClassFile excludes binary types such as java.sql.Connection (whose
+        // module may nonetheless fall back to the current source set), which have no declaration and must be
+        // committed now, else the method stays incomplete ('?.?'); (2) the source-set check excludes non-class-file
+        // types belonging to another source set (e.g. AAPI-loaded), which this task will never visit. Synthetic
+        // methods (e.g. enum values()/valueOf()) have no declaration and must be committed now too.
+        boolean declaredInCurrentTaskSource = ms.owner instanceof Symbol.ClassSymbol ownerClassSymbol
+                && !fromClassFile(ownerClassSymbol)
+                && typeInfo.compilationUnit() != null
+                && sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet());
+        boolean deferCommitToDeclaration = !synthetic && declaredInCurrentTaskSource;
+
+        List<TypeParameter> newTypeParameters = new ArrayList<>();
+        for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
+            TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
+            builder.addTypeParameter(newTp);
+            putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
+            newTypeParameters.add(newTp);
+        }
+        // The type parameters are deferred on the same condition as the parameters, and for a second reason on
+        // top of the source. Unlike a parameter, a type parameter cannot be REPLACED once the declaration is
+        // reached: MethodInfo.Builder offers addTypeParameter and no addOrSet, where TypeInfo.Builder offers
+        // addOrSetTypeParameter. So what is committed here is what the method keeps -- where a CLASS type
+        // parameter, arriving here first, would simply be replaced by the declaration's (it has the opposite
+        // problem, of being replaced when it should not be; see the guard in loadType).
+        //
+        // It would keep two wrong things. The declaration has no source, so nothing can locate the `<T ...>`
+        // token (rename renamed every USE of it and left the declaration: "cannot find symbol", silently). And
+        // addTypeBoundsAndCommit widens every bound with '? extends', so `<T extends Score<T>>` comes back as
+        // `? extends Score<T>` -- making the CST of one source file depend on the order its compilation units
+        // happened to be scanned in.
+        //
+        // Nothing is set here at all when deferring, not even the bounds: the declaration supplies annotations,
+        // bounds and source together, so there is no half-built state for a reader to see and nothing added
+        // twice. ScanCompilationUnit.visitMethod recognises the deferral by hasBeenInspected() being false.
+        // See TestMethodTypeParameterSource, and docs/method-type-parameter-source-loss.md for how it was found.
+        if (!deferCommitToDeclaration) {
+            int i = 0;
+            for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
+                TypeParameter newTp = newTypeParameters.get(i++);
+                addTypeBoundsAndCommit(null, null, typeParameter, newTp);
+            }
+        }
+
+        flagHelper.method(ms.flags(), builder);
+        builder.addAnnotations(loadAnnotations(ms));
+        if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
+            builder.setSynthetic(true);
+        }
+        // exception types
+        ms.getThrownTypes().forEach(t -> builder.addExceptionType(convert(t)));
+
+        if (ms.params != null) {
+            // resolve all parameter types up front, so the index can be keyed on the full (erased) signature
+            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> convert(p.type))
+                    .collect(Collectors.toList());
+            List<String> realNames = lookupParameterNames(typeInfo, name, paramTypes);
+            // VARARGS is a method-level flag (ACC_VARARGS); it applies to the method's last parameter, which is
+            // not itself marked on the parameter symbol when loaded from a class file
+            boolean methodIsVarargs = (ms.flags() & Flags.VARARGS) != 0;
+            int lastParamIndex = ms.params.size() - 1;
+            int pIndex = 0;
+            for (Symbol.VarSymbol parameter : ms.params) {
+                ParameterizedType pt = paramTypes.get(pIndex);
+                String paramName = realNames != null && pIndex < realNames.size()
+                        ? realNames.get(pIndex) : parameter.getSimpleName().toString();
+                ParameterInfo parameterInfo = builder.addParameter(paramName, pt);
+                long flags = parameter.flags();
+                if (methodIsVarargs && pIndex == lastParamIndex) parameterInfo.builder().setVarArgs(true);
+                if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
+                parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
+                if (!deferCommitToDeclaration) parameterInfo.builder().commit();
+                pIndex++;
+            }
+        }
+        ParameterizedType returnType = isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
+                : convert(ms.getReturnType());
+        List<MethodInfo> overrides = computeMethodOverrides
+                .findOverriddenMethods(ms)
+                .stream().map(this::getOrLoadMethod)
+                .toList();
+        builder.setReturnType(returnType)
+                .setSource(runtime.noSource())
+                .setMethodBody(runtime.emptyBlock())
+                .addOverrides(overrides);
+        if (!deferCommitToDeclaration) builder.commitParameters();
+        builder.computeAccess();
+        // now the fully qualified name has been computed...
+
+        clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
+
+
+        return method;
+    }
+
+    @Override
+    public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
+        this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+        this.infoByFqn.startOfNewSourceSet();
+    }
+
+    @Override
+    public void startCompilationUnit(SourceProvider sourceProvider, ElementStack elementStack) {
+        this.elementStack = elementStack;
+        this.sourceProvider = sourceProvider;
+    }
+
+    // general method, returns null when 'cs' is not a functional type
+    @Override
+    public @Nullable MethodInfo computeSAM(Type type) {
+        ConvertType.SAMDescriptor sd = findInstantiatedSAM(type);
+        return sd == null ? null : sd.methodInfo();
+    }
+
+    @Override
+    public FieldInfo ensureField(Symbol.VarSymbol vs) {
+        if (vs.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            String name = vs.getSimpleName().toString();
+            boolean isStatic = vs.isStatic();
+            ParameterizedType type = convert(vs.type);
+            FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+            // we might overwrite them, or not...
+            fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
+            // as addFieldToType, which is the eager twin of this method: without the flags the field carries no
+            // modifiers at all, so 'final' is lost and, worse, an ENUM CONSTANT is not marked synthetic -- the one
+            // thing that distinguishes it from an ordinary static field of the same type (FlagHelper.field,
+            // TypePrinterImpl.enumConstantStream). Which of the two paths materialized the field then decided the
+            // answer: a source-parsed enum's constants were synthetic, a lazily-loaded class file's were not, and
+            // addFieldToType dedups by name, so whichever ran first won for good.
+            flagHelper.field(vs.flags(), fieldInfo.builder());
+            fieldInfo.builder().addAnnotations(loadAnnotations(vs));
+            owner.builder().addField(fieldInfo);
+            put(vs, fieldInfo);
+            return fieldInfo;
+        } else throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol, boolean synthetic) {
+        if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            return addMethodToType(owner, methodSymbol, synthetic);
+        } else throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ConvertType.SAMDescriptor findInstantiatedSAM(Type functionalType) {
+        if (!functionalType.tsym.isInterface()) return null;
+        if (!types.isFunctionalInterface(functionalType.tsym)) return null;
+
+        // Symbol — for name, flags, position, enclosing interface
+        Symbol.MethodSymbol samSymbol = (Symbol.MethodSymbol) types.findDescriptorSymbol(functionalType.tsym);
+        MethodInfo methodInfo = getOrLoadMethod(samSymbol);
+
+        // Type — with type variables substituted for concrete args
+        // e.g. Comparator<String> -> (String, String) -> int
+        Type descriptorType = types.findDescriptorType(functionalType);
+        Type.MethodType methodType = switch (descriptorType) {
+            case Type.MethodType mt -> mt;
+            case Type.ForAll forAll -> (Type.MethodType) forAll.qtype;
+            default ->
+                    throw new UnsupportedOperationException("unexpected descriptor type: " + descriptorType.getClass());
+        };
+
+        return new ConvertType.SAMDescriptor(methodInfo, samSymbol, methodType);
+    }
+
+    @Override
+    public ParameterizedType convert(Type type) {
+        return convert(type, null);
+    }
+
+    private ParameterizedType convert(Type type, Set<Type> visited) {
+        // no caller may legitimately pass null: a null javac Type is always some getXxx() that returned null because
+        // attribution never filled it. Say so here rather than letting it fall through to the 'none' test at the
+        // bottom, which reports `Cannot invoke "Type.toString()" because "type" is null` and names no caller.
+        if (type == null) {
+            throw new UnsupportedOperationException("Cannot convert a null javac type; the caller's symbol or"
+                                                    + " target type was never attributed");
+        }
+        if (type instanceof Type.JCPrimitiveType primitiveType) {
+            return primitiveType(primitiveType.getKind());
+        }
+        if (type instanceof Type.UnionClassType uct
+            && (uct.tsym == null || uct.tsym.name.toString().isEmpty())) {
+            // ⛔ A MULTI-CATCH PARAMETER'S TYPE HAS A NAMELESS SYMBOL. 'catch (A | B e)' is typed by javac as
+            // the least upper bound of the alternatives, and Types#makeCompoundType mints a ClassSymbol with
+            // names.empty owned by syms.noSymbol to carry it. UnionClassType extends ClassType DIRECTLY -- not
+            // IntersectionClassType -- so it slipped past the branch below into classTypeInfo, which tried to
+            // resolve a type whose name is the empty string and threw "Type '' not found": an error unable to
+            // name its own subject, dropping the whole compilation unit.
+            // Measured on trino 2026-08-13, the last two dropped units of nine:
+            //   GlueHiveMetastore:1430        catch (EntityNotFoundException | AccessDeniedException e)
+            //   GlueIcebergTableOperations:206 catch (EntityNotFoundException | InvalidInputException | ...)
+            // ⚠ ONLY when the lub is that nameless compound. Usually it is a perfectly ordinary class --
+            // lub(IOException, AssertionError) is Throwable -- and the ClassType branch below already gets
+            // that right. Unwrapping unconditionally regressed TestTryCatch#test2 from Throwable to Object.
+            // Resolve to the lub's supertype, exactly as the intersection branch does.
+            if (uct.supertype_field != null) {
+                return convert(uct.supertype_field, visited);
+            }
+            for (Type alternative : uct.getAlternativeTypes()) {
+                return convert(alternative, visited);
+            }
+            throw new UnsupportedOperationException(unexpectedJavacType("convert (union type without"
+                                                                       + " supertype_field or alternatives)", type));
+        }
+        if (type instanceof Type.IntersectionClassType ict) {
+            if (ict.supertype_field != null) {
+                return convert(ict.supertype_field, visited);
+            }
+            throw new UnsupportedOperationException(unexpectedJavacType("convert (intersection type"
+                                                                       + " without supertype_field)", type));
+        }
+        if (type instanceof Type.ClassType ct) {
+            return classType(ct, visited);
+        }
+        if (type instanceof Type.JCVoidType) {
+            return runtime.voidParameterizedType();
+        }
+        if (type instanceof Type.ArrayType at) {
+            ParameterizedType base = convert(at.elemtype, visited);
+            assert base != null;
+            return base.copyWithArrays(base.arrays() + 1);
+        }
+        if (type instanceof Type.CapturedType ct && ct.wildcard.isUnbound()) {
+            return runtime.parameterizedTypeWildcard();
+        }
+        if (type instanceof Type.WildcardType wildcardType) {
+            if (wildcardType.isUnbound()) {
+                return runtime.parameterizedTypeWildcard();
+            }
+            boolean isExtends = wildcardType.isExtendsBound();
+            Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
+            ParameterizedType base = convert(wildcardType.type, visited);
+            assert base != null;
+            // preserve the bound's array dimension and type arguments: e.g. '? extends byte[]' must stay byte[]
+            // (an array), not collapse to the primitive byte (which is an illegal type argument), and
+            // '? extends List<String>' must keep its String argument.
+            if (base.isTypeParameter()) {
+                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
+            }
+            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+        }
+        if (type instanceof Type.TypeVar typeVar) {
+            String typeParameterName = typeVar.tsym.toString();
+            TypeParameter typeParameter;
+            if (typeVar.tsym.owner instanceof Symbol.MethodSymbol ms) {
+                if (ms.owner instanceof Symbol.ClassSymbol cs) {
+                    String typeFqn = cs.fullname.toString();
+                    TypeParameter tmpTypeParameter = getTmpMethodTypeParameter(typeFqn, typeParameterName);
+                    // method must have been completed, look up!
+                    // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
+                    typeParameter = Objects.requireNonNullElseGet(tmpTypeParameter,
+                            () -> findTypeParameter(ms, typeParameterName));
+                } else throw new UnsupportedOperationException();
+            } else if (typeVar.isCaptured()) {
+                Type upperBound = upperBoundOrUnresolved(typeVar, "captured type variable '" + typeParameterName + "'");
+                Set<Type> visitedNotNull = visited == null ? new HashSet<>() : visited;
+                if (visitedNotNull.add(typeVar)) {
+                    ParameterizedType upperPt = convert(upperBound, visitedNotNull);
+                    assert upperPt != null;
+                    TypeInfo upper = upperPt.typeInfo();
+                    // preserve the bound's array dimension and type arguments: e.g. the captured 'CAP extends
+                    // byte[]' from byte[].getClass() must stay byte[] (an array), not collapse to the primitive
+                    // byte (an illegal type argument)
+                    return runtime.newParameterizedType(upper, upperPt.arrays(), runtime.wildcardExtends(),
+                            upperPt.parameters());
+                }
+                return runtime.parameterizedTypeWildcard();
+            } else {
+                String fullyQualifiedName = typeVar.tsym.owner.toString();
+                TypeInfo owner = getType(fullyQualifiedName);
+                if (owner == null) {
+                    // the type variable is owned by a type declared inside a method body, which is not registered
+                    // under a canonical FQN; resolve it through the element stack instead of asserting.
+                    owner = methodLocalType(typeVar.tsym.owner);
+                }
+                assert owner != null : "Cannot find owner " + fullyQualifiedName
+                        + " of type variable " + typeParameterName;
+                typeParameter = findTypeParameter(owner, typeParameterName);
+            }
+            return runtime.newParameterizedType(typeParameter, 0, null);
+        }
+        if ("none".equals(type.toString()) || type instanceof Type.PackageType) return null; // parent of Object
+        throw new UnsupportedOperationException(unexpectedJavacType("convert", type));
+    }
+
+    /**
+     * Message for a javac type this converter has no case for. It names the type rather than saying "NYI",
+     * because the two situations that reach such a throw want opposite responses: a genuine gap wants the
+     * missing case implemented, whereas one of javac's failure markers ({@code recoveryType},
+     * {@code stuckType}, or {@code botType} standing in for an unresolvable annotation element) means the
+     * input never resolved, and the answer is to fix the classpath. Without the type there is no way to tell
+     * them apart, and identifying it costs a patched build and a re-run.
+     */
+    private static String unexpectedJavacType(String where, Type type) {
+        return "Unexpected javac type in " + where + ": '" + type + "', class " + type.getClass().getName()
+               + ", tag " + type.getTag() + ", tsym " + (type.tsym == null ? "null" : type.tsym.toString());
+    }
+
+    private @NotNull TypeParameter findTypeParameter(Symbol.MethodSymbol methodSymbol, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        MethodInfo owner = getOrLoadMethod(methodSymbol);
+        assert owner != null;
+
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        return findTypeParameter(owner.typeInfo(), typeParameterName);
+    }
+
+    private @NotNull TypeParameter findTypeParameter(TypeInfo owner, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        if (owner.compilationUnitOrEnclosingType().isRight()) {
+            return findTypeParameter(owner.compilationUnitOrEnclosingType().getRight(), typeParameterName);
+        }
+        // ⛔⛔ TYPED AND NAMED, AND BOTH HALVES ARE LOAD-BEARING. This used to be a bare
+        // `throw new UnsupportedOperationException()`, and the two consequences compounded:
+        //
+        //  * NO MESSAGE. ScanCompilationUnits#addFailure falls back to the exception's CLASS NAME when
+        //    getMessage() is null, so every failure here surfaced as the bare word
+        //    "UnsupportedOperationException" — no type parameter, no owner, no location. Summary carried the
+        //    throwable and printed only that word, so the cause was unreachable from any log.
+        //  * NOT TYPED. hasCause(e, UnresolvedSymbolException.class) was false, so fault isolation classified
+        //    it a hard ERROR rather than a tolerable warning, and SummaryImpl then refuses to produce a
+        //    ParseResult at all when any parse exception exists — however many units parsed cleanly.
+        //
+        // Measured on trino (2026-08-12): SIX units in plugin/trino-hive's parquet code, all six with this
+        // identical frame, cost the entire 209-source-set parse. Nothing else failed.
+        //
+        // UnresolvedSymbolException exists for exactly this: it extends UnsupportedOperationException, so every
+        // existing catch clause is unaffected, and it is typed so the compilation-unit-level fault isolation can
+        // downgrade it to a warning — the unit is still dropped, but the run proceeds over what parsed. A type
+        // parameter that cannot be resolved by name belongs in the same category as a type that cannot: both are
+        // normal on the deliberately partial classpath maddi runs on.
+        throw new UnresolvedSymbolException("Type parameter '" + typeParameterName + "' not found in "
+                                            + owner.fullyQualifiedName() + ", nor in any enclosing type");
+    }
+
+    @Override
+    public ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
+        if (type == null) {
+            return runtime.voidParameterizedType();
+        }
+        Source source = sourceProvider.sourceForNode(type);
+        ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder, source);
+        assert pt != null;
+        if (type instanceof JCTree.JCTypeApply) {
+            // attach the type-argument commas to this parameterized type's own source, so nested generics
+            // (each a distinct parameterized type) keep their own lists
+            List<Source> commas = sourceProvider.typeArgumentCommas(source);
+            if (commas != null) {
+                DetailedSources.Builder b = runtime.newDetailedSourcesBuilder();
+                b.putList(DetailedSources.TYPE_ARGUMENT_COMMAS, commas);
+                source = source.withDetailedSources(b.build()); // FIXME check merge?
+            }
+        }
+        detailedSourcesBuilder.put(pt, source);
+        return pt;
+    }
+
+    private ParameterizedType convertTreeDontSet(Tree type, DetailedSources.Builder dsb, Source source) {
+        if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
+            TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
+            if (primitiveTypeKind != null) {
+                ParameterizedType primitive = primitiveType(primitiveTypeKind);
+                dsb.put(primitive.typeInfo(), source);
+                return primitive;
+            }
+            throw new UnsupportedOperationException("Unknown primitive type kind " + ptt.typetag);
+        }
+        if (type instanceof JCTree.JCIdent identifier) {
+            if (identifier.type instanceof Type.PackageType) return null;
+            if (identifier.type instanceof Type.ClassType ct) {
+                ParameterizedType pt = classType(ct, null);
+                assert pt.typeInfo() != null;
+                dsb.put(pt.typeInfo(), source);
+                return pt;
+            }
+            if (identifier.type instanceof Type.TypeVar tv) {
+                if (tv.isCaptured()) {
+                    // the null bound used to travel INTO convert() and NPE one frame on, at 'type.toString()',
+                    // naming a javac internal instead of the unresolved type that caused it
+                    ParameterizedType pt = convert(upperBoundOrUnresolved(tv,
+                            "captured type variable in '" + identifier.getName() + "'"));
+                    return pt.withWildcard(runtime.wildcardExtends());
+                }
+                String typeParameterName = identifier.getName().toString();
+                TypeParameter tp = (TypeParameter) elementStack.find(typeParameterName);
+                dsb.put(tp, source);
+                return runtime.newParameterizedType(tp, 0, null);
+            }
+            throw new UnsupportedOperationException("Unknown identifier type " + identifier.type);
+        }
+        if (type instanceof JCTree.JCFieldAccess fieldAccess) {
+            if (fieldAccess.type instanceof Type.PackageType) return null;
+            // enclosing type notation
+            ParameterizedType pt = convert(fieldAccess.type);
+            assert pt != null;
+            TypeInfo ti = pt.typeInfo();
+            assert ti != null;
+            dsb.put(ti, source);
+            iterateUpToPackageLevel(dsb, fieldAccess, ti);
+            return pt;
+        }
+        if (type instanceof JCTree.JCTypeApply apply) {
+            ParameterizedType base = convertTree(apply.getType(), dsb);
+            List<ParameterizedType> parameters = apply.getTypeArguments().stream()
+                    .map(ta -> convertTree(ta, dsb)).toList();
+            return runtime.newParameterizedType(base.typeInfo(), parameters);
+        }
+        if (type instanceof JCTree.JCArrayTypeTree att) {
+            int n = 1;
+            Tree t = att.elemtype;
+            // descend through all array dimensions to reach the array-less base. A type-use annotation on an
+            // inner dimension (e.g. `char[] @Nullable []`) appears as a JCAnnotatedType between two array
+            // trees; unwrap it, otherwise the loop stops early and 'withoutArray' still carries arrays.
+            while (true) {
+                while (t instanceof JCTree.JCAnnotatedType at2 && at2.underlyingType instanceof JCTree.JCArrayTypeTree) {
+                    t = at2.underlyingType;
+                }
+                if (t instanceof JCTree.JCArrayTypeTree att2) {
+                    ++n;
+                    t = att2.elemtype;
+                } else {
+                    break;
+                }
+            }
+            ParameterizedType withoutArray = convertTree(t, dsb);
+            ParameterizedType withArray = withoutArray.copyWithArrays(withoutArray.arrays() + n);
+            dsb.putWithArrayToWithoutArray(withArray, withoutArray);
+            return withArray;
+        }
+        if (type instanceof JCTree.JCWildcard wc) {
+            if (wc.type.isUnbound()) {
+                return runtime.parameterizedTypeWildcard();
+            }
+            boolean isExtends = wc.type.isExtendsBound();
+            Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
+            ParameterizedType base = convertTree(wc.getBound(), dsb);
+            // ⛔ THE BOUND'S ARRAYS AND TYPE ARGUMENTS ARE PART OF IT, and this branch used to drop both: it
+            // passed a literal 0 and List.of(), so '? extends Object[]' became '? extends Object' and
+            // '? extends List<String>' became a RAW '? extends List'. Every other branch of convertTree
+            // preserves dimensions -- the array branch even descends through JCAnnotatedType so
+            // 'char[] @Nullable []' counts correctly -- which is what made this one easy to miss.
+            // ⚠ It surfaced as an AssertionError only for PRIMITIVE element types: '? extends int[]' collapsed
+            // to a bare 'int', and ParameterizedTypeImpl's "no primitive type arguments" assert caught it.
+            // isPrimitiveExcludingVoid() is 'arrays == 0 && typeInfo.isPrimitiveExcludingVoid()', so for
+            // reference elements nothing fired at all and the wrong model was simply used. The crash was the
+            // lucky case; the silent corruption was the wider one.
+            if (base.isTypeParameter()) {
+                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
+            }
+            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+        }
+        if (type instanceof JCTree.JCAnnotatedType at) {
+            // TODO there is no room for this in maddi's model
+            return convertTreeDontSet(at.underlyingType, dsb, source);
+        }
+        if (type instanceof JCTree.JCTypeIntersection intersection) {
+            List<ParameterizedType> bounds = intersection.getBounds().stream()
+                    .map(e -> convertTree(e, dsb)).toList();
+            return runtime.newIntersectionType(null, bounds);
+        }
+        String resolved = type instanceof JCTree jct && jct.type != null
+                ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
+                : "null";
+        throw new UnsupportedOperationException("Unexpected javac type tree in convertTree: '" + type
+                                                + "', class " + type.getClass().getName()
+                                                + ", resolved type " + resolved);
+    }
+
+    /*
+    'ti' backtracks over the DECLARING chain, which is what decides how many qualification steps there are and
+    where the walk stops. The type RECORDED at each step is the one the author wrote there, which need not be
+    the declaring one: Java lets a nested type be named through any type that inherits it, so 'HashMap.Entry'
+    is java.util.Map.Entry and 'X.II.J' is X.I.J (see TestFullyQualified,4). DetailedSources exists to record
+    what was written, and a consumer that re-emits a member needs 'HashMap' -- filing java.util.Map at the span
+    of the token 'HashMap' made DetailedSources.qualifier() contradict its own contract, and an import computed
+    from the CST then imported java.util.Map for text that says HashMap.
+     */
+    private void iterateUpToPackageLevel(DetailedSources.Builder dsb, JCTree.JCFieldAccess fieldAccess, TypeInfo ti) {
+        JCTree.JCExpression expression = fieldAccess.getExpression();
+        while (true) {
+            Source expressionSource = sourceProvider.sourceForNode(expression);
+            if (expression.type instanceof Type.PackageType) {
+                String packageName = ti.packageName();
+                dsb.put(packageName, expressionSource);
+                break;
+            }
+            if (expression instanceof JCTree.JCIdent) {
+                if (ti.compilationUnitOrEnclosingType().isRight()) {
+                    ti = ti.compilationUnitOrEnclosingType().getRight();
+                    dsb.put(writtenType(expression, ti), expressionSource);
+                }// else: .class
+                break;
+            }
+            if (expression instanceof JCTree.JCFieldAccess fa) {
+                if (ti.compilationUnitOrEnclosingType().isRight()) {
+                    ti = ti.compilationUnitOrEnclosingType().getRight();
+                    dsb.put(writtenType(expression, ti), expressionSource);
+                    expression = fa.getExpression();
+                } else {
+                    break;// .class
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    /**
+     * The type written at {@code expression}, which differs from the declaring type {@code declaring} reached by
+     * backtracking whenever a nested type is named through a type that inherits it. Falls back to
+     * {@code declaring} when javac has no class type at that position.
+     */
+    private TypeInfo writtenType(JCTree.JCExpression expression, TypeInfo declaring) {
+        if (expression.type instanceof Type.ClassType ct) {
+            TypeInfo written = classType(ct, null).typeInfo();
+            if (written != null) return written;
+        }
+        return declaring;
+    }
+
+    private ParameterizedType classType(Type.ClassType ct, Set<Type> visited) {
+        if (ct.tsym instanceof Symbol.ClassSymbol cs
+            && cs.owner instanceof Symbol.MethodSymbol
+            && cs.getSimpleName().isEmpty()
+            && getType(cs.toString()) == null) {
+            // an anonymous class ('new Base(){...}') can surface in a type-argument position through
+            // inference (e.g. Optional.map(...) whose inferred R is the anonymous type) *before* its body
+            // is scanned and registered in typeData. In that forward-reference case it has no simple name
+            // to look up on the element stack and is never generic, so represent it by the type it extends,
+            // or, failing that, the interface it implements. Once registered, classTypeInfo resolves it
+            // normally via the 'known' path, so only intercept while it is still unknown.
+            return anonymousClassType(cs, visited);
+        }
+        TypeInfo typeInfo = classTypeInfo(ct);
+        if (typeInfo == null) {
+            // a bare NullPointerException here says only "typeInfo is null", which is what 15 of 50 trees in a
+            // splitclass CDI corpus run reported -- identical, and naming nothing to go on. javac resolved this
+            // type; we could not map it. Say which.
+            throw new UnsupportedOperationException("Cannot map javac's type '" + ct + "' (tsym "
+                                                    + (ct.tsym == null ? "null" : ct.tsym.getQualifiedName()
+                                                       + ", owner " + ct.tsym.owner) + ") onto a TypeInfo");
+        }
+        if (ct.getTypeArguments().isEmpty()) {
+            return typeInfo.asSimpleParameterizedType();
+        }
+        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream()
+                .map(ta -> convert(ta, visited))
+                .toList();
+        return runtime.newParameterizedType(typeInfo, typeParameters);
+    }
+
+    private ParameterizedType anonymousClassType(Symbol.ClassSymbol cs, Set<Type> visited) {
+        Type superclass = cs.getSuperclass();
+        boolean superIsObject = superclass == null || superclass.tsym == null
+                                || "java.lang.Object".contentEquals(superclass.tsym.getQualifiedName());
+        if (superIsObject) {
+            for (Type itf : cs.getInterfaces()) {
+                return convert(itf, visited);
+            }
+            return runtime.objectParameterizedType();
+        }
+        return convert(superclass, visited);
+    }
+
+    /**
+     * A type declared inside a method body, resolved through the element stack; {@code null} when it is not one.
+     * <p>
+     * Only the method-local class ITSELF is registered there, by {@code handleLocalType}, under its simple name.
+     * ⛔ <b>The previous version looked up exactly that one name, so it resolved a local class and nothing
+     * declared INSIDE one.</b> guava's {@code TypeTokenTest:1413} nests member classes in a local class:
+     * <pre>
+     *   class Outer&lt;O&gt; {
+     *       class Sub&lt;X&gt; extends BaseWithTypeVar&lt;List&lt;X&gt;&gt; {}
+     *   }
+     * </pre>
+     * {@code X}'s owner is {@code Sub}, whose owner is {@code Outer} — a ClassSymbol, not a MethodSymbol — so the
+     * single-name lookup asked for "Sub", missed, and threw {@code Cannot find element 'Sub' on stack}, which
+     * aborts the compilation unit.
+     * <p>
+     * So: walk UP the owner chain to the class the method actually declares, resolve that one on the stack, then
+     * walk back DOWN the nested simple names. The descent is safe at this point because {@code visitClass} adds a
+     * member type to its enclosing type's subtypes before scanning its body, which is what puts us here.
+     * <p>
+     * ⚠ Returns null rather than throwing for every shape it cannot name — an anonymous class anywhere in the
+     * chain has no simple name and was never registered — leaving the decision to the caller. The old code's
+     * {@code find(...) instanceof TypeInfo} could not do that: {@code find} throws, so its fallback was dead
+     * code. Same family as the switch-guard pattern variable pinned by {@code TestSwitchGuardPatternVariable}:
+     * the element stack is missing a declaration form, and it fails by aborting the unit.
+     */
+    private TypeInfo methodLocalType(Symbol symbol) {
+        Deque<String> nested = new ArrayDeque<>();
+        Symbol s = symbol;
+        while (s instanceof Symbol.ClassSymbol cs) {
+            TypeInfo anchor = declaredInMethodBody(cs);
+            if (anchor != null) {
+                for (String n : nested) {
+                    anchor = anchor.findSubType(n, false);
+                    if (anchor == null) return null;
+                }
+                return anchor;
+            }
+            String simpleName = cs.getSimpleName().toString();
+            if (simpleName.isEmpty()) return null; // unnamed and unregistered: nothing left to key on
+            nested.addFirst(simpleName);
+            s = cs.owner;
+        }
+        return null;
+    }
+
+    /**
+     * The {@link TypeInfo} for a type the SCANNER declared inside a method body, or null if this symbol is not
+     * one. The two forms are registered in different places, which is why both are tried here:
+     * <ul>
+     *     <li>a NAMED local class — {@code handleLocalType} puts it on the element stack under its simple name,
+     *     for as long as it is in scope;</li>
+     *     <li>an ANONYMOUS class — {@code visitNewClass} registers it in {@code typeData} under the compiler's
+     *     own notation for the symbol ({@code newClass.def.sym.toString()}), before its body is scanned. It has
+     *     no simple name, so the element stack could never hold it, and a walk that only knew about the element
+     *     stack had to give up at it.</li>
+     * </ul>
+     * ⚠ The anonymous lookup is deliberately the same key the scanner writes, {@code cs.toString()} — the same
+     * one {@code anonymousTypeStub} tries first. Do not "improve" it to a canonical FQN: an anonymous class does
+     * not have one, which is the whole reason for this path.
+     */
+    private TypeInfo declaredInMethodBody(Symbol.ClassSymbol cs) {
+        String simpleName = cs.getSimpleName().toString();
+        if (simpleName.isEmpty()) {
+            TypeInfo anonymous = getType(cs.toString());
+            return anonymous == null ? getType(cs.flatName().toString()) : anonymous;
+        }
+        if (cs.owner instanceof Symbol.MethodSymbol
+            && elementStack.findOrNull(simpleName) instanceof TypeInfo local) {
+            return local;
+        }
+        return null;
+    }
+
+    private TypeInfo classTypeInfo(Type.ClassType ct) {
+        String fullyQualifiedType = ct.tsym.toString();
+        TypeInfo known = getType(fullyQualifiedType);
+        Symbol.ClassSymbol cs = (Symbol.ClassSymbol) ct.tsym;
+        TypeInfo typeInfo;
+        Symbol.ClassSymbol topCs;
+        if (known == null) {
+            // on-demand loading; should be replaced by import handling?
+            if (cs.owner instanceof Symbol.MethodSymbol && !cs.getSimpleName().toString().isBlank()) {
+                // a named local class of a method being scanned: registered on the element stack by its simple name.
+                typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+            } else if (cs.owner instanceof Symbol.MethodSymbol) {
+                // an anonymous class (blank simple name) whose declaration has not (yet) been scanned: e.g. a
+                // cross-source-set forward reference to an anonymous type declared in a dependency method body
+                // (io.codelaser...parseq references CastData$Builder$1). It has no element-stack entry; resolve it
+                // to a lightweight stub so the reference resolves without asserting.
+                typeInfo = anonymousTypeStub(cs);
+            } else {
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
+            }
+        } else {
+            CompilationUnit knownCu = known.compilationUnit();
+            if (topLevelClassSymbolsOfSources != null
+                && topLevelClassSymbolsOfSources.containsKey(topCs = primary(cs))) {
+                // ct/cs is one of the source files that we are parsing at the moment
+                if (cs.sourcefile != null
+                    && !knownCu.uri().equals(topCs.sourcefile.toUri())) {
+                    // so if the source file does not agree with known, we must load the class file
+                    typeInfo = lazilyLoadTypeFromClassFile(cs);
+                } else {
+                    typeInfo = known;
+                }
+            } else if (knownCu.sourceSet() == null && (topCs = primary(cs)).classfile != null) {
+                // ⛔ A STUB MUST NOT SHADOW THE REAL TYPE ONCE A LATER SOURCE SET CAN RESOLVE IT.
+                // 'sourceSet() == null' IS the stub predicate (InfoByFqn#isStub): ClassSymbolScanner mints one
+                // when a class file names a type absent from the CURRENT source set's class path. Source sets are
+                // scanned in turn and each has its own class path, so the very same type is routinely resolvable
+                // in a later one -- and until now the stub, found by name, was simply returned instead.
+                //
+                // Measured on trino (2026-08-13): scanning lib/trino-hive-formats/test-classes, which does not
+                // depend on parquet-hadoop, stubbed org.apache.parquet.hadoop.ParquetOutputFormat. Twenty-six
+                // seconds later plugin/trino-hive/test-classes -- which DOES depend on it -- met the stub, whose
+                // javac symbol was never completed and therefore carries no type parameters, and every use of
+                // ParquetOutputFormat<T> threw "Type parameter 'T' not found". SIX compilation units dropped,
+                // and a dropped unit is invisible to the refactoring levers too, so their edits silently skip
+                // its call sites. That run minted 114 stubs; the others survived only because nothing happened
+                // to ask them for a type parameter.
+                //
+                // InfoByFqn already states the intended rule -- "a real type supersedes a stub, and a stub never
+                // supersedes a real type" -- but it can only apply to a load that is actually attempted. This is
+                // that attempt. Loading is safe here precisely because cs.classfile != null: javac has the class
+                // file in hand for the source set being scanned right now.
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
+            } else if (knownCu.sourceSet() != null // badly loaded type
+                       && !knownCu.sourceSet().partOfJdk()
+                       && knownCu.sourceSet().externalLibrary()
+                       && (topCs = primary(cs)).classfile != null
+                       && !knownCu.uri().equals(topCs.classfile.toUri())) {
+                // we'll be overwriting the existing type in InfoByFqn
+                // this will only happen when the 'known' is known from the compilation of a previous source set
+                // in the current source set, the javac analysis will have selected the first.
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
+            } else {
+                typeInfo = known;
+            }
+        }
+        return typeInfo;
+    }
+
+    private static Symbol.ClassSymbol primary(Symbol.ClassSymbol csIn) {
+        Symbol.ClassSymbol cs = csIn;
+        Symbol owner = cs.owner;
+        while (owner != null) {
+            if (owner instanceof Symbol.ClassSymbol ownerCs) {
+                cs = ownerCs;
+                owner = cs.owner;
+            } else if (owner instanceof Symbol.MethodSymbol || owner instanceof Symbol.VarSymbol) {
+                // a local or anonymous class is owned by a METHOD (or a field initializer), not a class;
+                // hop over it, else the walk stops at the anonymous symbol and isSourceSymbol wrongly
+                // reports false for its members — the class-file path then double-loads their
+                // interfaces/annotations on top of the source scan (task #33)
+                owner = owner.owner;
+            } else {
+                break; // package or module: cs is the primary
+            }
+        }
+        return cs;
+    }
+
+    private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {
+        return switch (primitiveTypeKind) {
+            case VOID -> runtime.voidParameterizedType();
+            case BYTE -> runtime.byteParameterizedType();
+            case INT -> runtime.intParameterizedType();
+            case DOUBLE -> runtime.doubleParameterizedType();
+            case LONG -> runtime.longParameterizedType();
+            case FLOAT -> runtime.floatParameterizedType();
+            case SHORT -> runtime.shortParameterizedType();
+            case BOOLEAN -> runtime.booleanParameterizedType();
+            case CHAR -> runtime.charParameterizedType();
+            default -> throw new UnsupportedOperationException();
+        };
+    }
+
+
+    private void newTypeParameterMap() {
+        typeParameterStack.addLast(new HashMap<>());
+    }
+
+    private void popTypeParameterMap() {
+        typeParameterStack.removeLast();
+    }
+
+    private void putInLastTypeParameterMap(TypeParameter typeParameter) {
+        typeParameterStack.getLast().put(typeParameter.simpleName(), typeParameter);
+    }
+
+    private TypeParameter findInTypeParameterStack(String name) {
+        if (!typeParameterStack.isEmpty()) {
+            return typeParameterStack.getLast().get(name);
+        }
+        return null;
+    }
+
+    // type data
+
+    private void clearTmpMethodTypeParameterMap(String typeFqn) {
+        tmpMethodTypeParameterMap.remove(typeFqn);
+    }
+
+    private void putTmpMethodTypeParameter(String typeFqn, String methodTpName, TypeParameter methodTp) {
+        tmpMethodTypeParameterMap.computeIfAbsent(typeFqn, _ -> new HashMap<>()).put(methodTpName, methodTp);
+    }
+
+    private TypeParameter getTmpMethodTypeParameter(String typeFqn, String methodTpName) {
+        Map<String, TypeParameter> typeParameterMap = tmpMethodTypeParameterMap.get(typeFqn);
+        return typeParameterMap == null ? null : typeParameterMap.get(methodTpName);
+    }
+
+    private SourceSet getSourceSet(String name) {
+        return sourceSetMap.get(name);
+    }
+
+    @Override
+    public TypeInfo getType(String fullyQualifiedName) {
+        return infoByFqn.getType(fullyQualifiedName, sourceSetOfCurrentTask);
+    }
+
+    @Override
+    public void put(TypeInfo typeInfo) {
+        String fqn = typeInfo.fullyQualifiedName();
+        infoByFqn.put(fqn, typeInfo, sourceSetOfCurrentTask);
+    }
+
+    @Override
+    public void put(String anonymousTypeName, TypeInfo typeInfo) {
+        infoByFqn.put(anonymousTypeName, typeInfo, sourceSetOfCurrentTask);
+        // the source scan builds this anonymous type itself (parent/interfaces added in visitNewClass). A lazy
+        // resolution of one of its MEMBER types during body scanning (Cmp::new before 'record Cmp' is visited,
+        // elasticsearch BinaryFieldMapperTests.$13) reaches loadType on this same TypeInfo; without the mark,
+        // the class-symbol setup would append its interfaces a second time ('Extending multiple identical
+        // interfaces' at commit).
+        infoByFqn.markClassScannerSetupDone(typeInfo);
+    }
+
+    @Override
+    public void put(Symbol.MethodSymbol methodSymbol, MethodInfo methodInfo) {
+        MethodInfo prev = methodSymbolMap.put(methodSymbol, methodInfo);
+        assert prev == null : "Duplicating MethodInfo " + methodInfo;
+    }
+
+    Symbol.MethodSymbol theMethod(Symbol.MethodSymbol methodSymbol) {
+        boolean isDefault = (methodSymbol.flags() & Flags.DEFAULT) != 0;
+        Symbol.MethodSymbol result;
+        if (!isDefault && methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol baseSymbol) {
+            result = baseSymbol;
+        } else {
+            result = methodSymbol;
+        }
+        assert (result.flags() & Flags.BRIDGE) == 0;
+        return result;
+    }
+
+    @Override
+    public MethodInfo getMethod(Symbol.MethodSymbol methodSymbol) {
+        MethodInfo fromSymbol;
+        if (methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol ms) {
+            fromSymbol = methodSymbolMap.get(ms);
+        } else {
+            fromSymbol = methodSymbolMap.get(methodSymbol);
+        }
+        if (fromSymbol != null) return fromSymbol;
+
+        // now check methods from previous source sets
+        if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo typeInfo = convert(cs.type).typeInfo();
+            if (methodSymbol.isConstructor()) {
+                return typeInfo.constructors().stream().filter(c -> sameTypes(c.parameters(), methodSymbol.params))
+                        .findFirst().orElse(null);
+            }
+            String methodName = methodSymbol.name.toString();
+            int numParams = methodSymbol.params.size();
+            if (typeInfo.hasMethodMap()) {
+                return typeInfo.findUniqueMethod(methodName, numParams, () ->
+                        methodSymbol.params.stream().map(vs -> convert(types.erasure(vs.type)).fullyQualifiedName())
+                                .collect(Collectors.joining(","))
+                );
+            }
+            return typeInfo.methodStream()
+                    .filter(mi -> mi.name().equals(methodName) && sameTypes(mi.parameters(), methodSymbol.params))
+                    .findFirst().orElse(null);
+        }
+        throw new UnsupportedOperationException("?");
+    }
+
+    private boolean sameTypes(List<ParameterInfo> parameters, List<Symbol.VarSymbol> params) {
+        if (parameters.size() != params.size()) return false;
+        int i = 0;
+        for (ParameterInfo pi : parameters) {
+            String erased = pi.parameterizedType().erasedForFQN().fullyQualifiedName();
+            Symbol.VarSymbol vs = params.get(i++);
+            String erased2 = convert(types.erasure(vs.type)).fullyQualifiedName();
+            if (!erased.equals(erased2)) return false;
+        }
+        return true;
+    }
+
+    @Override
+    public MethodInfo getOrLoadMethod(Symbol.MethodSymbol methodSymbol) {
+        Symbol.MethodSymbol theMethod = theMethod(methodSymbol);
+        MethodInfo inMap = getMethod(theMethod);
+        if (inMap != null) return inMap;
+        return ensureMethod(theMethod, false);
+    }
+
+    @Override
+    public void put(Symbol.VarSymbol varSymbol, FieldInfo fieldInfo) {
+        FieldInfo prev = varSymbolMap.put(varSymbol, fieldInfo);
+        assert prev == null : "Duplicating FieldInfo " + fieldInfo;
+    }
+
+    @Override
+    public FieldInfo getField(Symbol.VarSymbol varSymbol) {
+        FieldInfo fromSymbol = varSymbolMap.get(varSymbol);
+        if (fromSymbol != null) return fromSymbol;
+
+        if (varSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo typeInfo = convert(cs.type).typeInfo();
+            String fieldName = varSymbol.name.toString();
+            return typeInfo.getFieldByName(fieldName, false);
+        }
+
+        return null;
+    }
+
+    @Override
+    public FieldInfo getOrLoadField(Symbol.VarSymbol vs) {
+        return Objects.requireNonNullElseGet(getField(vs), () -> ensureField(vs));
+    }
+
+    public Collection<TypeInfo> typesLoaded() {
+        return infoByFqn.typesLoadedForThisSourceSet();
+    }
+
+    public void commitType(TypeInfo typeInfo) {
+        if (!typeInfo.hasBeenInspected()) {
+            try {
+                TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
+                Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
+                loadType(cs, typeInfo, LoadMode.COMPLETE);
+            } catch (RuntimeException | AssertionError | StackOverflowError re) {
+                // ⛔ THE THROWABLE GOES IN. Without it the stack is discarded here and never printed anywhere
+                // above: the ErrorReport carries the message alone, so an operator sees "Inspection of X has
+                // already been committed" with no location at all. A root cause established from a SHAPE is not
+                // a LOCATION -- and the one gap that reasoned from the shape (#150) named the wrong code site.
+                LOGGER.error("Caught exception committing type {}", typeInfo, re);
+                throw re;
+            }
+        }
+    }
+}

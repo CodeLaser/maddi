@@ -1,0 +1,190 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.modification.analyzer.impl;
+
+import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.cst.api.analysis.Property;
+import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFECTS_METHOD;
+
+/**
+ * Writes a user's <em>dynamic type</em> contract on a SOURCE field or method into {@code analysis()}.
+ * <p>
+ * {@code AnnotationToProperty} turns annotations into property values, but it is only reached through
+ * {@code ShallowTypeAnalyzer} / {@code ShallowMethodAnalyzer}, which handle elements the analyzer does not
+ * see the source of. For a source element nothing puts the contract anywhere, so an {@code @Immutable} written
+ * on a field or an accessor is read back by the {@link ContractReader} and by nothing else. Everything
+ * downstream — the codec, the guard, the IDE daemon, and any future consumer of dynamic immutability — looks
+ * in {@code analysis()}. This is the same gap the eventual analyzer closed for {@code EVENTUAL_METHOD}, and
+ * it is closed the same way.
+ *
+ * <h2>Why only these two properties</h2>
+ * Materializing a contract means the analyzer <b>trusts</b> the user rather than computing. That is defensible
+ * exactly when the analyzer has no way of deriving the value for itself:
+ * <ul>
+ *   <li>{@link io.codelaser.maddi.cst.impl.analysis.PropertyImpl#IMMUTABLE_FIELD} and
+ *       {@link io.codelaser.maddi.cst.impl.analysis.PropertyImpl#IMMUTABLE_METHOD} are <em>dynamic</em> type
+ *       information: the declared type is {@code List<X>} while the object actually held or returned is
+ *       immutable. Nothing in the declared type says so, and no source-level inference computes it today, so
+ *       the contract is the only possible source. (Inferring it is a separate, inter-procedural problem — see
+ *       {@code docs/dynamic-immutability-feasibility.md}.)</li>
+ *   <li>Everything the analyzer <em>does</em> compute — {@code NON_MODIFYING_METHOD}, the {@code INDEPENDENT_*}
+ *       and {@code CONTAINER_*} family, {@code FINAL_FIELD}, … — is deliberately NOT materialized. Trusting a
+ *       wrong contract there would silently replace a derived verdict with an assertion, and comparing the two
+ *       is precisely what guard mode exists for.</li>
+ * </ul>
+ * The guard reads neither of these two properties (it polices {@code NON_MODIFYING_METHOD} and
+ * {@code INDEPENDENT_METHOD} on abstract methods, and {@code IMMUTABLE_TYPE}/{@code CONTAINER_TYPE} on types),
+ * so materializing them cannot blunt any contract check that exists.
+ *
+ * <h2>Idempotent, and re-run every pass on purpose</h2>
+ * A computed value always wins: we write only when nothing has been decided yet. And the write is repeated
+ * each pass rather than done once on the first iteration, because {@code IteratingAnalyzerImpl}'s
+ * clear-before-recompute ({@code clearDerivedFamily}) removes both properties along with the rest of the
+ * derived family; a first-iteration-only materialization would be silently dropped on that path.
+ */
+public class SourceContractMaterializer {
+    private static final String IGNORE_MODIFICATIONS_FQN = "io.codelaser.maddi.annotation.rare.IgnoreModifications";
+
+    private final ContractReader contractReader;
+    private final AtomicInteger propertyChanges;
+
+    public SourceContractMaterializer(Runtime runtime, AtomicInteger propertyChanges) {
+        this.contractReader = new ContractReader(runtime);
+        this.propertyChanges = propertyChanges;
+    }
+
+    public void materialize(MethodInfo methodInfo) {
+        materialize(methodInfo, IMMUTABLE_METHOD);
+        // @StaticSideEffects is the global-escape twin of @IgnoreModifications: a pure contract on the safe
+        // surface (e.g. System.setOut in an AAPI declaration) whose global effect the analyzer cannot see. On a
+        // SOURCE method it is normally computed, but a source author may also assert it directly; materialize it
+        // so it is read from analysis() like every other consumer expects. It caps nothing (SSE is informational,
+        // feeding only the @IgnoreModifications containment guard), so trusting it here is safe.
+        materializeTrueBool(methodInfo, STATIC_SIDE_EFFECTS_METHOD);
+        // @IgnoreModifications on a SOURCE parameter is the same pure-contract gap as the field arm below:
+        // the author disclaims what the argument object does (typically a functional parameter applied to
+        // this — Element.visit(@IgnoreModifications Predicate)); it cannot be computed, and without
+        // materialization the annotation is read by nothing on source (AnnotationToProperty only runs for
+        // shallow/AAPI elements). ParameterInfoImpl.isIgnoreModifications() and MethodModification's
+        // disclaimer filters consume it. A contract on a declaration binds every override: the annotation
+        // is written once, on the interface (the shallow analyzer gives jar methods the same inheritance),
+        // so an implementation's parameter inherits the disclaimer from any overridden declaration.
+        for (io.codelaser.maddi.cst.api.info.ParameterInfo pi : methodInfo.parameters()) {
+            materializeTrueBool(pi, io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER);
+            if (!pi.analysis().haveAnalyzedValueFor(
+                    io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)) {
+                for (MethodInfo overridden : methodInfo.overrides()) {
+                    if (pi.index() >= overridden.parameters().size()) continue;
+                    io.codelaser.maddi.cst.api.info.ParameterInfo opi = overridden.parameters().get(pi.index());
+                    if (opi.annotations().isEmpty()) continue;
+                    if (contractReader.contracts(opi).get(
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER)
+                                instanceof Value.Bool bool && bool.isTrue()) {
+                        pi.analysis().set(
+                                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, bool);
+                        CommonAnalyzerImpl.DECIDE.debug("SCM: Inherited @IgnoreModifications on {} from {}", pi, opi);
+                        propertyChanges.incrementAndGet();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    public void materialize(FieldInfo fieldInfo) {
+        materialize(fieldInfo, IMMUTABLE_FIELD);
+        // @IgnoreModifications is a pure contract -- it cannot be computed (it declares that the author does not
+        // care about this field's modifications), so on a SOURCE field the annotation would otherwise be read by
+        // nothing. Materializing it lets @IgnoreModifications-as-hidden-content (road-to-immutability section 050)
+        // work on source exactly as it does on shallow/AAPI types. It cannot blunt any derived verdict, since
+        // nothing computes IGNORE_MODIFICATIONS_FIELD.
+        materializeTrueBool(fieldInfo, IGNORE_MODIFICATIONS_FIELD);
+        materializeIgnoreModificationsFromFieldType(fieldInfo);
+    }
+
+    /**
+     * A field whose <em>type</em> carries a class-level {@code @IgnoreModifications} inherits the disclaimer,
+     * so the memo idiom is declared once on the class whose whole purpose it is ({@code io.codelaser.maddi.support.Memo},
+     * {@code IntMemo}) instead of being repeated on every field. Writing it into {@code analysis()} — rather
+     * than special-casing it at each of the dozen read sites — is what makes every consumer agree.
+     * <p>
+     * This is not the rejected "skip type X by name" hack: that keyed on a type its author never marked, and
+     * would have disclaimed fields whose authors intended nothing of the kind. Here the disclaimer is written,
+     * deliberately, on the type. Note the deliberate asymmetry with {@link #materializeTrueBool}: that one bails
+     * when the element carries no annotation of its own, which is exactly the case this method exists for.
+     */
+    private void materializeIgnoreModificationsFromFieldType(FieldInfo fieldInfo) {
+        if (fieldInfo.analysis().haveAnalyzedValueFor(IGNORE_MODIFICATIONS_FIELD)) return;
+        TypeInfo fieldType = fieldInfo.type().typeInfo();
+        // hasBeenInspected() FIRST, and it is not an optimization: TypeInfo.annotations() goes through
+        // EventuallyFinalOnDemand.get(), which RUNS the lazy byte-code loader. Asking every field's type for
+        // its annotations therefore inspects types the analyzer would never have looked at, and that changes
+        // verdicts -- measured on fernflower, where this rule should have been inert (no e2immu annotations in
+        // that corpus at all) and instead moved ConstantPool.pool from @Independent to @Dependent. Source types
+        // are final by the time analysis runs; a jar type is consulted once something else has inspected it,
+        // and this runs every pass, so nothing is permanently missed.
+        if (fieldType == null || !fieldType.hasBeenInspected() || fieldType.annotations().isEmpty()) return;
+        for (AnnotationExpression ae : fieldType.annotations()) {
+            if (IGNORE_MODIFICATIONS_FQN.equals(ae.typeInfo().fullyQualifiedName())) {
+                fieldInfo.analysis().set(IGNORE_MODIFICATIONS_FIELD, ValueImpl.BoolImpl.TRUE);
+                CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = true, from the class-level"
+                                                + " disclaimer on {}", IGNORE_MODIFICATIONS_FIELD, fieldInfo,
+                        fieldType);
+                propertyChanges.incrementAndGet();
+                return;
+            }
+        }
+    }
+
+    private void materialize(Info info, Property property) {
+        if (info.analysis().haveAnalyzedValueFor(property)) return; // computed, or already materialized
+        // the reader re-derives from the CST on every call; most elements carry no annotation at all, and of
+        // those that do, @Override is by far the most common. Skip before paying for the walk.
+        if (info.annotations().isEmpty()) return;
+        if (contractReader.contracts(info).get(property) instanceof Value.Immutable immutable
+            && !immutable.isDefault()) {
+            // MUTABLE is the default: writing it would record an "annotation" indistinguishable from silence
+            info.analysis().set(property, immutable);
+            CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = {}", property, info, immutable);
+            propertyChanges.incrementAndGet();
+        }
+    }
+
+    // as materialize(Info, Property) but for a boolean contract; only TRUE is written (FALSE is the silent
+    // default, indistinguishable from an absent annotation)
+    private void materializeTrueBool(Info info, Property property) {
+        if (info.analysis().haveAnalyzedValueFor(property)) return;
+        if (info.annotations().isEmpty()) return;
+        if (contractReader.contracts(info).get(property) instanceof Value.Bool bool && bool.isTrue()) {
+            info.analysis().set(property, bool);
+            CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of {} = {}", property, info, bool);
+            propertyChanges.incrementAndGet();
+        }
+    }
+}
