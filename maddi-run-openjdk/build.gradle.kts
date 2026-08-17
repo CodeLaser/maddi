@@ -75,6 +75,38 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// TestEventualRatchet analyses the dogfood input configuration, and that file is GENERATED, under
+// dogfood/cst-impl/build/. So a checkout that has not run the generation by hand fails the ratchet on
+// its own "does not exist" guard rather than on a verdict -- which is what testrunner reported out of
+// ~/git/maddi from 2026-08-11 until this task existed: a setup miss that reads, in a sweep, exactly
+// like the regression the ratchet is built to catch.
+//
+// Committing the file instead is not an option: it holds absolute paths -- the jars, the Gradle cache
+// and the SOURCE ROOTS -- so one checkout's copy would silently make another checkout's ratchet
+// analyse the first checkout's sources.
+//
+// GradleBuild rather than Exec("../gradlew"): dogfood is a STANDALONE build (deliberately absent from
+// settings.gradle.kts, so nothing there can affect this one), and a nested GradleBuild runs it
+// in-process -- no second wrapper, and no second attempt at the whole-box lock this build already
+// holds. It declares no outputs, so it always runs; the nested build is itself incremental and costs
+// ~2s when there is nothing to do.
+val dogfoodInputConfiguration by tasks.registering(GradleBuild::class) {
+    group = "verification"
+    description = "Generates the dogfood input configuration that TestEventualRatchet analyses."
+    // the plugin writes the file; the jars must exist at the project version or dogfood cannot resolve
+    // them (dogfood/settings.gradle.kts reads that version out of gradle.properties)
+    dependsOn(":maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository",
+            ":maddi-support:jar", ":maddi-util:jar")
+    dir = file("../dogfood")
+    tasks = listOf(":cst-impl:e2immu-write-input-configuration")
+    // the plugin's version does not change from one publication to the next, so without this Gradle
+    // serves dogfood the cached jar and the generation silently runs the previous plugin (README.md)
+    startParameter.isRefreshDependencies = true
+}
+
+tasks.named<Test>("slowTest") {
+    dependsOn(dogfoodInputConfiguration)
+}
 
 tasks.withType<JavaCompile> {
     options.compilerArgs.addAll(
