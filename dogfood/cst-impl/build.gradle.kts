@@ -15,6 +15,8 @@ sourceSets {
     }
 }
 
+val maddiVersion = extra["maddiVersion"] as String // the project's own version; see settings.gradle.kts
+
 dependencies {
     // the project dependencies are the ones under test: cst-api and cst-analysis must arrive as SOURCE, not
     // as jars -- analyzing PropertyValueMapImpl as source lets getOrDefault be proven @NotModified, which a
@@ -22,7 +24,7 @@ dependencies {
     implementation(project(":cst-api"))
     implementation(project(":cst-analysis"))
     // maddi-support in particular stays a jar so that reading @Mark/@Only out of byte code is exercised
-    implementation(":maddi-util:0.8.2")
+    implementation(":maddi-util:$maddiVersion")
     implementation("org.slf4j:slf4j-api:2.0.17")
     implementation("org.jetbrains:annotations:26.1.0")
 }

@@ -36,6 +36,17 @@ dependencyResolutionManagement {
     }
 }
 
+// The maddi-support / maddi-util jars are pinned at the PROJECT's own version, read from the real build's
+// gradle.properties (this standalone build does not inherit it). They used to carry a frozen literal, and a
+// frozen literal is a hole in the ratchet: TestEventualRatchet then measures whatever those two modules
+// looked like at some past release, so a change to either reads as "no change" rather than as a regression.
+// `./gradlew build` in the parent must have produced the jars at this version; if it has not, resolution
+// fails loudly here rather than quietly serving the old ones.
+val maddiVersion: String = java.util.Properties().apply {
+    settingsDir.resolve("../gradle.properties").inputStream().use { load(it) }
+}.getProperty("version") ?: error("no `version` in ../gradle.properties")
+gradle.beforeProject { extra["maddiVersion"] = maddiVersion }
+
 rootProject.name = "maddi-dogfood"
 
 // One subproject per maddi module, mirroring the real module graph. cst-api and cst-impl must both be
