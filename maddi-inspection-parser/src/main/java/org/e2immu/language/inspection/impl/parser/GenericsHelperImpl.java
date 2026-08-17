@@ -208,8 +208,15 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
                 int i = 0;
                 for (ParameterizedType formalParameter : formalType.parameters()) {
                     ParameterizedType concreteParameter = concreteType.parameters().get(i);
+                    // NOTE: this descent must NOT go via the public 3-arg overload: that one restarts with
+                    // infiniteLoopProtection == 0 and visited == null, which makes both cycle breakers
+                    // unreachable as soon as a functional interface names itself over its own type parameter
+                    // (Factory<T> whose SAM takes Map<String, Factory<T>>): the pair 211-264 then recurses
+                    // without bound. See TestGenericsHelper,3. The counter is passed on unincremented, so that
+                    // it keeps counting functional-interface descents only, as it did before; 'visited' is what
+                    // terminates this cycle.
                     Map<NamedType, ParameterizedType> recursive = translateMap(formalParameter, concreteParameter,
-                            concreteTypeIsAssignableToThis);
+                            concreteTypeIsAssignableToThis, infiniteLoopProtection, visited);
                     if (!recursive.isEmpty()) {
                         formalMap.putAll(recursive);
                     }
