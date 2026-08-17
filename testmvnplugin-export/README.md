@@ -12,5 +12,5 @@ mvn install
 Then run in test dir
 ```shell
 cd testmvnpluginexport
-mvn org.e2immu:e2immu-run-mvnplugin:e2immu-write-input-configuration
+mvn io.codelaser:maddi-mvnplugin:write-input-configuration
 ```

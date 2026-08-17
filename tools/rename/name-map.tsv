@@ -125,6 +125,18 @@ README.md	ACKNOWLEDGED
 AGENTS.md	ACKNOWLEDGED
 docs/eventual-immutability.md	ACKNOWLEDGED
 docs/eventual-info-hierarchy.md	ACKNOWLEDGED
+# Added at the cutover, 2026-08-17. Each names the old prefix in order to say something TRUE about
+# it, so a rule that rewrote them would make each one false:
+#   release notes — tells users their imports move away FROM org.e2immu.annotation. That is the
+#                   whole point of the document; rewriting it leaves migration instructions that
+#                   instruct nobody to change anything.
+#   PUBLISHING.md — records that neither `io.codelaser` nor `org.e2immu` exists on the Gradle
+#                   Plugin Portal, and that the old plugin id could not have been approved under
+#                   group io.codelaser. Both are claims about the old name.
+#   HANDOFF       — a recorded debugging session, quoting the stack frames as they read then.
+docs/release-notes-0.9.1.md	ACKNOWLEDGED
+PUBLISHING.md	ACKNOWLEDGED
+HANDOFF-SLOWTEST-FAILURES.md	ACKNOWLEDGED
 
 ## SECTION 4	frozen content — never substituted
 # Opaque test data: a recorded dependency graph OF THE OLD e2immu-analyser

@@ -83,7 +83,7 @@ tasks.shadowJar {
     archiveClassifier.set("")
     configurations = listOf(shade)
     // Keep maddi's own class names intact: the forked worker references RunAnalyzer by its real name,
-    // so relocating org.e2immu.* would break it. The analyzer runs in an isolated worker process, so
+    // so relocating io.codelaser.maddi.* would break it. The analyzer runs in an isolated worker process, so
     // no relocation of third-party deps is needed either.
     mergeServiceFiles()
 }
