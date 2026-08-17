@@ -1159,14 +1159,30 @@ public class JavaInspectorImpl implements JavaInspector {
                 // ⚠ --enable-preview is only legal for the release we RUN on; a corpus release is by definition
                 // an older one, and javac refuses the combination.
                 // java.lang.Runtime: the maddi CST 'Runtime' is imported in this file and would shadow it
+                // ⭐ THE SET'S OWN RELEASE FIRST, the configuration's second. The global field states one answer
+                // for the whole configuration and therefore ABSTAINS on a reactor that states several
+                // (CompileListToInputConfiguration#setSourceRelease: max hides an API removed after it from the
+                // module that still uses it, min invents errors in the module that does not). Per set the
+                // question has an answer -- this set's own -- and this loop already runs one javac task per
+                // source set, so nothing but the value had to change. OpenSearch states three releases.
                 int running = java.lang.Runtime.version().feature();
-                int configured = inputConfiguration == null ? 0 : inputConfiguration.sourceRelease();
+                int perSet = sourceSet.sourceRelease();
+                int global = inputConfiguration == null ? 0 : inputConfiguration.sourceRelease();
+                int configured = perSet > 0 ? perSet : global;
                 if (configured > 0 && configured != running) {
                     options.add("--release=" + configured);
                 } else {
                     options.add("--enable-preview");
                     options.add("--release=" + running);
                 }
+            }
+            // ⚠ AFTER the release branch and outside it, because it applies to all three: --add-modules is
+            // orthogonal to how the platform is selected. One OpenSearch set compiles with
+            // `--add-modules jdk.incubator.vector` and the other 46 must not -- without it the two units using
+            // the vector API do not resolve and are dropped; with it granted to every set, the parse would
+            // accept source those builds would reject.
+            if (!sourceSet.addModules().isEmpty()) {
+                options.add("--add-modules=" + String.join(",", sourceSet.addModules()));
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }

@@ -638,6 +638,12 @@ public class CompileListToSourceSets {
                 .setTest(test)
                 .setModule(isModule)
                 .setDependencies(dependencies)
+                // The invocation's own javac options, kept PER SET. The global InputConfiguration.sourceRelease
+                // can only state one answer for the whole configuration and so abstains for a reactor that
+                // states several -- see setSourceRelease in CompileListToInputConfiguration. Here there is no
+                // ambiguity to abstain from: this set was compiled with exactly these options.
+                .setSourceRelease(inv.effectiveRelease())
+                .setAddModules(inv.addModules())
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);
         return sourceSet;

@@ -56,6 +56,17 @@ public interface CompileInvocation {
         return r > 0 ? r : sourceRelease();
     }
 
+    /**
+     * The modules this invocation resolves against beyond the default root set ({@code --add-modules});
+     * empty when it passed none. Recorded per invocation because it belongs to ONE source set: OpenSearch
+     * passes {@code --add-modules jdk.incubator.vector} on 1 of its 47 javac lines, and the other 46 must not
+     * have it — an incubator module made visible to a set whose build never had it is a parse that accepts
+     * source the build would reject.
+     */
+    default List<String> addModules() {
+        return List.of();
+    }
+
     /** The compiler's module name ({@code -module-name}); {@code null} for javac. */
     default String moduleName() {
         return null;
