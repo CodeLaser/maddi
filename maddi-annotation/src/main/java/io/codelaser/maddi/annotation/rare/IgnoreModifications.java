@@ -36,8 +36,12 @@ import java.lang.annotation.Target;
  * <p>
  * On a <em>type</em> it declares that the whole class is a disclaimed slot — every field of that type
  * inherits the disclaimer, so the idiom is declared once at the source rather than repeated on each
- * field. {@link io.codelaser.maddi.support.Memo} and {@link io.codelaser.maddi.support.IntMemo} are the types this
- * exists for. This is not the same as skipping a type the author never marked: the disclaimer is
+ * field. {@code io.codelaser.maddi.support.Memo} and {@code io.codelaser.maddi.support.IntMemo} are the types this
+ * exists for -- named as text rather than linked, because the 0.9.1 split put them in maddi-support, and
+ * maddi-annotation must not depend on maddi-support: the dependency runs the other way, and this module has
+ * no `requires` at all. A {@code @link} here fails the javadoc build, which withJavadocJar() makes a release
+ * blocker rather than a warning.
+ * This is not the same as skipping a type the author never marked: the disclaimer is
  * written, deliberately, on the class whose entire purpose it is.
  */
 @Retention(RetentionPolicy.CLASS)

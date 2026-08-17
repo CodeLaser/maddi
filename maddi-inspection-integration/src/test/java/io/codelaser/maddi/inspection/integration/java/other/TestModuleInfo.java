@@ -157,9 +157,9 @@ public class TestModuleInfo {
         assertEquals("[multiLineComment@1-1:3-3]", moduleInfo.comments().toString());
         assertEquals("io.codelaser.maddi.inspection.integration", moduleInfo.name());
         ModuleInfo.Requires req0 = moduleInfo.requires().getFirst();
-        assertEquals("5-14:5-45", req0.source().detailedSources().detail(req0.name()).compact2());
+        assertEquals("5-14:5-39", req0.source().detailedSources().detail(req0.name()).compact2());
         assertEquals("""
-                        RequiresImpl[source=@5:5-5:46, comments=[], name=io.codelaser.maddi.support, \
+                        RequiresImpl[source=@5:5-5:40, comments=[], name=io.codelaser.maddi.support, \
                         isStatic=false, isTransitive=false]\
                         """,
                 req0.toString());
