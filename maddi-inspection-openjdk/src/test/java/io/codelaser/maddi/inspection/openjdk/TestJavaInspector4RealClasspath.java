@@ -42,14 +42,17 @@ public class TestJavaInspector4RealClasspath {
         SourceSet cstApi = new SourceSetImpl.Builder().setName("cst-api")
                 .setSourceDirectories(List.of(cstApiPath))
                 .setUri(URI.create("file:/")) // not important here
-                .setDependencies(List.of(javaBase, annotations, maddiSupport))
+                // maddiAnnotation named beside maddiSupport, not reached through it: the parser's
+                // source-set dependencies are direct, not transitive, so `requires transitive
+                // io.codelaser.maddi.annotation` does not carry the annotations to cst-api here.
+                .setDependencies(List.of(javaBase, annotations, maddiAnnotation, maddiSupport))
                 .build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(maddiSupport, annotations)
+                .addClassPathParts(maddiAnnotation, maddiSupport, annotations)
                 .build();
-        assertEquals(3, inputConfiguration.classPathParts().size());
+        assertEquals(4, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
     }
 

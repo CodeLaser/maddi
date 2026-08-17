@@ -97,7 +97,7 @@ public class TestJavaInspector6MultiProject {
                 .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(List.of(maddiSupport, orgSlf4jApi))
+                .setDependencies(List.of(maddiAnnotation, maddiSupport, orgSlf4jApi))
                 .build();
 
 
@@ -115,7 +115,7 @@ public class TestJavaInspector6MultiProject {
                 .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(List.of(maddiSupport, annotations))
+                .setDependencies(List.of(maddiAnnotation, maddiSupport, annotations))
                 .build();
 
 
@@ -132,7 +132,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstAnalysisPath))
                 .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi))
+                .setDependencies(List.of(cstApi, maddiAnnotation, maddiSupport, orgSlf4jApi))
                 .build();
 
         Path cstImplPath = Path.of("../maddi-cst-impl/src/main/java");
@@ -141,7 +141,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstImplPath))
                 .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
 
         Path cstImplTestPath = Path.of("../maddi-cst-impl/src/test/java");
@@ -151,7 +151,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstImplTestPath))
                 .setUri(cstImplTestPath.toUri())
                 .setModule(false)
-                .setDependencies(List.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi,
+                .setDependencies(List.of(cstApi, cstAnalysis, cstImpl, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi,
                         annotations, junitJupiter))
                 .build();
 
@@ -161,7 +161,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstIoPath))
                 .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations))
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, orgSlf4jApi, annotations))
                 .build();
 
         // only the source directories need checking; the artifacts come from this test's own class path

@@ -72,9 +72,14 @@ public class TestJavaInspector3RealClasspath {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(sourceSet)
                 .addClassPath("jmod:java.base", "jmod:java.sql")
-                .addClassPathParts(commonsCli, maddiSupport, slf4j)
+                // maddiAnnotation has to be a classpath part in its own right, not merely a
+                // dependency of maddiSupport above. Since the 0.9.1 split the annotations are a
+                // separate artifact, so without this @ImmutableContainer is not on the classpath at
+                // all — and the parser then attributes the type to the source set being parsed,
+                // which is why test1 reported `test-protocol` where it expects `maddi-annotation`.
+                .addClassPathParts(commonsCli, maddiAnnotation, maddiSupport, slf4j)
                 .build();
-        assertEquals(5, inputConfiguration.classPathParts().size());
+        assertEquals(6, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
     }

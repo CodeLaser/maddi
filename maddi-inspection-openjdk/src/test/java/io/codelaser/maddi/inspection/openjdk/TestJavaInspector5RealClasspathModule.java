@@ -49,13 +49,20 @@ public class TestJavaInspector5RealClasspathModule {
                 .setSourceDirectories(List.of(cstApiPath))
                 .setUri(URI.create("file:/")) // not important here
                 .setModule(true)
-                .setDependencies(List.of(javaBase, annotations, maddiSupport, maddiUtil))
+                // maddiAnnotation is listed alongside maddiSupport rather than left to be reached
+                // through it. `requires transitive io.codelaser.maddi.annotation` is what makes the
+                // annotations readable to a consumer of the support module in JPMS, but the parser's
+                // source-set dependencies are DIRECT, not transitive — cst-api names the annotations
+                // in 100 places, so it has to name the source set that carries them. This mirrors
+                // what a real build hands the parser: Gradle resolves maddi-support's `api`
+                // dependency and puts both artifacts on every consumer's compile classpath.
+                .setDependencies(List.of(javaBase, annotations, maddiAnnotation, maddiSupport, maddiUtil))
                 .build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi)
-                .addClassPathParts(javaBase, annotations, maddiSupport, maddiUtil)
+                .addClassPathParts(javaBase, annotations, maddiAnnotation, maddiSupport, maddiUtil)
                 .build();
-        assertEquals(4, inputConfiguration.classPathParts().size());
+        assertEquals(5, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
     }
 

@@ -158,28 +158,28 @@ public class TestEventualConformance {
                 .setSourceDirectories(List.of(maddiUtilSrc))
                 .setUri(artifactOf(io.codelaser.maddi.util.GetSetNames.class))
                 .setLibrary(true).setModule(true)
-                .setDependencies(List.of(maddiSupport, orgSlf4jApi)).build();
+                .setDependencies(List.of(maddiAnnotation, maddiSupport, orgSlf4jApi)).build();
 
         Path cstApiSrc = Path.of("../maddi-cst-api/src/main/java");
         SourceSet cstApi = new SourceSetImpl.Builder().setName("maddi-cst-api")
                 .setSourceDirectories(List.of(cstApiSrc))
                 .setUri(artifactOf(io.codelaser.maddi.cst.api.element.Element.class))
                 .setLibrary(true).setModule(true)
-                .setDependencies(List.of(maddiSupport, annotations)).build();
+                .setDependencies(List.of(maddiAnnotation, maddiSupport, annotations)).build();
 
         Path cstAnalysisSrc = Path.of("../maddi-cst-analysis/src/main/java");
         SourceSet cstAnalysis = new SourceSetImpl.Builder().setName("maddi-cst-analysis")
                 .setSourceDirectories(List.of(cstAnalysisSrc))
                 .setUri(artifactOf(io.codelaser.maddi.cst.impl.analysis.ValueImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi)).build();
+                .setDependencies(List.of(cstApi, maddiAnnotation, maddiSupport, orgSlf4jApi)).build();
 
         Path cstImplSrc = Path.of("../maddi-cst-impl/src/main/java");
         cstImpl = new SourceSetImpl.Builder().setName("maddi-cst-impl")
                 .setSourceDirectories(List.of(cstImplSrc))
                 .setUri(artifactOf(io.codelaser.maddi.cst.impl.info.TypeInfoImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
 
         // cst-io joins the parse, and junit/opentest4j the class path, because that is the combination
@@ -190,12 +190,12 @@ public class TestEventualConformance {
                 .setSourceDirectories(List.of(cstIoSrc))
                 .setUri(artifactOf(io.codelaser.maddi.cst.io.CodecImpl.class))
                 .setModule(true)
-                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations)).build();
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiAnnotation, maddiSupport, orgSlf4jApi, annotations)).build();
 
         SourceSet junitJupiter = externalJar(Test.class);
         SourceSet openTest = SourceSetImpl.sourceSetOf(org.opentest4j.AssertionFailedError.class);
 
-        for (Path p : List.of(maddiSupportSrc, maddiUtilSrc, cstApiSrc, cstAnalysisSrc, cstImplSrc, cstIoSrc)) {
+        for (Path p : List.of(maddiAnnotationSrc, maddiSupportSrc, maddiUtilSrc, cstApiSrc, cstAnalysisSrc, cstImplSrc, cstIoSrc)) {
             assertTrue(Files.isDirectory(p), "Expected maddi source directory " + p.toAbsolutePath());
         }
 
@@ -204,11 +204,11 @@ public class TestEventualConformance {
                 .setSourceDirectories(List.of(cstImplTestSrc))
                 .setUri(cstImplTestSrc.toUri())
                 .setModule(false)
-                .setDependencies(List.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi,
+                .setDependencies(List.of(cstApi, cstAnalysis, cstImpl, maddiAnnotation, maddiSupport, maddiUtil, orgSlf4jApi,
                         annotations, junitJupiter)).build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(cstApi, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
+                .addSourceSets(cstApi, maddiAnnotation, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
                 .addClassPath("jmod:java.base")
                 .addClassPathParts(orgSlf4jApi, annotations, junitJupiter, openTest)
                 .build();
