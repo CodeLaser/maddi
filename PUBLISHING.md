@@ -8,12 +8,19 @@ Publishing strategy
 >
 > Two things learned publishing 0.9.0, worth knowing before the next release:
 >
-> * **The published artifact must stay dependency-free.** `maddi-support` deliberately does *not*
->   apply `java-library-conventions`: that adds `api(platform(project(":platform")))` plus
->   jetbrains-annotations and slf4j, all of which leak into the POM and Gradle module metadata. The
->   internal `io.codelaser:platform` BOM is not on Central, so such a POM is unresolvable for a
->   consumer. Check before every release: the POM must have no `<dependencies>`/`<dependencyManagement>`
->   and all four module-metadata variants must be empty.
+> * **A published artifact must declare no dependency that is not itself on Central.**
+>   `maddi-support` deliberately does *not* apply `java-library-conventions`: that adds
+>   `api(platform(project(":platform")))` plus jetbrains-annotations and slf4j, all of which leak into
+>   the POM and Gradle module metadata. The internal `io.codelaser:platform` BOM is not on Central, so
+>   such a POM is unresolvable for a consumer.
+>
+>   Until 0.9.0 this was checked as the stricter, simpler "the POM must have no
+>   `<dependencies>`/`<dependencyManagement>` and all four module-metadata variants must be empty",
+>   which was true of `maddi-support` and easy to verify. **The `maddi-annotation` split retires that
+>   phrasing**: `maddi-support` now legitimately declares one dependency, on `maddi-annotation`, which
+>   ships to Central in the same release train. Checked literally, the old rule fails on a correct
+>   artifact — so check the resolvability, which is what the rule was always for: every entry in
+>   `<dependencies>` must be an artifact a consumer can actually resolve from Central.
 > * **`Attempt N of 101` in the JReleaser log is a polling loop, not a retry after failure.** The
 >   deployment is already uploaded and publishing; do not re-run the deploy. Portal→`repo1` sync adds
 >   another 10-30 minutes, and `maven-metadata.xml` catches up later still. Verify with
