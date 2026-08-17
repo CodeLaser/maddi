@@ -63,7 +63,7 @@ public class TestDeepNestingPrint extends CommonTest {
 
             // every statement and condition stays intact on a single line
             for (int i = 0; i < 10; i++) {
-                assertTrue(out.contains("if(p > " + i + ") {"), "condition " + i + " was broken at " + msg);
+                assertTrue(out.contains("if (p > " + i + ") {"), "condition " + i + " was broken at " + msg);
                 assertTrue(out.contains("p = p + " + i + ";"), "statement " + i + " was broken at " + msg);
             }
         }

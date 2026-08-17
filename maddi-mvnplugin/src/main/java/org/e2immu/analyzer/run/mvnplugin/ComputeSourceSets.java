@@ -14,6 +14,7 @@ import org.eclipse.aether.util.filter.DependencyFilterUtils;
 
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,8 +59,7 @@ public class ComputeSourceSets {
         // against the configured working directory, but the classpath parts are already absolute machine paths, so
         // relativizing the sources buys no portability -- it only coupled the run to the process CWD and produced
         // opaque "file:src/main/java" URIs. Absolute paths make the run independent of where mvn is launched from.
-        List<Path> sourcePaths = project.getCompileSourceRoots().stream()
-                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
+        List<Path> sourcePaths = existingDirectories(project.getCompileSourceRoots(), "main");
         if (!sourcePaths.isEmpty()) {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
@@ -77,8 +77,7 @@ public class ComputeSourceSets {
         deps.addAll(computeClassPathParts(JavaScopes.TEST, true, false, sourceSetsByName,
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for test");
-        List<Path> testSourcePaths = project.getTestCompileSourceRoots().stream()
-                .map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
+        List<Path> testSourcePaths = existingDirectories(project.getTestCompileSourceRoots(), "test");
         if (!testSourcePaths.isEmpty()) {
             Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
 
@@ -96,6 +95,30 @@ public class ComputeSourceSets {
         }
 
         return new ComputeDependencies.SourceSetDependencies("main", sourceSetsByName);
+    }
+
+    /**
+     * Maven's compile source roots are DECLARED, not necessarily present. Both callers used to guard only on the
+     * list being empty, so a declared-but-absent directory produced a source set over nothing, and the written
+     * inputConfiguration named a path that does not exist.
+     * <p>
+     * guava is the case that exposed this: its ROOT pom sets {@code <testSourceDirectory>test</testSourceDirectory>}
+     * for every module, but the {@code guava} module has no {@code test/} -- its tests live in the sibling
+     * {@code guava-tests} module. Maven itself tolerates this and compiles nothing; we recorded
+     * {@code .../guava/guava/test} in the configuration, which is what {@code task corpus:verify} then reported as
+     * the single unresolvable path out of 3949.
+     * <p>
+     * Dropping it loses nothing -- a directory that does not exist contributes no compilation units -- and it keeps
+     * the configuration to paths that can actually be parsed. Absence is logged rather than silent: on a project
+     * whose generated-source root has simply not been generated yet, the line is the clue that the config was
+     * written before the build produced it.
+     */
+    private List<Path> existingDirectories(List<String> roots, String which) {
+        List<Path> all = roots.stream().map(path -> Path.of(path).toAbsolutePath().normalize()).toList();
+        List<Path> existing = all.stream().filter(Files::isDirectory).toList();
+        all.stream().filter(p -> !existing.contains(p))
+                .forEach(p -> log.info("Skipping declared but absent " + which + " source directory " + p));
+        return existing;
     }
 
     private Set<SourceSet> computeClassPathParts(String scope, boolean test, boolean runtimeOnly,

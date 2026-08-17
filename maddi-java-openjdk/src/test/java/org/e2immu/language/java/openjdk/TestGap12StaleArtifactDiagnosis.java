@@ -127,5 +127,119 @@ public class TestGap12StaleArtifactDiagnosis {
         assertDoesNotThrow(() -> StaleArtifactDiagnosis.message(TYPE,
                 URI.create("jar:file:/does/not/exist.jar!/a/T.class"), null, true, null, MEMBER, EXISTING));
         assertNull(StaleArtifactDiagnosis.lastModified(Path.of("/definitely/not/here.jar")));
+        assertDoesNotThrow(() -> StaleArtifactDiagnosis.message(TYPE, null, null, false, null, MEMBER, EXISTING,
+                List.of("line 7: package com.example.ann does not exist")));
+    }
+
+    // ---- the classpath-gap branch: neither side is a jar, and the committed source did not compile ----
+
+    private static final URI SRC = URI.create("file:/p/src/main/java/a/b/WebhookService.java");
+    private static final URI CLASSES = URI.create("file:/p/target/classes/a/b/WebhookService.class");
+
+    /** One missing package produces one error per use site; this is the real shape, 50 of them in one file. */
+    private static List<String> fiftyMissingPackageErrors() {
+        return java.util.stream.IntStream.range(0, 50)
+                .mapToObj(i -> "line " + (7 + i) + ": package com.example.ann does not exist")
+                .toList();
+    }
+
+    /**
+     * ⛔ THE REGRESSION THIS BRANCH EXISTS FOR. Source committed, class file arrived second, NO jar on either
+     * side — and the old message ended "the member lists above are the evidence to read". Two independent
+     * readers followed that steer within 24 hours to the same wrong conclusion (that a compact record
+     * constructor loses its canonical parameters; {@code TestCompactConstructorProbe} refutes it). The file had
+     * simply not compiled.
+     */
+    @DisplayName("#12b: a committed source that did not compile blames the CLASSPATH, not the member lists")
+    @Test
+    public void javacErrorsOutrankTheMemberLists() {
+        String m = StaleArtifactDiagnosis.message(TYPE, SRC, "definition/main", false, CLASSES, MEMBER, EXISTING,
+                fiftyMissingPackageErrors());
+
+        assertTrue(m.contains("DID NOT COMPILE"), m);
+        assertTrue(m.contains("50 javac error(s)"), "the COUNT is the diagnosis: " + m);
+        assertTrue(m.contains("package com.example.ann does not exist"), "javac's own words: " + m);
+        assertTrue(m.contains("ERROR RECOVERY"), "the mechanism that truncates the type: " + m);
+        assertTrue(m.contains("FEWER PARAMETERS"), "the exact symptom that was misread twice: " + m);
+        assertTrue(m.contains("ARTIFACT OF THESE ERRORS"), m);
+        assertTrue(m.contains("definition/main"), "name the source set whose classpath to fix: " + m);
+        assertTrue(m.contains("START WITH THE JAVAC ERRORS"), m);
+        // ⛔ the steer that caused the misdiagnosis must be GONE, not merely accompanied
+        assertFalse(m.contains("the member lists above are the evidence to read"),
+                "the old steer is what produced two wrong diagnoses: " + m);
+        // the errors must come BEFORE the verdict, or a reader meets the member lists first anyway
+        assertTrue(m.indexOf("DID NOT COMPILE") < m.indexOf("NOT the stale-artifact case"), m);
+    }
+
+    /** Capping is fine; capping silently is not — "50 errors in one file" is itself the signal. */
+    @DisplayName("#12b: the error list is deduplicated and capped, but says what it dropped")
+    @Test
+    public void theCapIsNotSilent() {
+        List<String> many = java.util.stream.IntStream.range(0, 12)
+                .mapToObj(i -> "line " + i + ": cannot find symbol Distinct" + i).toList();
+        String m = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, CLASSES, MEMBER, EXISTING, many);
+        assertTrue(m.contains("12 javac error(s)"), m);
+        assertTrue(m.contains("further distinct error(s)"), "a truncated list must declare the truncation: " + m);
+        assertTrue(m.contains("and 7 further"), "12 distinct, 5 shown: " + m);
+    }
+
+    /**
+     * ⛔ THE GROUPING KEY IS THE ERROR TEXT, NOT THE LINE. One missing import produces the SAME complaint at 50
+     * different line numbers — the real shape. Keyed on the whole rendered line, nothing would collapse, and the
+     * reader would meet five near-identical lines without the one fact that matters: a SINGLE package is behind
+     * all fifty. <b>"50 errors, 1 distinct" is what says "this file has no classpath" rather than "this file has
+     * a typo"</b>, and it is the sentence that sends the reader to the dependency list.
+     */
+    @DisplayName("#12b: fifty errors at fifty line numbers, one missing package — reported as 1 distinct")
+    @Test
+    public void sameComplaintAcrossManyLinesGroupsToOne() {
+        String m = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, CLASSES, MEMBER, EXISTING,
+                fiftyMissingPackageErrors());
+        assertTrue(m.contains("50 javac error(s), 1 distinct"),
+                "the line numbers differ, the complaint does not: " + m);
+        assertFalse(m.contains("further distinct error(s)"), "nothing was dropped, so claim nothing was: " + m);
+        assertTrue(m.contains("line 7: package com.example.ann does not exist"),
+                "the FIRST line carrying the complaint is kept, so a location survives grouping: " + m);
+        // exactly one error line, not fifty and not five
+        assertEquals(1, m.lines().filter(l -> l.contains("package com.example.ann")).count(), m);
+    }
+
+    /**
+     * ⛔ THE CONTROL, in the spirit of {@code sourceOnlyIsNotBlamedOnAJar}: a diagnosis that always blames the
+     * classpath is exactly as useless as one that never does. With no javac errors the message must be
+     * byte-for-byte what it was before this branch existed.
+     */
+    @DisplayName("#12b control: a clean compile is never blamed on the classpath")
+    @Test
+    public void noJavacErrorsMeansNoClasspathBlame() {
+        String withEmpty = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, CLASSES, MEMBER, EXISTING,
+                List.of());
+        assertFalse(withEmpty.contains("DID NOT COMPILE"), withEmpty);
+        assertFalse(withEmpty.contains("javac error"), withEmpty);
+        assertTrue(withEmpty.contains("the member lists above are the evidence to read"),
+                "with nothing better to offer, the old steer is still the right one: " + withEmpty);
+
+        String legacy = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, CLASSES, MEMBER, EXISTING);
+        assertEquals(legacy, withEmpty, "the 7-arg form must be exactly the 8-arg form with no errors");
+    }
+
+    /**
+     * A stale jar is still a stale jar: javac errors are additional evidence, and must not displace the verdict
+     * that names the artifact and the remedy.
+     */
+    @DisplayName("#12b: javac errors do not suppress the stale-jar verdict")
+    @Test
+    public void aStaleJarIsStillReportedAlongsideTheErrors() throws Exception {
+        Path jar = Files.createTempFile("stale-both-", ".jar");
+        try {
+            URI incoming = URI.create("jar:file:" + jar + "!/a/b/WebhookService.class");
+            String m = StaleArtifactDiagnosis.message(TYPE, SRC, "main", false, incoming, MEMBER, EXISTING,
+                    List.of("line 7: package com.example.ann does not exist"));
+            assertTrue(m.contains("THE JAR IS STALE"), "the jar verdict survives: " + m);
+            assertTrue(m.contains("REBUILD OR DELETE IT"), m);
+            assertTrue(m.contains("DID NOT COMPILE"), "and the errors are still shown: " + m);
+        } finally {
+            Files.deleteIfExists(jar);
+        }
     }
 }

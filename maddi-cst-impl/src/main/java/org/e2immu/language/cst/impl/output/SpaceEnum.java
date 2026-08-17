@@ -39,6 +39,10 @@ public enum SpaceEnum implements Space {
 
     ONE_IS_NICE_EASY_SPLIT(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.EASY),  // no space needed but one in nice, split to make things nicer
 
+    // one space in nice mode, nothing in compact, and never a line break here — the space between a
+    // keyword and its parenthesis: nice mode writes `if (`, compact mode keeps `if(`
+    ONE_IS_NICE_NEVER_SPLIT(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.NEVER),
+
     ONE_IS_NICE_SPLIT_BEGIN_END(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.BEGIN_END),  // no space needed but one in nice, split to make things nicer
 
     NEWLINE(ElementarySpaceEnum.NEWLINE, ElementarySpaceEnum.NEWLINE, SplitEnum.ALWAYS), // enforce a newline

@@ -24,9 +24,9 @@
  e2immuSourceElements variant is what carries cst-api's sources into cst-impl's input configuration.
 */
 plugins {
-    // resolved once here, applied in the subprojects
-    // the plugin only generates the input configuration here (the ratchet runs the engine in-process);
-    // its pin tracks the project version — unlike the maddi-support/maddi-util JAR pins below the
-    // subprojects, which deliberately stay at their frozen version (see expected-eventual-survivors.txt)
-    id("org.e2immu.analyzer-plugin") version "0.9.0" apply false
+    // Resolved once here, applied in the subprojects. Deliberately NO version literal: settings.gradle.kts
+    // supplies the project's own, read from the real build's gradle.properties, exactly as it does for the
+    // maddi-support/maddi-util jar pins. Nothing under dogfood/ names a version, so nothing under dogfood/
+    // can be left behind by a release.
+    id("org.e2immu.analyzer-plugin") apply false
 }

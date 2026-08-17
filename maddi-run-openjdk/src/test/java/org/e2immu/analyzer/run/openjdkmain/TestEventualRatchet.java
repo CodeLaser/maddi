@@ -107,7 +107,7 @@ public class TestEventualRatchet {
                      + " verdict reads absent (dogfood/README.md).");
             }
         }
-        logCoverage();
+        assertCoverage();
 
         Set<String> survivors = runDogfoodAndCollectSurvivors();
 
@@ -149,18 +149,20 @@ public class TestEventualRatchet {
     }
 
     /**
-     * What this ratchet does and does not cover, reported on every run so it cannot be mistaken.
+     * What this ratchet covers, asserted rather than merely reported.
      * <p>
-     * cst-api, cst-analysis and cst-impl are analysed as SOURCE — those are what the ratchet defends.
-     * maddi-support and maddi-util arrive as JARS at a version the dogfood build pins (so that reading
-     * {@code @Mark}/{@code @Only} out of byte code is exercised), and the pin does not follow the project
-     * version. A change to either module therefore does not reach this run at all, and would read as
-     * "no change" rather than as an improvement or a regression. To bring them in: bump the versions in
-     * {@code dogfood/{cst-api,cst-analysis,cst-impl}/build.gradle.kts}, re-publish the plugin, and
-     * regenerate the input configuration per {@code dogfood/README.md} — then re-derive this baseline,
-     * because the jars moving forward will move verdicts with them.
+     * cst-api, cst-analysis and cst-impl are analysed as SOURCE. maddi-support and maddi-util arrive as
+     * JARS — deliberately, so that reading {@code @Mark}/{@code @Only} out of byte code is exercised —
+     * but they must be the jars of the code under test, not of some past release. Until 2026-08-17 the
+     * dogfood build pinned them at a frozen {@code 0.8.2} while the project stood at {@code 0.9.0}, so a
+     * change to either module did not reach this run at all and read as "no change" rather than as an
+     * improvement or a regression. The pins now track {@code gradle.properties} (see
+     * {@code dogfood/settings.gradle.kts}); this check exists because that is only true of a
+     * {@code inputConfiguration.json} generated <em>since</em>, and the file is checked in nowhere — it is
+     * whatever the developer last generated. A stale one is exactly the silent-vacuous failure the ratchet
+     * is built against, so it fails here rather than measuring the wrong engine.
      */
-    private static void logCoverage() throws IOException {
+    private static void assertCoverage() throws IOException {
         java.util.regex.Matcher versionMatcher = java.util.regex.Pattern.compile("(?m)^version=(.+)$")
                 .matcher(Files.readString(Path.of("../gradle.properties")));
         String version = versionMatcher.find() ? versionMatcher.group(1).trim() : "?";
@@ -168,8 +170,18 @@ public class TestEventualRatchet {
         java.util.regex.Matcher jarMatcher = java.util.regex.Pattern
                 .compile("maddi-(?:support|util)-[0-9][^/\"]*\\.jar").matcher(Files.readString(INPUT_CONFIGURATION));
         while (jarMatcher.find()) jars.add(jarMatcher.group());
-        LOGGER.info("Ratchet scope: cst-api/cst-analysis/cst-impl as source; {} as jars (project version {}),"
-                    + " whose contents this run cannot see changes to", jars, version);
+        Set<String> stale = new TreeSet<>(jars);
+        stale.removeIf(jar -> jar.endsWith("-" + version + ".jar"));
+        if (!stale.isEmpty() || jars.size() != 2) {
+            fail("The dogfood input configuration carries " + jars + ", of which " + stale + " is/are not"
+                 + " at the current project version " + version + " (both jars must be, and only those two)."
+                 + " This run would measure released jars instead of the code under test."
+                 + " Rebuild and regenerate: `./gradlew build` then"
+                 + " `cd dogfood && ../gradlew --refresh-dependencies"
+                 + " :cst-impl:e2immu-write-input-configuration` (dogfood/README.md).");
+        }
+        LOGGER.info("Ratchet scope: cst-api/cst-analysis/cst-impl as source, {} as jars, all at the current"
+                    + " project version {}", jars, version);
     }
 
     /**

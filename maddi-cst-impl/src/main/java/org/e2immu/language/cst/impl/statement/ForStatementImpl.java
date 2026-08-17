@@ -166,7 +166,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification);
         outputBuilder.add(KeywordImpl.FOR)
-                .add(SymbolEnum.LEFT_PARENTHESIS);
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD);
         if (initializers.size() == 1 && initializers.get(0) instanceof LocalVariableCreation lvc) {
             outputBuilder.add(lvc.print(qualification)); // already contains the semicolon
         } else {

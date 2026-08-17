@@ -15,6 +15,20 @@ One subproject per maddi module, each pointing at that module's real source dire
 | `:cst-impl` | source | holds `TypeInfoImpl`, the **implementation** |
 | maddi-support, maddi-util | jars (flatDir) | maddi-support stays a jar so that reading `@Mark`/`@Only` out of **byte code** is exercised |
 
+**No version literal lives anywhere under `dogfood/`.** The two jars *and* the analyzer plugin are pinned
+at the **project's own version**, which `settings.gradle.kts` reads out of the real build's
+`gradle.properties` (a standalone build does not inherit it) and feeds to both the plugin resolution
+strategy and the subprojects. The jars carried a frozen `0.8.2` until 2026-08-17, which meant
+`TestEventualRatchet` measured a past release of those two modules and read every change to them as
+"no change"; `TestEventualRatchet.assertCoverage` now fails if the input configuration was generated at
+any version other than the current one. Run `./gradlew build` in the parent first — the jars must exist
+at that version, or resolution fails here.
+
+Day to day that means **rebuilding is enough**: the input configuration records the jar *paths*, and
+`./gradlew build` rewrites those files in place, so a change to maddi-support or maddi-util reaches the
+next ratchet run without regenerating anything. Regeneration is needed when the version in
+`gradle.properties` moves, or when a source root or dependency changes.
+
 When immutability is the focus, analyze as many dependencies as source as possible: a shallow jar leaves
 read accessors without a proven `@NotModified`, which conservatively caps immutability (see
 `road-to-immutability/llm-summary.md`). The plugin wires the transitive `cst-analysis → cst-api` source edge.

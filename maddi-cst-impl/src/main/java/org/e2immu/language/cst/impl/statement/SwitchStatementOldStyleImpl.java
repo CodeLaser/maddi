@@ -236,7 +236,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     @Override
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.SWITCH)
-                .add(SymbolEnum.LEFT_PARENTHESIS).add(selector.print(qualification)).add(SymbolEnum.RIGHT_PARENTHESIS);
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD).add(selector.print(qualification)).add(SymbolEnum.RIGHT_PARENTHESIS);
         outputBuilder.add(SymbolEnum.LEFT_BRACE);
         if (!block.isEmpty()) {
             GuideImpl.GuideGenerator guideGenerator = GuideImpl.generatorForBlock();

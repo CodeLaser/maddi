@@ -54,7 +54,7 @@ public class TestIsolateMethod10FullyQualified extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class p { class q { class Helper {static String compute() { return null; } } } }
+                    static class p { static class q { static class Helper {static String compute() { return null; } } } }
                     String method() {
                     return p.q.Helper.compute();
                 }

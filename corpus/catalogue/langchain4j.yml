@@ -1,0 +1,50 @@
+name: langchain4j
+status: active
+summary: >-
+  Maven, many modules, only langchain4j-core is parsed. The build does NOT complete, and does not
+  need to — this is the entry the `expect: partial` idea exists for.
+
+source:
+  kind: git
+  url: https://github.com/langchain4j/langchain4j.git
+  # No --depth. Maven's version plugins read history, and a shallow clone makes them misbehave in
+  # ways that surface much later, during the build, as version-resolution errors.
+
+build:
+  cmd: mvn clean install -DskipTests
+
+  # ⚠ THE POINT OF THIS FIELD. A non-zero exit is EXPECTED here: sibling modules pull provider
+  # SDKs that do not resolve, and the reactor stops on them. That is fine, because nothing below
+  # langchain4j-core is parsed. The old `_build` task had no tolerance at all — it ran the command
+  # and let Task fail the chain — so this corpus either failed the run or had its failure ignored
+  # by hand, with no record of which.
+  #
+  # The build is judged by `provides`, not by the exit code. If langchain4j-core/target/classes
+  # exists, the config phase has what it needs and the build SUCCEEDED, whatever mvn returned.
+  expect: partial
+  provides:
+    - langchain4j-core/target/classes
+  known_failures: >-
+    provider modules (open-ai, anthropic, …) fail to resolve their SDKs. None is parsed, so none
+    matters. If langchain4j-core itself starts failing, that is a real break and `provides` says so.
+
+  # `install`, not `test-compile`, and deliberately: the maven-plugin config route below runs
+  # against one module and resolves its siblings from ~/.m2. Compare timefold-solver, which uses
+  # the compile-log route over the whole reactor and must NOT install.
+
+config:
+  route: maven-plugin
+  module: langchain4j-core
+  baseline: baselines/langchain4j.tsv
+  # The plugin writes langchain4j-core/target/inputConfiguration.json first and the route
+  # copies it up; only the copy is listed, because target/ is already gitignored upstream.
+  generates: [inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  test: TestLangchain4j
+  steps: [modification]
+
+tests:
+  # 2 source sets, 1 test — reachable tests exist, scoped by the config to langchain4j-core.
+  cmd: mvn test -pl langchain4j-core

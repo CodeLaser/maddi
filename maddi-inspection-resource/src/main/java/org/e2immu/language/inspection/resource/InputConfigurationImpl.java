@@ -31,7 +31,8 @@ import java.util.stream.Stream;
 public record InputConfigurationImpl(Path workingDirectory,
                                      List<SourceSet> sourceSets,
                                      List<SourceSet> classPathParts,
-                                     Path alternativeJREDirectory) implements InputConfiguration {
+                                     Path alternativeJREDirectory,
+                                     int sourceRelease) implements InputConfiguration {
 
     public static final String MAVEN_MAIN = "src/main/java";
     public static final String MAVEN_TEST = "src/test/java";
@@ -63,7 +64,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                 new SourceSetImpl.Builder().setName(mod).setUri(URI.create(mod))
                         .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build());
         return new InputConfigurationImpl(workingDirectory, sourceSets, Stream.concat(classPathParts.stream(),
-                defaultModuleStream).toList(), alternativeJREDirectory);
+                defaultModuleStream).toList(), alternativeJREDirectory, sourceRelease);
     }
 
     @Override
@@ -86,7 +87,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                 .toList();
         return new InputConfigurationImpl(workingDirectory, modifiedSourceSets,
                 Stream.concat(classPathParts.stream(), support.stream()).toList(),
-                alternativeJREDirectory);
+                alternativeJREDirectory, sourceRelease);
     }
 
     @Override
@@ -106,7 +107,8 @@ public record InputConfigurationImpl(Path workingDirectory,
                NL_TAB + "sourcesSets=" + sourceSets +
                NL_TAB + "classPathParts=" + classPathParts +
                NL_TAB + "alternativeJREDirectory=" + (alternativeJREDirectory == null ? "<default>"
-                : alternativeJREDirectory);
+                : alternativeJREDirectory) +
+               NL_TAB + "sourceRelease=" + (sourceRelease <= 0 ? "<running JDK>" : sourceRelease);
     }
 
     private record SourceSetNamePath(String name, String path) {
@@ -128,6 +130,9 @@ public record InputConfigurationImpl(Path workingDirectory,
 
         private String workingDirectory;
         private String alternativeJREDirectory;
+        // <= 0 means "not known": the parse then uses the release of the JDK it runs on. See
+        // InputConfiguration.sourceRelease() for why that default is dangerous rather than merely imprecise.
+        private int sourceRelease;
         private String sourceEncoding;
 
         public InputConfiguration build() {
@@ -218,7 +223,8 @@ public record InputConfigurationImpl(Path workingDirectory,
                     ? Path.of(".") : Path.of(workingDirectory),
                     List.copyOf(sourceSets), List.copyOf(classPathParts),
                     alternativeJREDirectory == null || alternativeJREDirectory.isBlank()
-                            ? null : Path.of(alternativeJREDirectory));
+                            ? null : Path.of(alternativeJREDirectory),
+                    sourceRelease);
         }
 
         // so that InputConfiguration.javaBase() recognizes the java.base java module
@@ -342,6 +348,13 @@ public record InputConfigurationImpl(Path workingDirectory,
         @Fluent
         public Builder setAlternativeJREDirectory(String alternativeJREDirectory) {
             this.alternativeJREDirectory = alternativeJREDirectory;
+            return this;
+        }
+
+        @Override
+        @Fluent
+        public Builder setSourceRelease(int sourceRelease) {
+            this.sourceRelease = sourceRelease;
             return this;
         }
 

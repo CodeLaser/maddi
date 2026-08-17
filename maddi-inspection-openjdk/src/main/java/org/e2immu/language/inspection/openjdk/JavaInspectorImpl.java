@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -188,10 +189,13 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public String print2(CompilationUnit compilationUnit, Qualification qualification, ImportComputer importComputer) {
+    public String print2(CompilationUnit compilationUnit, Qualification qualification, ImportComputer importComputer,
+                         FormattingOptions formattingOptions) {
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification);
-        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        FormattingOptions options = formattingOptions == null
+                ? new FormattingOptionsImpl.Builder().build() : formattingOptions;
+        Formatter formatter = new Formatter2Impl(runtime, options);
         return formatter.write(ob);
     }
 
@@ -883,15 +887,37 @@ public class JavaInspectorImpl implements JavaInspector {
     // compile against the running system modules (-XDignore.symbol.file); --add-export every non-exported package
     // of the declared JDK modules to the unnamed module (the runner compiles with ignoreModule); and --limit-modules
     // to the declared ones so a JDK module's own sources (e.g. java.net.http) do not clash with the system module of
-    // the same name ("package exists in another module").
-    private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet) {
+    // the same name ("package exists in another module") -- but only when the SOURCE SET declares them, see below.
+    private static List<String> jdkInternalsJavacOptions(SourceSet sourceSet, InputConfiguration inputConfiguration) {
         List<String> options = new ArrayList<>();
         options.add("-XDignore.symbol.file=true");
-        List<String> jdkModules = sourceSet.dependencies().stream()
-                .filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
-        if (!jdkModules.isEmpty()) {
+        // ⛔ --limit-modules ONLY when the SOURCE SET declares the modules itself. On the class-path fallback the
+        // list is what the configuration happens to name, which is not the same claim: it is a class path, not a
+        // statement about the module graph, and it is routinely incomplete. Limiting to it REMOVES modules that
+        // resolved a moment ago.
+        //
+        // Measured on guava, same configuration, --jdk-internals throughout: the 20 jmods its class path declares
+        // are all java.*, with no jdk.unsupported. Adding --limit-modules from that list fixed MacHashFunctionTest
+        // (sun.security.jca) and simultaneously broke THREE main-source files that had been fine —
+        // LittleEndianByteArray, UnsignedBytes, AbstractFutureState, all on "Type Unsafe not found", because
+        // sun.misc.Unsafe lives in jdk.unsupported. Net 4 dropped compilation units -> 6.
+        //
+        // --add-exports is additive and safe to emit from either source: it opens packages of modules that are
+        // present, and names no module it does not also export. Only the limiting is a claim about completeness.
+        //
+        // ⚠ THIS IS A NARROWING, NOT A CURE, and the remaining half is measured. A source set's dependencies are
+        // a real statement about its module graph, but they are incomplete in exactly the same way: NO generator
+        // emits jdk.unsupported, and none of the corpus configurations declares it. Counted 2026-08-16 over the
+        // configurations in test-oss: camel, jenkins and langchain4j declare 21 JDK modules per source set and
+        // still take the branch below, so any sun.misc.Unsafe in those corpora fails just as guava's three files
+        // did. guava is merely out of the line of fire because its regenerated configuration takes the fallback.
+        // The durable fix is for the generators to declare the jdk.* modules the sources actually use; that needs
+        // regenerated configurations, which is why it is not done here.
+        List<String> declaredBySourceSet = jdkModulesOf(sourceSet.dependencies());
+        List<String> jdkModules = jdkModulesFor(sourceSet, inputConfiguration);
+        if (!declaredBySourceSet.isEmpty()) {
             options.add("--limit-modules");
-            options.add(String.join(",", jdkModules));
+            options.add(String.join(",", declaredBySourceSet));
         }
         ModuleFinder systemModules = ModuleFinder.ofSystem();
         for (String modName : jdkModules) {
@@ -908,6 +934,53 @@ public class JavaInspectorImpl implements JavaInspector {
             });
         }
         return options;
+    }
+
+    /**
+     * The JDK modules to open up, preferring the source set's own declared dependencies and falling back to the
+     * ones the CONFIGURATION declares as class path parts.
+     * <p>
+     * ⛔ <b>WITHOUT THE FALLBACK, {@code --jdk-internals} IS A SILENT NO-OP FOR MOST CONFIGURATIONS.</b> The
+     * {@code --add-exports} loop below is the only thing that opens a non-exported package, and it iterates this
+     * list — so an empty list means the flag drops {@code --release}/{@code --system} and then adds nothing. The
+     * failure is not silent to the user, but it is deeply misleading: {@code package sun.security.jca does not
+     * exist} (ct.sym filtering) becomes {@code package sun.security.jca is not visible}, which reads like a
+     * deliberate refusal rather than an option that was never emitted.
+     * <p>
+     * Both spellings are legitimate and both occur in the corpus catalogue. The plugin routes wire every source
+     * set to the jmods ({@code ComputeDependencies}: "every external library is dependent on all the jmods"), so
+     * {@code dependencies()} carries them; {@code CompileListToInputConfiguration} (the compile-log route) adds
+     * the same jmods through {@code addClassPathParts} only, so it does not. Measured over the 14 generated
+     * configurations in the test-oss catalogue: <b>10 of them have 20-21 {@code partOfJdk} class path parts and
+     * ZERO source sets referencing one</b> — timefold-solver (0 of 65), pulsar (0 of 90), elasticsearch (0 of 27),
+     * detekt, fernflower, guava (0 of 6), the three elasticsearch single-set configs; while jenkins, activemq,
+     * camel and langchain4j do carry them. ⚠ It does NOT split cleanly by route, so do not reach for "the
+     * compile-log corpora" as the rule: what decides it is how the configuration was authored, which is exactly
+     * why the fix belongs here rather than in one generator.
+     * <p>
+     * ⚠ A CONFIGURATION CAN CHANGE SIDES, so treat the lists above as an illustration and not as a register.
+     * guava was on the carrying side when this comment was first written and moved to the other on 2026-08-15,
+     * when {@code config:guava} switched from the single-module plugin route to the compile-log route to pick up
+     * guava-tests (b1a95656) — 47 minutes before the measurement was recorded, on the machine that recorded it.
+     * Which side a corpus sits on is a property of the last generator that ran, not of the corpus.
+     * <p>
+     * ⚠ A configuration with no {@code partOfJdk} parts at all (coil, in that same catalogue) is untouched by
+     * this: there is nothing to open, and the fallback returns empty just as the primary does.
+     */
+    private static List<String> jdkModulesOf(Collection<? extends SourceSet> sourceSets) {
+        return sourceSets.stream().filter(SourceSet::partOfJdk).map(SourceSet::name).distinct().sorted().toList();
+    }
+
+    private static List<String> jdkModulesFor(SourceSet sourceSet, InputConfiguration inputConfiguration) {
+        List<String> fromDependencies = jdkModulesOf(sourceSet.dependencies());
+        if (!fromDependencies.isEmpty() || inputConfiguration == null) return fromDependencies;
+        List<String> fromClassPath = jdkModulesOf(inputConfiguration.classPathParts());
+        if (!fromClassPath.isEmpty()) {
+            LOGGER.info("Source set {} declares no JDK module dependency; opening the {} JDK module(s) the"
+                        + " configuration declares on the class path instead.", sourceSet.name(),
+                    fromClassPath.size());
+        }
+        return fromClassPath;
     }
 
     // true when 'jre' is the JDK this analyzer is itself running on. Then --system would merely reload the running
@@ -1072,14 +1145,28 @@ public class JavaInspectorImpl implements JavaInspector {
                     LOGGER.warn("Ignoring alternative JRE {} while compiling {} against JDK internals: internals are" +
                                 " opened on the running JDK.", altJre, sourceSet.name());
                 }
-                options.addAll(jdkInternalsJavacOptions(sourceSet));
+                options.addAll(jdkInternalsJavacOptions(sourceSet, inputConfiguration));
             } else if (altJre != null) {
                 options.add("--system");
                 options.add(altJre.toString());
             } else {
-                options.add("--enable-preview");
+                // ⛔⛔ THE CORPUS'S RELEASE, NOT OURS, WHEN THE CORPUS SAID ONE. javac --release N is "compile
+                // against N's API", and the running JDK is not the corpus's platform: an API removed after N is
+                // simply absent, so the parse reports 'cannot find symbol' against source whose own build is
+                // green. Measured on pulsar 5.0.0-M1 (all 105 invocations --release 17, maddi on JDK 26):
+                // Thread.suspend()/resume() are gone in 26, three copies of bookkeeper's ZooKeeperUtil call
+                // them, javac stopped attributing and the units behind them were dropped.
+                // ⚠ --enable-preview is only legal for the release we RUN on; a corpus release is by definition
+                // an older one, and javac refuses the combination.
                 // java.lang.Runtime: the maddi CST 'Runtime' is imported in this file and would shadow it
-                options.add("--release=" + java.lang.Runtime.version().feature());
+                int running = java.lang.Runtime.version().feature();
+                int configured = inputConfiguration == null ? 0 : inputConfiguration.sourceRelease();
+                if (configured > 0 && configured != running) {
+                    options.add("--release=" + configured);
+                } else {
+                    options.add("--enable-preview");
+                    options.add("--release=" + running);
+                }
             }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }

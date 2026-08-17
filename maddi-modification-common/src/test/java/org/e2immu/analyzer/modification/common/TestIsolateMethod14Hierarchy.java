@@ -47,7 +47,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
                 public class X_method {
                     interface IBase { }
                     interface ISub extends IBase { }
-                    class Util {
+                    static class Util {
                         static boolean isEmpty(IBase p) { return false; }
                         static boolean isEmpty(ISub p) { return false; }
                         static <T extends IBase> T add(T a, T b, boolean unique) { return null; }
@@ -91,7 +91,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         String expected = """
                 import java.io.Serializable;
                 public class X_method {
-                    class Holder implements Serializable, IMarker { }
+                    static class Holder implements Serializable, IMarker { }
                     interface IMarker { }
                     Holder method() {
                     return null;
@@ -128,7 +128,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class ArrayList extends java.util.ArrayList<String> {ArrayList() { } }
+                    static class ArrayList extends java.util.ArrayList<String> {ArrayList() { } }
                     Object method() {
                     ArrayList list = new ArrayList();
                     return list.get(0);
@@ -174,7 +174,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
                 import java.io.Serializable;
                 import java.util.Iterator;
                 public class X_method {
-                    class LongVector implements Serializable, Iterable<Long> {
+                    static class LongVector implements Serializable, Iterable<Long> {
                         LongVector() { }
                         boolean add(long o) { return false; }
                         long [] toArray() { return null; }
@@ -221,8 +221,8 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class IDataType { }
-                    class ObjectID extends IDataType {
+                    static class IDataType { }
+                    static class ObjectID extends IDataType {
                         public String toString() { return null; }
                         String getDefaultValue() { return null; }
                     }
@@ -266,7 +266,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class ArrayList<I> extends java.util.ArrayList<I> {ArrayList() { }public boolean add(I o) { return false; } }
+                    static class ArrayList<I> extends java.util.ArrayList<I> {ArrayList() { }public boolean add(I o) { return false; } }
                     Object method() {
                     ArrayList<String> list = new ArrayList<>();
                     list.add("x");
@@ -308,7 +308,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         String expected = """
                 import java.io.Serializable;
                 public class X_method {
-                    class Node implements Comparable<Node>, Cloneable, Serializable {
+                    static class Node implements Comparable<Node>, Cloneable, Serializable {
                         Node() { }
                         public int compareTo(Node arg0) { return 0; }
                     }
@@ -355,8 +355,8 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Holder implements Sink {Holder() { }public void accept(IDataType t) { } }
-                    class IDataType implements Comparable<IDataType> {public int compareTo(IDataType arg0) { return 0; } }
+                    static class Holder implements Sink {Holder() { }public void accept(IDataType t) { } }
+                    static class IDataType implements Comparable<IDataType> {public int compareTo(IDataType arg0) { return 0; } }
                     interface Sink {void accept(IDataType t); }
                     Object method() {
                     Holder h = new Holder();

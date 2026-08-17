@@ -361,7 +361,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.TRY);
         if (!resources.isEmpty()) {
             Statement last = resources.getLast();
-            outputBuilder.add(SymbolEnum.LEFT_PARENTHESIS)
+            outputBuilder.add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                     .add(resources.stream().map(st -> {
                                 OutputBuilder ob = st.print(qualification);
                                 if (st == last) {
@@ -375,7 +375,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         outputBuilder.add(block.print(qualification));
         for (CatchClause cc : catchClauses) {
             outputBuilder.add(KeywordImpl.CATCH)
-                    .add(SymbolEnum.LEFT_PARENTHESIS);
+                    .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD);
             if (cc.isFinal()) {
                 outputBuilder.add(KeywordImpl.FINAL).add(SpaceEnum.ONE);
             }

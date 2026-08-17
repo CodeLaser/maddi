@@ -25,11 +25,26 @@ public class ElementStack {
     }
 
     public Element find(String name) {
+        Element element = findOrNull(name);
+        if (element == null) throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
+        return element;
+    }
+
+    /**
+     * The same lookup, {@code null} rather than an exception when the name is absent.
+     * <p>
+     * ⚠ For callers that MAY legitimately miss. A caller written as
+     * {@code if (find(name) instanceof TypeInfo t)} reads like it degrades gracefully and does not: {@code find}
+     * throws before {@code instanceof} is ever evaluated, so the fallback branch is dead and the miss aborts the
+     * whole compilation unit. That is precisely how a member class of a method-local class ended the parse with
+     * {@code Cannot find element 'Sub' on stack}.
+     */
+    public Element findOrNull(String name) {
         assert name != null && !name.isBlank();
         for (Map<String, Element> map : elementStack.reversed()) {
             Element v = map.get(name);
             if (v != null) return v;
         }
-        throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
+        return null;
     }
 }

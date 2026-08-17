@@ -9,11 +9,12 @@
 # the ratchet exists to catch (the ProvidesImpl incident went undetected for a week).
 # A type ADDED is progress: re-generate this file from build/eventual-survivors-actual.txt.
 #
-# SCOPE: cst-api, cst-analysis and cst-impl are analysed as source and are what this baseline defends.
-# maddi-support and maddi-util arrive as jars pinned by the dogfood build (currently 0.8.2, while the
-# project is at 0.9.0), so a change to either does NOT reach this run and reads as "no change". Bringing
-# them in means bumping those pins, re-publishing the plugin, regenerating the input configuration --
-# and re-deriving this baseline, since the jars moving forward will move verdicts with them.
+# SCOPE: cst-api, cst-analysis and cst-impl are analysed as source; maddi-support and maddi-util arrive
+# as jars, so that reading @Mark/@Only out of BYTE CODE is exercised. All five are the code under test:
+# since 2026-08-17 the jar pins track gradle.properties instead of a frozen 0.8.2 (dogfood/settings.gradle.kts,
+# and TestEventualRatchet fails if the input configuration was generated at any other version). Everything
+# else -- the JDK, slf4j, the annotated-API archive -- is background, and a change there reads as a move
+# in this baseline with no commit in this repo to explain it.
 #
 # Baseline re-derived 2026-08-03 under the DEFERRAL round (docs/eventual-info-hierarchy.md section
 # "The deferral round"): the eventual family is cleared and re-derived at the terminal certification
@@ -37,6 +38,12 @@
 # family survives honestly through the primitives() immutable copy + @Independent(hc=true) contract
 # (the live values() view was a real soundness hole the tier-uniform analyzer caught).
 # ModuleInfo.Provides sits at FF (honest level, membership intact).
+#
+# RE-DERIVED 2026-08-17 with maddi-support/maddi-util at 0.9.0 (the code under test) instead of the
+# frozen 0.8.2 jars: the same 285 types, membership identical, no rebaseline needed. That is a result,
+# not a non-event -- it says the contracts those two modules carry are load-bearing nowhere the
+# certification arc had not already established, and it is the first run in which a change to either
+# module can move this file at all.
 org.e2immu.language.cst.api.analysis.Value
 org.e2immu.language.cst.api.analysis.Value.AssignedToField
 org.e2immu.language.cst.api.analysis.Value.Bool

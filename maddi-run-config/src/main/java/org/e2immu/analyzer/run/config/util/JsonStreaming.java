@@ -236,6 +236,9 @@ public class JsonStreaming {
             gen.writeEndArray();
             gen.writeStringField("alternativeJREDirectory", value.alternativeJREDirectory() == null ? null
                     : value.alternativeJREDirectory().toString());
+            // omitted when unknown, so an older configuration reads back identically (Jackson defaults the
+            // record component to 0, which is exactly "not known")
+            if (value.sourceRelease() > 0) gen.writeNumberField("sourceRelease", value.sourceRelease());
             gen.writeEndObject();
         }
     }

@@ -123,11 +123,14 @@ public class CompileListToSourceSets {
         LOGGER.info("Build root of {} build unit(s): {} ({})", new HashSet<>(buildUnitByDestination.values()).size(),
                 buildRoot, configuredBuildRoot == null ? "derived; pass one to keep names stable across a narrower"
                         + " parse" : "configured, derived would have been " + derived);
-        Map<String, String> jarFileToDestinationModuleJars = computeModuleJars(buildRoot, buildUnitByDestination,
-                list);
+        // a sibling's PACKAGED jar, wherever it is named (classpath or module path); keyed by path, see below
+        Map<String, String> jarFileToDestination = computePackagedJars(list);
+        // ⚠ THE --module-path MAPPING WINS WHERE BOTH FIRE. It is the older rule and the one the modular corpora
+        // are validated against, so the addition above can only ever ADD edges, never re-point an existing one.
+        jarFileToDestination.putAll(computeModuleJars(buildRoot, buildUnitByDestination, list));
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
-        Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestinationModuleJars);
+        Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestination);
 
         Map<String, SourceSet> sourceSetsByDestination = new HashMap<>();
         Map<String, Integer> duplicateNamePrevention = new HashMap<>();
@@ -144,7 +147,7 @@ public class CompileListToSourceSets {
         Map<String, SourceSet> absorbed = new LinkedHashMap<>();
         for (CompileInvocation inv : list) {
             SourceSet sourceSet = createSourceSet(inv, buildRoot, buildUnitByDestination, sourceSetsByPath,
-                    sourceSetsByDestination, jarFileToDestinationModuleJars, duplicateNamePrevention);
+                    sourceSetsByDestination, jarFileToDestination, duplicateNamePrevention);
 
             Set<Path> sourceDirSet = new HashSet<>(sourceSet.sourceDirectories());
             // we remove source sets that are fully contained in this one
@@ -173,6 +176,91 @@ public class CompileListToSourceSets {
                 classPath.values().stream().sorted(Comparator.comparing(SourceSet::name)).toList(), buildRoot);
     }
 
+    /**
+     * A reactor sibling's PACKAGED jar, mapped back to the destination that produced it — keyed by PATH.
+     *
+     * <p>⛔ <b>BY PATH, BECAUSE THE NAME CANNOT WORK ON MAVEN.</b> {@link #computeModuleName} matches a jar's file
+     * name against {@code <module>/main}, which holds for gradle (artifact name = module name) and is simply false
+     * for maven, where the artifactId and the module directory are different strings — jenkins ships
+     * {@code jenkins-core-2.574-SNAPSHOT.jar} out of a module directory named {@code core}, and no prefix of the
+     * file name is ever {@code core}. The signal that IS reliable is already in hand: a build tool writes a
+     * module's jar into the same directory it writes that module's classes into ({@code <mod>/target/classes} and
+     * {@code <mod>/target/x.jar}).
+     *
+     * <p>⚠ Keying on the output ROOT rather than on "somewhere under the module" is what keeps a jar VENDORED
+     * inside a module ({@code <mod>/lib/foo.jar}) from being mistaken for that module's own output.
+     *
+     * <p>⛔ <b>A PACKAGED JAR IS NOT ALWAYS PRODUCTION OUTPUT.</b> That was assumed here, and maven's
+     * {@code maven-jar-plugin:test-jar} falsifies it: a module that publishes its test fixtures writes
+     * {@code <mod>/target/<artifact>-tests.jar} into the SAME output root as its main jar. Keying on the output
+     * root alone therefore handed the test-jar to the module's MAIN source set, and the fixtures it carries —
+     * every {@code testutil} and {@code testdomain} type a sibling's tests statically import — silently left the
+     * parse. javac then reported {@code package ... does not exist}, fabricated an error symbol, and the scanner
+     * dereferenced it as a method: {@code "Unexpected symbol for unqualified call to 'assertCode'"}, 79 of them
+     * over 9 compilation units on timefold, with the true cause a hundred lines earlier in the log.
+     *
+     * <p>So both kinds are collected, and a jar carrying a TEST CLASSIFIER resolves to the test destination when
+     * the module has one. ⚠ The classifier is the reliable signal precisely because maven puts it AFTER the
+     * version: a module actually named {@code ...-integration-test} ships {@code ...-integration-test-1.0.jar},
+     * which does not end in {@code -test.jar}. Falling back to the main destination keeps the previous behaviour
+     * for every build that publishes no test-jar.
+     */
+    private static Map<String, String> computePackagedJars(List<? extends CompileInvocation> list) {
+        Map<String, String> mainDestinationByOutputRoot = new HashMap<>();
+        Map<String, String> testDestinationByOutputRoot = new HashMap<>();
+        for (CompileInvocation inv : list) {
+            String destination = inv.destination();
+            int lastSeparator = destination.lastIndexOf(SEPARATOR);
+            if (lastSeparator < 0) continue;
+            String outputRoot = destination.substring(0, lastSeparator);
+            if (testSourceSetName(lastPart(destination)) != null) {
+                testDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
+            } else {
+                mainDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
+            }
+        }
+        Map<String, String> jarToDestination = new HashMap<>();
+        for (CompileInvocation inv : list) {
+            for (List<String> paths : Arrays.asList(inv.classpath(), inv.modulePath())) {
+                if (paths == null) continue;
+                for (String part : paths) {
+                    if (!part.endsWith(".jar")) continue;
+                    int lastSeparator = part.lastIndexOf(SEPARATOR);
+                    if (lastSeparator < 0) continue;
+                    String outputRoot = part.substring(0, lastSeparator);
+                    String destination = null;
+                    if (hasTestClassifier(lastPart(part))) {
+                        destination = testDestinationByOutputRoot.get(outputRoot);
+                    }
+                    if (destination == null) {
+                        destination = mainDestinationByOutputRoot.get(outputRoot);
+                    }
+                    // a module's own jar on its own classpath is not a dependency on itself
+                    if (destination != null && !destination.equals(inv.destination())) {
+                        jarToDestination.putIfAbsent(part, destination);
+                    }
+                }
+            }
+        }
+        if (!jarToDestination.isEmpty()) {
+            LOGGER.info("Computed {} packaged-jar -> source-set entries (a reactor sibling named as a jar rather"
+                        + " than as a class directory): {}", jarToDestination.size(),
+                    jarToDestination.keySet().stream().map(CompileListToSourceSets::lastPart).sorted().toList());
+        }
+        return jarToDestination;
+    }
+
+    /**
+     * A jar file name carrying a test classifier, i.e. maven's {@code test-jar} goal or gradle's equivalent.
+     *
+     * <p>⚠ Matched on the FILE NAME's suffix, which is safe because a classifier follows the version:
+     * {@code timefold-solver-core-999-SNAPSHOT-tests.jar} is a test-jar, while a module whose artifactId ends
+     * in {@code -test} ships {@code ...-test-999-SNAPSHOT.jar} and is not.
+     */
+    private static boolean hasTestClassifier(String jarFileName) {
+        return jarFileName.endsWith("-tests.jar") || jarFileName.endsWith("-test.jar");
+    }
+
     private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,
                                                   List<? extends CompileInvocation> list) {
         Map<String, String> moduleJarToDestination = new HashMap<>();
@@ -192,7 +280,8 @@ public class CompileListToSourceSets {
 
             if (inv.modulePath() != null) {
                 for (String modulePart : inv.modulePath()) {
-                    if (!moduleJarToDestination.containsKey(modulePart) && modulePart.endsWith(".jar")) {
+                    if (!moduleJarToDestination.containsKey(modulePart) && modulePart.endsWith(".jar")
+                        && couldBeReactorOutput(buildRoot, modulePart)) {
                         String moduleDestination = computeModuleName(modulePart, moduleNameToDestination);
                         if (moduleDestination != null) {
                             moduleJarToDestination.put(modulePart, moduleDestination);
@@ -203,6 +292,37 @@ public class CompileListToSourceSets {
         }
         LOGGER.info("Computed {} moduleJarToDestination entries", moduleJarToDestination.size());
         return moduleJarToDestination;
+    }
+
+    /**
+     * ⛔ ONLY A JAR INSIDE THE BUILD ROOT CAN BE A REACTOR MODULE'S OWN OUTPUT, and {@link #computeModuleName}
+     * matches BY NAME, which is why this guard is needed rather than nice.
+     *
+     * <p>That matcher takes each {@code [.-]}-separated prefix of a jar's file name and looks it up as
+     * {@code <prefix>/main}; module names are registered under their leaf form too, so a reactor module at
+     * {@code persistence/jackson} answers to {@code jackson/main}. External libraries then collide with it by
+     * accident of naming, and on timefold four did:
+     *
+     * <table><caption></caption>
+     * <tr><td>{@code jackson-annotations-2.22.jar}, {@code jackson-core-3.2.0.jar},
+     *         {@code jackson-databind-3.2.0.jar}</td><td>claimed by {@code persistence/jackson}</td></tr>
+     * <tr><td>{@code spring-boot-autoconfigure-4.1.0.jar}</td>
+     *     <td>claimed by {@code spring-integration/spring-boot-autoconfigure}</td></tr>
+     * </table>
+     *
+     * <p>⚠ A claimed jar is worse than an unmatched one: {@code handleClasspath} skips making it a library
+     * <em>because</em> it is claimed, so the jar leaves the parse altogether. javac then reported
+     * {@code package com.fasterxml.jackson.annotation does not exist} fifty times in one file, its error recovery
+     * truncated an annotated record header to one of its five components, and the parse refused with a message
+     * about a constructor — three removes from the cause.
+     *
+     * <p>The same reasoning already rewrote {@link #computePackagedJars} to match by PATH: a build tool writes a
+     * module's jar into the module's own output directory. Here the weaker form of that signal is enough, and it
+     * keeps the name matcher for the layouts it was written for. ⚠ When the build root is unknown the guard
+     * stands aside rather than refusing every match.
+     */
+    private static boolean couldBeReactorOutput(String buildRoot, String jarPath) {
+        return buildRoot == null || buildRoot.isEmpty() || jarPath.startsWith(buildRoot + SEPARATOR);
     }
 
     // modulePart = .../maddi-support-0.8.2.jar
@@ -224,40 +344,57 @@ public class CompileListToSourceSets {
 
     private static Map<String, SourceSet> handleClasspath(List<? extends CompileInvocation> list,
                                                           Map<String, SourceSet> sourceSetsByPath,
-                                                          Map<String, String> jarFileToDestinationModuleJars) {
+                                                          Map<String, String> jarFileToDestination) {
         // A jar is a module iff it appears on some invocation's --module-path. Precompute this over ALL invocations
         // so the flag is correct regardless of the order we first meet the jar, or whether it also sits on some
         // classpath elsewhere: a modular dependency must reach the module path for its module's requires to resolve.
         Set<String> moduleJarNames = list.stream()
                 .filter(inv -> inv.modulePath() != null)
                 .flatMap(inv -> inv.modulePath().stream())
-                .filter(p -> p.endsWith(".jar"))
+                .filter(SourceSetImpl::isArchive)
                 .map(CompileListToSourceSets::lastPart)
                 .collect(Collectors.toSet());
+        Set<String> skippedClassPathParts = new TreeSet<>();
         Map<String, SourceSet> classPath = new HashMap<>();
         for (CompileInvocation inv : list) {
             String destination = inv.destination();
             if (inv.classpath() != null) {
                 for (String part : inv.classpath()) {
-                    if (part.endsWith(".jar")) {
-                        handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
+                    // ⛔ NOT endsWith(".jar"): see SourceSetImpl.ARCHIVE_EXTENSIONS. A .nar on pulsar's classpath
+                    // matched neither branch below and was dropped WITHOUT A WORD, costing 1,831 compilation units.
+                    if (SourceSetImpl.isArchive(part)) {
+                        // ⛔ a sibling's packaged jar is that sibling's SOURCE SET, not a library: making it one
+                        // puts every type it holds in the parse twice, once from source and once from bytecode.
+                        if (!jarFileToDestination.containsKey(part)) {
+                            handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
+                        }
                     } else {
                         Path path = Path.of(part);
                         if (Files.isDirectory(path)) {
                             handleDirectoryInClasspath(sourceSetsByPath, part, classPath);
+                        } else {
+                            // ⚠ AND IT SAYS SO. This branch used to be the silence: whatever javac was given and
+                            // maddi has no case for now leaves a trace in the log rather than a missing package
+                            // 40,000 lines later.
+                            skippedClassPathParts.add(part);
                         }
                     }
                 }
             }
             if (inv.modulePath() != null) {
                 for (String part : inv.modulePath()) {
-                    if (part.endsWith(".jar")) {
-                        if (!jarFileToDestinationModuleJars.containsKey(part)) {
+                    if (SourceSetImpl.isArchive(part)) {
+                        if (!jarFileToDestination.containsKey(part)) {
                             handleJarInClasspath(sourceSetsByPath, part, classPath, destination, moduleJarNames);
                         }
                     }
                 }
             }
+        }
+        if (!skippedClassPathParts.isEmpty()) {
+            LOGGER.warn("Skipped {} classpath part(s): neither a known archive {} nor an existing directory."
+                        + " If javac reports a missing package, look here FIRST: {}",
+                    skippedClassPathParts.size(), SourceSetImpl.ARCHIVE_EXTENSIONS, skippedClassPathParts);
         }
         return classPath;
     }
@@ -409,7 +546,7 @@ public class CompileListToSourceSets {
                                       Map<String, String> buildUnitByDestination,
                                       Map<String, SourceSet> sourceSetsByPath,
                                       Map<String, SourceSet> sourceSetsByDestination,
-                                      Map<String, String> jarFileToDestinationModulePath,
+                                      Map<String, String> jarFileToDestination,
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
         ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
@@ -428,7 +565,16 @@ public class CompileListToSourceSets {
                     if (sourceSet != null) {
                         dependencies.add(sourceSet);
                     } else {
-                        if (!classpathPart.contains("resources")) {
+                        // ⛔ THE SAME FALLBACK THE MODULE-PATH BRANCH BELOW ALWAYS HAD. A sibling named as a
+                        // packaged jar is the same edge as one named as a class directory; only the spelling
+                        // differs, and which spelling a build uses is not the analysed project's decision.
+                        String srcModule = jarFileToDestination.get(classpathPart);
+                        SourceSet srcDependency = srcModule == null ? null : sourceSetsByDestination.get(srcModule);
+                        if (srcDependency != null) {
+                            // ⚠ deduplicated, unlike the module-path branch: a build may name BOTH a sibling's
+                            // class directory and its jar on one classpath, and they are one dependency.
+                            if (!dependencies.contains(srcDependency)) dependencies.add(srcDependency);
+                        } else if (!classpathPart.contains("resources")) {
                             LOGGER.warn("Cannot find classpath part {}", classpathPart);
                         }
                     }
@@ -443,12 +589,18 @@ public class CompileListToSourceSets {
                     if (sourceSet != null) {
                         dependencies.add(sourceSet);
                     } else {
-                        String srcModule = jarFileToDestinationModulePath.get(modulePart);
+                        String srcModule = jarFileToDestination.get(modulePart);
                         SourceSet srcDependency = srcModule == null ? null : sourceSetsByDestination.get(srcModule);
                         if (srcDependency != null) {
                             dependencies.add(srcDependency);
                         } else {
-                            LOGGER.warn("Cannot find module path part {}", modulePart);
+                            // ⚠ NAME THE CAUSE. "Cannot find" has two of them and they need opposite fixes:
+                            // either the jar was claimed by jarFileToDestination for a destination that has no
+                            // source set (a bad name-based match, and the jar is then MISSING from the parse
+                            // entirely because handleClasspath skipped making it a library), or nothing claimed
+                            // it and it never became a library at all.
+                            LOGGER.warn("Cannot find module path part {}: claimed by destination {}", modulePart,
+                                    srcModule == null ? "(nothing)" : srcModule);
                         }
                     }
                 }

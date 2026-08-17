@@ -367,7 +367,7 @@ public class TestTypeParameter extends CommonTest {
                     double [][] returnValue = new double[pairMap.size()][2];
                     SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number> (pairMap);
                     int i = 0;
-                    for(Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
+                    for (Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
                         returnValue[i] = new double[] { entry.getKey().doubleValue(), entry.getValue().doubleValue() };
                         i++;
                     }

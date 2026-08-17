@@ -357,7 +357,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         }
         put(newTypeInfo);
-        if (!internal) {
+        if (internal) {
+            // ⛔ A STUB STILL HAS TO ANSWER THE FIRST QUESTION ASKED OF IT. Skipping loadType is the point of
+            // this branch, but it left typeNature and parentClass NULL, and the very next thing anyone does
+            // with a type is ask what kind it is: addMethodToType calls isInterface() to pick the method type,
+            // and TypeInfoImpl.isInterface() asserts rather than guessing.
+            // ⚠ Measured on pulsar 5.0.0-M1, 2026-08-12: testmocks' PulsarMockBookKeeperReadEvent extends
+            // jdk.jfr.Event, whose supertype IS jdk.internal.event.Event, so loading the JFR type reaches the
+            // internal one and the parse died with "Type nature of jdk.internal.event.Event has not been set".
+            // One unloadable JDK-internal supertype dropped the compilation unit -- and, because the SERVER
+            // refuses a parse with any error at all, the whole project with it.
+            // ⇒ Give the stub the same minimal shape anonymousTypeStub() already gives its own (nature +
+            // Object parent), from the symbol's flags via the ONE definition of that rule. Deliberately NOT
+            // committed: addMethodToType refuses an inspected type, and members may still be attached here.
+            newTypeInfo.builder()
+                    .setTypeNature(flagHelper.typeNature(cs))
+                    .setParentClass(runtime.objectParameterizedType());
+        } else {
             loadType(cs, newTypeInfo, LoadMode.LAZILY);
         }
         return newTypeInfo;
@@ -850,12 +866,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
-            boolean isNotPrivate = (cs.flags() & Flags.PRIVATE) == 0;
-            if (isNotPrivate) {
-                TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
-                if (!enclosed.hasBeenInspected()) {
-                    enclosed.builder().computeAccess().commit();
-                }
+            // load nested types even when private: like constructors and fields (see above), a nested type is part
+            // of its owner's shape, and -- unlike them -- skipping it is not merely lossy but FATAL, because the
+            // owner then COMMITS without it and a later reference has nowhere to put it. Measured on
+            // jenkins-test-harness: MockAuthorizationStrategy holds
+            //   private final List<Grant.GrantOn.GrantOnTo> grantsOnTo
+            // whose leaf is recorded `private GrantOnTo of GrantOn` in the InnerClasses attribute. The private
+            // nested type was skipped here, GrantOn committed, and loading that very field then reached
+            // lazilyLoadTypeFromClassFile -> owner.builder() on an immutable GrantOn:
+            //   AssertionError: Inspection of ...Grant.GrantOn.GrantOnTo has already been committed
+            // One such type refused the WHOLE ParseResult for a 493-file source set.
+            // ⚠ A private MEMBER of a class file is reachable from outside its declaring type in exactly the way a
+            // private nested type is: through the signature of another member that is itself loaded.
+            TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
+            if (!enclosed.hasBeenInspected()) {
+                enclosed.builder().computeAccess().commit();
             }
         }
     }
@@ -952,6 +977,34 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                && ms.params.head.type.tsym.flatName().contentEquals("java.lang.String");
     }
 
+    /**
+     * javac's own errors for one compilation unit, for the refusal message above.
+     * <p>
+     * ⛔ <b>THE SCANNER WAS ALREADY HOLDING THESE WHEN IT THREW.</b> Without them the message could only offer a
+     * jar/no-jar verdict, and its no-jar branch ended "the member lists above are the evidence to read" — which
+     * sent two independent readers within 24 hours to the same wrong conclusion about compact record
+     * constructors, while the actual cause was a missing classpath entry 50 javac errors deep in that very file.
+     * ⚠ Same disease as the rest of GAP #12: the information was never missing, the presentation was.
+     * <p>
+     * Errors only — a MISSING_CLASS diagnostic is the routine "not on the classpath, carry on" case that every
+     * parse of an incomplete classpath produces, and including it would make this fire on healthy parses.
+     */
+    private List<String> javacErrorsFor(CompilationUnit compilationUnit) {
+        // a diagnostic must never be the thing that throws: it runs where the caller has already lost
+        if (diagnosticCollector == null || compilationUnit == null || compilationUnit.uri() == null) return List.of();
+        String path = compilationUnit.uri().getPath();
+        if (path == null || path.isBlank()) return List.of();
+        try {
+            return diagnosticCollector.diagnostics().stream()
+                    .filter(d -> MaddiDiagnosticCollector.DiagnosticKind.ERROR == d.diagnosticKind())
+                    .filter(d -> path.equals(d.path()))
+                    .map(d -> d.line() > 0 ? "line " + d.line() + ": " + d.msg() : d.msg())
+                    .toList();
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         if (typeInfo.hasBeenInspected()) {
             // GAP #12's residual. This threw a BARE UnsupportedOperationException while logging the three facts
@@ -976,7 +1029,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     isSourceSymbol(ms),
                     incomingOrigin,
                     ms.toString(),
-                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList());
+                    typeInfo.constructorAndMethodStream().map(Info::descriptor).toList(),
+                    javacErrorsFor(typeInfo.compilationUnit()));
             LOGGER.error("{}", message);
             throw new UnsupportedOperationException(message);
         }
@@ -1290,14 +1344,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
                 TypeInfo owner = getType(fullyQualifiedName);
                 if (owner == null) {
-                    // the type variable is owned by a local class (declared inside a method body), which is not
-                    // registered under a canonical FQN; a named local class is registered on the element stack by
-                    // its simple name while in scope, so resolve its owner from there instead of asserting.
-                    String ownerSimpleName = typeVar.tsym.owner.getSimpleName().toString();
-                    if (!ownerSimpleName.isEmpty()
-                        && elementStack.find(ownerSimpleName) instanceof TypeInfo localOwner) {
-                        owner = localOwner;
-                    }
+                    // the type variable is owned by a type declared inside a method body, which is not registered
+                    // under a canonical FQN; resolve it through the element stack instead of asserting.
+                    owner = methodLocalType(typeVar.tsym.owner);
                 }
                 assert owner != null : "Cannot find owner " + fullyQualifiedName
                         + " of type variable " + typeParameterName;
@@ -1469,10 +1518,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             boolean isExtends = wc.type.isExtendsBound();
             Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
             ParameterizedType base = convertTree(wc.getBound(), dsb);
+            // ⛔ THE BOUND'S ARRAYS AND TYPE ARGUMENTS ARE PART OF IT, and this branch used to drop both: it
+            // passed a literal 0 and List.of(), so '? extends Object[]' became '? extends Object' and
+            // '? extends List<String>' became a RAW '? extends List'. Every other branch of convertTree
+            // preserves dimensions -- the array branch even descends through JCAnnotatedType so
+            // 'char[] @Nullable []' counts correctly -- which is what made this one easy to miss.
+            // ⚠ It surfaced as an AssertionError only for PRIMITIVE element types: '? extends int[]' collapsed
+            // to a bare 'int', and ParameterizedTypeImpl's "no primitive type arguments" assert caught it.
+            // isPrimitiveExcludingVoid() is 'arrays == 0 && typeInfo.isPrimitiveExcludingVoid()', so for
+            // reference elements nothing fired at all and the wrong model was simply used. The crash was the
+            // lucky case; the silent corruption was the wider one.
             if (base.isTypeParameter()) {
-                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
             }
-            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
+            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
             // TODO there is no room for this in maddi's model
@@ -1585,6 +1644,79 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return runtime.objectParameterizedType();
         }
         return convert(superclass, visited);
+    }
+
+    /**
+     * A type declared inside a method body, resolved through the element stack; {@code null} when it is not one.
+     * <p>
+     * Only the method-local class ITSELF is registered there, by {@code handleLocalType}, under its simple name.
+     * ⛔ <b>The previous version looked up exactly that one name, so it resolved a local class and nothing
+     * declared INSIDE one.</b> guava's {@code TypeTokenTest:1413} nests member classes in a local class:
+     * <pre>
+     *   class Outer&lt;O&gt; {
+     *       class Sub&lt;X&gt; extends BaseWithTypeVar&lt;List&lt;X&gt;&gt; {}
+     *   }
+     * </pre>
+     * {@code X}'s owner is {@code Sub}, whose owner is {@code Outer} — a ClassSymbol, not a MethodSymbol — so the
+     * single-name lookup asked for "Sub", missed, and threw {@code Cannot find element 'Sub' on stack}, which
+     * aborts the compilation unit.
+     * <p>
+     * So: walk UP the owner chain to the class the method actually declares, resolve that one on the stack, then
+     * walk back DOWN the nested simple names. The descent is safe at this point because {@code visitClass} adds a
+     * member type to its enclosing type's subtypes before scanning its body, which is what puts us here.
+     * <p>
+     * ⚠ Returns null rather than throwing for every shape it cannot name — an anonymous class anywhere in the
+     * chain has no simple name and was never registered — leaving the decision to the caller. The old code's
+     * {@code find(...) instanceof TypeInfo} could not do that: {@code find} throws, so its fallback was dead
+     * code. Same family as the switch-guard pattern variable pinned by {@code TestSwitchGuardPatternVariable}:
+     * the element stack is missing a declaration form, and it fails by aborting the unit.
+     */
+    private TypeInfo methodLocalType(Symbol symbol) {
+        Deque<String> nested = new ArrayDeque<>();
+        Symbol s = symbol;
+        while (s instanceof Symbol.ClassSymbol cs) {
+            TypeInfo anchor = declaredInMethodBody(cs);
+            if (anchor != null) {
+                for (String n : nested) {
+                    anchor = anchor.findSubType(n, false);
+                    if (anchor == null) return null;
+                }
+                return anchor;
+            }
+            String simpleName = cs.getSimpleName().toString();
+            if (simpleName.isEmpty()) return null; // unnamed and unregistered: nothing left to key on
+            nested.addFirst(simpleName);
+            s = cs.owner;
+        }
+        return null;
+    }
+
+    /**
+     * The {@link TypeInfo} for a type the SCANNER declared inside a method body, or null if this symbol is not
+     * one. The two forms are registered in different places, which is why both are tried here:
+     * <ul>
+     *     <li>a NAMED local class — {@code handleLocalType} puts it on the element stack under its simple name,
+     *     for as long as it is in scope;</li>
+     *     <li>an ANONYMOUS class — {@code visitNewClass} registers it in {@code typeData} under the compiler's
+     *     own notation for the symbol ({@code newClass.def.sym.toString()}), before its body is scanned. It has
+     *     no simple name, so the element stack could never hold it, and a walk that only knew about the element
+     *     stack had to give up at it.</li>
+     * </ul>
+     * ⚠ The anonymous lookup is deliberately the same key the scanner writes, {@code cs.toString()} — the same
+     * one {@code anonymousTypeStub} tries first. Do not "improve" it to a canonical FQN: an anonymous class does
+     * not have one, which is the whole reason for this path.
+     */
+    private TypeInfo declaredInMethodBody(Symbol.ClassSymbol cs) {
+        String simpleName = cs.getSimpleName().toString();
+        if (simpleName.isEmpty()) {
+            TypeInfo anonymous = getType(cs.toString());
+            return anonymous == null ? getType(cs.flatName().toString()) : anonymous;
+        }
+        if (cs.owner instanceof Symbol.MethodSymbol
+            && elementStack.findOrNull(simpleName) instanceof TypeInfo local) {
+            return local;
+        }
+        return null;
     }
 
     private TypeInfo classTypeInfo(Type.ClassType ct) {
@@ -1858,7 +1990,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
                 loadType(cs, typeInfo, LoadMode.COMPLETE);
             } catch (RuntimeException | AssertionError | StackOverflowError re) {
-                LOGGER.error("Caught exception committing type {}", typeInfo);
+                // ⛔ THE THROWABLE GOES IN. Without it the stack is discarded here and never printed anywhere
+                // above: the ErrorReport carries the message alone, so an operator sees "Inspection of X has
+                // already been committed" with no location at all. A root cause established from a SHAPE is not
+                // a LOCATION -- and the one gap that reasoned from the shape (#150) named the wrong code site.
+                LOGGER.error("Caught exception committing type {}", typeInfo, re);
                 throw re;
             }
         }

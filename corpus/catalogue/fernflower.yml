@@ -1,0 +1,46 @@
+name: fernflower
+status: active
+summary: >-
+  The SMALL corpus — ~500 source files against timefold's ~3,500 types. Fast full-chain feedback
+  for engine work, which is what makes it the right first target when something breaks.
+
+source:
+  kind: git
+  url: https://github.com/fesh0r/fernflower.git
+
+build:
+  cmd: ./gradlew compileTestJava
+  expect: complete
+  # compileTestJava depends on compileJava, so both source sets exist afterwards. Asserting the
+  # test one matters: the config below captures BOTH, and a main-only build would silently produce
+  # a config with half the source sets.
+  provides:
+    - build/classes/java/main
+    - build/classes/java/test
+
+config:
+  route: gradle-log
+  # Both tasks named explicitly rather than relying on compileTestJava's dependency: the capture
+  # greps the --debug log for 'Compiler arguments:', and a task Gradle considers up to date emits
+  # no such line. --rerun-tasks in the helper covers that, but naming both keeps the intent legible.
+  tasks: compileJava compileTestJava
+  baseline: baselines/fernflower.tsv
+  # What this route writes into the checkout. Untracked, so `git reset --hard` leaves them
+  # alone but `git clean -fdx` would delete them; the corpus pre-flight derives its
+  # preserve-list from these rather than keeping one by hand.
+  generates: [compile.log, inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  test: TestFernflower
+  steps: [modification]          # TestFernflower runs --analysis-steps=modification, not prep
+
+tests:
+  # 2 source sets, 1 of them test — so there are reachable tests, and this is how to run them.
+  cmd: ./gradlew test
+
+# Ours, but not written by any phase above: `.project` says so itself — "Imported for the maddi
+# Eclipse plugin demo. Generated, not part of the upstream project." Dated 2026-07-21, months
+# before this catalogue. Listed so the preserve-list is complete and so nobody mistakes them for
+# upstream files, or for output of the config route.
+generates: [.classpath, .project]

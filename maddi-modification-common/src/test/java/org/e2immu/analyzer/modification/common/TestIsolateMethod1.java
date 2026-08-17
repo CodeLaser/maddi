@@ -118,7 +118,7 @@ public class TestIsolateMethod1 extends CommonIsolateMethodTest {
                 public class X_method {
                     static Logger LOGGER;
                     interface Logger {default void info(String arg0, Object arg1) { } }
-                    class R { }
+                    static class R { }
                     void method(R r) {
                     LOGGER.info("... {}", r);
                 }
@@ -163,8 +163,8 @@ public class TestIsolateMethod1 extends CommonIsolateMethodTest {
                 public class X_method {
                     static Logger LOGGER;
                     interface Logger {default void info(String arg0, Object arg1) { } }
-                    class R { List<S> strings; }
-                    class S { String s; }
+                    static class R { List<S> strings; }
+                    static class S { String s; }
                     void method(R r) {
                     LOGGER.info("... {}", r.strings.getFirst().s);
                 }

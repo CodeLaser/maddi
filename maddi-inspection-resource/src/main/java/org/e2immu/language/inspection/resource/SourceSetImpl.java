@@ -107,11 +107,41 @@ public class SourceSetImpl implements SourceSet {
         }
     }
 
+    /**
+     * The classpath archives javac accepts: a zip file by any other name.
+     *
+     * <p>⛔⛔ <b>{@code .jar} IS A CONVENTION, NOT THE CONTRACT, AND READING IT AS THE CONTRACT LOSES A WHOLE
+     * LIBRARY IN SILENCE.</b> Apache BookKeeper publishes {@code circe-checksum} and {@code cpu-affinity} as
+     * <b>{@code .nar}</b> (a jar with native libraries beside the classes), and Apache Pulsar puts both straight
+     * on javac's {@code -classpath}. Measured on pulsar 5.0.0-M1, 2026-08-12: the two files hold 59 and 12 class
+     * files, {@code CompileListToSourceSets} matched neither {@code endsWith(".jar")} nor {@code isDirectory()},
+     * so they reached no classpath at all — and javac then reported
+     * <i>"package com.scurrilous.circe.checksum does not exist"</i> for the four source sets that import it.
+     *
+     * <p>⛔ <b>THE COST IS NOT THE FOUR FILES.</b> javac stops attributing after the first errors, so every
+     * compilation unit behind them comes out with null symbols: <b>1,831 compilation units dropped</b>
+     * (pulsar-broker 1,226 of 1,527), reported as 1,826 errors of which 1,820 were one
+     * {@code UnsupportedOperationException} — <i>naming the consumer, never the cause</i>, exactly as
+     * {@code AnnotationProcessorOutput} records for its own hole.
+     */
+    public static final Set<String> ARCHIVE_EXTENSIONS = Set.of(".jar", ".nar", ".zip");
+
+    /**
+     * Whether a classpath part is an archive maddi should open as a jar. Matched on the extension only: the
+     * caller has a path, not necessarily an existing file (tests build configurations for files that are not
+     * there).
+     */
+    public static boolean isArchive(String pathOrName) {
+        if (pathOrName == null) return false;
+        int dot = pathOrName.lastIndexOf('.');
+        return dot >= 0 && ARCHIVE_EXTENSIONS.contains(pathOrName.substring(dot).toLowerCase(Locale.ROOT));
+    }
+
     public static String tail(URI uri) {
         String toString = uri.toString();
         int last = toString.lastIndexOf('/');
         String name = toString.substring(last + 1);
-        assert name.endsWith(".jar");
+        assert isArchive(name) : "not a classpath archive: " + name;
         return name;
     }
 

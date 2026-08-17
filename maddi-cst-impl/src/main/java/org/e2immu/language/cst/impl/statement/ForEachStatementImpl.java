@@ -146,7 +146,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
         OutputBuilder outputBuilder = outputBuilder(qualification);
         LocalVariable lv = initializer.localVariable();
         return outputBuilder.add(KeywordImpl.FOR)
-                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(initializer.isVar() ? new OutputBuilderImpl().add(KeywordImpl.VAR)
                         : lv.parameterizedType().print(qualification, false, DiamondEnum.SHOW_ALL))
                 .add(SpaceEnum.ONE)

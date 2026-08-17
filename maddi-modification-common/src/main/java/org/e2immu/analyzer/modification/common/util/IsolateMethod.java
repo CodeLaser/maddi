@@ -283,6 +283,10 @@ public class IsolateMethod {
             ParameterInfo np = abstractMethod.builder().addParameter(pi.name(), data.ensureTypes(pi.parameterizedType()));
             np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
         });
+        // reproduce the throws clause: the frame's method is verbatim text, and an override may not throw more
+        // than what it overrides -- without this, 'void endField(...) throws SAXException' cannot override the
+        // abstract signature (3 of 40 closed-core method isolates, all SAX handlers)
+        methodInfo.exceptionTypes().forEach(et -> abstractMethod.builder().addExceptionType(data.ensureTypes(et)));
         abstractMethod.builder()
                 .setReturnType(data.ensureTypes(methodInfo.returnType()))
                 .setAccess(methodInfo.access())
@@ -344,14 +348,30 @@ public class IsolateMethod {
         // gives that name back. Created lazily, only when such a reference is seen
         TypeInfo originalTypeStub;
 
+        // the method being isolated: pasted verbatim into the frame, so it must never be stubbed there as well
+        private final MethodInfo originalMethod;
+
         MethodStubs(MethodInfo originalMethod, TypeInfo frame, Placement known) {
             super(IsolateMethod.this.javaInspector, originalMethod.primaryType());
+            this.originalMethod = originalMethod;
             this.originalType = originalMethod.primaryType();
             this.frame = frame;
             this.known = known;
             originalType.recursiveSubTypeStream()
                     .filter(t -> t != originalType)
                     .forEach(t -> originalMemberSimpleNames.add(t.simpleName()));
+        }
+
+        /**
+         * A recursive self-call arrives with {@code owner == frame} (an unqualified call belongs on
+         * {@code selfType()}), and the frame already holds the isolated method as verbatim text — stubbing it
+         * beside the paste is javac's "method ... is already defined". The same rule {@link IsolateClass} applies
+         * to its kept members; the isolated method is kept just as verbatim. Only the frame declares it: a
+         * self-call written {@code C.m(...)} routes to the original-type stub, which does need its own stub.
+         */
+        @Override
+        boolean alreadyDeclaredWithoutStub(TypeInfo owner, MethodInfo methodInfo) {
+            return owner == frame && methodInfo == originalMethod;
         }
 
         @Override
@@ -469,8 +489,12 @@ public class IsolateMethod {
             TypeInfo parent = namespaceStub(lastDot < 0 ? "" : packageName.substring(0, lastDot));
             String segment = lastDot < 0 ? packageName : packageName.substring(lastDot + 1);
             TypeInfo ns = runtime.newTypeInfo(parent, segment);
+            // static: a package has no instances, and the types at the end of the chain are reached from
+            // wherever the verbatim text sits -- including a static isolated method, where an inner chain
+            // would demand an enclosing instance at every level of 'new org.apache...ADBException(...)'
             ns.builder().setParentClass(runtime.objectParameterizedType())
                     .setTypeNature(runtime.typeNatureClass())
+                    .addTypeModifier(runtime.typeModifierStatic())
                     .setSource(runtime.noSource())
                     .setAccess(runtime.accessPackage());
             namespaceMap.put(packageName, ns);
@@ -484,9 +508,12 @@ public class IsolateMethod {
             assert original == originalType : "a method isolate has one isolated type";
             if (originalTypeStub == null) {
                 originalTypeStub = runtime.newTypeInfo(frame, originalType.simpleName());
+                // static, as the original necessarily is: it is a primary type, and the members hosted here are
+                // reached through the type name ('C.DAYS'), never through an instance of the frame
                 originalTypeStub.builder()
                         .setTypeNature(runtime.typeNatureClass())
                         .setParentClass(runtime.objectParameterizedType())
+                        .addTypeModifier(runtime.typeModifierStatic())
                         .setSource(runtime.noSource())
                         .setAccess(runtime.accessPackage());
             }

@@ -103,6 +103,24 @@ public interface InputConfiguration {
      */
     Path alternativeJREDirectory();
 
+    /**
+     * The Java release the corpus was <b>compiled against</b> ({@code javac --release N}), or a value {@code <= 0}
+     * when it is not known — in which case the parse falls back to the release of the JDK it is running on.
+     *
+     * <p>⛔⛔ <b>THE RUNNING JDK IS NOT THE CORPUS'S PLATFORM, AND THE DIFFERENCE DELETES METHODS.</b> A corpus
+     * built with {@code --release 17} may call APIs that a later JDK no longer has, and then the parse reports
+     * <i>"cannot find symbol"</i> against source that its own build compiles without a murmur. Measured on
+     * Apache Pulsar 5.0.0-M1, 2026-08-12: all 105 javac invocations pass {@code --release 17}; maddi ran on
+     * JDK 26 and therefore parsed against 26, where {@code Thread.suspend()} and {@code Thread.resume()} have
+     * been REMOVED. Three copies of bookkeeper's {@code ZooKeeperUtil} call them, javac stopped attributing,
+     * and the units behind them were dropped.
+     *
+     * <p>⚠ It is mutually exclusive with {@link #alternativeJREDirectory()}: javac takes {@code --release} or
+     * {@code --system}, never both. The alternative JRE wins where it is set, because it is the more specific
+     * instruction.
+     */
+    int sourceRelease();
+
     interface Builder {
 
         @Fluent
@@ -161,6 +179,10 @@ public interface InputConfiguration {
 
         @Fluent
         Builder setAlternativeJREDirectory(String alternativeJREDirectory);
+
+        /** The corpus's own {@code javac --release}; {@code <= 0} means "not known, use the running JDK". */
+        @Fluent
+        Builder setSourceRelease(int sourceRelease);
 
         @Fluent
         Builder setSourceEncoding(String sourceEncoding);

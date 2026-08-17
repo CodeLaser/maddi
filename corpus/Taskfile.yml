@@ -197,11 +197,30 @@ tasks:
       - { task: _clone, vars: { NAME: guava, URL: 'https://github.com/google/guava.git' } }
       - { task: _build, vars: { NAME: guava, BUILD: 'mvn install -DskipTests' } }
 
+  # ⚠ -Denforcer.skip is NOT optional, and it is not a linux quirk — it fails identically anywhere.
+  # jenkins/.mvn/maven.config force-activates -Pmight-produce-incrementals on EVERY mvn run in the
+  # tree. That profile adds a `requireExtensionVersion` rule supplied by
+  # io.jenkins.tools.incrementals:incrementals-enforcer-rules:1.13, whose class sits in the pre-3.x
+  # package org.apache.maven.plugins.enforcer. The parent pins maven-enforcer-plugin 3.6.3, which
+  # loads only new-API rules, so it cannot instantiate it:
+  #   Failed to create enforcer rules with name: requireExtensionVersion
+  # It dies in `validate` on jenkins-parent, i.e. before anything compiles.
+  #
+  # ⛔ NOT -P'!might-produce-incrementals', which also works: that profile ALSO runs `flatten`, and
+  # flatten is what resolves ${changelist} into concrete versions in the installed POMs. Broken
+  # sibling versions in ~/.m2 are exactly what this build exists to prevent — see config:jenkins.
+  # Skipping enforcement changes no build OUTPUT; deactivating the profile does.
+  #
+  # This build does not reach the end of the reactor: jenkins-core packages, then fails in
+  # maven-hpi-plugin:record-core-location with "No implementation for PluginWorkspaceMap was bound",
+  # so war / core-tests / coverage never run. That is tolerated deliberately — Maven installs per
+  # module, so parent, bom, websocket-{spi,jetty12-ee9} and cli are all in ~/.m2 by then, which is
+  # everything `mvn -pl core` needs. Revisit if a corpus test ever wants the war.
   jenkins:
-    desc: 'jenkins — Maven'
+    desc: 'jenkins — Maven (partial reactor: stops after core, see comment)'
     cmds:
       - { task: _clone, vars: { NAME: jenkins, URL: 'https://github.com/jenkinsci/jenkins.git' } }
-      - { task: _build, vars: { NAME: jenkins, BUILD: 'mvn install -DskipTests -Dlicense.disableCheck' } }
+      - { task: _build, vars: { NAME: jenkins, BUILD: 'mvn install -DskipTests -Dlicense.disableCheck -Denforcer.skip=true' } }
 
   langchain4j:
     desc: 'langchain4j — Maven'
@@ -368,6 +387,7 @@ tasks:
       - { task: config:timefold }
       - { task: config:coil }
       - { task: config:detekt }
+      - { task: config:pulsar }
 
   # --- Kotlin/JVM: the ordinary compile-log route, kotlinc markers instead of javac ones ---
   config:detekt:
@@ -387,12 +407,34 @@ tasks:
   config:camel:
     desc: 'camel config (module core/camel-core-model)'
     cmds: [{ task: _config:maven, vars: { NAME: camel, MODULE: core/camel-core-model } }]
+  # WAS the single-module plugin route on module `guava`, which could not see guava's tests AT ALL.
+  # guava's root pom sets <testSourceDirectory>test</testSourceDirectory> for every module, but the
+  # `guava` module has no test/ — its tests are a SIBLING MODULE, guava-tests, holding ~7 MB of
+  # source. So the old config declared .../guava/guava/test (absent: the one path `task corpus:verify`
+  # could not resolve, 1 of 3949) while the real test sources, guava-tests/test, appeared nowhere.
+  # Neither the phantom nor the omission was visible in a green TestGuava: a source set over a
+  # missing directory contributes nothing, so the run simply analysed main and passed.
+  #
+  # The compile-log route captures every javac invocation the reactor makes, so all five modules and
+  # both of their source kinds land in one configuration — the same reason timefold uses it.
+  # ⛔ `install`, NOT `test-compile`, and guava is the exception the trino comment does not cover.
+  # guava-testlib/src/module-info.java `requires com.google.common`, and guava's own module-info is
+  # MULTI-RELEASE (target/classes/META-INF/versions/9). A directory on -classpath exposes no module,
+  # so under test-compile javac reports "module not found: com.google.common", guava-testlib fails,
+  # and guava-tests is SKIPPED — i.e. test-compile cannot build this reactor at all, let alone its
+  # tests. Only the packaged jar makes the module visible. REWRITE_REACTOR_JARS repairs the one thing
+  # `install` breaks; see _config:maven-log.
+  #
+  # -DskipTests, not -Dmaven.test.skip: the test SOURCES must still compile, since their javac line
+  # is the whole point.
   config:guava:
-    desc: 'guava config (module guava)'
-    cmds: [{ task: _config:maven, vars: { NAME: guava, MODULE: guava } }]
+    desc: 'guava config (Maven compile-log over `install` — whole reactor, includes guava-tests)'
+    cmds:
+      - { task: _config:maven-log,
+          vars: { NAME: guava, TASKS: 'install -DskipTests', REWRITE_REACTOR_JARS: 'true' } }
   config:jenkins:
     desc: 'jenkins config (module core — this is what TestJenkinsCore consumes)'
-    cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core } }]
+    cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core, MVN_FLAGS: '-Denforcer.skip=true' } }]
   config:langchain4j:
     desc: 'langchain4j config (module langchain4j-core)'
     cmds: [{ task: _config:maven, vars: { NAME: langchain4j, MODULE: langchain4j-core } }]
@@ -404,6 +446,16 @@ tasks:
   config:elasticsearch:
     desc: 'elasticsearch config (Gradle compile-log, ~27 source sets)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: elasticsearch, TASKS: 'compileTestJava' } }]
+
+  # pulsar's build refuses JDK 26 without the opt-out, exactly as in `task pulsar` above; the flag
+  # rides along in TASKS because _config:gradle-log interpolates it straight into the gradlew line.
+  # Regenerating this one MATTERS: the committed config was produced ad hoc inside a ws/ workspace
+  # and pins ~/git/ws/python/.gradle-home-pulsar/caches/... — a workspace-private Gradle home that
+  # `ws rm python` would delete. A run here, with the ambient GRADLE_USER_HOME, replaces those 561
+  # library paths with ordinary ~/.gradle ones.
+  config:pulsar:
+    desc: 'pulsar config (Gradle compile-log; needs -PskipJavaVersionCheck on JDK 26)'
+    cmds: [{ task: _config:gradle-log, vars: { NAME: pulsar, TASKS: 'compileTestJava -PskipJavaVersionCheck' } }]
 
   config:timefold:
     desc: 'timefold-solver config (Maven compile-log, whole 65-source-set reactor)'
@@ -465,7 +517,11 @@ tasks:
     dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
     cmds:
       - 'echo ">>> {{.NAME}}: write-input-configuration on module {{.MODULE}} (needs a prior `task {{.NAME}}` build + `task config:plugin`)"'
-      - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn -pl {{.MODULE}} generate-test-sources io.codelaser:maddi-mvnplugin:{{.MADDI_PLUGIN_VERSION}}:write-input-configuration
+      # MVN_FLAGS: per-project switches the project's OWN build forces on us. Empty for every project
+      # but jenkins, whose maven.config activates a profile carrying an enforcer rule that the pinned
+      # enforcer cannot load — see the `jenkins:` task for the full story. The build task and this one
+      # both need it: they are separate mvn invocations in the same tree.
+      - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn {{.MVN_FLAGS}} -pl {{.MODULE}} generate-test-sources io.codelaser:maddi-mvnplugin:{{.MADDI_PLUGIN_VERSION}}:write-input-configuration
       - cp '{{.MODULE}}/target/inputConfiguration.json' inputConfiguration.json
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
 
@@ -502,6 +558,37 @@ tasks:
       # MAVEN_PATTERN "\[DEBUG] (-d (.+))" and discards the rest, so the surviving lines are exactly
       # what it would have consumed. 2.5 GB -> 11 MB on camel, same 1607 invocations.
       - grep -aE '^\[DEBUG] -d ' compile.log > compile.javac.log
+      # REWRITE_REACTOR_JARS: only for reactors that MUST be captured under `install` (guava — see
+      # config:guava). Once a module is packaged, Maven hands its siblings the JAR as the resolved
+      # artifact instead of target/classes, so the captured -classpath names it. maddi then finds
+      # those types TWICE: once in the source set built from that module's own javac line, once in
+      # the jar — the duplication the trino comment above refuses `install` to avoid. Measured on
+      # guava: 8 javac invocations carrying 18 such entries.
+      #
+      # ⛔ DELETING them is WRONG, and it fails in a way that looks like a corpus problem. The
+      # classpath entry is not merely a duplicate: it is the ONLY thing linking a module to the
+      # sibling it depends on. Remove it and guava-testlib can no longer see guava at all —
+      # "package com.google.common.annotations does not exist", "Type GwtIncompatible not found",
+      # and TestGuava dies in 17 s having parsed nothing. Measured, not feared.
+      #
+      # REWRITING is the resolution: <module>/target/<a>.jar -> <module>/target/classes, and
+      # <module>/target/<a>-tests.jar -> <module>/target/test-classes. That is byte-for-byte what
+      # `test-compile` would have emitted for the same reactor, so the dependency survives and
+      # resolves to the PARSED source set instead of to bytecode. -tests first: it is the more
+      # specific pattern and the plain rule would otherwise swallow it.
+      #
+      # Anchored at the project directory, so third-party jars from ~/.m2 are untouched; `realpath`
+      # because TEST_OSS_ROOT may hold ../.. segments while the log is normalised, and a mismatched
+      # pattern would silently rewrite nothing.
+      - |
+        {{if .REWRITE_REACTOR_JARS}}d=$(realpath .)
+        before=$(grep -oE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log | wc -l)
+        sed -E "s#($d/[^:]*)/target/[^:]*-tests\.jar#\1/target/test-classes#g; \
+                s#($d/[^:]*)/target/[^:]*\.jar#\1/target/classes#g" \
+            compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log
+        after=$(grep -cE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log || true)
+        echo ">>> {{.NAME}}: rewrote $before reactor-jar classpath entries to output dirs (remaining: $after)"
+        test "$after" -eq 0{{end}}
       - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
@@ -564,3 +651,88 @@ tasks:
         msg: 'No input configuration at {{.CONFIG}} — pass CONFIG=<path> or PROJECT=<corpus project> (generate with task config:<project>).'
     cmds:
       - ./gradlew :maddi-run-openjdk:run {{if .XMX}}-PjvmArgs="-Xmx{{.XMX}}"{{end}} --args="--input-configuration={{.CONFIG}} --parallel --analysis-steps={{.STEPS | default "prep"}} --debug=memory"
+
+  # ======================== the catalogue (new; see corpus/catalogue/) =======
+  # Generic over catalogue/<name>.yml — no per-project task. These run alongside the hand-written
+  # tasks above until `catalogue:doctor` agrees with reality for every corpus, then those go.
+  #
+  # The scripts print the command and Task runs it, so output streams, the exit code is Task's,
+  # and `task --dry` shows something real rather than an opaque python call.
+
+  _cat:
+    internal: true
+    requires: { vars: [NAME, PHASE] }
+    # NO `dir:`. It can only be a static template, so it could only ever compose
+    # TEST_OSS_ROOT/<name> -- and a PRIVATE entry's distinguishing mark is an absolute `dir`
+    # outside the corpus root (callforpapers: ~/git/callforpapers). Task then made the wrong
+    # answer silent by CREATING the missing directory instead of failing, so the phase ran in a
+    # brand-new empty dir in the corpus root and failed on a missing ./mvnw. Ask the catalogue,
+    # which resolves ~ and $VARS and knows relative-vs-absolute, and cd here instead.
+    cmds:
+      - |
+        dir="$({{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" || exit $?
+        cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || exit $?
+        # Not obtained yet is a normal state; say so rather than let cd's message stand alone.
+        [ -d "$dir" ] || { echo ">>> {{.NAME}}: $dir does not exist -- clone/obtain it first" >&2; exit 1; }
+        echo ">>> {{.NAME}} [{{.PHASE}}] in $dir: $cmd"
+        cd "$dir" && eval "$cmd"
+
+  catalogue:list:
+    desc: 'Every catalogue entry: status, and P/B/C for present/built/configured on this machine'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py list {{if .STATUS}}--status {{.STATUS}}{{end}}']
+
+  catalogue:doctor:
+    desc: 'Per corpus: obtained? built? configured? how many source sets, how many are tests'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.CLI_ARGS}}']
+
+  catalogue:show:
+    desc: 'The resolved entry: task catalogue:show NAME=timefold-solver'
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py show {{.NAME}}']
+
+  catalogue:build:
+    desc: 'Build one corpus, then assert build.provides: task catalogue:build NAME=langchain4j'
+    requires: { vars: [NAME] }
+    cmds:
+      # JDK first: trino's enforcer fails 30s in with a stack trace, and sonarqube simply will not
+      # build on 26. Checking up front costs nothing and the message says what to install.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-jdk {{.NAME}}'
+      # ⚠ `- ` prefix: a NON-ZERO EXIT IS NOT A FAILURE HERE. langchain4j's reactor stops on
+      # provider modules that do not resolve, and that is expected. The build is judged by
+      # check-provides below — what the next phase needs, not what the command returned.
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: build }
+        ignore_error: true
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-provides {{.NAME}}'
+
+  catalogue:config:
+    desc: 'Generate one inputConfiguration.json, then diff the source-set inventory'
+    requires: { vars: [NAME] }
+    cmds:
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: config }
+      - task: catalogue:baseline
+        vars: { NAME: '{{.NAME}}' }
+
+  catalogue:parse:
+    desc: 'Run the maddi test that consumes this corpus'
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: parse } }]
+
+  catalogue:tests:
+    desc: "Run the corpus project's own reachable tests (those in the config's test source sets)"
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: tests } }]
+
+  catalogue:baseline:
+    desc: 'Diff the source-set inventory against the recorded one; RECORD=1 to accept the diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} {{if .RECORD}}--record{{end}}'
+
+  catalogue:provision:
+    desc: 'One corpus, end to end: build -> assert provides -> config -> inventory diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - { task: catalogue:build,  vars: { NAME: '{{.NAME}}' } }
+      - { task: catalogue:config, vars: { NAME: '{{.NAME}}' } }

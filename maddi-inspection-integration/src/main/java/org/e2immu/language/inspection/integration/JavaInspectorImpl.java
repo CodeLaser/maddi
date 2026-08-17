@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -343,7 +344,9 @@ public class JavaInspectorImpl implements JavaInspector {
                     null));
             case "file" -> {
                 File file = toAbsoluteFile(workingDirectory, path);
-                if (path.endsWith(".jar")) {
+                // ⚠ a classpath archive is a zip, whatever it is called: .nar (bookkeeper's circe-checksum,
+                // cpu-affinity) opens exactly like a .jar. See SourceSetImpl.ARCHIVE_EXTENSIONS.
+                if (SourceSetImpl.isArchive(path)) {
                     try {
                         // "jar:file:build/libs/equivalent.jar!/"
                         URL jarUrl = URI.create("jar:file:" + file.getPath() + "!/").toURL();
@@ -356,7 +359,8 @@ public class JavaInspectorImpl implements JavaInspector {
                         LOGGER.info("Adding {} to {}", file.getAbsolutePath(), msg);
                         resources.addDirectoryFromFileSystem(file, sourceSet);
                     } else {
-                        String msgString = msg + " part '" + path + "' is not a .jar file, and not a directory: ignored";
+                        String msgString = msg + " part '" + path + "' is not a classpath archive "
+                                           + SourceSetImpl.ARCHIVE_EXTENSIONS + ", and not a directory: ignored";
                         LOGGER.warn(msgString);
                         initializationProblems.add(new InitializationProblem(msgString, null));
                     }
@@ -854,10 +858,13 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public String print2(CompilationUnit compilationUnit,
                          Qualification qualification,
-                         ImportComputer importComputer) {
+                         ImportComputer importComputer,
+                         FormattingOptions formattingOptions) {
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
                 .print(importComputer, qualification);
-        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        FormattingOptions options = formattingOptions == null
+                ? new FormattingOptionsImpl.Builder().build() : formattingOptions;
+        Formatter formatter = new Formatter2Impl(runtime, options);
         return formatter.write(ob);
     }
 

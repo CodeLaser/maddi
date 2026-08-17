@@ -309,7 +309,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
+            // ⛔ THE THROWABLE GOES IN. Same defect, same week, as ClassSymbolScanner's: these five sites all
+            // rethrow, so the stack is not lost -- but the REPORT above only records the exception's class
+            // name, and pulsar's day-zero parse produced 1,826 errors of which 1,820 were one
+            // UnsupportedOperationException with not a single frame anywhere in the log. A census that
+            // cannot name a frame cannot find the defect.
+            LOGGER.error("Caught exception in compilation unit {}", compilationUnit, re);
             throw re;
         }
     }
@@ -375,7 +380,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in type {}", node.getSimpleName());
+            LOGGER.error("Caught exception in type {}", node.getSimpleName(), re);
             throw re;
         }
     }
@@ -948,7 +953,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
-            LOGGER.error("Caught exception in method {}", node.getName().toString());
+            LOGGER.error("Caught exception in method {}", node.getName().toString(), re);
             throw re;
         }
     }
@@ -1697,7 +1702,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node));
+            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node), e);
             throw e;
         }
     }
@@ -2589,6 +2594,31 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    /**
+     * Is {@code x.length} an ARRAY length rather than a field read?
+     * <p>
+     * ⛔ <b>THE DECLARED TYPE OF THE SCOPE IS NOT THE QUESTION; THE SUBSTITUTED ONE IS.</b> This used to ask
+     * {@code scope.parameterizedType().arrays() > 0}, which is the type as WRITTEN. For a field inherited from a
+     * generic supertype that is the type VARIABLE: guava's {@code ByteSourceTester extends
+     * SourceSinkTester<ByteSource, byte[], ByteSourceFactory>} reads the inherited {@code protected final T
+     * expected}, so the declared type is {@code T}, {@code arrays()} is 0, and the test failed on an expression
+     * that is plainly an array length.
+     * <p>
+     * ⚠ What made it expensive to read is where it landed. Falling through, {@code getOrLoadField} met javac's
+     * model of {@code .length} — a field of a SYNTHETIC pseudo-class named {@code Array} with no owner — tripped
+     * {@code owner.kind == NIL}, and reported {@code Type Array not found}: a symbol that appears nowhere in the
+     * source, naming neither the field nor the expression that produced it.
+     * <p>
+     * javac has already substituted, so {@code fieldAccess.selected.type} is {@code byte[]} where the declared
+     * type is {@code T} — asking it is both simpler and more correct than substituting again here. The
+     * declared-type test is kept as the fallback for the paths where javac left no attributed type.
+     */
+    private static boolean isArrayLength(JCTree.JCFieldAccess fieldAccess, Expression scope) {
+        Type selectedType = fieldAccess.selected == null ? null : fieldAccess.selected.type;
+        if (selectedType != null) return selectedType instanceof Type.ArrayType;
+        return scope.parameterizedType().arrays() > 0;
+    }
+
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
         try {
@@ -2618,7 +2648,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     String s = node.toString();
                     Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
                     dsb.put(fieldName, sourceName);
-                    if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
+                    if ("length".equals(fieldName) && isArrayLength(fieldAccess, scope)) {
                         currentExpression = runtime.newArrayLengthBuilder()
                                 .setSource(source.withDetailedSources(dsb.build()))
                                 .setSource(source)
@@ -2655,7 +2685,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             super.visitMemberSelect(node, unused);
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError e) {
-            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node));
+            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node), e);
             throw e;
         }
     }

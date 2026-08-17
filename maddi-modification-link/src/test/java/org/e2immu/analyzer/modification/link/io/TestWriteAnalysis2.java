@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -248,11 +249,11 @@ public class TestWriteAnalysis2 extends CommonTest {
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
         WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
-        File dest = new File("build/json");
-        if (dest.mkdirs()) LOGGER.info("Created {}", dest);
+        Path dest = Files.createTempDirectory("writeAnalysis2Test3");
+        Files.createDirectories(dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysisResults.write(dest, typeTrie, codec);
-        String written = Files.readString(new File(dest, "ABC.json").toPath());
+        writeAnalysisResults.write(dest.toFile(), typeTrie, codec);
+        String written = Files.readString(new File(dest.toFile(), "ABC.json").toPath());
         LOGGER.info("Wrote {}", written);
 
         javaInspector.invalidateAllSources();

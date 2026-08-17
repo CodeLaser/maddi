@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -55,9 +56,25 @@ public interface JavaInspector {
     // NOTE: needs InputConfiguration.addSourceSets(InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET)
     void onlyPreload();
 
+    default String print2(CompilationUnit compilationUnit,
+                          Qualification qualification,
+                          ImportComputer importComputer) {
+        return print2(compilationUnit, qualification, importComputer, null);
+    }
+
+    /**
+     * The seam through which a caller states HOW a whole file is printed. Every earlier overload pinned the
+     * output to the formatter defaults (120 columns, CHOP_DOWN, compact blocks) with no way to say
+     * otherwise — a generated file has to survive the house style of the project it lands in, and the
+     * project's style is the caller's knowledge, not this method's.
+     *
+     * @param formattingOptions null means the formatter defaults, exactly as the 3-argument overload always
+     *                          behaved
+     */
     String print2(CompilationUnit compilationUnit,
                   Qualification qualification,
-                  ImportComputer importComputer);
+                  ImportComputer importComputer,
+                  FormattingOptions formattingOptions);
 
     // for tests
     SourceSet javaBase();
@@ -271,6 +288,18 @@ public interface JavaInspector {
 
     default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer) {
         return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
+    }
+
+    default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator,
+                          ImportComputer importComputer, FormattingOptions formattingOptions) {
+        return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer,
+                formattingOptions);
+    }
+
+    /** the 1-argument overload's behaviour (no decorator, star threshold 4) with the caller's options */
+    default String print2(CompilationUnit compilationUnit, FormattingOptions formattingOptions) {
+        return print2(compilationUnit, (Qualification.Decorator) null,
+                importComputer(4, compilationUnit.sourceSet()), formattingOptions);
     }
 
     /**

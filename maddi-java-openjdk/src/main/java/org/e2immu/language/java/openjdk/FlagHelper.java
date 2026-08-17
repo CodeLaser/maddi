@@ -118,16 +118,28 @@ public record FlagHelper(Runtime runtime) {
         if ((flags & Flags.NON_SEALED) != 0) builder.addTypeModifier(runtime.typeModifierNonSealed());
         if ((flags & Flags.FINAL) != 0) builder.addTypeModifier(runtime.typeModifierFinal());
 
-        TypeNature typeNature;
+        builder.setTypeNature(typeNature(cs));
+    }
+
+    /**
+     * The type's nature, from its symbol's flags alone.
+     *
+     * <p>Extracted from {@link #type} so that a caller which builds a <b>stub</b> — a type it deliberately does
+     * not load — can still give it the one property every consumer asks first. {@code ClassSymbolScanner}'s
+     * {@code jdk.internal.*} branch is that caller: it creates the {@code TypeInfo} and skips {@code loadType},
+     * which left {@code typeNature} null, and any later {@code isInterface()} then failed the assertion
+     * <i>"Type nature of jdk.internal.event.Event has not been set"</i>.
+     *
+     * <p>⚠ ONE QUESTION, ONE ANSWER: a stub whose nature were computed by a second copy of these four rules
+     * would drift from the loaded form, and the drift would only show on the types nobody loads.
+     */
+    public TypeNature typeNature(Symbol.ClassSymbol cs) {
+        long flags = cs.flags();
         if ((flags & Flags.INTERFACE) != 0) {
-            typeNature = cs.isAnnotationType() ? runtime.typeNatureAnnotation() : runtime.typeNatureInterface();
-        } else if ((flags & Flags.RECORD) != 0) {
-            typeNature = runtime.typeNatureRecord();
-        } else if ((flags & Flags.ENUM) != 0) {
-            typeNature = runtime.typeNatureEnum();
-        } else {
-            typeNature = runtime.typeNatureClass();
+            return cs.isAnnotationType() ? runtime.typeNatureAnnotation() : runtime.typeNatureInterface();
         }
-        builder.setTypeNature(typeNature);
+        if ((flags & Flags.RECORD) != 0) return runtime.typeNatureRecord();
+        if ((flags & Flags.ENUM) != 0) return runtime.typeNatureEnum();
+        return runtime.typeNatureClass();
     }
 }
