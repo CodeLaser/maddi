@@ -123,8 +123,8 @@ public class TestIsolateMethod15FieldPositions extends CommonIsolateMethodTest {
         String expected = """
                 import java.io.Serializable;
                 public class X_method {
-                    class PeriodData implements Serializable { double capitalPortion; double residualValue; }
-                    class SpecialData extends PeriodData { int number; }
+                    static class PeriodData implements Serializable { double capitalPortion; double residualValue; }
+                    static class SpecialData extends PeriodData { int number; }
                     void method(SpecialData pp, PeriodData pd) {
                     pp.residualValue = 1.0;
                     pp.number = 3;
@@ -163,7 +163,7 @@ public class TestIsolateMethod15FieldPositions extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class C_method {
-                    class C { static final int DAYS = 0; }
+                    static class C { static final int DAYS = 0; }
                     int method() {
                     return C.DAYS;
                 }
@@ -213,7 +213,7 @@ public class TestIsolateMethod15FieldPositions extends CommonIsolateMethodTest {
         String expected = """
                 import java.util.function.IntSupplier;
                 public class C_method {
-                    class C { static final int DAYS = 0; static int other() { return 0; }C() { }int instanceVal() { return 0; } }
+                    static class C { static final int DAYS = 0; static int other() { return 0; }C() { }int instanceVal() { return 0; } }
                     int method(C param) {
                     int b = C.other();
                     int d = C.DAYS;

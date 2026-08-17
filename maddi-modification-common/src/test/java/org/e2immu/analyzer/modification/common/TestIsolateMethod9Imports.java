@@ -88,7 +88,7 @@ public class TestIsolateMethod9Imports extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class OrderHelper_validateOrder {
-                    class ComponentFactory {static INotificationService getNotificationService() { return null; } }
+                    static class ComponentFactory {static INotificationService getNotificationService() { return null; } }
                     interface INotificationService {void log(String message); }
                     interface IOrderService {String getOrderDetails(String orderId); }
                     IOrderService getOrderService() { return null; }

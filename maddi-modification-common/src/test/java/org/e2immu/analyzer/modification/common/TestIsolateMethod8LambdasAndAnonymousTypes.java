@@ -37,7 +37,7 @@ public class TestIsolateMethod8LambdasAndAnonymousTypes extends CommonIsolateMet
         String expected = """
                 import java.util.List;
                 public class X_method {
-                    class Helper {static void process(String s) { } }
+                    static class Helper {static void process(String s) { } }
                     void method(List<String> list) {
                     list.forEach(s -> Helper.process(s));
                 }
@@ -81,7 +81,7 @@ public class TestIsolateMethod8LambdasAndAnonymousTypes extends CommonIsolateMet
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Helper {static void process(String s) { } }
+                    static class Helper {static void process(String s) { } }
                     Runnable method() {
                     return new Runnable() {
                         @Override

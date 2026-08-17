@@ -163,16 +163,20 @@ abstract class IsolationCore {
         if (original.isAbstract() && !original.isInterface() && !original.typeNature().isEnum()) {
             stub.builder().addTypeModifier(runtime.typeModifierAbstract());
         }
+        // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
+        // but making an INNER class static breaks the one spelling that needs the instance --
+        // 'outer.new Inner()' in the verbatim text is then "qualified new of static class" (5 class isolates).
+        // TypeInfo.isStatic() answers true for an interface/enum/record and for a primary type as well, which
+        // is what we want: those are the cases where the modifier is implicit or meaningless.
+        // NOT restricted to stubsCrossPackageBoundaries(): a method isolate nests its stubs in the frame, and
+        // when the isolated method is STATIC, 'new Stub()' in the verbatim text has no enclosing instance to
+        // offer an inner class. Measured on 40 closed-core method isolates: the 6 frames whose method is
+        // static carried 960 of the corpus's 966 javac errors, all of them this.
+        if (enclosingTypeOrNull(stub) != null && original.isStatic()) {
+            stub.builder().addTypeModifier(runtime.typeModifierStatic());
+        }
         if (stubsCrossPackageBoundaries()) {
             stub.builder().addTypeModifier(runtime.typeModifierPublic());
-            // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
-            // but making an INNER class static breaks the one spelling that needs the instance --
-            // 'outer.new Inner()' in the verbatim text is then "qualified new of static class" (5 class isolates).
-            // TypeInfo.isStatic() answers true for an interface/enum/record and for a primary type as well, which
-            // is what we want: those are the cases where the modifier is implicit or meaningless
-            if (enclosingTypeOrNull(stub) != null && original.isStatic()) {
-                stub.builder().addTypeModifier(runtime.typeModifierStatic());
-            }
             stub.builder().setAccess(runtime.accessPublic());
         } else {
             stub.builder().setAccess(runtime.accessPackage());

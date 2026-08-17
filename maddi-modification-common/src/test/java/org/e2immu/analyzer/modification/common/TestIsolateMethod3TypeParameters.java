@@ -70,7 +70,7 @@ public class TestIsolateMethod3TypeParameters extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Box<U> { U value; }
+                    static class Box<U> { U value; }
                     <T> T method(Box<T> box) {
                     return box.value;
                 }
@@ -138,7 +138,7 @@ public class TestIsolateMethod3TypeParameters extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class Helper {<Z> void process(Z z) { } }
+                    static class Helper {<Z> void process(Z z) { } }
                     void method(Helper h) {
                     h.process("x");
                 }
