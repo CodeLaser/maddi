@@ -32,10 +32,19 @@ KOTLIN_ZIP=$(ls maddi-run-kotlin/build/distributions/maddi-kotlin-*.zip)
 echo "    openjdk runner: $OPENJDK_ZIP"
 echo "    kotlin  runner: $KOTLIN_ZIP"
 
+# Release notes: docs/release-notes-<version>.md if it exists, where <version> is the tag without its
+# leading "v". The old behaviour -- a one-line --notes -- was survivable while the CLI zips were the
+# only thing being released, but this script now creates the release that the plugins and the
+# annotations are announced in too, and "command-line distributions." is not an announcement.
+NOTES="docs/release-notes-${TAG#v}.md"
+
 if gh release view "$TAG" >/dev/null 2>&1; then
     echo "==> Release $TAG already exists; uploading assets (--clobber overwrites same-named assets)"
+elif [[ -f "$NOTES" ]]; then
+    echo "==> Creating release $TAG with notes from $NOTES"
+    gh release create "$TAG" --title "maddi $TAG" --notes-file "$NOTES"
 else
-    echo "==> Creating release $TAG"
+    echo "==> Creating release $TAG (no $NOTES found; using a one-line note)"
     gh release create "$TAG" --title "$TAG" --notes "maddi $TAG — command-line distributions."
 fi
 
