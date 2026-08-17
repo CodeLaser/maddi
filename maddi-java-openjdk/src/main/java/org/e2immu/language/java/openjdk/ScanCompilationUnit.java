@@ -1111,15 +1111,25 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             default -> throw new UnsupportedOperationException(unexpected("block node", node));
         }
         return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
-                statementLabels.get(node), source, variablesToAdd);
+                statementLabels.get(node), source, commentsForNode(source), variablesToAdd);
     }
 
+    /**
+     * @param comments the block's own leading comments. Handed in rather than looked up from {@code source},
+     *                 because a block is not always at the position its source names: the old-style switch has no
+     *                 block in the javac tree and one is SYNTHESISED for its case statements, carrying the switch's
+     *                 source. Looking up "the comments preceding this position" there answers with the SWITCH's
+     *                 leading comment, and the block took it -- so the switch had none, and the comment then
+     *                 vanished on output, the old-style switch printer not printing its block's comments. That
+     *                 caller passes an empty list and the switch keeps its own; see TestCommentBeforeSwitch.
+     */
     private Block parseBlock(String blockIndex,
                              List<JCTree.JCStatement> statements,
                              int addToStatementsSize,
                              boolean blockAsStatement,
                              String label,
                              Source source,
+                             List<Comment> comments,
                              LocalVariable... variablesToAdd) {
         Map<String, Element> localVariableMap = elementStack.push();
         for (LocalVariable lv : variablesToAdd) {
@@ -1148,7 +1158,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setLabel(label)
                 .setSource(blockSource(blockAsStatement, i, source))
                 .addTrailingComments(trailingCommentsForNode(source))
-                .addComments(commentsForNode(source))
+                .addComments(comments)
                 .build();
     }
 
@@ -1479,11 +1489,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 && jcSwitch.cases.getFirst().caseKind == CaseTree.CaseKind.RULE;
 
         Statement s;
+        Source switchSource = statementSourceForNode(node);
+        List<Comment> switchComments = commentsForNode(switchSource);
         if (newStyle) {
             List<SwitchEntry> switchEntries = doSwitchEntries(unused, jcSwitch.cases);
             s = runtime.newSwitchStatementNewStyleBuilder()
                     .setSelector(selector)
-                    .setSource(statementSourceForNode(node))
+                    .setSource(switchSource)
+                    .addComments(switchComments)
                     .addSwitchEntries(switchEntries)
                     .build();
         } else {
@@ -1528,13 +1541,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 statementsToParse.addAll(jcCase.stats);
                 statementCount += jcCase.stats.size();
             }
+            // no comments for the synthesised block: at the switch's own source, the lookup would answer with the
+            // SWITCH's leading comment, and then the switch has none -- see the parseBlock parameter's javadoc
             Block block = parseBlock("0", statementsToParse, 0, false,
-                    null, sourceForNode(node));
+                    null, sourceForNode(node), List.of());
             s = runtime.newSwitchStatementOldStyleBuilder()
                     .setLabel(statementLabels.get(node))
                     .setSelector(selector)
                     .addSwitchLabels(switchLabels)
-                    .setSource(statementSourceForNode(node))
+                    .setSource(switchSource)
+                    .addComments(switchComments)
                     .setBlock(block)
                     .build();
         }
