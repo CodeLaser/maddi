@@ -21,10 +21,17 @@ plugins {
     // We do not publish the fine-grained analyzer modules (see PUBLISHING.md), so the plugin cannot
     // declare Maven dependencies on them — it ships them inside its own jar instead.
     id("com.gradleup.shadow") version "9.2.2"
+    // Publication to the Gradle Plugin Portal (`publishPlugins`). 2.x is the line that supports
+    // Gradle 9; see PUBLISHING.md for the Portal's manual-approval step on a first publish.
+    id("com.gradle.plugin-publish") version "2.1.1"
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
+    // The Portal requires a sources and a javadoc jar. Stated here rather than left to
+    // plugin-publish, because the publication below sets its artifact list explicitly.
+    withSourcesJar()
+    withJavadocJar()
 }
 
 // The analyzer modules and their third-party transitives (jackson, logback, asm, congocc, ...) go into
@@ -85,17 +92,32 @@ tasks.shadowJar {
 tasks.named<Jar>("jar") { archiveClassifier.set("plain") }
 tasks.named("assemble") { dependsOn(tasks.shadowJar) }
 
+// `website`, `vcsUrl` and per-plugin `tags` are validated by com.gradle.plugin-publish: the build
+// fails without them. The Portal additionally requires the plugin id and the Maven group to share a
+// top-level namespace, which `io.codelaser` + `io.codelaser.maddi.analyzer` satisfies and the old
+// `io.codelaser` + `org.e2immu.analyzer-plugin` pairing did not. The id below is still the old one;
+// tools/rename/name-map.tsv section 3 rewrites it at the cutover, so it is not edited by hand here.
 gradlePlugin {
+    website = "https://github.com/CodeLaser/maddi"
+    vcsUrl = "https://github.com/CodeLaser/maddi.git"
+    isAutomatedPublishing = true
+
     plugins {
-        create("e2immuAnalyzerPlugin") {
+        create("maddiAnalyzerPlugin") {
             id = "org.e2immu.analyzer-plugin"
             implementationClass = "org.e2immu.gradleplugin.AnalyzerPlugin"
-            displayName = "e2immu's gradle plugin"
+            displayName = "maddi analyzer"
+            // Was set on the enclosing scope, i.e. on the *project*, so the plugin declaration itself
+            // carried no description at all — which plugin-publish requires.
+            description = "Runs the maddi analyzer over a Gradle build: immutability, modification " +
+                    "and independence for Java, reported as annotations on your own source."
+            tags = listOf("static-analysis", "immutability", "dataflow-analysis", "java", "annotations")
         }
-        description = "Run the e2immu analyzer from Gradle"
-        isAutomatedPublishing = true
     }
 }
+
+// Kept because it flows into the published POM's <description>.
+description = "Run the maddi analyzer from Gradle"
 
 // A local file repository, used by the isolation test (TestAnalyzerPluginShadedJarIsolation): the plugin
 // is published here and then resolved from it — with none of the analyzer modules on the classpath — so
@@ -121,7 +143,13 @@ tasks.withType<GenerateModuleMetadata>().configureEach { enabled = false }
 
 afterEvaluate {
     (publishing.publications.getByName("pluginMaven") as MavenPublication).apply {
-        setArtifacts(listOf(tasks.shadowJar.get()))
+        // setArtifacts REPLACES the artifact set, so the sources and javadoc jars the Portal requires
+        // have to be named here too: listing the shadow jar alone silently drops them.
+        // NOTE: this deliberately does NOT touch the `*PluginMarkerMaven` publication. That marker is a
+        // POM whose only content is a dependency on io.codelaser:maddi-gradleplugin, and it is what
+        // makes `plugins { id("...") }` resolve — stripping its dependencies would publish a marker
+        // that resolves to nothing.
+        setArtifacts(listOf(tasks.shadowJar.get(), tasks["sourcesJar"], tasks["javadocJar"]))
         pom.withXml {
             // Everything is bundled in the shadow jar, so the POM needs no dependencies and no BOM import
             // (the internal io.codelaser:platform BOM is not published either).

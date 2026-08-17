@@ -71,8 +71,23 @@ descriptors do not matter.
   and a **dependency-free POM** (Gradle Module Metadata disabled, `<dependencies>`/`<dependencyManagement>`
   stripped — nothing to resolve, everything is bundled). Proven self-contained by
   `TestAnalyzerPluginShadedJarIsolation`: it publishes to a local repo and resolves+runs the plugin from
-  there *with no analyzer module on any classpath*. *Remaining:* apply `com.gradle.plugin-publish`
-  (website/vcsUrl/tags) and run `publishPlugins` with a Portal key — the actual push, needs credentials.
+  there *with no analyzer module on any classpath*. **`com.gradle.plugin-publish` 2.1.1 applied
+  2026-08-17** with `website`/`vcsUrl`/`tags`, a sources and a javadoc jar (the Portal requires both,
+  and `setArtifacts` replaces the artifact list, so they are named there explicitly), and a
+  `description` on the plugin declaration — it had been set on the enclosing scope, i.e. on the
+  *project*, so the declaration carried none. *Remaining:* run `publishPlugins`, **after the rename**.
+
+  ⚠️ **The Portal is not instant, and the id cannot be corrected cheaply.** Publishing docs, verified
+  2026-08-17: a new plugin "will go through a manual review process" by a Gradle engineer before it
+  becomes visible, and "any change of Maven group or plugin ID will cause the manual approval process
+  to be triggered again". Nothing exists under `io.codelaser` or `org.e2immu` on the Portal today, so
+  this is a first publish and `publishPlugins` succeeding does **not** mean the plugin is installable
+  that evening — say so in the release notes rather than promising an install line that 404s.
+
+  The same page requires that "the plugin ID and group ID share the same top-level namespace". The
+  group is `io.codelaser`, so the current id `org.e2immu.analyzer-plugin` **would be refused at
+  review**: publishing the plugin before the rename was never actually available. After the cutover
+  the id is `io.codelaser.maddi.analyzer` (`tools/rename/name-map.tsv` section 3), which satisfies it.
 * *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. **Descriptor + shading DONE.** A hand-maintained
   `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the Gradle-9-incompatible
   `maven-plugin-development` tool) describes all 5 goals (`run`, `write-input-configuration`, `statistics`,
@@ -83,9 +98,11 @@ descriptors do not matter.
   resolver (`maven-resolver-*` → `compileOnly`; its `org.eclipse.aether.*` objects come from Maven core's
   injected `ProjectDependenciesResolver`, so a second bundled copy would `LinkageError`), and `slf4j-api`
   (excluded from the jar; Maven core exports it + its binding). The publication ships the shadow jar with a
-  `packaging=maven-plugin`, dependency-free POM. *Remaining:* test against a real `mvn` invocation (not done
-  — no Maven on this laptop); the host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or
-  `MAVEN_OPTS`) for the openjdk-based goals.
+  `packaging=maven-plugin`, dependency-free POM. *Remaining:* test against a real `mvn` invocation — still
+  not done, but **no longer blocked: Maven 3.9.16 is installed on the Mac as of 2026-08-17**, so the
+  "no Maven on this laptop" excuse is spent. Do it before publishing a plugin nobody has ever invoked.
+  The host Maven JVM needs the javac `--add-exports` (via `.mvn/jvm.config` or `MAVEN_OPTS`) for the
+  openjdk-based goals.
 
 === 3. Command-line tools — GitHub Releases (not Maven)
 
