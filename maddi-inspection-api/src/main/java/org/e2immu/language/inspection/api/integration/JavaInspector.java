@@ -290,6 +290,18 @@ public interface JavaInspector {
         return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
     }
 
+    default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator,
+                          ImportComputer importComputer, FormattingOptions formattingOptions) {
+        return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer,
+                formattingOptions);
+    }
+
+    /** the 1-argument overload's behaviour (no decorator, star threshold 4) with the caller's options */
+    default String print2(CompilationUnit compilationUnit, FormattingOptions formattingOptions) {
+        return print2(compilationUnit, (Qualification.Decorator) null,
+                importComputer(4, compilationUnit.sourceSet()), formattingOptions);
+    }
+
     /**
      * Parse a {@code module-info.java} that this parse does not hold, given nothing but its path.
      * <p>
