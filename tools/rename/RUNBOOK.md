@@ -209,6 +209,55 @@ target prefix has not been chosen, and unlike `org.e2immu` it is **not** require
 for maddi to be published. Decide it separately; running both in one cutover
 doubles the blast radius on the one day you least want that.
 
+### And a third thing, which is NOT the package rename: the `E2Immu*` identifiers
+
+Surveyed 2026-08-17, after the `org.e2immu` cutover verified clean. **1,302
+occurrences of a bare `e2immu` across 431 files in all nine repos** — none of
+them a package, so no rule here matches and `verify` is right to stay silent.
+
+⚠️ Grep for this **case-insensitively**. A case-sensitive sweep finds 128 and
+reads as harmless leftovers; it misses every one of the big families below.
+
+| identifier | count | what it is |
+|---|---|---|
+| `e2immuAnalysis` | 382 | field and variable name |
+| `E2IMMU_PREP` | 261 | `DSLBase.Resource` enum constant |
+| `E2ImmuPrep` | 190 | record, `jfocus-metrics/…/metrics/common/E2ImmuPrep.java` |
+| `e2ImmuPrep` | 147 | local variables |
+| `E2ImmuPrepResource` | 22 | class, `refactor-service` |
+| `E2IMMU_SUPPORT` | 18 | constant |
+
+Most of it is ordinary identifier renaming that a compiler checks. **One part is
+not**, and it is the reason this needs a plan rather than a sed:
+
+```java
+ResourceService.java:17   String E2IMMU_PREP_NAME = "E2IMMU_PREP";
+…                         resourceService.resource(DSLBase.Resource.E2IMMU_PREP.name())
+```
+
+`.name()` makes the enum constant's **string** a runtime lookup key. At least
+five `Resource` implementations declare `Set.of(ResourceService.E2IMMU_PREP_NAME)`
+as their dependency, and the name has left the code entirely: **8 `.py` recipe
+files** under `modularization/` and **25 `.md` documents**, including
+`docs/ADDING-A-DSL-METHOD.md`. Recipes are data. Rename the constant without them
+and recipes break at run time, with nothing to catch it in between — and the DSL
+documentation and server protocol are Piet's, so this crosses into his work.
+
+Checked: the string is **not** persisted in any `.json`/`.csv`/`.txt`, so this is
+a rename, not a data migration. That is the one piece of good news.
+
+Worth noting while choosing the new name: every sibling constant —
+`FOOTPRINT_BASE`, `TEXT_INDEX`, `METHOD_CALL_GRAPH`, `ANALYSIS_ORDER`,
+`CYCLE_SCORES`, `MODIFICATION_ANALYSIS` — is named for **what it is**.
+`E2IMMU_PREP` is the only one named after a project that no longer exists. What
+it actually holds is the parse plus the call graph plus the analysis order, i.e.
+the result of maddi's own `modification.prepwork` — so `PREPWORK` names the thing
+rather than the tool, and the record behind it (`E2ImmuPrep`) follows.
+
+Sequencing: this is independent of the `jfocus` package rename above and can go
+first — it is smaller, it needs no new package prefix decided, and it removes the
+last user-visible trace of the old project name from the DSL vocabulary.
+
 ## Do not
 
 - **Do not add `e2immu` to `.githooks/internal-names.txt`.** 303 `org.e2immu.analyser`
