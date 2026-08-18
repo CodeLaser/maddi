@@ -55,11 +55,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * </ul>
  * The fixtures are the <b>shipped</b> bodies, reduced to the members under test and stripped of annotations and
  * javadoc, so that nothing is contracted and every value below is computed. The positions are the book's.
- * {@code Lazy} gets a second fixture in the book's own shape — non-final {@code supplier}, cleared inside
- * {@code get()} — because that is the one listing whose <em>code</em> differs, and the book's argument for
- * extending rule 2 ("all fields are private, of immutable type, or equal to null") turns on exactly that
- * assignment. The two {@code Lazy} blocks are identical, so on the analyzer's own reading the assignment buys
- * nothing: see finding 2.
+ * {@code Lazy} gets three fixtures rather than one, because it is the listing whose <em>code</em> differs and
+ * the book's argument for extending rule 2 ("all fields are private, of immutable type, or equal to null") turns
+ * on a single assignment: the shipped shape, which drops {@code supplier} at the transition as Kotlin's
+ * {@code Lazy} does; the shape from before that alignment, which never drops it; and the book's own listing,
+ * which drops it as printed. All three produce the same three verdicts, so on the analyzer's own reading the
+ * assignment buys nothing: see finding 2.
  * <p>
  * Each row carries the book's claim beside the computed value, and is tagged {@code agrees}, {@code STRONGER} or
  * {@code DIFFERS}, so the assertion diff is the finding rather than a lookup into another document.
@@ -294,11 +295,14 @@ public class TestBookIndependenceOfSupportTypes extends CommonTest {
     }
 
     // ---------------------------------------------------------------------------------------------------------
-    // Lazy, as SHIPPED: supplier is final and is never cleared.
+    // Lazy, three ways. The middle one is what maddi-support ships; the other two isolate the assignment the
+    // book's section is built on.
     // ---------------------------------------------------------------------------------------------------------
 
+    // Before the alignment with kotlin.Lazy: supplier is final and outlives the transition. Kept as the CONTROL
+    // -- it is the only way to attribute a difference (or, as it turns out, the absence of one) to the clearing.
     @Language("java")
-    private static final String LAZY_SHIPPED = """
+    private static final String LAZY_NOT_CLEARED = """
             import java.util.Objects;
             import java.util.function.Supplier;
 
@@ -323,10 +327,43 @@ public class TestBookIndependenceOfSupportTypes extends CommonTest {
             }
             """;
 
-    // ---------------------------------------------------------------------------------------------------------
-    // Lazy, as the BOOK prints it: supplier is not final, and get() clears it at the transition.
-    // ---------------------------------------------------------------------------------------------------------
+    // As SHIPPED: the supplier is dropped at the transition, as Kotlin's three Lazy implementations do. It is
+    // read once, into a local, and the value is published BEFORE it is dropped -- which is what LAZY_BOOK
+    // below, read literally, gets wrong. The last statement is `return t` and not `return value` for a reason
+    // that has nothing to do with concurrency: see TestLazyShapeIndependence.
+    @Language("java")
+    private static final String LAZY_SHIPPED = """
+            import java.util.Objects;
+            import java.util.function.Supplier;
 
+            public class Lazy<T> {
+              private volatile Supplier<T> supplier;
+              private volatile T t;
+
+              public Lazy(Supplier<T> supplierParam) {
+                if (supplierParam == null) throw new NullPointerException("Null not allowed");
+                this.supplier = supplierParam;
+              }
+
+              public T get() {
+                T value = t;
+                if (value != null) return value;
+                Supplier<T> localSupplier = supplier;
+                if (localSupplier == null) return t;
+                t = Objects.requireNonNull(localSupplier.get());
+                supplier = null;
+                return t;
+              }
+
+              public boolean hasBeenEvaluated() {
+                return t != null;
+              }
+            }
+            """;
+
+    // As the BOOK prints it: supplier is not final, and get() clears it at the transition -- reading the field
+    // twice, which is a race the shipped version above does not have (two threads see t == null, the first
+    // completes and nulls supplier, the second dereferences null). Kept verbatim: this is the listing.
     @Language("java")
     private static final String LAZY_BOOK = """
             import java.util.Objects;
@@ -353,46 +390,53 @@ public class TestBookIndependenceOfSupportTypes extends CommonTest {
             }
             """;
 
+    /** The three positions the book annotates, rendered identically for each of the three fixtures. */
+    private static String lazyPositions(TypeInfo lazy) {
+        return new Positions()
+                .field(lazy, "supplier", "field supplier", HC)
+                .parameter(lazy.findConstructor(1), 0, "constructor, parameter 0", HC)
+                .method(lazy, "get", 0, "get(), return", HC)
+                .render();
+    }
+
+    /** What all three fixtures produce. That they produce the SAME thing is the finding. */
+    private static final String LAZY_EXPECTED = """
+            field supplier                             DEPENDENT      book: INDEPENDENT_HC DIFFERS
+            constructor, parameter 0                   DEPENDENT      book: INDEPENDENT_HC DIFFERS
+            get(), return                              INDEPENDENT_HC book: INDEPENDENT_HC agrees
+            """;
+
     /**
      * The one block that is not a formality. The book annotates the {@code supplier} field
      * {@code @Independent(hc=true, after="t")} and spends fifteen lines explaining why it may be: the field is
      * blanked at the transition, so it is out of the picture afterwards, which is the case the book's extension of
-     * rule 2 ("or equal to null") exists to license. The analyzer says {@code DEPENDENT} — and says it whether or
-     * not the field is actually cleared, as {@link #testLazyBook()} shows.
+     * rule 2 ("or equal to null") exists to license. The analyzer says {@code DEPENDENT}.
      */
     @DisplayName("Lazy as shipped: the three positions the book annotates @Independent(hc=true)")
     @Test
     public void testLazyShipped() {
-        TypeInfo lazy = analyze("Lazy", LAZY_SHIPPED);
-        assertEquals("""
-                field supplier                             DEPENDENT      book: INDEPENDENT_HC DIFFERS
-                constructor, parameter 0                   DEPENDENT      book: INDEPENDENT_HC DIFFERS
-                get(), return                              INDEPENDENT_HC book: INDEPENDENT_HC agrees
-                """, new Positions()
-                .field(lazy, "supplier", "field supplier", HC)
-                .parameter(lazy.findConstructor(1), 0, "constructor, parameter 0", HC)
-                .method(lazy, "get", 0, "get(), return", HC)
-                .render());
+        assertEquals(LAZY_EXPECTED, lazyPositions(analyze("Lazy", LAZY_SHIPPED)));
     }
 
     /**
-     * Identical to {@link #testLazyShipped()}, which is the finding: on the analyzer's reading,
-     * {@code supplier = null} inside {@code get()} changes nothing. The book's argument for the rule 2 extension
-     * does not survive being run.
+     * The control, and the reason the expected block above is not evidence for the rule-2 argument: the shape
+     * that never clears {@code supplier} produces exactly the same three verdicts.
+     */
+    @DisplayName("Lazy before the alignment: not clearing supplier produces the same three")
+    @Test
+    public void testLazyNotCleared() {
+        assertEquals(LAZY_EXPECTED, lazyPositions(analyze("Lazy", LAZY_NOT_CLEARED)));
+    }
+
+    /**
+     * And so does the book's own listing. So on the analyzer's reading {@code supplier = null} buys nothing at
+     * any of the three positions, whether it is written safely or as printed: the book's argument for the rule 2
+     * extension does not survive being run. See finding 2.
      */
     @DisplayName("Lazy as the book prints it: clearing supplier changes none of the three")
     @Test
     public void testLazyBook() {
-        TypeInfo lazy = analyze("Lazy", LAZY_BOOK);
-        assertEquals("""
-                field supplier                             DEPENDENT      book: INDEPENDENT_HC DIFFERS
-                constructor, parameter 0                   DEPENDENT      book: INDEPENDENT_HC DIFFERS
-                get(), return                              INDEPENDENT_HC book: INDEPENDENT_HC agrees
-                """, new Positions()
-                .field(lazy, "supplier", "field supplier", HC)
-                .parameter(lazy.findConstructor(1), 0, "constructor, parameter 0", HC)
-                .method(lazy, "get", 0, "get(), return", HC)
-                .render());
+        assertEquals(LAZY_EXPECTED, lazyPositions(analyze("Lazy", LAZY_BOOK)));
     }
 
     // ---------------------------------------------------------------------------------------------------------

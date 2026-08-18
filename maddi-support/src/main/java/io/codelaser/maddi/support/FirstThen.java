@@ -54,7 +54,7 @@ public class FirstThen<S, T> {
      * @param first the initial value
      * @throws NullPointerException when the argument is <code>null</code>
      */
-    public FirstThen(@NotNull S first) {
+    public FirstThen(@NotNull @Independent(hc = true) S first) {
         this(Objects.requireNonNull(first), null);
     }
 
@@ -93,7 +93,7 @@ public class FirstThen<S, T> {
      * @throws IllegalStateException when the object had already reached its final stage
      */
     @Mark("first")
-    public void set(@NotNull T then) {
+    public void set(@NotNull @Independent(hc = true) T then) {
         Objects.requireNonNull(then);
         synchronized (this) {
             if (first == null) throw new IllegalStateException("Already set");
@@ -110,6 +110,7 @@ public class FirstThen<S, T> {
      */
     @NotNull
     @NotModified
+    @Independent(hc = true)
     @Only(before = "first")
     public S getFirst() {
         if (first == null) throw new IllegalStateException();
@@ -124,6 +125,7 @@ public class FirstThen<S, T> {
      */
     @NotNull
     @NotModified
+    @Independent(hc = true)
     @Only(after = "first")
     public T get() {
         // we could have had a check on "then" directly, but then @Only would not be recognized

@@ -105,8 +105,8 @@ import java.util.stream.Stream;
  * <p>
  * The fixture compiles {@code Lazy} from source rather than taking it off the {@code maddi-support} jar,
  * because the annotated-API archive carries no entry for {@code Lazy} — the jar route would make it an unknown
- * instead of a computed verdict. It is the shipped shape, not the book's: {@code supplier} is {@code final}
- * and is never cleared (finding 2).
+ * instead of a computed verdict. It is the shipped shape, kept in step with it by hand: {@code supplier} is
+ * dropped at the transition, as Kotlin's is.
  */
 public class TestKotlinLazyVsJavaLazy {
 
@@ -180,8 +180,9 @@ public class TestKotlinLazyVsJavaLazy {
      * annotated-API archive carries no entry for {@code Lazy}, so the jar route would make it an unknown
      * instead of a computed verdict.
      * <p>
-     * It is the shipped shape, not the book's: {@code supplier} is {@code final} and is never cleared
-     * (finding 2).
+     * It is the shipped shape: {@code supplier} is dropped at the transition, as Kotlin's is, but each
+     * volatile field is read once into a local and the value is published before the supplier is cleared --
+     * which the book's listing, read literally, does not do.
      */
     private static final String JAVA_LAZY_SRC = """
             package b;
@@ -199,7 +200,8 @@ public class TestKotlinLazyVsJavaLazy {
 
             @ImmutableContainer(after = "t", hc = true)
             public class Lazy<T> {
-                private final Supplier<T> supplier;
+                @Final(after = "t")
+                private volatile Supplier<T> supplier;
 
                 @Final(after = "t")
                 private volatile T t;
@@ -213,8 +215,12 @@ public class TestKotlinLazyVsJavaLazy {
                 @Modified
                 @Mark(value = "t")
                 public T get() {
-                    if (t != null) return t;
-                    t = Objects.requireNonNull(supplier.get());
+                    T value = t;
+                    if (value != null) return value;
+                    Supplier<T> localSupplier = supplier;
+                    if (localSupplier == null) return t;
+                    t = Objects.requireNonNull(localSupplier.get());
+                    supplier = null;
                     return t;
                 }
 
