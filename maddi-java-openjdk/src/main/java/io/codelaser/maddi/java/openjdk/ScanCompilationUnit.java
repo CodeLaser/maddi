@@ -746,7 +746,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
                 // when already known, a number of source details are missed out! (e.g. return type)
                 if (!methodInfo.isConstructor()) {
-                    convertType.convertTree(jcMethod.getReturnType(), dsb);
+                    ParameterizedType treeBuiltReturnType = convertType.convertTree(jcMethod.getReturnType(), dsb);
                     // Exactly the parameter situation handled below, for the return type. This method was created
                     // earlier from its symbol -- e.g. via a method reference scanned before this declaration is
                     // reached -- so methodInfo.returnType() is a symbol-built instance, while convertTree just
@@ -759,6 +759,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     if (returnTypeSource != null && !returnTypeSource.isNoSource()) {
                         dsb.put(methodInfo.returnType(), returnTypeSource);
                     }
+                    // ...and the same for every NESTED TYPE ARGUMENT, which the line above reaches only at the
+                    // outer level. See keyNestedTypeArguments.
+                    keyNestedTypeArguments(dsb, methodInfo.returnType(), treeBuiltReturnType,
+                            jcMethod.getReturnType());
                 }
                 jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
 
@@ -773,8 +777,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     if (parameterInfo.source() == null) {
                         JCTree.JCVariableDecl jcVariableDecl = jcParameters.get(pIndex);
                         DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
-                        convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
-                        });
+                        ParameterizedType treeBuiltParamType =
+                                convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
+                                });
                         // This method (and hence its parameters) was created earlier from its symbol -- e.g. via a
                         // method reference scanned before this declaration is reached -- so parameterInfo has a
                         // symbol-built type instance, distinct from the tree-built instance convertTypeWithAnnotations
@@ -789,6 +794,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         if (paramTypeSource != null && !paramTypeSource.isNoSource()) {
                             dsbParam.put(parameterInfo.parameterizedType(), paramTypeSource);
                         }
+                        // ...and the same for every NESTED TYPE ARGUMENT. See keyNestedTypeArguments.
+                        keyNestedTypeArguments(dsbParam, parameterInfo.parameterizedType(), treeBuiltParamType,
+                                jcVariableDecl.getType());
                         // The symbol path could not supply the declaration's parameter ANNOTATIONS either
                         // (loadAnnotations on a source VarSymbol is empty at symbol-load time -- attribution
                         // has not run), so a contract like Expression.translate's @Independent(hc=true) was
@@ -981,6 +989,62 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     // -- Annotations ---------------------------------------------
+
+    /**
+     * Key the NESTED TYPE ARGUMENTS of a symbol-built type to their own source spans.
+     * <p>
+     * The two call sites above repair one level: a method created earlier from its symbol -- e.g. because a
+     * body EARLIER IN THE SAME TYPE calls it, so the declaration has not been reached yet -- carries a
+     * symbol-built {@code ParameterizedType}, while {@code convertTree} has just keyed the distinct
+     * tree-built instance into the builder. {@code DetailedSources} is identity-keyed, so they put the
+     * declaration's own instance in as well. ⛔ But only the OUTER instance: for
+     * {@code Map&lt;String, Broker&gt;} the {@code Map} resolves and {@code String} and {@code Broker} do
+     * not, because the symbol-built arguments are distinct objects too and nothing ever keyed them.
+     * <p>
+     * ⛔ MEASURED, AND IT BLOCKED A REAL MIGRATION. Two files identical but for the ORDER of two
+     * declarations: with the target declared above its caller every argument resolves, and moved below it,
+     * the same declaration reports no argument span at all. On Apache Pulsar that silently made six of
+     * twelve declarations of a {@code Map&lt;String, BrokerLookupData&gt;} seam unreachable to a
+     * type-argument rewrite -- {@code BrokerFilter.filter} was editable and its sibling
+     * {@code filterAsync} was not, in the same interface, written identically. A consumer that replaces a
+     * nested argument (invariance makes that a whole-flow edit) then skips those declarations and leaves a
+     * half-substituted generic, which does not compile.
+     * <p>
+     * ⚠ Only where the instances actually DIFFER. Whether the symbol-built and tree-built instances
+     * coincide depends on scan order and varies between runs; where they are the same object
+     * {@code convertTree} has already keyed the arguments, and putting them again would turn a single
+     * {@code Source} into a two-element list for every consumer of {@code details()}.
+     * <p>
+     * ⚠ A wildcard argument is keyed to its BOUND's span, matching what the {@code convertTree} path keys
+     * for the same text: there, {@code ? extends Broker} contributes the bound's own converted type.
+     */
+    private void keyNestedTypeArguments(DetailedSources.Builder dsb, ParameterizedType symbolBuilt,
+                                        ParameterizedType treeBuilt, Tree typeTree) {
+        if (symbolBuilt == null || typeTree == null || symbolBuilt == treeBuilt) return;
+        Tree stripped = typeTree instanceof JCTree.JCAnnotatedType at ? at.getUnderlyingType() : typeTree;
+        if (stripped instanceof JCTree.JCArrayTypeTree array) {
+            // `Map<String, Broker>[]`: the arguments hang off the same type, the tree has one more level
+            keyNestedTypeArguments(dsb, symbolBuilt, treeBuilt, array.getType());
+            return;
+        }
+        if (!(stripped instanceof JCTree.JCTypeApply apply)) return;
+        List<? extends Tree> argumentTrees = apply.getTypeArguments();
+        List<ParameterizedType> symbolArguments = symbolBuilt.parameters();
+        List<ParameterizedType> treeArguments = treeBuilt == null ? List.of() : treeBuilt.parameters();
+        for (int i = 0; i < argumentTrees.size() && i < symbolArguments.size(); i++) {
+            ParameterizedType symbolArgument = symbolArguments.get(i);
+            ParameterizedType treeArgument = i < treeArguments.size() ? treeArguments.get(i) : null;
+            if (symbolArgument == null || symbolArgument == treeArgument) continue;
+            Tree argumentTree = argumentTrees.get(i);
+            Tree spanTree = argumentTree instanceof JCTree.JCWildcard wildcard && wildcard.getBound() != null
+                    ? wildcard.getBound() : argumentTree;
+            Source argumentSource = sourceForNode(spanTree);
+            if (argumentSource != null && !argumentSource.isNoSource()) {
+                dsb.put(symbolArgument, argumentSource);
+            }
+            keyNestedTypeArguments(dsb, symbolArgument, treeArgument, argumentTree);
+        }
+    }
 
     private ParameterizedType convertTypeWithAnnotations(Tree node,
                                                          DetailedSources.Builder dsb,
