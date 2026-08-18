@@ -426,11 +426,54 @@ the selection is now a poor one:
 
 - `TestEventualConformance` treats ten types as one "commit-once family" whose `@Mark`/`@Only`
   contracts the engine knows. Three of those ten — `AddOnceSet`, `EventuallyFinalOnDemand`,
-  `VariableFirstThen` — are undocumented, and `EventuallyFinalOnDemand` is one of the most-used
-  types in the analyzer (six files) while `Lazy`, which the book gives a full section to, is used in
-  none.
+  `VariableFirstThen` — are undocumented.
 - `Memo` and `IntMemo` are not in that family at all (see 2a), and are the one part of the package
   the analyzer's own machinery names by fully-qualified string.
+
+### 11a. `EventuallyFinalOnDemand`: one section, not two
+
+The obvious objection to documenting it is that it is `EventuallyFinal` with a loader — same mark
+label (`isFinal`), same `@ImmutableContainer(after="isFinal", hc=true)`, same four state methods
+with the same annotations. On *that* axis a second section would be padding, and §12.3 already
+teaches all of it.
+
+But it carries three mechanisms the book has no worked example of, and two of them are things the
+book currently owes the reader:
+
+1. **`@NotModified(after="isFinal")` on a _method_.** The book documents `@NotModified(after=…)` in
+   exactly one place — the §7.5 table at `060-eventual.adoc:266` — and that table is about **fields**.
+   The method form is a separate, fully implemented property, `EVENTUALLY_NON_MODIFYING_METHOD`, with
+   machinery in `EventualCluster`, `TypeEventualAnalyzerImpl`, `AbstractMethodAnalyzerImpl` and
+   `DecoratorImpl`, and three dedicated tests. Its javadoc reads: *"typically a lazy-loading getter
+   that effects the transition"*. That getter is `EventuallyFinalOnDemand.get()`.
+2. **The rule 2 blanking pattern, alive.** `setFinal` does `this.onDemand = null` beside
+   `this.isFinal = true` — exactly the blanking §12.6 argues from, and which `Lazy` no longer does
+   (finding 2). It is the live example the book's own argument lost.
+3. **A transition effected from outside the type.** `Lazy.get()` carries `@Mark`: the type marks
+   itself. `EventuallyFinalOnDemand.get()` runs a `Runnable` injected through `setOnDemand`, and
+   *that* calls `setFinal`; `get()` carries no `@Mark`, because the mark is not provable from the
+   type's own body. With it comes real concurrency — all three fields `volatile`, all mutators
+   `synchronized`, a double-checked read of `onDemand`, and a reentrancy requirement because the
+   loader calls `get()` from inside `run()`. `EventuallyFinal` has none of that.
+
+The coverage numbers make the same point from the other side:
+
+| Type | Production use | Book |
+|---|---|---|
+| `EventuallyFinal` | `MethodInfoImpl`, `ParameterInfoImpl`, `FieldInfoImpl`, `TypeParameterImpl` | §12.3, full section |
+| `EventuallyFinalOnDemand` | `TypeInfoImpl.inspection` | none |
+| `Lazy` | none | §12.6, full section, plus the rule 2 argument |
+
+And §13 already describes both without naming either: *"every `TypeInfo`, `MethodInfo` and
+`FieldInfo` starts life as a mutable builder during inspection, and is committed into an immutable
+form before analysis begins."* That is `EventuallyFinal` in four impls, and `EventuallyFinalOnDemand`
+in the fifth — `TypeInfo` needs the on-demand variant because a type may arrive by lazy bytecode
+load.
+
+**Recommendation: extend §12.3 with a short "…on demand" subsection rather than adding §12.8.** What
+earns the space is the three mechanisms, not the type. It also gives §12.6 somewhere to put the rule
+2 extension if `Lazy`'s section is rewritten: `EventuallyFinalOnDemand.setFinal` is a working
+example of it, in shipped code.
 
 ---
 
