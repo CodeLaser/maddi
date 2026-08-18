@@ -50,6 +50,12 @@ dependencies {
 
     implementation("ch.qos.logback:logback-classic")
 
+    // The annotated API for the `kotlin` package decorates a type it must be able to LOAD: the hints parser
+    // resolves `Lazy$` to the real kotlin.Lazy, and skips it otherwise ("Ignoring type ..., cannot load it").
+    // Test-only, and reached only by CompileAnalysisHints' own kotlin factory -- the shared
+    // javaInspectorFactory is deliberately left alone, so no other test's class path changes.
+    testImplementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
+
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter:5.9.2")

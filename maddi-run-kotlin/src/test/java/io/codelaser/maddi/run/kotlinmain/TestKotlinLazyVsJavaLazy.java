@@ -68,10 +68,32 @@ import java.util.stream.Stream;
  * {@code @Immutable(hc=true)(after="slot")}, with {@code get()} earning {@code @Mark("slot")} from
  * {@code Lazy.get()}'s own {@code @Mark("t")}. The Kotlin side states {@code @Immutable(hc=true)} flatly, with
  * no eventual story at all, because {@code kotlin.Lazy} arrives as unannotated library bytecode: it is
- * {@code @Mutable} with every method {@code DEPENDENT}, and there is no Kotlin annotated API to say otherwise
- * ({@code analyzedPackageFiles/} holds {@code jdk} and {@code libs/…} only). <b>The unconditional verdict is
- * the same; only the Java side knows when it becomes true.</b> Writing an AAPI entry for {@code kotlin.Lazy}
- * is what would close that, and this block is where it would show up.
+ * {@code @Mutable} with every method {@code DEPENDENT}. <b>The unconditional verdict is the same; only the Java
+ * side knows when it becomes true.</b>
+ * <p>
+ * ⛔ THE {@code kotlin.Lazy} ROW IS A TRIPWIRE, NOT A RESULT. There now IS an annotated API for it —
+ * {@code maddi-aapi-archive/.../libs/kotlin/Kotlin.java}, contracting the type {@code @ImmutableContainer(hc=true)}
+ * — and it is compiled into {@code analyzedPackageFiles/libs/kotlin/Kotlin.json} and listed in
+ * {@code LoadAnalysisResults.ANALYZED_RESULTS}, which this test loads in full. The row below still says
+ * {@code MUTABLE} because the hint is parsed and then dropped:
+ * <pre>
+ *   Parsing .../libs/kotlin/Kotlin.json
+ *   Skipping analysis hints for kotlin.Lazy: type not on the classpath
+ * </pre>
+ * {@code PrepWorkCodec} resolves an entry with
+ * {@code runtime.getFullyQualified(fqn, false, sourceSetOfRequest)}, and for a type the KOTLIN front end loaded
+ * from library bytecode that returns null — measured here, from every source set in the fixture, while
+ * {@code java.util.List} resolves from the same one:
+ * <pre>
+ *   getFullyQualified kotlin.Lazy    from kotlinSet = null
+ *   getFullyQualified java.util.List from kotlinSet = java.util.List
+ *   getFullyQualified kotlin.Lazy    from javaSet   = null
+ *   getFullyQualified kotlin.Lazy    from stdlib    = null
+ * </pre>
+ * The type is in the CST — this test reaches it by navigating a field's type — but it is not findable by name,
+ * which is the one thing annotated-API loading needs. So NO annotated API for any {@code kotlin.*} type can take
+ * effect until that registration is fixed; the archive entry is the ready half of a two-part change. When the
+ * other half lands, this row moves to {@code IMMUTABLE_HC} and this test fails and says so.
  * <p>
  * The delegated form now agrees too, and that is new. {@code val expensive: String by lazy { … }} used to
  * produce no backing field and an empty accessor body, so the analyzer saw a class whose only field was an
@@ -239,7 +261,13 @@ public class TestKotlinLazyVsJavaLazy {
         Files.writeString(jDir.resolve("b/Lazy.java"), JAVA_LAZY_SRC);
         Files.writeString(jDir.resolve("b/JavaHolder.java"), JAVA_HOLDER_SRC);
 
-        SourceSet stdlib = new SourceSetImpl.Builder().setName("kotlin-stdlib-bin")
+        // Named after the JAR FILE, not something friendlier: ClassSymbolScanner.ensureSourceSet attributes a
+        // loaded class file by that name, and Runtime.getFullyQualified -- which is how LoadAnalysisResults
+        // resolves an annotated-API entry -- needs the type attributed to a source set reachable from the one it
+        // is asked about. Named "kotlin-stdlib-bin", every hint for kotlin.Lazy was parsed and then dropped with
+        // "type not on the classpath".
+        SourceSet stdlib = new SourceSetImpl.Builder()
+                .setName(Path.of(kotlinStdlibJar()).getFileName().toString())
                 .setSourceDirectories(List.of()).setUri(URI.create("file:" + kotlinStdlibJar()))
                 .setLibrary(true).setExternalLibrary(true).build();
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
@@ -263,9 +291,10 @@ public class TestKotlinLazyVsJavaLazy {
                         parsed.getJavaTypes().stream())
                 .map(TypeInfo::primaryType).collect(Collectors.toUnmodifiableSet());
 
-        // Without the JDK annotated API, Supplier and Objects are unknowns and the Java side cannot be
-        // concluded either -- which would make the comparison vacuously equal.
-        new LoadAnalysisResults(runtime, kotlinSet).go(List.of(LoadAnalysisResults.ANALYZED_RESULTS_JDK));
+        // The whole archive, not just its JDK part. Without the JDK, Supplier and Objects are unknowns and the
+        // Java side cannot be concluded either, which would make the comparison vacuously equal; and libs/kotlin
+        // is what contracts kotlin.Lazy, whose standing is the difference this test measures.
+        new LoadAnalysisResults(runtime, kotlinSet).go(LoadAnalysisResults.ANALYZED_RESULTS);
 
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime,
                 new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());

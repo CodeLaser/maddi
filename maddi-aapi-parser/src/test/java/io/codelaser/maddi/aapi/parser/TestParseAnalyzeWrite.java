@@ -82,7 +82,9 @@ public class TestParseAnalyzeWrite extends CommonTest {
 
         JavaInspector javaInspector = analysisHintsParser.go(test);
         List<TypeInfo> types = analysisHintsParser.typesParsed();
-        assertEquals(31, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
+        // the WHOLE hints path (prefix io.codelaser.maddi.aapi.archive), so every shadow file counts here --
+        // including OrgE2immuSupport, whose library CompileAnalysisHints no longer compiles
+        assertEquals(32, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport + Kotlin
         for (TypeInfo typeInfo : types) {
             if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {
                 TypeInfo charSeq = typeInfo.findSubType("CharSequence$");
