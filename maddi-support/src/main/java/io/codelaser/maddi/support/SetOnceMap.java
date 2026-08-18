@@ -51,7 +51,7 @@ public class SetOnceMap<K, V> extends Freezable {
      */
     @Only(before = "frozen")
     @Modified
-    public void put(@NotNull K k, @NotNull V v) {
+    public void put(@NotNull @Independent(hc = true) K k, @NotNull @Independent(hc = true) V v) {
         Objects.requireNonNull(k);
         Objects.requireNonNull(v);
         ensureNotFrozen();
@@ -94,6 +94,7 @@ public class SetOnceMap<K, V> extends Freezable {
      */
     @NotNull
     @NotModified
+    @Independent(hc = true)
     public V get(@NotNull K k) {
         if (!isSet(k)) throw new IllegalStateException("Not yet decided on " + k);
         return Objects.requireNonNull(map.get(k));

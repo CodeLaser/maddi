@@ -18,6 +18,7 @@
 package io.codelaser.maddi.support;
 
 import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.eventual.Mark;
 import io.codelaser.maddi.annotation.eventual.Only;
 import io.codelaser.maddi.annotation.eventual.TestMark;
@@ -41,6 +42,7 @@ public class EventuallyFinal<T> {
      *
      * @return the current value.
      */
+    @Independent(hc = true)
     public T get() {
         return value;
     }
@@ -52,7 +54,7 @@ public class EventuallyFinal<T> {
      * @throws IllegalStateException when a final value had been written before.
      */
     @Mark("isFinal")
-    public void setFinal(T value) {
+    public void setFinal(@Independent(hc = true) T value) {
         if (this.isFinal) {
             throw new IllegalStateException("Trying to overwrite final value");
         }
@@ -67,7 +69,7 @@ public class EventuallyFinal<T> {
      * @throws IllegalStateException when the object was already in the <em>after</em> state.
      */
     @Only(before = "isFinal")
-    public void setVariable(T value) {
+    public void setVariable(@Independent(hc = true) T value) {
         if (this.isFinal) throw new IllegalStateException("Value is already final");
         this.value = value;
     }

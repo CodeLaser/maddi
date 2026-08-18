@@ -48,7 +48,7 @@ public class SetOnce<T> {
      */
     @Mark("t")
     @Modified
-    public void set(@NotNull T t) {
+    public void set(@NotNull @Independent(hc = true) T t) {
         if (t == null) throw new NullPointerException("Null not allowed");
         synchronized (this) {
             if (this.t != null) {
@@ -67,6 +67,7 @@ public class SetOnce<T> {
     @Only(after = "t")
     @NotNull
     @NotModified
+    @Independent(hc = true)
     public T get() {
         if (t == null) {
             throw new IllegalStateException("Not yet set");
@@ -113,6 +114,7 @@ public class SetOnce<T> {
      */
     @NotModified
     @NotNull
+    @Independent // fully independent, not (hc=true): stronger than road §12.2 prints
     public T getOrDefault(@NotNull T alternative) {
         if (isSet()) return get();
         return Objects.requireNonNull(alternative);

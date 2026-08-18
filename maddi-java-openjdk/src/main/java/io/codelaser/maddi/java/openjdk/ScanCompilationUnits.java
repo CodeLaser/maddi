@@ -587,6 +587,22 @@ public class ScanCompilationUnits {
                         TypeInfo pt = classSymbolScanner.getType(binaryName);
                         if (pt == null) {
                             pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                            if (pt == null) {
+                                // OFF-CLASSPATH, and a documented outcome rather than a surprise: javac found the
+                                // class file, but ensureSourceSet could not attribute it to any configured
+                                // class-path source set, so the lazy loader reports a miss. Skipping is what that
+                                // miss means everywhere else; dereferencing it turned a merely partial classpath
+                                // into an NPE deep inside ClassSymbolScanner.loadType, with nothing in the message
+                                // naming the package that could not be attributed.
+                                //
+                                // The usual cause is a class-path source set whose NAME is not the jar's file
+                                // name: ensureSourceSet matches a 'jar:file:...!/...' URI by that name, which is
+                                // why SourceSetImpl.sourceSetOf() derives it with tail(uri). A hand-rolled
+                                // Builder with a friendlier name lands here.
+                                LOGGER.debug("Off-classpath while preloading {}: no class-path source set owns its"
+                                             + " artifact; skipping", binaryName);
+                                continue;
+                            }
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
                         } else {
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);

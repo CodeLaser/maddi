@@ -293,6 +293,26 @@ internal class KotlinTypeMapper(
             .build()
 
     /**
+     * Register a library type this front-end just minted, in **both** shared registries.
+     *
+     * [InfoByFqn] alone is not enough, and the gap is invisible until something asks by name. `Runtime.
+     * getFullyQualified` — the only way to reach a type from a name, and what `LoadAnalysisResults` uses to
+     * resolve an annotated-API entry — goes through the `CompiledTypesManager`, whose openjdk implementation
+     * answers from its own flat map and consults `InfoByFqn` only to CHOOSE between same-named entries it
+     * already holds (deliberately: a name unknown there must stay unknown, or a stub would start displacing
+     * real types). So a type only this front-end ever built was in the CST, reachable by navigating to it,
+     * and not findable by name — and every hint for `kotlin.*` was parsed and then dropped with "type not on
+     * the classpath". This is the openjdk front-end's own `addTypeInfo` at commit time, done at the point
+     * where the type becomes known instead.
+     *
+     * Inert standalone: with no manager injected there is no second registry to fall out of step with.
+     */
+    private fun registerLibraryType(jvmFqn: String, typeInfo: TypeInfo) {
+        infoByFqn.put(jvmFqn, typeInfo, librarySourceSet)
+        compiledTypesManager?.addTypeInfo(null, typeInfo)
+    }
+
+    /**
      * The library file-facade [TypeInfo] that hosts a top-level *library* function ([function], e.g.
      * `kotlin.io.println` → `kotlin.io.ConsoleKt`). A JVM file facade is not a Kotlin classifier (so
      * `findClass` cannot see it); we derive its [ClassId] from the FIR container source, then build it from the
@@ -311,7 +331,7 @@ internal class KotlinTypeMapper(
         if (functions.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(classId.packageFqName.asString()), classId.shortClassName.asString())
-        infoByFqn.put(jvmFqn, typeInfo, librarySourceSet) // register before members (param types may cycle back)
+        registerLibraryType(jvmFqn, typeInfo) // register before members (param types may cycle back)
         val builder = typeInfo.builder()
             .setTypeNature(runtime.typeNatureClass())
             .setParentClass(runtime.objectParameterizedType())
@@ -384,7 +404,7 @@ internal class KotlinTypeMapper(
             runtime.newTypeParameter(i, tp.name.asString(), typeInfo)
                 .also { typeInfo.builder().addOrSetTypeParameter(it) } to tp
         }
-        infoByFqn.put(jvmFqn, typeInfo, librarySourceSet) // register before loading bounds/supertypes (cycles)
+        registerLibraryType(jvmFqn, typeInfo) // register before loading bounds/supertypes (cycles)
         cstTypeParameters.forEach { (cstTp, tp) ->
             cstTp.builder()
                 .setTypeBounds(tp.upperBounds.map { mapType(it, typeInfo) }.filterNot { it.isJavaLangObject })

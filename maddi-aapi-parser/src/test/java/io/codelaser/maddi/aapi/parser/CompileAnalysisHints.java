@@ -15,6 +15,13 @@
 package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
+import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
+import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
+import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -42,7 +50,11 @@ public class CompileAnalysisHints {
     static final String HINTS_PATH = "../maddi-aapi-archive/src/main/java";
     static final String RESULTS_BASE =
             "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/";
-    static final List<String> LIBRARIES = List.of("jdk", "libs/test", "libs/log");
+    // libs/support is deliberately absent, and has been: its OrgE2immuSupport.json is a generated file that
+    // nothing regenerates and nothing loads (it is not in LoadAnalysisResults.ANALYZED_RESULTS either). The
+    // pre-rename file name is the giveaway.
+    static final List<String> LIBRARIES = List.of("jdk", "libs/test", "libs/log", "libs/kotlin");
+    static final String KOTLIN_LIBRARY = "libs/kotlin";
     // fixed entry timestamp (2020-01-01T00:00:00Z) so a regenerated jar only differs when its content does
     private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
 
@@ -59,8 +71,54 @@ public class CompileAnalysisHints {
         AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(
                 javaInspectorFactory("java.desktop", "java.net.http"));
         for (String library : LIBRARIES) {
-            compile(compiler, library);
+            if (KOTLIN_LIBRARY.equals(library)) {
+                // Its own compiler, with kotlin-stdlib on the class path. AnalysisHintsParser DECORATES a type it
+                // can load rather than minting one from the shadow -- without the jar it logs "Ignoring type
+                // 'kotlin.Lazy', cannot load it" and writes an empty library, which is how this was found.
+                //
+                // Deliberately NOT by widening the shared javaInspectorFactory: that class path is used by every
+                // modification-* test, and a jar that merely makes more types resolvable can move verdicts. The
+                // javadoc of materializeIgnoreModificationsFromFieldType records exactly that happening on
+                // fernflower, where an "inert" change moved ConstantPool.pool from @Independent to @Dependent.
+                compile(new AnalysisHintsCompiler(kotlinJavaInspectorFactory()), library);
+            } else {
+                compile(compiler, library);
+            }
         }
+    }
+
+    /**
+     * A factory whose class path is java.base + maddi-annotation + kotlin-stdlib: enough to load
+     * {@code kotlin.Lazy} and to resolve the annotations the shadow puts on it, and nothing else.
+     */
+    private static JavaInspectorFactory kotlinJavaInspectorFactory() {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        // sourceSetOf, never a hand-rolled Builder: ClassSymbolScanner.ensureSourceSet attributes a loaded
+        // 'jar:file:...!/...' class file by the JAR'S FILE NAME looked up among the source-set names, and
+        // sourceSetOf is what derives that name. A friendlier name makes every type in the jar off-classpath.
+        SourceSet maddiAnnotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet kotlinStdlib = SourceSetImpl.sourceSetOf(kotlin.Lazy.class);
+        List<SourceSet> classPath = List.of(javaBase, maddiAnnotation, kotlinStdlib);
+
+        return new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return List.of(maddiAnnotation, kotlinStdlib);
+            }
+
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new JavaInspectorImpl();
+                javaInspector.preload("java.base::java.util.");
+                javaInspector.preload("java.base::java.lang.annotation");
+                javaInspector.preload("io.codelaser.maddi.annotation.");
+                javaInspector.initialize(new InputConfigurationImpl.Builder()
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(classPath.toArray(new SourceSet[0]))
+                        .build());
+                return javaInspector;
+            }
+        };
     }
 
     private static void compile(AnalysisHintsCompiler compiler, String library) throws IOException {
@@ -85,10 +143,26 @@ public class CompileAnalysisHints {
         try (var stream = Files.list(jdk)) {
             writeJar(base.resolve("openjdk.jar"), jdk, stream.filter(CompileAnalysisHints::isJson).sorted().toList());
         }
+        // ⛔ ONLY the libraries in LIBRARIES, never a plain walk of libs/.
+        //
+        // A walk packages whatever happens to be on disk, and libs/support/OrgE2immuSupport.json is on disk
+        // while being compiled by nothing and listed in LoadAnalysisResults.ANALYZED_RESULTS nowhere -- a
+        // generated file left behind by an earlier LIBRARIES list. The committed libs.jar predates it and holds
+        // only log/ and test/, so the first regeneration silently ADDED it, and maddi-ide-daemon (which loads
+        // hints from resource:libs.jar) started reading stale contracts for io.codelaser.maddi.support.*:
+        // TestEventualPolarity lost @ImmutableContainer(hc=true) on SetOnce. Packaging from the same list that
+        // compiles keeps the jar and the compiled set from drifting apart at all.
         Path libs = base.resolve("libs");
-        try (var stream = Files.walk(libs)) {
-            writeJar(base.resolve("libs.jar"), libs, stream.filter(CompileAnalysisHints::isJson).sorted().toList());
+        List<Path> libJson = new ArrayList<>();
+        for (String library : LIBRARIES) {
+            if (!library.startsWith("libs/")) continue;
+            Path dir = base.resolve(library);
+            if (!Files.isDirectory(dir)) continue;
+            try (var stream = Files.list(dir)) {
+                stream.filter(CompileAnalysisHints::isJson).sorted().forEach(libJson::add);
+            }
         }
+        writeJar(base.resolve("libs.jar"), libs, libJson);
     }
 
     private static boolean isJson(Path p) {
