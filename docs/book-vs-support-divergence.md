@@ -19,7 +19,7 @@ Three of the findings change what the book *claims*, not just what it shows. The
 | # | Where | What |
 |---|-------|------|
 | 1 | chapter opening | The artifact description is wrong after the annotation split |
-| 2 | `Lazy` | **substantive** — the listing's central mechanism is not in the code |
+| 2 | `Lazy` | **substantive** — the listing's central mechanism is not in the code, and `Memo` answers the same question a different way |
 | 3 | `FirstThen` | **substantive** — mark label is `mark` in the book, `first` in the code, and the book contradicts itself |
 | 4 | `FirstThen` | **substantive** — two callouts explain a null-check dance the code no longer does |
 | 5 | all seven | `@Independent(hc=true)` appears throughout the book and nowhere in the sources |
@@ -104,6 +104,89 @@ be presented as a definition in its own right rather than as something `Lazy` de
 
 Smaller, in the same type: the constructor now null-checks its argument; `hasBeenEvaluated` gained
 `@TestMark("t")`; `get()` gained `@Modified`.
+
+### 2a. `Memo` is not a variant of `Lazy` — it is a different answer, from a different chapter
+
+`Memo` and `IntMemo` solve the same problem as `Lazy`, and they do it without ever raising the
+question the book's `Lazy` section exists to answer.
+
+```java
+@IgnoreModifications(comment = "idempotent lazy cache: writes are observationally invisible (road §050)")
+public final class Memo<T> {
+    private volatile T value;
+
+    public T get(Supplier<? extends T> compute) {
+        T v = value;
+        if (v == null) {
+            v = Objects.requireNonNull(compute.get(), "A Memo cannot cache null");
+            value = v;
+        }
+        return v;
+    }
+}
+```
+
+**`Memo` has no supplier field.** The supplier is a parameter of `get()`, supplied fresh at each
+call site. So there is nothing to blank out, no field that is "of relevance before the transition
+and not after", and no need to extend Rule 2 with "or equal to null". The entire argument in the
+book's `Lazy` section is about a field `Memo` does not have.
+
+The two types are justified under different chapters:
+
+| | `Lazy` | `Memo` |
+|---|---|---|
+| holds the supplier | yes, in a field | no, it is a parameter of `get` |
+| annotations | `@ImmutableContainer(after="t")`, `@Mark`, `@TestMark`, `@Final(after=)` | `@IgnoreModifications` at class level, nothing else |
+| the claim | the type becomes immutable at the mark | the writes are observationally invisible, so a *holder* of this field stays non-modifying |
+| book chapter | §12.6, eventual immutability | §050, `@IgnoreModifications` as manual hidden content |
+| in `COMMIT_ONCE_TYPES` | yes | **no** — the engine does not treat it as a commit-once slot |
+| makes an immutability claim about itself | yes | none; its field is plainly mutable |
+
+`Memo` is not eventually immutable and does not pretend to be. It is a mutable slot with a written
+disclaimer, and `SourceContractMaterializer.materializeIgnoreModificationsFromFieldType` is what
+makes a field *of that type* inherit the disclaimer — so the idiom is declared once on the class
+"whose whole purpose it is" rather than repeated on every memo field.
+
+### 2b. Which of the three is actually used
+
+Neither, in the strict sense. Counting field declarations and constructions across the whole repo,
+excluding each type's own module:
+
+- **`Lazy`** — used nowhere. Its only appearances are `maddi-support/src/test/.../TestLazy.java`
+  and its name in `TestEventualConformance.COMMIT_ONCE_TYPES`. Its own javadoc says *"This is an
+  example class! Please extend and modify for your needs."*
+- **`Memo` / `IntMemo`** — declared, documented, and wired into the analyzer by FQN in
+  `IgnoreModifications`'s javadoc and `SourceContractMaterializer`'s — but **not instantiated
+  anywhere, and with no unit test of their own** (`maddi-support/src/test/` has `TestEither`,
+  `TestEventuallyFinal`, `TestFirstThen`, `TestLazy`, and nothing for `Memo`).
+- **The idiom that is actually in the code** is the hand-written memo field carrying
+  `@IgnoreModifications` directly, which is what `Memo` exists to replace:
+
+  ```java
+  // VariableImpl, cst-impl
+  // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- both the writes and the
+  // slot's assignability are invisible to the modification/immutability analysis
+  @IgnoreModifications private String cachedFqn;
+  @IgnoreModifications private int cachedHash;
+  ```
+
+  Same shape in `UnaryOperatorImpl.hash`. `Memo`'s own javadoc names `VariableImpl.cachedFqn` as the
+  precedent and says *"new code should not"* rely on the benign race those fields accept.
+  `TestCommitLabels.testMemoField` covers exactly this shape — a hand-written `cachedFqn`, not a
+  `Memo`.
+
+So the picture for finding 2 is not "the book quotes `Lazy` and `Lazy` changed". It is:
+
+1. `Lazy` is an example class nothing uses, and its listing in the book no longer matches it;
+2. the analyzer solves lazy initialisation the `@IgnoreModifications` way, which the book covers
+   properly in §050 but never connects to chapter 12;
+3. `Memo` is the intended canonical form of that, and it is not yet adopted or tested.
+
+That reframes the decision. The question is less "should `Lazy.supplier` be cleared" and more
+whether chapter 12 should still present `Lazy` as the lazy-initialisation story at all, when the
+codebase's answer is a §050 disclaimer. If `Lazy` stays, its Rule 2 argument needs the listing to
+match; if `Memo` is meant to be the recommendation, chapter 12 has a type to document and the
+Rule 2 extension needs to stand on its own rather than on an example.
 
 ## 3. `FirstThen` — the mark label, and an inconsistency inside the book
 
@@ -286,9 +369,16 @@ The source writes explicitly what the book leaves implicit: `@Modified` on `put`
 
 The book discusses seven support types. The package now has fourteen: `AddOnceSet`, `Either`,
 `EventuallyFinalOnDemand`, `IntMemo`, `Memo` and `VariableFirstThen` are not mentioned. The chapter
-says "We discuss a selection of the building blocks here", so this is not an error — but
-`TestEventualConformance` treats ten of them as one "commit-once family" that the analyzer knows the
-`@Mark`/`@Only` contracts for, and three of those ten are undocumented.
+says "We discuss a selection of the building blocks here", so this is not an error in itself — but
+the selection is now a poor one:
+
+- `TestEventualConformance` treats ten types as one "commit-once family" whose `@Mark`/`@Only`
+  contracts the engine knows. Three of those ten — `AddOnceSet`, `EventuallyFinalOnDemand`,
+  `VariableFirstThen` — are undocumented, and `EventuallyFinalOnDemand` is one of the most-used
+  types in the analyzer (six files) while `Lazy`, which the book gives a full section to, is used in
+  none.
+- `Memo` and `IntMemo` are not in that family at all (see 2a), and are the one part of the package
+  the analyzer's own machinery names by fully-qualified string.
 
 ---
 
@@ -296,8 +386,10 @@ says "We discuss a selection of the building blocks here", so this is not an err
 
 1. **Finding 5** first, because it governs six of the others: does the analyzer still compute
    `@Independent(hc=true)` at those positions? Everything else is a small edit once that is known.
-2. **Finding 2**, `Lazy`: is the field meant to be cleared? The answer decides whether a listing
-   changes or a section is rewritten.
+2. **Finding 2**, `Lazy`: not just "is the field meant to be cleared", but whether chapter 12
+   should present `Lazy` as the lazy-initialisation story at all. The analyzer's own lazy caches are
+   `@IgnoreModifications` memo fields — §050 — and `Memo` is the canonical form of that, undocumented
+   in the book and not yet adopted in the code.
 3. **Findings 1 and 3** are unambiguous and should be fixed before the book is announced with the
    0.9.1 release — one misdescribes the artifact being published, the other is internally
    inconsistent.
