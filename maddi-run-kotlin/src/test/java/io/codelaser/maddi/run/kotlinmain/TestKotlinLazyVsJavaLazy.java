@@ -59,50 +59,49 @@ import java.util.stream.Stream;
  * that claim is checked rather than asserted.
  * <p>
  * <h2>What the run says</h2>
- * <b>The equivalence holds.</b> {@code a.KotlinExplicit} and {@code b.JavaHolder} are both concluded immutable
- * for a private field of a lazily-initialising type, from two unrelated {@code Lazy} types, neither of which is
- * itself immutable. That is the cross-language claim §12.6 rests on, checked rather than asserted.
+ * <b>The equivalence holds, and over a mutable payload it is exact.</b> {@code a.KotlinMutable} and
+ * {@code b.JavaHolder} are the same shape over two unrelated {@code Lazy} types — one from the Kotlin
+ * standard library, one compiled from source here — and both come out {@code @FinalFields} unconditionally
+ * and {@code @Immutable(hc=true)(after="slot")}. Not "both immutable in some sense": the same verdict, at the
+ * same precision, on the same lattice. That is the cross-language claim §12.6 rests on.
  * <p>
- * It holds at different <em>precision</em>, and that is the finding. The Java side carries its eventual
- * contract all the way to the holder — {@code b.JavaHolder} is {@code @FinalFields} unconditionally and
- * {@code @Immutable(hc=true)(after="slot")}, with {@code get()} earning {@code @Mark("slot")} from
- * {@code Lazy.get()}'s own {@code @Mark("t")}. The Kotlin side states {@code @Immutable(hc=true)} flatly, with
- * no eventual story at all, because {@code kotlin.Lazy} arrives as unannotated library bytecode: it is
- * {@code @Mutable} with every method {@code DEPENDENT}. <b>The unconditional verdict is the same; only the Java
- * side knows when it becomes true.</b>
+ * Over an <em>immutable</em> payload the Kotlin side goes one better, and the reason is worth reading twice.
+ * {@code a.KotlinExplicit} and {@code a.KotlinDelegated} hold a {@code Lazy<String>} and are plain
+ * {@code IMMUTABLE} — substituting {@code T=String} into an {@code @ImmutableContainer(hc=true)} leaves no
+ * hidden content, so nothing mutable remains to reach. {@code a.KotlinMutable} is the control that shows this
+ * is the substitution talking and not a blanket verdict: identical code over {@code Lazy<StringBuilder>}
+ * drops straight back to {@code FINAL_FIELDS}. The Java side stays at {@code FINAL_FIELDS} even for
+ * {@code Lazy<String>}, because {@code b.Lazy}'s own unconditional verdict is {@code MUTABLE} and its
+ * immutability is carried in the eventual property instead. <b>That gap is the contract, not the language</b>
+ * — {@code b.Lazy} is contracted eventually immutable and {@code kotlin.Lazy} unconditionally so.
  * <p>
- * ⛔ THE {@code kotlin.Lazy} ROW IS A TRIPWIRE, NOT A RESULT. There now IS an annotated API for it —
- * {@code maddi-aapi-archive/.../libs/kotlin/Kotlin.java}, contracting the type {@code @ImmutableContainer(hc=true)}
- * — and it is compiled into {@code analyzedPackageFiles/libs/kotlin/Kotlin.json} and listed in
- * {@code LoadAnalysisResults.ANALYZED_RESULTS}, which this test loads in full. The row below still says
- * {@code MUTABLE} because the hint is parsed and then dropped:
- * <pre>
- *   Parsing .../libs/kotlin/Kotlin.json
- *   Skipping analysis hints for kotlin.Lazy: type not on the classpath
- * </pre>
- * {@code PrepWorkCodec} resolves an entry with
- * {@code runtime.getFullyQualified(fqn, false, sourceSetOfRequest)}, and for a type the KOTLIN front end loaded
- * from library bytecode that returns null — measured here, from every source set in the fixture, while
- * {@code java.util.List} resolves from the same one:
- * <pre>
- *   getFullyQualified kotlin.Lazy    from kotlinSet = null
- *   getFullyQualified java.util.List from kotlinSet = java.util.List
- *   getFullyQualified kotlin.Lazy    from javaSet   = null
- *   getFullyQualified kotlin.Lazy    from stdlib    = null
- * </pre>
- * The type is in the CST — this test reaches it by navigating a field's type — but it is not findable by name,
- * which is the one thing annotated-API loading needs. So NO annotated API for any {@code kotlin.*} type can take
- * effect until that registration is fixed; the archive entry is the ready half of a two-part change. When the
- * other half lands, this row moves to {@code IMMUTABLE_HC} and this test fails and says so.
+ * What the Java side still knows and the Kotlin side does not is <em>when</em>. {@code b.JavaHolder.get()}
+ * earns {@code @Mark("slot")} from {@code b.Lazy.get()}'s own {@code @Mark("t")}; {@code a.KotlinMutable.get()}
+ * earns nothing, because reading {@code val value} is a FIELD read and a mark is set by a METHOD. That is
+ * exactly why the annotated API contracts the unconditional form — see the long note in
+ * {@code maddi-aapi-archive/.../libs/kotlin/Kotlin.java}, which records what that choice gives up.
  * <p>
- * The delegated form now agrees too, and that is new. {@code val expensive: String by lazy { … }} used to
- * produce no backing field and an empty accessor body, so the analyzer saw a class whose only field was an
- * {@code int} and concluded plain {@code @Immutable} — a type with mutable lazy state reported as deeply
- * immutable, one level ABOVE the honest {@code @Immutable(hc=true)}. Wrong in the optimistic direction, which
- * is the bad one. Since {@code d980df509} a delegated property is modelled as the JVM has it — a private final
- * {@code <name>$delegate} field of the delegate's type — and {@code a.KotlinDelegated} lands on
- * {@code IMMUTABLE_HC} with {@code getExpensive/0} {@code INDEPENDENT_HC}, identical to the explicit form
- * modulo the field name. The hidden content was the dropped field.
+ * <h2>kotlin.Lazy is contracted now, and the fix was in the registry</h2>
+ * The {@code kotlin.Lazy} row reads {@code IMMUTABLE_HC} because
+ * {@code maddi-aapi-archive/.../libs/kotlin/Kotlin.java} says so ({@code c39524c32}). It did not, for a while:
+ * the hint was parsed and then dropped — "Skipping analysis hints for kotlin.Lazy: type not on the classpath"
+ * — while {@code java.util.List} resolved from the same source set. The type was in the CST, reachable by
+ * navigating to it (as the test body still does), and not findable BY NAME, which is the one thing
+ * annotated-API loading needs.
+ * <p>
+ * The cause was that the Kotlin front end registered a library type it minted in the shared {@code InfoByFqn}
+ * only, never in the shared {@code CompiledTypesManager} — and {@code Runtime.getFullyQualified}, which is how
+ * {@code LoadAnalysisResults} resolves an entry, reads the latter. {@code KotlinTypeMapper.registerLibraryType}
+ * now writes both, as the Java front end has always done at commit time. Note the last line of the
+ * {@code kotlin.Lazy} block: {@code ANNOTATIONS SEEN: []}. A contract arrives as analysis properties, not as
+ * annotations on the {@code TypeInfo} — the row above it is where the contract shows up.
+ * <p>
+ * The delegated form agrees with the explicit one, and that is also new. {@code val expensive: String by lazy
+ * { … }} used to produce no backing field and an empty accessor body, so the analyzer saw a class whose only
+ * field was an {@code int}. It concluded plain {@code @Immutable} — the right answer for the wrong reason, and
+ * one that would have stayed right-looking here. Since {@code d980df509} a delegated property is modelled as
+ * the JVM has it, a private final {@code <name>$delegate} field of the delegate's type, and
+ * {@code a.KotlinDelegated} now tracks {@code a.KotlinExplicit} exactly, field name apart.
  * <p>
  * The fixture compiles {@code Lazy} from source rather than taking it off the {@code maddi-support} jar,
  * because the annotated-API archive carries no entry for {@code Lazy} — the jar route would make it an unknown
@@ -113,14 +112,19 @@ public class TestKotlinLazyVsJavaLazy {
 
     /** See the class javadoc for what each line means, and which of them are findings. */
     private static final String EXPECTED = """
-            a.KotlinDelegated  type=IMMUTABLE_HC  eventual=<not eventual>
+            a.KotlinDelegated  type=IMMUTABLE  eventual=<not eventual>
                 field n : Type int
                 field expensive$delegate : Type kotlin.Lazy<String>
                 method getExpensive/0  independent=INDEPENDENT_HC  eventual=<not eventual>
                 ANNOTATIONS SEEN: []
-            a.KotlinExplicit  type=IMMUTABLE_HC  eventual=<not eventual>
+            a.KotlinExplicit  type=IMMUTABLE  eventual=<not eventual>
                 field n : Type int
                 field slot : Type kotlin.Lazy<String>
+                method get/0  independent=INDEPENDENT_HC  eventual=<not eventual>
+                ANNOTATIONS SEEN: []
+            a.KotlinMutable  type=FINAL_FIELDS  eventual=@Immutable(hc=true)(after="slot")
+                field n : Type int
+                field slot : Type kotlin.Lazy<StringBuilder>
                 method get/0  independent=INDEPENDENT_HC  eventual=<not eventual>
                 ANNOTATIONS SEEN: []
             b.JavaHolder  type=FINAL_FIELDS  eventual=@Immutable(hc=true)(after="slot")
@@ -128,9 +132,9 @@ public class TestKotlinLazyVsJavaLazy {
                 field slot : Type b.Lazy<String>
                 method get/0  independent=INDEPENDENT  eventual=@Mark("slot")
                 ANNOTATIONS SEEN: []
-            kotlin.Lazy  type=MUTABLE  eventual=<not eventual>
+            kotlin.Lazy  type=IMMUTABLE_HC  eventual=<not eventual>
                 field value : Type param T
-                method isInitialized/0  independent=DEPENDENT  eventual=<not eventual>
+                method isInitialized/0  independent=INDEPENDENT  eventual=<not eventual>
                 method equals/1  independent=DEPENDENT  eventual=<not eventual>
                 method hashCode/0  independent=DEPENDENT  eventual=<not eventual>
                 method toString/0  independent=DEPENDENT  eventual=<not eventual>
@@ -156,6 +160,15 @@ public class TestKotlinLazyVsJavaLazy {
             class KotlinExplicit(private val n: Int) {
                 private val slot: Lazy<String> = lazy { "v" + n }
                 fun get(): String = slot.value
+            }
+
+            // 3. THE CONTROL: the same shape over a MUTABLE payload. The annotated API contracts
+            // kotlin.Lazy as @ImmutableContainer(hc=true) -- immutable MODULO hidden content -- and 1 and 2
+            // land on plain IMMUTABLE only because String is deeply immutable, so the substitution leaves no
+            // hidden content. If the contract were a blanket "immutable" this class would say IMMUTABLE too.
+            class KotlinMutable(private val n: Int) {
+                private val slot: Lazy<StringBuilder> = lazy { StringBuilder("v" + n) }
+                fun get(): StringBuilder = slot.value
             }
             """;
 
@@ -366,6 +379,7 @@ public class TestKotlinLazyVsJavaLazy {
 
         String actual = describe(analyzed.type("a.KotlinDelegated"))
                 + describe(kotlinExplicit)
+                + describe(analyzed.type("a.KotlinMutable"))
                 + describe(javaHolder)
                 + describe(kotlinLazy)
                 + describe(javaLazy);
