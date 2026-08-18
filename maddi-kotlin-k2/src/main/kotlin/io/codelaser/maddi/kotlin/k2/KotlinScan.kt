@@ -274,6 +274,7 @@ class KotlinScan(
      */
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
         facadeByFqn.clear()
+        pendingDelegates.clear()
         // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
         // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
         typeMapper.registerTypeAliases(ktFiles)
@@ -314,8 +315,11 @@ class KotlinScan(
                     ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
                 facadeBodies.forEach { (method, sym) -> finishMethodBody(sym, method) }
+                fc.facade?.let { convertDelegateInitializers(it) } // top-level `val x by lazy { … }`
             }
         }
+        // every type now has its members, so a delegate declared after its user resolves: fill the accessors
+        drainDelegatedProperties()
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
         // exists, so even super() to another source type resolves — then commit.
         val committedFacades = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
@@ -328,6 +332,7 @@ class KotlinScan(
             if (ownsFacade) facade!!.builder().commit()
             fc.compilationUnit.setTypes(if (facade != null && !ownsFacade) fc.types else fc.allTypes())
         }
+        drainDelegatedProperties() // a delegated property built while B2 converted a body is finished here
         return perFile.flatMap { it.allTypes() }.distinct()
     }
 
@@ -398,6 +403,9 @@ class KotlinScan(
 
     // @JvmMultifileClass facades shared across files in this convert() run: FQN -> the single facade TypeInfo
     private val facadeByFqn = HashMap<String, TypeInfo>()
+
+    // delegated properties awaiting their initializer + accessor bodies: see drainDelegatedProperties
+    private val pendingDelegates = mutableListOf<PendingDelegate>()
 
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
@@ -490,6 +498,9 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
+        // delegate expressions now: the type is still open (a lambda mints an anonymous type on its builder)
+        // and its own methods exist. See convertDelegateInitializers.
+        convertDelegateInitializers(typeInfo)
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
@@ -688,13 +699,21 @@ class KotlinScan(
      * [FieldInfo] plus accessor methods whose bodies maddi already recognises as getters/setters:
      * `getX() { return this.x; }` and (for `var`) `setX(v) { this.x = v; }`. Each accessor is tagged via
      * `runtime.setGetSetField`, so the analyzer's getter/setter normalisation treats Kotlin property
-     * access identically to a Java field access. (Computed properties without a backing field are a
-     * later refinement; here they also get a backing field.)
+     * access identically to a Java field access. Two kinds have no backing field of their own and are handled
+     * before that: a **delegated** property (`by`, see [convertDelegatedProperty]) and a **computed** one
+     * (a custom `get()`).
      */
     private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol, static: Boolean = false) {
         val name = property.name.asString()
         val type = mapType(property.returnType, owner)
         val isVal = property.isVal
+
+        // a delegated property (`by`) has no backing field either, but it is not computed: the state is real
+        // and lives in the delegate object. Modelled before the computed branch, which would otherwise take it.
+        if (property.isDelegatedProperty) {
+            convertDelegatedProperty(owner, property, type, static)
+            return
+        }
 
         // a computed property (custom getter, no backing field, e.g. `val sum get() = x + y`) becomes just
         // a getter with its real body — no field, no getter/setter field tagging.
@@ -728,6 +747,161 @@ class KotlinScan(
         if (!isConst && !isPrivate) owner.builder().addMethod(buildGetter(owner, field, type, property, static))
         if (!isConst && !isVal) owner.builder().addMethod(buildSetter(owner, field, type, property, static))
     }
+
+    /**
+     * A delegated property (`val x: T by lazy { … }`, `var x: T by Delegates.observable(…)`), as the JVM has
+     * it: a private final `x$delegate` field holding the **delegate object**, plus accessors that route every
+     * read (and write) through it. The delegate's type is the field's type, so the state the property really
+     * has is state the analyzer can see — where dropping the property made its owner come out one immutability
+     * level ABOVE the same value written explicitly, the holder now matches the explicit form.
+     *
+     * The delegate **expression** becomes the field's initializer — `x$delegate = lazy { … }` — which is where
+     * a Java `private final Lazy<T> slot = new Lazy<>(…)` puts it too, and what makes the initializer's calls
+     * (the lambda body included) visible instead of dropped. It is converted in [drainDelegatedProperties], not
+     * here: like the accessor bodies it has to see every type's members.
+     */
+    private fun KaSession.convertDelegatedProperty(owner: TypeInfo, property: KaPropertySymbol,
+                                                   type: ParameterizedType, static: Boolean) {
+        val name = property.name.asString()
+        val psi = property.psi as? KtProperty
+        // the delegate's own type (`kotlin.Lazy<T>` for `by lazy`), not the property's
+        val delegateType = psi?.delegateExpression?.expressionType?.let { mapType(it, owner) }
+            ?: runtime.objectParameterizedType()
+        // committed in the drain, once its initializer is converted
+        val field = runtime.newFieldInfo("$name\$delegate", static, delegateType, owner)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPrivate())
+            .addFieldModifier(runtime.fieldModifierFinal()) // final on the JVM, for a `var` property too
+        if (static) field.builder().addFieldModifier(runtime.fieldModifierStatic())
+        owner.builder().addField(field)
+
+        // an accessor at every visibility, `private` included — unlike a backing-field property, the delegate
+        // field is the only route to the value, so a read has nothing else to resolve against
+        val getter = buildDelegateAccessor(owner, field, type, property, static, write = false)
+        owner.builder().addMethod(getter)
+        val setter = if (property.isVal) null
+        else buildDelegateAccessor(owner, field, type, property, static, write = true).also { owner.builder().addMethod(it) }
+        pendingDelegates.add(PendingDelegate(owner, field, type, static, getter, setter, psi?.delegateExpression))
+    }
+
+    /**
+     * `getX()`/`setX(value)` for a delegated property: signature now, **body later**. The body has to find
+     * `getValue`/`setValue` on the delegate's type, and a delegate declared in source is only converted when
+     * its own turn in pass B1 comes — which, for a delegate declared after its user, is after this. So the
+     * body is filled in [drainDelegatedProperties], once every type of the compilation has its members. No
+     * `setGetSetField` tagging: this is a call into the delegate, not a field access.
+     */
+    private fun buildDelegateAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+                                      property: KaPropertySymbol, static: Boolean, write: Boolean): MethodInfo {
+        val name = property.name.asString()
+        val accessor = runtime.newMethod(owner, accessorName(if (write) "set" else "get", name), methodType(static))
+        if (write) accessor.builder().addParameter("value", type)
+        accessor.builder().setReturnType(if (write) runtime.voidParameterizedType() else type)
+        addMethodModifiers(accessor.builder(), property)
+        accessor.builder().commitParameters().computeAccess()
+        return accessor
+    }
+
+    /** A delegated property whose field initializer and accessor bodies wait for every type's members. */
+    private class PendingDelegate(val owner: TypeInfo, val field: FieldInfo, val type: ParameterizedType,
+                                  val static: Boolean, val getter: MethodInfo, val setter: MethodInfo?,
+                                  val delegateExpression: KtExpression?)
+
+    /**
+     * Fill in the delegate accessors' bodies and commit them, plus any field whose initializer was never
+     * converted (see [finishDelegate]). Runs after pass B1 — every type has its members, so a delegate
+     * declared after its user resolves — and again at the very end, so a delegated property built while pass
+     * B2 converted a body is committed too: a field's and a method's own inspection are independent of their
+     * type's, so committing after the type is fine. Needs no `KaSession`: nothing here converts source.
+     */
+    private fun drainDelegatedProperties() {
+        val drained = pendingDelegates.toList()
+        pendingDelegates.clear()
+        drained.forEach { finishDelegate(it) }
+    }
+
+    /**
+     * Convert the delegate expressions of [owner]'s delegated properties into their fields' initializers.
+     * Called while [owner] is still **open**, at the end of its member conversion: a delegate expression is
+     * usually a call with a lambda (`lazy { … }`), and a lambda mints an anonymous type on its enclosing
+     * type's builder — which a committed type refuses ("Inspection of … has already been committed", seen on
+     * `kotlin.text.CharDirectionality.Companion` when this ran in the later drain instead). Running here also
+     * means the owner's own methods already exist, so a delegate calling one of them resolves; a delegate
+     * calling a type declared later does not, exactly as for every other body converted in this pass.
+     */
+    private fun KaSession.convertDelegateInitializers(owner: TypeInfo) {
+        // a snapshot: converting a delegate expression can build an anonymous type whose own delegated
+        // properties append to this very list
+        pendingDelegates.toList().forEach { p ->
+            if (p.owner !== owner || p.field.hasBeenInspected()) return@forEach
+            val initializer = p.delegateExpression?.let { convertExpression(it, p.getter, emptyMap()) }
+                ?: runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
+            p.field.builder().setInitializer(initializer).computeAccess().commit()
+        }
+    }
+
+    private fun finishDelegate(p: PendingDelegate) {
+        if (!p.field.hasBeenInspected()) {
+            // not converted while the owner was open (an anonymous object's property, say): mark rather than
+            // convert -- a lambda in the expression would need the owner's builder, and it is committed now
+            p.field.builder().setInitializer(runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}"))
+                .computeAccess().commit()
+        }
+        if (!p.getter.hasBeenInspected()) {
+            val read = runtime.newReturnBuilder()
+                .setExpression(delegateRead(p.owner, p.field, p.type, p.static)).setSource(runtime.noSource()).build()
+            p.getter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(read).build()).commit()
+        }
+        val setter = p.setter ?: return
+        if (!setter.hasBeenInspected()) {
+            val value = setter.parameters().first()
+            val write = runtime.newExpressionAsStatement(delegateWrite(p.owner, p.field, value, p.static))
+            setter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(write).build()).commit()
+        }
+    }
+
+    /**
+     * The delegate read. Kotlin's convention is the `getValue(thisRef, property)` operator, which is what a
+     * hand-written delegate declares; `kotlin.Lazy` — the `by lazy` case — declares `val value` instead, and
+     * once loaded from bytecode that is a FIELD, so `this.x$delegate.value` is the spelling there. That is the
+     * same shape the explicit form (`private val slot: Lazy<T> = lazy { … }; fun get() = slot.value`) already
+     * produces. The `KProperty` argument of the operator form is not modelled; `null` stands in for it.
+     */
+    private fun delegateRead(owner: TypeInfo, field: FieldInfo, type: ParameterizedType, static: Boolean): Expression {
+        val delegate = fieldReadExpression(owner, field, static)
+        val delegateType = field.type().typeInfo()
+        delegateType?.methods()?.firstOrNull { it.name() == "getValue" && it.parameters().size == 2 }?.let { getValue ->
+            return runtime.newMethodCallBuilder()
+                .setObject(delegate).setObjectIsImplicit(false)
+                .setMethodInfo(getValue)
+                .setParameterExpressions(listOf(thisRef(owner, static), runtime.nullConstant()))
+                .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        }
+        delegateType?.fields()?.firstOrNull { it.name() == "value" }?.let { valueField ->
+            return runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(valueField, delegate, type))
+                .setSource(runtime.noSource()).build()
+        }
+        return runtime.newEmptyExpression("k2-delegate-read:${field.name()}")
+    }
+
+    /** The delegate write, `this.x$delegate.setValue(this, null, value)` — `var` properties only. */
+    private fun delegateWrite(owner: TypeInfo, field: FieldInfo, value: ParameterInfo, static: Boolean): Expression {
+        val setValue = field.type().typeInfo()?.methods()
+            ?.firstOrNull { it.name() == "setValue" && it.parameters().size == 3 }
+            ?: return runtime.newEmptyExpression("k2-delegate-write:${field.name()}")
+        return runtime.newMethodCallBuilder()
+            .setObject(fieldReadExpression(owner, field, static)).setObjectIsImplicit(false)
+            .setMethodInfo(setValue)
+            .setParameterExpressions(listOf(thisRef(owner, static), runtime.nullConstant(),
+                bodyConverter.variableExpression(value)))
+            .setConcreteReturnType(runtime.voidParameterizedType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /** The `thisRef` a delegate operator takes: `this`, or `null` for a delegated property on a facade/companion. */
+    private fun thisRef(owner: TypeInfo, static: Boolean): Expression =
+        if (static) runtime.nullConstant() else fieldAccessScope(owner, false)
 
     private fun methodType(static: Boolean) =
         if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
