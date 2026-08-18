@@ -59,36 +59,28 @@ import java.util.stream.Stream;
  * that claim is checked rather than asserted.
  * <p>
  * <h2>What the run says</h2>
- * <b>The equivalence holds for the explicit form.</b> {@code a.KotlinExplicit} and {@code b.JavaHolder} both
- * come out {@code @Immutable(hc=true)}: a private field of a lazily-initialising type is hidden content, and
- * maddi reaches that conclusion in both languages, from two different {@code Lazy} types, neither of which is
+ * <b>The equivalence holds.</b> {@code a.KotlinExplicit} and {@code b.JavaHolder} are both concluded immutable
+ * for a private field of a lazily-initialising type, from two unrelated {@code Lazy} types, neither of which is
  * itself immutable. That is the cross-language claim §12.6 rests on, checked rather than asserted.
  * <p>
- * Three things it also pins, each of which would otherwise be invisible:
- * <ol>
- *   <li><b>{@code by lazy} is not modelled, and the verdict is wrong rather than absent.</b> The K2 front-end
- *   produces no backing field and an empty accessor body for a delegated property, so the analyzer sees a
- *   class whose only field is an {@code int} — and concludes {@code @Immutable}, one level ABOVE the honest
- *   {@code @Immutable(hc=true)} of the same value written explicitly. A type with mutable lazy state is
- *   reported as deeply immutable because the state is invisible. Checked against three controls — a plain
- *   {@code val}, a custom {@code get()}, and an explicit {@code Lazy} field all produce correct fields and
- *   bodies — so this is specific to delegated properties, not a resolution failure.</li>
- *   <li><b>Source annotations do not reach a Java type through this pipeline.</b> {@code b.Lazy} is the
- *   shipped {@code io.codelaser.maddi.support.Lazy} verbatim, {@code @ImmutableContainer(after="t", hc=true)}
- *   and {@code @Mark("t")} included, and every {@code ANNOTATIONS SEEN} line below is empty while both
- *   eventual properties stay {@code <not eventual>}. The same fixture through the plain-Java harness in
- *   {@code maddi-modification-analyzer} reports {@code [@ImmutableContainer(after="t",hc=true)]},
- *   {@code EVENTUALLY_IMMUTABLE_TYPE=@Immutable(hc=true)(after="t")} and {@code get() @Mark("t")}. So the
- *   contract is readable and this configuration does not read it. Whether that is the mixed pipeline or this
- *   test's source-set wiring is open — either way, the eventual contract plays no part in the verdicts below,
- *   and the day it does, this test fails and says so.</li>
- *   <li><b>{@code kotlin.Lazy} carries no contract at all</b> — {@code @Mutable}, every method
- *   {@code DEPENDENT}. There is no Kotlin annotated API ({@code analyzedPackageFiles/} holds {@code jdk} and
- *   {@code libs/…} only). The holder still reaches {@code @Immutable(hc=true)} because the field is private
- *   and the type abstract, but the Kotlin getter comes out {@code INDEPENDENT_HC} where the Java one is
- *   {@code INDEPENDENT}, for the same declared {@code String} return: the missing annotations cost precision,
- *   not the verdict.</li>
- * </ol>
+ * It holds at different <em>precision</em>, and that is the finding. The Java side carries its eventual
+ * contract all the way to the holder — {@code b.JavaHolder} is {@code @FinalFields} unconditionally and
+ * {@code @Immutable(hc=true)(after="slot")}, with {@code get()} earning {@code @Mark("slot")} from
+ * {@code Lazy.get()}'s own {@code @Mark("t")}. The Kotlin side states {@code @Immutable(hc=true)} flatly, with
+ * no eventual story at all, because {@code kotlin.Lazy} arrives as unannotated library bytecode: it is
+ * {@code @Mutable} with every method {@code DEPENDENT}, and there is no Kotlin annotated API to say otherwise
+ * ({@code analyzedPackageFiles/} holds {@code jdk} and {@code libs/…} only). <b>The unconditional verdict is
+ * the same; only the Java side knows when it becomes true.</b> Writing an AAPI entry for {@code kotlin.Lazy}
+ * is what would close that, and this block is where it would show up.
+ * <p>
+ * The third shape is the one to worry about. {@code val expensive: String by lazy { … }} — the idiom — is
+ * <b>not modelled, and the verdict is wrong rather than absent</b>. The K2 front-end produces no backing field
+ * and an empty accessor body for a delegated property, so the analyzer sees a class whose only field is an
+ * {@code int} and concludes plain {@code @Immutable}: a type with mutable lazy state reported as deeply
+ * immutable, one level ABOVE the honest {@code @Immutable(hc=true)} of the same value written explicitly.
+ * Checked against three controls — a plain {@code val}, a custom {@code get()}, and an explicit {@code Lazy}
+ * field all produce correct fields and bodies — so it is delegated properties specifically, not a resolution
+ * failure.
  * <p>
  * The fixture compiles {@code Lazy} from source rather than taking it off the {@code maddi-support} jar,
  * because the annotated-API archive carries no entry for {@code Lazy} — the jar route would make it an unknown
@@ -108,10 +100,10 @@ public class TestKotlinLazyVsJavaLazy {
                 field slot : Type kotlin.Lazy<String>
                 method get/0  independent=INDEPENDENT_HC  eventual=<not eventual>
                 ANNOTATIONS SEEN: []
-            b.JavaHolder  type=IMMUTABLE_HC  eventual=<not eventual>
+            b.JavaHolder  type=FINAL_FIELDS  eventual=@Immutable(hc=true)(after="slot")
                 field n : Type int
                 field slot : Type b.Lazy<String>
-                method get/0  independent=INDEPENDENT  eventual=<not eventual>
+                method get/0  independent=INDEPENDENT  eventual=@Mark("slot")
                 ANNOTATIONS SEEN: []
             kotlin.Lazy  type=MUTABLE  eventual=<not eventual>
                 field value : Type param T
@@ -120,12 +112,12 @@ public class TestKotlinLazyVsJavaLazy {
                 method hashCode/0  independent=DEPENDENT  eventual=<not eventual>
                 method toString/0  independent=DEPENDENT  eventual=<not eventual>
                 ANNOTATIONS SEEN: []
-            b.Lazy  type=MUTABLE  eventual=<not eventual>
+            b.Lazy  type=MUTABLE  eventual=@Immutable(hc=true)(after="t")
                 field supplier : Type java.util.function.Supplier<T>
                 field t : Type param T
-                method get/0  independent=INDEPENDENT  eventual=<not eventual>
-                method hasBeenEvaluated/0  independent=INDEPENDENT  eventual=<not eventual>
-                ANNOTATIONS SEEN: []
+                method get/0  independent=INDEPENDENT_HC  eventual=@Mark("t")
+                method hasBeenEvaluated/0  independent=INDEPENDENT  eventual=@TestMark("t")
+                ANNOTATIONS SEEN: [@ImmutableContainer(after="t",hc=true)]
             """;
 
 
@@ -224,19 +216,6 @@ public class TestKotlinLazyVsJavaLazy {
                 .orElseThrow(() -> new AssertionError("kotlin-stdlib jar not on the test classpath"));
     }
 
-    /**
-     * Where {@code maddi-annotation} lives on this test's own classpath — jar or class directory, whichever
-     * gradle produced. Asked of the class rather than matched by filename, so it cannot go stale.
-     * {@code maddi-cst-api} exports {@code maddi-support}, which exports the annotations, so it is always here.
-     */
-    private static URI maddiAnnotationArtifact() {
-        try {
-            return io.codelaser.maddi.annotation.ImmutableContainer.class.getProtectionDomain()
-                    .getCodeSource().getLocation().toURI();
-        } catch (java.net.URISyntaxException e) {
-            throw new AssertionError("cannot locate maddi-annotation", e);
-        }
-    }
 
     private record Analyzed(Runtime runtime, Set<TypeInfo> primaryTypes) {
         TypeInfo type(String fqn) {
@@ -265,13 +244,11 @@ public class TestKotlinLazyVsJavaLazy {
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
                 .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri())
                 .setDependencies(List.of(stdlib)).build();
-        // Sources AND artifact, library AND module — the shape TestEventualConformance uses. The jar alone is
-        // not enough: javac resolves the annotation from it, but maddi then has no TypeInfo to map it onto and
-        // the parse fails with "Cannot map javac's type ... onto a TypeInfo".
-        SourceSet annotations = new SourceSetImpl.Builder().setName("maddi-annotation")
-                .setSourceDirectories(List.of(Path.of("../maddi-annotation/src/main/java")))
-                .setUri(maddiAnnotationArtifact())
-                .setLibrary(true).setModule(true).build();
+        // MUST be sourceSetOf, not a hand-rolled Builder. ClassSymbolScanner.ensureSourceSet attributes a
+        // loaded 'jar:file:...!/...' class file by looking the JAR'S FILE NAME up among the source-set names,
+        // and sourceSetOf is what derives that name (tail(uri)). Naming the set anything friendlier makes every
+        // annotation type resolve to "off-classpath", after which the contract silently never arrives.
+        SourceSet annotations = SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.ImmutableContainer.class);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
                 .setSourceDirectories(List.of(jDir)).setUri(jDir.toUri())
                 .setDependencies(List.of(annotations)).build();
