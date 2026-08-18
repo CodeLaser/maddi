@@ -73,14 +73,14 @@ import java.util.stream.Stream;
  * the same; only the Java side knows when it becomes true.</b> Writing an AAPI entry for {@code kotlin.Lazy}
  * is what would close that, and this block is where it would show up.
  * <p>
- * The third shape is the one to worry about. {@code val expensive: String by lazy { … }} — the idiom — is
- * <b>not modelled, and the verdict is wrong rather than absent</b>. The K2 front-end produces no backing field
- * and an empty accessor body for a delegated property, so the analyzer sees a class whose only field is an
- * {@code int} and concludes plain {@code @Immutable}: a type with mutable lazy state reported as deeply
- * immutable, one level ABOVE the honest {@code @Immutable(hc=true)} of the same value written explicitly.
- * Checked against three controls — a plain {@code val}, a custom {@code get()}, and an explicit {@code Lazy}
- * field all produce correct fields and bodies — so it is delegated properties specifically, not a resolution
- * failure.
+ * The delegated form now agrees too, and that is new. {@code val expensive: String by lazy { … }} used to
+ * produce no backing field and an empty accessor body, so the analyzer saw a class whose only field was an
+ * {@code int} and concluded plain {@code @Immutable} — a type with mutable lazy state reported as deeply
+ * immutable, one level ABOVE the honest {@code @Immutable(hc=true)}. Wrong in the optimistic direction, which
+ * is the bad one. Since {@code d980df509} a delegated property is modelled as the JVM has it — a private final
+ * {@code <name>$delegate} field of the delegate's type — and {@code a.KotlinDelegated} lands on
+ * {@code IMMUTABLE_HC} with {@code getExpensive/0} {@code INDEPENDENT_HC}, identical to the explicit form
+ * modulo the field name. The hidden content was the dropped field.
  * <p>
  * The fixture compiles {@code Lazy} from source rather than taking it off the {@code maddi-support} jar,
  * because the annotated-API archive carries no entry for {@code Lazy} — the jar route would make it an unknown
@@ -91,9 +91,10 @@ public class TestKotlinLazyVsJavaLazy {
 
     /** See the class javadoc for what each line means, and which of them are findings. */
     private static final String EXPECTED = """
-            a.KotlinDelegated  type=IMMUTABLE  eventual=<not eventual>
+            a.KotlinDelegated  type=IMMUTABLE_HC  eventual=<not eventual>
                 field n : Type int
-                method getExpensive/0  independent=INDEPENDENT  eventual=<not eventual>
+                field expensive$delegate : Type kotlin.Lazy<String>
+                method getExpensive/0  independent=INDEPENDENT_HC  eventual=<not eventual>
                 ANNOTATIONS SEEN: []
             a.KotlinExplicit  type=IMMUTABLE_HC  eventual=<not eventual>
                 field n : Type int
