@@ -37,7 +37,7 @@ public class TestPackageInfo {
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
                 .addClassPath(ToolChain.CLASSPATH_INTELLIJ_LANG)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);

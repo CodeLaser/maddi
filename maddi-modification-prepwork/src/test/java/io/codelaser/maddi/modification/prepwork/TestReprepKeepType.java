@@ -41,7 +41,7 @@ import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.TEST_P
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tier-2 incremental reparse re-runs {@code E2ImmuPrep.make()} over ALL primary types, but the types from source
+ * Tier-2 incremental reparse re-runs {@code Prepwork.make()} over ALL primary types, but the types from source
  * sets that did not change (the KEEP set) are the SAME objects carried unchanged from the previous full prep — they
  * already hold {@code VariableData} at method / statement / field-initializer level. Re-prepping such a type used to
  * throw {@code IllegalArgumentException: Trying to overwrite a value for property variableData} (the method-level set
@@ -112,7 +112,7 @@ public class TestReprepKeepType extends CommonTest {
         javaInspector = new JavaInspectorImpl();
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/apiguardian/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/platform/commons")

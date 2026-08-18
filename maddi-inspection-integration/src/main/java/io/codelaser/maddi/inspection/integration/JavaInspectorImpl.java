@@ -117,7 +117,7 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     public static final String JAR_WITH_PATH = "jar-on-classpath";
     public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
-    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
+    public static final String MADDI_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
 
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
