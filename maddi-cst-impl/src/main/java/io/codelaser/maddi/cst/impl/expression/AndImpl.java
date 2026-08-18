@@ -98,6 +98,7 @@ public class AndImpl extends ExpressionImpl implements And {
     // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- the VariableImpl.cachedHash
     // precedent; lazily cached because the recursive recompute dominated profiles. Without the disclaimer
     // the slot's write makes hashCode() modifying, and this type can never be (eventually) immutable.
+    // NOT an IntMemo, deliberately: see the note on VariableImpl.cachedHash for what a wrapper costs here.
     @IgnoreModifications
     private int hash;
 
@@ -106,6 +107,9 @@ public class AndImpl extends ExpressionImpl implements And {
         int h = hash;
         if (h == 0) {
             h = Objects.hash(expressions);
+            // 0 is the unset sentinel, so a genuine 0 would recompute on EVERY call -- the memo silently
+            // stops being a memo for that one expression. Remap it, as VariableImpl.hashCode does.
+            if (h == 0) h = 1;
             hash = h;
         }
         return h;

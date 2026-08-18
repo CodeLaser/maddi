@@ -36,6 +36,12 @@ import java.util.function.Supplier;
  * hand-written memo fields that predate this class (e.g. {@code VariableImpl.cachedFqn}) rely on a
  * benign reference race instead; new code should not.
  * <p>
+ * Those hand-written fields stay hand-written on purpose, and the note on {@code VariableImpl.cachedHash}
+ * is the record of why: they sit on the highest-cardinality objects in the analyzer, where a wrapper
+ * trades a 4-byte inline slot for a reference plus an object, and where {@link #get} would allocate its
+ * supplier on every call — a memo being, by construction, almost all hits. Use this class for a new memo
+ * slot; converting an existing hot one is a measured regression, not a tidy-up.
+ * <p>
  * {@code null} is the unset marker, so a memo cannot cache {@code null}.
  *
  * @param <T> the cached type

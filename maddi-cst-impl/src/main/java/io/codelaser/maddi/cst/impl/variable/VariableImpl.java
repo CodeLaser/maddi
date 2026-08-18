@@ -36,6 +36,22 @@ public abstract class VariableImpl implements Variable {
     // is memoized here. Benign race: the computation is idempotent.
     // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- both the writes and the
     // slot's assignability are invisible to the modification/immutability analysis
+    //
+    // NOT io.codelaser.maddi.support.Memo/IntMemo, and this is the canonical note for the five slots that
+    // mimic them (the two here, plus AndImpl.hash, OrImpl.hash, UnaryOperatorImpl.hash). Those classes
+    // exist so the disclaimer is declared once on a type rather than on every field, and for a NEW memo
+    // slot that is the right trade. It is the wrong trade here, twice over:
+    //
+    //   - memory. These five sit on the highest-cardinality objects in the engine. A wrapper turns a
+    //     4-byte inline int into a reference plus a 16-byte object, on types instantiated per variable per
+    //     statement across a whole corpus. Memory, not time, is what this engine runs out of first.
+    //   - allocation. Memo.get(Supplier) and IntMemo.get(IntSupplier) build their supplier on EVERY call,
+    //     hits included -- and a memo is by construction almost all hits. IntMemo cannot dodge it: it
+    //     deliberately exposes no way to read the slot, so there is no non-allocating fast path to fall
+    //     back on. The cost is measured, not feared: SharedVariable.assignmentSources carries the A/B
+    //     where this same shape (calls outnumbering misses 265:1) cost 22% on TestBuilderChainBench.
+    //
+    // So: reach for Memo/IntMemo when writing a new memo slot; do not convert these five.
     @IgnoreModifications
     private String cachedFqn;
     @IgnoreModifications

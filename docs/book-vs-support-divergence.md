@@ -22,7 +22,7 @@ Three of the findings change what the book *claims*, not just what it shows. The
 | 2 | `Lazy` | **substantive** — the listing's central mechanism is not in the code, and `Memo` answers the same question a different way |
 | 3 | `FirstThen` | **substantive** — mark label is `mark` in the book, `first` in the code, and the book contradicts itself |
 | 4 | `FirstThen` | **substantive** — two callouts explain a null-check dance the code no longer does |
-| 5 | all seven | `@Independent(hc=true)` appears throughout the book and nowhere in the sources |
+| 5 | all seven | **answered** — the analyzer computes `@Independent(hc=true)` at 13 of the book's 16 positions; the sources stopped asserting it |
 | 6 | `Freezable` | A callout explains an inference the source no longer relies on |
 | 7 | `FlipSwitch` | Mark label `t` vs `isSet`; `@Modified`; `final`; `synchronized` |
 | 8 | `SetOnce` | `getOrDefault` signature and contract |
@@ -101,6 +101,29 @@ claims either: the source annotates nothing.
 This is the one finding that cannot be fixed by editing a listing. Either the code is meant to
 blank the field and does not, or the book's Rule 2 extension needs a different example (or needs to
 be presented as a definition in its own right rather than as something `Lazy` demonstrates).
+
+### Settled by measurement: blanking the field changes nothing
+
+`TestBookIndependenceOfSupportTypes` runs `Lazy` twice — once as shipped (`final supplier`, never
+cleared) and once **in the book's own shape**, non-final and with `supplier = null` inside `get()`.
+The two blocks come out identical:
+
+```
+field supplier                             DEPENDENT      book: INDEPENDENT_HC DIFFERS
+constructor, parameter 0                   DEPENDENT      book: INDEPENDENT_HC DIFFERS
+get(), return                              INDEPENDENT_HC book: INDEPENDENT_HC agrees
+```
+
+So the divergence is not that the code drifted away from the book. **The book's own code, run
+through today's analyzer, does not produce the annotations the book prints on it.** `supplier = null`
+buys nothing the analyzer can see, and the fifteen lines of argument that rest on it — ending in the
+Rule 2 extension, "all fields are either private, of immutable type, or equal to null" — have no
+worked example behind them any more.
+
+That narrows the decision. Restoring `supplier = null` to the source would not make the listing
+correct, because the listing is not correct on the book's own code either. Either the analyzer no
+longer implements the rule the section describes, or the section describes a rule it never
+implemented; §12.6 needs a decision on which before it can be repaired.
 
 Smaller, in the same type: the constructor now null-checks its argument; `hasBeenEvaluated` gained
 `@TestMark("t")`; `get()` gained `@Modified`.
@@ -266,11 +289,12 @@ reading that sentence.
 
 ## 5. `@Independent(hc=true)` is in every book listing and in none of the sources
 
-The book puts `@Independent(hc=true)` on parameters and return types across `SetOnce`,
-`EventuallyFinal`, `SetOnceMap`, `Lazy` and `FirstThen` — eighteen occurrences. Across the whole
-`maddi-support` package the sources carry it six times: four in `SetOnceMap` (`keyStream`,
-`valueStream`, `stream`, `putAll`) and two in `AddOnceSet`. **Not one of those six is on a method
-the book shows**, and not one of the eighteen the book shows is in the source.
+The book puts `@Independent(hc=true)` on parameters, fields and return types across `SetOnce`,
+`EventuallyFinal`, `SetOnceMap`, `Lazy` and `FirstThen` — **sixteen positions** inside the listings
+(eighteen mentions in the chapter, counting two in prose). Across the whole `maddi-support` package
+the sources carry it six times: four in `SetOnceMap` (`keyStream`, `valueStream`, `stream`,
+`putAll`) and two in `AddOnceSet`. **Not one of those six is on a member the book shows**, and not
+one of the sixteen the book shows is in the source.
 
 `Lazy` keeps a trace of the older shape in a comment:
 
@@ -295,7 +319,35 @@ the source omits is not necessarily wrong — the analyzer may still compute it,
 simply have stopped asserting it. **That is the question to settle before editing anything here**:
 does the analyzer still compute `@Independent(hc=true)` at these positions? If it does, the book is
 right and the sources have quietly stopped verifying it, which is a loss worth reversing. If it does
-not, sixteen listings are wrong.
+not, the listings are wrong.
+
+`maddi-modification-analyzer`'s `TestBookIndependenceOfSupportTypes` answers it. It runs the analyzer
+over the shipped bodies — reduced to the members under test, annotations and javadoc stripped, so
+nothing is contracted and every value is computed — and reports all sixteen of the book's positions
+in one block per type, each row carrying the book's claim beside the computed value.
+
+### The answer
+
+**The book is right at thirteen of the sixteen, understates one, and is wrong at two.**
+
+| Type | Positions | Computed |
+|---|---|---|
+| `EventuallyFinal` | 3 | `INDEPENDENT_HC` — as printed |
+| `FirstThen` | 4 | `INDEPENDENT_HC` — as printed |
+| `SetOnceMap` | 3 | `INDEPENDENT_HC` — as printed |
+| `SetOnce` | 3 | 2 as printed; `getOrDefault` returns fully `INDEPENDENT` |
+| `Lazy` | 3 | `get()` as printed; **field `supplier` and the constructor parameter are `DEPENDENT`** |
+
+So for thirteen positions the answer is the one that favours the book: **the analyzer still derives
+`@Independent(hc=true)` there, and the sources have simply stopped asserting what it computes.**
+Those annotations are not stale documentation; they are a verification the sources gave up. Putting
+them back would be a gain, not a tidy-up.
+
+`SetOnce.getOrDefault` is stronger than printed — fully `INDEPENDENT` rather than hidden-content
+independent. `@Independent(hc=true)` is a weaker but still true statement, so the book is not wrong
+here, just imprecise. Note the shipped body is not the book's (finding 8).
+
+The two that differ are both in `Lazy`, and they are exactly the two the book argues hardest for.
 
 ## 6. `Freezable` — a callout explains an inference the source no longer relies on
 
@@ -384,12 +436,16 @@ the selection is now a poor one:
 
 ## What to decide
 
-1. **Finding 5** first, because it governs six of the others: does the analyzer still compute
-   `@Independent(hc=true)` at those positions? Everything else is a small edit once that is known.
-2. **Finding 2**, `Lazy`: not just "is the field meant to be cleared", but whether chapter 12
-   should present `Lazy` as the lazy-initialisation story at all. The analyzer's own lazy caches are
-   `@IgnoreModifications` memo fields — §050 — and `Memo` is the canonical form of that, undocumented
-   in the book and not yet adopted in the code.
+1. ~~**Finding 5** first, because it governs six of the others.~~ **Answered** by
+   `TestBookIndependenceOfSupportTypes`: yes at thirteen of sixteen positions. The remaining work is
+   a decision, not an investigation — put the thirteen annotations back into `maddi-support` (they
+   are verification the sources gave up), and fix the two `Lazy` rows in the book.
+2. **Finding 2**, `Lazy`, is now the only open question, and it got harder rather than easier:
+   clearing `supplier` does not change what the analyzer computes, so the book's Rule 2 extension has
+   no worked example. Is that a gap in the analyzer or a rule the book overstated? And separately:
+   should chapter 12 present `Lazy` as the lazy-initialisation story at all, when the analyzer's own
+   lazy caches are `@IgnoreModifications` memo fields (§050) and `Memo` is the canonical form of
+   that — undocumented in the book, and not yet adopted in the code.
 3. **Findings 1 and 3** are unambiguous and should be fixed before the book is announced with the
    0.9.1 release — one misdescribes the artifact being published, the other is internally
    inconsistent.

@@ -80,7 +80,8 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
     }
 
     // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- the VariableImpl.cachedHash
-    // precedent; lazily cached because the recursive recompute dominated profiles
+    // precedent; lazily cached because the recursive recompute dominated profiles.
+    // NOT an IntMemo, deliberately: see the note on VariableImpl.cachedHash for what a wrapper costs here.
     @IgnoreModifications
     private int hash;
 
@@ -89,6 +90,9 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
         int h = hash;
         if (h == 0) {
             h = Objects.hash(expression, operator);
+            // 0 is the unset sentinel, so a genuine 0 would recompute on EVERY call -- the memo silently
+            // stops being a memo for that one expression. Remap it, as VariableImpl.hashCode does.
+            if (h == 0) h = 1;
             hash = h;
         }
         return h;
