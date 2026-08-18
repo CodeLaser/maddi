@@ -159,7 +159,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     /** @see InputConfiguration#JAR_ON_CLASSPATH_PREFIX — kept as the name this front end has always used. */
     public static final String JAR_WITH_PATH_PREFIX = InputConfiguration.JAR_ON_CLASSPATH_PREFIX;
-    public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
+    public static final String MADDI_SUPPORT = JAR_WITH_PATH_PREFIX + "io/codelaser/maddi/annotation";
     // how reloadSources' in-memory sources are keyed, as in the in-house inspector: "test-protocol:a.b.X"
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();

@@ -510,7 +510,7 @@ public class TestCallGraph2 extends CommonTest {
         javaInspector = new JavaInspectorImpl();
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 // NOTE: No access to ToolChain
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/apiguardian/api")

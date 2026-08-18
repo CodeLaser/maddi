@@ -160,7 +160,7 @@ public class TestPrimaryTypeUseGraph extends CommonTest {
         javaInspector = new JavaInspectorImpl();
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/apiguardian/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/platform/commons")

@@ -47,7 +47,7 @@ public class TestCompilationProblem {
                 .addSources("src/test/resources/compilationError")
                 .addRestrictSourceToPackages("a.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 .build();
         javaInspector.initialize(inputConfiguration);
         try {
@@ -70,7 +70,7 @@ public class TestCompilationProblem {
                 .addSources("src/test/resources/compilationError")
                 .addRestrictSourceToPackages("a.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath(JavaInspectorImpl.MADDI_SUPPORT)
                 .build();
         javaInspector.initialize(inputConfiguration);
         try {

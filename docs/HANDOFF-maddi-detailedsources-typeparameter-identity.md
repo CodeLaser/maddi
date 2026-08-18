@@ -191,7 +191,7 @@ So the source position of `T` (wherever it's written) is filed under the `TypePa
 When another type *uses* `A` (`list.add(t)`, `list.next(t)`), maddi resolves/translates `A`'s generic method
 signatures for that usage. That translation produces **new** `ParameterizedType` / `TypeParameter` objects for the
 signature's type parameters (same name/owner/index, different identity). This is the piece to pin down precisely in
-maddi — it's in the prepwork/link analysis path (`E2ImmuPrep.make` → `PrepAnalyzer` / the link computation), via the
+maddi — it's in the prepwork/link analysis path (`Prepwork.make` → `PrepAnalyzer` / the link computation), via the
 `TranslationMap` machinery (`maddi-cst-impl/.../translate/TranslationMapImpl.java`). After it runs, the `TypeParameter`
 you get off `mi.returnType()` / `pi.parameterizedType()` (`ParameterizedType.extractTypeParameters()`) is **not** the
 object the parser filed in step 2.
@@ -266,7 +266,7 @@ Ensure the analysis/translation of a generic method signature **reuses** the dec
 of allocating a fresh one (so identity stays stable end-to-end). Conceptually the cleanest, but it's surgery in maddi's
 hot analysis/translation path (`PrepAnalyzer` / link computation / `TranslationMapImpl`) and higher-risk. First step:
 find the exact allocation site — instrument where `mi.returnType()`/`pi.parameterizedType()` diverges from
-`typeInfo.typeParameters().get(index)` after `E2ImmuPrep.make(...)`.
+`typeInfo.typeParameters().get(index)` after `Prepwork.make(...)`.
 
 **Determinism note (either option):** the *flakiness* is a symptom of analysis running in parallel
 (`ForkJoinPool.commonPool`). Fixing identity (Option A) or instance-stability (Option B) makes the result correct and
