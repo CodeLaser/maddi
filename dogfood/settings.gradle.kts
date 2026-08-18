@@ -53,7 +53,7 @@ dependencyResolutionManagement {
         // the real build's own jars, consumed as ordinary module coordinates. A plain files(...) dependency
         // is NOT enough: the plugin walks resolved artifacts and only records those with a module or project
         // component identifier, so a file dependency never reaches the input configuration.
-        listOf("maddi-support", "maddi-util").forEach {
+        listOf("maddi-annotation", "maddi-support", "maddi-util").forEach {
             flatDir { dirs("../$it/build/libs") }
         }
     }
@@ -66,8 +66,14 @@ rootProject.name = "maddi-dogfood"
 // only travels between them when both are parsed (a jar type never enters the abstract-method batch).
 // cst-analysis is also analyzed as source: it holds PropertyValueMapImpl, whose getOrDefault/getOrNull must
 // be COMPUTED non-modifying for ParameterInfoImpl's analysis store to stop capping it (a jar leaves them
-// unproven). maddi-support and maddi-util stay jars: maddi-support in particular stays a jar so that reading
-// the @Mark/@Only annotations out of BYTE CODE is exercised.
+// unproven). maddi-annotation, maddi-support and maddi-util stay jars: maddi-annotation in particular stays
+// a jar so that reading the @Mark/@Only annotations out of BYTE CODE is exercised -- it held that role as
+// part of maddi-support until the 0.9.1 split moved the 27 annotation files into their own artifact.
+//
+// ⛔ maddi-annotation must be pinned here EXPLICITLY. A flatDir dependency carries no metadata, so it has no
+// transitive dependencies: maddi-support's `requires transitive io.codelaser.maddi.annotation` does not put
+// the module on dogfood's module path, and cst-api's 56 annotated sources fail with "module not found:
+// io.codelaser.maddi.annotation" -- nothing degrades quietly, but nothing points at the split either.
 include("cst-api")
 include("cst-analysis")
 include("cst-impl")
