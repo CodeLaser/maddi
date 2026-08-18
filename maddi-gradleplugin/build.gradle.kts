@@ -168,6 +168,16 @@ tasks.named<Test>("test") {
     // mirrors test's systemProperties onto slowTest, so they still need to be set here, not there.
     systemProperty("e2immu.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
     systemProperty("e2immu.pluginVersion", project.version.toString())
+
+    // TestVersionSkew is the gate over every DERIVED artefact that embeds the version in a filename or a
+    // coordinate. Each of the three it checks is produced by a task, so each needs that task to have run --
+    // and a gate whose input is missing must fail, not skip, which is why nothing here is optional.
+    dependsOn(":maddi-ide-daemon:installDist", "publishAllPublicationsToLocalPluginRepoRepository")
+    systemProperty("maddi.projectVersion", project.version.toString())
+    systemProperty("maddi.rootDir", rootDir.absolutePath)
+    systemProperty("maddi.daemonInstall",
+            project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon").get()
+                    .asFile.absolutePath)
 }
 
 tasks.named<Test>("slowTest") {
