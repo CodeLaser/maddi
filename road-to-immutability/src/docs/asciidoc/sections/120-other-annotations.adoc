@@ -15,7 +15,7 @@ annotated APIs — but are never inferred from your code;
 * {finalizer} is read as a contract, and its *modification semantics* — a finalizer call does not count
 as a modification of the receiver — are implemented and load-bearing in the modification engine (see
 <<finalizers>>); the three life-cycle *sequencing rules* below are not enforced;
-* {extensionClass} and {singleton} exist in `maddi-support`, but nothing in the analyzer reads them.
+* {extensionClass} and {singleton} exist in `maddi-annotation`, but nothing in the analyzer reads them.
 
 Those sections describe the intended design, and are retained because the definitions still hold.
 Do not read them as a description of current behaviour.
@@ -371,7 +371,7 @@ These definitions imply
 
 == Extension classes
 
-NOTE: *Not implemented.* {extensionClass} is defined in `maddi-support`, but no part of the analyzer reads it,
+NOTE: *Not implemented.* {extensionClass} is defined in `maddi-annotation`, but no part of the analyzer reads it,
 and the criteria below are not applied.
 
 In Java, many classes cannot be extended easily.
@@ -415,7 +415,7 @@ Note that extension classes will often not be {container}, since the first param
 [#singleton-classes]
 == Singleton classes
 
-NOTE: *Not implemented.* {singleton} is defined in `maddi-support`, but no part of the analyzer reads it, and
+NOTE: *Not implemented.* {singleton} is defined in `maddi-annotation`, but no part of the analyzer reads it, and
 neither of the two mechanisms below is currently recognized.
 
 A singleton class is a class which has a mechanism to limit the creation of instances to a maximum of one.

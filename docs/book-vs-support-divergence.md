@@ -14,6 +14,12 @@ copy from, and each finding needs a judgement.
 Three of the findings change what the book *claims*, not just what it shows. They are marked
 **substantive** below.
 
+> **Status, 2026-08-18.** Findings 1, 3 and 5 are fixed, and finding 2 is half fixed: `Lazy` now drops
+> its supplier, so the book's central mechanism is back in the code, but the annotation the book's
+> argument arrives at is still not computed and the section now says so. Doing that rewrite turned up
+> finding 12, which was not visible from either side of the comparison. See *What to decide* at the
+> end for what is left.
+
 ## Summary
 
 | # | Where | What |
@@ -29,10 +35,14 @@ Three of the findings change what the book *claims*, not just what it shows. The
 | 9 | `EventuallyFinal` | Exception message |
 | 10 | `SetOnceMap` | `@Modified`, `@NotModified`, `@NotNull` now explicit |
 | 11 | §14 opening | `@ExtensionClass` and `@Singleton` are said to live in `maddi-support` |
+| 12 | `Lazy` | **new** — two ways to write the same return get different independence verdicts |
 
 ---
 
 ## 1. The chapter opening describes the wrong artifact
+
+**Fixed.** `110-support-classes.adoc` now names `maddi-annotation` and the Apache-2.0/LGPL-3.0 split; the three `120-other-annotations.adoc`
+mentions follow.
 
 > The `maddi-support-1.0.0.jar` library (in whichever version it comes) essentially contains the
 > annotations of the analyzer, and a small selection of support types.
@@ -57,7 +67,10 @@ annotation the book names.
 
 ## 2. `Lazy` — the listing's central mechanism is not in the code
 
-**substantive.**
+**substantive. Half fixed:** `Lazy` now drops its supplier (safely — see finding 12 for what the
+first attempt cost), and the §12.6 listing was rewritten to match it line for line. What follows is
+the record of how the divergence was found; the part that survives it is the annotation, not the
+code. See *What to decide*.
 
 The book:
 
@@ -213,7 +226,7 @@ Rule 2 extension needs to stand on its own rather than on an example.
 
 ## 3. `FirstThen` — the mark label, and an inconsistency inside the book
 
-**substantive.**
+**substantive. Fixed:** the listing now marks on `"first"` in all four places.
 
 The source marks on `"first"` throughout: `@ImmutableContainer(after="first")`, `@Mark("first")`,
 `@Only(before="first")`, `@Only(after="first")`.
@@ -477,20 +490,75 @@ example of it, in shipped code.
 
 ---
 
+## 12. Two ways to write the same return, two different independence verdicts
+
+**substantive, and it is about the analyzer rather than the book.**
+
+Found while doing the alignment above, and only because it was checked rather than assumed. These two
+bodies are the same program:
+
+```java
+value = Objects.requireNonNull(localSupplier.get());   //  D
+t = value;
+return value;                                          //  -> INDEPENDENT
+
+t = Objects.requireNonNull(localSupplier.get());       //  F
+return t;                                              //  -> INDEPENDENT_HC
+```
+
+`t` holds exactly what `value` holds, at the same instant, and both hand it to the caller. The verdicts
+differ by a full level, and the stronger one is wrong: `get()` gives the caller the object the field
+holds, which is `INDEPENDENT_HC` — independent *except through hidden content*. `INDEPENDENT` says the
+caller cannot reach anything the object holds.
+
+`TestLazyShapeIndependence` runs seven shapes and pins all seven, including the two wrong ones:
+
+```
+A original             INDEPENDENT_HC     the shape before the alignment
+B local read           INDEPENDENT_HC     guard reads the field into a local
+C clear only           INDEPENDENT_HC     the book's listing
+D local return         INDEPENDENT        <-- publishes through a local, returns the local
+E local return safe    INDEPENDENT        <-- D, made NPE-free; contains a literal `return t`
+F publish then read    INDEPENDENT_HC     what maddi-support.Lazy ships
+G Memo shape           INDEPENDENT_HC     Memo.get(Supplier)
+```
+
+Two things the table says. The link survives `local = field` (B, G) and survives being returned through
+the field (A, C, F), and is lost by `field = local` once the local has been reassigned. And E carries a
+literal `return t` on one of its branches while still being called `INDEPENDENT`, so the method's verdict
+is not the join over its return statements either.
+
+It matters because D/E is the natural way to write the idiom — and E is precisely what `Lazy` was
+rewritten to. Shipping it would have meant a support type whose own body makes the analyzer state
+something too strong about it, in the release the book is being published alongside. `Lazy` uses shape F
+instead, with a comment saying why; `Memo` is unaffected, since it never reassigns the local.
+
+---
+
 ## What to decide
 
-1. ~~**Finding 5** first, because it governs six of the others.~~ **Answered** by
-   `TestBookIndependenceOfSupportTypes`: yes at thirteen of sixteen positions. The remaining work is
-   a decision, not an investigation — put the thirteen annotations back into `maddi-support` (they
-   are verification the sources gave up), and fix the two `Lazy` rows in the book.
-2. **Finding 2**, `Lazy`, is now the only open question, and it got harder rather than easier:
-   clearing `supplier` does not change what the analyzer computes, so the book's Rule 2 extension has
-   no worked example. Is that a gap in the analyzer or a rule the book overstated? And separately:
-   should chapter 12 present `Lazy` as the lazy-initialisation story at all, when the analyzer's own
-   lazy caches are `@IgnoreModifications` memo fields (§050) and `Memo` is the canonical form of
-   that — undocumented in the book, and not yet adopted in the code.
-3. **Findings 1 and 3** are unambiguous and should be fixed before the book is announced with the
-   0.9.1 release — one misdescribes the artifact being published, the other is internally
-   inconsistent.
+~~1. **Finding 5** first, because it governs six of the others.~~ **Done.**
+`TestBookIndependenceOfSupportTypes` answered it — yes at thirteen of sixteen positions — and the
+thirteen are back in `maddi-support`, plus `SetOnce.getOrDefault` as plain `@Independent`, which is
+what the analyzer actually computes there.
 
-The rest are mechanical once 1–3 are settled.
+~~2. **Findings 1 and 3** are unambiguous.~~ **Done.** The chapter opening now names `maddi-annotation`
+and the licence split; `FirstThen`'s listing marks on `"first"` in all four places.
+
+**Still open, and both are yours:**
+
+1. **Finding 2, `Lazy`, the half that is left.** The code no longer diverges — `Lazy` drops its supplier,
+   as Kotlin's does, and the listing in §12.6 matches it line for line. What does not follow is the
+   argument: the analyzer says `@Dependent` for the `supplier` field and for the constructor parameter,
+   whether or not the field is emptied, so the augmented rule 2 ("or equal to null") licenses a
+   conclusion nothing computes. §12.6 now carries a *Not implemented* note, in the style §14 already
+   uses — that is a holding position, not an answer. Is this a gap in the analyzer, or a rule the book
+   overstates?
+2. **Should chapter 12 present `Lazy` as the lazy-initialisation story at all?** The analyzer's own lazy
+   caches are `@IgnoreModifications` memo fields (§050), and `Memo` is the canonical form of that —
+   undocumented, and not yet adopted in the code. Nothing about the alignment changes this question; it
+   only makes `Lazy` a better example of the idiom it does illustrate.
+3. **Finding 12** is an analyzer defect, not a book one, and it belongs to whoever owns the linking
+   engine. It is pinned, so it cannot be lost.
+
+The rest are mechanical.

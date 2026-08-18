@@ -1,10 +1,13 @@
 [[support-classes]]
 = Support classes
 
-The `maddi-support-1.0.0.jar` library (in whichever version it comes) essentially contains the
-annotations of the analyzer, and a small selection of support types.
-They are the eventually immutable building blocks that you can use in your project, irrespective
+The `maddi-support` library (in whichever version it comes) contains a small selection of support
+types: the eventually immutable building blocks that you can use in your project, irrespective
 of whether you want analyzer support or not.
+The annotations themselves live in a separate library, `maddi-annotation`, which is the single
+dependency `maddi-support` declares.
+That split is also a licence boundary: the annotations are Apache-2.0, so that annotating your code
+commits you to nothing, while the analyzer and its support types are LGPL-3.0.
 
 We discuss a selection of the building blocks here.
 
@@ -155,6 +158,75 @@ public class EventuallyFinal<T> {
 Note the occurrence of a negated {testMark} annotation: `isVariable` returns the negation of the normal
 `isFinal` mark test.
 
+[#support-eventuallyfinalondemand]
+=== EventuallyFinalOnDemand
+
+`EventuallyFinalOnDemand` is `EventuallyFinal` with a loader: the _before_ state may carry a `Runnable` that
+produces the final value on first access.
+The state transition is the same one, `isFinal`, with the same four state methods carrying the same annotations,
+so nothing in the previous section changes.
+Three things are new, and each of them is the only example of its kind in this text.
+
+.Example {counter:example}, parts of `io.codelaser.maddi.support.EventuallyFinalOnDemand`
+[source,java]
+----
+@ImmutableContainer(hc=true, after="isFinal")
+public class EventuallyFinalOnDemand<T> {
+    private volatile T value;
+    private volatile boolean isFinal;
+    private volatile Runnable onDemand;
+
+    @NotModified(after="isFinal") // <1>
+    public T get() {
+        if (isFinal) return value;
+        Runnable runnable = onDemand;
+        if (runnable != null) {
+            synchronized (this) {
+                Runnable again = onDemand; // <2>
+                if (again != null) {
+                    again.run(); // <3>
+                }
+            }
+        }
+        return value;
+    }
+
+    @Mark("isFinal")
+    public synchronized void setFinal(T value) {
+        if (this.isFinal) {
+            throw new IllegalStateException("Trying to overwrite final value");
+        }
+        this.value = value;
+        this.isFinal = true;
+        this.onDemand = null; // <4>
+    }
+
+    @Only(before="isFinal")
+    public synchronized void setOnDemand(Runnable onDemand) {
+        assert !isFinal && this.onDemand == null;
+        this.onDemand = onDemand;
+    }
+}
+----
+
+<1> {nm} with an `after` on a *method*, rather than on a field as in the table of <<eventual-immutability>>.
+Before the transition `get()` may run the loader, which writes; after it, it can only read.
+This is a property of its own, and it is what a lazy-loading getter that effects the transition earns.
+<2> The loader may have been run, and `onDemand` cleared, by another thread while this one waited for the monitor.
+<3> The monitor is reentrant, which the loader relies on: it calls `get()` from inside `run()`, on this thread.
+<4> The blanking of <<support-lazy>>, in a type that the analyzer itself uses.
+Only `setFinal` clears `onDemand`, and it sets `isFinal` in the same breath, so no value is ever returned while
+a loader is still pending.
+
+Note what `get()` does *not* carry: a {mark}.
+The transition happens during the call, but it is effected by the injected `Runnable`, which calls `setFinal` —
+so the mark is not provable from this type's own body.
+Compare `Lazy.get()` in <<support-lazy>>, which marks itself.
+
+`EventuallyFinal` is what a `MethodInfo`, `ParameterInfo` or `FieldInfo` uses to hold its inspection; `TypeInfo`
+uses this variant, because a type can also arrive by lazy bytecode load, long after the source that mentions it
+was parsed.
+
 [#support-freezable]
 == Freezable
 
@@ -259,26 +331,33 @@ public class Lazy<T> {
 
     @NotNull(content=true)
     @Independent(hc=true, after="t")
-    private Supplier<T> supplier;
+    @Final(after="t")
+    private volatile Supplier<T> supplier;
 
     @Final(after="t")
     private volatile T t;
 
-    public Lazy(@NotNull(content=true) @Independent(hc=true) Supplier<T> supplier) { // <1>
-        this.supplier = supplier;
+    public Lazy(@NotNull(content=true) @Independent(hc=true) Supplier<T> supplierParam) { // <1>
+        if (supplierParam == null) throw new NullPointerException("Null not allowed");
+        this.supplier = supplierParam;
     }
 
     @Independent(hc=true)
     @NotNull
+    @Modified
     @Mark("t") // <2>
     public T get() {
-        if (t != null) return t;
-        t = Objects.requireNonNull(supplier.get()); // <3>
-        supplier = null; // <4>
+        T value = t;
+        if (value != null) return value;
+        Supplier<T> localSupplier = supplier; // <3>
+        if (localSupplier == null) return t;
+        t = Objects.requireNonNull(localSupplier.get()); // <4>
+        supplier = null; // <5>
         return t;
     }
 
     @NotModified
+    @TestMark("t")
     public boolean hasBeenEvaluated() {
         return t != null;
     }
@@ -287,9 +366,14 @@ public class Lazy<T> {
 
 <1> The annotation has traveled from the field to the parameter; therefore the parameter has `@Independent(hc=true)`.
 <2> The {mark} annotation is conditional; the transition is triggered by nullity of `t`
-<3> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
+<3> `supplier` is read once, into a local. Reading the field twice is a race rather than a nicety: two threads
+find `t` null, the first completes and empties `supplier`, and the second dereferences what it re-reads as null.
+<4> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
 The statement also causes the {nncontent} annotation, as defined in <<nullable-section>> and <<identity-and-fluent>>.
-<4> After the transition from mutable to effectively immutable, the field `supplier` moves out of the picture.
+It publishes the value _before_ the next line empties the supplier, so a reader that sees `supplier == null` has
+already seen `t`.
+<5> After the transition from mutable to effectively immutable, the field `supplier` moves out of the picture.
+This is what Kotlin's three `Lazy` implementations do as well, each with its own `initializer = null`.
 
 After calling the marker method `get()`, `t` cannot be assigned anymore, and it becomes {final}.
 The constructor parameter `supplier` is `@Independent(hc=true)`, as its hidden content (the result of `get()`)
@@ -316,6 +400,14 @@ accessed, and are content-less: rule 4 should not be affected.
 In combination with effective finality, this allows the eventual "blanking out" of modifiable fields in
 immutable types.
 
+NOTE: *Not implemented.* The two `@Independent(hc=true)` annotations that this argument arrives at — on the
+field `supplier`, and on the constructor parameter it travels from — are not computed today: the analyzer
+concludes `@Dependent` at both positions.
+It does so whether or not `supplier` is emptied, so the augmented rule 2 is not what is stopping it.
+`get()` is annotated as printed.
+The measurement is in `TestBookIndependenceOfSupportTypes`, which runs this listing beside the shipped code and
+prints both verdicts.
+
 [#support-firstthen]
 == FirstThen
 
@@ -325,7 +417,7 @@ value, and transitions to another:
 .Example {counter:example}, `io.codelaser.maddi.support.FirstThen`
 [source,java]
 ----
-@ImmutableContainer(hc=true, after="mark")
+@ImmutableContainer(hc=true, after="first")
 public class FirstThen<S, T> {
     private volatile S first;
     private volatile T then;
@@ -346,7 +438,7 @@ public class FirstThen<S, T> {
         return first == null;
     }
 
-    @Mark("mark")
+    @Mark("first")
     public void set(@Independent(hc=true) @NotNull T then) {
         Objects.requireNonNull(then);
         synchronized (this) {
@@ -356,7 +448,7 @@ public class FirstThen<S, T> {
         }
     }
 
-    @Only(before="mark")
+    @Only(before="first")
     @Independent(hc=true)
     @NotModified 
     @NotNull 
@@ -368,7 +460,7 @@ public class FirstThen<S, T> {
         return s;
     }
 
-    @Only(after="mark")
+    @Only(after="first")
     @Independent(hc=true)
     @NotModified 
     @NotNull 
