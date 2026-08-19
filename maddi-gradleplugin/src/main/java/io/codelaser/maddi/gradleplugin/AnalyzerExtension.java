@@ -42,6 +42,12 @@ public class AnalyzerExtension {
     public String debugTargets;
 
     /* InputConfiguration */
+    /**
+     * The JDK modules to put on the parse class path, comma- or semicolon-separated. Unset means
+     * {@link io.codelaser.maddi.run.config.util.JavaModules#DEFAULT_JMODS}, i.e. the whole {@code java.se}
+     * closure -- <b>not</b> {@code java.base} alone, which is what this field's absent default used to mean while
+     * the Maven plugin declared {@code java.se}.
+     */
     public String jmods;
     public String jre;
     /**

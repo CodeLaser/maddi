@@ -26,14 +26,12 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.op.Linearize;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -171,7 +169,7 @@ public abstract class CommonMojo extends AbstractMojo {
         ComputeDependencies.SourceSetDependencies result = new ComputeSourceSets(dependenciesResolver, project,
                 session, getLog()).compute(sourceEncoding, sourcePackages, testSourcePackages, excludeFromClasspathSet);
 
-        List<SourceSet> javaModules = makeJavaModules(jmods);
+        List<SourceSet> javaModules = JavaModules.javaModuleSourceSets(jmods);
         javaModules.forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
         G<String> graph = new ComputeDependencies(s -> getLog().debug(s)).go(result);
@@ -205,20 +203,6 @@ public abstract class CommonMojo extends AbstractMojo {
             }
         }
         return builder.build();
-    }
-
-    private List<SourceSet> makeJavaModules(String jmodsString) {
-        List<SourceSet> sets = new ArrayList<>();
-        Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
-        for (String jmod : jmods) {
-            if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl.Builder().setName(jmod)
-                        .setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
-                sets.add(set);
-            }
-        }
-        return sets;
     }
 
     protected record ParseSourcesResult(ParseResult parseResult,

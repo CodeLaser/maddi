@@ -17,6 +17,7 @@ package io.codelaser.maddi.gradleplugin.inputconfig;
 import io.codelaser.maddi.gradleplugin.AnalyzerExtension;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.run.config.util.PluginSourceSets;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ArtifactView;
 import org.gradle.api.artifacts.Configuration;
@@ -41,7 +42,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
 import java.util.*;
@@ -228,13 +228,17 @@ public class ComputeSourceSets {
     private Result dependentProjectResult(String projectName, List<Path> paths, String restrictTo,
                                           String encodingString) {
         String sourceSetName = projectName + "/main";
-        SourceSet sourceSet = new SourceSetImpl.Builder().setName(sourceSetName)
-                .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
-                .setSourceEncoding(encodingString == null ? null : Charset.forName(encodingString))
-                .setModule(isModularSource(paths))
-                .setRestrictToPackages(restrictToPackages(restrictTo))
-                .build();
-        return new Result(sourceSetName, new HashMap<>(Map.of(sourceSetName, sourceSet)), List.of(), Map.of());
+        // ⚠ NO CLASS OUTPUT. The e2immuSourceElements variant publishes source DIRECTORIES and nothing else, so
+        // this is the one source set whose uri must stay a source directory -- see PluginSourceSets#classPathUri
+        // for what that costs. Publishing the classes directory on the variant too would close it.
+        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, null,
+                encodingString == null ? null : Charset.forName(encodingString), false,
+                restrictToPackages(restrictTo));
+        // null when none of the published directories exists any more. Map.of would throw on it, and a Result
+        // holding no source set is exactly what "this project contributes nothing" means.
+        Map<String, SourceSet> byName = new HashMap<>();
+        if (sourceSet != null) byName.put(sourceSetName, sourceSet);
+        return new Result(sourceSetName, byName, List.of(), Map.of());
     }
 
     /**
@@ -354,31 +358,17 @@ public class ComputeSourceSets {
         if (kotlin instanceof SourceDirectorySet kotlinDirs) {
             srcDirs.addAll(kotlinDirs.getSrcDirs());
         }
-        // Emit ABSOLUTE source directories and a hierarchical file:/... URI. A relative/opaque URI (file:src) makes
-        // maddi's openjdk inspector skip this source set when it appears as another set's dependency (test -> main),
-        // because it cannot Path.of() an opaque URI -- so test sources then fail to resolve main types. Absolute
-        // paths also remove any dependence on the process working directory. (Mirrors the Maven plugin.)
-        List<Path> paths = srcDirs.stream()
-                .filter(File::canRead).map(f -> f.getAbsoluteFile().toPath().normalize()).toList();
-        if (paths.isEmpty()) return null;
-        return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
-                .setBuildUnit(buildUnit)
-                .setSourceDirectories(paths).setUri(paths.getFirst().toUri())
-                .setSourceEncoding(sourceEncoding).setTest(test)
-                .setModule(isModularSource(paths))
-                .setRestrictToPackages(restrictToPackages).build();
+        List<Path> paths = srcDirs.stream().map(f -> f.getAbsoluteFile().toPath().normalize()).toList();
+        // The directory this set compiles to: what a DEPENDENT set resolves its references into through javac's
+        // class path. Gradle's own destination for the java part of the set; a Kotlin set compiles to a sibling
+        // directory that a single uri cannot also name.
+        Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
+        return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
+                test, restrictToPackages);
     }
 
-    /**
-     * A source set is a Java module when one of its source directories holds a {@code module-info.java}. The
-     * distinction is not cosmetic: the openjdk front end puts a module's dependencies on javac's <em>module
-     * path</em>, and without the flag every {@code requires}d package comes back as "package X is not visible".
-     */
-    private static boolean isModularSource(List<Path> paths) {
-        return paths.stream().anyMatch(p -> Files.isRegularFile(p.resolve("module-info.java")));
-    }
-
-    /** As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}. */
+    /** As {@link PluginSourceSets#isModularSource}, for a dependency: an explicit module carries a
+     * {@code module-info.class}. */
     private static boolean isModularArtifact(File file) {
         if (file.isDirectory()) {
             return new File(file, "module-info.class").canRead();

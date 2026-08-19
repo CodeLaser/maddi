@@ -14,11 +14,60 @@
 
 package io.codelaser.maddi.run.config.util;
 
+import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class JavaModules {
+
+    /**
+     * The JDK modules a parse needs when the caller states none. <b>Not {@code java.base}:</b> a non-modular
+     * corpus sees the whole platform, so anything reaching {@code java.xml}, {@code java.sql} or
+     * {@code java.desktop} resolves against nothing when only {@code java.base} is offered.
+     * <p>
+     * ⛔ It lives here because it was previously stated once per plugin, and only once: the Maven plugin declared
+     * {@code @Parameter(defaultValue = "java.se")} while the Gradle plugin's extension field defaulted to null,
+     * i.e. to {@code java.base} alone. Measured on fernflower: 1 JDK class path part instead of 20, and 17
+     * "Unknown module java.compiler, add to classpath?" warnings that a caller has no way to connect to a
+     * missing default.
+     */
+    public static final String DEFAULT_JMODS = "java.se";
+
+    /**
+     * One JDK module as a class path part. The three callers that used to build this inline -- both build plugins
+     * and {@code CompileListToInputConfiguration} -- wrote the same six setters, and the {@code jmod:} URI scheme
+     * is what {@code JavaInspectorImpl} dispatches on, so a divergence here is not cosmetic.
+     */
+    public static SourceSet jmodSourceSet(String jmod) {
+        return new SourceSetImpl.Builder().setName(jmod)
+                .setUri(URI.create("jmod:" + jmod))
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setPartOfJdk(true)
+                .setModule(true)
+                .build();
+    }
+
+    /**
+     * The JDK class path parts a build plugin contributes, from its {@code jmods} option: the closure of what was
+     * asked for, or of {@link #DEFAULT_JMODS} when nothing was.
+     * <p>
+     * Sorted, because {@link #jmodsFromString} returns a {@link HashSet} and its iteration order is not stable
+     * across runs -- which would shuffle the serialized configuration and make two runs at one revision differ.
+     */
+    public static List<SourceSet> javaModuleSourceSets(String jmodsString) {
+        String effective = jmodsString == null || jmodsString.isBlank() ? DEFAULT_JMODS : jmodsString;
+        return jmodsFromString(effective).stream()
+                .filter(jmod -> !jmod.isBlank())
+                .sorted()
+                .map(JavaModules::jmodSourceSet)
+                .toList();
+    }
 
     public static Set<String> jmodsFromString(String jmodsString) {
         Set<String> jmods = new HashSet<>();

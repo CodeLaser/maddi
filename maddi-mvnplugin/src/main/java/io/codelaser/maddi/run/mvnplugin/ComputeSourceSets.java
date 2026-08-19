@@ -4,6 +4,7 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.*;
 import io.codelaser.maddi.run.config.util.ComputeDependencies;
+import io.codelaser.maddi.run.config.util.PluginSourceSets;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.eclipse.aether.artifact.Artifact;
@@ -63,16 +64,12 @@ public class ComputeSourceSets {
         if (!sourcePaths.isEmpty()) {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
-            SourceSet mainSourceSet = new SourceSetImpl.Builder()
-                    .setName(projectName + "/main")
-                    .setBuildUnit(buildUnit)
-                    .setSourceDirectories(sourcePaths)
-                    .setUri(sourcePaths.getFirst().toUri())
-                    .setSourceEncoding(encoding)
-                    .setRestrictToPackages(restrictToPackages)
-                    .setDependencies(List.copyOf(deps))
-                    .build();
-            sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
+            SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
+                    Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages);
+            if (mainSourceSet != null) {
+                mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
+                sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
+            }
         }
         deps.addAll(computeClassPathParts(JavaScopes.TEST, true, false, sourceSetsByName,
                 excludeFromClasspathSet));
@@ -81,17 +78,13 @@ public class ComputeSourceSets {
         if (!testSourcePaths.isEmpty()) {
             Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
 
-            SourceSet testSourceSet = new SourceSetImpl.Builder()
-                    .setName(projectName + "/test")
-                    .setBuildUnit(buildUnit)
-                    .setSourceDirectories(testSourcePaths)
-                    .setUri(testSourcePaths.getFirst().toUri())
-                    .setSourceEncoding(encoding)
-                    .setTest(true)
-                    .setRestrictToPackages(restrictToTestPackages)
-                    .setDependencies(List.copyOf(deps))
-                    .build();
-            sourceSetsByName.put(testSourceSet.name(), testSourceSet);
+            SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
+                    Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
+                    restrictToTestPackages);
+            if (testSourceSet != null) {
+                testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
+                sourceSetsByName.put(testSourceSet.name(), testSourceSet);
+            }
         }
 
         return new ComputeDependencies.SourceSetDependencies("main", sourceSetsByName);
