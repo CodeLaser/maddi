@@ -111,10 +111,14 @@ public class ComputeSourceSets {
         // sibling projects that publish their sources come first: their artifacts must NOT also be recorded as
         // jar classpath parts, or the same types arrive twice, once parsed and once shallow
         Map<String, List<Path>> sourcesByProject = collectProjectSources(project, configurations);
-        inspectConfigurations(excludeFromClasspath, configurations, sourceSetsByName, sourcesByProject.keySet());
+        // ...and the artifact each of them WOULD have contributed is exactly the class output their source set
+        // needs, so inspectConfigurations hands it back rather than dropping it on the floor.
+        Map<String, Path> classOutputByProject = inspectConfigurations(excludeFromClasspath, configurations,
+                sourceSetsByName, sourcesByProject.keySet());
         String mainSourceSetName = projectName + "/main";
         List<Result> dependentProjects = sourcesByProject.entrySet().stream()
-                .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding))
+                .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding,
+                        classOutputByProject.get(e.getKey())))
                 .toList();
         // the dependency edges AMONG the source-contributing projects (e.g. cst-analysis -> cst-api). Without
         // them a transitive source project cannot resolve the types it depends on and the front end drops it.
@@ -126,9 +130,15 @@ public class ComputeSourceSets {
         return result;
     }
 
-    private void inspectConfigurations(Set<String> excludeFromClasspath,
+    /**
+     * @return the class output of each project in {@code projectsProvidingSources}: the artifact it contributes to
+     * this class path, which is precisely what its source set's {@code uri} must be. Collected here because this is
+     * the only place that sees it -- the variant those projects publish carries source directories and nothing else.
+     */
+    private Map<String, Path> inspectConfigurations(Set<String> excludeFromClasspath,
                                        List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName,
                                        Set<String> projectsProvidingSources) {
+        Map<String, Path> classOutputByProject = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (configuration.isCanBeResolved()) {
                 String configurationName = configuration.getName();
@@ -156,6 +166,13 @@ public class ComputeSourceSets {
                         description = pci.getProjectName();
                         excludedByCoordinate = excludeFromClasspath.contains(pci.getProjectName())
                                                || projectsProvidingSources.contains(pci.getProjectName());
+                        // A directory is the compile output; a jar is the packaged form of the same thing. Prefer
+                        // the directory: it is what the producing build actually compiles into, so it is current
+                        // whenever the build is, and javac reads a directory as happily as a jar.
+                        if (projectsProvidingSources.contains(pci.getProjectName()) && file.canRead()
+                            && (file.isDirectory() || !classOutputByProject.containsKey(pci.getProjectName()))) {
+                            classOutputByProject.put(pci.getProjectName(), file.getAbsoluteFile().toPath());
+                        }
                         name = projectPartName(pci, file);
                     } else {
                         continue;
@@ -188,6 +205,7 @@ public class ComputeSourceSets {
                 }
             }
         }
+        return classOutputByProject;
     }
 
     /**
@@ -237,14 +255,18 @@ public class ComputeSourceSets {
      * i.e. the cross-project access this whole mechanism exists to avoid.
      */
     private Result dependentProjectResult(String projectName, List<Path> paths, String restrictTo,
-                                          String encodingString) {
+                                          String encodingString, Path classOutput) {
         String sourceSetName = projectName + "/main";
-        // ⚠ NO CLASS OUTPUT. The e2immuSourceElements variant publishes source DIRECTORIES and nothing else, so
-        // this is the one source set whose uri must stay a source directory -- see PluginSourceSets#classPathUri
-        // for what that costs. Publishing the classes directory on the variant too would close it.
-        // ⚠ sourceRelease 0, for the same reason the class output is null: a sibling's compile task belongs to
-        // another project, and reading it is the cross-project access this whole mechanism exists to avoid.
-        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, null,
+        // ⛔ THE CLASS OUTPUT MATTERS MOST HERE, not least. The variant publishes source DIRECTORIES, so this
+        // set's uri used to be the first of them -- and a dependent resolves into it through javac's class path,
+        // which doubles as a source path, so only the types under THAT ONE directory were findable. A project
+        // whose sources are split across roots lost everything outside the first: measured on pulsar, where
+        // pulsar-common generates org.apache.pulsar.common.api.proto into a second, generated root and 64
+        // diagnostics followed. The artifact the class path already carried is that output; see
+        // inspectConfigurations, which now hands it over instead of discarding it.
+        // ⚠ sourceRelease stays 0: a sibling's compile task belongs to another project, and reading it is the
+        // cross-project access this whole mechanism exists to avoid.
+        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
                 restrictToPackages(restrictTo), 0);
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
