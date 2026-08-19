@@ -42,7 +42,7 @@ public class TestPluginSourceSets {
         Path classes = Files.createDirectories(dir.resolve("build/classes/java/main"));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
-                StandardCharsets.UTF_8, false, null);
+                StandardCharsets.UTF_8, false, null, 0);
 
         assertNotNull(set);
         assertEquals(classes.toUri(), set.uri(), "the uri must be the class output, not the source directory");
@@ -65,7 +65,7 @@ public class TestPluginSourceSets {
         assertFalse(Files.exists(notCompiledYet));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), notCompiledYet,
-                StandardCharsets.UTF_8, false, null);
+                StandardCharsets.UTF_8, false, null, 0);
 
         assertNotNull(set);
         assertEquals(notCompiledYet.toUri(), set.uri(),
@@ -77,7 +77,7 @@ public class TestPluginSourceSets {
     public void noClassOutputFallsBackToTheSourceDirectory(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
 
-        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null);
+        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0);
 
         assertNotNull(set);
         assertEquals(src.toUri(), set.uri());
@@ -94,11 +94,11 @@ public class TestPluginSourceSets {
         Path absent = dir.resolve("src/main/generated");
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(real, absent), null, null, false,
-                null);
+                null, 0);
         assertNotNull(set);
         assertEquals(List.of(real), set.sourceDirectories());
 
-        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null),
+        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0),
                 "a source set over no existing directory must not be created at all");
     }
 
@@ -112,9 +112,40 @@ public class TestPluginSourceSets {
         assertFalse(PluginSourceSets.isModularSource(List.of(plain)));
         assertTrue(PluginSourceSets.isModularSource(List.of(plain, modular)));
 
-        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null);
+        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0);
         assertNotNull(set);
         assertTrue(set.isModule());
     }
 
+
+    /**
+     * ⛔ THE PARSE OTHERWISE RUNS ON WHATEVER JDK MADDI IS, NOT THE ONE THE CORPUS TARGETS. Measured on pulsar:
+     * the corpus states release 17, the plugin recorded nothing, and {@code Thread.suspend()} -- gone from
+     * JDK 26 -- stopped resolving in {@code ZooKeeperUtil}.
+     */
+    @Test
+    public void sourceReleaseIsRecordedPerSet(@TempDir Path dir) throws IOException {
+        Path src = Files.createDirectories(dir.resolve("src"));
+        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17);
+        assertNotNull(set);
+        assertEquals(17, set.sourceRelease());
+        // 0 means "the build said nothing", which is not the same as "release 0"
+        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0);
+        assertNotNull(silent);
+        assertEquals(0, silent.sourceRelease());
+    }
+
+    /** Both build tools spell the level in more than one way, and neither guarantees one is set at all. */
+    @Test
+    public void releaseStringsAreParsedInEverySpelling() {
+        assertEquals(21, PluginSourceSets.parseRelease("21"));
+        assertEquals(8, PluginSourceSets.parseRelease("1.8"));
+        assertEquals(8, PluginSourceSets.parseRelease("8"));
+        assertEquals(25, PluginSourceSets.parseRelease(" 25 "));
+        // "says nothing" and "cannot be a version" both mean 0, never a wrong number
+        assertEquals(0, PluginSourceSets.parseRelease(null));
+        assertEquals(0, PluginSourceSets.parseRelease(""));
+        assertEquals(0, PluginSourceSets.parseRelease("VERSION_21"));
+        assertEquals(0, PluginSourceSets.parseRelease("0"));
+    }
 }

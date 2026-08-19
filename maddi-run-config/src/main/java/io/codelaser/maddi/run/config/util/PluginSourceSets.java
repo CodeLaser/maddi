@@ -78,6 +78,12 @@ public class PluginSourceSets {
      * {@code Path.of(URI)} refuses, and it would tie the run to the process's working directory (a Gradle worker
      * does not share the build's).
      *
+     * @param sourceRelease the Java API level this set is compiled against, {@code 0} when the build says
+     *                      nothing. <b>Per set, never global.</b> {@code InputConfiguration.sourceRelease} can
+     *                      state one answer for a whole configuration, so it has to abstain the moment a build
+     *                      compiles two of its modules against different releases -- and abstaining means the
+     *                      parse runs on whatever JDK it happens to be, where every API removed since reads as
+     *                      "cannot find symbol". Per set there is nothing to abstain from.
      * @return {@code null} when no source directory of this set exists on disk -- a set over nothing contributes
      * no compilation units, and naming an absent path in the configuration only produces an unresolvable entry.
      */
@@ -87,7 +93,8 @@ public class PluginSourceSets {
                                       Path classOutput,
                                       Charset sourceEncoding,
                                       boolean test,
-                                      Set<String> restrictToPackages) {
+                                      Set<String> restrictToPackages,
+                                      int sourceRelease) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
                 .filter(Files::isDirectory)
@@ -103,7 +110,25 @@ public class PluginSourceSets {
                 .setTest(test)
                 .setModule(isModularSource(existing))
                 .setRestrictToPackages(restrictToPackages)
+                .setSourceRelease(sourceRelease)
                 .build();
+    }
+
+    /**
+     * {@code "21"}, {@code "1.8"}, {@code "8"} -> {@code 21}, {@code 8}, {@code 8}; anything else -> {@code 0}.
+     * Both build tools state the level as a string in more than one spelling, and neither guarantees one is set.
+     */
+    public static int parseRelease(String release) {
+        if (release == null || release.isBlank()) return 0;
+        String trimmed = release.trim();
+        // the "1.N" spelling stops at 1.8; "1.10" was never a Java version, so this is not ambiguous
+        if (trimmed.startsWith("1.")) trimmed = trimmed.substring(2);
+        try {
+            int value = Integer.parseInt(trimmed);
+            return value > 0 ? value : 0;
+        } catch (NumberFormatException notAVersion) {
+            return 0;
+        }
     }
 
     /**
