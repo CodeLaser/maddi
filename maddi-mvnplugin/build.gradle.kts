@@ -16,6 +16,9 @@
 plugins {
     id("java-library-conventions")
     `maven-publish`
+    // The Central leg. Mirrors maddi-annotation: staging repository below, signing + deploy at the
+    // bottom. Without this there is no jreleaserDeploy task and the plugin cannot leave this machine.
+    id("org.jreleaser")   // version in the root build script, deliberately
     // NOTE: the Maven-plugin descriptor is NOT generated from the annotations — the usual tool,
     // id("de.benediktritter.maven-plugin-development") 0.4.3 (latest), is incompatible with Gradle 9 (it calls the
     // removed ProjectDependency.getDependencyProject()). Instead a hand-maintained descriptor lives at
@@ -29,12 +32,17 @@ plugins {
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
+    // java-library-conventions provides neither, and Central requires both. They do not widen the
+    // POM: the publication names its artifacts one by one rather than taking the java component.
+    withSourcesJar()
+    withJavadocJar()
 }
 
 // version comes from the root gradle.properties (single release train — see PUBLISHING.md)
 
 val mavenVersion = "3.9.9"
 val mavenPluginToolsVersion = "3.15.1"
+
 
 // Everything in `shade` is bundled into the shadow jar; `implementation` extends it so the same artifacts
 // are on the compile/runtime classpath. Deliberately NOT shaded (provided by the Maven runtime that hosts
@@ -122,6 +130,11 @@ publishing {
             name = "localPluginRepo"
             url = uri(localPluginRepoDir)
         }
+        // What jreleaserDeploy uploads from; a directory, not a server.
+        maven {
+            name = "staging"
+            url = uri(layout.buildDirectory.dir("staging-deploy"))
+        }
     }
     publications {
         // Publish the self-contained shadow jar with a maven-plugin POM. The publication is built from the
@@ -129,6 +142,12 @@ publishing {
         // consumer needs is either bundled in the jar or provided by the Maven runtime.
         create<MavenPublication>("mavenPlugin") {
             artifact(tasks.shadowJar)
+            // ⛔ Named one by one, NOT via from(components["java"]). The component would drag the
+            // whole dependency graph into the POM, and everything a consumer needs is already either
+            // bundled in the shadow jar or provided by the Maven runtime. Central requires a sources
+            // and a javadoc jar, so they are attached here instead.
+            artifact(tasks.named("sourcesJar"))
+            artifact(tasks.named("javadocJar"))
             pom {
                 packaging = "maven-plugin"
                 name.set("maddi Maven plugin")
@@ -140,6 +159,17 @@ publishing {
                         name.set("LGPL-3.0-or-later")
                         url.set("https://www.gnu.org/licenses/lgpl-3.0.en.html")
                     }
+                }
+                // Central validation refuses a POM without developers and scm.
+                developers {
+                    developer {
+                        name.set("Bart Naudts")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:git://github.com/CodeLaser/maddi.git")
+                    developerConnection.set("scm:git:ssh://github.com/CodeLaser/maddi.git")
+                    url.set("https://github.com/CodeLaser/maddi")
                 }
             }
         }
@@ -155,5 +185,42 @@ tasks.processResources {
         filter<org.apache.tools.ant.filters.ReplaceTokens>(
             "tokens" to mapOf("project.version" to descriptorVersion)
         )
+    }
+}
+
+// The Central deploy, mirroring maddi-annotation. Unlike that module this one is LGPL-3.0-or-later:
+// the plugin shades the analyzer, and the analyzer's licence travels with it.
+jreleaser {
+    gitRootSearch = true
+
+    project {
+        name.set("maddi-mvnplugin")
+        description = "Run the maddi analyzer (modification analysis for duplication detection and immutability) from Maven."
+        license.set("LGPL-3.0-or-later")
+        authors.set(listOf("Bart Naudts"))
+        copyright.set("2020-2026 Bart Naudts")
+
+        links {
+            homepage.set("https://github.com/CodeLaser/maddi")
+            documentation.set("https://www.codelaser.io/maddi/manual/")
+        }
+    }
+
+    signing {
+        active.set(org.jreleaser.model.Active.ALWAYS)
+        armored = true
+        mode = org.jreleaser.model.Signing.Mode.FILE
+    }
+
+    deploy {
+        maven {
+            mavenCentral {
+                create("sonatype") {
+                    active.set(org.jreleaser.model.Active.ALWAYS)
+                    url.set("https://central.sonatype.com/api/v1/publisher")
+                    stagingRepository("${buildFile.parent}/build/staging-deploy")
+                }
+            }
+        }
     }
 }
