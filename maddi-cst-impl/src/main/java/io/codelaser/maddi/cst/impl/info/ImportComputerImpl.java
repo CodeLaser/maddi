@@ -80,6 +80,32 @@ public class ImportComputerImpl implements ImportComputer {
         return declaring == writtenQualifier ? null : declaring;
     }
 
+    /**
+     * A nested type declared by a SUPERTYPE is inherited into scope: {@code class Sub extends Base} resolves
+     * {@code Base.Handle} by its bare name and needs no import for it. Importing it anyway is at best noise
+     * and at worst does not compile — {@code import a.Base.Handle;} for a {@code protected} member from
+     * another package is rejected outright ("Handle has protected access in Base").
+     * <p>
+     * ⛔ Found on OpenSearch, 2026-08-19: promoting one nested enum rewrote 247 files and added <b>209</b>
+     * imports of inherited nested types — 176 × {@code RestHandler.Route}, 24 × the protected
+     * {@code BaseRestHandler.RestChannelConsumer} — and {@code :server:compileJava} failed with 21 errors.
+     * The public 185 would have compiled and shipped as diff noise nobody questioned, which is why this is
+     * suppressed for the whole shape rather than only for the inaccessible half.
+     * <p>
+     * ⚠ Only the DECLARING type is consulted, not the whole enclosing chain: Java inherits a member type one
+     * level, so {@code Base.Outer.Inner} is not in a subclass's scope unless the subclass extends
+     * {@code Base.Outer} itself — which this test then sees, because that is its declaring type.
+     */
+    private static boolean inheritedIntoScope(CompilationUnit compilationUnit, TypeInfo ti) {
+        if (ti.isPrimaryType()) return false;
+        var enclosing = ti.compilationUnitOrEnclosingType();
+        if (enclosing.isLeft()) return false;
+        TypeInfo declaring = enclosing.getRight();
+        return compilationUnit.types().stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream)
+                .anyMatch(t -> t.superTypesExcludingJavaLangObject().contains(declaring));
+    }
+
     private static class PerPackage {
         final List<TypeInfo> types = new LinkedList<>();
 
@@ -166,7 +192,8 @@ public class ImportComputerImpl implements ImportComputer {
             boolean sameUnit = ti.primaryType().compilationUnit() == compilationUnit;
             boolean inScopeWithoutImport = sameUnit
                                            || myPackage.equals(packageName)
-                                              && (ti.isPrimaryType() || !extra.contains(ti));
+                                              && (ti.isPrimaryType() || !extra.contains(ti))
+                                           || inheritedIntoScope(compilationUnit, ti);
             if (packageName != null && !inScopeWithoutImport && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);
