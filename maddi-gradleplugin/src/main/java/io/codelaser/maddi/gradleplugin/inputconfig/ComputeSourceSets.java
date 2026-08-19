@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * targets for sources:
  * <ul>
  *     <li>multiple directories in a source set (DONE)</li>
- *     <li>source sets beyond main, test in the same project (e.g. functionalTest in testgradlepluginanalyzer (DONE)</li>
+ *     <li>source sets beyond main, test in the same project (e.g. functionalTest) (DONE)</li>
  *     <li>dependent source project in multi-project build (DONE, see {@code collectProjectSources})</li>
  *     <li>dependent source projects in composite build (TODO, current attempts have failed)</li>
  * </ul>

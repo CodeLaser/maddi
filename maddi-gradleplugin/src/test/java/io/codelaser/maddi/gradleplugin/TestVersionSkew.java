@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -127,19 +125,5 @@ public class TestVersionSkew {
         try (Stream<Path> versions = Files.list(artifact)) {
             return versions.filter(Files::isDirectory).map(p -> p.getFileName().toString()).sorted().toList();
         }
-    }
-
-    @DisplayName("the Maven export pom tracks the project version")
-    @Test
-    public void theMavenExportPomTracksTheProjectVersion() throws IOException {
-        // Maven has no includeBuild, so this one MUST name a version -- which is exactly why it is the one that
-        // goes stale unnoticed. It sat at 0.8.1-SNAPSHOT, two releases behind, while the rename runbook recorded
-        // the item as done: the coordinates had been renamed, the version had not.
-        Path pom = ROOT.resolve("testmvnplugin-export/pom.xml");
-        assertTrue(Files.isRegularFile(pom), "expected the Maven export at " + pom);
-        Matcher m = Pattern.compile("<maddi\\.version>([^<]*)</maddi\\.version>").matcher(Files.readString(pom));
-        assertTrue(m.find(), "no <maddi.version> property in " + pom);
-        assertEquals(VERSION, m.group(1).strip(), "the Maven export pom names a maddi version the project no"
-                                                  + " longer builds: " + pom);
     }
 }

@@ -148,8 +148,7 @@ metrics until it was found.
 | `maddi-manual` | The user-facing manual (AsciiDoc → HTML/PDF): getting started, plugins, CLI, configuration, exit codes. |
 | `road-to-immutability` | The concepts book (AsciiDoc) + its maintained digest `llm-summary.md`. |
 
-Not in the Gradle build: `testgradleplugin-*` and `testmvnplugin-export` (plugin test fixtures,
-currently excluded/Maven-based), `maddi-eclipse` (Tycho), `maddi-vscode` (npm), `target/`
+Not in the Gradle build: `maddi-eclipse` (Tycho), `maddi-vscode` (npm), `target/`
 (JReleaser staging output).
 
 ## What is published, and for whom
