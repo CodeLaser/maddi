@@ -251,8 +251,14 @@ def plan(entry, phase):
         jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
         if route == 'maven-plugin':
             ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
+            # A project's build may force switches on us that this invocation has to repeat: it is a
+            # separate `mvn` run from the build phase and inherits nothing from it. jenkins is the case
+            # -- its maven.config activates a profile carrying an enforcer rule that the pinned enforcer
+            # cannot load, so without -Denforcer.skip=true the run dies before the mojo is reached. The
+            # Gradle counterpart of this field is `gradle_args`.
+            flags = f' {c["mvn_flags"]}' if c.get('mvn_flags') else ''
             return mk + (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
-                    f'mvn -pl {c["module"]} generate-test-sources '
+                    f'mvn{flags} -pl {c["module"]} generate-test-sources '
                     f'io.codelaser:maddi-mvnplugin:{ver}:write-input-configuration'
                     f' && cp {c["module"]}/target/inputConfiguration.json {out}')
         if route == 'gradle-plugin':
