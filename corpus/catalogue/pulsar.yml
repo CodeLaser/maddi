@@ -1,0 +1,31 @@
+name: pulsar
+status: active
+summary: >-
+  The MULTI-MODULE Gradle corpus — 90 source sets across ~79 projects, captured whole by the
+  compile-log route. This is the tree that found the Gradle plugin's multi-module defects; see
+  `pulsar-plugin` for the entry that exercises them.
+
+source:
+  kind: git
+  url: https://github.com/apache/pulsar.git
+
+build:
+  # ⛔ -PskipJavaVersionCheck OR THE BUILD REFUSES TO CONFIGURE. pulsar's settings script rejects
+  # JDK 26 before any task exists, so this is not a convenience flag: without it nothing runs, and
+  # the failure is a configuration error rather than anything about the code.
+  cmd: ./gradlew compileTestJava -PskipJavaVersionCheck
+  expect: complete
+  provides:
+    - managed-ledger/build/classes/java/main
+    - pulsar-common/build/classes/java/main
+
+config:
+  route: gradle-log
+  # The flag rides along in `tasks`, which the route interpolates straight into the gradlew line.
+  tasks: compileTestJava -PskipJavaVersionCheck
+  baseline: baselines/pulsar.tsv
+  generates: [compile.log, inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  steps: [modification]

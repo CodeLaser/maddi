@@ -42,7 +42,7 @@ public class TestPluginSourceSets {
         Path classes = Files.createDirectories(dir.resolve("build/classes/java/main"));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
-                StandardCharsets.UTF_8, false, null, 0);
+                StandardCharsets.UTF_8, false, null, 0, List.of());
 
         assertNotNull(set);
         assertEquals(classes.toUri(), set.uri(), "the uri must be the class output, not the source directory");
@@ -65,7 +65,7 @@ public class TestPluginSourceSets {
         assertFalse(Files.exists(notCompiledYet));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), notCompiledYet,
-                StandardCharsets.UTF_8, false, null, 0);
+                StandardCharsets.UTF_8, false, null, 0, List.of());
 
         assertNotNull(set);
         assertEquals(notCompiledYet.toUri(), set.uri(),
@@ -77,7 +77,7 @@ public class TestPluginSourceSets {
     public void noClassOutputFallsBackToTheSourceDirectory(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
 
-        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0);
+        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0, List.of());
 
         assertNotNull(set);
         assertEquals(src.toUri(), set.uri());
@@ -94,11 +94,11 @@ public class TestPluginSourceSets {
         Path absent = dir.resolve("src/main/generated");
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(real, absent), null, null, false,
-                null, 0);
+                null, 0, List.of());
         assertNotNull(set);
         assertEquals(List.of(real), set.sourceDirectories());
 
-        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0),
+        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0, List.of()),
                 "a source set over no existing directory must not be created at all");
     }
 
@@ -112,7 +112,7 @@ public class TestPluginSourceSets {
         assertFalse(PluginSourceSets.isModularSource(List.of(plain)));
         assertTrue(PluginSourceSets.isModularSource(List.of(plain, modular)));
 
-        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0);
+        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0, List.of());
         assertNotNull(set);
         assertTrue(set.isModule());
     }
@@ -126,11 +126,11 @@ public class TestPluginSourceSets {
     @Test
     public void sourceReleaseIsRecordedPerSet(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
-        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17);
+        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17, List.of());
         assertNotNull(set);
         assertEquals(17, set.sourceRelease());
         // 0 means "the build said nothing", which is not the same as "release 0"
-        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0);
+        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0, List.of());
         assertNotNull(silent);
         assertEquals(0, silent.sourceRelease());
     }
@@ -147,5 +147,50 @@ public class TestPluginSourceSets {
         assertEquals(0, PluginSourceSets.parseRelease(""));
         assertEquals(0, PluginSourceSets.parseRelease("VERSION_21"));
         assertEquals(0, PluginSourceSets.parseRelease("0"));
+    }
+
+    /**
+     * ⛔⛔ AN INCUBATOR MODULE IS NOT IN THE {@code java.se} CLOSURE AND WIDENING {@code jmods} DOES NOT REACH
+     * IT: it must be in the ROOT SET of the compilation that uses it.
+     *
+     * <p>⚠ MEASURED on trino (2026-08-19): {@code core/trino-main} passes
+     * {@code --add-modules=jdk.incubator.vector}, {@code --compile-log} records it on 6 of trino's 209 source
+     * sets because it reads javac's own line, and NEITHER build plugin set it at all — so the same module parsed
+     * with one error the log route does not have: "package jdk.incubator.vector is not visible".
+     */
+    @Test
+    public void addModulesIsReadInBothSpellings() {
+        assertEquals(List.of("jdk.incubator.vector"),
+                PluginSourceSets.addModulesFrom(List.of("-g", "--add-modules=jdk.incubator.vector")),
+                "the = form, which is how trino writes it into a property");
+        assertEquals(List.of("jdk.incubator.vector"),
+                PluginSourceSets.addModulesFrom(List.of("--add-modules", "jdk.incubator.vector")),
+                "the two-argument form, which is how options.compilerArgs is usually written");
+        assertEquals(List.of("jdk.incubator.vector", "jdk.unsupported"),
+                PluginSourceSets.addModulesFrom(List.of("--add-modules=jdk.incubator.vector,jdk.unsupported")),
+                "comma-separated, as javac accepts");
+        assertEquals(List.of("a", "b"),
+                PluginSourceSets.addModulesFrom(List.of("--add-modules=a", "--add-modules", "b", "--add-modules=a")),
+                "accumulated across occurrences, in order, without duplicates");
+    }
+
+    /**
+     * ⚠ {@code ALL-MODULE-PATH} and {@code ALL-DEFAULT} are javac's own pseudo-names, not modules. Passing one
+     * on would send the parse looking for a jmod that does not exist, which is a worse answer than dropping it.
+     */
+    @Test
+    public void addModulesDropsJavacsPseudoNames() {
+        assertEquals(List.of("jdk.incubator.vector"),
+                PluginSourceSets.addModulesFrom(List.of("--add-modules=ALL-MODULE-PATH,jdk.incubator.vector")));
+        assertEquals(List.of(), PluginSourceSets.addModulesFrom(List.of("--add-modules=ALL-DEFAULT")));
+    }
+
+    /** ⚠ CONTROL: a build that says nothing yields nothing, not a spurious module. */
+    @Test
+    public void addModulesIsEmptyWhenNothingSaysSo() {
+        assertEquals(List.of(), PluginSourceSets.addModulesFrom(List.of("-g", "-parameters")));
+        assertEquals(List.of(), PluginSourceSets.addModulesFrom(null));
+        assertEquals(List.of(), PluginSourceSets.addModulesFrom(List.of("--add-modules")),
+                "a trailing flag with no value names nothing");
     }
 }

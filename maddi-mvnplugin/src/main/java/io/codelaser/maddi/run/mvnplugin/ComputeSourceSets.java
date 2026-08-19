@@ -70,7 +70,7 @@ public class ComputeSourceSets {
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
                     Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
-                    sourceRelease(project, false));
+                    sourceRelease(project, false), addModules(project, false));
             if (mainSourceSet != null) {
                 mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
@@ -85,7 +85,7 @@ public class ComputeSourceSets {
 
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
-                    restrictToTestPackages, sourceRelease(project, true));
+                    restrictToTestPackages, sourceRelease(project, true), addModules(project, true));
             if (testSourceSet != null) {
                 testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(testSourceSet.name(), testSourceSet);
@@ -272,6 +272,72 @@ public class ComputeSourceSets {
             if (release > 0) return release;
         }
         return 0;
+    }
+
+    /**
+     * javac's {@code --add-modules} for this compilation, from {@code maven-compiler-plugin}'s
+     * {@code <compilerArgs>}.
+     *
+     * <p>⛔ <b>AN INCUBATOR MODULE IS NOT IN THE {@code java.se} CLOSURE AND WIDENING {@code jmods} DOES NOT
+     * REACH IT</b> -- it has to be in the root set of the compilation that uses it. MEASURED on trino
+     * (2026-08-19): {@code core/trino-main} declares
+     * {@code <compilerArgs><arg>${extraJavaVectorArgs}</arg></compilerArgs>} where that property is
+     * {@code --add-modules=jdk.incubator.vector}. {@code --compile-log} records it on 6 of trino's 209 source
+     * sets because it reads javac's own line; this plugin recorded it on none, and the module parsed with one
+     * error the log route does not have.
+     *
+     * <p>⚠ Each {@code <arg>} is interpolated on its own, because that is how the pom writes it -- a whole
+     * argument held in a property. An arg that is a literal {@code ${...}} naming nothing stays unresolved and
+     * simply matches no pattern.
+     */
+    private static List<String> addModules(MavenProject project, boolean test) {
+        List<String> args = new ArrayList<>();
+        for (String arg : compilerConfigurationList(project, "compilerArgs", test)) {
+            String resolved = interpolate(project, arg);
+            if (resolved != null) args.add(resolved);
+        }
+        return PluginSourceSets.addModulesFrom(args);
+    }
+
+    /** The child VALUES of a repeated configuration element ({@code <compilerArgs><arg>..</arg></compilerArgs>}). */
+    private static List<String> compilerConfigurationList(MavenProject project, String key, boolean test) {
+        Build build = project.getBuild();
+        if (build == null) return List.of();
+        List<Plugin> candidates = new ArrayList<>();
+        Plugin declared = build.getPluginsAsMap().get(COMPILER_PLUGIN);
+        if (declared != null) candidates.add(declared);
+        PluginManagement management = build.getPluginManagement();
+        if (management != null) {
+            Plugin managed = management.getPluginsAsMap().get(COMPILER_PLUGIN);
+            if (managed != null) candidates.add(managed);
+        }
+        String executionId = test ? "default-testCompile" : "default-compile";
+        List<String> values = new ArrayList<>();
+        for (Plugin plugin : candidates) {
+            PluginExecution execution = plugin.getExecutionsAsMap().get(executionId);
+            if (execution != null) values.addAll(childValues(execution.getConfiguration(), key));
+            values.addAll(childValues(plugin.getConfiguration(), key));
+        }
+        return values;
+    }
+
+    /** As {@link #childValue}, for a container element's children. Same reflection, same reason. */
+    private static List<String> childValues(Object configuration, String key) {
+        if (configuration == null) return List.of();
+        try {
+            Object container = configuration.getClass().getMethod("getChild", String.class)
+                    .invoke(configuration, key);
+            if (container == null) return List.of();
+            Object[] children = (Object[]) container.getClass().getMethod("getChildren").invoke(container);
+            List<String> values = new ArrayList<>();
+            for (Object child : children) {
+                Object value = child.getClass().getMethod("getValue").invoke(child);
+                if (value != null) values.add(value.toString());
+            }
+            return values;
+        } catch (ReflectiveOperationException | RuntimeException notThisShape) {
+            return List.of();
+        }
     }
 
     private static final String COMPILER_PLUGIN = "org.apache.maven.plugins:maven-compiler-plugin";

@@ -1,0 +1,53 @@
+name: pulsar-plugin
+status: active
+summary: >-
+  The A/B twin of `pulsar`, on module `:managed-ledger`, and the ONLY entry that exercises
+  maddi-gradleplugin against a MULTI-MODULE build. `fernflower-plugin` covers the plugin's
+  single-project path; everything that goes wrong between projects is invisible to it.
+
+# ⛔⛔ WHAT THIS ENTRY IS FOR, AND WHY IT IS `:managed-ledger` SPECIFICALLY. Four of the five defects
+# found in the Gradle plugin on 2026-08-19 exist only when one project depends on another:
+#   - a sibling resolves to its classes DIRECTORY (compile avoidance), so `file.getName()` was
+#     `main` for every one of them and the de-dup guard dropped 6 of this module's 7 -- silently.
+#   - a co-analysed sibling was handed the CONSUMER's class path under the CONSUMER's scoping.
+# `:managed-ledger` is where both were measured: 7 sibling projects, and a parse that went from
+# 100 errors to 0. A single-project corpus cannot reach either path.
+
+dir: pulsar
+
+# No `cmd`: `pulsar` builds the tree. `provides` is what the NEXT phase needs, so `doctor` tells the
+# truth about a tree this entry does not build.
+build:
+  provides:
+    - managed-ledger/build/classes/java/main
+    - pulsar-common/build/classes/java/main
+
+config:
+  route: gradle-plugin
+  # A Gradle PROJECT PATH, not a directory. The route turns this into `:managed-ledger:e2immu-...`.
+  module: managed-ledger
+  # Relative, so this entry owns its own file beside the sources rather than overwriting `pulsar`'s.
+  output: inputConfiguration.plugin.json
+  generates: [inputConfiguration.json]
+  # ⛔ The same JDK-26 opt-out the build needs. `gradle_args` exists because this route BUILDS the
+  # task name itself, so a build's own flags have nowhere else to ride.
+  gradle_args: -PskipJavaVersionCheck
+
+  # ⛔⛔ SIBLINGS AS ARTIFACTS, NOT AS SOURCE, AND THE CHOICE IS DELIBERATE. Applying the plugin to
+  # every project (the init script's default) makes each sibling publish its SOURCES, which is the
+  # dogfood pattern and a different test -- it exercises df0593929 rather than c8fb38c03. It also does
+  # not parse clean and cannot be made to: MEASURED 2026-08-19, 107 diagnostics, all of them a
+  # sibling's `compileOnly` dependencies (swagger, findbugs annotations), which Gradle propagates to no
+  # consumer at all. They are ABSENT rather than mis-scoped, and the only design that would supply them
+  # is refuted (handoff §6b). An entry that is permanently red is a gate people learn to ignore.
+  # ⚠ SO THE SIBLINGS-AS-SOURCE PATH HAS NO CORPUS ENTRY, on purpose, and this is the note that says
+  # so. Reproduce it with `-Dmaddi.applyTo=all`; expect 107.
+  apply_to: ':managed-ledger'
+
+  baseline: baselines/pulsar-plugin.tsv
+
+parse:
+  runner: openjdk
+  steps: [modification]
+  # ⚠ NO `test:` — the JUnit corpus tests read <dir>/inputConfiguration.json, which belongs to the
+  # `pulsar` entry. This one is judged by `catalogue.py baseline` and by the A/B against it.

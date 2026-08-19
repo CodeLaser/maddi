@@ -1,0 +1,52 @@
+name: fernflower-plugin
+status: active
+summary: >-
+  The A/B TWIN of `fernflower`: the SAME checkout, configured through `maddi-gradleplugin` instead
+  of the javac compile log. This is the only catalogue entry that measures that plugin against a
+  real project — everything else about it is covered by `dogfood`, which is maddi's own code.
+
+# ⛔⛔ WHY THIS ENTRY EXISTS AT ALL. On 2026-08-19 the Maven plugin's three defects were found by
+# pointing corpora at it, and one of them — jenkins core parsing with 100 errors at exit 0 — had
+# been true for an unknown length of time because jenkins was a Taskfile task with no catalogue
+# entry and therefore no `baseline`. The Gradle plugin was left in exactly that position: a working
+# `gradle-plugin` route with no entry using it. A route nothing invokes measures nothing.
+
+# No `source:` and no `build:` — this entry OWNS NO CHECKOUT. `fernflower` clones and builds it;
+# this one only configures it a second way. `dir:` is what points both entries at one tree, and
+# `state()` reads `present`/`built` from that tree, so `doctor` tells the truth for both.
+dir: fernflower
+
+# No `cmd` — this entry builds nothing. `provides` is still declared, because it is what the NEXT
+# phase needs rather than what this entry produces, and without it `doctor` reports `built=False`
+# for a tree that `fernflower` has built perfectly well.
+build:
+  provides:
+    - build/classes/java/main
+    - build/classes/java/test
+
+config:
+  route: gradle-plugin
+
+  # ⛔⛔ THE FIELD THAT MAKES AN A/B PAIR POSSIBLE, and the reason this entry could not be written
+  # before today. Two entries over one checkout would otherwise both write
+  # `<dir>/inputConfiguration.json` — the second silently overwriting the first, and `generates`
+  # (which feeds the pre-flight preserve-list) naming one file for two producers. A RELATIVE
+  # `output` resolves against the project dir, so each entry owns its own file beside the sources.
+  # It must NOT be spelled as an absolute `$TEST_OSS_ROOT/...`: `_path` expands that only when the
+  # variable is set, so the entry would resolve differently depending on who invoked it.
+  output: inputConfiguration.plugin.json
+  generates: [inputConfiguration.json]
+
+  # fernflower is a SINGLE-project Gradle build, so there is no module to name: the route reads an
+  # absent `module` as the root project. That also bounds what this entry can find — the plugin's
+  # multi-module defects (a sibling arriving as a classes DIRECTORY, a sibling given the consumer's
+  # class path) are structurally invisible here. See the summary in maddi/docs/handoff-*.md §4.
+  baseline: baselines/fernflower-plugin.tsv
+
+parse:
+  runner: openjdk
+  steps: [modification]
+  # ⚠ NO `test:`. `TestFernflower` consumes `<dir>/inputConfiguration.json`, which is the compile-log
+  # entry's file; pointing it here would make one JUnit class read whichever config ran last. This
+  # entry is judged by `catalogue.py baseline` and by the A/B diff against `fernflower`, both of
+  # which name their file explicitly.

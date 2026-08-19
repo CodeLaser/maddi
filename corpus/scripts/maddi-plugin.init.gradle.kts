@@ -26,12 +26,30 @@ initscript {
     }
 }
 
+// ⛔⛔ WHICH PROJECTS GET THE PLUGIN IS A CHOICE BETWEEN TWO DIFFERENT TESTS, and it was being made
+// by accident. `allprojects` (the default, unchanged) means every sibling publishes its SOURCES on the
+// `e2immuSourceElements` variant, so the analysed module co-parses them -- the dogfood pattern. A
+// single project means its siblings arrive as ordinary class-path entries, jars or classes
+// directories, which is how a user who applies the plugin to their own project sees the world.
+//
+// They exercise DIFFERENT defects, and neither covers the other:
+//   siblings as SOURCE     -> df0593929 (a sibling was handed the consumer's class path and scoping)
+//   siblings as ARTIFACTS  -> c8fb38c03 (every sibling's part was named `main`, all but one dropped)
+//
+// ⚠ AND THEY DO NOT BOTH PARSE CLEAN. On pulsar `:managed-ledger`, siblings-as-source leaves 107
+// diagnostics that are NOT a plugin defect: a sibling's `compileOnly` dependencies (swagger, findbugs
+// annotations) are propagated to no consumer by Gradle at all, so they are absent rather than
+// mis-scoped, and the only design that would close it is refuted (handoff §6b). A corpus entry that is
+// permanently red is a gate people learn to ignore, so an entry picks its mode deliberately.
+val applyTo: String = System.getProperty("maddi.applyTo") ?: "all"
+
 allprojects {
     // afterEvaluate: a build script sets its source sets, and may register whole source sets, while it
     // is being evaluated. Applying before that would read the defaults instead of what the project
     // configured.
     afterEvaluate {
         if (!plugins.hasPlugin("java")) return@afterEvaluate
+        if (applyTo != "all" && path != applyTo) return@afterEvaluate
         pluginManager.apply(io.codelaser.maddi.gradleplugin.AnalyzerPlugin::class.java)
 
         val extension = extensions.getByName("e2immu")
