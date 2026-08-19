@@ -40,6 +40,11 @@ public class EscapeSequence {
             octal(c2.toCharArray(), sb, c, 0);
             return sb.charAt(0);
         }
+        if (c == 'u') {
+            StringBuilder sb = new StringBuilder();
+            unicode(c2.toCharArray(), sb, 0);
+            return sb.charAt(0);
+        }
         return escapeSequence(c);
     }
 
@@ -55,6 +60,8 @@ public class EscapeSequence {
                 if (c2 != '\n') {
                     if (c2 >= '0' && c2 <= '7') {
                         i = octal(chars, sb, c2, i);
+                    } else if (c2 == 'u') {
+                        i = unicode(chars, sb, i + 1);
                     } else {
                         sb.append(escapeSequence(c2));
                         ++i;
@@ -68,6 +75,29 @@ public class EscapeSequence {
             ++i;
         }
         return sb.toString();
+    }
+
+    /**
+     * A unicode escape (JLS 3.3) is a backslash, one or more 'u', then exactly four hexadecimal digits.
+     * It is a lexer-level construct: normally the reader has already replaced it by the character it
+     * denotes, and this method never runs. It does run when the escape survives into a literal's source,
+     * which is how it reached us: text blocks translate their own escapes here, from the raw token.
+     *
+     * @param start index of the first 'u'
+     * @return index of the last character consumed
+     */
+    private static int unicode(char[] chars, StringBuilder sb, int start) {
+        int i = start;
+        while (i < chars.length && chars[i] == 'u') ++i;   // 'uuu0041' is the same escape as 'u0041'
+        if (i + 3 >= chars.length) throw new UnsupportedOperationException();
+        int value = 0;
+        for (int j = i; j < i + 4; ++j) {
+            int digit = Character.digit(chars[j], 16);
+            if (digit < 0) throw new UnsupportedOperationException();
+            value = value * 16 + digit;
+        }
+        sb.append((char) value);
+        return i + 3;
     }
 
     private static int octal(char[] chars, StringBuilder sb, char first, int start) {
