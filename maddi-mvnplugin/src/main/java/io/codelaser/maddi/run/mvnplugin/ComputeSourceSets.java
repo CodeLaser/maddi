@@ -2,6 +2,10 @@ package io.codelaser.maddi.run.mvnplugin;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.model.PluginManagement;
 import org.apache.maven.project.*;
 import io.codelaser.maddi.run.config.util.ComputeDependencies;
 import io.codelaser.maddi.run.config.util.PluginSourceSets;
@@ -66,7 +70,7 @@ public class ComputeSourceSets {
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
                     Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
-                    sourceRelease(false));
+                    sourceRelease(project, false));
             if (mainSourceSet != null) {
                 mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
@@ -81,7 +85,7 @@ public class ComputeSourceSets {
 
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
-                    restrictToTestPackages, sourceRelease(true));
+                    restrictToTestPackages, sourceRelease(project, true));
             if (testSourceSet != null) {
                 testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(testSourceSet.name(), testSourceSet);
@@ -237,26 +241,112 @@ public class ComputeSourceSets {
      * and can cost the whole {@code ParseResult}. {@code --compile-log} reads it straight off the javac line;
      * a plugin has to ask the build model, and neither plugin asked at all.
      *
-     * <p>⚠ <b>PROPERTIES ONLY, AND THAT IS A KNOWN LIMIT.</b> These four are what the overwhelming majority of
-     * poms state (they are what {@code maven-compiler-plugin} itself reads by default), but a pom that configures
-     * {@code <release>} inside the plugin's own {@code <configuration>} block instead is not seen here and falls
-     * back to 0, i.e. to today's behaviour. Reading that would mean resolving the effective plugin configuration,
-     * which is a different and much larger piece of Maven plumbing; a wrong release would be worse than none.
+     * <p>⛔⛔ <b>THE PROPERTIES ARE THE MINORITY SPELLING.</b> A first version read only
+     * {@code maven.compiler.{,test}{release,source}}, on the argument that they are "what the overwhelming
+     * majority of poms state". <b>Counted, over the corpus (2026-08-19), poms per project that set the property
+     * against poms that put {@code <release>} or {@code <source>} in {@code maven-compiler-plugin}'s own
+     * {@code <configuration>}: activemq 0/8, guava 0/10, jenkins 0/1, camel 12/19, timefold 2/2,
+     * langchain4j 5/0.</b> On four of six the property is never used at all, so the reader abstained on the
+     * whole project and every one of them would have parsed on today's JDK.
      *
-     * <p>{@code release} before {@code source}: it is the only one that also constrains the API the code is
-     * compiled against, which is exactly the question. Test before main for the test set, because a module may
-     * compile its tests at a higher level than what it publishes.
+     * <p>Configuration before property, which is {@code maven-compiler-plugin}'s own precedence: its
+     * {@code release} parameter names {@code maven.compiler.release} as the expression that supplies a DEFAULT,
+     * and an explicit {@code <release>} overrides it.
      */
-    private int sourceRelease(boolean test) {
-        java.util.Properties properties = project.getProperties();
+    static int sourceRelease(MavenProject project, boolean test) {
+        // test before main for the test set: a module may compile its tests at a higher level than it publishes.
+        // release before source: it is the only one that also constrains the API the code is compiled against,
+        // which is exactly the question being asked.
+        for (String key : test
+                ? new String[]{"testRelease", "testSource", "release", "source"}
+                : new String[]{"release", "source"}) {
+            int release = PluginSourceSets.parseRelease(
+                    interpolate(project, compilerConfiguration(project, key, test)));
+            if (release > 0) return release;
+        }
         for (String key : test
                 ? new String[]{"maven.compiler.testRelease", "maven.compiler.testSource",
                 "maven.compiler.release", "maven.compiler.source"}
                 : new String[]{"maven.compiler.release", "maven.compiler.source"}) {
-            int release = PluginSourceSets.parseRelease(properties.getProperty(key));
+            int release = PluginSourceSets.parseRelease(project.getProperties().getProperty(key));
             if (release > 0) return release;
         }
         return 0;
     }
 
+    private static final String COMPILER_PLUGIN = "org.apache.maven.plugins:maven-compiler-plugin";
+
+    /**
+     * One setting of {@code maven-compiler-plugin}, from the EFFECTIVE model: the module's own
+     * {@code <build><plugins>} first, then the {@code <pluginManagement>} it inherits, which is where a
+     * multi-module build normally states this once for every module ({@code <plugins>} may then not mention the
+     * compiler plugin at all, and the lifecycle-injected execution still picks the managed configuration up).
+     * <p>⛔⛔ <b>ONLY THE LIFECYCLE'S OWN EXECUTION, NEVER JUST "AN" EXECUTION.</b> A custom execution of the
+     * compiler plugin compiles a DIFFERENT set of sources, and its release says nothing about the module's.
+     * <b>MEASURED on activemq</b> (2026-08-19): {@code activemq-broker} declares an execution
+     * {@code java24-compile} that compiles {@code src/main/java24} into a multi-release jar at
+     * {@code <release>24</release>}. A first version of this method took the first execution it found and gave
+     * the whole module release 24 -- a WRONG release, which the abstention above exists to avoid, and worse than
+     * the 0 it replaced. Its own corpus run is what caught it.
+     *
+     * <p>The execution before the plugin-level block, and only the execution belonging to the compilation being
+     * asked about, because that is exactly how Maven composes the two: the effective configuration of the
+     * {@code testCompile} mojo is the plugin-level block overridden by {@code default-testCompile}, and
+     * {@code default-compile}'s block never reaches it.
+     */
+    private static String compilerConfiguration(MavenProject project, String key, boolean test) {
+        Build build = project.getBuild();
+        if (build == null) return null;
+        List<Plugin> candidates = new ArrayList<>();
+        Plugin declared = build.getPluginsAsMap().get(COMPILER_PLUGIN);
+        if (declared != null) candidates.add(declared);
+        PluginManagement management = build.getPluginManagement();
+        if (management != null) {
+            Plugin managed = management.getPluginsAsMap().get(COMPILER_PLUGIN);
+            if (managed != null) candidates.add(managed);
+        }
+        String executionId = test ? "default-testCompile" : "default-compile";
+        for (Plugin plugin : candidates) {
+            PluginExecution execution = plugin.getExecutionsAsMap().get(executionId);
+            if (execution != null) {
+                String value = childValue(execution.getConfiguration(), key);
+                if (value != null) return value;
+            }
+            String value = childValue(plugin.getConfiguration(), key);
+            if (value != null) return value;
+        }
+        return null;
+    }
+
+    /**
+     * ⚠ <b>BY REFLECTION, DELIBERATELY.</b> {@code Plugin#getConfiguration} is typed {@code Object} precisely
+     * because its runtime type is not part of the contract: Maven 3 hands over a
+     * {@code org.codehaus.plexus.util.xml.Xpp3Dom}, Maven 4 an {@code org.apache.maven.api.xml.XmlNode}. Both
+     * answer {@code getChild(String)} and {@code getValue()}; naming either type here would either add a
+     * dependency the hosting runtime may not export, or break on the other generation with a
+     * {@code NoClassDefFoundError} at a point where the honest answer is simply "the model does not say".
+     */
+    private static String childValue(Object configuration, String key) {
+        if (configuration == null) return null;
+        try {
+            Object child = configuration.getClass().getMethod("getChild", String.class)
+                    .invoke(configuration, key);
+            if (child == null) return null;
+            Object value = child.getClass().getMethod("getValue").invoke(child);
+            return value == null ? null : value.toString();
+        } catch (ReflectiveOperationException | RuntimeException notThisShape) {
+            return null;
+        }
+    }
+
+    /**
+     * {@code <release>${java.version}</release>} is an ordinary spelling, and plugin configuration is NOT
+     * interpolated in the effective model -- Maven resolves those expressions when it injects the parameter into
+     * the mojo, which never happens for a plugin we are only reading about. One level, from the project's own
+     * properties, which is where such a property is declared in practice.
+     */
+    private static String interpolate(MavenProject project, String value) {
+        if (value == null || !value.startsWith("${") || !value.endsWith("}")) return value;
+        return project.getProperties().getProperty(value.substring(2, value.length() - 1));
+    }
 }
