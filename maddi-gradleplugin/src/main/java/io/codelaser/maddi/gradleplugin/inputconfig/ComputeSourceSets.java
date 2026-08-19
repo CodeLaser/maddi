@@ -143,36 +143,46 @@ public class ComputeSourceSets {
                     // unsafe cross-project resolution. Variant reselection is what makes the source case legal.
                     String description;
                     boolean excludedByCoordinate;
+                    File file = rar.getFile();
+                    String name;
                     if (rar.getVariant().getOwner() instanceof ModuleComponentIdentifier mci) {
                         description = mci.getGroup() + ":" + mci.getModule() + ":" + mci.getVersion();
                         excludedByCoordinate = excludeFromClasspath.contains(description)
                                                 || excludeFromClasspath.contains(mci.getModule());
+                        // An external artifact is a jar, and its file name identifies it.
+                        name = file.getName();
                     } else if (rar.getVariant().getOwner() instanceof ProjectComponentIdentifier pci) {
                         description = pci.getProjectName();
                         excludedByCoordinate = excludeFromClasspath.contains(pci.getProjectName())
                                                || projectsProvidingSources.contains(pci.getProjectName());
+                        name = projectPartName(pci, file);
                     } else {
                         continue;
                     }
-                    File file = rar.getFile();
-                    // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>",
-                    // so the part name must be the jar file name, not the coordinate (otherwise: "Cannot find class
-                    // path source set interpreted as jar file: ...").
-                    String name = file.getName();
-                    if (!sourceSetsByName.containsKey(name) && file.canRead()
-                        && !excludeFromClasspath.contains(name) && !excludedByCoordinate) {
-                        LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
-                        SourceSet set = new SourceSetImpl.Builder()
-                                .setName(name)
-                                .setUri(absoluteURI(file))
-                                .setTest(isTest)
-                                .setLibrary(true)
-                                .setExternalLibrary(true)
-                                .setPartOfJdk(false)
-                                .setModule(isModularArtifact(file))
-                                .setRuntimeOnly(isRuntimeOnly)
-                                .build();
-                        sourceSetsByName.put(name, set);
+                    if (file.canRead() && !excludeFromClasspath.contains(name) && !excludedByCoordinate) {
+                        SourceSet existing = sourceSetsByName.get(name);
+                        if (existing == null) {
+                            LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
+                            SourceSet set = new SourceSetImpl.Builder()
+                                    .setName(name)
+                                    .setUri(absoluteURI(file))
+                                    .setTest(isTest)
+                                    .setLibrary(true)
+                                    .setExternalLibrary(true)
+                                    .setPartOfJdk(false)
+                                    .setModule(isModularArtifact(file))
+                                    .setRuntimeOnly(isRuntimeOnly)
+                                    .build();
+                            sourceSetsByName.put(name, set);
+                        } else if (!absoluteURI(file).equals(existing.uri())) {
+                            // ⛔ NOT A TIDINESS PROBLEM. The name is the identity: the serialized configuration
+                            // resolves every `dependencies: ["<name>"]` edge by it, so two files answering to one
+                            // name is a coin toss -- and skipping the second, which is all we can do here,
+                            // silently removes every package it provides. Say so, loudly, with both files.
+                            LOGGER.warn(" -- class path name clash: '{}' already means {}, so {} ({}) is DROPPED"
+                                        + " and the packages it provides will not resolve", name, existing.uri(),
+                                    file, description);
+                        }
                     }
                 }
             }
@@ -365,6 +375,37 @@ public class ComputeSourceSets {
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
                 test, restrictToPackages);
+    }
+
+    /**
+     * The class-path part name of a SIBLING PROJECT's artifact.
+     *
+     * <p>⛔⛔ <b>NOT {@code file.getName()}, WHICH IS {@code "main"} FOR EVERY PROJECT IN THE BUILD.</b> Gradle
+     * resolves a project dependency on a compile class path to that project's <em>classes directory</em>, not to
+     * a jar (that is what compile avoidance is), so every sibling arrives as
+     * {@code <project>/build/classes/java/main}. Naming parts by the file name therefore gave them all one name,
+     * and the "already have it" guard dropped every sibling after the first -- <b>with no log line</b>, because
+     * the guard had no {@code else}.
+     *
+     * <p>⚠ <b>MEASURED, on pulsar</b> (2026-08-19): {@code :managed-ledger} has 7 sibling projects on its
+     * class path and the configuration contained <b>one</b>, called {@code main}. The parse failed with 100
+     * errors in managed-ledger's OWN sources -- {@code package org.apache.pulsar.common.policies.data does not
+     * exist} and so on -- naming packages that were simply not on the class path any more. The same reactor
+     * through {@code --compile-log} parses with 0 errors.
+     *
+     * <p>The comment this replaces argued the name "must be the jar file name, not the coordinate", because
+     * maddi once resolved a part by parsing its name. It does not: {@link
+     * io.codelaser.maddi.inspection.api.resource.InputConfiguration#jarOnClasspathSelector} answers that question
+     * from an explicit {@code jar-on-classpath:} prefix, and says in as many words that asking the entry settles
+     * it "without taking the naming freedom away". The file is located by {@code uri()}; the name is only an
+     * identity, and identity is exactly what a directory called {@code main} does not have.
+     *
+     * <p>The project PATH, not {@code getProjectName()}: the latter is a leaf directory name, so {@code :a:util}
+     * and {@code :b:util} are both {@code util}. The file name is kept as a suffix because one project may
+     * contribute several directories (classes and resources) to one class path.
+     */
+    private static String projectPartName(ProjectComponentIdentifier pci, File file) {
+        return pci.getProjectPath() + "/" + file.getName();
     }
 
     /** As {@link PluginSourceSets#isModularSource}, for a dependency: an explicit module carries a

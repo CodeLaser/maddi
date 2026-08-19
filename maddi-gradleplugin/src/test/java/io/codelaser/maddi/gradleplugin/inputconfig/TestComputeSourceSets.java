@@ -135,4 +135,5 @@ public class TestComputeSourceSets {
                     name + ": the uri must not be one of the source directories");
         }
     }
+
 }
