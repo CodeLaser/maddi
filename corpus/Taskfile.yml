@@ -365,13 +365,18 @@ tasks:
   # produced — the module / scope below are taken from the checked-in baselines, not guessed:
   #   - Maven projects: the maddi Maven plugin's write-input-configuration on ONE module.
   #   - Gradle projects: capture the compile log, feed it to `maddi --compile-log` (whole project).
-  # The Maven path needs the plugin in ~/.m2 (task config:plugin).
+  # A third path, catalogue.py's `gradle-plugin` route, runs the maddi GRADLE plugin on one project
+  # -- the A/B against `gradle-log` on the same checkout is what tests that plugin against something
+  # other than dogfood.
+  # All three plugin paths need a plugin in ~/.m2 (task config:plugin).
 
   config:plugin:
-    desc: 'Publish the maddi Maven plugin to ~/.m2 (needed by the Maven config:* tasks)'
+    desc: 'Publish both maddi build plugins to ~/.m2 (needed by the plugin config:* routes)'
     dir: '{{.MADDI_REPO}}'
     cmds:
-      - ./gradlew :maddi-mvnplugin:publishToMavenLocal
+      # BOTH, deliberately: the two are one option surface with one shared implementation, and a
+      # task that published only one is how a route comes to run last week's plugin.
+      - ./gradlew :maddi-mvnplugin:publishToMavenLocal :maddi-gradleplugin:publishToMavenLocal
 
   config:all:
     desc: 'Regenerate every corpus config the test suite consumes (build the projects first)'

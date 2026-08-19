@@ -17,9 +17,7 @@ import io.codelaser.maddi.run.config.util.JavaModules;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -81,15 +79,7 @@ public class CompileListToInputConfiguration {
         }
         // sorted() so the jmod classpath parts have a deterministic order (a HashSet's iteration order is not
         // stable across runs, which otherwise shuffles the serialized InputConfiguration)
-        closure.stream().sorted().forEach(jmod -> builder.addClassPathParts(
-                new SourceSetImpl.Builder().setName(jmod)
-                        .setSourceDirectories(List.of())
-                        .setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true)
-                        .setExternalLibrary(true)
-                        .setPartOfJdk(true)
-                        .setModule(true)
-                        .build()));
+        closure.stream().sorted().forEach(jmod -> builder.addClassPathParts(JavaModules.jmodSourceSet(jmod)));
 
         List<SourceSet> sourceSets = result.jSourceSets().stream()
                 .map(CompileListToSourceSets.JSourceSet::sourceSet).toList();
