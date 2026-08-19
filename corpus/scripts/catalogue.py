@@ -280,11 +280,16 @@ def plan(entry, phase):
             # be named alongside them or asking for an extra would silently drop the rest.
             extra = c.get('extra_jmods') or []
             jmods_prop = f' -Dmaddi.jmods=java.se,{",".join(extra)}' if extra else ''
+            # ⚠ A CORPUS'S BUILD MAY REFUSE TO CONFIGURE WITHOUT ITS OWN FLAGS, and this route builds
+            # the task name itself, so there is nowhere for them to ride along -- `gradle-log` smuggles
+            # them through `tasks`, which is a string it interpolates whole. pulsar is the case:
+            # `-PskipJavaVersionCheck` or its settings script rejects JDK 26 before any task exists.
+            args = f' {c["gradle_args"]}' if c.get('gradle_args') else ''
             # --refresh-dependencies: the plugin's version does not change from one publication to
             # the next, so Gradle otherwise serves the cached jar and this silently runs the
             # PREVIOUS plugin (the same trap dogfood's GradleBuild task documents).
             return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
-                    f'--init-script {init} '
+                    f'--init-script {init}{args} '
                     f'-Dmaddi.pluginVersion={ver}{jmods_prop} -Dmaddi.outputFile={out} '
                     f'{prefix}:e2immu-write-input-configuration')
         if route == 'maven-log':
