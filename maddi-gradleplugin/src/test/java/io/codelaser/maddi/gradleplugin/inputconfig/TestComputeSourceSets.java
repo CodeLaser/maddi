@@ -15,10 +15,12 @@
 package io.codelaser.maddi.gradleplugin.inputconfig;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -136,4 +138,33 @@ public class TestComputeSourceSets {
         }
     }
 
+
+    /**
+     * ⛔ EACH SOURCE SET STATES ITS OWN RELEASE, AND THE PLUGIN STATED NONE. Without it the parse runs on
+     * whatever JDK maddi happens to be rather than on the level the corpus targets, and every API removed since
+     * reads as "cannot find symbol" -- measured on pulsar (release 17) as {@code Thread.suspend()} vanishing
+     * under JDK 26.
+     *
+     * <p>Asked per source set because Gradle answers per source set: this fixture is fernflower's shape, where
+     * {@code compileJava} pins {@code sourceCompatibility} and {@code compileTestJava} says nothing and inherits
+     * the project-wide level. A single global answer cannot express that.
+     */
+    @Test
+    public void sourceReleaseComesFromEachSourceSetsOwnCompileTask() {
+        Project project = ProjectBuilder.builder().withName("p").build();
+        project.getPluginManager().apply("java");
+        new File(project.getProjectDir(), "src/main/java").mkdirs();
+        new File(project.getProjectDir(), "src/test/java").mkdirs();
+        project.getExtensions().getByType(JavaPluginExtension.class)
+                .setSourceCompatibility(JavaVersion.VERSION_21);
+        ((JavaCompile) project.getTasks().getByName("compileJava")).getOptions().getRelease().set(17);
+
+        ComputeSourceSets css = new ComputeSourceSets(project.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
+
+        assertEquals(17, result.sourceSetsByName().get("p/main").sourceRelease(),
+                "main states --release explicitly, and --release wins");
+        assertEquals(21, result.sourceSetsByName().get("p/test").sourceRelease(),
+                "test states nothing of its own and falls back to the project-wide sourceCompatibility");
+    }
 }

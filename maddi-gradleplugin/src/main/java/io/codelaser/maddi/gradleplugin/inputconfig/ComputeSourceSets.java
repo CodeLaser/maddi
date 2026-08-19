@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.run.config.util.PluginSourceSets;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.artifacts.ArtifactView;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
@@ -100,7 +101,7 @@ public class ComputeSourceSets {
         for (org.gradle.api.tasks.SourceSet gradleSourceSet : javaPluginExtension.getSourceSets()) {
             String sourceSetName = projectName + "/" + gradleSourceSet.getName();
             boolean test = gradleSourceSet.getName().toLowerCase().contains("test");
-            SourceSet sourceSet = makeSourceSet(gradleSourceSet, sourceSetName, buildUnit,
+            SourceSet sourceSet = makeSourceSet(project, gradleSourceSet, sourceSetName, buildUnit,
                     test ? restrictTestSourcesToPackages : restrictSourcesToPackages,
                     encoding, test);
             if (sourceSet != null) sourceSetsByName.put(sourceSet.name(), sourceSet);
@@ -241,9 +242,11 @@ public class ComputeSourceSets {
         // ⚠ NO CLASS OUTPUT. The e2immuSourceElements variant publishes source DIRECTORIES and nothing else, so
         // this is the one source set whose uri must stay a source directory -- see PluginSourceSets#classPathUri
         // for what that costs. Publishing the classes directory on the variant too would close it.
+        // ⚠ sourceRelease 0, for the same reason the class output is null: a sibling's compile task belongs to
+        // another project, and reading it is the cross-project access this whole mechanism exists to avoid.
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, null,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                restrictToPackages(restrictTo));
+                restrictToPackages(restrictTo), 0);
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -352,7 +355,8 @@ public class ComputeSourceSets {
         return project.getPath();
     }
 
-    private SourceSet makeSourceSet(org.gradle.api.tasks.SourceSet gradleSourceSet,
+    private SourceSet makeSourceSet(Project project,
+                                    org.gradle.api.tasks.SourceSet gradleSourceSet,
                                     String e2immuSourceSetName,
                                     String buildUnit,
                                     String restrictTo,
@@ -374,7 +378,37 @@ public class ComputeSourceSets {
         // directory that a single uri cannot also name.
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
-                test, restrictToPackages);
+                test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet));
+    }
+
+    /**
+     * The Java API level this source set is compiled against, or {@code 0} when its build says nothing.
+     *
+     * <p>⛔ <b>WITHOUT IT THE PARSE RUNS ON WHATEVER JDK MADDI HAPPENS TO BE, NOT ON THE ONE THE CORPUS TARGETS</b>
+     * — and every API removed since then reads as "cannot find symbol", drops the compilation unit, and can cost
+     * the whole {@code ParseResult}. Measured on pulsar (2026-08-19): the corpus states release 17,
+     * {@code --compile-log} recorded it, the plugin recorded nothing, and {@code Thread.suspend()} — which does
+     * not exist on JDK 26 — stopped resolving in {@code ZooKeeperUtil}.
+     *
+     * <p>Asked PER SOURCE SET, because Gradle answers per source set: each has its own {@code JavaCompile} task,
+     * and fernflower is the case that shows it matters — {@code compileJava} pins {@code sourceCompatibility=21}
+     * while {@code compileTestJava} says nothing and gets the toolchain's own level.
+     *
+     * <p>{@code options.release} first: it is the only setting that also constrains the API against which the
+     * code is compiled, which is exactly the question here. {@code sourceCompatibility} is the older spelling and
+     * strictly weaker (it constrains the language level), but it is what a build that predates {@code --release}
+     * states, so it is read next — first from the task, then from the project-wide extension.
+     */
+    private static int sourceReleaseOf(Project project, org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        Task task = project.getTasks().findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (task instanceof JavaCompile compile) {
+            Integer release = compile.getOptions().getRelease().getOrNull();
+            if (release != null && release > 0) return release;
+            int fromTask = PluginSourceSets.parseRelease(compile.getSourceCompatibility());
+            if (fromTask > 0) return fromTask;
+        }
+        JavaPluginExtension extension = project.getExtensions().findByType(JavaPluginExtension.class);
+        return extension == null ? 0 : PluginSourceSets.parseRelease(extension.getSourceCompatibility().toString());
     }
 
     /**

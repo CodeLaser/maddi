@@ -65,7 +65,8 @@ public class ComputeSourceSets {
             Set<String> restrictToPackages = stringToSet(sourcePackages);
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
-                    Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages);
+                    Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
+                    sourceRelease(false));
             if (mainSourceSet != null) {
                 mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
@@ -80,7 +81,7 @@ public class ComputeSourceSets {
 
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
-                    restrictToTestPackages);
+                    restrictToTestPackages, sourceRelease(true));
             if (testSourceSet != null) {
                 testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(testSourceSet.name(), testSourceSet);
@@ -177,6 +178,36 @@ public class ComputeSourceSets {
             }
         }
         return results;
+    }
+
+    /**
+     * The Java API level this module is compiled against, or {@code 0} when the pom says nothing.
+     *
+     * <p>⛔ <b>WITHOUT IT THE PARSE RUNS ON WHATEVER JDK MADDI HAPPENS TO BE, NOT ON THE ONE THE CORPUS
+     * TARGETS</b> — and every API removed since then reads as "cannot find symbol", drops the compilation unit,
+     * and can cost the whole {@code ParseResult}. {@code --compile-log} reads it straight off the javac line;
+     * a plugin has to ask the build model, and neither plugin asked at all.
+     *
+     * <p>⚠ <b>PROPERTIES ONLY, AND THAT IS A KNOWN LIMIT.</b> These four are what the overwhelming majority of
+     * poms state (they are what {@code maven-compiler-plugin} itself reads by default), but a pom that configures
+     * {@code <release>} inside the plugin's own {@code <configuration>} block instead is not seen here and falls
+     * back to 0, i.e. to today's behaviour. Reading that would mean resolving the effective plugin configuration,
+     * which is a different and much larger piece of Maven plumbing; a wrong release would be worse than none.
+     *
+     * <p>{@code release} before {@code source}: it is the only one that also constrains the API the code is
+     * compiled against, which is exactly the question. Test before main for the test set, because a module may
+     * compile its tests at a higher level than what it publishes.
+     */
+    private int sourceRelease(boolean test) {
+        java.util.Properties properties = project.getProperties();
+        for (String key : test
+                ? new String[]{"maven.compiler.testRelease", "maven.compiler.testSource",
+                "maven.compiler.release", "maven.compiler.source"}
+                : new String[]{"maven.compiler.release", "maven.compiler.source"}) {
+            int release = PluginSourceSets.parseRelease(properties.getProperty(key));
+            if (release > 0) return release;
+        }
+        return 0;
     }
 
     private static Set<String> stringToSet(String sourcePackages) {
