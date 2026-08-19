@@ -165,10 +165,7 @@ public class ComputeSourceSets {
         for (DependencyNode child : node.getChildren()) {
             Artifact artifact = child.getArtifact();
             if (artifact == null || artifact.getFile() == null) continue;
-            // maddi keys a classpath source set by its jar file name and resolves it as "jar file: <name>"
-            // (its own --write-input-configuration names jars this way too), so the part name must be the jar
-            // file name, not the groupId:artifactId:version coordinate.
-            String name = artifact.getFile().getName();
+            String name = partName(artifact);
             // Flatten the whole subtree into direct dependencies. A classpath is flat, and nesting the transitive
             // deps under their parent -- combined with the name-dedup below -- would drop an already-seen dep from
             // its parent's child set, leaving it unreachable when maddi walks the graph to build the parse
@@ -185,6 +182,14 @@ public class ComputeSourceSets {
             if (!excludeFromClasspathSet.contains(artifact.getArtifactId())) {
                 SourceSet existing = sourceSetsByName.get(name);
                 if (existing != null) {
+                    if (!artifact.getFile().getAbsoluteFile().toURI().equals(existing.uri())) {
+                        // ⛔ NOT A TIDINESS PROBLEM: the name IS the identity the serialized configuration
+                        // resolves every dependency edge by, so two files under one name silently removes every
+                        // package the second provides. Same guard, same reason, as the Gradle plugin's.
+                        log.warn(" -- class path name clash: '" + name + "' already means " + existing.uri()
+                                 + ", so " + artifact.getFile() + " is DROPPED and the packages it provides"
+                                 + " will not resolve");
+                    }
                     results.add(existing); // already created (possibly in an earlier scope); still a direct dep here
                 } else {
                     SourceSet sourceSet = PluginSourceSets.classPathPart(name, artifact.getFile(), test,
@@ -199,6 +204,29 @@ public class ComputeSourceSets {
             }
         }
         return results;
+    }
+
+    /**
+     * A class path part's identity.
+     *
+     * <p>The jar file name, as before -- maddi's own {@code --write-input-configuration} names jars this way, and
+     * every checked-in corpus configuration is written in it.
+     *
+     * <p>⛔ <b>EXCEPT WHEN THE ARTIFACT IS A DIRECTORY, WHERE THE FILE NAME IS NOT AN IDENTITY.</b> A reactor
+     * sibling that has not been packaged resolves through Maven's {@code ReactorReader} to its
+     * {@code target/classes}, so {@code getFile().getName()} is {@code "classes"} for EVERY sibling -- and the
+     * "already have it" branch above then hands back the first one for all of them. This is the same defect the
+     * Gradle plugin carried, where it cost 6 of pulsar's 7 siblings and 100 parse errors; it is reachable here
+     * through {@code mvn -am}, or through any reactor build that has not run {@code install}.
+     *
+     * <p>The coordinate is prefixed rather than substituted so that the ordinary jar case is byte-identical to
+     * what the plugin wrote before, and the file name is kept as a suffix because one module can contribute more
+     * than one directory ({@code classes} and {@code test-classes}) to one class path.
+     */
+    private static String partName(Artifact artifact) {
+        String fileName = artifact.getFile().getName();
+        if (!artifact.getFile().isDirectory()) return fileName;
+        return artifact.getGroupId() + ":" + artifact.getArtifactId() + "/" + fileName;
     }
 
     /**

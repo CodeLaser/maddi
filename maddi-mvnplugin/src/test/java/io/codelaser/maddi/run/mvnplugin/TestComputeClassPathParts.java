@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +81,29 @@ public class TestComputeClassPathParts {
     }
 
     /**
+     * ⛔⛔ TWO REACTOR SIBLINGS MUST YIELD TWO CLASS-PATH PARTS.
+     *
+     * <p>A sibling that has not been packaged resolves through Maven's {@code ReactorReader} to its
+     * {@code target/classes}, so {@code getFile().getName()} is {@code "classes"} for every one of them, and the
+     * "already have it" branch hands back the first for all the rest.
+     *
+     * <p>⚠ REACHABLE, and measured: {@code ./mvnw -pl persistence/jaxb -am} on timefold-solver puts
+     * {@code core/target/classes} on the class path under the name {@code classes}. It is the same defect the
+     * Gradle plugin carried, where it cost 6 of pulsar's 7 siblings and 100 parse errors in the module's own
+     * sources.
+     */
+    @Test
+    public void siblingClassesDirectoriesGetDistinctNames(@TempDir Path dir) throws IOException {
+        DependencyNode root = root(
+                directoryNode(dir, "org.example:alpha:1.0", JavaScopes.COMPILE),
+                directoryNode(dir, "org.example:beta:1.0", JavaScopes.COMPILE));
+
+        assertEquals(Set.of("org.example:alpha/classes", "org.example:beta/classes"),
+                names(walk(root, JavaScopes.COMPILE, false)),
+                "before the fix both were called 'classes' and only one survived");
+    }
+
+    /**
      * ⚠ AND THE ORDINARY CASE MUST NOT MOVE. Every checked-in corpus configuration names its jars by file name,
      * and maddi's own {@code --write-input-configuration} writes them that way, so the coordinate prefix above
      * has to stay off a jar.
@@ -101,6 +125,24 @@ public class TestComputeClassPathParts {
         parent.setChildren(List.of(jarNode(dir, "org.example:child:1.0", JavaScopes.COMPILE)));
 
         assertEquals(Set.of("parent-1.0.jar", "child-1.0.jar"), names(walk(root(parent), JavaScopes.COMPILE, false)));
+    }
+
+    /**
+     * ⛔ A NAME CLASH IS SAID OUT LOUD. Two different files answering to one name is a dropped part and every
+     * package it provides gone; the guard that drops it had no {@code else} in either plugin.
+     */
+    @Test
+    public void aNameClashIsReported(@TempDir Path dir) throws IOException {
+        DependencyNode root = root(
+                jarNode(Files.createDirectories(dir.resolve("one")), "org.example:api:1.0", JavaScopes.COMPILE),
+                jarNode(Files.createDirectories(dir.resolve("two")), "org.example:api:1.0", JavaScopes.COMPILE));
+
+        RecordingLog log = new RecordingLog();
+        Set<SourceSet> parts = ComputeClassPath.run(log, root, JavaScopes.COMPILE, false);
+
+        assertEquals(Set.of("api-1.0.jar"), names(parts), "one name, so one part -- that is the drop");
+        assertEquals(1, log.warnings.size(), "and it must be reported: " + log.warnings);
+        assertTrue(log.warnings.getFirst().contains("api-1.0.jar"), log.warnings.getFirst());
     }
 
     // ------------------------------------------------------------------ fixture
@@ -132,8 +174,24 @@ public class TestComputeClassPathParts {
         return node(artifact, jar, scope);
     }
 
+    private static DefaultDependencyNode directoryNode(Path dir, String coordinates, String scope)
+            throws IOException {
+        DefaultArtifact artifact = new DefaultArtifact(coordinates);
+        Path classes = Files.createDirectories(dir.resolve(artifact.getArtifactId()).resolve("target/classes"));
+        return node(artifact, classes.toFile(), scope);
+    }
+
     private static DefaultDependencyNode node(Artifact artifact, File file, String scope) {
         return new DefaultDependencyNode(new Dependency(artifact.setFile(file), scope));
+    }
+
+    private static class RecordingLog extends SystemStreamLog {
+        final List<String> warnings = new ArrayList<>();
+
+        @Override
+        public void warn(CharSequence content) {
+            warnings.add(content.toString());
+        }
     }
 
     /** Named so the call site reads as one thing; the map is per-run state, not fixture input. */
