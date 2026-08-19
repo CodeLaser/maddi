@@ -89,7 +89,18 @@ clean: no unmapped org.e2immu / analyser tokens remain
 ```
 
 Any other number is a gap in the map, not something to fix by hand — fix the map
-and re-run, so the change stays a function.
+and re-run, so the change stays a function. The counts themselves move whenever the
+frozen or acknowledged set changes; what must not move is the word `clean`.
+
+⛔⛔ **`clean` IS NOT EVIDENCE THAT THE PROSE SURVIVED — IT IS EVIDENCE THAT NOTHING IS
+UNACCOUNTED FOR, AND A REWRITTEN SENTENCE IS ACCOUNTED FOR.** `verify` looks for *surviving*
+`org.e2immu` tokens. A document whose old-name references were all substituted has none left,
+so it passes with nothing to report — which is exactly what a falsified document looks like.
+The cutover ran clean and had rewritten four documents; it took a reader, five days later, to
+notice that the 0.9.1 migration table said `io.codelaser.maddi.annotation` →
+`io.codelaser.maddi.annotation`. Read the substitution diff over `*.md`, every time
+(`git show <substitute-commit> -- '*.md' | grep -E '^[-+][^-+]'`); it is a few dozen lines and
+it is the only thing that looks at the direction of a change rather than at its residue.
 
 ## Replaying an in-flight branch
 
@@ -185,6 +196,13 @@ These are not scriptable and each breaks the build if forgotten:
   work from its output, not from the snapshot in the map
 - Regenerate the `test-oss` corpus annotations (`update-docstrings`), whose
   `package-info.java` files import `org.e2immu.annotation.Docstrings`
+- **Hand-review every `.md` the substitution touched** — the diff above, not the file list.
+  A document that *mentions* the old prefix on purpose cannot be protected by a per-file
+  marker unless the whole file is about the old name (then: section 4, FROZEN). The mixed
+  ones — `PUBLISHING.md`, `docs/eventual-info-hierarchy.md` — carry live maddi packages that
+  must be renamed **and** claims about the old name that must not, in the same document, and
+  only a reader can tell them apart. Of `PUBLISHING.md`'s three substitutions, two were right
+  and one turned a true sentence into a self-contradiction
 
 ## NOT COVERED: the `jfocus` package rename
 

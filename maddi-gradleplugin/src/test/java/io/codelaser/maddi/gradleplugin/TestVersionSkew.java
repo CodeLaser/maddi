@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * all, six days after the rename moved to 0.9.1. The pre-rename daemon has never heard of
  * {@code io.codelaser.maddi.annotation.Container}, so it analysed the fixture cleanly — every phase reported, zero
  * parse errors — and found nothing. The red that reached a human said "expected a contract-violation over the
- * wire", which is a sentence about the analyser, and the analyser was fine. A day went into that.
+ * wire", which is a sentence about the analyzer, and the analyzer was fine. A day went into that.
  * <p>
  * Each check below therefore states the version it EXPECTED and the version it FOUND, so the diagnosis is in the
  * failure message rather than three modules away.
