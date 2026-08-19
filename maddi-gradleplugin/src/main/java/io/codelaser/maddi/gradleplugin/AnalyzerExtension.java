@@ -30,6 +30,32 @@ public class AnalyzerExtension {
     public static final String SOURCE_ELEMENTS_CONFIGURATION_NAME = "e2immuSourceElements";
     public static final String SOURCES_CATEGORY = "e2immu-sources";
 
+    /*
+     ⛔⛔ DO NOT ADD A COMPANION VARIANT CARRYING THE PRODUCER'S COMPILE CLASS PATH. It was built and measured on
+     2026-08-19, and Gradle 9 refuses it:
+
+         Resolution of the configuration ':pulsar-metadata:compileClasspath' was attempted
+         without an exclusive lock. This is unsafe and not allowed.
+
+     A consumable configuration whose artifacts come from `project.provider(() -> main.getCompileClasspath()
+     .getFiles())` resolves the PRODUCER's configuration while the CONSUMER is resolving, and that is what the
+     lock forbids. Every one of pulsar's 7 sibling projects failed this way; the variant contributed 0 files.
+
+     ⚠ AND THE FUNCTIONAL TEST PASSED. A three-project fixture does not reproduce the locking conditions of a
+     79-project build with configuration on demand, so the mechanism looked correct in maddi-gradleplugin's own
+     tests and did nothing on a corpus. If it is attempted again, the gate is a real multi-module corpus, not a
+     GradleTestKit fixture.
+
+     What it was for: a sibling's `compileOnly` dependencies, which Gradle propagates to no consumer, so they are
+     absent from the analysed project's configuration rather than merely mis-scoped. That is the whole of the
+     residue on pulsar (99 of 108 diagnostics, from swagger and findbugs annotations declared compileOnly in
+     pulsar-common). Everything a sibling declares as an ordinary dependency does reach us transitively.
+
+     A route that could work: have the PRODUCER write its class path during its own build (a task output, so no
+     cross-project resolution), and publish that file. It costs a task run per sibling, which is exactly the cost
+     this plugin exists to avoid -- so it needs to be worth it before anyone builds it.
+     */
+
     public boolean skipProject;
 
     /* GeneralConfiguration */
