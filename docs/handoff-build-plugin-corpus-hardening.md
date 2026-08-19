@@ -1,8 +1,9 @@
 # Handoff — measuring the build plugins against a corpus
 
-**Status: both plugins have now met a corpus. What is left is the self-checks, and an instrument.**
-Dated 2026-08-19. Gradle: `e96b5f122 b702a49e9 c8fb38c03 b809d4927 df0593929 456d46d73 90514490d`.
-Maven: `fb1f5e193 c2db4ce98 80e986647`.
+**Status: both plugins have met a corpus, and both now run the checks. The two REPAIRS are refuted
+for a plugin — §6.** Dated 2026-08-19.
+Gradle: `e96b5f122 b702a49e9 c8fb38c03 b809d4927 df0593929 456d46d73 90514490d`.
+Maven: `fb1f5e193 c2db4ce98 80e986647 092034ed7`. Shared: `0475ee092`.
 
 ---
 
@@ -98,12 +99,45 @@ That instrument now exists: all three have catalogue entries with
 needs `-Denforcer.skip=true` on the config run as well as the build run. Every
 later change to either plugin is measured through `catalogue.py baseline`.
 
-### ▶ THE NEXT JOB: the self-checks neither plugin runs
+### The self-checks: done, and they are not what stopped the defects
 
-The log route runs `AnnotationProcessorOutput`, `TypeUseAnnotationClosure` and a
-set of configuration self-checks; neither plugin runs any of them.
-`checkEveryDependencyResolves` is the one whose absence cost a day on
-Elasticsearch, per its own javadoc.
+`checkNamesAreIdentities`, `checkEveryDependencyResolves` and
+`checkDependencyReleases` were **private methods of
+`CompileListToInputConfiguration`**, so the only producer verifying anything was
+the one that already had a reference to diff against. They are now
+`run-config/util/ConfigurationChecks`, called by all three (`0475ee092`).
+
+⚠ **They would not have caught any of the eight defects, and the honest version
+of that sentence is worth keeping.** The sibling drop is the instructive case:
+three projects all named `classes` means the configuration holds one part, every
+edge points at it, and both checks are satisfied by a graph missing two thirds of
+its class path. What catches that is the **name-clash warning at the point of
+construction**, in each plugin's `ComputeSourceSets`. The checks cover the family
+next door — a name that means two things, an edge that means nothing — which the
+log route has been measured to hit twice.
+
+Two things did fall out of doing the work:
+
+- **`emit` dropped edges in silence.** It built dependency lists with
+  `.map(allByName::get).filter(Objects::nonNull)`, while the `sourceSet == null`
+  branch three lines below had always logged. It also made the new check blind:
+  the drop leaves behind exactly the consistent graph the check looks for.
+- **Dependency lists are now sorted.** `graph.edges()` iteration order is an
+  artefact of insertion and capacity, so an unrelated edit reorders a list and a
+  byte-comparison across a refactor — §2's strongest evidence — reports a
+  difference that means nothing. Measured: `java.se`'s 11 dependencies, same set,
+  different order, across a change that touched neither.
+
+### ▶ THE NEXT JOB: the Gradle plugin has no catalogue entry either
+
+The Maven side got one (§4) after jenkins was found parsing with 100 errors at
+exit 0 for want of a baseline. **The Gradle plugin is now in exactly that
+position**: `gradle-plugin` is a working `catalogue.py` route with *no entry
+using it*, so nothing measures that plugin except `dogfood`, which is maddi's own
+code. The blocker is stated in §7 — two entries writing one
+`inputConfiguration.json` into a shared checkout — and the fix is a `config.output`
+convention for A/B entries. fernflower and pulsar are the candidates; both already
+have the compile-log side.
 
 ### What the A/B needed, and how it was got
 
@@ -129,9 +163,62 @@ anything.
 ⛔ **For anything touching cross-project resolution, the gate is a real multi-module corpus, never a
 fixture.**
 
+- **A corpus that is BUILT before the plugin runs will hide a stale read.** `AnnotationProcessorOutput`
+  produced real-looking generated-class libraries on langchain4j and activemq — off the *previous*
+  build's `target/classes` (§6a). Every maven-plugin corpus runs `mvn install` first, so no corpus in
+  the catalogue could have shown it. The instrument that did was a Gradle *fixture*, which is the one
+  place where a fresh build is guaranteed.
+
 ---
 
 ## 6. Refuted, do not rebuild
+
+### 6a. The two REPAIRS `--compile-log` makes do not belong in a plugin
+
+`AnnotationProcessorOutput` and `TypeUseAnnotationClosure` were wired into the shared plugin path on
+2026-08-19 and taken straight back out. `TestAnalyzerPluginFunctional#configurationCacheCompatible`
+is the instrument, three runs:
+
+| wired in | verdict |
+|---|---|
+| checks only | **PASSES** |
+| + `TypeUseAnnotationClosure` | FAILS |
+| + `AnnotationProcessorOutput` | FAILS |
+
+```
+configuration cache cannot be reused because the file system entry
+'build/classes/java/main' has been created.
+```
+
+⛔ **The cache is the symptom; the cause is *when* this runs.** `AnalyzerPlugin` computes the whole
+configuration inside a `project.provider(...)` resolved at **configuration/store time** — it says so
+in as many words — and both repairs read the file system, so Gradle discards the entry the moment
+compilation creates the directory.
+
+⛔⛔ **And with the cache off they would answer nothing, which is the real point.** Both ask about a
+source set's **compiled destination**, and a plugin builds this configuration *before* the compile
+tasks it depends on have run — the same sentence `PluginSourceSets.classPathUri` already carries.
+There are no classes there to read.
+
+⚠ **On Maven they LOOKED like they worked**, and this is the trap worth remembering: langchain4j-core
+and activemq-broker really did yield generated-class libraries. Those corpora are built with
+`mvn install` first, so the mojo was reading the **previous** build's `target/classes`. *A repair
+whose input is last time's output is not a repair; it is a stale read that happens to be right.*
+
+⭐ What is different about `--compile-log`: it parses a log written **after** the compilation, so the
+destination it reads is the output of the very compile it describes. No build plugin has that
+guarantee at configuration time. ▶ If it is ever worth doing, it belongs at **execution time** —
+inside the task action or the forked worker — which is a design change, not a call site. The full
+note is pinned in `PluginInputConfiguration.emit`.
+
+⭐ It was not wasted: feeding a plugin's source-set name to `AnnotationProcessorOutput` for the first
+time found a live defect in the **log route's own** code — it built its library URI by concatenation,
+`URI.create("file:" + target)`, which throws `Illegal character in path at index 90` on
+`LangChain4j :: Core/test`. The identical sentence — *"toURI(), not `file:` + path"* — was already
+written in `PluginSourceSets.classPathPart`, one package away, and had landed in only one of the two.
+Fixed and kept, wiring reverted.
+
+### 6b. A variant publishing the producer's class path
 
 A companion variant publishing the producer's compile class path (so a co-analysed sibling gets the
 exact answer, and its `compileOnly` dependencies stop being invisible). Gradle 9 refuses it:
@@ -156,9 +243,12 @@ a task run per sibling.
   flipping it makes every Maven run slower, and flipping Gradle's instead moves dogfood's parallel
   output ordering. A product decision, not a refactor.
 - **Site C — the two `ComputeDependencies`.** 90 lines against 161; the Maven one has no notion of
-  sibling projects, runtime-only scoping or source-project edges. Merging means putting the Gradle
-  model on the Maven path with nothing to measure it. Each now names the other and records the
-  divergence; revisit **once the Maven plugin has a corpus and tests.**
+  sibling projects or source-project edges. ⚠ The condition this bullet used to carry — "revisit once
+  the Maven plugin has a corpus and tests" — **is now met**, and the answer is still no: merging puts
+  the Gradle model on the Maven path with nothing to gain. `runtimeOnly` is no longer a divergence
+  either; it is a FLAG on the Gradle side and a SCOPE on the Maven side, resolved in
+  `mvnplugin/ComputeSourceSets` before the shared class sees anything. Revisit when a corpus asks for
+  something only the Gradle model can express.
 - **The `gradle-plugin` corpus route has no catalogue entry.** Adding one means two entries writing
   one `inputConfiguration.json` into a shared checkout, which breaks the `generates` preserve-list.
   Needs a `config.output` convention for A/B entries.
