@@ -39,9 +39,9 @@ public interface Types {
 
     // separate from getFullyQualified, as these have been preloaded
 
-    AnnotationExpression e2immuAnnotation(String fullyQualifiedName);
+    AnnotationExpression maddiAnnotation(String fullyQualifiedName);
 
-    Stream<AnnotationExpression> e2immuAnnotations();
+    Stream<AnnotationExpression> maddiAnnotations();
 
     String e2aAbsent();
 

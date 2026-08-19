@@ -17,9 +17,9 @@ package io.codelaser.maddi.gradleplugin;
 import org.gradle.api.Action;
 
 public class AnalyzerExtension {
-    public static final String ANALYZER_EXTENSION_NAME = "e2immu";
-    public static final String ANALYZER_TASK_NAME = "e2immu-analyzer";
-    public static final String WRITE_INPUT_CONFIGURATION_TASK_NAME = "e2immu-write-input-configuration";
+    public static final String ANALYZER_EXTENSION_NAME = "maddi";
+    public static final String ANALYZER_TASK_NAME = "maddi-analyzer";
+    public static final String WRITE_INPUT_CONFIGURATION_TASK_NAME = "maddi-write-input-configuration";
 
     /**
      * The consumable configuration each analyzed project publishes its own source directories on, and the
@@ -27,8 +27,8 @@ public class AnalyzerExtension {
      * siblings' <em>sources</em> instead of their jars; without that, an interface and its implementations end
      * up on opposite sides of the source/classpath divide and nothing can travel between them.
      */
-    public static final String SOURCE_ELEMENTS_CONFIGURATION_NAME = "e2immuSourceElements";
-    public static final String SOURCES_CATEGORY = "e2immu-sources";
+    public static final String SOURCE_ELEMENTS_CONFIGURATION_NAME = "maddiSourceElements";
+    public static final String SOURCES_CATEGORY = "maddi-sources";
 
     /*
      ⛔⛔ DO NOT ADD A COMPANION VARIANT CARRYING THE PRODUCER'S COMPILE CLASS PATH. It was built and measured on

@@ -99,7 +99,7 @@ public class TestEventualRatchet {
             fail("The dogfood input configuration " + INPUT_CONFIGURATION.toAbsolutePath() + " does not exist."
                  + " Run this test through `./gradlew :maddi-run-openjdk:slowTest`, whose"
                  + " dogfoodInputConfiguration task generates it; by hand it is `cd dogfood &&"
-                 + " ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration`"
+                 + " ../gradlew --refresh-dependencies :cst-impl:maddi-write-input-configuration`"
                  + " (dogfood/README.md). You are seeing this because the file is a generated, uncommitted"
                  + " artifact and this run bypassed that task -- an IDE run, most likely. This test must not"
                  + " skip: a ratchet that silently passes when its input is missing defends nothing.");
@@ -181,7 +181,7 @@ public class TestEventualRatchet {
                  + " This run would measure released jars instead of the code under test."
                  + " Rebuild and regenerate: `./gradlew build` then"
                  + " `cd dogfood && ../gradlew --refresh-dependencies"
-                 + " :cst-impl:e2immu-write-input-configuration` (dogfood/README.md).");
+                 + " :cst-impl:maddi-write-input-configuration` (dogfood/README.md).");
         }
         LOGGER.info("Ratchet scope: cst-api/cst-analysis/cst-impl as source, {} as jars, all at the current"
                     + " project version {}", jars, version);

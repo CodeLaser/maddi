@@ -141,7 +141,8 @@ Cross-module design notes and plans are indexed in [`docs/README.md`](docs/READM
 ## Background
 
 maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until it was archived.
-The root Java package is still `org.e2immu.*`, after the predecessor.
+The root Java package was `org.e2immu.*`, after the predecessor; it became
+`io.codelaser.maddi.*` in 0.9.1 — see [`docs/release-notes-0.9.1.md`](docs/release-notes-0.9.1.md).
 
 maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at
 [CodeLaser](https://codelaser.io), and is and will remain open source. The **analyzer** is

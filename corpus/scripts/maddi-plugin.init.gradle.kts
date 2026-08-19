@@ -4,7 +4,7 @@
 //
 //   ./gradlew --init-script <this> -Dmaddi.pluginVersion=0.9.1 \
 //             [-Dmaddi.pluginRepo=<dir>] [-Dmaddi.jmods=java.se,jdk.compiler] \
-//             -Dmaddi.outputFile=<abs path> :some:module:e2immu-write-input-configuration
+//             -Dmaddi.outputFile=<abs path> :some:module:maddi-write-input-configuration
 //
 // ⛔ Not editing the checkout is the point, not tidiness. A corpus entry declares what it writes into
 // a third-party tree (`config.generates`), and that list feeds the pre-flight's preserve-list. A route
@@ -28,7 +28,7 @@ initscript {
 
 // ⛔⛔ WHICH PROJECTS GET THE PLUGIN IS A CHOICE BETWEEN TWO DIFFERENT TESTS, and it was being made
 // by accident. `allprojects` (the default, unchanged) means every sibling publishes its SOURCES on the
-// `e2immuSourceElements` variant, so the analysed module co-parses them -- the dogfood pattern. A
+// `maddiSourceElements` variant, so the analysed module co-parses them -- the dogfood pattern. A
 // single project means its siblings arrive as ordinary class-path entries, jars or classes
 // directories, which is how a user who applies the plugin to their own project sees the world.
 //
@@ -52,7 +52,7 @@ allprojects {
         if (applyTo != "all" && path != applyTo) return@afterEvaluate
         pluginManager.apply(io.codelaser.maddi.gradleplugin.AnalyzerPlugin::class.java)
 
-        val extension = extensions.getByName("e2immu")
+        val extension = extensions.getByName("maddi")
                 as io.codelaser.maddi.gradleplugin.AnalyzerExtension
         // Unset means the java.se closure (JavaModules.DEFAULT_JMODS), which is what the other routes
         // give the parse; catalogue.py maps an entry's `extra_jmods` onto this.

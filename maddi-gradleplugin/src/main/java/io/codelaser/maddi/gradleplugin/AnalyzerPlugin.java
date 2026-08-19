@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The maddi Gradle plugin. Registers the {@code e2immu-analyzer} and {@code e2immu-write-input-configuration} tasks
+ * The maddi Gradle plugin. Registers the {@code maddi-analyzer} and {@code maddi-write-input-configuration} tasks
  * as modern, lazily-configured, configuration-cache-compatible tasks. Everything that needs the {@link Project}
  * model (source sets, resolved classpath) is read at configuration time into a serialized {@link Configuration}
  * (a plain String), so nothing {@code Project}-bound survives into task execution.
@@ -74,8 +74,8 @@ public class AnalyzerPlugin implements Plugin<Project> {
 
         LOGGER.debug("Adding {} task to {}", AnalyzerExtension.ANALYZER_TASK_NAME, project);
         project.getTasks().register(AnalyzerExtension.ANALYZER_TASK_NAME, AnalyzerTask.class, task -> {
-            task.setGroup("e2immu");
-            task.setDescription("Analyses " + project + " with the e2immu analyzer.");
+            task.setGroup("maddi");
+            task.setDescription("Analyses " + project + " with the maddi analyzer.");
             task.getConfigurationJson().set(configurationJson);
             // the forked analyzer resolves relative source-set paths against this directory
             task.getWorkingDirectory().fileProvider(project.provider(() -> workingDirectory(project)));
@@ -87,7 +87,7 @@ public class AnalyzerPlugin implements Plugin<Project> {
         LOGGER.debug("Adding {} task to {}", AnalyzerExtension.WRITE_INPUT_CONFIGURATION_TASK_NAME, project);
         project.getTasks().register(AnalyzerExtension.WRITE_INPUT_CONFIGURATION_TASK_NAME,
                 WriteInputConfigurationTask.class, task -> {
-                    task.setGroup("e2immu");
+                    task.setGroup("maddi");
                     task.setDescription("Writes out the input configuration of the project to a json file");
                     task.getConfigurationJson().set(configurationJson);
                     task.getOutputFile().set(project.getLayout().getBuildDirectory().file("inputConfiguration.json"));
@@ -103,7 +103,7 @@ public class AnalyzerPlugin implements Plugin<Project> {
      * rule an undecided or mutable supertype then drags every implementation down with it.
      * <p>
      * {@code Category} is what makes the variant selectable: the normal {@code apiElements}/{@code
-     * runtimeElements} variants declare {@code Category=library}, so a request for {@code e2immu-sources} is
+     * runtimeElements} variants declare {@code Category=library}, so a request for {@code maddi-sources} is
      * incompatible with them and can only match this one. The artifacts go in through the {@code Provider}
      * overload, not a fixed list: a build script sets its {@code srcDirs} after applying the plugin, so
      * enumerating them here and now would publish the defaults instead of what the user configured.
@@ -111,7 +111,7 @@ public class AnalyzerPlugin implements Plugin<Project> {
     private void publishSourceElements(Project project) {
         project.getPlugins().withType(JavaPlugin.class, jp ->
                 project.getConfigurations().consumable(AnalyzerExtension.SOURCE_ELEMENTS_CONFIGURATION_NAME, conf -> {
-                    conf.setDescription("Source directories of " + project + ", for co-analysis by the e2immu analyzer.");
+                    conf.setDescription("Source directories of " + project + ", for co-analysis by the maddi analyzer.");
                     conf.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE,
                             project.getObjects().named(Category.class, AnalyzerExtension.SOURCES_CATEGORY));
                     conf.getOutgoing().artifacts(project.provider(() -> mainSourceDirectories(project)));
@@ -182,14 +182,14 @@ public class AnalyzerPlugin implements Plugin<Project> {
             return new File(dir);
         }
         File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
-        return new File(buildDir, "e2immu");
+        return new File(buildDir, "maddi");
     }
 
     private static String toJson(Configuration configuration) {
         try {
             return JsonStreaming.objectMapper().writeValueAsString(configuration);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Cannot serialize the e2immu configuration", e);
+            throw new RuntimeException("Cannot serialize the maddi configuration", e);
         }
     }
 }

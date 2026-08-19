@@ -82,7 +82,7 @@ descriptors do not matter.
   2026-08-17** with `website`/`vcsUrl`/`tags`, a sources and a javadoc jar (the Portal requires both,
   and `setArtifacts` replaces the artifact list, so they are named there explicitly), and a
   `description` on the plugin declaration — it had been set on the enclosing scope, i.e. on the
-  *project*, so the declaration carried none. *Remaining:* run `publishPlugins`, **after the rename**.
+  *project*, so the declaration carried none. *Remaining:* run `publishPlugins` — the rename it was waiting for landed 2026-08-17.
 
   ⚠️ **The Portal is not instant, and the id cannot be corrected cheaply.** Publishing docs, verified
   2026-08-17: a new plugin "will go through a manual review process" by a Gradle engineer before it
@@ -92,9 +92,9 @@ descriptors do not matter.
   that evening — say so in the release notes rather than promising an install line that 404s.
 
   The same page requires that "the plugin ID and group ID share the same top-level namespace". The
-  group is `io.codelaser`, so the current id `io.codelaser.maddi.analyzer` **would be refused at
-  review**: publishing the plugin before the rename was never actually available. After the cutover
-  the id is `io.codelaser.maddi.analyzer` (`tools/rename/name-map.tsv` section 3), which satisfies it.
+  group is `io.codelaser`, so the pre-rename id `org.e2immu.analyzer-plugin` **would have been refused
+  at review**: publishing the plugin before the rename was never actually available. Since the cutover
+  (2026-08-17) the id is `io.codelaser.maddi.analyzer`, which satisfies it.
 * *Maven plugin* (`maddi-mvnplugin`) → **Maven Central**. **Descriptor + shading DONE.** A hand-maintained
   `src/main/resources/META-INF/maven/plugin.xml` (auto-generation stays blocked on the Gradle-9-incompatible
   `maven-plugin-development` tool) describes all 5 goals (`run`, `write-input-configuration`, `statistics`,

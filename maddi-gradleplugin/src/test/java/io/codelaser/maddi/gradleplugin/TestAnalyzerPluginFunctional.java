@@ -28,9 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * End-to-end reactivation test: apply the plugin to a generated Java project and run the {@code e2immu-analyzer}
+ * End-to-end reactivation test: apply the plugin to a generated Java project and run the {@code maddi-analyzer}
  * task. It must parse (openjdk front-end, in a forked worker), run the modification analysis, and write a result
- * JSON per package to {@code build/e2immu}.
+ * JSON per package to {@code build/maddi}.
  */
 public class TestAnalyzerPluginFunctional {
 
@@ -41,14 +41,14 @@ public class TestAnalyzerPluginFunctional {
         BuildResult result = GradleRunner.create()
                 .withProjectDir(projectDir.toFile())
                 .withPluginClasspath()
-                .withArguments("e2immu-analyzer", "--stacktrace", "--info")
+                .withArguments("maddi-analyzer", "--stacktrace", "--info")
                 .forwardOutput()
                 .build();
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":e2immu-analyzer").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, result.task(":maddi-analyzer").getOutcome());
         // toRealPath() resolves the macOS /var -> /private/var symlink, so the results directory the analyzer
         // wrote (canonical path) matches what we check here
-        Path results = projectDir.toRealPath().resolve("build/e2immu");
+        Path results = projectDir.toRealPath().resolve("build/maddi");
         assertTrue(Files.isDirectory(results), "expected results directory " + results);
         try (var stream = Files.walk(results)) {
             assertTrue(stream.anyMatch(p -> p.getFileName().toString().endsWith(".json")),
@@ -71,18 +71,18 @@ public class TestAnalyzerPluginFunctional {
         GradleRunner runner = GradleRunner.create()
                 .withProjectDir(projectDir.toFile())
                 .withPluginClasspath()
-                .withArguments("e2immu-analyzer", "--stacktrace")
+                .withArguments("maddi-analyzer", "--stacktrace")
                 .forwardOutput();
 
         BuildResult first = runner.build();
-        assertEquals(TaskOutcome.SUCCESS, first.task(":e2immu-analyzer").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, first.task(":maddi-analyzer").getOutcome());
 
         BuildResult second = runner.build();
         assertTrue(second.getOutput().contains("Reusing configuration cache")
                    || second.getOutput().contains("Configuration cache entry reused"),
                 "expected the configuration cache to be reused on the second run:\n" + second.getOutput());
         // and, unchanged inputs + present outputs => the analyzer is not re-executed (up-to-date / from cache)
-        TaskOutcome secondOutcome = second.task(":e2immu-analyzer").getOutcome();
+        TaskOutcome secondOutcome = second.task(":maddi-analyzer").getOutcome();
         assertTrue(secondOutcome == TaskOutcome.UP_TO_DATE || secondOutcome == TaskOutcome.FROM_CACHE,
                 "expected the second run to be incremental, was " + secondOutcome);
     }
@@ -94,7 +94,7 @@ public class TestAnalyzerPluginFunctional {
                     java
                     id("io.codelaser.maddi.analyzer")
                 }
-                e2immu {
+                maddi {
                     jmods = "java.base"
                     analysisSteps = "modification"
                     sourcePackages = "com.example"

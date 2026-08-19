@@ -21,7 +21,7 @@
  cst-api and cst-impl are both analyzed as source because that is the whole point: TypeInfo is an
  interface in cst-api, TypeInfoImpl implements it in cst-impl, and eventual immutability can only travel
  between them when both are parsed -- a jar type never enters the abstract-method batch. The plugin's
- e2immuSourceElements variant is what carries cst-api's sources into cst-impl's input configuration.
+ maddiSourceElements variant is what carries cst-api's sources into cst-impl's input configuration.
 */
 plugins {
     // Resolved once here, applied in the subprojects. Deliberately NO version literal: settings.gradle.kts

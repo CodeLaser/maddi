@@ -412,7 +412,7 @@ public class JavaInspectorImpl implements JavaInspector {
         // kept consistent with (and unique to) its key, so the warmup type never collides with a type a test
         // later parses — in particular a default-package 'X' (the old "a.b.X" key with package-less content
         // registered a default-package X, which then clashed with such tests).
-        parse(Map.of("e2immu.preload.WarmUp", "package e2immu.preload; public class WarmUp { }"),
+        parse(Map.of("maddi.preload.WarmUp", "package maddi.preload; public class WarmUp { }"),
                 new JavaInspector.ParseOptions.Builder().build());
     }
 

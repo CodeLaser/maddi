@@ -68,7 +68,7 @@ public record InputConfigurationImpl(Path workingDirectory,
     }
 
     @Override
-    public InputConfiguration withE2ImmuSupportFromClasspath() {
+    public InputConfiguration withMaddiSupportFromClasspath() {
         return withSupportFromClasspath(Map.of("maddiSupport", "io/codelaser/maddi/annotation"));
     }
 

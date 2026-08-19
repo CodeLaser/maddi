@@ -27,7 +27,7 @@ dependencies {
     implementation("org.jetbrains:annotations:26.1.0")
 }
 
-e2immu {
+maddi {
     // sourcePackages deliberately unset: see README
     jmods = "java.base"
 }

@@ -50,11 +50,11 @@ public class TestRunAnalyzer {
                 "--classpath=" + String.join(":", ToolChain.CLASSPATH_JUNIT),
                 "--classpath=" + String.join(":", ToolChain.CLASSPATH_SLF4J_LOGBACK),
                 "--source=" + sourceDir.getPath(),
-                "--analysis-results-dir=build/e2immu",
+                "--analysis-results-dir=build/maddi",
                 "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/json",
         });
 
-        File output = new File("build/e2immu/OrgE2ImmuUtilInternalUtil.json");
+        File output = new File("build/maddi/OrgE2ImmuUtilInternalUtil.json");
         String content = Files.readString(output.toPath());
         String expected = """
                 [{"fqn": "Tio.codelaser.maddi.util.GetSetHelper", "data":{"hct":{"E":true}}},

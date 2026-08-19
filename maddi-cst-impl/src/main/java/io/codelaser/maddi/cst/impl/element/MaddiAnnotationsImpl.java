@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-public class E2ImmuAnnotationsImpl {
+public class MaddiAnnotationsImpl {
     public final static String IMPLIED = "implied";
     public final static String ABSENT = "absent";
     public final static String AFTER = "after";
@@ -81,7 +81,7 @@ public class E2ImmuAnnotationsImpl {
     @ImmutableContainer // result of Map.copyOf
     private final Map<String, AnnotationExpression> annotationTypes;
 
-    public E2ImmuAnnotationsImpl() {
+    public MaddiAnnotationsImpl() {
         Map<String, AnnotationExpression> builder = new HashMap<>();
         add(builder, allowsInterrupt, beforeMark, commutable, container, independent,
                 immutableContainer, extensionClass, finalFields, getSet, immutable,

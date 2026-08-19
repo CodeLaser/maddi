@@ -317,7 +317,7 @@ def plan(entry, phase):
             return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
                     f'--init-script {init}{args} '
                     f'-Dmaddi.pluginVersion={ver}{jmods_prop}{apply_to} -Dmaddi.outputFile={out} '
-                    f'{prefix}:e2immu-write-input-configuration')
+                    f'{prefix}:maddi-write-input-configuration')
         if route == 'maven-log':
             jh = f'JAVA_HOME={c["build_java_home"]} ' if c.get('build_java_home') else ''
             # `clean` is mandatory: maven-compiler-plugin skips an up-to-date module and a skipped
