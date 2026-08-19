@@ -31,13 +31,16 @@ import java.util.function.Consumer;
  * set; the Gradle one builds edges from a tree of {@code Result}s and knows about sibling projects reached
  * through a variant, runtime-only scoping, and source-project edges, none of which exist here.
  *
- * <p>⛔ SO CHECK BOTH WHEN CHANGING EITHER. What they already disagree on: this one has no notion of
- * {@code runtimeOnly} at all, so a runtime-only library reaches every Maven source set, and only the Gradle twin
- * keeps it off a compile class path.
+ * <p>⛔ SO CHECK BOTH WHEN CHANGING EITHER. What they already disagree on: {@code runtimeOnly} is a FLAG on the
+ * Gradle side, which this class would have to read, and a SCOPE on the Maven side, which
+ * {@code mvnplugin/ComputeSourceSets} resolves before it ever gets here -- a runtime-scope artifact is put on the
+ * test source set's dependency list and left off main's, because that is where javac does and does not read it.
+ * Both arrive at the same place; only one of them is visible in this file.
  *
- * <p>Merging them would mean putting the Gradle model on the Maven path, and there is no Maven corpus that would
- * measure the result: {@code maddi-mvnplugin} has no tests, and langchain4j's checked-in configuration predates
- * build units. Until one exists, two honest implementations beat one unmeasured one.
+ * <p>Merging them would mean putting the Gradle model on the Maven path. That is now measurable -- the Maven
+ * plugin has tests, and timefold-solver gives an A/B against {@code --compile-log} -- but it is still a change
+ * with nothing to gain: two honest implementations beat one unmeasured one. Revisit when a corpus asks for
+ * something only the Gradle model can express.
  */
 public class ComputeDependencies {
    private final Consumer<String> log;

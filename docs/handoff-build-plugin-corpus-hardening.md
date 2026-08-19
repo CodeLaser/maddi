@@ -1,7 +1,8 @@
 # Handoff — measuring the build plugins against a corpus
 
-**Status: the Gradle plugin is done for now; the Maven plugin has not started.**
-Dated 2026-08-19. Commits `e96b5f122 b702a49e9 c8fb38c03 b809d4927 df0593929 456d46d73 90514490d`.
+**Status: both plugins have now met a corpus. What is left is the self-checks, and an instrument.**
+Dated 2026-08-19. Gradle: `e96b5f122 b702a49e9 c8fb38c03 b809d4927 df0593929 456d46d73 90514490d`.
+Maven: `fb1f5e193 c2db4ce98 80e986647`.
 
 ---
 
@@ -13,7 +14,7 @@ maddi has **three** producers of one `InputConfiguration`:
 |---|---|---|
 | `--compile-log` (`CompileListToInputConfiguration`) | a whole reactor at once | fernflower, timefold, elasticsearch, pulsar … |
 | `maddi-gradleplugin` | one project, siblings as jars | **`dogfood` only — maddi's own code** |
-| `maddi-mvnplugin` | one module, siblings as jars | **nothing** |
+| `maddi-mvnplugin` | one module, siblings as jars | **nothing**, until 2026-08-19 (§4) |
 
 `TestCompileLogCli` states the structural difference outright: *"This is the only importer that sees a
 whole reactor at once; the Maven and Gradle plugins are invoked per module and see siblings as jars."*
@@ -57,67 +58,62 @@ has no tests at all.**
 
 Result: fernflower ≡ `--compile-log`; pulsar `:managed-ledger` exit 0; dogfood unmoved throughout.
 
----
-
-## 4. ▶ THE NEXT JOB: the same work for the Maven plugin, starting with langchain4j
-
-**First deliverable: regenerate langchain4j's `inputConfiguration.json` and commit it.** The
-checked-in one predates `buildUnit`, `sourceRelease` and the `module` flag — verified 2026-08-19:
-regenerating it now adds `buildUnit=dev.langchain4j:langchain4j-core`, `sourceRelease=17`, and
-`module` on **31 of its 73 class path parts**. It is a corpus baseline, so it was left for a
-deliberate decision rather than updated in passing.
-
-```console
-$ eval "$(ws env server)"
-$ ./gradlew :maddi-mvnplugin:publishToMavenLocal          # or: task corpus:config:plugin (publishes BOTH)
-$ cd ../../test-oss/langchain4j
-$ MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn -q -pl langchain4j-core generate-test-sources \
-      io.codelaser:maddi-mvnplugin:0.9.1:write-input-configuration
-$ cp langchain4j-core/target/inputConfiguration.json inputConfiguration.json
-```
-
-Then the verdict, from the maddi checkout:
-
-```console
-$ ./gradlew -q :maddi-run-openjdk:run --args="\
-    --input-configuration=<abs>/langchain4j/inputConfiguration.json --analysis-steps=none"
-```
-
-### ⛔ The A/B needs a reference, and langchain4j has none
-
-`corpus/catalogue/langchain4j.yml` is `route: maven-plugin` **only**. There is no compile-log config
-for it, so there is nothing to diff against — unlike fernflower, which carried `gradle-log` and made
-the Gradle A/B possible in one run. Two ways to get one:
-
-- **Capture `maven-log` for langchain4j** (`./mvnw -X clean test-compile`, grep `^\[DEBUG] -d `, feed
-  to `--compile-log`). Its build only partially completes (`expect: partial`), which may be enough:
-  only `langchain4j-core` is parsed.
-- **Or A/B on `timefold-solver` instead**, which already has `route: maven-log` over its whole
-  65-source-set reactor — run the Maven plugin on one of its modules and compare against the reactor
-  config restricted to that module. This is the closer analogue of what pulsar did for Gradle.
-
-Do langchain4j first (it is the stated deliverable and it is cheap), but expect the *defects* to come
-from the second.
-
-### What to look for, in priority order
-
-1. **Class-path part naming.** `ComputeSourceSets.processDependencyNodes` still names parts by
-   `artifact.getFile().getName()` — the exact shape of `c8fb38c03`. In Maven a reactor sibling
-   normally resolves to a jar from `~/.m2` (distinct names), but an in-reactor build resolving to
-   `target/classes` collides identically. **Untested; no corpus exercises it.**
-2. **`sourceRelease` reads properties only** (`maven.compiler.{,test}{release,source}`). A pom setting
-   `<release>` inside `maven-compiler-plugin`'s own `<configuration>` is not seen and falls back to 0.
-   Deliberate — a wrong release is worse than none — but it is the likeliest gap on a real corpus.
-3. **`ComputeDependencies` (the one in `maddi-run-config`) has no notion of `runtimeOnly`**, so a
-   runtime-only library reaches every Maven source set. The Gradle twin keeps it off a compile class
-   path. See §7.
-4. **No `AnnotationProcessorOutput` / `TypeUseAnnotationClosure` / config self-checks.** The log route
-   runs all of these; neither plugin does. `checkEveryDependencyResolves` is the one whose absence
-   cost a day on Elasticsearch, per its own javadoc.
-5. **`maddi-mvnplugin` has no tests.** Anything found should arrive with one; the Gradle side's
-   `TestMultiProjectClassPath` is the model, and §5 is why it must be functional.
+⚠ Two of these five have now recurred in the Maven plugin (`c8fb38c03` as `c2db4ce98`, `b809d4927` as
+`80e986647`). **A defect found in one plugin is a hypothesis about the other**, and it was true both times.
 
 ---
+
+## 4. What the Maven plugin's first corpus run found
+
+Three defects, in one afternoon, on a plugin that had never been pointed at anything.
+
+| commit | defect | measured |
+|---|---|---|
+| `fb1f5e193` | **the scope filter was computed and never applied** — all four scope passes walked the same unfiltered graph, so the plugin produced ONE class path and used it for both compilations | timefold `core/main`: **60** dependencies against javac's **12**; langchain4j-core/main **52 → 5**, exactly its five compile-scope deps |
+| `c2db4ce98` | **a reactor sibling resolves to `target/classes`, so `file.getName()` is `classes` for every one** — the same defect as `c8fb38c03`, in the other plugin | `-pl tools/benchmark -am`: 3 siblings, **1** class-path part before / **3** after (control run: 41 non-JDK parts vs 43) |
+| `80e986647` | **`sourceRelease` read the properties only**, and the properties are the minority spelling | poms with the property vs with `<release>` in the compiler plugin's own config: activemq 0/8, guava 0/10, jenkins 0/1, camel 12/19. **Jenkins core: 100 parse errors → 0** |
+
+Verdicts, `--analysis-steps=none`, before/after, on every corpus that takes the
+`maven-plugin` route:
+
+| | before | after |
+|---|---|---|
+| langchain4j | 0 errors, 8 warnings | 0 errors, 8 warnings |
+| activemq | 0 errors, 7 warnings | 0 errors, **4** warnings |
+| **jenkins** | **100 errors**, 99 warnings | **0 errors**, 36 warnings |
+| camel | 0 errors, 5 warnings | 0 errors, **2** warnings |
+
+### ⛔ Jenkins had been parsing with 100 errors, at exit 0, and nothing said so
+
+`--analysis-steps=none` returns 0 whether or not the sources parse; the error
+count is a separate question, which is why §2 says to count with `grep -c`. The
+one instrument that would have caught this is `config.baseline` — and of the four
+`maven-plugin` corpora, **only langchain4j has a catalogue entry at all**.
+activemq, camel and jenkins exist as `Taskfile` tasks and nothing else, so no
+baseline, no `generates` preserve-list, and no `catalogue.py` phase can see them.
+
+That instrument now exists: all three have catalogue entries with
+`route: maven-plugin` and a recorded baseline (activemq 500 primary types, camel
+388, jenkins 1,464), and the route learned an `mvn_flags` field, because jenkins
+needs `-Denforcer.skip=true` on the config run as well as the build run. Every
+later change to either plugin is measured through `catalogue.py baseline`.
+
+### ▶ THE NEXT JOB: the self-checks neither plugin runs
+
+The log route runs `AnnotationProcessorOutput`, `TypeUseAnnotationClosure` and a
+set of configuration self-checks; neither plugin runs any of them.
+`checkEveryDependencyResolves` is the one whose absence cost a day on
+Elasticsearch, per its own javadoc.
+
+### What the A/B needed, and how it was got
+
+`corpus/catalogue/langchain4j.yml` is `route: maven-plugin` only, so there was
+nothing to diff it against. **timefold-solver** supplied the reference instead:
+it carries `route: maven-log` over its whole 65-source-set reactor, so running
+the Maven plugin on one of its modules and diffing that module's dependency list
+against the reactor's is a true A/B. That is where the 60-vs-12 came from, and it
+is the shape to reach for again — langchain4j is too small and too clean to find
+anything.
 
 ## 5. Traps that cost time — all three were weak instruments
 
