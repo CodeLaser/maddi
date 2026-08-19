@@ -18,6 +18,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.JavaModules;
+import io.codelaser.maddi.run.config.util.PluginInputConfiguration;
+import io.codelaser.maddi.run.main.PluginOptions;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.run.main.Main;
 import io.codelaser.maddi.gradleplugin.inputconfig.ComputeDependencies;
@@ -27,7 +29,6 @@ import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.op.Linearize;
@@ -38,7 +39,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -149,91 +149,32 @@ public record AnalyzerPropertyComputer(
         builder.setWorkingDirectory(workingDirectory.toString());
         Path absoluteWorkingDirectory = workingDirectory.toAbsolutePath();
 
-        Set<String> excludeFromClasspath = extension.excludeFromClasspath == null || extension.excludeFromClasspath.isBlank() ? Set.of() :
-                Arrays.stream(extension.excludeFromClasspath.split("[;,]\\s*")).collect(Collectors.toUnmodifiableSet());
+        Set<String> excludeFromClasspath = PluginOptions.splitToSet(extension.excludeFromClasspath);
         ComputeSourceSets computeSourceSets = new ComputeSourceSets(absoluteWorkingDirectory);
         ComputeSourceSets.Result result = computeSourceSets.compute(project, extension.sourcePackages,
                 extension.testSourcePackages, excludeFromClasspath);
-        makeJavaModules(extension.jmods).forEach(set -> result.sourceSetsByName().put(set.name(), set));
+        List<SourceSet> javaModules = JavaModules.javaModuleSourceSets(extension.jmods);
+        javaModules.forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
         G<String> graph = new ComputeDependencies().go(result);
-        List<String> linearization = Linearize.linearize(graph).asList(String::compareToIgnoreCase);
         LOGGER.info("Graph: {}", graph);
-        LOGGER.info("Linearization:\n  {}\n", String.join("\n  ", linearization));
-        Map<String, SourceSet> allSourceSetsByName = result.allSourceSetsByName();
-        for (String name : linearization) {
-            Map<V<String>, Long> edges = graph.edges(new V<>(name));
-            List<SourceSet> dependencies = edges == null ? List.of() : edges.keySet()
-                    .stream().map(v -> allSourceSetsByName.get(v.t()))
-                    .filter(Objects::nonNull).toList();
-            SourceSet sourceSet = allSourceSetsByName.get(name);
-            if (sourceSet == null) {
-                LOGGER.warn("Don't know source set {}", name);
-            } else {
-                SourceSet set = sourceSet.withDependencies(dependencies);
-                if (!set.externalLibrary()) builder.addSourceSets(set);
-                else builder.addClassPathParts(set);
-            }
-        }
+        PluginInputConfiguration.emit(builder, graph, result.allSourceSetsByName(), javaModules, LOGGER::info);
         return builder.build();
     }
 
-    private List<SourceSet> makeJavaModules(String jmodsString) {
-        List<SourceSet> sets = new ArrayList<>();
-        Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
-        for (String jmod : jmods) {
-            if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl.Builder().setName(jmod).setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
-                sets.add(set);
-            }
-        }
-        return sets;
-    }
-
     private static Map<String, String> makeAnalysisHintsMap(AnalyzerExtension extension) {
-        // AnalysisHints
-        // use case 1
-        Map<String, String> kvMap = new HashMap<>();
-        if (extension.preloadAnalysisResultsDirs != null) {
-            kvMap.put(Main.PRELOAD_ANALYSIS_RESULTS_DIRS, extension.preloadAnalysisResultsDirs);
-        }
-        // use case 2
-        if (extension.analysisResultsTargetDir != null) {
-            kvMap.put(Main.ANALYSIS_RESULTS_TARGET_DIR, extension.analysisResultsTargetDir);
-        }
-        // use case 3
-        if (extension.updatedHintsDir != null) {
-            kvMap.put(Main.UPDATED_HINTS_DIR, extension.updatedHintsDir);
-        }
-        if (extension.updatedHintsPackage != null) {
-            kvMap.put(Main.UPDATED_HINTS_PACKAGE, extension.updatedHintsPackage);
-        }
-        if (extension.hintsPackages != null) {
-            kvMap.put(Main.HINTS_PACKAGES, extension.hintsPackages);
-        }
-        return kvMap;
+        return PluginOptions.analysisHintsMap(extension.preloadAnalysisResultsDirs,
+                extension.analysisResultsTargetDir, extension.updatedHintsDir, extension.updatedHintsPackage,
+                extension.hintsPackages);
     }
 
     private static @NotNull Map<String, String> makeGeneralConfigMap(Project project,
                                                                      AnalyzerExtension extension) {
-        Map<String, String> generalMap = new HashMap<>();
-        generalMap.put(Main.INCREMENTAL_ANALYSIS, "" + extension.incrementalAnalysis);
-        String analysisResultsDir;
-        if (extension.analysisResultsDir != null) {
-            analysisResultsDir = extension.analysisResultsDir;
-        } else {
-            // default value: "${build.dir}/e2immu"
-            File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
-            analysisResultsDir = new File(buildDir, "e2immu").getAbsolutePath();
-        }
-        generalMap.put(Main.ANALYSIS_RESULTS_DIR, analysisResultsDir);
-        generalMap.put(Main.PARALLEL, "" + extension.parallel);
-        generalMap.put(Main.ANALYSIS_STEPS, extension.analysisSteps);
-        generalMap.put(Main.DEBUG, extension.debugTargets);
-        generalMap.put(Main.QUIET, "" + extension.quiet);
-        generalMap.put(Main.WARN_NEAR_MISSES, "" + extension.warnNearMisses);
-        return generalMap;
+        // default results directory: "${build.dir}/e2immu"
+        File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
+        return PluginOptions.generalConfigMap(extension.incrementalAnalysis, extension.analysisResultsDir,
+                new File(buildDir, "e2immu"), extension.parallel, extension.analysisSteps, extension.debugTargets,
+                extension.quiet, extension.warnNearMisses);
     }
 
     private static void addSystemProperties(Map<String, Object> properties) {

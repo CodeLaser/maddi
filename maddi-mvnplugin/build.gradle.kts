@@ -82,6 +82,15 @@ dependencies {
     compileOnly("org.apache.maven.resolver:maven-resolver-util:1.8.2")
 
     shade("com.fasterxml.jackson.core:jackson-databind")
+
+    // ⚠ REPEATED, NOT INHERITED. The four above are `compileOnly` because the Maven runtime provides them to a
+    // hosted plugin and bundling a second copy breaks it -- and `compileOnly` reaches only the main source set.
+    // A test that hands the dependency walk a graph it built itself needs Aether's node and artifact types on
+    // its own class path.
+    testImplementation("org.apache.maven:maven-plugin-api:$mavenVersion")
+    testImplementation("org.apache.maven:maven-core:$mavenVersion")
+    testImplementation("org.apache.maven.resolver:maven-resolver-api:1.8.2")
+    testImplementation("org.apache.maven.resolver:maven-resolver-util:1.8.2")
 }
 
 tasks.shadowJar {

@@ -23,6 +23,16 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
+/**
+ * The dependency graph over a GRADLE project's source sets and libraries.
+ *
+ * <p>⚠ <b>IT HAS A TWIN:</b> {@code io.codelaser.maddi.run.config.util.ComputeDependencies}, which the Maven
+ * plugin uses. The three rules they share -- jmod edges, "every non-JDK set depends on all jmods", and
+ * test -> main -- are stated in both; sibling projects from the {@code e2immuSourceElements} variant and
+ * source-project edges have no counterpart there. Runtime-only scoping does, but not here: Maven derives it from
+ * the artifact's SCOPE, in {@code mvnplugin/ComputeSourceSets}, before the twin sees anything.
+ * See that class for why they are not merged. <b>Check both when changing a shared rule.</b>
+ */
 public class ComputeDependencies {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeDependencies.class);
 
@@ -43,10 +53,13 @@ public class ComputeDependencies {
         Map<String, Boolean> jmodsAndExternalToMain = new HashMap<>();
         jmods.forEach(jmod -> jmodsAndExternalToMain.put(jmod, true));
         HashSet<String> seen = new HashSet<>();
-        recursionForClassPathParts(builder, result, seen, jmods, jmodsAndExternalToMain);
+        // Runtime-only for the ANALYSED project. Kept rather than discarded, because that is a fact about this
+        // project and a sibling's sources may well be compiled against them -- see recursionForSourceSets.
+        Set<String> runtimeOnlyLibraries = new LinkedHashSet<>();
+        recursionForClassPathParts(builder, result, seen, jmods, jmodsAndExternalToMain, runtimeOnlyLibraries);
 
         LOGGER.info(" -- now recursing for source sets");
-        recursionForSourceSets(builder, result, seen, jmodsAndExternalToMain);
+        recursionForSourceSets(builder, result, seen, jmodsAndExternalToMain, runtimeOnlyLibraries, false);
 
         // the edges AMONG source projects (cst-analysis/main -> cst-api/main): the recursion above only wired the
         // consuming project to each of its dependency projects, not those dependency projects to one another
@@ -61,11 +74,12 @@ public class ComputeDependencies {
     }
 
     private void recursionForClassPathParts(G.Builder<String> builder, ComputeSourceSets.Result result,
-                                            Set<String> seen, Set<String> jmods, Map<String, Boolean> jmodsAndExternalToMain) {
+                                            Set<String> seen, Set<String> jmods, Map<String, Boolean> jmodsAndExternalToMain,
+                                            Set<String> runtimeOnlyLibraries) {
 
         // depth first
         for (ComputeSourceSets.Result sub : result.sourceSetDependencies()) {
-            recursionForClassPathParts(builder, sub, seen, jmods, jmodsAndExternalToMain);
+            recursionForClassPathParts(builder, sub, seen, jmods, jmodsAndExternalToMain, runtimeOnlyLibraries);
         }
 
         // every external library is dependent on all the jmods
@@ -77,14 +91,21 @@ public class ComputeDependencies {
                     jmodsAndExternalToMain.merge(name, !sourceSet.test(), Boolean::logicalOr);
                     LOGGER.info("Adding EXT {} in main? {} -> {}", name, jmodsAndExternalToMain.get(name), jmods);
                 } else {
+                    runtimeOnlyLibraries.add(name);
                     LOGGER.info("Not adding EXT {} in main? {}, runtime only", name, !sourceSet.test());
                 }
             }
         }
     }
 
+    /**
+     * @param siblingProject this {@link ComputeSourceSets.Result} is a DEPENDENCY project's, reached through the
+     *                       {@code e2immuSourceElements} variant, rather than the analysed project's own.
+     */
     private List<String> recursionForSourceSets(G.Builder<String> builder, ComputeSourceSets.Result result,
-                                                Set<String> seen, Map<String, Boolean> jmodsAndExternalToMain) {
+                                                Set<String> seen, Map<String, Boolean> jmodsAndExternalToMain,
+                                                Set<String> runtimeOnlyLibraries,
+                                                boolean siblingProject) {
         if (!seen.add(result.mainSourceSetName())) return List.of();
         LOGGER.info("Enter recursion for {}, have {} dependencies",
                 result.mainSourceSetName(), result.sourceSetDependencies().size());
@@ -92,7 +113,8 @@ public class ComputeDependencies {
         // depth first
         List<String> dependentSourceSets = new ArrayList<>();
         for (ComputeSourceSets.Result sub : result.sourceSetDependencies()) {
-            dependentSourceSets.addAll(recursionForSourceSets(builder, sub, seen, jmodsAndExternalToMain));
+            dependentSourceSets.addAll(recursionForSourceSets(builder, sub, seen, jmodsAndExternalToMain,
+                    runtimeOnlyLibraries, true));
         }
 
         List<String> mainSourceSets = new ArrayList<>();
@@ -103,11 +125,31 @@ public class ComputeDependencies {
             if (!sourceSet.externalLibrary()) {
                 String name = sourceSet.name();
                 jmodsAndExternalToMain.forEach((je, isMain) -> {
-                    if (sourceSet.test() || isMain) {
+                    // ⛔ A SIBLING'S CLASS PATH IS NOT THE CONSUMER'S, AND SCOPING IT AS IF IT WERE DENIES IT ITS
+                    // OWN DEPENDENCIES. `isMain` says whether a library reaches the ANALYSED project outside test
+                    // scope -- a fact about that project, which says nothing about a sibling whose sources we are
+                    // about to parse. pulsar's `buildtools` is the case: its MAIN sources are TestNG listeners,
+                    // and TestNG reaches managed-ledger only in test scope, so buildtools/main was refused the one
+                    // library it is written against (32 "package org.testng does not exist" and the errors that
+                    // cascade from them).
+                    // The union of the consumer's libraries is an approximation -- the exact answer is the
+                    // sibling's own resolved class path, which cannot be read without the cross-project
+                    // resolution the variant mechanism exists to avoid. It is a SUPERSET in the ordinary case
+                    // (the consumer depends on the sibling, so the sibling's compile dependencies are on the
+                    // consumer's class path transitively), and a wider class path costs a type resolving that a
+                    // stricter build would have rejected -- which is not what this configuration is judged on.
+                    if (siblingProject || sourceSet.test() || isMain) {
                         LOGGER.info("Adding SRC->EXT/JMOD {} -> {}", name, je);
                         builder.add(name, List.of(je));
                     }
                 });
+                if (siblingProject && !runtimeOnlyLibraries.isEmpty()) {
+                    // ...and for the same reason, a library that is runtime-only HERE may be a compile dependency
+                    // THERE. pulsar: oxia-client-api and protobuf-java reach managed-ledger at runtime only, and
+                    // pulsar-metadata's and pulsar-common's main sources are written against both.
+                    LOGGER.info("Adding SRC->RUNTIME-ONLY {} -> {}", name, runtimeOnlyLibraries);
+                    builder.add(name, runtimeOnlyLibraries);
+                }
                 LOGGER.info("Adding SRC->DEP {} -> {}", name, dependentSourceSets);
                 builder.add(name, dependentSourceSets);
 

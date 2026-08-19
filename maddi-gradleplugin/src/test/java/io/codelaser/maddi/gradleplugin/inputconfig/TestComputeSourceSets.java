@@ -15,10 +15,12 @@
 package io.codelaser.maddi.gradleplugin.inputconfig;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -100,5 +102,69 @@ public class TestComputeSourceSets {
         assertEquals(":util", main.buildUnit());
         assertEquals(main.buildUnit(), test.buildUnit(), "main and test must share one build unit");
         assertTrue(test.test());
+    }
+
+    /**
+     * ⛔ A SOURCE SET'S {@code uri} IS ITS CLASS OUTPUT, NOT ITS FIRST SOURCE DIRECTORY -- the plugin-side half of
+     * {@code TestPluginSourceSets#uriIsTheClassOutput}. It is what {@code JavaInspectorImpl} hands javac as the
+     * class path entry for a {@code test -> main} edge, so a source directory there makes javac silently
+     * recompile main while it resolves test, and drops any type whose directory does not match its package.
+     * <p>
+     * ⚠ Asserted on a project whose {@code build/} does not exist: the configuration is computed before the
+     * compile tasks it depends on have run, so a class output that is merely DECLARED must still be recorded.
+     * Probing it here is what broke {@code TestAnalyzerPluginFunctional#configurationCacheCompatible}.
+     */
+    @Test
+    public void uriIsTheClassOutputNotTheSourceDirectory() {
+        Project project = ProjectBuilder.builder().withName("p").build();
+        project.getPluginManager().apply("java");
+        new File(project.getProjectDir(), "src/main/java").mkdirs();
+        new File(project.getProjectDir(), "src/test/java").mkdirs();
+        assertFalse(new File(project.getProjectDir(), "build").exists(), "nothing is compiled yet, on purpose");
+
+        ComputeSourceSets css = new ComputeSourceSets(project.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
+
+        for (String name : new String[]{"p/main", "p/test"}) {
+            SourceSet set = result.sourceSetsByName().get(name);
+            assertNotNull(set, "got " + result.sourceSetsByName().keySet());
+            String uri = set.uri().toString();
+            String expected = name.endsWith("/test") ? "build/classes/java/test" : "build/classes/java/main";
+            assertTrue(uri.endsWith(expected + "/") || uri.endsWith(expected),
+                    name + ": expected the class output " + expected + ", got " + uri);
+            assertFalse(set.sourceDirectories().isEmpty(), name + " must still carry its source directories");
+            assertTrue(set.sourceDirectories().stream().noneMatch(p -> p.toUri().equals(set.uri())),
+                    name + ": the uri must not be one of the source directories");
+        }
+    }
+
+
+    /**
+     * ⛔ EACH SOURCE SET STATES ITS OWN RELEASE, AND THE PLUGIN STATED NONE. Without it the parse runs on
+     * whatever JDK maddi happens to be rather than on the level the corpus targets, and every API removed since
+     * reads as "cannot find symbol" -- measured on pulsar (release 17) as {@code Thread.suspend()} vanishing
+     * under JDK 26.
+     *
+     * <p>Asked per source set because Gradle answers per source set: this fixture is fernflower's shape, where
+     * {@code compileJava} pins {@code sourceCompatibility} and {@code compileTestJava} says nothing and inherits
+     * the project-wide level. A single global answer cannot express that.
+     */
+    @Test
+    public void sourceReleaseComesFromEachSourceSetsOwnCompileTask() {
+        Project project = ProjectBuilder.builder().withName("p").build();
+        project.getPluginManager().apply("java");
+        new File(project.getProjectDir(), "src/main/java").mkdirs();
+        new File(project.getProjectDir(), "src/test/java").mkdirs();
+        project.getExtensions().getByType(JavaPluginExtension.class)
+                .setSourceCompatibility(JavaVersion.VERSION_21);
+        ((JavaCompile) project.getTasks().getByName("compileJava")).getOptions().getRelease().set(17);
+
+        ComputeSourceSets css = new ComputeSourceSets(project.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
+
+        assertEquals(17, result.sourceSetsByName().get("p/main").sourceRelease(),
+                "main states --release explicitly, and --release wins");
+        assertEquals(21, result.sourceSetsByName().get("p/test").sourceRelease(),
+                "test states nothing of its own and falls back to the project-wide sourceCompatibility");
     }
 }

@@ -21,6 +21,27 @@ import io.codelaser.maddi.graph.ImmutableGraph;
 import java.util.*;
 import java.util.function.Consumer;
 
+/**
+ * The dependency graph over a MAVEN module's source sets and libraries.
+ *
+ * <p>⚠ <b>IT HAS A TWIN, AND THEY ARE DELIBERATELY NOT MERGED:</b>
+ * {@code io.codelaser.maddi.gradleplugin.inputconfig.ComputeDependencies}. They share three rules and state them
+ * separately -- jmod edges, "every non-JDK set depends on all jmods", and test -> main -- but they are not two
+ * copies of one algorithm. This one walks {@code SourceSet.dependencies()}, which the Maven side computes per
+ * set; the Gradle one builds edges from a tree of {@code Result}s and knows about sibling projects reached
+ * through a variant, runtime-only scoping, and source-project edges, none of which exist here.
+ *
+ * <p>⛔ SO CHECK BOTH WHEN CHANGING EITHER. What they already disagree on: {@code runtimeOnly} is a FLAG on the
+ * Gradle side, which this class would have to read, and a SCOPE on the Maven side, which
+ * {@code mvnplugin/ComputeSourceSets} resolves before it ever gets here -- a runtime-scope artifact is put on the
+ * test source set's dependency list and left off main's, because that is where javac does and does not read it.
+ * Both arrive at the same place; only one of them is visible in this file.
+ *
+ * <p>Merging them would mean putting the Gradle model on the Maven path. That is now measurable -- the Maven
+ * plugin has tests, and timefold-solver gives an A/B against {@code --compile-log} -- but it is still a change
+ * with nothing to gain: two honest implementations beat one unmeasured one. Revisit when a corpus asks for
+ * something only the Gradle model can express.
+ */
 public class ComputeDependencies {
    private final Consumer<String> log;
 

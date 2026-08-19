@@ -12,6 +12,8 @@ import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.ComputeDependencies;
 import io.codelaser.maddi.run.config.util.JavaModules;
+import io.codelaser.maddi.run.config.util.PluginInputConfiguration;
+import io.codelaser.maddi.run.main.PluginOptions;
 import io.codelaser.maddi.run.main.Main;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -26,14 +28,12 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.integration.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.op.Linearize;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -128,37 +128,14 @@ public abstract class CommonMojo extends AbstractMojo {
     }
 
     private Map<String, String> makeGeneralConfigMap() {
-        Map<String, String> generalMap = new HashMap<>();
-        generalMap.put(Main.INCREMENTAL_ANALYSIS, "" + incrementalAnalysis);
-        String resultsDir = analysisResultsDir != null && !analysisResultsDir.isBlank() ? analysisResultsDir
-                : new File(project.getBuild().getDirectory(), "e2immu").getAbsolutePath();
-        generalMap.put(Main.ANALYSIS_RESULTS_DIR, resultsDir);
-        generalMap.put(Main.PARALLEL, "" + parallel);
-        if (analysisSteps != null && !analysisSteps.isBlank()) generalMap.put(Main.ANALYSIS_STEPS, analysisSteps);
-        if (debug != null && !debug.isBlank()) generalMap.put(Main.DEBUG, debug);
-        generalMap.put(Main.QUIET, "" + quiet);
-        generalMap.put(Main.WARN_NEAR_MISSES, "" + warnNearMisses);
-        return generalMap;
+        return PluginOptions.generalConfigMap(incrementalAnalysis, analysisResultsDir,
+                new File(project.getBuild().getDirectory(), "e2immu"), parallel, analysisSteps, debug, quiet,
+                warnNearMisses);
     }
 
     private Map<String, String> makeAnalysisHintsMap() {
-        Map<String, String> kvMap = new HashMap<>();
-        if (preloadAnalysisResultsDirs != null && !preloadAnalysisResultsDirs.isBlank()) {
-            kvMap.put(Main.PRELOAD_ANALYSIS_RESULTS_DIRS, preloadAnalysisResultsDirs);
-        }
-        if (analysisResultsTargetDir != null && !analysisResultsTargetDir.isBlank()) {
-            kvMap.put(Main.ANALYSIS_RESULTS_TARGET_DIR, analysisResultsTargetDir);
-        }
-        if (updatedHintsDir != null && !updatedHintsDir.isBlank()) {
-            kvMap.put(Main.UPDATED_HINTS_DIR, updatedHintsDir);
-        }
-        if (updatedHintsPackage != null && !updatedHintsPackage.isBlank()) {
-            kvMap.put(Main.UPDATED_HINTS_PACKAGE, updatedHintsPackage);
-        }
-        if (hintsPackages != null && !hintsPackages.isBlank()) {
-            kvMap.put(Main.HINTS_PACKAGES, hintsPackages);
-        }
-        return kvMap;
+        return PluginOptions.analysisHintsMap(preloadAnalysisResultsDirs, analysisResultsTargetDir,
+                updatedHintsDir, updatedHintsPackage, hintsPackages);
     }
 
     protected InputConfiguration makeInputConfiguration() throws DependencyResolutionException {
@@ -166,59 +143,18 @@ public abstract class CommonMojo extends AbstractMojo {
         builder.setAlternativeJREDirectory(jre);
         builder.setWorkingDirectory(workingDirectory);
 
-        Set<String> excludeFromClasspathSet = excludeFromClasspath == null || excludeFromClasspath.isBlank() ? Set.of() :
-                Arrays.stream(excludeFromClasspath.split("[;,]\\s*")).collect(Collectors.toUnmodifiableSet());
+        Set<String> excludeFromClasspathSet = PluginOptions.splitToSet(excludeFromClasspath);
         ComputeDependencies.SourceSetDependencies result = new ComputeSourceSets(dependenciesResolver, project,
                 session, getLog()).compute(sourceEncoding, sourcePackages, testSourcePackages, excludeFromClasspathSet);
 
-        List<SourceSet> javaModules = makeJavaModules(jmods);
+        List<SourceSet> javaModules = JavaModules.javaModuleSourceSets(jmods);
         javaModules.forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
         G<String> graph = new ComputeDependencies(s -> getLog().debug(s)).go(result);
-        List<String> linearization = Linearize.linearize(graph).asList(String::compareToIgnoreCase);
-        if (getLog().isDebugEnabled()) {
-            getLog().debug("Graph: " + graph);
-            getLog().debug("Linearization:\n  " + String.join("\n  ", linearization) + "\n");
-        }
-        Set<String> emitted = new HashSet<>();
-        for (String name : linearization) {
-            Map<V<String>, Long> edges = graph.edges(new V<>(name));
-            List<SourceSet> dependencies = edges == null ? List.of() : edges.keySet()
-                    .stream().map(v -> result.sourceSetsByName().get(v.t()))
-                    .filter(Objects::nonNull).collect(Collectors.toUnmodifiableList());
-            SourceSet sourceSet = result.sourceSetsByName().get(name);
-            if (sourceSet == null) {
-                getLog().warn("Don't know source set " + name);
-            } else {
-                SourceSet set = sourceSet.withDependencies(dependencies);
-                if (!set.externalLibrary()) builder.addSourceSets(set);
-                else builder.addClassPathParts(set);
-                emitted.add(name);
-            }
-        }
-        // The dependency graph typically only reaches java.base, so the rest of the requested jmod closure
-        // (java.se: java.logging, java.xml, java.desktop, java.sql, ...) would be dropped. Non-modular sources
-        // need the whole JDK visible, so force every requested JDK module onto the classpath regardless.
-        for (SourceSet jmodSet : javaModules) {
-            if (emitted.add(jmodSet.name())) {
-                builder.addClassPathParts(jmodSet);
-            }
-        }
+        if (getLog().isDebugEnabled()) getLog().debug("Graph: " + graph);
+        PluginInputConfiguration.emit(builder, graph, result.sourceSetsByName(), javaModules,
+                s -> getLog().debug(s));
         return builder.build();
-    }
-
-    private List<SourceSet> makeJavaModules(String jmodsString) {
-        List<SourceSet> sets = new ArrayList<>();
-        Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
-        for (String jmod : jmods) {
-            if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl.Builder().setName(jmod)
-                        .setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
-                sets.add(set);
-            }
-        }
-        return sets;
     }
 
     protected record ParseSourcesResult(ParseResult parseResult,

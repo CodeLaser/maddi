@@ -1,0 +1,27 @@
+name: activemq
+status: active
+summary: >-
+  Maven, large reactor, one module parsed (activemq-broker). One of the three entries that existed
+  as a Taskfile task and nothing else until 2026-08-19 — see `config.baseline` below for what that
+  cost.
+
+source:
+  kind: git
+  url: https://github.com/apache/activemq.git
+
+build:
+  cmd: mvn install -DskipTests
+  expect: complete
+  provides:
+    - activemq-broker/target/classes
+
+config:
+  route: maven-plugin
+  module: activemq-broker
+  baseline: baselines/activemq.tsv
+  generates: [inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  test: TestActiveMQBroker
+  steps: [modification]

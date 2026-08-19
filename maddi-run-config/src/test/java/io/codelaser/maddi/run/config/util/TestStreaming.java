@@ -90,8 +90,10 @@ public class TestStreaming {
                 .setRuntimeOnly(true)
                 .build();
 
-        // the copy constructor must carry the flag over; ComputeDependencies excludes runtime-only libraries
-        // from the compile classpath, so losing it silently widens that classpath
+        // the copy constructor must carry the flag over: the GRADLE plugin's ComputeDependencies keeps
+        // runtime-only libraries off a compile class path, so losing the flag silently widens it.
+        // ⚠ Not this module's ComputeDependencies, which has no notion of runtimeOnly at all -- the comment
+        // that used to be here named the class in this package and described the behaviour of its twin.
         SourceSet renamed = new SourceSetImpl.Builder(runtimeOnly).setName("renamed.jar").build();
         Assertions.assertTrue(renamed.runtimeOnly());
 
