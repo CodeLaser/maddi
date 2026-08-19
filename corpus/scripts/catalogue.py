@@ -71,6 +71,7 @@ PHASES = ('build', 'config', 'parse', 'analyse', 'tests')
 # declared list that OMITS a route's output is reported rather than silently trusted.
 ROUTE_GENERATES = {
     'maven-plugin': ['inputConfiguration.json'],
+    'gradle-plugin': ['inputConfiguration.json'],
     'maven-log': ['compile.log', 'compile.javac.log', 'inputConfiguration.json'],
     'gradle-log': ['compile.log', 'inputConfiguration.json'],
     'gradle-log-kotlin': ['compile.log', 'inputConfiguration.json'],
@@ -254,6 +255,38 @@ def plan(entry, phase):
                     f'mvn -pl {c["module"]} generate-test-sources '
                     f'io.codelaser:maddi-mvnplugin:{ver}:write-input-configuration'
                     f' && cp {c["module"]}/target/inputConfiguration.json {out}')
+        if route == 'gradle-plugin':
+            # The Gradle counterpart of `maven-plugin`, and the ONLY route that exercises
+            # maddi-gradleplugin against a real project -- everything else about that plugin is
+            # tested by `dogfood`, which is maddi's own code.
+            #
+            # ⚠ WHAT THIS ROUTE IS FOR. Run it on a project that also has a `gradle-log` entry and
+            # diff the two configurations: that is the A/B which found the plugin's source-set `uri`
+            # defect (2026-08-19, fernflower -- one dropped compilation unit that --compile-log did
+            # not lose). The plugins are invoked per module and see siblings as jars, while the log
+            # route sees a whole reactor at once, so the two are expected to differ in SHAPE; what
+            # the A/B checks is that they agree on what PARSES.
+            #
+            # The plugin is applied by an init script rather than by editing the checkout -- see
+            # scripts/maddi-plugin.init.gradle.kts for why that matters to `generates`.
+            ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
+            init = HERE / 'maddi-plugin.init.gradle.kts'
+            # A Gradle PROJECT PATH (':libs:core'), not a directory: absent or ':' is the root
+            # project, which is what a single-project build like fernflower has.
+            module = (c.get('module') or '').strip().strip(':')
+            prefix = f':{module}' if module else ''
+            # Every other route states extra_jmods as ADDITIONS to the java.se closure
+            # (`--extra-jmod` adds to it). The plugin takes one list instead, so the default has to
+            # be named alongside them or asking for an extra would silently drop the rest.
+            extra = c.get('extra_jmods') or []
+            jmods_prop = f' -Dmaddi.jmods=java.se,{",".join(extra)}' if extra else ''
+            # --refresh-dependencies: the plugin's version does not change from one publication to
+            # the next, so Gradle otherwise serves the cached jar and this silently runs the
+            # PREVIOUS plugin (the same trap dogfood's GradleBuild task documents).
+            return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
+                    f'--init-script {init} '
+                    f'-Dmaddi.pluginVersion={ver}{jmods_prop} -Dmaddi.outputFile={out} '
+                    f'{prefix}:e2immu-write-input-configuration')
         if route == 'maven-log':
             jh = f'JAVA_HOME={c["build_java_home"]} ' if c.get('build_java_home') else ''
             # `clean` is mandatory: maven-compiler-plugin skips an up-to-date module and a skipped
