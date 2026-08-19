@@ -28,7 +28,7 @@ import java.util.*;
  *
  * <p>⚠ <b>IT HAS A TWIN:</b> {@code io.codelaser.maddi.run.config.util.ComputeDependencies}, which the Maven
  * plugin uses. The three rules they share -- jmod edges, "every non-JDK set depends on all jmods", and
- * test -> main -- are stated in both; sibling projects from the {@code e2immuSourceElements} variant and
+ * test -> main -- are stated in both; sibling projects from the {@code maddiSourceElements} variant and
  * source-project edges have no counterpart there. Runtime-only scoping does, but not here: Maven derives it from
  * the artifact's SCOPE, in {@code mvnplugin/ComputeSourceSets}, before the twin sees anything.
  * See that class for why they are not merged. <b>Check both when changing a shared rule.</b>
@@ -100,7 +100,7 @@ public class ComputeDependencies {
 
     /**
      * @param siblingProject this {@link ComputeSourceSets.Result} is a DEPENDENCY project's, reached through the
-     *                       {@code e2immuSourceElements} variant, rather than the analysed project's own.
+     *                       {@code maddiSourceElements} variant, rather than the analysed project's own.
      */
     private List<String> recursionForSourceSets(G.Builder<String> builder, ComputeSourceSets.Result result,
                                                 Set<String> seen, Map<String, Boolean> jmodsAndExternalToMain,

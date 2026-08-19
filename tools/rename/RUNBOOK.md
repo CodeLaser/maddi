@@ -204,6 +204,57 @@ These are not scriptable and each breaks the build if forgotten:
   only a reader can tell them apart. Of `PUBLISHING.md`'s three substitutions, two were right
   and one turned a true sentence into a self-contradiction
 
+## The SECOND rename: the names users type (2026-08-19)
+
+The `org.e2immu` cutover moved packages, JPMS modules, directories and the plugin id. **It moved
+nothing a user types.** Two days later 0.9.1 was about to ship a plugin called
+`io.codelaser.maddi.analyzer` whose task was `e2immu-analyzer`, configured by an `e2immu { }` block,
+writing to `build/e2immu` -- and both CLI mains printed `e2immu-analyzer` in their own `--help`
+while the launcher is `maddi`. That was not a decision anyone had made; it was the residue of a map
+that only ever matched dotted package prefixes.
+
+Applied across all eight repos: 143 replacements in 52 files, plus one file rename
+(`E2ImmuAnnotationsImpl` -> `MaddiAnnotationsImpl`).
+
+| kind | before | after |
+|---|---|---|
+| Gradle task | `e2immu-analyzer` | `maddi-analyzer` |
+| Gradle task | `e2immu-write-input-configuration` | `maddi-write-input-configuration` |
+| Gradle extension, task group | `e2immu` | `maddi` |
+| default results dir | `build/e2immu` | `build/maddi` |
+| consumable variant | `e2immuSourceElements` | `maddiSourceElements` |
+| variant category | `e2immu-sources` | `maddi-sources` |
+| CST API | `Types.e2immuAnnotation(s)` | `Types.maddiAnnotation(s)` |
+| class | `E2ImmuAnnotationsImpl` | `MaddiAnnotationsImpl` |
+| system properties | `e2immu.localPluginRepo`, `.pluginVersion`, `.modanalyzer.*`, `e2immu.preload` | `maddi.*` |
+| identifiers | `withE2ImmuSupportFromClasspath`, `acceptAsE2ImmuModification`, `isNotE2ImmuInstance`, `runE2immu`, `e2immuDependencyGraph`, `e2immuPrep`, `e2immuConfig`, `e2immuSourceSetName` | `...Maddi...` / `maddi...` |
+
+⛔⛔ **NO RULE MAY MATCH A BARE `e2immu`.** Of the 1,998 case-insensitive occurrences across the
+eight repos, **1,429 are supposed to be there** -- 1,129 frozen `.gml` node labels and ~300 parser
+test-input packages in Java text blocks -- and a further tranche is prose about the genuinely
+separate predecessor project, its website and its GitHub issues. Every rule above is an exact
+compound token; the four bare-word cases (`"e2immu"` as extension name and as task group, `e2immu {`,
+and two AsciiDoc spellings) were listed individually. A blanket rule would have rewritten the very
+fixtures section 4 exists to freeze.
+
+Excluded by hand, and why: `docs/doc-audit-2026-07-30.md` (a dated audit that QUOTES the old task
+name as its finding), `docs/eventual-info-hierarchy.md` and `eventual-design-improvements.md`
+(design prose), `TestWriteAnalysis` and `TestTypeDependencies` (fixtures whose data IS the old
+package), `TestExtractBuildProjectNames` (assertions over a recorded build log),
+`OrgE2immuSupport.java` (the AAPI class name mirrors a package that moved -- cosmetic, and its
+`PACKAGE_NAME` constant is already correct), and the recorded `inputConfiguration.json` /
+`refactor.log` / `refactor.graphml`.
+
+THE GATE: whole-build `compileJava compileTestJava` green; `:maddi-gradleplugin:test` 11 tests, 0
+skipped, 0 failed; `:maddi-gradleplugin:slowTest` `shadedPluginResolvesAndRunsFromLocalRepo` green --
+that one publishes the plugin to a local repo, resolves it fresh with no analyzer module on any
+classpath, writes a `maddi { }` block and runs `maddi-analyzer`, so it exercises the whole renamed
+surface end to end.
+
+⚠ The Gradle Plugin Portal re-triggers manual review on an **id** change, never on a task rename.
+That asymmetry is why this was worth doing before the first publish, and why it would still have
+been cheap afterwards.
+
 ## NOT COVERED: the `jfocus` package rename
 
 This map does **`org.e2immu` only**. `io.codelaser.jfocus` is a live Java package

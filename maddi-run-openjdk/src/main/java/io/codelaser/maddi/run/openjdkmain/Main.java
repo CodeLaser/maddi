@@ -164,7 +164,7 @@ public class Main {
         if (cmd.hasOption(HELP)) {
             HelpFormatter formatter = HelpFormatter.builder().get();
             //formatter.setWidth(128);
-            formatter.printHelp("e2immu-analyzer", "", options, "", true);
+            formatter.printHelp("maddi-analyzer", "", options, "", true);
             System.exit(EXIT_OK);
         }
         Configuration.Builder builder = new Configuration.Builder();
@@ -403,7 +403,7 @@ public class Main {
          The first directory is chosen to write new analysis results files.
     2: compiling analysis hints -> analysis results: write packages HINTS_PACKAGES from the source path
          in to WRITE_PRELOAD_ANALYSIS_RESULTS_DIRS_DIR. The source path may contain analysis hints classes, and regular classes.
-         = running the shallow analyzer to prepare libraries for use by e2immu
+         = running the shallow analyzer to prepare libraries for use by maddi
     3: writing analysis hints skeletons: use WRITE_ANNOTATED_API_DIR as the target directory for the skeletons.
         WRITE_HINTS_PACKAGES contains the classes for which a skeleton will be generated.
         WRITE_UPDATED_HINTS_PACKAGE contains the package to write to.

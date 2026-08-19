@@ -166,8 +166,8 @@ tasks.named<Test>("test") {
     // The isolation test (TestAnalyzerPluginShadedJarIsolation, the only consumer of these two
     // properties) is @Tag("slow") and so excluded here — but java-library-conventions.gradle.kts
     // mirrors test's systemProperties onto slowTest, so they still need to be set here, not there.
-    systemProperty("e2immu.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
-    systemProperty("e2immu.pluginVersion", project.version.toString())
+    systemProperty("maddi.localPluginRepo", localPluginRepoDir.get().asFile.absolutePath)
+    systemProperty("maddi.pluginVersion", project.version.toString())
 
     // TestVersionSkew is the gate over every DERIVED artefact that embeds the version in a filename or a
     // coordinate. Each of the three it checks is produced by a task, so each needs that task to have run --

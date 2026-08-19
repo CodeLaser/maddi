@@ -77,7 +77,7 @@ public class InputConfigurationAssembler {
         // (the distribution bundles both). Required so DecoratorImpl resolves them, so projects that do NOT
         // depend on the annotations still get hints, and so a project that DOES use them parses those imports.
         // (The openjdk inspector does not support the jar-on-classpath: scheme that
-        // withE2ImmuSupportFromClasspath() uses.)
+        // withMaddiSupportFromClasspath() uses.)
         //
         // TWO parts since the 0.9.1 split: sourceSetOf() resolves the ARTIFACT containing the named class, and
         // the annotations moved to maddi-annotation while the support types stayed in maddi-support. Naming only

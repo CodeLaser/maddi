@@ -52,7 +52,7 @@ public class JsonStreaming {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonStreaming.class);
 
     public static SimpleModule configModule() {
-        SimpleModule module = new SimpleModule("e2immuConfig", Version.unknownVersion());
+        SimpleModule module = new SimpleModule("maddiConfig", Version.unknownVersion());
 
         SimpleAbstractTypeResolver resolver = new SimpleAbstractTypeResolver();
         resolver.addMapping(SourceSet.class, SourceSetImpl.class);

@@ -80,6 +80,31 @@ It was `org.e2immu.analyzer-plugin`. The old id is not maintained and will not r
 later version; the Gradle Plugin Portal requires a plugin's id and its Maven group to share a
 top-level namespace, and `org.e2immu.*` under group `io.codelaser` never satisfied that.
 
+**The tasks, the extension block and the output directory move with it.** These are what you type,
+so they are the part of this release you actually have to edit:
+
+| Before | After |
+|---|---|
+| task `e2immu-analyzer` | `maddi-analyzer` |
+| task `e2immu-write-input-configuration` | `maddi-write-input-configuration` |
+| extension `e2immu { … }` | `maddi { … }` |
+| task group `e2immu` | `maddi` |
+| default `analysisResultsDir` `build/e2immu` | `build/maddi` |
+| consumable variant `e2immuSourceElements` | `maddiSourceElements` |
+
+So a build that had
+
+```kotlin
+e2immu { jmods = "java.base" }
+```
+
+becomes `maddi { jmods = "java.base" }`, and `./gradlew e2immu-analyzer` becomes
+`./gradlew maddi-analyzer`. The `e2immuSourceElements` line matters only if you publish sources for
+co-analysis across a multi-project build; if you do, both producer and consumer move together.
+
+0.9.0 and earlier kept the predecessor's names throughout, so nothing here is a second migration:
+the packages, the plugin id and the task names all move once, in this release, and stay put.
+
 **Maven plugin** — `io.codelaser:maddi-mvnplugin`, goal prefix `maddi`, five goals (`run`,
 `write-input-configuration`, `statistics`, `write-analysis-hints`, `compile-analysis-hints`). The
 JVM running Maven needs the javac `--add-exports` flags for the openjdk-based goals; set them in

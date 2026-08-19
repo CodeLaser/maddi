@@ -59,11 +59,11 @@ public class TestMultiProjectClassPath {
         BuildResult result = GradleRunner.create()
                 .withProjectDir(dir.toFile())
                 .withPluginClasspath()
-                .withArguments(":consumer:e2immu-write-input-configuration", "--stacktrace")
+                .withArguments(":consumer:maddi-write-input-configuration", "--stacktrace")
                 .forwardOutput()
                 .build();
         assertEquals(TaskOutcome.SUCCESS,
-                result.task(":consumer:e2immu-write-input-configuration").getOutcome());
+                result.task(":consumer:maddi-write-input-configuration").getOutcome());
 
         JsonNode config = new ObjectMapper()
                 .readTree(dir.resolve("consumer/build/inputConfiguration.json").toFile());

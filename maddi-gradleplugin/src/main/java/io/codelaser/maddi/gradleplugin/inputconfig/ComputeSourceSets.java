@@ -201,7 +201,7 @@ public class ComputeSourceSets {
     }
 
     /**
-     * The source directories that dependency projects publish on their {@code e2immuSourceElements} variant,
+     * The source directories that dependency projects publish on their {@code maddiSourceElements} variant,
      * keyed by project name. This is the cross-project aggregation pattern Gradle blesses (the same one
      * {@code test-report-aggregation} and {@code jacoco-report-aggregation} use): an artifact view with
      * <em>variant reselection</em> asks each already-resolved component for a different variant of itself. It
@@ -365,7 +365,7 @@ public class ComputeSourceSets {
 
     private SourceSet makeSourceSet(Project project,
                                     org.gradle.api.tasks.SourceSet gradleSourceSet,
-                                    String e2immuSourceSetName,
+                                    String maddiSourceSetName,
                                     String buildUnit,
                                     String restrictTo,
                                     String encodingString,
@@ -385,7 +385,7 @@ public class ComputeSourceSets {
         // class path. Gradle's own destination for the java part of the set; a Kotlin set compiles to a sibling
         // directory that a single uri cannot also name.
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
-        return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
+        return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
                 test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet),
                 addModulesOf(project, gradleSourceSet));
     }

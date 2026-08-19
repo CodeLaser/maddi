@@ -54,7 +54,7 @@ public class TestVersionSkew {
     private static final String VERSION = required("maddi.projectVersion");
     private static final Path ROOT = Path.of(required("maddi.rootDir"));
     private static final Path DAEMON_INSTALL = Path.of(required("maddi.daemonInstall"));
-    private static final Path PLUGIN_REPO = Path.of(required("e2immu.localPluginRepo"));
+    private static final Path PLUGIN_REPO = Path.of(required("maddi.localPluginRepo"));
 
     private static String required(String key) {
         String value = System.getProperty(key);

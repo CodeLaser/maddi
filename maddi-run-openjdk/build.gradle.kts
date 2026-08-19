@@ -98,7 +98,7 @@ val dogfoodInputConfiguration by tasks.registering(GradleBuild::class) {
     dependsOn(":maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository",
             ":maddi-support:jar", ":maddi-util:jar")
     dir = file("../dogfood")
-    tasks = listOf(":cst-impl:e2immu-write-input-configuration")
+    tasks = listOf(":cst-impl:maddi-write-input-configuration")
     // the plugin's version does not change from one publication to the next, so without this Gradle
     // serves dogfood the cached jar and the generation silently runs the previous plugin (README.md)
     startParameter.isRefreshDependencies = true

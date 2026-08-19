@@ -77,7 +77,7 @@ val javacAddExports = listOf(
 // Regenerate the analysis-result (.json) files in maddi-aapi-archive from the hand-written hints, without
 // running it as a test: ./gradlew :maddi-aapi-parser:compileAnalysisHints
 tasks.register<JavaExec>("compileAnalysisHints") {
-    group = "e2immu"
+    group = "maddi"
     description = "Compile the analysis hints (maddi-aapi-archive) into their analysis-result JSON files"
     dependsOn(tasks.named("testClasses")) // CompileAnalysisHints + its factory live in the test source set
     classpath = sourceSets["test"].runtimeClasspath

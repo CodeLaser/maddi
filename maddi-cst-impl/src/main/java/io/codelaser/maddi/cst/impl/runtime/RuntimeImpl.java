@@ -26,7 +26,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
-import io.codelaser.maddi.cst.impl.element.E2ImmuAnnotationsImpl;
+import io.codelaser.maddi.cst.impl.element.MaddiAnnotationsImpl;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.info.ComputeMethodOverridesImpl;
 
@@ -37,7 +37,7 @@ import java.util.stream.Stream;
 
 public class RuntimeImpl extends FactoryImpl implements Runtime {
     private final Eval eval;
-    private final E2ImmuAnnotationsImpl e2ImmuAnnotations = new E2ImmuAnnotationsImpl();
+    private final MaddiAnnotationsImpl maddiAnnotations = new MaddiAnnotationsImpl();
     private final LanguageConfiguration lc = new LanguageConfigurationImpl(true);
     private final ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverridesImpl(this);
 
@@ -224,83 +224,83 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
     }
 
     @Override
-    public Stream<AnnotationExpression> e2immuAnnotations() {
-        return e2ImmuAnnotations.streamTypes();
+    public Stream<AnnotationExpression> maddiAnnotations() {
+        return maddiAnnotations.streamTypes();
     }
 
     @Override
     public String e2aAbsent() {
-        return E2ImmuAnnotationsImpl.ABSENT;
+        return MaddiAnnotationsImpl.ABSENT;
     }
 
     @Override
-    public AnnotationExpression e2immuAnnotation(String fullyQualifiedName) {
-        return e2ImmuAnnotations.get(fullyQualifiedName);
+    public AnnotationExpression maddiAnnotation(String fullyQualifiedName) {
+        return maddiAnnotations.get(fullyQualifiedName);
     }
 
     @Override
     public String e2aContract() {
-        return E2ImmuAnnotationsImpl.CONTRACT;
+        return MaddiAnnotationsImpl.CONTRACT;
     }
 
     @Override
     public String e2aContent() {
-        return E2ImmuAnnotationsImpl.CONTENT;
+        return MaddiAnnotationsImpl.CONTENT;
     }
 
     @Override
     public String e2aImplied() {
-        return E2ImmuAnnotationsImpl.IMPLIED;
+        return MaddiAnnotationsImpl.IMPLIED;
     }
 
     @Override
     public String e2aHiddenContent() {
-        return E2ImmuAnnotationsImpl.HIDDEN_CONTENT;
+        return MaddiAnnotationsImpl.HIDDEN_CONTENT;
     }
 
     @Override
     public String e2aValue() {
-        return E2ImmuAnnotationsImpl.VALUE;
+        return MaddiAnnotationsImpl.VALUE;
     }
 
     @Override
     public String e2aPar() {
-        return E2ImmuAnnotationsImpl.PAR;
+        return MaddiAnnotationsImpl.PAR;
     }
 
     @Override
     public String e2aSeq() {
-        return E2ImmuAnnotationsImpl.SEQ;
+        return MaddiAnnotationsImpl.SEQ;
     }
 
     @Override
     public String e2aMulti() {
-        return E2ImmuAnnotationsImpl.MULTI;
+        return MaddiAnnotationsImpl.MULTI;
     }
 
     @Override
     public String e2aAfter() {
-        return E2ImmuAnnotationsImpl.AFTER;
+        return MaddiAnnotationsImpl.AFTER;
     }
 
     @Override
     public String e2aBefore() {
-        return E2ImmuAnnotationsImpl.BEFORE;
+        return MaddiAnnotationsImpl.BEFORE;
     }
 
     @Override
     public String e2aConstruction() {
-        return E2ImmuAnnotationsImpl.CONSTRUCTION;
+        return MaddiAnnotationsImpl.CONSTRUCTION;
     }
 
     @Override
     public String e2aInconclusive() {
-        return E2ImmuAnnotationsImpl.INCONCLUSIVE;
+        return MaddiAnnotationsImpl.INCONCLUSIVE;
     }
 
     @Override
     public String e2aHcParameters() {
-        return E2ImmuAnnotationsImpl.HC_PARAMETERS;
+        return MaddiAnnotationsImpl.HC_PARAMETERS;
     }
 
     @Override

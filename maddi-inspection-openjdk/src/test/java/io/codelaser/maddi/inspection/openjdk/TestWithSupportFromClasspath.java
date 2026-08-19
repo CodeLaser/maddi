@@ -37,7 +37,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * {@link InputConfiguration#withSupportFromClasspath(Map)} and its {@code withE2ImmuSupportFromClasspath()}
+ * {@link InputConfiguration#withSupportFromClasspath(Map)} and its {@code withMaddiSupportFromClasspath()}
  * shorthand: the API for putting a library that is already on the running process' class path onto the
  * inspected class path, without knowing where it lives or which version it is.
  * <p>
@@ -98,10 +98,10 @@ public class TestWithSupportFromClasspath {
                 "and it really is the annotation type");
     }
 
-    @DisplayName("withE2ImmuSupportFromClasspath: the shorthand resolves io.codelaser.maddi.annotation")
+    @DisplayName("withMaddiSupportFromClasspath: the shorthand resolves io.codelaser.maddi.annotation")
     @Test
-    public void testE2ImmuShorthand() throws IOException {
-        assertAnnotationResolves(base().withE2ImmuSupportFromClasspath());
+    public void testMaddiShorthand() throws IOException {
+        assertAnnotationResolves(base().withMaddiSupportFromClasspath());
     }
 
     @DisplayName("withSupportFromClasspath: the caller's own name for the set, and it still resolves")
