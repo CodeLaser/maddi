@@ -457,6 +457,14 @@ tasks:
     deps: [config:plugin]
     cmds: [{ task: _config:catalogue, vars: { NAME: fernflower-plugin } }]
 
+  # ⛔ THE ONE THAT MATTERS. fernflower is a single-project build, so it cannot reach anything the
+  # plugin does BETWEEN projects -- and four of its five 2026-08-19 defects lived there.
+  # `:managed-ledger` has 7 sibling projects and is where they were measured.
+  config:pulsar-plugin:
+    desc: 'pulsar :managed-ledger config via the maddi GRADLE PLUGIN (A/B twin of config:pulsar)'
+    deps: [config:plugin]
+    cmds: [{ task: _config:catalogue, vars: { NAME: pulsar-plugin } }]
+
   config:elasticsearch:
     desc: 'elasticsearch config (Gradle compile-log, ~27 source sets)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: elasticsearch, TASKS: 'compileTestJava' } }]

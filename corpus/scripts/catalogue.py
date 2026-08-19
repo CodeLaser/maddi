@@ -307,12 +307,16 @@ def plan(entry, phase):
             # them through `tasks`, which is a string it interpolates whole. pulsar is the case:
             # `-PskipJavaVersionCheck` or its settings script rejects JDK 26 before any task exists.
             args = f' {c["gradle_args"]}' if c.get('gradle_args') else ''
+            # Which projects the init script applies the plugin to -- `all` (its default, the dogfood
+            # pattern: siblings publish SOURCES and are co-parsed) or one project path (siblings arrive
+            # as ordinary class-path artifacts). Two different tests; see the init script's comment.
+            apply_to = f' -Dmaddi.applyTo={c["apply_to"]}' if c.get('apply_to') else ''
             # --refresh-dependencies: the plugin's version does not change from one publication to
             # the next, so Gradle otherwise serves the cached jar and this silently runs the
             # PREVIOUS plugin (the same trap dogfood's GradleBuild task documents).
             return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
                     f'--init-script {init}{args} '
-                    f'-Dmaddi.pluginVersion={ver}{jmods_prop} -Dmaddi.outputFile={out} '
+                    f'-Dmaddi.pluginVersion={ver}{jmods_prop}{apply_to} -Dmaddi.outputFile={out} '
                     f'{prefix}:e2immu-write-input-configuration')
         if route == 'maven-log':
             jh = f'JAVA_HOME={c["build_java_home"]} ' if c.get('build_java_home') else ''
