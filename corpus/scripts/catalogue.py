@@ -156,10 +156,22 @@ def state(entry):
 
 
 def config_path(entry):
-    """Where this entry's inputConfiguration.json lives -- see config.output."""
+    """Where this entry's inputConfiguration.json lives -- see config.output.
+
+    ABSOLUTE `output` is the private-project case: the refactor server's work dir, which is not under
+    TEST_OSS_ROOT at all.
+
+    RELATIVE `output` is resolved against the project dir, and that is what makes an A/B PAIR
+    expressible: two entries over ONE checkout, each writing its own configuration beside the sources.
+    Without it the second entry would have to spell an absolute path containing $TEST_OSS_ROOT, which
+    `_path` expands only when that variable happens to be set in the environment -- so the same entry
+    would resolve to a different place depending on who invoked it, and `generates` (the preserve-list
+    `git clean` is driven from) would name a file nothing writes.
+    """
     c = entry.get('config') or {}
     if c.get('output'):
-        return _path(c['output'])
+        out = _path(c['output'])
+        return out if out.is_absolute() else project_dir(entry) / out
     return project_dir(entry) / 'inputConfiguration.json'
 
 
@@ -238,7 +250,11 @@ def plan(entry, phase):
         # A corpus project's config sits beside its sources, where TestOssCorpus.config() looks.
         # A private project's belongs in the refactor server's work dir, which is what
         # ProjectServiceImpl.load reads -- so `config.output` overrides.
-        out = _path(c['output']) if c.get('output') else d / 'inputConfiguration.json'
+        # ⛔ config_path(), NOT a second copy of its rule. This line WAS that second copy, and it
+        # diverged the moment `output` learned to be relative: it produced `mkdir -p .` and handed the
+        # build tool a relative -D property, so the file landed wherever the tool's cwd happened to be
+        # while every other reader looked for it beside the sources. One rule, one function.
+        out = config_path(entry)
         # Nothing else creates the output's directory. maddi's Main opens the file and dies with a
         # bare `FileNotFoundException: ... (No such file or directory)` -- after the full -X rebuild,
         # so the whole cost of the phase is paid before the failure. It never bit while every config
