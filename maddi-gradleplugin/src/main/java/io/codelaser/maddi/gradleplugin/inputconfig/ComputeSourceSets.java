@@ -260,7 +260,7 @@ public class ComputeSourceSets {
         // cross-project access this whole mechanism exists to avoid.
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), 0);
+                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -386,7 +386,30 @@ public class ComputeSourceSets {
         // directory that a single uri cannot also name.
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
-                test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet));
+                test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet),
+                addModulesOf(project, gradleSourceSet));
+    }
+
+    /**
+     * javac's {@code --add-modules} for this source set, from its own {@code JavaCompile} task's
+     * {@code options.compilerArgs}.
+     *
+     * <p>⛔ <b>NOT REACHABLE BY WIDENING {@code jmods}.</b> An incubator module is not in the {@code java.se}
+     * closure and cannot be added to it: it has to be in the ROOT SET of the compilation that uses it, or every
+     * type in it reads as "package X is not visible". Found on the Maven side, on trino (2026-08-19), and fixed
+     * here at the same time because the two plugins are twins and a defect in one is a hypothesis about the
+     * other -- which has been right both times it was tested this week.
+     *
+     * <p>⚠ <b>NO CORPUS EXERCISES THIS PATH ON THE GRADLE SIDE.</b> Neither fernflower nor pulsar passes
+     * {@code --add-modules}, so what stands behind it is the unit test and the symmetry, not a measurement. Said
+     * plainly rather than left to look measured.
+     */
+    private static List<String> addModulesOf(Project project,
+                                             org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.addModulesFrom(compile.getOptions().getCompilerArgs());
     }
 
     /**

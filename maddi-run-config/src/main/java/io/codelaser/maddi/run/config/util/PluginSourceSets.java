@@ -26,6 +26,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.jar.JarFile;
@@ -92,6 +93,16 @@ public class PluginSourceSets {
      *                      compiles two of its modules against different releases -- and abstaining means the
      *                      parse runs on whatever JDK it happens to be, where every API removed since reads as
      *                      "cannot find symbol". Per set there is nothing to abstain from.
+     * @param addModules  JDK modules outside the default root set, i.e. javac's {@code --add-modules}.
+     *                    <p>⛔⛔ <b>NOT COSMETIC, AND NOT COVERED BY {@code jmods}.</b> An INCUBATOR module is
+     *                    not in the {@code java.se} closure and is not reachable by widening it either: it has
+     *                    to be added to the root set for the compilation that uses it, which is what this is.
+     *                    Without it every type in that module reads as "package X is not visible", the
+     *                    compilation unit is dropped, and the {@code ParseResult} can be refused.
+     *                    <p>⚠ <b>MEASURED, on trino</b> (2026-08-19): {@code core/trino-main} passes
+     *                    {@code --add-modules=jdk.incubator.vector}, and {@code --compile-log} records it on 6
+     *                    of trino's 209 source sets because it reads javac's own line. <b>Neither plugin set it
+     *                    at all</b>, so the same module parsed with 1 error the log route does not have.
      * @return {@code null} when no source directory of this set exists on disk -- a set over nothing contributes
      * no compilation units, and naming an absent path in the configuration only produces an unresolvable entry.
      */
@@ -102,7 +113,8 @@ public class PluginSourceSets {
                                       Charset sourceEncoding,
                                       boolean test,
                                       Set<String> restrictToPackages,
-                                      int sourceRelease) {
+                                      int sourceRelease,
+                                      List<String> addModules) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
                 .filter(Files::isDirectory)
@@ -119,6 +131,7 @@ public class PluginSourceSets {
                 .setModule(isModularSource(existing))
                 .setRestrictToPackages(restrictToPackages)
                 .setSourceRelease(sourceRelease)
+                .setAddModules(addModules == null ? List.of() : List.copyOf(addModules))
                 .build();
     }
 
@@ -163,6 +176,41 @@ public class PluginSourceSets {
             LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
             return false;
         }
+    }
+
+    /**
+     * The modules named by {@code --add-modules} among raw javac arguments, in order, without duplicates.
+     *
+     * <p>⚠ <b>BOTH SPELLINGS, BECAUSE BOTH APPEAR.</b> javac accepts {@code --add-modules=a,b} and
+     * {@code --add-modules a,b}, and a build file may use either -- trino writes the {@code =} form into a
+     * property and Gradle users typically write the two-argument form into {@code options.compilerArgs}.
+     * Reading only one is a silent half-answer, which is worse here than reading none: the modules that ARE
+     * found look like the whole story.
+     *
+     * <p>⚠ {@code ALL-MODULE-PATH} and {@code ALL-DEFAULT} are javac's own pseudo-module names, not modules;
+     * they are dropped rather than passed on to something that will look for a jmod by that name.
+     */
+    public static List<String> addModulesFrom(List<String> compilerArgs) {
+        if (compilerArgs == null) return List.of();
+        Set<String> modules = new LinkedHashSet<>();
+        for (int i = 0; i < compilerArgs.size(); i++) {
+            String arg = compilerArgs.get(i);
+            if (arg == null) continue;
+            String value;
+            if (arg.startsWith("--add-modules=")) {
+                value = arg.substring("--add-modules=".length());
+            } else if ("--add-modules".equals(arg.trim()) && i + 1 < compilerArgs.size()) {
+                value = compilerArgs.get(++i);
+            } else {
+                continue;
+            }
+            if (value == null) continue;
+            for (String module : value.split(",")) {
+                String trimmed = module.trim();
+                if (!trimmed.isBlank() && !trimmed.startsWith("ALL-")) modules.add(trimmed);
+            }
+        }
+        return List.copyOf(modules);
     }
 
     /**
