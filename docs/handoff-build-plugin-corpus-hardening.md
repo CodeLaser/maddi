@@ -1,9 +1,10 @@
 # Handoff — measuring the build plugins against a corpus
 
-**Status: both plugins have met a corpus, and both now run the checks. The two REPAIRS are refuted
-for a plugin — §6.** Dated 2026-08-19.
+**Status: both plugins have a corpus instrument and run the checks. Nine defects found; the two
+REPAIRS are refuted for a plugin (§6a).** Dated 2026-08-19.
 Gradle: `e96b5f122 b702a49e9 c8fb38c03 b809d4927 df0593929 456d46d73 90514490d`.
-Maven: `fb1f5e193 c2db4ce98 80e986647 092034ed7`. Shared: `0475ee092`.
+Maven: `fb1f5e193 c2db4ce98 80e986647 092034ed7`.
+Shared: `0475ee092 8fc2f626d`. Instruments: `bedc73433 7c06a75ca`.
 
 ---
 
@@ -128,16 +129,69 @@ Two things did fall out of doing the work:
   difference that means nothing. Measured: `java.se`'s 11 dependencies, same set,
   different order, across a change that touched neither.
 
-### ▶ THE NEXT JOB: the Gradle plugin has no catalogue entry either
+### The Gradle plugin got its instrument too — and A/B pairs are now expressible
 
-The Maven side got one (§4) after jenkins was found parsing with 100 errors at
-exit 0 for want of a baseline. **The Gradle plugin is now in exactly that
-position**: `gradle-plugin` is a working `catalogue.py` route with *no entry
-using it*, so nothing measures that plugin except `dogfood`, which is maddi's own
-code. The blocker is stated in §7 — two entries writing one
-`inputConfiguration.json` into a shared checkout — and the fix is a `config.output`
-convention for A/B entries. fernflower and pulsar are the candidates; both already
-have the compile-log side.
+`gradle-plugin` had been a working route with **no entry using it**, so nothing
+measured that plugin but `dogfood`. Two entries now do (`bedc73433`, `7c06a75ca`):
+
+| entry | mode | what it can find |
+|---|---|---|
+| `fernflower-plugin` | single project | the plugin's own construction; nothing between projects |
+| `pulsar-plugin` | `:managed-ledger`, 79-project reactor | siblings as ARTIFACTS — the `c8fb38c03` family |
+
+The blocker §7 recorded is gone: **`config.output` may be relative**, resolved
+against the project dir, so two entries share one checkout and each owns its file.
+Absolute `$TEST_OSS_ROOT/...` does not work — `_path` expands it only when the
+variable is set, so the entry would resolve differently per caller.
+
+Both A/Bs agree where the routes overlap: fernflower 199 + 28 primary types,
+pulsar `managed-ledger/main` 121 and `/test` 57, plugin and log identical.
+
+⛔ **AND USING THE ENTRY REFUTED A CLAIM IN §7.** It said the corpus route applies
+the plugin to one project. The init script says `allprojects`, so the route had
+always been running siblings-as-**source**, which on `:managed-ledger` is exit 1
+with **107** diagnostics. The mode is now explicit (`maddi.applyTo` / `apply_to`),
+because the two are **different tests and neither covers the other**:
+
+    siblings as SOURCE     -> df0593929  (sibling handed the consumer's class path)
+    siblings as ARTIFACTS  -> c8fb38c03  (every sibling's part named `main`)
+
+`pulsar-plugin` picks artifacts and is green. **The siblings-as-source path has no
+entry on purpose** — its 107 are a sibling's `compileOnly` dependencies, which
+Gradle propagates to no consumer at all, and the only design that would supply
+them is refuted (§6b). An entry that is permanently red is a gate people learn to
+ignore. Reproduce with `-Dmaddi.applyTo=all`; expect 107.
+
+### trino: a fourth Maven defect, on the first run
+
+⚠ `RequireJavaVendor` first — trino's enforcer wants Temurin or Oracle, and
+`-Denforcer.skip=true` does **not** skip it.
+
+The A/B on `core/trino-main` (151 dependencies, the heaviest module, against a
+209-source-set `maven-log` reference): **nothing missing on either scope**, extras
+all sibling jars where the reactor log had them as parsed source — the designed
+difference. One error, and it was not about class paths at all.
+
+**Neither plugin recorded `--add-modules`** (`8fc2f626d`). trino declares
+`<compilerArgs><arg>${extraJavaVectorArgs}</arg>` = `--add-modules=jdk.incubator.vector`.
+`SourceSet` has carried an `addModules` field all along, `--compile-log` records it
+on 6 of trino's 209 source sets, and `CompileInvocation`'s javadoc **names trino** —
+while both plugins set it on nothing. ⛔ It is not reachable by widening `jmods`:
+an incubator module is not in the `java.se` closure and cannot be added to it; it
+must be in the compilation's ROOT SET. Gate: 1 error → 0.
+
+Fixed in both plugins on the twin rule. ⚠ **No corpus exercises the Gradle half**,
+so the unit test and the symmetry are what stand behind it, not a measurement.
+
+### ▶ THE NEXT JOB: trino has no catalogue entry
+
+It is the largest Maven reference available — 106 modules, 209 source sets, 1,015
+class-path parts, all release 25 — and it found a defect the moment it was pointed
+at the plugin. It is currently a `Taskfile` task plus an ad-hoc config, **which is
+exactly the shape that let jenkins parse with 100 errors at exit 0 unnoticed**.
+A `trino` + `trino-plugin` pair, on the model of `pulsar`/`pulsar-plugin`, keeps
+what it found. It needs `mvn_flags` or a `JAVA_HOME` for the vendor enforcer;
+`core/trino-main` is the module the A/B used.
 
 ### What the A/B needed, and how it was got
 
@@ -149,7 +203,7 @@ against the reactor's is a true A/B. That is where the 60-vs-12 came from, and i
 is the shape to reach for again — langchain4j is too small and too clean to find
 anything.
 
-## 5. Traps that cost time — all three were weak instruments
+## 5. Traps that cost time — five weak instruments
 
 - **`ProjectBuilder` resolves no artifacts at all.** A fixture using it asserted over an empty class
   path and reported "0 parts" as a failure of the expectation, not of the code.
@@ -159,6 +213,10 @@ anything.
   defect.**
 - **A 3-project GradleTestKit fixture does not reproduce a 79-project build's resolution locking.**
   The refuted variant in §6 passed its functional test and did nothing on a corpus.
+
+- **A vendor enforcer that `-Denforcer.skip=true` does not skip.** trino's `RequireJavaVendor` wants
+  Temurin or Oracle, fails after every other rule has passed, and prints nothing useful without
+  `-e` — the rule number simply goes missing from the list.
 
 ⛔ **For anything touching cross-project resolution, the gate is a real multi-module corpus, never a
 fixture.**
@@ -249,17 +307,32 @@ a task run per sibling.
   either; it is a FLAG on the Gradle side and a SCOPE on the Maven side, resolved in
   `mvnplugin/ComputeSourceSets` before the shared class sees anything. Revisit when a corpus asks for
   something only the Gradle model can express.
-- **The `gradle-plugin` corpus route has no catalogue entry.** Adding one means two entries writing
-  one `inputConfiguration.json` into a shared checkout, which breaks the `generates` preserve-list.
-  Needs a `config.output` convention for A/B entries.
-- **The residual 108 diagnostics on pulsar with siblings-as-source** are a sibling's `compileOnly`
-  dependencies, which Gradle propagates to no consumer. Only §6 would close it. Note that this path
-  engages only when the plugin is applied to *every* project (the dogfood pattern); the corpus route
-  applies it to one, where pulsar is exit 0.
+- ~~**The `gradle-plugin` corpus route has no catalogue entry.**~~ Done (§4): `config.output` may now
+  be relative, which is what makes an A/B pair expressible.
+- **The residual 107 diagnostics on pulsar with siblings-as-source** are a sibling's `compileOnly`
+  dependencies, which Gradle propagates to no consumer. Only §6b would close it, and §6b is refuted.
+  ⛔ The sentence that used to end this bullet — "the corpus route applies it to one, where pulsar is
+  exit 0" — **was wrong**; the init script says `allprojects`. The mode is now a deliberate setting
+  (§4), and `pulsar-plugin` chooses the one that can be green.
 
 ---
 
-## 8. Operational notes
+## 8. The corpus map, as of 2026-08-19
+
+| entry | route | what it measures | baseline |
+|---|---|---|---|
+| `langchain4j` | maven-plugin | one clean module; found nothing, and that is its value as a control | 509 |
+| `activemq` | maven-plugin | `<release>` in the compiler plugin, incl. an MRJAR execution to ignore | 500 |
+| `camel` | maven-plugin | a deep reactor's one module | 388 |
+| `jenkins` | maven-plugin | inherited `<release>`; **was 100 errors at exit 0** | 1,464 |
+| `timefold-solver` | maven-log | the Maven A/B REFERENCE, 65 source sets | — |
+| `fernflower` / `fernflower-plugin` | gradle-log / gradle-plugin | the single-project A/B pair | 227 |
+| `pulsar` / `pulsar-plugin` | gradle-log / gradle-plugin | the multi-module A/B pair, siblings as artifacts | 4,112 / 178 |
+| trino | maven-log, **no entry** | 209 source sets; found `--add-modules`. §4's next job | — |
+
+---
+
+## 9. Operational notes
 
 - `eval "$(ws env server)"` before any maddi gradle command; `env -u GRADLE_USER_HOME` for a corpus's
   own build.
