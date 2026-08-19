@@ -49,13 +49,12 @@ public class ComputeSourceSets {
         String buildUnit = project.getGroupId() + ":" + project.getArtifactId();
         Charset encoding = Charset.forName(sourceEncoding, Charset.defaultCharset());
 
-        Set<SourceSet> deps = new HashSet<>();
-        deps.addAll(computeClassPathParts(JavaScopes.COMPILE, false, false, sourceSetsByName,
-                excludeFromClasspathSet));
-        deps.addAll(computeClassPathParts(JavaScopes.PROVIDED, false, true, sourceSetsByName,
-                excludeFromClasspathSet));
-        deps.addAll(computeClassPathParts(JavaScopes.RUNTIME, false, true, sourceSetsByName,
-                excludeFromClasspathSet));
+        // Resolved ONCE. The four calls this replaces each re-resolved the whole graph and each got the same
+        // one back: the scope was passed to a filter that was computed and then never used.
+        DependencyNode dependencyGraph = resolveDependencies();
+
+        Set<SourceSet> deps = new HashSet<>(computeClassPathParts(log, dependencyGraph, JavaScopes.COMPILE, false,
+                sourceSetsByName, excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for main");
         // Emit absolute source directories (and a hierarchical file:/... URI). maddi resolves relative source dirs
         // against the configured working directory, but the classpath parts are already absolute machine paths, so
@@ -73,7 +72,7 @@ public class ComputeSourceSets {
                 sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
             }
         }
-        deps.addAll(computeClassPathParts(JavaScopes.TEST, true, false, sourceSetsByName,
+        deps.addAll(computeClassPathParts(log, dependencyGraph, JavaScopes.TEST, true, sourceSetsByName,
                 excludeFromClasspathSet));
         log.info("Have " + deps.size() + " dependent source sets for test");
         List<Path> testSourcePaths = existingDirectories(project.getTestCompileSourceRoots(), "test");
@@ -116,32 +115,52 @@ public class ComputeSourceSets {
         return existing;
     }
 
-    private Set<SourceSet> computeClassPathParts(String scope, boolean test, boolean runtimeOnly,
-                                                 Map<String, SourceSet> sourceSetsByName, Set<String> excludeFromClasspathSet)
-            throws DependencyResolutionException {
-
-        // Create dependency request for this scope
-        DependencyFilter classpathFilter = DependencyFilterUtils.classpathFilter(scope);
-        ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
-        buildingRequest.setProject(project);
-
-        // Resolve the dependencies
+    /**
+     * The project's resolved dependency graph, once. Every scope reads the same graph -- Aether resolves it whole
+     * and stamps each node with its DERIVED scope -- so which entries belong on which class path is a question
+     * about the nodes, answered below, not about the resolution.
+     */
+    private DependencyNode resolveDependencies() throws DependencyResolutionException {
         DependencyResolutionRequest resolutionRequest = new DefaultDependencyResolutionRequest();
         resolutionRequest.setMavenProject(project);
         resolutionRequest.setRepositorySession(session.getRepositorySession());
-
-        DependencyResolutionResult resolutionResult = dependenciesResolver.resolve(resolutionRequest);
-
-        // Process resolution result
-        log.debug("Computing class path parts for " + scope);
-        return processDependencyNodes(resolutionResult.getDependencyGraph(), test, runtimeOnly, sourceSetsByName,
-                excludeFromClasspathSet, 1);
+        return dependenciesResolver.resolve(resolutionRequest).getDependencyGraph();
     }
 
-    private Set<SourceSet> processDependencyNodes(DependencyNode node, boolean test, boolean runtimeOnly,
-                                                  Map<String, SourceSet> sourceSetsByName,
-                                                  Set<String> excludeFromClasspathSet,
-                                                  int indent) {
+    /**
+     * The class path {@code javac} is given for one of the two compilations, as maddi source sets.
+     *
+     * <p>⛔⛔ <b>THE SCOPE FILTER WAS COMPUTED AND NEVER APPLIED.</b> The old code built a
+     * {@link DependencyFilterUtils#classpathFilter} from the scope, dropped it on the floor, and then walked the
+     * unfiltered graph -- so all four scope passes returned the SAME set, the first one (compile) created every
+     * part, and the dedup-by-name below handed the rest back unchanged. The result: <b>one class path, used for
+     * both compilations</b>, and the {@code test} and {@code runtimeOnly} flags never once set.
+     *
+     * <p>⚠ <b>MEASURED, on timefold-solver</b> (2026-08-19): {@code core/main} came out with <b>60</b>
+     * dependencies where javac's own {@code -classpath} -- the one {@code --compile-log} records -- has
+     * <b>12</b>. The 27 non-JDK extras are the whole test toolchain (junit, mockito, assertj, awaitility,
+     * hamcrest), the logging backend (logback) and the JAXB <em>runtime</em>: nothing main is compiled against.
+     * Nothing was MISSING, which is why this cost no error and survived: a class path that is too wide only
+     * resolves types a stricter build would have rejected.
+     *
+     * <p>Two scopes, not four, and they are exactly {@code maven-compiler-plugin}'s two class paths:
+     * {@code compile} ({@code MavenProject#getCompileClasspathElements}, i.e. compile + provided + system) and
+     * {@code test} ({@code getTestClasspathElements}, i.e. everything). The {@code provided} pass was redundant
+     * -- {@code classpathFilter(COMPILE)} already includes it -- and the {@code runtime} pass put runtime-scope
+     * jars on MAIN's class path, where javac never sees them, while marking them {@code runtimeOnly}.
+     */
+    static Set<SourceSet> computeClassPathParts(Log log, DependencyNode dependencyGraph, String scope,
+                                                boolean test, Map<String, SourceSet> sourceSetsByName,
+                                                Set<String> excludeFromClasspathSet) {
+        log.debug("Computing class path parts for " + scope);
+        return processDependencyNodes(log, dependencyGraph, DependencyFilterUtils.classpathFilter(scope),
+                new ArrayList<>(), test, sourceSetsByName, excludeFromClasspathSet);
+    }
+
+    private static Set<SourceSet> processDependencyNodes(Log log, DependencyNode node, DependencyFilter filter,
+                                                         List<DependencyNode> parents, boolean test,
+                                                         Map<String, SourceSet> sourceSetsByName,
+                                                         Set<String> excludeFromClasspathSet) {
         Set<SourceSet> results = new HashSet<>();
         for (DependencyNode child : node.getChildren()) {
             Artifact artifact = child.getArtifact();
@@ -154,15 +173,25 @@ public class ComputeSourceSets {
             // deps under their parent -- combined with the name-dedup below -- would drop an already-seen dep from
             // its parent's child set, leaving it unreachable when maddi walks the graph to build the parse
             // classpath (e.g. slf4j-api under a provided slf4j binding never reaching the compile classpath).
-            results.addAll(processDependencyNodes(child, test, runtimeOnly, sourceSetsByName,
-                    excludeFromClasspathSet, indent + 1));
+            parents.addFirst(child);
+            results.addAll(processDependencyNodes(log, child, filter, parents, test, sourceSetsByName,
+                    excludeFromClasspathSet));
+            parents.removeFirst();
+            // ⚠ The filter is asked about the CHILD but the recursion above is not gated on it. Aether derives a
+            // node's scope from its whole path (a compile dependency of a test dependency IS test-scoped), so a
+            // rejected node's subtree is rejected node by node on its own merits; skipping the subtree outright
+            // would be the same answer only as long as that stays true.
+            if (!filter.accept(child, parents)) continue;
             if (!excludeFromClasspathSet.contains(artifact.getArtifactId())) {
                 SourceSet existing = sourceSetsByName.get(name);
                 if (existing != null) {
                     results.add(existing); // already created (possibly in an earlier scope); still a direct dep here
                 } else {
                     SourceSet sourceSet = PluginSourceSets.classPathPart(name, artifact.getFile(), test,
-                            runtimeOnly);
+                            // Nothing on either of the two class paths above is runtime-only: they are the
+                            // compile class paths, and a runtime-scope artifact reaches only the test one, where
+                            // javac genuinely does read it.
+                            false);
                     sourceSetsByName.put(name, sourceSet);
                     log.debug("Added class path part " + name);
                     results.add(sourceSet);
@@ -173,7 +202,7 @@ public class ComputeSourceSets {
     }
 
     /**
-     * The Java API level this module is compiled against, or {@code 0} when the pom says nothing.
+     * The Java API level this module is compiled against, or {@code 0} when the build model says nothing.
      *
      * <p>⛔ <b>WITHOUT IT THE PARSE RUNS ON WHATEVER JDK MADDI HAPPENS TO BE, NOT ON THE ONE THE CORPUS
      * TARGETS</b> — and every API removed since then reads as "cannot find symbol", drops the compilation unit,
