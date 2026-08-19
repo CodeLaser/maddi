@@ -155,6 +155,32 @@ public class TestAnnotationProcessorOutput {
         assertEquals(root.resolve("build/maddi-apt/demo-main"), Path.of(library.uri().getPath()));
     }
 
+    /**
+     * ⛔⛔ A BUILD PLUGIN'S SOURCE-SET NAME IS NOT PATH-SHAPED, AND THIS CLASS TURNS IT INTO A PATH AND A URI.
+     *
+     * <p>Every caller was {@code --compile-log} until 2026-08-19, and its names are {@code core/main} by
+     * construction. The Maven plugin's come from the build model — the POM's {@code <name>} — so the first real
+     * one it was handed was {@code LangChain4j :: Core/test}, and the run died with
+     * {@code IllegalArgumentException: Illegal character in path at index 90}, from a URI built by string
+     * concatenation over a directory name containing spaces and colons. Both halves are fixed and both are
+     * asserted here: the leaf is a portable segment, and the URI round-trips back to the very path we wrote to.
+     */
+    @DisplayName("a source set named from a POM survives becoming a directory and a URI")
+    @Test
+    public void aBuildToolsSourceSetNameBecomesAPortablePath(@TempDir Path root) throws IOException {
+        Fixture fixture = compile(root);
+        SourceSet main = sourceSet("LangChain4j :: Core/test", fixture.destination(), List.of(fixture.source()),
+                List.of());
+
+        SourceSet library = new AnnotationProcessorOutput().materialise(List.of(main)).libraries().getFirst();
+
+        assertEquals(root.resolve("build/maddi-apt/LangChain4j-Core-test"), Path.of(library.uri()),
+                "spaces and colons are not a directory name we should be inventing");
+        // ⚠ Path.of(URI) rather than Path.of(uri.getPath()): it is the round trip that would have failed, and
+        // asserting on getPath() would pass against a URI that no reader can resolve.
+        assertTrue(Files.isDirectory(Path.of(library.uri())), "and it must name the directory actually written");
+    }
+
     /** ⚠ CONTROL: with the generated source root declared too, there is nothing to recover and no library. */
     @DisplayName("CONTROL: every class has a source, so no library is created")
     @Test
