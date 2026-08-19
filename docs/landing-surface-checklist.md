@@ -283,6 +283,26 @@ renumbered to 14. The `[#in-the-analyzer]` anchor is unchanged, so the two cross
       fresh render would describe CLI and plugins nobody can install. Either rebuild it
       (`./gradlew :maddi-manual:buildDocs`) at release time, or leave the old one carrying its
       archive banner until then.
+
+      **Decided 2026-08-19, and PARKED on one blocker.** The manual gets a sibling site at
+      `https://www.codelaser.io/maddi/manual/`, mirroring `~/git/maddi-road` — same hand-written
+      layouts, same palette, same subpath check, PDF offered beside the page.
+
+      ⛔ **`buildDocs` on its own publishes nothing, and that is not an oversight in the task — it is
+      two missing pieces outside this repo.** The book reaches the web because THREE things exist:
+      a Hugo site (`~/git/maddi-road`), an FTP account **chrooted to `public_html/maddi/road/`**
+      (`u542332692.maddiroadftp`, used by its `deploy.sh` via `~/.netrc`), and a link on the
+      WordPress page at `/maddi/`. The manual has none of the three. The site I can write; the other
+      two are hosting-panel and WordPress actions.
+
+      **The blocker: an FTP account chrooted to `public_html/maddi/manual/`.** The road account
+      cannot reach that directory, and `deploy.sh` runs `mirror -R --delete`, so pointing it
+      anywhere else is not a thing to improvise. Access requested 2026-08-19; the site repo is not
+      worth writing until it exists, because it cannot be verified without it.
+
+      ⚠ Whichever way this lands, the manual is now the ONLY published description of the renamed
+      surface: `maddi { }`, `maddi-analyzer`, `build/maddi` (08565d05f). What is on e2immu.org today
+      documents the predecessor under names that will never come back.
 - [ ] (#12) Link the book from the repo homepage field (§2), the README, and codelaser.io.
 - [ ] Longer term the book wants its own stable home under a maddi domain; hosting the current
       edition on the archived predecessor's site is a stopgap, not the destination.
