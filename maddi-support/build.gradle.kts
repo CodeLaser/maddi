@@ -33,7 +33,7 @@
 // user's own code compiles against.
 plugins {
     `java-library`
-    id("org.jreleaser") version "1.19.0"
+    id("org.jreleaser")   // version in the root build script, deliberately
     `maven-publish`
 }
 
