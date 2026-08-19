@@ -101,4 +101,38 @@ public class TestComputeSourceSets {
         assertEquals(main.buildUnit(), test.buildUnit(), "main and test must share one build unit");
         assertTrue(test.test());
     }
+
+    /**
+     * ⛔ A SOURCE SET'S {@code uri} IS ITS CLASS OUTPUT, NOT ITS FIRST SOURCE DIRECTORY -- the plugin-side half of
+     * {@code TestPluginSourceSets#uriIsTheClassOutput}. It is what {@code JavaInspectorImpl} hands javac as the
+     * class path entry for a {@code test -> main} edge, so a source directory there makes javac silently
+     * recompile main while it resolves test, and drops any type whose directory does not match its package.
+     * <p>
+     * ⚠ Asserted on a project whose {@code build/} does not exist: the configuration is computed before the
+     * compile tasks it depends on have run, so a class output that is merely DECLARED must still be recorded.
+     * Probing it here is what broke {@code TestAnalyzerPluginFunctional#configurationCacheCompatible}.
+     */
+    @Test
+    public void uriIsTheClassOutputNotTheSourceDirectory() {
+        Project project = ProjectBuilder.builder().withName("p").build();
+        project.getPluginManager().apply("java");
+        new File(project.getProjectDir(), "src/main/java").mkdirs();
+        new File(project.getProjectDir(), "src/test/java").mkdirs();
+        assertFalse(new File(project.getProjectDir(), "build").exists(), "nothing is compiled yet, on purpose");
+
+        ComputeSourceSets css = new ComputeSourceSets(project.getProjectDir().toPath().toAbsolutePath());
+        ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
+
+        for (String name : new String[]{"p/main", "p/test"}) {
+            SourceSet set = result.sourceSetsByName().get(name);
+            assertNotNull(set, "got " + result.sourceSetsByName().keySet());
+            String uri = set.uri().toString();
+            String expected = name.endsWith("/test") ? "build/classes/java/test" : "build/classes/java/main";
+            assertTrue(uri.endsWith(expected + "/") || uri.endsWith(expected),
+                    name + ": expected the class output " + expected + ", got " + uri);
+            assertFalse(set.sourceDirectories().isEmpty(), name + " must still carry its source directories");
+            assertTrue(set.sourceDirectories().stream().noneMatch(p -> p.toUri().equals(set.uri())),
+                    name + ": the uri must not be one of the source directories");
+        }
+    }
 }
