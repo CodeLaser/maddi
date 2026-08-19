@@ -62,11 +62,13 @@ public class ParseException extends RuntimeException {
         }
     }
 
+    @Override
     public void printStackTrace(PrintStream ps) { 
         ps.println(getMessage());
         ps.print(getCustomStackTrace());
     }
 
+    @Override
     public void printStackTrace(PrintWriter pw) { 
         pw.println(getMessage());
         pw.print(getCustomStackTrace());
