@@ -5,6 +5,7 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.*;
 import io.codelaser.maddi.run.config.util.ComputeDependencies;
 import io.codelaser.maddi.run.config.util.PluginSourceSets;
+import io.codelaser.maddi.run.main.PluginOptions;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.eclipse.aether.artifact.Artifact;
@@ -62,7 +63,7 @@ public class ComputeSourceSets {
         // opaque "file:src/main/java" URIs. Absolute paths make the run independent of where mvn is launched from.
         List<Path> sourcePaths = existingDirectories(project.getCompileSourceRoots(), "main");
         if (!sourcePaths.isEmpty()) {
-            Set<String> restrictToPackages = stringToSet(sourcePackages);
+            Set<String> restrictToPackages = PluginOptions.splitToSetOrNull(sourcePackages);
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
                     Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
@@ -77,7 +78,7 @@ public class ComputeSourceSets {
         log.info("Have " + deps.size() + " dependent source sets for test");
         List<Path> testSourcePaths = existingDirectories(project.getTestCompileSourceRoots(), "test");
         if (!testSourcePaths.isEmpty()) {
-            Set<String> restrictToTestPackages = stringToSet(testSourcePackages);
+            Set<String> restrictToTestPackages = PluginOptions.splitToSetOrNull(testSourcePackages);
 
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
@@ -160,17 +161,8 @@ public class ComputeSourceSets {
                 if (existing != null) {
                     results.add(existing); // already created (possibly in an earlier scope); still a direct dep here
                 } else {
-                    URI uri = URI.create("file:" + artifact.getFile().getPath());
-                    SourceSet sourceSet = new SourceSetImpl.Builder()
-                            .setName(name)
-                            .setUri(uri)
-                            .setTest(test)
-                            .setLibrary(true)
-                            .setExternalLibrary(true)
-                            .setPartOfJdk(false)
-                            .setRuntimeOnly(runtimeOnly)
-                            .setDependencies(List.of())
-                            .build();
+                    SourceSet sourceSet = PluginSourceSets.classPathPart(name, artifact.getFile(), test,
+                            runtimeOnly);
                     sourceSetsByName.put(name, sourceSet);
                     log.debug("Added class path part " + name);
                     results.add(sourceSet);
@@ -210,10 +202,4 @@ public class ComputeSourceSets {
         return 0;
     }
 
-    private static Set<String> stringToSet(String sourcePackages) {
-        return sourcePackages == null || sourcePackages.isBlank() ? null :
-                Arrays.stream(sourcePackages.split("[,;]\\s*"))
-                        .filter(s -> !s.isBlank())
-                        .collect(Collectors.toUnmodifiableSet());
-    }
 }

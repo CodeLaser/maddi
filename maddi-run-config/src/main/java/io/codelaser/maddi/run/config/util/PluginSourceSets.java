@@ -17,12 +17,18 @@ package io.codelaser.maddi.run.config.util;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarFile;
 
 /**
  * The source set of a <em>build plugin</em>: the Gradle and the Maven plugin both ask their build tool the same
@@ -33,6 +39,8 @@ import java.util.Set;
  * independently and identically wrongly; see {@link #classPathUri}.
  */
 public class PluginSourceSets {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PluginSourceSets.class);
+
 
     /**
      * ⛔⛔ <b>A SOURCE SET'S {@code uri} IS ITS CLASS OUTPUT, NOT ITS FIRST SOURCE DIRECTORY.</b>
@@ -112,6 +120,49 @@ public class PluginSourceSets {
                 .setRestrictToPackages(restrictToPackages)
                 .setSourceRelease(sourceRelease)
                 .build();
+    }
+
+    /**
+     * One entry of a build's class path, as a library part.
+     *
+     * <p>Both plugins wrote this builder chain themselves, with the same six flags and the same comment about why
+     * the part name is what it is -- and they had drifted: only the Gradle one asked whether the artifact is a
+     * module, so the Maven plugin could not describe a JPMS dependency at all.
+     *
+     * @param name  the part's identity, which the serialized configuration resolves dependency edges by. How it
+     *              is derived differs per build tool and stays with the caller: a jar identifies itself by its
+     *              file name, a project's output directory does not.
+     */
+    public static SourceSet classPathPart(String name, File file, boolean test, boolean runtimeOnly) {
+        return new SourceSetImpl.Builder()
+                .setName(name)
+                // ⚠ toURI(), not "file:" + path. Both are hierarchical for an absolute path, but only this one
+                // stays so for every path the build tool can hand over.
+                .setUri(file.getAbsoluteFile().toURI())
+                .setTest(test)
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setPartOfJdk(false)
+                .setModule(isModularArtifact(file))
+                .setRuntimeOnly(runtimeOnly)
+                .build();
+    }
+
+    /**
+     * As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}.
+     * A directory (a sibling project's compile output) is asked directly; a jar is opened.
+     */
+    public static boolean isModularArtifact(File file) {
+        if (file.isDirectory()) {
+            return new File(file, "module-info.class").canRead();
+        }
+        try (JarFile jarFile = new JarFile(file)) {
+            return jarFile.getEntry("module-info.class") != null
+                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
+        } catch (IOException notAJar) {
+            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
+            return false;
+        }
     }
 
     /**

@@ -18,6 +18,7 @@ import io.codelaser.maddi.gradleplugin.AnalyzerExtension;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.run.config.util.PluginSourceSets;
+import io.codelaser.maddi.run.main.PluginOptions;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.artifacts.ArtifactView;
@@ -181,17 +182,8 @@ public class ComputeSourceSets {
                         SourceSet existing = sourceSetsByName.get(name);
                         if (existing == null) {
                             LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
-                            SourceSet set = new SourceSetImpl.Builder()
-                                    .setName(name)
-                                    .setUri(absoluteURI(file))
-                                    .setTest(isTest)
-                                    .setLibrary(true)
-                                    .setExternalLibrary(true)
-                                    .setPartOfJdk(false)
-                                    .setModule(isModularArtifact(file))
-                                    .setRuntimeOnly(isRuntimeOnly)
-                                    .build();
-                            sourceSetsByName.put(name, set);
+                            sourceSetsByName.put(name,
+                                    PluginSourceSets.classPathPart(name, file, isTest, isRuntimeOnly));
                         } else if (!absoluteURI(file).equals(existing.uri())) {
                             // ⛔ NOT A TIDINESS PROBLEM. The name is the identity: the serialized configuration
                             // resolves every `dependencies: ["<name>"]` edge by it, so two files answering to one
@@ -268,7 +260,7 @@ public class ComputeSourceSets {
         // cross-project access this whole mechanism exists to avoid.
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                restrictToPackages(restrictTo), 0);
+                PluginOptions.splitToSetOrNull(restrictTo), 0);
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -309,12 +301,6 @@ public class ComputeSourceSets {
         return edges;
     }
 
-    private static Set<String> restrictToPackages(String restrictTo) {
-        return restrictTo == null || restrictTo.isBlank() ? null :
-                Arrays.stream(restrictTo.split("[,;]\\s*"))
-                        .filter(s -> !s.isBlank())
-                        .collect(Collectors.toUnmodifiableSet());
-    }
 
     private static @NotNull List<Configuration> sortConfigurations(Project project) {
         List<Configuration> configurations = new ArrayList<>(project.getConfigurations());
@@ -384,7 +370,7 @@ public class ComputeSourceSets {
                                     String restrictTo,
                                     String encodingString,
                                     boolean test) {
-        Set<String> restrictToPackages = restrictToPackages(restrictTo);
+        Set<String> restrictToPackages = PluginOptions.splitToSetOrNull(restrictTo);
         Charset sourceEncoding = encodingString == null ? null : Charset.forName(encodingString);
         // Java source dirs, plus Kotlin source dirs when the Kotlin JVM plugin is applied. SourceSet is
         // ExtensionAware and the Kotlin plugin registers a 'kotlin' SourceDirectorySet per source set; reading it
@@ -464,20 +450,6 @@ public class ComputeSourceSets {
         return pci.getProjectPath() + "/" + file.getName();
     }
 
-    /** As {@link PluginSourceSets#isModularSource}, for a dependency: an explicit module carries a
-     * {@code module-info.class}. */
-    private static boolean isModularArtifact(File file) {
-        if (file.isDirectory()) {
-            return new File(file, "module-info.class").canRead();
-        }
-        try (JarFile jarFile = new JarFile(file)) {
-            return jarFile.getEntry("module-info.class") != null
-                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
-        } catch (IOException e) {
-            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, e.getMessage());
-            return false;
-        }
-    }
 
     private static String detectSourceEncoding(Project project) {
         AtomicReference<String> encodingRef = new AtomicReference<>();

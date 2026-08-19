@@ -23,6 +23,15 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
+/**
+ * The dependency graph over a GRADLE project's source sets and libraries.
+ *
+ * <p>⚠ <b>IT HAS A TWIN:</b> {@code io.codelaser.maddi.run.config.util.ComputeDependencies}, which the Maven
+ * plugin uses. The three rules they share -- jmod edges, "every non-JDK set depends on all jmods", and
+ * test -> main -- are stated in both; everything else here (sibling projects from the {@code
+ * e2immuSourceElements} variant, runtime-only scoping, source-project edges) has no counterpart there.
+ * See that class for why they are not merged. <b>Check both when changing a shared rule.</b>
+ */
 public class ComputeDependencies {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeDependencies.class);
 

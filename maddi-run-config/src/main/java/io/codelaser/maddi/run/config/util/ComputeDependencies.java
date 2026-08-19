@@ -21,6 +21,24 @@ import io.codelaser.maddi.graph.ImmutableGraph;
 import java.util.*;
 import java.util.function.Consumer;
 
+/**
+ * The dependency graph over a MAVEN module's source sets and libraries.
+ *
+ * <p>⚠ <b>IT HAS A TWIN, AND THEY ARE DELIBERATELY NOT MERGED:</b>
+ * {@code io.codelaser.maddi.gradleplugin.inputconfig.ComputeDependencies}. They share three rules and state them
+ * separately -- jmod edges, "every non-JDK set depends on all jmods", and test -> main -- but they are not two
+ * copies of one algorithm. This one walks {@code SourceSet.dependencies()}, which the Maven side computes per
+ * set; the Gradle one builds edges from a tree of {@code Result}s and knows about sibling projects reached
+ * through a variant, runtime-only scoping, and source-project edges, none of which exist here.
+ *
+ * <p>⛔ SO CHECK BOTH WHEN CHANGING EITHER. What they already disagree on: this one has no notion of
+ * {@code runtimeOnly} at all, so a runtime-only library reaches every Maven source set, and only the Gradle twin
+ * keeps it off a compile class path.
+ *
+ * <p>Merging them would mean putting the Gradle model on the Maven path, and there is no Maven corpus that would
+ * measure the result: {@code maddi-mvnplugin} has no tests, and langchain4j's checked-in configuration predates
+ * build units. Until one exists, two honest implementations beat one unmeasured one.
+ */
 public class ComputeDependencies {
    private final Consumer<String> log;
 
