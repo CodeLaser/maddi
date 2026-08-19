@@ -44,7 +44,7 @@ public class ParseMethodCall extends CommonParse {
                             String index, ForwardType forwardType, org.parsers.java.ast.MethodCall mc) {
         List<Object> unparsedArguments = new ArrayList<>();
         Node name = mc.getFirst();
-        assert name instanceof Name || name instanceof DotName;
+        assert name instanceof Name || name instanceof DotName || name instanceof SuperDotName;
         Node methodNameNode = name.getLast();
         String methodName = methodNameNode.getSource();
         Source sourceOfName = source(methodNameNode);
