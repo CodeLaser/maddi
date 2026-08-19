@@ -27,7 +27,6 @@ import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.op.Linearize;
@@ -38,7 +37,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -154,7 +152,8 @@ public record AnalyzerPropertyComputer(
         ComputeSourceSets computeSourceSets = new ComputeSourceSets(absoluteWorkingDirectory);
         ComputeSourceSets.Result result = computeSourceSets.compute(project, extension.sourcePackages,
                 extension.testSourcePackages, excludeFromClasspath);
-        makeJavaModules(extension.jmods).forEach(set -> result.sourceSetsByName().put(set.name(), set));
+        JavaModules.javaModuleSourceSets(extension.jmods)
+                .forEach(set -> result.sourceSetsByName().put(set.name(), set));
 
         G<String> graph = new ComputeDependencies().go(result);
         List<String> linearization = Linearize.linearize(graph).asList(String::compareToIgnoreCase);
@@ -176,19 +175,6 @@ public record AnalyzerPropertyComputer(
             }
         }
         return builder.build();
-    }
-
-    private List<SourceSet> makeJavaModules(String jmodsString) {
-        List<SourceSet> sets = new ArrayList<>();
-        Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
-        for (String jmod : jmods) {
-            if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl.Builder().setName(jmod).setUri(URI.create("jmod:" + jmod))
-                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
-                sets.add(set);
-            }
-        }
-        return sets;
     }
 
     private static Map<String, String> makeAnalysisHintsMap(AnalyzerExtension extension) {
