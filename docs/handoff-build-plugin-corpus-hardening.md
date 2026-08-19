@@ -174,8 +174,14 @@ a task run per sibling.
 - `eval "$(ws env server)"` before any maddi gradle command; `env -u GRADLE_USER_HOME` for a corpus's
   own build.
 - The **whole-box lock** is an flock: heavy commands refuse with exit 3 while another job holds it.
-  Probe with `boxlock status`; never read `.box.lock`, which always exists. Queue work with
-  `until boxlock status >/dev/null 2>&1; do sleep 15; done; <cmd>` in the background.
+  Never read `.box.lock`, which always exists. **To wait, use `boxlock --wait[=30m] <cmd>`**, added
+  2026-08-19 (`jfocus-devops` `16247f2`).
+  ⛔ **The loop this bullet used to recommend is wrong, and it was wrong here for a day**:
+  `until boxlock status; do sleep 15; done; boxlock <cmd>` takes the lock **twice**, so between the
+  probe and the real acquire the box is free for anyone — observed, a run took exit 3 immediately
+  after a successful probe. It is also a lottery rather than a queue: whoever's `sleep` expires
+  nearest the release wins, however long anyone has waited. `--wait` asks once and blocks in the
+  kernel; on its deadline it exits 3, the same code as a refusal, so nothing downstream changes.
 - `MADDI_EXPORTS` (the five `--add-exports`) must be set for any `:maddi-run-openjdk:run`.
 - `--no-build-cache` throughout: a cache hit restores outputs without running javac or the tests.
 - The Gradle-plugin corpus route drives `corpus/scripts/maddi-plugin.init.gradle.kts` and touches no
