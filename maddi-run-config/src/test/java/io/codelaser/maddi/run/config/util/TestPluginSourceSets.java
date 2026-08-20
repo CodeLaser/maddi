@@ -18,11 +18,17 @@ import io.codelaser.maddi.cst.api.element.SourceSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -147,6 +153,90 @@ public class TestPluginSourceSets {
         assertEquals(0, PluginSourceSets.parseRelease(""));
         assertEquals(0, PluginSourceSets.parseRelease("VERSION_21"));
         assertEquals(0, PluginSourceSets.parseRelease("0"));
+    }
+
+    /**
+     * ⛔⛔ {@code AUTOMATIC} AND {@code NONE} ARE NOT THE SAME ANSWER, AND ONLY ONE OF THEM WORKS. Gradle routes a
+     * jar to the module path when it carries a descriptor OR declares {@code Automatic-Module-Name}, and leaves
+     * every other jar on the class path -- which a named module cannot read. A {@code requires} on a
+     * {@code NONE} artifact therefore fails however correct the descriptor is, and that is the whole of the
+     * OpenSearch JPMS failure: the measurement was right and the build refused to provide what it named.
+     */
+    @Test
+    public void moduleKindSeparatesTheThreeWaysAJarCanPresentItself(@TempDir Path dir) throws IOException {
+        File explicit = jar(dir.resolve("explicit.jar"), null, "module-info.class");
+        File multiRelease = jar(dir.resolve("mr.jar"), null, "META-INF/versions/9/module-info.class");
+        File automatic = jar(dir.resolve("automatic.jar"), "Automatic-Module-Name: com.acme.lib\n", "com/acme/A.class");
+        File osgiOnly = jar(dir.resolve("osgi.jar"), "Bundle-SymbolicName: org.jsr-305\n", "javax/annotation/A.class");
+        File noManifest = jar(dir.resolve("bare.jar"), null, "p/A.class");
+
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(explicit));
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(multiRelease));
+        assertEquals(PluginSourceSets.ModuleKind.AUTOMATIC, PluginSourceSets.moduleKind(automatic));
+        // ⛔ THE jsr305 SHAPE. JPMS ignores the OSGi header, so this is NONE -- not AUTOMATIC.
+        assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(osgiOnly));
+        assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(noManifest));
+    }
+
+    /**
+     * ⚠ A directory is a sibling project's compile output. {@code Automatic-Module-Name} is a property of a jar
+     * MANIFEST, and no build tool derives one from a class-output directory, so a directory is EXPLICIT or it is
+     * NONE -- never AUTOMATIC.
+     */
+    @Test
+    public void aDirectoryIsExplicitOrNothing(@TempDir Path dir) throws IOException {
+        Path modular = Files.createDirectories(dir.resolve("modular"));
+        Files.write(modular.resolve("module-info.class"), new byte[]{(byte) 0xCA, (byte) 0xFE});
+        Path plain = Files.createDirectories(dir.resolve("plain"));
+
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(modular.toFile()));
+        assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(plain.toFile()));
+    }
+
+    /** ⚠ CONTROL: something that is not a jar at all is NONE, and says so rather than throwing. */
+    @Test
+    public void whatCannotBeReadIsNotAModule(@TempDir Path dir) throws IOException {
+        Path notAJar = dir.resolve("notes.txt");
+        Files.writeString(notAJar, "this is not a jar");
+        assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(notAJar.toFile()));
+        assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(dir.resolve("absent.jar").toFile()));
+    }
+
+    /**
+     * ⚠ THE BEHAVIOUR THAT MUST NOT HAVE MOVED. {@code isModularArtifact} feeds {@code SourceSet.isModule()} and
+     * through it {@code JavaInspectorImpl}'s choice between javac's class path and module path. Widening it to
+     * include AUTOMATIC is a change to which artifacts land where, judged by a corpus run and not by this file;
+     * until then it stays EXPLICIT alone, and this test is what says so.
+     */
+    @Test
+    public void isModularArtifactStillMeansExplicitAlone(@TempDir Path dir) throws IOException {
+        File explicit = jar(dir.resolve("explicit.jar"), null, "module-info.class");
+        File automatic = jar(dir.resolve("automatic.jar"), "Automatic-Module-Name: com.acme.lib\n", "com/acme/A.class");
+        File osgiOnly = jar(dir.resolve("osgi.jar"), "Bundle-SymbolicName: org.jsr-305\n", "javax/annotation/A.class");
+
+        assertTrue(PluginSourceSets.isModularArtifact(explicit));
+        assertFalse(PluginSourceSets.isModularArtifact(automatic));
+        assertFalse(PluginSourceSets.isModularArtifact(osgiOnly));
+    }
+
+    /**
+     * A jar with the given manifest body (headers only, {@code Manifest-Version} is added here) and the given
+     * entries, each empty. Only the presence of an entry and the manifest headers are ever read.
+     */
+    private static File jar(Path path, String manifestBody, String... entries) throws IOException {
+        Manifest manifest = null;
+        if (manifestBody != null) {
+            manifest = new Manifest(new ByteArrayInputStream(
+                    ("Manifest-Version: 1.0\n" + manifestBody + "\n").getBytes(StandardCharsets.UTF_8)));
+        }
+        try (OutputStream out = Files.newOutputStream(path);
+             JarOutputStream jar = manifest == null ? new JarOutputStream(out) : new JarOutputStream(out, manifest)) {
+            for (String entry : entries) {
+                jar.putNextEntry(new JarEntry(entry));
+                jar.closeEntry();
+            }
+        }
+        return path.toFile();
     }
 
     /**
