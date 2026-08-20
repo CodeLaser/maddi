@@ -314,6 +314,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
+        public Opens withToModules(List<String> toModules) {
+            return new OpensImpl(source, comments, packageName, List.copyOf(toModules));
+        }
+
+        @Override
         public Element rewire(InfoMapView infoMap) {
             return null;
         }
