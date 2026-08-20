@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * The source set of a <em>build plugin</em>: the Gradle and the Maven plugin both ask their build tool the same
@@ -162,20 +163,77 @@ public class PluginSourceSets {
     }
 
     /**
-     * As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}.
-     * A directory (a sibling project's compile output) is asked directly; a jar is opened.
+     * How an artifact presents itself to JPMS, and -- the reason this is three-valued -- whether the build will
+     * put it where a named module can read it.
+     *
+     * <p>⛔⛔ {@code AUTOMATIC} AND {@code NONE} ARE NOT THE SAME ANSWER, AND ONLY ONE OF THEM WORKS. Gradle
+     * routes a jar to the module path when it carries a {@code module-info.class} or declares
+     * {@code Automatic-Module-Name}, and leaves every other jar on the class path -- where a named module cannot
+     * read it, because the class path is the unnamed module. So a {@code requires} on a {@code NONE} artifact
+     * compiles to "module not found" however correct the descriptor is.
+     *
+     * <p>⚠ <b>MEASURED, on jsr305 3.0.2</b> (2026-08-20): its manifest carries an OSGi
+     * {@code Bundle-SymbolicName: org.jsr-305} and no {@code Automatic-Module-Name}. JPMS ignores the OSGi
+     * header, so this is {@code NONE} -- and it is exactly the artifact that broke the OpenSearch JPMS work.
+     *
+     * <p>⛔ <b>{@code jar --describe-module} IS NOT THE DISCRIMINATOR, THOUGH IT LOOKS LIKE ONE.</b> On jsr305 it
+     * prints "No module descriptor found. Derived automatic module." and then {@code jsr305@3.0.2 automatic} --
+     * the JDK derives a name from the FILE NAME and calls the result automatic, so its verdict word is
+     * {@code automatic} for {@code AUTOMATIC} and {@code NONE} alike. What separates them is whether the manifest
+     * DECLARES the name, which is the only thing a build tool will route on.
      */
-    public static boolean isModularArtifact(File file) {
+    public enum ModuleKind {
+        /** Carries a {@code module-info.class}: an explicit module, on the module path. */
+        EXPLICIT,
+        /** Declares {@code Automatic-Module-Name}: an automatic module with a stable name, on the module path. */
+        AUTOMATIC,
+        /** Neither. The build leaves it on the class path, so a named module cannot read it. */
+        NONE
+    }
+
+    /**
+     * As {@link #isModularSource}, for a dependency. A directory (a sibling project's compile output) is asked
+     * directly; a jar is opened.
+     *
+     * <p>⚠ A directory is never {@link ModuleKind#AUTOMATIC}: {@code Automatic-Module-Name} is a property of a
+     * jar's manifest, and a build tool does not read one out of a compile-output directory.
+     *
+     * <p>⚠ Only the {@code META-INF/versions/9} spelling of a multi-release descriptor is read, which is what
+     * this method has always read. A descriptor added at a later release is answered {@code NONE} here; no
+     * corpus has yet produced one, and widening it is a change to which artifacts reach the module path, so it
+     * belongs with a run that can see that.
+     */
+    public static ModuleKind moduleKind(File file) {
         if (file.isDirectory()) {
-            return new File(file, "module-info.class").canRead();
+            return new File(file, "module-info.class").canRead() ? ModuleKind.EXPLICIT : ModuleKind.NONE;
         }
         try (JarFile jarFile = new JarFile(file)) {
-            return jarFile.getEntry("module-info.class") != null
-                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
+            if (jarFile.getEntry("module-info.class") != null
+                || jarFile.getEntry("META-INF/versions/9/module-info.class") != null) {
+                return ModuleKind.EXPLICIT;
+            }
+            Manifest manifest = jarFile.getManifest();
+            if (manifest != null && manifest.getMainAttributes().getValue("Automatic-Module-Name") != null) {
+                return ModuleKind.AUTOMATIC;
+            }
+            return ModuleKind.NONE;
         } catch (IOException notAJar) {
             LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
-            return false;
+            return ModuleKind.NONE;
         }
+    }
+
+    /**
+     * Whether this artifact carries a module descriptor of its own.
+     *
+     * <p>⚠ This is {@link ModuleKind#EXPLICIT} alone, which is what it has always been. It feeds
+     * {@code SourceSet.isModule()} and through it {@code JavaInspectorImpl}'s module-path routing, so widening it
+     * to include {@link ModuleKind#AUTOMATIC} moves artifacts between javac's two paths -- a change only a corpus
+     * run can judge, and one this method deliberately does not make on its own. Ask {@link #moduleKind} when the
+     * question is what the BUILD will deliver.
+     */
+    public static boolean isModularArtifact(File file) {
+        return moduleKind(file) == ModuleKind.EXPLICIT;
     }
 
     /**
