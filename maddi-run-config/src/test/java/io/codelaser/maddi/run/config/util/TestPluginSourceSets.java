@@ -166,12 +166,18 @@ public class TestPluginSourceSets {
     public void moduleKindSeparatesTheThreeWaysAJarCanPresentItself(@TempDir Path dir) throws IOException {
         File explicit = jar(dir.resolve("explicit.jar"), null, "module-info.class");
         File multiRelease = jar(dir.resolve("mr.jar"), null, "META-INF/versions/9/module-info.class");
+        // ⛔ MEASURED: netty keeps its descriptor at versions/11, bouncycastle at 9. Reading only 9 answered
+        // NONE for every netty jar -- and netty is in the measured failure list this classification feeds.
+        File netty = jar(dir.resolve("netty.jar"), null, "META-INF/versions/11/module-info.class");
+        File later = jar(dir.resolve("later.jar"), null, "META-INF/versions/17/module-info.class");
         File automatic = jar(dir.resolve("automatic.jar"), "Automatic-Module-Name: com.acme.lib\n", "com/acme/A.class");
         File osgiOnly = jar(dir.resolve("osgi.jar"), "Bundle-SymbolicName: org.jsr-305\n", "javax/annotation/A.class");
         File noManifest = jar(dir.resolve("bare.jar"), null, "p/A.class");
 
         assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(explicit));
         assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(multiRelease));
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(netty), "versions/11");
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(later), "versions/17");
         assertEquals(PluginSourceSets.ModuleKind.AUTOMATIC, PluginSourceSets.moduleKind(automatic));
         // ⛔ THE jsr305 SHAPE. JPMS ignores the OSGi header, so this is NONE -- not AUTOMATIC.
         assertEquals(PluginSourceSets.ModuleKind.NONE, PluginSourceSets.moduleKind(osgiOnly));
@@ -214,9 +220,20 @@ public class TestPluginSourceSets {
         File automatic = jar(dir.resolve("automatic.jar"), "Automatic-Module-Name: com.acme.lib\n", "com/acme/A.class");
         File osgiOnly = jar(dir.resolve("osgi.jar"), "Bundle-SymbolicName: org.jsr-305\n", "javax/annotation/A.class");
 
+        File v9 = jar(dir.resolve("v9.jar"), null, "META-INF/versions/9/module-info.class");
+        File v11 = jar(dir.resolve("v11.jar"), null, "META-INF/versions/11/module-info.class");
+
         assertTrue(PluginSourceSets.isModularArtifact(explicit));
+        assertTrue(PluginSourceSets.isModularArtifact(v9));
         assertFalse(PluginSourceSets.isModularArtifact(automatic));
         assertFalse(PluginSourceSets.isModularArtifact(osgiOnly));
+        // ⛔ THE FROZEN DISAGREEMENT, PINNED SO IT CANNOT DRIFT SILENTLY. moduleKind calls versions/11 EXPLICIT
+        // -- it is -- and the ROUTING predicate still does not, because the run that would price moving netty
+        // onto javac's module path needs a modular corpus whose class-path jars still exist. Neither
+        // fernflower's nor timefold's do. Widen this the day they are rebuilt, not before.
+        assertEquals(PluginSourceSets.ModuleKind.EXPLICIT, PluginSourceSets.moduleKind(v11));
+        assertFalse(PluginSourceSets.isModularArtifact(v11),
+                "frozen: see isModularArtifact's javadoc for the run that unfreezes it");
     }
 
     /**

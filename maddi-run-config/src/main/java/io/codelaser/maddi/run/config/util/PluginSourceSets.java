@@ -26,11 +26,16 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The source set of a <em>build plugin</em>: the Gradle and the Maven plugin both ask their build tool the same
@@ -210,10 +215,7 @@ public class PluginSourceSets {
             return new File(file, "module-info.class").canRead() ? ModuleKind.EXPLICIT : ModuleKind.NONE;
         }
         try (JarFile jarFile = new JarFile(file)) {
-            if (jarFile.getEntry("module-info.class") != null
-                || jarFile.getEntry("META-INF/versions/9/module-info.class") != null) {
-                return ModuleKind.EXPLICIT;
-            }
+            if (!descriptorReleases(jarFile).isEmpty()) return ModuleKind.EXPLICIT;
             Manifest manifest = jarFile.getManifest();
             if (manifest != null && manifest.getMainAttributes().getValue("Automatic-Module-Name") != null) {
                 return ModuleKind.AUTOMATIC;
@@ -225,17 +227,72 @@ public class PluginSourceSets {
         }
     }
 
+    /** {@link #ROOT} for an unversioned {@code module-info.class}, otherwise the multi-release version it sits under. */
+    private static final int ROOT = -1;
+
     /**
-     * Whether this artifact carries a module descriptor of its own.
+     * Every release at which this jar carries a module descriptor, so that the two questions below can read one
+     * scan and disagree about it deliberately rather than by accident.
      *
-     * <p>⚠ This is {@link ModuleKind#EXPLICIT} alone, which is what it has always been. It feeds
-     * {@code SourceSet.isModule()} and through it {@code JavaInspectorImpl}'s module-path routing, so widening it
-     * to include {@link ModuleKind#AUTOMATIC} moves artifacts between javac's two paths -- a change only a corpus
-     * run can judge, and one this method deliberately does not make on its own. Ask {@link #moduleKind} when the
-     * question is what the BUILD will deliver.
+     * <p>⛔⛔ <b>{@code META-INF/versions/9} IS NOT THE ONLY SPELLING, AND ASSUMING IT WAS COST A WHOLE VENDOR.</b>
+     * MEASURED 2026-08-20: <b>netty keeps its descriptor at {@code META-INF/versions/11}</b>
+     * ({@code netty-codec-smtp-4.2.17.Final.jar}, {@code jar --describe-module} → {@code releases: 11}) while
+     * bouncycastle uses 9. Reading only 9 answered {@code NONE} for every netty jar there is — and netty is in the
+     * measured failure list of the OpenSearch JPMS lane's {@code #232}
+     * ({@code io.netty.transport requires io.netty.resolver}), which is the report this classification feeds.
+     *
+     * <p>⚠ The earlier version of this class said the narrow read was safe because <i>"no corpus has yet produced
+     * one"</i>. A corpus produced one the same day. <b>An assumption recorded as a limitation is still an
+     * assumption</b>; this one is now a measurement.
+     */
+    private static List<Integer> descriptorReleases(JarFile jarFile) {
+        List<Integer> releases = new ArrayList<>();
+        if (jarFile.getEntry("module-info.class") != null) releases.add(ROOT);
+        for (Enumeration<JarEntry> e = jarFile.entries(); e.hasMoreElements(); ) {
+            String name = e.nextElement().getName();
+            Matcher m = VERSIONED_DESCRIPTOR.matcher(name);
+            if (m.matches()) releases.add(Integer.parseInt(m.group(1)));
+        }
+        return releases;
+    }
+
+    private static final Pattern VERSIONED_DESCRIPTOR =
+            Pattern.compile("META-INF/versions/(\\d{1,3})/module-info\\.class");
+
+    /**
+     * Whether {@code SourceSet.isModule()} is set for this artifact, and through it whether
+     * {@code JavaInspectorImpl} puts it on javac's <em>module path</em> rather than its class path.
+     *
+     * <p>⛔ <b>DELIBERATELY NARROWER THAN {@link #moduleKind}, AND FROZEN UNTIL A RUN CAN PRICE IT.</b> It answers
+     * {@code true} only for a descriptor at the root or under {@code META-INF/versions/9} — exactly what it has
+     * always answered — while {@code moduleKind} reads every multi-release spelling and also separates
+     * {@link ModuleKind#AUTOMATIC}. Two widenings are on the table here and BOTH move artifacts between javac's
+     * two paths:
+     * <ul>
+     *   <li>including {@link ModuleKind#AUTOMATIC}: an automatic module is one a named consumer can read;</li>
+     *   <li>including a descriptor at {@code versions/11}: netty, measured 2026-08-20.</li>
+     * </ul>
+     * The risk is not the routing itself but its by-product — two artifacts arriving on the MODULE path with a
+     * package in common is <i>"package read from both"</i>, where on the class path the first simply wins.
+     *
+     * <p>⚠ <b>AND THE RUN THAT WOULD PRICE IT IS NOT AVAILABLE TODAY.</b> The branch is only reached when the
+     * CONSUMER is modular, so only a modular corpus can see it — fernflower (2 descriptors) and timefold-solver
+     * (21) are the two. Both of their {@code inputConfiguration.json} files pin class-path jars by absolute path
+     * into {@code ~/.gradle/caches}, and every one of those paths is gone (36 of 36, 537 of 537): the blast radius
+     * could not be measured, so it was not changed. <b>Rebuild those two corpora, re-measure, then widen.</b>
+     *
+     * <p>Ask {@link #moduleKind} when the question is what the BUILD will deliver — which is a different question
+     * from what maddi's own javac should be handed, and the whole reason these two are separate methods.
      */
     public static boolean isModularArtifact(File file) {
-        return moduleKind(file) == ModuleKind.EXPLICIT;
+        if (file.isDirectory()) return new File(file, "module-info.class").canRead();
+        try (JarFile jarFile = new JarFile(file)) {
+            List<Integer> releases = descriptorReleases(jarFile);
+            return releases.contains(ROOT) || releases.contains(9);
+        } catch (IOException notAJar) {
+            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
+            return false;
+        }
     }
 
     /**
