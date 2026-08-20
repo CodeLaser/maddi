@@ -1,0 +1,74 @@
+name: opensearch-plugin
+status: active
+summary: >-
+  maddi-gradleplugin on OpenSearch `:libs:opensearch-common` — the entry that exercises the PER-SET
+  compiler configuration (`sourceRelease`, `addModules`, `warningFlags`) on a build that varies all
+  three ACROSS THE TWO SETS OF ONE PROJECT. `pulsar-plugin` covers multi-module resolution;
+  neither it nor `fernflower-plugin` varies the compile options between a project's main and test.
+
+# ⛔⛔ WHY `:libs:opensearch-common` SPECIFICALLY, AND WHY IT IS THE ONLY INTERESTING MODULE HERE.
+# Its build file (`libs/common/build.gradle:54`) scopes BOTH per-set facts to `compileJava { }`:
+#     options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+#     options.compilerArgs -= '-Werror' // use of incubator modules is reported as a warning
+# so within ONE project:
+#     main -> --add-modules jdk.incubator.vector, and NO -Werror (21 warning flags)
+#     test -> no --add-modules,                   and -Werror   (22 warning flags)
+# Measured 2026-08-20 over all 378 of OpenSearch's JavaCompile tasks: 364 keep -Werror, 6 subtract it,
+# 8 are never configured at all. `:libs:opensearch-core` keeps it on both sets and is the control.
+# ⚠ A corpus whose whole reactor agrees on its compile options cannot show a per-set defect, and
+# fernflower/pulsar both agree. That is the hole this entry fills.
+
+source:
+  kind: git
+  url: https://github.com/opensearch-project/OpenSearch.git
+
+dir: OpenSearch
+
+build:
+  cmd: ./gradlew :libs:opensearch-common:compileTestJava
+  expect: complete
+  provides:
+    - libs/common/build/classes/java/main
+    - libs/common/build/classes/java/test
+
+config:
+  route: gradle-plugin
+  # A Gradle PROJECT PATH. ⚠ NOT `libs:common`: `settings.gradle:170` renames every child of `:libs`
+  # to `opensearch-<dirname>`, so the directory and the project path do not match. Reading the
+  # directory name here yields a task that does not exist.
+  module: libs:opensearch-common
+  # Relative, so this entry owns its own file rather than overwriting a future `opensearch` entry's.
+  output: inputConfiguration.plugin.json
+  generates: [inputConfiguration.plugin.json]
+  # Siblings as ARTIFACTS, the user-facing path, as pulsar-plugin explains.
+  apply_to: ':libs:opensearch-common'
+  baseline: baselines/opensearch-plugin.tsv
+
+parse:
+  runner: openjdk
+  steps: [modification]
+
+# ⛔⛔ WHAT THIS ENTRY FOUND ON FIRST CONTACT, 2026-08-20 — OPEN, NOT FIXED.
+# `opensearch-common/main` is written with the SIBLING shape instead of the analysed project's own:
+#     "name": "opensearch-common/main",
+#     "uri": ".../libs/common/build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar",
+#     -- no buildUnit, no sourceRelease, no addModules, no warningFlags
+# while `opensearch-common/test` beside it is complete (buildUnit, release 21, 22 warning flags).
+# That field pattern is exactly `gradleplugin/inputconfig/ComputeSourceSets:261`'s argument list
+# (`null` buildUnit, `0` release, two empty lists) -- the dependent-project branch -- and the uri is
+# `classOutputByProject`'s artifact. The analysed project is finding ITSELF among the source-providing
+# projects, and `Result.allSourceSetsByName` does `map.putAll(dependents)` LAST, so the sibling-shaped
+# entry overwrites the good one.
+#
+# ⚠ IT IS NOT A METADATA GAP, IT IS A PARSE DEFECT. Losing `addModules` on this set loses
+# `--add-modules jdk.incubator.vector`, which SourceSet#addModules' own javadoc says costs
+# "package jdk.incubator.vector is not visible" and drops the compilation units that use it --
+# `BtreeSearcher` and `RoundableFactory`. PREDICTED, not yet run: the parse step will report exactly
+# those. Run it before fixing anything, so the fix has a number to move.
+#
+# ⚠ pulsar-plugin does NOT show it: `managed-ledger/main` there carries `buildUnit=:managed-ledger`
+# and `release=17` and a classes-DIRECTORY uri. Whatever makes OpenSearch's `libs/common` publish a
+# distributions jar is what puts it on the other path.
+#
+# ⛔ The fix touches the merge order every gradle-plugin corpus depends on, so it needs its own
+# baseline and its own A/B. Recorded here rather than repaired in passing.
