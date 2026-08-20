@@ -149,6 +149,11 @@ public class JsonStreaming {
             if (addModulesNode != null) {
                 for (JsonNode m : addModulesNode) addModules.add(m.asText());
             }
+            List<String> warningFlags = new ArrayList<>();
+            JsonNode warningFlagsNode = node.get("warningFlags");
+            if (warningFlagsNode != null) {
+                for (JsonNode f : warningFlagsNode) warningFlags.add(f.asText());
+            }
             SourceSet ssi = new SourceSetImpl.Builder().setName(name)
                     .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourceDirectories)
@@ -161,6 +166,7 @@ public class JsonStreaming {
                     .setDependencies(List.copyOf(dependencies))
                     .setSourceRelease(sourceRelease)
                     .setAddModules(List.copyOf(addModules))
+                    .setWarningFlags(List.copyOf(warningFlags))
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {
@@ -208,6 +214,11 @@ public class JsonStreaming {
             // conditional, like every optional field above: a configuration that states neither is written
             // exactly as it was before these existed, so old and new writers agree on old corpora
             if (value.sourceRelease() > 0) gen.writeNumberField("sourceRelease", value.sourceRelease());
+            if (!value.warningFlags().isEmpty()) {
+                gen.writeArrayFieldStart("warningFlags");
+                for (String f : value.warningFlags()) gen.writeString(f);
+                gen.writeEndArray();
+            }
             if (!value.addModules().isEmpty()) {
                 gen.writeArrayFieldStart("addModules");
                 for (String m : value.addModules()) gen.writeString(m);

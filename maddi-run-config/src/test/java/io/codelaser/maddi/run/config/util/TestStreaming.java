@@ -137,6 +137,7 @@ public class TestStreaming {
                 .setUri(URI.create("file:/repo/libs/common"))
                 .setSourceRelease(8)
                 .setAddModules(List.of("jdk.incubator.vector"))
+                .setWarningFlags(List.of("-Werror"))
                 .build();
         SourceSet modern = new SourceSetImpl.Builder()
                 .setName("server-main")
@@ -152,6 +153,8 @@ public class TestStreaming {
         SourceSet renamed = new SourceSetImpl.Builder(old).setName("renamed").build();
         Assertions.assertEquals(8, renamed.sourceRelease());
         Assertions.assertEquals(List.of("jdk.incubator.vector"), renamed.addModules());
+        // ⛔ the copy Builder assigns FIELD BY FIELD, so a new one forgotten here is dropped in SILENCE
+        Assertions.assertEquals(List.of("-Werror"), renamed.warningFlags());
 
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         // global sourceRelease 0: the mixed corpus the global field cannot express
@@ -166,8 +169,12 @@ public class TestStreaming {
         // a set that states nothing keeps stating nothing, and says so by omission rather than by a 0 key
         Assertions.assertEquals(0, copy.sourceSets().get(2).sourceRelease());
         Assertions.assertTrue(copy.sourceSets().get(2).addModules().isEmpty());
+        Assertions.assertEquals(List.of("-Werror"), copy.sourceSets().get(0).warningFlags());
+        // ⚠ a set the build EXEMPTED comes back empty, which is the answer that keeps it out of a blast radius
+        Assertions.assertTrue(copy.sourceSets().get(2).warningFlags().isEmpty());
         Assertions.assertFalse(json.contains("\"sourceRelease\":0"), json);
         Assertions.assertFalse(json.contains("\"addModules\":[]"), json);
+        Assertions.assertFalse(json.contains("\"warningFlags\":[]"), json);
     }
 
     @Test
@@ -180,6 +187,7 @@ public class TestStreaming {
         InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
         Assertions.assertEquals(0, copy.sourceSets().getFirst().sourceRelease());
         Assertions.assertTrue(copy.sourceSets().getFirst().addModules().isEmpty());
+        Assertions.assertTrue(copy.sourceSets().getFirst().warningFlags().isEmpty());
     }
 
     @Test

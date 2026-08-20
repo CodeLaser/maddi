@@ -80,6 +80,23 @@ public interface SourceSet {
         return List.of();
     }
 
+    /**
+     * The arguments this source set's build passes that decide whether a warning is emitted and whether it is
+     * fatal -- {@code -Werror}, {@code -nowarn}, the {@code -Xlint} family -- empty when it passed none.
+     * <p>
+     * ⚠ <b>RECORDED FOR A CONSUMER OF THE CONFIGURATION, NOT FOR THE PARSE.</b> maddi does not compile with these
+     * and its own diagnostics do not change with them; like {@link #buildUnit()} they are carried because the
+     * importer is the only thing positioned to see them. A build tool resolves them -- OpenSearch adds
+     * {@code -Werror} at the root and subtracts it again in 12 subprojects -- so whether a set has it is the
+     * outcome of the whole build, and no reading of build files can answer it.
+     * <p>
+     * ⚠ Per set, like {@link #sourceRelease()} and {@link #addModules()}: one set in a reactor routinely differs
+     * from the rest, and that difference is the whole reason to record it.
+     */
+    default List<String> warningFlags() {
+        return List.of();
+    }
+
     /** Returns the logical name of this source set (e.g. {@code "main"}, {@code "test"}, or a library name). */
     String name();
 

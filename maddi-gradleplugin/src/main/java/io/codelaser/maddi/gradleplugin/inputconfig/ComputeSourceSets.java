@@ -68,9 +68,32 @@ public class ComputeSourceSets {
     public record Result(String mainSourceSetName, Map<String, SourceSet> sourceSetsByName,
                          List<Result> sourceSetDependencies,
                          Map<String, Set<String>> sourceProjectEdges) {
+        /**
+         * ⛔⛔ <b>THE ANALYSED PROJECT'S OWN VIEW OF A SOURCE SET WINS, AND IT USED TO LOSE.</b> The two sides
+         * describe the same set and only one of them can see the compile task: {@link #makeSourceSet} asks it for
+         * {@code buildUnit}, {@code sourceRelease}, {@code addModules} and {@code warningFlags} and points
+         * {@code uri} at the class OUTPUT, while {@link #dependentProjectResult} — which exists for SIBLINGS —
+         * passes {@code null}, {@code 0} and two empty lists by design, because a sibling's compile task belongs
+         * to another project. Merging the dependents LAST let the sibling-shaped record overwrite the real one.
+         *
+         * <p>⚠ <b>AND THE PROJECT IS ONE OF ITS OWN DEPENDENTS</b>, which is why this fires at all: with the
+         * plugin applied to it, it publishes the {@code maddiSourceElements} variant and then resolves that
+         * variant through its own configurations, so {@code collectProjectSources} hands it back to itself.
+         *
+         * <p>⚠ <b>MEASURED, on OpenSearch {@code :libs:opensearch-common}</b> (2026-08-20). Its build file scopes
+         * {@code --add-modules jdk.incubator.vector} to {@code compileJava}, so losing that set's
+         * {@code addModules} loses the flag: <b>13 × "Unknown module jdk.incubator.vector", 24 stub types</b> for
+         * {@code jdk.internal.vm.vector.VectorSupport$*}. The {@code uri} went with it — the sibling record names
+         * {@code build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar}, which does not exist — so
+         * {@code opensearch-common/test} could not resolve into {@code main} and its units were dropped.
+         *
+         * <p>⛔ <b>AND NONE OF IT REACHED THE GATE.</b> {@code ErrorReport} counted <b>1 warning</b>: the 13 are
+         * {@code ClassSymbolScanner} lines it does not collect. A parse that has lost a module reports clean.
+         */
         public Map<String, SourceSet> allSourceSetsByName() {
-            Map<String, SourceSet> map = new HashMap<>(sourceSetsByName);
+            Map<String, SourceSet> map = new HashMap<>();
             sourceSetDependencies.forEach(r -> map.putAll(r.allSourceSetsByName()));
+            map.putAll(sourceSetsByName);
             return map;
         }
     }
@@ -260,7 +283,7 @@ public class ComputeSourceSets {
         // cross-project access this whole mechanism exists to avoid.
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of());
+                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of(), List.of());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -387,7 +410,8 @@ public class ComputeSourceSets {
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
                 test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet),
-                addModulesOf(project, gradleSourceSet));
+                addModulesOf(project, gradleSourceSet),
+                warningFlagsOf(project, gradleSourceSet));
     }
 
     /**
@@ -410,6 +434,28 @@ public class ComputeSourceSets {
                 .findByName(gradleSourceSet.getCompileJavaTaskName());
         if (compile == null) return List.of();
         return PluginSourceSets.addModulesFrom(compile.getOptions().getCompilerArgs());
+    }
+
+    /**
+     * This source set's warning policy -- {@code -Werror}, {@code -nowarn}, {@code -Xlint...} -- from the same
+     * {@code options.compilerArgs} the modules above come from.
+     *
+     * <p>⭐ <b>THE LIST IS ALREADY RESOLVED, WHICH IS THE WHOLE VALUE OF ASKING GRADLE INSTEAD OF A BUILD
+     * FILE.</b> OpenSearch's root appends {@code -Werror} to every compile task ({@code build.gradle:280}) and
+     * 12 subprojects subtract it again ({@code libs/common/build.gradle:56}, whose comment says why: "use of
+     * incubator modules is reported as a warning"). Read here, at configuration time, the subtraction has
+     * happened: the flag is present exactly in the sets that will fail on a warning. A grep over build files
+     * finds the word in 13 places and cannot say that about any of them.
+     *
+     * <p>⚠ Asked PER SOURCE SET for the same reason {@code sourceRelease} is: each has its own
+     * {@code JavaCompile} task, and a build that exempts its main compilation need not exempt its tests.
+     */
+    private static List<String> warningFlagsOf(Project project,
+                                               org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.warningFlagsFrom(compile.getOptions().getCompilerArgs());
     }
 
     /**
