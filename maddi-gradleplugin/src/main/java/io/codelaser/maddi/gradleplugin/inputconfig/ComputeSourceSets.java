@@ -260,7 +260,7 @@ public class ComputeSourceSets {
         // cross-project access this whole mechanism exists to avoid.
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of());
+                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of(), List.of());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -387,7 +387,8 @@ public class ComputeSourceSets {
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
                 test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet),
-                addModulesOf(project, gradleSourceSet));
+                addModulesOf(project, gradleSourceSet),
+                warningFlagsOf(project, gradleSourceSet));
     }
 
     /**
@@ -410,6 +411,28 @@ public class ComputeSourceSets {
                 .findByName(gradleSourceSet.getCompileJavaTaskName());
         if (compile == null) return List.of();
         return PluginSourceSets.addModulesFrom(compile.getOptions().getCompilerArgs());
+    }
+
+    /**
+     * This source set's warning policy -- {@code -Werror}, {@code -nowarn}, {@code -Xlint...} -- from the same
+     * {@code options.compilerArgs} the modules above come from.
+     *
+     * <p>⭐ <b>THE LIST IS ALREADY RESOLVED, WHICH IS THE WHOLE VALUE OF ASKING GRADLE INSTEAD OF A BUILD
+     * FILE.</b> OpenSearch's root appends {@code -Werror} to every compile task ({@code build.gradle:280}) and
+     * 12 subprojects subtract it again ({@code libs/common/build.gradle:56}, whose comment says why: "use of
+     * incubator modules is reported as a warning"). Read here, at configuration time, the subtraction has
+     * happened: the flag is present exactly in the sets that will fail on a warning. A grep over build files
+     * finds the word in 13 places and cannot say that about any of them.
+     *
+     * <p>⚠ Asked PER SOURCE SET for the same reason {@code sourceRelease} is: each has its own
+     * {@code JavaCompile} task, and a build that exempts its main compilation need not exempt its tests.
+     */
+    private static List<String> warningFlagsOf(Project project,
+                                               org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.warningFlagsFrom(compile.getOptions().getCompilerArgs());
     }
 
     /**

@@ -88,6 +88,26 @@ public class TestJavacGradleLine {
     }
 
     /**
+     * ⛔⛔ THE WARNING POLICY WAS BEING THROWN AWAY BY THE {@code -X} CATCH-ALL, IN SILENCE — and this very line,
+     * a real Elasticsearch compile, carries all of it: {@code -Werror} fell through to "ignoring unknown option"
+     * and both {@code -Xlint} arguments were dropped by {@code option.startsWith("-X")}.
+     *
+     * <p>⭐ javac's own line is the strongest evidence there is for this fact: not what a build file declares,
+     * but what the build actually passed, after every append and every subtraction.
+     *
+     * <p>⚠ {@code -Xdoclint:all} is on this line too and is NOT warning policy — it configures the javadoc
+     * checker. A prefix test on {@code -X} would take it; the test is on {@code -Xlint}.
+     */
+    @DisplayName("the warning policy is read off the line, and -Xdoclint is not part of it")
+    @Test
+    public void warningPolicyIsRead() {
+        Javac j = Javac.parse(GRADLE_LINE);
+
+        assertEquals(List.of("-Werror", "-Xlint:all,-path,-serial", "-Xlint:-module,-exports"), j.warningFlags(),
+                "in the order the build passed them, and -Xdoclint:all is not among them");
+    }
+
+    /**
      * ⛔⛔ THE DEFECT, ISOLATED. Only the inline spelling — which is what a build tool is free to emit, and what
      * Gradle does emit alongside the other. Before the fix this returned an empty module path.
      */

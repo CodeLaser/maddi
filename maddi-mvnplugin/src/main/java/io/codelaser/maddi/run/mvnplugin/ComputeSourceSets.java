@@ -70,7 +70,8 @@ public class ComputeSourceSets {
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
                     Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
-                    sourceRelease(project, false), addModules(project, false));
+                    sourceRelease(project, false), addModules(project, false),
+                    warningFlags(project, false));
             if (mainSourceSet != null) {
                 mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(mainSourceSet.name(), mainSourceSet);
@@ -85,7 +86,8 @@ public class ComputeSourceSets {
 
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
-                    restrictToTestPackages, sourceRelease(project, true), addModules(project, true));
+                    restrictToTestPackages, sourceRelease(project, true), addModules(project, true),
+                    warningFlags(project, true));
             if (testSourceSet != null) {
                 testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
                 sourceSetsByName.put(testSourceSet.name(), testSourceSet);
@@ -291,12 +293,49 @@ public class ComputeSourceSets {
      * simply matches no pattern.
      */
     private static List<String> addModules(MavenProject project, boolean test) {
+        return PluginSourceSets.addModulesFrom(resolvedCompilerArgs(project, test));
+    }
+
+    /**
+     * This compilation's warning policy: {@code -Werror}, {@code -nowarn} and {@code -Xlint...}.
+     *
+     * <p>⛔⛔ <b>MAVEN SPELLS {@code -Werror} TWO WAYS AND READING ONLY {@code <compilerArgs>} IS A SILENT HALF
+     * ANSWER.</b> {@code maven-compiler-plugin} has a first-class {@code <failOnWarning>} parameter (property
+     * {@code maven.compiler.failOnWarning}) which makes it pass {@code -Werror} to javac itself, and a pom that
+     * uses it never writes the flag anywhere. A set that fails on warnings would then be recorded as one that
+     * does not -- and the error is OPTIMISTIC, which is the worst direction for it: the blast radius of a
+     * warning-producing change would come back smaller than it is.
+     *
+     * <p>⚠ The synthesised value is the javac spelling, so every consumer sees ONE vocabulary and does not have
+     * to learn each build tool's. This is the same choice {@code sourceRelease} makes when it reads
+     * {@code <release>}, {@code <source>} and the {@code maven.compiler.*} properties into one integer.
+     *
+     * <p>⚠ Configuration before property, which is {@code maven-compiler-plugin}'s own precedence.
+     */
+    private static List<String> warningFlags(MavenProject project, boolean test) {
+        List<String> flags = new ArrayList<>(PluginSourceSets.warningFlagsFrom(resolvedCompilerArgs(project, test)));
+        if (!flags.contains("-Werror") && failOnWarning(project, test)) flags.add("-Werror");
+        return List.copyOf(flags);
+    }
+
+    private static boolean failOnWarning(MavenProject project, boolean test) {
+        String configured = interpolate(project, compilerConfiguration(project, "failOnWarning", test));
+        if (configured != null && !configured.isBlank()) return Boolean.parseBoolean(configured.trim());
+        return Boolean.parseBoolean(project.getProperties().getProperty("maven.compiler.failOnWarning", "false"));
+    }
+
+    /**
+     * {@code <compilerArgs><arg>..</arg></compilerArgs>}, each arg interpolated on its own because that is how a
+     * pom writes it -- a whole argument held in a property. An arg that is a literal {@code ${...}} naming
+     * nothing stays unresolved and simply matches no pattern.
+     */
+    private static List<String> resolvedCompilerArgs(MavenProject project, boolean test) {
         List<String> args = new ArrayList<>();
         for (String arg : compilerConfigurationList(project, "compilerArgs", test)) {
             String resolved = interpolate(project, arg);
             if (resolved != null) args.add(resolved);
         }
-        return PluginSourceSets.addModulesFrom(args);
+        return args;
     }
 
     /** The child VALUES of a repeated configuration element ({@code <compilerArgs><arg>..</arg></compilerArgs>}). */

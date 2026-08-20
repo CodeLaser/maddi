@@ -48,7 +48,7 @@ public class TestPluginSourceSets {
         Path classes = Files.createDirectories(dir.resolve("build/classes/java/main"));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
-                StandardCharsets.UTF_8, false, null, 0, List.of());
+                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(classes.toUri(), set.uri(), "the uri must be the class output, not the source directory");
@@ -71,7 +71,7 @@ public class TestPluginSourceSets {
         assertFalse(Files.exists(notCompiledYet));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), notCompiledYet,
-                StandardCharsets.UTF_8, false, null, 0, List.of());
+                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(notCompiledYet.toUri(), set.uri(),
@@ -83,7 +83,7 @@ public class TestPluginSourceSets {
     public void noClassOutputFallsBackToTheSourceDirectory(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
 
-        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0, List.of());
+        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0, List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(src.toUri(), set.uri());
@@ -100,11 +100,11 @@ public class TestPluginSourceSets {
         Path absent = dir.resolve("src/main/generated");
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(real, absent), null, null, false,
-                null, 0, List.of());
+                null, 0, List.of(), List.of());
         assertNotNull(set);
         assertEquals(List.of(real), set.sourceDirectories());
 
-        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0, List.of()),
+        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0, List.of(), List.of()),
                 "a source set over no existing directory must not be created at all");
     }
 
@@ -118,7 +118,7 @@ public class TestPluginSourceSets {
         assertFalse(PluginSourceSets.isModularSource(List.of(plain)));
         assertTrue(PluginSourceSets.isModularSource(List.of(plain, modular)));
 
-        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0, List.of());
+        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0, List.of(), List.of());
         assertNotNull(set);
         assertTrue(set.isModule());
     }
@@ -132,11 +132,11 @@ public class TestPluginSourceSets {
     @Test
     public void sourceReleaseIsRecordedPerSet(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
-        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17, List.of());
+        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17, List.of(), List.of());
         assertNotNull(set);
         assertEquals(17, set.sourceRelease());
         // 0 means "the build said nothing", which is not the same as "release 0"
-        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0, List.of());
+        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0, List.of(), List.of());
         assertNotNull(silent);
         assertEquals(0, silent.sourceRelease());
     }
@@ -262,6 +262,52 @@ public class TestPluginSourceSets {
         assertEquals(List.of("a", "b"),
                 PluginSourceSets.addModulesFrom(List.of("--add-modules=a", "--add-modules", "b", "--add-modules=a")),
                 "accumulated across occurrences, in order, without duplicates");
+    }
+
+    /**
+     * ⛔⛔ THE ANSWER IS THE RESOLVED LIST, WHICH IS WHY IT IS ASKED OF THE BUILD AND NOT OF A BUILD FILE.
+     * OpenSearch appends {@code -Werror} to every compile task at {@code build.gradle:280} and subtracts it again
+     * in 12 subprojects ({@code libs/common/build.gradle:56}). Whether a set fails on a warning is the outcome of
+     * both, so a grep finds the word in 13 places and cannot say it of any of them; the list read here has had
+     * the subtraction applied.
+     */
+    @Test
+    public void warningFlagsAreTheResolvedPolicy() {
+        assertEquals(List.of("-Werror"),
+                PluginSourceSets.warningFlagsFrom(List.of("-g", "-Werror", "-parameters")));
+        assertEquals(List.of("-Werror", "-Xlint:cast", "-Xlint:divzero"),
+                PluginSourceSets.warningFlagsFrom(List.of("-Werror", "-Xlint:cast", "-Xlint:divzero")),
+                "the -Xlint family travels with -Werror: which warnings exist decides what -Werror makes fatal");
+        assertEquals(List.of("-nowarn"), PluginSourceSets.warningFlagsFrom(List.of("-nowarn")));
+        assertEquals(List.of("-Werror"),
+                PluginSourceSets.warningFlagsFrom(List.of("-Werror", "-Werror")),
+                "in order, without duplicates");
+    }
+
+    /**
+     * ⚠ CONTROL, AND THE DIRECTION THAT MATTERS. A set the build exempted must come back EMPTY, not absent-ish:
+     * "no -Werror here" is the answer that keeps a unit out of a blast radius, so a false positive would widen a
+     * worklist and a false negative would silently shrink it.
+     */
+    @Test
+    public void aSetWithNoWarningPolicyRecordsNone() {
+        assertEquals(List.of(), PluginSourceSets.warningFlagsFrom(List.of("-g", "-parameters", "-encoding", "UTF-8")));
+        assertEquals(List.of(), PluginSourceSets.warningFlagsFrom(null));
+        assertEquals(List.of(), PluginSourceSets.warningFlagsFrom(List.of()));
+    }
+
+    /**
+     * ⚠ NARROW ON PURPOSE. An attribute recorded without a failure demanding it is a guess about the future.
+     * These are real javac arguments and they are deliberately NOT warning policy.
+     */
+    @Test
+    public void onlyWarningPolicyIsWarningPolicy() {
+        assertFalse(PluginSourceSets.isWarningFlag("--enable-preview"));
+        assertFalse(PluginSourceSets.isWarningFlag("--add-exports"));
+        assertFalse(PluginSourceSets.isWarningFlag("-Xmaxerrs"));
+        assertFalse(PluginSourceSets.isWarningFlag(null));
+        assertTrue(PluginSourceSets.isWarningFlag("-Werror"));
+        assertTrue(PluginSourceSets.isWarningFlag("-Xlint:all"));
     }
 
     /**

@@ -115,7 +115,8 @@ public class PluginSourceSets {
                                       boolean test,
                                       Set<String> restrictToPackages,
                                       int sourceRelease,
-                                      List<String> addModules) {
+                                      List<String> addModules,
+                                      List<String> warningFlags) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
                 .filter(Files::isDirectory)
@@ -133,6 +134,7 @@ public class PluginSourceSets {
                 .setRestrictToPackages(restrictToPackages)
                 .setSourceRelease(sourceRelease)
                 .setAddModules(addModules == null ? List.of() : List.copyOf(addModules))
+                .setWarningFlags(warningFlags == null ? List.of() : List.copyOf(warningFlags))
                 .build();
     }
 
@@ -269,6 +271,46 @@ public class PluginSourceSets {
             }
         }
         return List.copyOf(modules);
+    }
+
+    /**
+     * Whether this javac argument takes part in deciding <em>whether a warning is emitted, and whether it is
+     * fatal</em>: {@code -Werror}, {@code -nowarn} and the {@code -Xlint} family.
+     *
+     * <p>⚠ Deliberately narrow. This is one question with one consumer behind it, not a general bag of compiler
+     * arguments: an attribute recorded without a failure demanding it is a guess about the future, and a guess
+     * that is wrong fails towards silence. {@code --enable-preview}, {@code --add-exports} and {@code -proc:}
+     * are real and are NOT here, because nothing has yet asked.
+     */
+    public static boolean isWarningFlag(String arg) {
+        if (arg == null) return false;
+        String trimmed = arg.trim();
+        return "-Werror".equals(trimmed) || "-nowarn".equals(trimmed) || trimmed.startsWith("-Xlint");
+    }
+
+    /**
+     * The {@linkplain #isWarningFlag warning-policy arguments} among raw javac arguments, in order, without
+     * duplicates.
+     *
+     * <p>⛔⛔ <b>THE ANSWER IS THE RESOLVED LIST, WHICH IS WHY THIS IS ASKED OF THE BUILD AND NOT OF A BUILD
+     * FILE.</b> OpenSearch adds {@code -Werror} once at the root ({@code build.gradle:280},
+     * {@code compile.options.compilerArgs << '-Werror'}) and subtracts it again in 12 files
+     * ({@code libs/common/build.gradle:56}, {@code options.compilerArgs -= '-Werror'}). Whether a given set
+     * compiles with it is the outcome of both, so a grep over build files can say where the word appears and
+     * can never say whether the flag is ON. The list this reads has already had the subtraction applied.
+     *
+     * <p>⚠ What it is FOR: a {@code requires} that pulls an incubator module into a set's resolution makes
+     * javac warn in that compilation -- and {@code -Werror} turns the warning into a build failure in every set
+     * that resolves it, whether or not that set uses the API. Which sets those are is a question about the
+     * module graph; whether it costs anything is this flag.
+     */
+    public static List<String> warningFlagsFrom(List<String> compilerArgs) {
+        if (compilerArgs == null) return List.of();
+        Set<String> flags = new LinkedHashSet<>();
+        for (String arg : compilerArgs) {
+            if (isWarningFlag(arg)) flags.add(arg.trim());
+        }
+        return List.copyOf(flags);
     }
 
     /**

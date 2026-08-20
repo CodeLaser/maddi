@@ -67,6 +67,19 @@ public interface CompileInvocation {
         return List.of();
     }
 
+    /**
+     * The warning policy this invocation compiled under ({@code -Werror}, {@code -nowarn}, {@code -Xlint...});
+     * empty when it passed none. Per invocation, because it belongs to ONE source set: OpenSearch's root adds
+     * {@code -Werror} to every compile task and 12 subprojects subtract it again, so it varies across a reactor
+     * and the variation is the reason to record it.
+     *
+     * <p>⭐ javac's own line is the strongest evidence there is for this: it is not what a build file declares
+     * but what the build actually passed, after every addition and subtraction.
+     */
+    default List<String> warningFlags() {
+        return List.of();
+    }
+
     /** The compiler's module name ({@code -module-name}); {@code null} for javac. */
     default String moduleName() {
         return null;
