@@ -222,7 +222,35 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
             }
         }
 
-        // 6. java.lang implicit import
+        // 6. Partially qualified through an ENCLOSING type: {@code {@link Outer.Inner}}, which is legal
+        //    wherever {@code Outer} itself is in scope and is the commonest javadoc spelling of a nested type.
+        //    None of the steps above can see it: it is not an FQN, not a simple name in this package, no import
+        //    ends on "Outer.Inner", and it names nothing nested in the current type.
+        //    ⛔ OpenSearch 2026-08-19: {@code HttpRequest.method()} documents its return as
+        //    {@code {@link RestRequest.Method}} with a plain {@code import ….rest.RestRequest}. Unresolved, the
+        //    tag carries no reference and no token, so MoveType's javadoc passes cannot even SEE it -- promoting
+        //    {@code RestRequest.Method} left the stale spelling behind and doclint failed the build. A missing
+        //    resolution is invisible in a way a wrong one is not: nothing reports it, the reference is simply
+        //    absent from every consumer's view.
+        int firstDot = name.indexOf('.');
+        if (firstDot > 0) {
+            TypeInfo head = resolveType(currentType, name.substring(0, firstDot), source,
+                    runtime.newDetailedSourcesBuilder(), offsetInSource);
+            if (head != null) {
+                TypeInfo walk = head;
+                for (String segment : name.substring(firstDot + 1).split("\\.")) {
+                    walk = walk == null ? null : walk.findSubType(segment, false);
+                }
+                if (walk != null) {
+                    // the whole written chain, stamped as written: the package is NOT stamped (it is not
+                    // written), which is what keeps writtenAsFqn answering false for this spelling
+                    detailedSourcesOfType(name, source, dsb, walk, offsetInSource);
+                    return walk;
+                }
+            }
+        }
+
+        // 7. java.lang implicit import
         t = typeData.getType("java.lang." + name);
         detailedSourcesOfType(name, source, dsb, t, offsetInSource);
         return t; // null if genuinely unresolvable
@@ -253,6 +281,11 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
                 dsb.put(t.packageName(), tokenSource(source, name, offsetInSource));
                 break;
             }
+            // ⚠ this stamps the ENCLOSING prefix against `t` as well, so details(t) of a nested reference is a
+            // TWO-element list: the whole written chain AND its prefix. It looks wrong -- the prefix names the
+            // enclosing type, which the next iteration stamps in its own right -- but REMOVING it changes no
+            // observable behaviour, including MoveType's "rewrite every token of the target" loop, which the
+            // step-6 fixture exercises head-on. Left exactly as found: an unverified edit is not a fix.
             dsb.put(t, tokenSource(source, name, offsetInSource));
             if (t.compilationUnitOrEnclosingType().isRight()) {
                 t = t.compilationUnitOrEnclosingType().getRight();
