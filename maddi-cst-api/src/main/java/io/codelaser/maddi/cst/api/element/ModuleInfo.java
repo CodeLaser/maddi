@@ -215,6 +215,18 @@ public interface ModuleInfo extends Info {
         default String toPackageNameOrNull() {
             return toModulesOrEmpty().isEmpty() ? null : toModulesOrEmpty().getFirst();
         }
+
+        /**
+         * Returns a copy of this directive opening to {@code toModules} instead. Source and comments are kept,
+         * so the copy still knows where the original was written and can be printed back over it — which is
+         * what a refactoring that adds one target to {@code opens p to a, b;} needs.
+         * <p>
+         * ⚠ The twin of {@link Exports#withToModules(List)}, added for {@code structure.addOpensTargets}
+         * (#228). It was absent for as long as nothing extended an {@code opens} list, which is the same
+         * reason {@code ADD_OPENS} carried two defects: <b>an unexercised half of a symmetry drifts from the
+         * exercised half, silently.</b>
+         */
+        Opens withToModules(List<String> toModules);
     }
 
     /**
