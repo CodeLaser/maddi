@@ -48,27 +48,26 @@ parse:
   runner: openjdk
   steps: [modification]
 
-# ⛔⛔ WHAT THIS ENTRY FOUND ON FIRST CONTACT, 2026-08-20 — OPEN, NOT FIXED.
-# `opensearch-common/main` is written with the SIBLING shape instead of the analysed project's own:
-#     "name": "opensearch-common/main",
-#     "uri": ".../libs/common/build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar",
-#     -- no buildUnit, no sourceRelease, no addModules, no warningFlags
-# while `opensearch-common/test` beside it is complete (buildUnit, release 21, 22 warning flags).
-# That field pattern is exactly `gradleplugin/inputconfig/ComputeSourceSets:261`'s argument list
-# (`null` buildUnit, `0` release, two empty lists) -- the dependent-project branch -- and the uri is
-# `classOutputByProject`'s artifact. The analysed project is finding ITSELF among the source-providing
-# projects, and `Result.allSourceSetsByName` does `map.putAll(dependents)` LAST, so the sibling-shaped
-# entry overwrites the good one.
+# ⭐ WHAT THIS ENTRY FOUND ON FIRST CONTACT, 2026-08-20 — FIXED (maddi `d5b741bfb`).
+# `opensearch-common/main` was written with the SIBLING shape: no buildUnit, no sourceRelease, no
+# addModules, no warningFlags, and `build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar` -- which
+# does not exist -- as its uri. `Result.allSourceSetsByName` merged the DEPENDENTS last, and the project
+# is one of its own dependents (with the plugin applied it publishes `maddiSourceElements` and then
+# resolves that variant through its own configurations). Its own record now wins.
+#     uri        distributions/*.jar (absent)  ->  build/classes/java/main/
+#     buildUnit  absent -> :libs:opensearch-common     release  absent -> 21
+#     addModules absent -> [jdk.incubator.vector]      warnFlags absent -> 21   (test: 22, -Werror)
+# ⚠ The baseline is UNCHANGED at 2 source sets / 110 primary types: the defect cost the parse its
+# cross-set resolution and its compile options, not its type count. A baseline is not a gate for this
+# class of defect -- the recorded FIELDS are.
 #
-# ⚠ IT IS NOT A METADATA GAP, IT IS A PARSE DEFECT. Losing `addModules` on this set loses
-# `--add-modules jdk.incubator.vector`, which SourceSet#addModules' own javadoc says costs
-# "package jdk.incubator.vector is not visible" and drops the compilation units that use it --
-# `BtreeSearcher` and `RoundableFactory`. PREDICTED, not yet run: the parse step will report exactly
-# those. Run it before fixing anything, so the fix has a number to move.
+# ⛔ STILL OPEN, AND IT IS A DIFFERENT CAUSE THAN I FIRST WROTE HERE. 13 "Unknown module
+# jdk.incubator.vector" warnings and 24 `jdk.internal.vm.vector.VectorSupport$*` stub types are
+# UNCHANGED by the fix. I had predicted they were the lost `addModules`; they are not. javac does get
+# the flag (`JavaInspectorImpl:1184` turns `addModules` into `--add-modules`) -- these come from
+# `ClassSymbolScanner`, which does not carry the incubator module among its jmods. Whoever picks this
+# up: the question is what puts `jdk.incubator.vector` on the SCANNER's path, not the compiler's.
 #
-# ⚠ pulsar-plugin does NOT show it: `managed-ledger/main` there carries `buildUnit=:managed-ledger`
-# and `release=17` and a classes-DIRECTORY uri. Whatever makes OpenSearch's `libs/common` publish a
-# distributions jar is what puts it on the other path.
-#
-# ⛔ The fix touches the merge order every gradle-plugin corpus depends on, so it needs its own
-# baseline and its own A/B. Recorded here rather than repaired in passing.
+# ⛔ AND THE GATE CANNOT SEE ANY OF IT. `ErrorReport` counted 1 warning through all of the above,
+# because the 13 are ClassSymbolScanner lines it does not collect. `--analysis-steps=none` then exits 0.
+# Count the warnings in the log; do not read the exit code.
