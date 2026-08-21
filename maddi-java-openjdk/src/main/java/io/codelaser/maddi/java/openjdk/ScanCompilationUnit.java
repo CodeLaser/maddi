@@ -4,6 +4,7 @@ import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -872,19 +873,42 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (isConstructor) {
                     builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
                 } else {
-                    List<AnnotationExpression> annots = new ArrayList<>();
-                    ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
-                    builder.setReturnType(returnType).addAnnotations(annots);
+                    /*
+                     ⚠ THE CONSUMER IS REAL AGAIN. An annotation can reach a declaration by EITHER route:
+                     'public @Marked String m()' puts it in the method's modifiers, while
+                     'boolean @Nullable [] p' puts it in the TYPE TREE -- and maddi's own @Nullable is
+                     @Target({METHOD, FIELD, PARAMETER}), so that one belongs to the declaration even though
+                     it is written inside the type. Passing a no-op here deleted it outright.
+                     convertTypeWithAnnotations gates by @Target, so only declaration-applicable annotations
+                     arrive; declFromType is merged with the modifiers list below, deduplicated by
+                     annotation type.
+                     */
+                    List<AnnotationExpression> declFromType = new ArrayList<>();
+                    ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb,
+                            declFromType::add);
+                    builder.setReturnType(withExtraAnnotations(returnType,
+                            typeOnlyModifierAnnotations(jcMethod.getModifiers())));
+                    /*
+                     Added HERE rather than merged into the modifiers loop below: the two routes are
+                     disjoint (javac puts a leading annotation in the modifiers and one written inside the
+                     type in the type tree), and TestDeclarationAnnotationsBaseline asserts the exact
+                     annotation list, so a duplicate would fail loudly rather than pass unnoticed.
+                     */
+                    declFromType.forEach(builder::addAnnotation);
                 }
 
                 // parameters
                 for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
                     String name = jcVariableDecl.getName().toString();
                     DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
-                    List<AnnotationExpression> annots = new ArrayList<>();
-                    ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
+                    // same as the return type above: the parameter's declaration annotations come from
+                    // jcVariableDecl.getModifiers().getAnnotations() below, not from its type.
+                    List<AnnotationExpression> paramDeclFromType = new ArrayList<>();
+                    ParameterizedType type = withExtraAnnotations(
+                            convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam,
+                                    paramDeclFromType::add),
+                            typeOnlyModifierAnnotations(jcVariableDecl.getModifiers()));
                     ParameterInfo parameterInfo = builder.addParameter(name, type);
-                    parameterInfo.builder().addAnnotations(annots);
 
                     // flags
                     long flags = jcVariableDecl.getModifiers().flags;
@@ -892,11 +916,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     boolean varargs = (flags & Flags.VARARGS) != 0;
                     parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
 
-                    // annotations
+                    // annotations -- filtered by @Target, exactly as the method's are, and for the same
+                    // reason: the parameter's TYPE now carries a type-use annotation.
                     for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
-                        AnnotationExpression ae = convertAnnotation(annotation);
-                        parameterInfo.builder().addAnnotation(ae);
+                        if (!targetsDeclaration(annotation)) continue;
+                        parameterInfo.builder().addAnnotation(convertAnnotation(annotation));
                     }
+                    paramDeclFromType.forEach(ae -> parameterInfo.builder().addAnnotation(ae));
                     setParameterSource(jcVariableDecl, parameterInfo, dsbParam, isConstructor, methodInfo, currentType);
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
@@ -919,10 +945,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             String sourceMethodName = isConstructor ? currentType.simpleName() : methodName;
             dsb.put(methodInfo.name(), sourceOfIdentifier(sourceMethodName, jcMethod.pos));
 
-            // annotations
+            /*
+             ⚠ FILTERED BY @Target. javac keeps a TYPE_USE-only annotation in the AST's modifiers list even
+             though it emits it ONLY as a type annotation in the class file -- the separation happens later,
+             in the writer. Copying the list verbatim therefore recorded org.jspecify.annotations.Nullable on
+             the METHOD, a placement the compiler never produces. The return type now carries it (see
+             convertTypeWithAnnotations), so anything not applicable to a declaration is skipped here.
+             */
             for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
-                AnnotationExpression ae = convertAnnotation(annotation);
-                builder.addAnnotation(ae);
+                if (!targetsDeclaration(annotation)) continue;
+                builder.addAnnotation(convertAnnotation(annotation));
             }
 
             Block methodBody;
@@ -1062,19 +1094,146 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    /**
+     * Converts a type that may carry TYPE-USE annotations, putting each annotation where javac puts it.
+     * <p>
+     * ⛔ IT USED TO GIVE EVERY ANNOTATION TO THE DECLARATION AND RETURN THE TYPE STRIPPED. That is a
+     * placement javac never produces for a TYPE_USE-only annotation, and it is the shape of
+     * {@code org.jspecify.annotations.Nullable} — declared {@code @Target(ElementType.TYPE_USE)} and nothing
+     * else. Compiling {@code public @Nullable String m()} and reading the class file shows only
+     * {@code RuntimeVisibleTypeAnnotations}; maddi recorded it on the METHOD, so the annotation both moved
+     * and vanished from the type. Printing such a type back then stated something different from the source,
+     * which is how an extracted interface stopped being implementable by the class it came from.
+     * <p>
+     * ▶ THE RULE, taken from javac rather than from taste: an annotation applicable to a declaration context
+     * is emitted on BOTH the declaration and the type; one applicable only to a type context is emitted on
+     * the type ALONE. So the type always gets it, and {@code declarationConsumer} is offered it only when
+     * {@link #targetsDeclaration} says so.
+     */
     private ParameterizedType convertTypeWithAnnotations(Tree node,
                                                          DetailedSources.Builder dsb,
-                                                         Consumer<AnnotationExpression> consumer) {
+                                                         Consumer<AnnotationExpression> declarationConsumer) {
         Tree rt;
+        List<AnnotationExpression> typeAnnotations;
         if (node instanceof JCTree.JCAnnotatedType at) {
             rt = at.getUnderlyingType();
+            typeAnnotations = new ArrayList<>();
             for (JCTree.JCAnnotation annotationTree : at.getAnnotations()) {
-                consumer.accept(convertAnnotation(annotationTree));
+                AnnotationExpression ae = convertAnnotation(annotationTree);
+                /*
+                 ⛔ BOTH SIDES ARE GATED, and putting it on the type unconditionally was wrong in the other
+                 direction. Java lets an annotation applicable ONLY to declarations be written in a type
+                 position -- 'boolean @Nullable []' with maddi's own @Nullable, which is
+                 @Target({METHOD, FIELD, PARAMETER}) and carries no TYPE_USE at all. It belongs to the
+                 PARAMETER there, and adding it to the type made the type print as
+                 '@io.codelaser.maddi.annotation.Nullable boolean[]'.
+                 */
+                if (targetsTypeUse(annotationTree)) typeAnnotations.add(ae);
+                if (targetsDeclaration(annotationTree)) declarationConsumer.accept(ae);
             }
         } else {
             rt = node;
+            typeAnnotations = List.of();
         }
-        return convertType.convertTree(rt, dsb);
+        ParameterizedType pt = convertType.convertTree(rt, dsb);
+        return typeAnnotations.isEmpty() ? pt : pt.withAnnotations(List.copyOf(typeAnnotations));
+    }
+
+    /**
+     * Is this annotation applicable to a DECLARATION, and therefore emitted on the declaration as well?
+     * <p>
+     * Asked of javac's own symbol rather than reconstructed from the model: {@code @Target}'s value is an
+     * array of enum constants, and {@code AnnotationExpression.extractStringArray} reads string constants
+     * only. {@code TypeSymbol.getAnnotation(Target.class)} hands back the real annotation.
+     * <p>
+     * ⚠ CONSERVATIVE WHEN IT CANNOT TELL. An unresolvable annotation type keeps today's behaviour (on the
+     * declaration) rather than silently moving it. NO {@code @Target} at all means "every declaration
+     * context and no type context" (JLS 9.6.4.1), so that is a declaration annotation too.
+     */
+    /**
+     * The modifiers-list annotations that belong to the TYPE, not to the declaration.
+     * <p>
+     * ⛔ NEEDED BECAUSE javac DOES NOT ALWAYS BUILD A JCAnnotatedType. For {@code List<@Nullable String>} the
+     * annotation is inside the type tree and {@link #convertTypeWithAnnotations} sees it. For
+     * {@code public @Nullable String m()} it is in the METHOD'S MODIFIERS instead, and the return type tree
+     * is a plain identifier — so filtering the modifiers list without re-homing these would delete the
+     * annotation outright rather than move it.
+     */
+    private List<AnnotationExpression> typeOnlyModifierAnnotations(JCTree.JCModifiers modifiers) {
+        List<AnnotationExpression> result = new ArrayList<>();
+        for (JCTree.JCAnnotation annotation : modifiers.getAnnotations()) {
+            if (!targetsDeclaration(annotation)) result.add(convertAnnotation(annotation));
+        }
+        return result;
+    }
+
+    /** Adds {@code extra} to the type's own annotations, skipping any annotation type already present. */
+    private static ParameterizedType withExtraAnnotations(ParameterizedType pt,
+                                                          List<AnnotationExpression> extra) {
+        if (extra.isEmpty()) return pt;
+        List<AnnotationExpression> merged = new ArrayList<>(pt.annotations());
+        Set<String> present = merged.stream().map(a -> a.typeInfo() == null ? "" : a.typeInfo().fullyQualifiedName())
+                .collect(java.util.stream.Collectors.toSet());
+        for (AnnotationExpression ae : extra) {
+            String fqn = ae.typeInfo() == null ? "" : ae.typeInfo().fullyQualifiedName();
+            if (present.add(fqn)) merged.add(ae);
+        }
+        return pt.withAnnotations(List.copyOf(merged));
+    }
+
+    /** Is this annotation applicable to a TYPE_USE context, and therefore able to sit on a type? */
+    private static boolean targetsTypeUse(JCTree.JCAnnotation annotationTree) {
+        Symbol.TypeSymbol tsym = annotationTypeSymbol(annotationTree);
+        if (tsym == null) return false;
+        for (Attribute.Compound mirror : tsym.getAnnotationMirrors()) {
+            if (mirror.type == null || mirror.type.tsym == null) continue;
+            if (!"java.lang.annotation.Target".contentEquals(mirror.type.tsym.getQualifiedName())) continue;
+            for (var pair : mirror.values) {
+                if (!(pair.snd instanceof Attribute.Array array)) continue;
+                for (Attribute element : array.values) {
+                    if (element instanceof Attribute.Enum e && "TYPE_USE".equals(e.value.name.toString())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        // no @Target: every DECLARATION context, no type context (JLS 9.6.4.1)
+        return false;
+    }
+
+    private static Symbol.TypeSymbol annotationTypeSymbol(JCTree.JCAnnotation annotationTree) {
+        if (annotationTree.attribute != null && annotationTree.attribute.type != null) {
+            return annotationTree.attribute.type.tsym;
+        }
+        if (annotationTree.annotationType != null && annotationTree.annotationType.type != null) {
+            return annotationTree.annotationType.type.tsym;
+        }
+        return null;
+    }
+
+    private static boolean targetsDeclaration(JCTree.JCAnnotation annotationTree) {
+        Symbol.TypeSymbol tsym = annotationTypeSymbol(annotationTree);
+        if (tsym == null) return true;
+        for (Attribute.Compound mirror : tsym.getAnnotationMirrors()) {
+            if (mirror.type == null || mirror.type.tsym == null) continue;
+            if (!"java.lang.annotation.Target".contentEquals(mirror.type.tsym.getQualifiedName())) continue;
+            // @Target's single element is an array of ElementType constants
+            for (var pair : mirror.values) {
+                if (!(pair.snd instanceof Attribute.Array array)) continue;
+                boolean sawAny = false;
+                for (Attribute element : array.values) {
+                    if (!(element instanceof Attribute.Enum e)) continue;
+                    sawAny = true;
+                    String constant = e.value.name.toString();
+                    if (!"TYPE_USE".equals(constant) && !"TYPE_PARAMETER".equals(constant)) return true;
+                }
+                if (sawAny) return false;
+            }
+            return true;
+        }
+        // no @Target at all: every declaration context, no type context (JLS 9.6.4.1)
+        return true;
     }
 
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
