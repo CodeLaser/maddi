@@ -48,6 +48,8 @@ public class TestTypeUseAnnotationClosure {
     static Path root;
 
     private static Path annotations;      // provides tu.TU, a TYPE_USE annotation
+    private static Path annotationsModular;   // the SAME tu.TU, plus a module-info -- the published artifact
+    private static Path aModule;              // any module at all: one class and a descriptor
     private static Path declAnnotations;  // provides decl.Decl, a METHOD annotation -- DELIBERATELY SEPARATE
     private static Path carrier;          // lib.Carrier: carries BOTH, on the same method
     private static Path declarationOnly;  // lib.DeclarationOnly: carries only the declaration annotation
@@ -85,6 +87,21 @@ public class TestTypeUseAnnotationClosure {
                 package lib;
                 public class DeclarationOnly { @decl.Decl public String hello() { return ""; } }
                 """);
+        // ⭐ THE PAIR THE DEFECT WAS FOUND ON, reduced to its shape: the same annotation class, once with a
+        // descriptor and once without. A real IDE distribution's annotations.jar and the published
+        // annotations-<version>.jar differ by EXACTLY that one entry.
+        annotationsModular = compileModule(javac, "annotationsModular", null,
+                "module tu.mod { exports tu; }", """
+                package tu;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @Retention(RetentionPolicy.CLASS) public @interface TU {}
+                """);
+        // ⚠ NOTHING TO DO WITH THE ANNOTATION. Its only job is to be A MODULE on the consumer's classpath,
+        // which is all it took to veto every modular provider.
+        aModule = compileModule(javac, "aModule", null, "module other.mod { exports other; }", """
+                package other;
+                public class Other {}
+                """);
         consumerOutput = Files.createDirectories(root.resolve("consumer/classes"));
     }
 
@@ -112,6 +129,36 @@ public class TestTypeUseAnnotationClosure {
         args.addAll(files);
         assertEquals(0, javac.run(null, null, System.err, args.toArray(String[]::new)),
                 "the fixture itself must compile");
+        return out;
+    }
+
+    /**
+     * Like {@link #compile}, with a {@code module-info.java} beside the sources, so the output directory
+     * carries a real descriptor. ⚠ {@code --module-path} rather than {@code -classpath}: a module cannot read
+     * the class path, and getting that wrong makes the fixture fail to compile rather than fail silently.
+     */
+    private static Path compileModule(JavaCompiler javac, String name, String modulePath, String moduleInfo,
+                                      String... sources) throws IOException {
+        Path src = Files.createDirectories(root.resolve(name).resolve("src"));
+        Path out = Files.createDirectories(root.resolve(name).resolve("classes"));
+        List<String> files = new java.util.ArrayList<>();
+        Path mi = src.resolve("module-info.java");
+        Files.writeString(mi, moduleInfo);
+        files.add(mi.toString());
+        for (String source : sources) {
+            java.util.regex.Matcher m = DECLARES.matcher(source);
+            assertTrue(m.find(), "cannot see what this source declares: " + source);
+            Path f = src.resolve(m.group(1) + ".java");
+            Files.writeString(f, source);
+            files.add(f.toString());
+        }
+        List<String> args = new java.util.ArrayList<>(List.of("-d", out.toString()));
+        if (modulePath != null) args.addAll(List.of("--module-path", modulePath));
+        args.addAll(files);
+        assertEquals(0, javac.run(null, null, System.err, args.toArray(String[]::new)),
+                "the fixture itself must compile");
+        assertTrue(Files.isRegularFile(out.resolve("module-info.class")),
+                "the point of this fixture is the descriptor; it is not there");
         return out;
     }
 
@@ -211,5 +258,61 @@ public class TestTypeUseAnnotationClosure {
         assertEquals("carrier", u.carrier());
         assertEquals("lib.Carrier", u.example(), "the class that carries it, so the report can be checked");
         assertTrue(u.why().contains("no classpath part declares it"), u.why());
+    }
+
+    /**
+     * ⛔⛔ THE REGRESSION. Two providers of the same annotation, identical but for a {@code module-info}: the
+     * one WITH the descriptor must win. It used to lose, twice over, and both losses came from counting
+     * {@code module-info} as a type it provides — here the size comparison, "smallest wins", which the
+     * descriptor puts the modular copy one entry the wrong side of.
+     *
+     * <p>▶ WHY IT MATTERS BEYOND TIDINESS: what this closure adds lands on a real source set's classpath. A
+     * provider that is not a module is one the JDK can only name from its FILE NAME, so choosing it turns a
+     * source set that resolved cleanly on the module path into one that no longer does — inside the very
+     * configuration that is used to measure exactly that.
+     */
+    @DisplayName("between two providers alike but for a module-info, the MODULE is chosen")
+    @Test
+    public void aModularProviderBeatsAnIdenticalNonModularOne() {
+        SourceSet carrierPart = library("carrier", carrier);
+        SourceSet plain = library("annotations", annotations);
+        SourceSet modular = library("annotationsModular", annotationsModular);
+        SourceSet app = consumer(List.of(carrierPart));
+
+        TypeUseAnnotationClosure.Result result = new TypeUseAnnotationClosure()
+                .close(List.of(app), List.of(carrierPart, plain, modular));
+
+        assertEquals(List.of("annotationsModular"),
+                result.added().get("app/main").stream().map(SourceSet::name).toList(),
+                "the provider carrying a descriptor must be preferred");
+        assertTrue(result.unresolved().isEmpty(), "" + result.unresolved());
+    }
+
+    /**
+     * ⛔ THE MECHANISM, ISOLATED — and the half that no size comparison explains. The consumer's own
+     * dependency is a module, so {@code module-info} was in the set of names "already resolved here". Every
+     * OTHER module then looked like it would shadow a resolved type, and the modular provider was discarded
+     * before its real classes were ever compared. One modular jar anywhere on a classpath was enough to make
+     * every modular provider unpickable.
+     *
+     * <p>⚠ {@code other.mod} shares not one class with either provider, so the only thing it can contribute
+     * to the shadow test is the descriptor — which is the whole point.
+     */
+    @DisplayName("a module on the classpath does not make every other module look like a shadow")
+    @Test
+    public void anAlreadyVisibleModuleInfoDoesNotVetoModularProviders() {
+        SourceSet carrierPart = library("carrier", carrier);
+        SourceSet unrelatedModule = library("aModule", aModule);
+        SourceSet plain = library("annotations", annotations);
+        SourceSet modular = library("annotationsModular", annotationsModular);
+        SourceSet app = consumer(List.of(carrierPart, unrelatedModule));
+
+        TypeUseAnnotationClosure.Result result = new TypeUseAnnotationClosure()
+                .close(List.of(app), List.of(carrierPart, unrelatedModule, plain, modular));
+
+        assertEquals(List.of("annotationsModular"),
+                result.added().get("app/main").stream().map(SourceSet::name).toList(),
+                "the shadow test must not fire on module-info, which is not a type anyone can reference");
+        assertTrue(result.unresolved().isEmpty(), "" + result.unresolved());
     }
 }
