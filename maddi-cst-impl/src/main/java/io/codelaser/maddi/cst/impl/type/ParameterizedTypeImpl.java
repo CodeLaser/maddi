@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.type;
 
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -62,6 +63,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final Wildcard wildcard;
     private final List<ParameterizedType> parameters;
     private final NullableState nullable;
+    private final List<AnnotationExpression> annotations;
 
     public ParameterizedTypeImpl(TypeParameter typeParameter, int arrays) {
         this(null, typeParameter, List.of(), arrays, null);
@@ -109,6 +111,17 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                                  int arrays,
                                  Wildcard wildcard,
                                  NullableState nullable) {
+        this(typeInfo, typeParameter, parameters, arrays, wildcard, nullable, List.of());
+    }
+
+    public ParameterizedTypeImpl(TypeInfo typeInfo,
+                                 TypeParameter typeParameter,
+                                 List<ParameterizedType> parameters,
+                                 int arrays,
+                                 Wildcard wildcard,
+                                 NullableState nullable,
+                                 List<AnnotationExpression> annotations) {
+        this.annotations = List.copyOf(annotations);
         this.typeParameter = typeParameter;
         this.typeInfo = typeInfo;
         this.arrays = arrays;
@@ -126,7 +139,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public ParameterizedType withNullable(NullableState nullable) {
         if (this.nullable == nullable) return this;
-        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable);
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable,
+                annotations);
+    }
+
+    @Override
+    public List<AnnotationExpression> annotations() {
+        return annotations;
+    }
+
+    @Override
+    public ParameterizedType withAnnotations(List<AnnotationExpression> annotations) {
+        if (this.annotations.equals(annotations)) return this;
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable,
+                annotations);
     }
 
     @Override
@@ -139,7 +165,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                && Objects.equals(typeInfo, that.typeInfo)
                && Objects.equals(wildcard, that.wildcard)
                && Objects.equals(parameters, that.parameters)
-               && nullable == that.nullable;
+               && nullable == that.nullable
+               && Objects.equals(annotations, that.annotations);
     }
 
     @Override
@@ -218,8 +245,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     private String printFqn(Diamond diamond) {
+        // printAnnotations = false: this is a NAME, not source. See the printer's javadoc.
         return ParameterizedTypePrinter.print(QualificationImpl.FULLY_QUALIFIED_NAMES,
-                this, false, diamond, false, true).toString();
+                this, false, diamond, false, true, false).toString();
     }
 
     @Override
@@ -255,14 +283,31 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             TypeInfo qualifier = detailedSources != null && typeReferenceNature.isExplicit()
                     ? detailedSources.qualifier(typeInfo) : typeInfo;
             Element.TypeReference typeReference = new ElementImpl.TypeReference(typeInfo, typeReferenceNature, qualifier);
-            return Stream.concat(Stream.of(typeReference), parameters.stream().flatMap(pt ->
-                    pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
+            return Stream.concat(Stream.of(typeReference),
+                    Stream.concat(annotationsReferenced(), parameters.stream().flatMap(pt ->
+                            pt.typesReferenced(typeReferenceNature, detailedSources, visited))));
         }
         if (typeParameter != null) {
             return typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,
                     visited == null ? new HashSet<>() : visited);
         }
         return Stream.of();
+    }
+
+    /**
+     * The TYPE-USE annotation types written on this use, as EXPLICIT references so they get an import.
+     * <p>
+     * ⛔ WITHOUT THIS THE PRINTED FILE DOES NOT COMPILE. The printer emits {@code List<@Nullable String>}
+     * and the import computer, which builds its set from {@code typesReferenced}, never hears about
+     * {@code ann.Nullable} — so the annotation appears with nothing importing it. EXPLICIT because the
+     * annotation is written in the source: an IMPLICIT reference is one the reader never sees and does not
+     * need an import for.
+     */
+    private Stream<Element.TypeReference> annotationsReferenced() {
+        return annotations.stream()
+                .map(io.codelaser.maddi.cst.api.expression.AnnotationExpression::typeInfo)
+                .filter(Objects::nonNull)
+                .map(ti -> new ElementImpl.TypeReference(ti, Element.TypeReferenceNature.EXPLICIT, ti));
     }
 
     @Override
@@ -305,7 +350,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         // the following check is important to maintain object '==' for the static types like NULL_CONSTANT
         if (arrays == this.arrays) return this;
         assert arrays >= 0;
-        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard);
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard,
+                nullable, annotations);
     }
 
     @Override
@@ -879,12 +925,14 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public ParameterizedType withWildcard(Wildcard wildcard) {
-        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard);
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard,
+                nullable, annotations);
     }
 
     @Override
     public ParameterizedType withParameters(List<ParameterizedType> parameters) {
-        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard);
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard,
+                nullable, annotations);
     }
 
     @Override

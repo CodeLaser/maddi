@@ -1531,7 +1531,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             ParameterizedType base = convertTree(apply.getType(), dsb);
             List<ParameterizedType> parameters = apply.getTypeArguments().stream()
                     .map(ta -> convertTree(ta, dsb)).toList();
-            return runtime.newParameterizedType(base.typeInfo(), parameters);
+            ParameterizedType applied = runtime.newParameterizedType(base.typeInfo(), parameters);
+            /*
+             ⛔ CARRY THE BASE'S ANNOTATIONS. javac binds a type-use annotation to the BASE identifier, so
+             '@Nullable List<String>' is JCTypeApply(clazz = JCAnnotatedType(@Nullable, List)). 'base' has
+             just been given the annotation by the JCAnnotatedType branch, and rebuilding from
+             base.typeInfo() alone dropped it again -- silently, and only for a parameterized type, which is
+             why 'Map<String, @Nullable List<@Nullable String>>' kept the inner annotation and lost the outer.
+             */
+            return base.annotations().isEmpty() ? applied : applied.withAnnotations(base.annotations());
         }
         if (type instanceof JCTree.JCArrayTypeTree att) {
             int n = 1;
@@ -1578,8 +1586,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
-            // TODO there is no room for this in maddi's model
-            return convertTreeDontSet(at.underlyingType, dsb, source);
+            /*
+             ⭐ THE TODO THAT USED TO SIT HERE ("there is no room for this in maddi's model") IS CLOSED:
+             ParameterizedType now carries its TYPE-USE annotations, so this branch attaches them instead of
+             stripping them.
+
+             ⛔ THIS IS THE BRANCH THE NESTED CASE GOES THROUGH. An annotation on a top-level type reaches
+             ScanCompilationUnit.convertTypeWithAnnotations; one on a TYPE ARGUMENT -- 'List<@Nullable
+             String>', where there is no declaration anywhere near it -- only ever reaches here. Leaving this
+             branch stripping while fixing the other would have fixed the position nobody was hurt by and
+             left the one that broke caffeine.
+
+             ⚠ The annotation types are resolved from javac's own attribute, exactly as loadAnnotations does
+             for declarations, so an unresolvable annotation degrades to being absent rather than throwing.
+             */
+            ParameterizedType underlying = convertTreeDontSet(at.underlyingType, dsb, source);
+            List<AnnotationExpression> typeAnnotations = at.getAnnotations().stream()
+                    .map(a -> a.attribute)
+                    .filter(Objects::nonNull)
+                    .map(this::annotationExpression)
+                    .toList();
+            return typeAnnotations.isEmpty() ? underlying : underlying.withAnnotations(typeAnnotations);
         }
         if (type instanceof JCTree.JCTypeIntersection intersection) {
             List<ParameterizedType> bounds = intersection.getBounds().stream()

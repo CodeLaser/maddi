@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.type;
 
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -43,6 +45,29 @@ public interface ParameterizedType {
     }
 
     default ParameterizedType withNullable(NullableState nullable) {
+        return this;
+    }
+
+    /**
+     * The TYPE-USE annotations written on this use of the type ({@code List<@Nullable String>} — the
+     * annotation is on the type argument, and there is no declaration it could belong to).
+     * <p>
+     * ⛔ THIS IS A PROPERTY OF THE USE, NOT OF THE TYPE, which is why it lives here and not on
+     * {@link io.codelaser.maddi.cst.api.info.TypeInfo}. Two uses of {@code String}, one annotated and one
+     * not, are two different values — exactly as {@link #nullable()} already models for Kotlin's
+     * {@code String?}. It is part of {@code equals} for that reason.
+     * <p>
+     * ⚠ AND DELIBERATELY NOT PART OF {@code hashCode}, following {@code nullable}: see the comment on
+     * {@code ParameterizedTypeImpl.hashCode()}. Types differing only in annotations share a hash bucket and
+     * are separated by {@code equals}, which keeps hash-ordered iteration unchanged from before this
+     * existed. A run-varying iteration order is not a theoretical worry here — one already leaked into the
+     * link engine and produced verdicts that differed between JVM runs.
+     */
+    default List<AnnotationExpression> annotations() {
+        return List.of();
+    }
+
+    default ParameterizedType withAnnotations(List<AnnotationExpression> annotations) {
         return this;
     }
 
