@@ -114,6 +114,106 @@ public class TestPluginInputConfiguration {
                 configuration.classPathParts().stream().map(SourceSet::name).toList());
     }
 
+
+    /**
+     * ⛔⛔ <b>A SOURCE SET REACHABLE ONLY THROUGH ANOTHER SOURCE SET WAS ON NO CLASS PATH AT ALL.</b>
+     * {@code dependencies()} is javac's class path — {@code JavaInspectorImpl} builds it from this list, because
+     * "javac knows nothing of the CST and resolves every reference into them from CLASS FILES" — and a class path
+     * is a CLOSURE, not an adjacency list.
+     *
+     * <p>THE SHAPE IS OPENSEARCH'S, MEASURED 2026-08-21: {@code framework/main} lists {@code server/main} and not
+     * {@code opensearch-core/main}, which {@code server/main} lists. 86 symbols in one file were unresolvable,
+     * javac degraded {@code ShardId.id} into a TYPE reference, and maddi's scanner reported an
+     * inspection-ordering error three layers downstream of the real cause.
+     *
+     * <p>⚠ <b>THE ARGUMENT IS NOT "THE OTHER PRODUCER IS CLOSED".</b> The same corpus through
+     * {@code --compile-log} is closed 20 of 20, and a census over every registered configuration then said
+     * es-phase3 is closed for 209 of 348, pulsar for 50 of 90 — same producer. That is ground truth there, not a
+     * gap: it records the {@code -classpath} javac was handed. What makes a closure right HERE is that a graph
+     * edge means "project A depends on project B", and Gradle's compile class path for A carries B's api closure
+     * with it.
+     */
+    @Test
+    public void aSourceSetReachableOnlyThroughAnotherIsOnTheClassPath() {
+        Map<String, SourceSet> allByName = new LinkedHashMap<>();
+        allByName.put("framework/main", sourceSet("framework/main"));
+        allByName.put("server/main", sourceSet("server/main"));
+        allByName.put("core/main", sourceSet("core/main"));
+
+        G.Builder<String> graph = new ImmutableGraph.Builder<>(Long::sum);
+        graph.add("framework/main", List.of("server/main"));
+        graph.add("server/main", List.of("core/main"));
+
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+        PluginInputConfiguration.emit(builder, graph.build(), allByName, List.of(), s -> {
+        });
+        InputConfiguration configuration = builder.build();
+
+        Map<String, List<String>> byName = new LinkedHashMap<>();
+        configuration.sourceSets().forEach(set ->
+                byName.put(set.name(), set.dependencies().stream().map(SourceSet::name).sorted().toList()));
+        assertEquals(List.of("core/main", "server/main"), byName.get("framework/main"),
+                "core is reachable only through server, and javac still needs its class files");
+        assertEquals(List.of("core/main"), byName.get("server/main"));
+    }
+
+    /**
+     * ⛔⛔ <b>THE CLOSURE CARRIES SOURCE SETS AND NOT LIBRARIES, AND THE FIRST VERSION CARRIED BOTH.</b>
+     * {@code ComputeDependencies} gives a SIBLING every library the analysed project has, test scope included,
+     * on purpose — "a sibling's class path is not the consumer's", and denying it its own dependencies costs
+     * real compilation units. The analysed project's own main sets get only what reaches them outside test
+     * scope. Walking through a sibling and collecting what IT has hands those test-scope libraries straight
+     * back to the consumer, which is that decision undone from one file away.
+     *
+     * <p>MEASURED on OpenSearch's analysed main set: <b>55 dependencies became 110</b>, every one of the 55
+     * additions an external library and not one of them the source set the repair was for.
+     *
+     * <p>⚠ Nothing is lost by stopping: the external half of the class path is closed by construction, because
+     * both {@code ComputeDependencies} wire every source set to every external library and every jmod.
+     */
+    @Test
+    public void theClosureCarriesSourceSetsAndNotLibraries() {
+        Map<String, SourceSet> allByName = new LinkedHashMap<>();
+        allByName.put("app/main", sourceSet("app/main"));
+        allByName.put("sibling/main", sourceSet("sibling/main"));
+        allByName.put("lib.jar", library("lib.jar"));
+        allByName.put("siblings-own.jar", library("siblings-own.jar"));
+
+        G.Builder<String> graph = new ImmutableGraph.Builder<>(Long::sum);
+        graph.add("app/main", List.of("lib.jar", "sibling/main"));
+        graph.add("sibling/main", List.of("siblings-own.jar"));
+
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+        PluginInputConfiguration.emit(builder, graph.build(), allByName, List.of(), s -> {
+        });
+
+        Map<String, List<String>> byName = new LinkedHashMap<>();
+        builder.build().sourceSets().forEach(set ->
+                byName.put(set.name(), set.dependencies().stream().map(SourceSet::name).sorted().toList()));
+        assertEquals(List.of("lib.jar", "sibling/main"), byName.get("app/main"),
+                "the sibling's OWN library must not arrive on the consumer's class path");
+    }
+
+    /** ⛔ And a cycle among source sets terminates, and never puts a set on its own class path. */
+    @Test
+    public void aCycleAmongSourceSetsTerminates() {
+        Map<String, SourceSet> allByName = new LinkedHashMap<>();
+        allByName.put("a/main", sourceSet("a/main"));
+        allByName.put("b/main", sourceSet("b/main"));
+
+        G.Builder<String> graph = new ImmutableGraph.Builder<>(Long::sum);
+        graph.add("a/main", List.of("b/main"));
+        graph.add("b/main", List.of("a/main"));
+
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
+        PluginInputConfiguration.emit(builder, graph.build(), allByName, List.of(), s -> {
+        });
+        InputConfiguration configuration = builder.build();
+        configuration.sourceSets().forEach(set -> assertFalse(
+                set.dependencies().stream().map(SourceSet::name).toList().contains(set.name()),
+                set.name() + " must not be on its own class path"));
+    }
+
     // ------------------------------------------------------------------ fixture
 
     private static SourceSet sourceSet(String name) {
