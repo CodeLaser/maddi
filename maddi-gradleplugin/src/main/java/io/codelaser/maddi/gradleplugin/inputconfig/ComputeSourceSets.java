@@ -112,7 +112,8 @@ public class ComputeSourceSets {
      * last one seen would win. Pre-existing, not introduced here, and worth knowing before anything depends on
      * the key being unique.
      */
-    private record ProjectSources(Map<String, List<Path>> sourcesByName, Map<String, String> pathByName) {
+    private record ProjectSources(Map<String, List<Path>> sourcesByName, Map<String, String> pathByName,
+                                 Map<String, SourceFacts> factsByName) {
     }
 
     /**
@@ -169,7 +170,7 @@ public class ComputeSourceSets {
         List<Result> dependentProjects = sourcesByProject.entrySet().stream()
                 .map(e -> dependentProjectResult(e.getKey(), projectSources.pathByName().get(e.getKey()),
                         e.getValue(), restrictSourcesToPackages, encoding,
-                        classOutputByProject.get(e.getKey())))
+                        classOutputByProject.get(e.getKey()), projectSources.factsByName().get(e.getKey())))
                 .toList();
         // the dependency edges AMONG the source-contributing projects (e.g. cst-analysis -> cst-api). Without
         // them a transitive source project cannot resolve the types it depends on and the front end drops it.
@@ -317,6 +318,7 @@ public class ComputeSourceSets {
                 .named(Category.class, AnalyzerExtension.SOURCES_CATEGORY);
         Map<String, Set<Path>> byProject = new LinkedHashMap<>();
         Map<String, String> pathByName = new LinkedHashMap<>();
+        Map<String, SourceFacts> factsByName = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (!configuration.isCanBeResolved()) continue;
             ArtifactView view = configuration.getIncoming().artifactView(v -> {
@@ -331,13 +333,26 @@ public class ComputeSourceSets {
                         byProject.computeIfAbsent(pci.getProjectName(), k -> new LinkedHashSet<>())
                                 .add(file.getAbsoluteFile().toPath().normalize());
                         pathByName.putIfAbsent(pci.getProjectName(), identityPathOf(pci));
+                    } else if (SourceFactsFile.FILE_NAME.equals(file.getName()) && file.canRead()) {
+                        // ⭐ THE THREE FACTS A SIBLING COULD NOT HAVE, arriving through the variant it
+                        // already publishes. Matched by NAME rather than by "not a directory": a producer is
+                        // free to publish other things, and a name says what was found.
+                        SourceFacts facts = SourceFactsFile.read(file);
+                        if (facts != null) factsByName.putIfAbsent(pci.getProjectName(), facts);
                     }
                 }
             }
         }
         byProject.forEach((name, paths) -> LOGGER.info(" -- project {} contributes sources {}", name, paths));
+        // ⚠ A source-providing project WITHOUT facts is the version-skew case (an older producer), not an
+        // error; it is logged so that a run where every sibling lacks them is visible rather than assumed.
+        for (String name : byProject.keySet()) {
+            if (!factsByName.containsKey(name)) {
+                LOGGER.info(" -- project {} published sources but no {}", name, SourceFactsFile.FILE_NAME);
+            }
+        }
         return new ProjectSources(byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new)), pathByName);
+                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new)), pathByName, factsByName);
     }
 
     /**
@@ -350,7 +365,8 @@ public class ComputeSourceSets {
      * i.e. the cross-project access this whole mechanism exists to avoid.
      */
     private Result dependentProjectResult(String projectName, String projectPath, List<Path> paths,
-                                          String restrictTo, String encodingString, Path classOutput) {
+                                          String restrictTo, String encodingString, Path classOutput,
+                                          SourceFacts facts) {
         String sourceSetName = projectName + "/main";
         // ⛔ THE CLASS OUTPUT MATTERS MOST HERE, not least. The variant publishes source DIRECTORIES, so this
         // set's uri used to be the first of them -- and a dependent resolves into it through javac's class path,
@@ -364,22 +380,23 @@ public class ComputeSourceSets {
         // sets into build units downstream. MEASURED on OpenSearch (2026-08-20, applyTo=all): 19 of 21 source
         // sets arrived with buildUnit=null, sourceRelease=None and warningFlags=[], and a consumer that groups
         // by build unit had nothing to group them by.
-        // ⛔⛔ THE OTHER THREE ARE STILL EMPTY, AND THE OBVIOUS FIX DOES NOT WORK. sourceRelease, addModules
-        // and the warning flags live on a JavaCompile task, and a sibling's task belongs to another project:
-        // reading it is the cross-project access this whole mechanism exists to avoid. Publishing them as an
-        // artifact on `maddiSourceElements`, beside the source directories, is the shape that suggests itself
-        // -- and it was written and then taken back out, because THIS METHOD RUNS AT CONFIGURATION TIME
-        // (AnalyzerPlugin computes `configurationJson` in a provider, "resolved at configuration/store time").
-        // A file only a task can produce does not exist yet at that point, so the consumer would read an
-        // absent file and get exactly the empty lists it has now. The two channels that could work -- writing
-        // the facts during configuration, or a shared BuildService keyed by project path -- are decisions,
-        // not repairs, and neither has been measured.
-        // ⚠ WHAT IT COSTS, measured on OpenSearch (2026-08-20, applyTo=all): 2 source sets of 21 carry any
-        // warning flag, and 19 arrive with sourceRelease=0 -- which silently reinstates "whatever JDK maddi
-        // happens to run on" for each of them.
+        // ⭐⭐ AND THE OTHER THREE ARRIVE TOO, SINCE 2026-08-21. sourceRelease, addModules and the warning
+        // flags live on a JavaCompile task, and a sibling's task belongs to another project -- reading it is
+        // the cross-project access this whole mechanism exists to avoid. They come instead through the
+        // variant the sibling ALREADY publishes, as a file its own configuration writes: SourceFactsFile,
+        // which also records the three shapes that were rejected (in particular an artifact a TASK produces,
+        // which does not exist yet at this method's configuration time -- that one was written and taken
+        // back out).
+        // ⚠ WHAT ITS ABSENCE COST, measured on OpenSearch (2026-08-20, applyTo=all): 2 source sets of 21
+        // carried any warning flag, and 19 arrived with sourceRelease=0 -- which silently reinstates
+        // "whatever JDK maddi happens to run on" for each of them.
+        // ⚠ NULL IS STILL A CASE, and it is the version-skew one: a producer without this plugin, or with an
+        // older one, publishes no such file. Then this is exactly what it was before.
+        SourceFacts f = facts == null ? new SourceFacts(0, List.of(), List.of()) : facts;
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, projectPath, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), 0, List.of(), List.of());
+                PluginOptions.splitToSetOrNull(restrictTo), f.sourceRelease(), f.addModules(),
+                f.warningFlags());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();

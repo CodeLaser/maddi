@@ -20,21 +20,30 @@ import java.util.List;
  * What a source set's {@code JavaCompile} task says about its compilation: the Java release it targets, its
  * {@code --add-modules}, and its warning policy.
  *
- * <p>⛔⛔ <b>THESE ARE THE THREE FACTS A SIBLING PROJECT DOES NOT GET, AND THE REASON IS STRUCTURAL.</b> They
- * live on a {@code JavaCompile} task; a sibling's task belongs to another project, and reading it is the
- * cross-project access this plugin's whole source-variant mechanism exists to avoid.
- * {@code ComputeSourceSets.dependentProjectResult} therefore hands a sibling {@code 0} and two empty lists.
+ * <p>⛔⛔ <b>THESE ARE THE THREE FACTS A SIBLING PROJECT COULD NOT GET, AND THE REASON WAS STRUCTURAL.</b>
+ * They live on a {@code JavaCompile} task; a sibling's task belongs to another project, and reading it is
+ * the cross-project access this plugin's whole source-variant mechanism exists to avoid. So
+ * {@code ComputeSourceSets.dependentProjectResult} handed a sibling {@code 0} and two empty lists.
  *
  * <p>⚠ <b>MEASURED, on OpenSearch (2026-08-20, {@code applyTo=all}): 2 source sets of 21 carried any warning
  * flag</b> — the analysed project's own two. The other nineteen also arrived with {@code sourceRelease=0},
  * which silently reinstates "whatever JDK maddi happens to run on" for each of them.
  *
- * <p>⛔ <b>AND THE OBVIOUS REPAIR WAS WRITTEN AND TAKEN BACK OUT.</b> Publishing them as an artifact on the
- * {@code maddiSourceElements} variant, beside the source directories, cannot work: {@code ComputeSourceSets}
- * runs at CONFIGURATION time, and a file only a task can produce does not exist then. The consumer would read
- * an absent file and get precisely the empty lists it has today. The channels that could work — writing the
- * facts during configuration, or a shared {@code BuildService} keyed by project path — are decisions rather
- * than repairs, and neither has met a corpus.
+ * <p>⭐ <b>SINCE 2026-08-21 THEY DO ARRIVE</b>, through {@link SourceFactsFile}: a file the producing
+ * project's own configuration writes, published on the {@code maddiSourceElements} variant it already has.
+ * That file records the three shapes that were rejected on the way — in particular an artifact a TASK
+ * produces, which was written and then taken back out because it does not exist yet at the consumer's
+ * configuration time.
+ *
+ * @param sourceRelease javac's {@code --release}, or {@code 0} when the build states none. ⛔ {@code 0} is
+ *                      not a neutral default: it means the parse runs against whatever JDK maddi is on,
+ *                      where every API removed since reads as "cannot find symbol".
+ * @param addModules    JDK modules outside the default root set. ⛔ An INCUBATOR module is not in the
+ *                      {@code java.se} closure, so without this every type in it is "package X is not
+ *                      visible" and its compilation units are dropped.
+ * @param warningFlags  the resolved warning policy — {@code -Xlint:*}, {@code -Werror}, {@code -nowarn}.
+ *                      ⚠ Resolved, not declared: OpenSearch adds {@code -Werror} once at the root and six
+ *                      compile tasks subtract it again, and only this list knows which.
  */
 public record SourceFacts(int sourceRelease, List<String> addModules, List<String> warningFlags) {
 
