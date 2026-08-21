@@ -26,6 +26,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -379,7 +380,7 @@ public class ComputeCallGraph {
 
                 // important: check anonymous type first, it can have constructor != null
                 if (anonymousType != null) {
-                    handleAnonymousType(info, anonymousType); // B
+                    handleTypeDeclaredInBody(info, anonymousType); // A
                     for (MethodInfo mi : anonymousType.constructorsAndMethods()) {
                         handleMethodCall(info, mi);
                     }
@@ -398,8 +399,38 @@ public class ComputeCallGraph {
             }
             if (e instanceof Lambda lambda) {
                 TypeInfo anonymousType = lambda.methodInfo().typeInfo();
-                handleAnonymousType(info, anonymousType);
+                handleTypeDeclaredInBody(info, anonymousType);
                 //handleMethodCall(info, lambda.methodInfo()); is this needed?
+                return false;
+            }
+            // ⛔ A LOCAL CLASS IS THE THIRD KIND OF TYPE DECLARED INSIDE A BODY, and it was the one kind this
+            // visitor did not know about. Edge type A in the class comment has always promised "from a method or
+            // field into its anonymous, lambda, LOCAL types"; the anonymous and lambda arms are just above, and
+            // this one was missing -- because both of those arrive as EXPRESSIONS (ConstructorCall.anonymousClass,
+            // Lambda) while a local class arrives as a STATEMENT, and the visitor's chain tests expressions.
+            //
+            // ⚠ WHAT WAS ACTUALLY WRONG, measured rather than read (the gap record's account of the mechanism
+            // differs): the local type had NO structural edge at all. It appeared in the graph only as the TARGET
+            // of the enclosing method's reference edges -- `go() -R-> Helper`, from addType on `new Helper()`,
+            // plus -R-> its constructor and the method called on it -- so it was a vertex with no outgoing edges
+            // and nothing declaring it. go(Helper) was never called, so neither its members' CODE_STRUCTURE edges
+            // nor anything its body references existed. An anonymous class in the identical shape yields
+            // `$0.run() -R-> a.Made`; the local class yielded nothing.
+            //
+            // Every consumer of the type graph was short by that: requiredTypes, buildUnitDependencies,
+            // cyclicTypeComponents, the package graph. GAP G15 (OpenSearch campaign), pinned from the query side
+            // by TestGap9LambdaWrittenRequirement.
+            //
+            // Same treatment as the other two arms, and for the same reason: go() walks the declared type's own
+            // members and their bodies, so we must NOT also descend here -- that would attribute the body's
+            // references to the enclosing member as well and double every edge weight. LocalTypeDeclarationImpl
+            // does not descend either ("following anonymous class, we're not going deeper"), so the return value
+            // is belt and braces.
+            // ⚠ The declared type is NOT among the enclosing type's subTypes() -- that is why go(TypeInfo) never
+            // reached it -- so this is the only walk it gets, and it gets it exactly once. TestCallGraphLocalClass
+            // pins that: a second walk would double the weights, not merely duplicate a line.
+            if (e instanceof LocalTypeDeclaration ltd) {
+                handleTypeDeclaredInBody(info, ltd.typeInfo()); // A
                 return false;
             }
             if (e instanceof TypeExpression te) {
@@ -453,9 +484,23 @@ public class ComputeCallGraph {
         }
     }
 
-    private void handleAnonymousType(Info from, TypeInfo anonymousType) {
-        builder.mergeEdge(from, anonymousType, CODE_STRUCTURE);
-        go(anonymousType);
+    /**
+     * Edge type A for a type <em>declared inside a body</em>: an anonymous class, a lambda, or a local class.
+     * The structural edge says "this member declares that type", and {@link #go(TypeInfo)} then walks the declared
+     * type exactly as it walks a named one — its members, their bodies, everything they reference.
+     * <p>
+     * ⚠ Named for what the three have in common rather than for the anonymous case alone, which is what it used to
+     * be called: a <b>local class is not anonymous</b> (it has a simple name, and the pin test asserts
+     * {@code anon=false}), and while this method carried the narrower name the local-class arm simply did not
+     * exist. See the {@code LocalTypeDeclaration} branch in {@link Visitor#test}.
+     * <p>
+     * Called exactly once per declared type: none of the three is among its enclosing type's {@code subTypes()},
+     * so {@code go(TypeInfo)}'s subtype loop does not reach them. A second call would not duplicate an edge — the
+     * builder sums weights — it would double the reference counts.
+     */
+    private void handleTypeDeclaredInBody(Info from, TypeInfo declaredType) {
+        builder.mergeEdge(from, declaredType, CODE_STRUCTURE);
+        go(declaredType);
     }
 
     private void handleMethodCall(Info from, MethodInfo to) {
