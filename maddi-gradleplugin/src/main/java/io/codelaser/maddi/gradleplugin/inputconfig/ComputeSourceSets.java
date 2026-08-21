@@ -98,6 +98,29 @@ public class ComputeSourceSets {
         }
     }
 
+    /**
+     * What {@link #collectProjectSources} found, keyed by project NAME: the source directories each sibling
+     * publishes, and the project PATH that name belongs to.
+     *
+     * <p>⭐ The path is here so that {@link #dependentProjectResult} can give a sibling its {@code buildUnit}.
+     * It is the one fact of the four a sibling used to lose that needs <b>no</b> cross-project access at all:
+     * {@code ProjectComponentIdentifier} carries it, and the consumer already has that identifier in hand.
+     *
+     * <p>⚠ Keyed by NAME because the rest of this class is; two projects in one build may share a name and the
+     * last one seen would win. Pre-existing, not introduced here, and worth knowing before anything depends on
+     * the key being unique.
+     */
+    private record ProjectSources(Map<String, List<Path>> sourcesByName, Map<String, String> pathByName) {
+    }
+
+    /**
+     * A class-path part already recorded for one sibling output: its name, and whether the file behind it is a
+     * class DIRECTORY. ⚠ The flag is carried rather than re-derived from the recorded {@code uri}: a URI that
+     * happens to end in {@code /} is an inference, and {@code File.isDirectory()} is the question itself.
+     */
+    private record RecordedPart(String name, boolean directory) {
+    }
+
     /*
     all paths will be relative to this one
      */
@@ -134,14 +157,16 @@ public class ComputeSourceSets {
         List<Configuration> configurations = sortConfigurations(project);
         // sibling projects that publish their sources come first: their artifacts must NOT also be recorded as
         // jar classpath parts, or the same types arrive twice, once parsed and once shallow
-        Map<String, List<Path>> sourcesByProject = collectProjectSources(project, configurations);
+        ProjectSources projectSources = collectProjectSources(project, configurations);
+        Map<String, List<Path>> sourcesByProject = projectSources.sourcesByName();
         // ...and the artifact each of them WOULD have contributed is exactly the class output their source set
         // needs, so inspectConfigurations hands it back rather than dropping it on the floor.
         Map<String, Path> classOutputByProject = inspectConfigurations(excludeFromClasspath, configurations,
                 sourceSetsByName, sourcesByProject.keySet());
         String mainSourceSetName = projectName + "/main";
         List<Result> dependentProjects = sourcesByProject.entrySet().stream()
-                .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding,
+                .map(e -> dependentProjectResult(e.getKey(), projectSources.pathByName().get(e.getKey()),
+                        e.getValue(), restrictSourcesToPackages, encoding,
                         classOutputByProject.get(e.getKey())))
                 .toList();
         // the dependency edges AMONG the source-contributing projects (e.g. cst-analysis -> cst-api). Without
@@ -163,6 +188,20 @@ public class ComputeSourceSets {
                                        List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName,
                                        Set<String> projectsProvidingSources) {
         Map<String, Path> classOutputByProject = new LinkedHashMap<>();
+        // ⛔⛔ ONE CLASS-PATH PART PER SIBLING PROJECT, AND IT USED TO BE ONE PER ARTIFACT VARIANT.
+        // Gradle answers `compileClasspath` with a project's classes DIRECTORY (java-api) and `runtimeClasspath`
+        // with its JAR (java-runtime), so a sibling that does not publish its sources was recorded TWICE, under
+        // two names, from two configurations. The de-duplication a few lines below is keyed on the sibling
+        // PUBLISHING ITS SOURCES, i.e. on the plugin being applied to it too -- which is never the case in the
+        // single-module mode a user of this plugin is in.
+        // ⚠ HARMLESS ON THE CLASS PATH AND FATAL ON THE MODULE PATH, which is why it went unnoticed:
+        // duplicate types are tolerated, ONE MODULE NAME FROM TWO LOCATIONS is not. MEASURED on OpenSearch's
+        // JPMS corpus (2026-08-20): 12 of 12 siblings recorded twice, both `module=true`, and the parse died
+        // with `Cannot map javac's type org.opensearch.core.compress.Compressor onto a TypeInfo`.
+        // ⚠ AND THE CONTROL SAYS IT IS THE MODULES AND NOT THE TWINS AS SUCH: the same module, the same
+        // plugin, the same twin shape on PRISTINE OpenSearch -- where nothing is a module -- parses. pulsar's
+        // committed configuration has the same shape for the same reason and has always parsed.
+        Map<String, RecordedPart> partByOutput = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (configuration.isCanBeResolved()) {
                 String configurationName = configuration.getName();
@@ -202,6 +241,43 @@ public class ComputeSourceSets {
                         continue;
                     }
                     if (file.canRead() && !excludeFromClasspath.contains(name) && !excludedByCoordinate) {
+                        // one part per project OUTPUT: the first sighting wins, and a DIRECTORY displaces a
+                        // jar. ⚠ sortConfigurations already puts the non-runtime configurations first, so in
+                        // practice the directory arrives first and nothing is displaced; the displacement is
+                        // here because that order is a heuristic and this rule is not.
+                        // ⚠ `projectId`, not `pci`: the pattern variable of the `else if` above is bound in a
+                        // branch that does NOT complete abruptly, so whether it is still in scope here is a
+                        // question about JLS 6.3.2 rather than about this code. A different name has no
+                        // question attached to it.
+                        if (rar.getVariant().getOwner() instanceof ProjectComponentIdentifier projectId) {
+                            String key = outputKey(projectId, rar);
+                            RecordedPart already = partByOutput.get(key);
+                            boolean isDirectory = file.isDirectory();
+                            if (already != null && already.name().equals(name)) {
+                                continue;                       // same output, same artifact, seen again
+                            }
+                            if (already == null) {
+                                partByOutput.put(key, new RecordedPart(name, isDirectory));
+                            } else if (!already.directory() && !isDirectory) {
+                                // ⛔ NOT THE CASE THIS RULE IS FOR. Two PACKAGED artifacts under one capability
+                                // are two different things, not two views of one, and collapsing them would
+                                // delete every package the second provides. Only the directory/jar pair is one
+                                // output seen twice.
+                                LOGGER.warn(" -- project {} contributes two packaged artifacts under one"
+                                            + " capability: {} and {}. Both kept.", projectId.getProjectPath(),
+                                        already.name(), name);
+                            } else if (!isDirectory) {
+                                LOGGER.info(" -- project {} already contributes the directory {}, so {} is not"
+                                            + " recorded a second time", projectId.getProjectPath(),
+                                        already.name(), name);
+                                continue;
+                            } else {
+                                LOGGER.info(" -- project {} contributes the directory {}, which replaces {}",
+                                        projectId.getProjectPath(), name, already.name());
+                                sourceSetsByName.remove(already.name());
+                                partByOutput.put(key, new RecordedPart(name, true));
+                            }
+                        }
                         SourceSet existing = sourceSetsByName.get(name);
                         if (existing == null) {
                             LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
@@ -234,10 +310,11 @@ public class ComputeSourceSets {
      * Lenient because most components have no such variant at all -- every external jar, and any project on
      * which the plugin was not applied. Those must be skipped silently and stay ordinary classpath parts.
      */
-    private Map<String, List<Path>> collectProjectSources(Project project, List<Configuration> configurations) {
+    private ProjectSources collectProjectSources(Project project, List<Configuration> configurations) {
         Category sourcesCategory = project.getObjects()
                 .named(Category.class, AnalyzerExtension.SOURCES_CATEGORY);
         Map<String, Set<Path>> byProject = new LinkedHashMap<>();
+        Map<String, String> pathByName = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (!configuration.isCanBeResolved()) continue;
             ArtifactView view = configuration.getIncoming().artifactView(v -> {
@@ -251,13 +328,14 @@ public class ComputeSourceSets {
                     if (file.isDirectory() && file.canRead()) {
                         byProject.computeIfAbsent(pci.getProjectName(), k -> new LinkedHashSet<>())
                                 .add(file.getAbsoluteFile().toPath().normalize());
+                        pathByName.putIfAbsent(pci.getProjectName(), pci.getProjectPath());
                     }
                 }
             }
         }
         byProject.forEach((name, paths) -> LOGGER.info(" -- project {} contributes sources {}", name, paths));
-        return byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new));
+        return new ProjectSources(byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
+                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new)), pathByName);
     }
 
     /**
@@ -269,8 +347,8 @@ public class ComputeSourceSets {
      * the user wants analyzed, and asking the sibling for its own setting would mean reading its extension,
      * i.e. the cross-project access this whole mechanism exists to avoid.
      */
-    private Result dependentProjectResult(String projectName, List<Path> paths, String restrictTo,
-                                          String encodingString, Path classOutput) {
+    private Result dependentProjectResult(String projectName, String projectPath, List<Path> paths,
+                                          String restrictTo, String encodingString, Path classOutput) {
         String sourceSetName = projectName + "/main";
         // ⛔ THE CLASS OUTPUT MATTERS MOST HERE, not least. The variant publishes source DIRECTORIES, so this
         // set's uri used to be the first of them -- and a dependent resolves into it through javac's class path,
@@ -279,9 +357,25 @@ public class ComputeSourceSets {
         // pulsar-common generates org.apache.pulsar.common.api.proto into a second, generated root and 64
         // diagnostics followed. The artifact the class path already carried is that output; see
         // inspectConfigurations, which now hands it over instead of discarding it.
-        // ⚠ sourceRelease stays 0: a sibling's compile task belongs to another project, and reading it is the
-        // cross-project access this whole mechanism exists to avoid.
-        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
+        // ⭐ buildUnit IS available, and it used to be null. It comes from the ProjectComponentIdentifier the
+        // consumer already holds -- no cross-project access at all -- and it is the field that GROUPS source
+        // sets into build units downstream. MEASURED on OpenSearch (2026-08-20, applyTo=all): 19 of 21 source
+        // sets arrived with buildUnit=null, sourceRelease=None and warningFlags=[], and a consumer that groups
+        // by build unit had nothing to group them by.
+        // ⛔⛔ THE OTHER THREE ARE STILL EMPTY, AND THE OBVIOUS FIX DOES NOT WORK. sourceRelease, addModules
+        // and the warning flags live on a JavaCompile task, and a sibling's task belongs to another project:
+        // reading it is the cross-project access this whole mechanism exists to avoid. Publishing them as an
+        // artifact on `maddiSourceElements`, beside the source directories, is the shape that suggests itself
+        // -- and it was written and then taken back out, because THIS METHOD RUNS AT CONFIGURATION TIME
+        // (AnalyzerPlugin computes `configurationJson` in a provider, "resolved at configuration/store time").
+        // A file only a task can produce does not exist yet at that point, so the consumer would read an
+        // absent file and get exactly the empty lists it has now. The two channels that could work -- writing
+        // the facts during configuration, or a shared BuildService keyed by project path -- are decisions,
+        // not repairs, and neither has been measured.
+        // ⚠ WHAT IT COSTS, measured on OpenSearch (2026-08-20, applyTo=all): 2 source sets of 21 carry any
+        // warning flag, and 19 arrive with sourceRelease=0 -- which silently reinstates "whatever JDK maddi
+        // happens to run on" for each of them.
+        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, projectPath, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
                 PluginOptions.splitToSetOrNull(restrictTo), 0, List.of(), List.of());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
@@ -408,8 +502,21 @@ public class ComputeSourceSets {
         // class path. Gradle's own destination for the java part of the set; a Kotlin set compiles to a sibling
         // directory that a single uri cannot also name.
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
+        SourceFacts facts = factsOf(project, gradleSourceSet);
         return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
-                test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet),
+                test, restrictToPackages, facts.sourceRelease(), facts.addModules(), facts.warningFlags());
+    }
+
+    /**
+     * What one source set's {@code JavaCompile} task says about its compilation, in one value.
+     *
+     * <p>⚠ <b>ONE EXTRACTION, ONE CALLER — FOR NOW.</b> It is a method rather than three inline calls because
+     * the second caller is already named: whatever channel eventually carries these facts to a SIBLING (see
+     * {@link #dependentProjectResult}) has to produce exactly this, and a second reading of "what does this
+     * compile task say" would be a second model that agrees until the day it does not.
+     */
+    static SourceFacts factsOf(Project project, org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        return new SourceFacts(sourceReleaseOf(project, gradleSourceSet),
                 addModulesOf(project, gradleSourceSet),
                 warningFlagsOf(project, gradleSourceSet));
     }
@@ -517,6 +624,29 @@ public class ComputeSourceSets {
      */
     private static String projectPartName(ProjectComponentIdentifier pci, File file) {
         return pci.getProjectPath() + "/" + file.getName();
+    }
+
+    /**
+     * What identifies ONE OUTPUT of a sibling project, so that the same output seen through two variants is
+     * recorded once.
+     *
+     * <p>⛔⛔ <b>THE PROJECT PATH ALONE IS THE WRONG KEY, AND IT WOULD DELETE TEST FIXTURES.</b> Gradle answers
+     * {@code compileClasspath} with a project's classes DIRECTORY and {@code runtimeClasspath} with its JAR —
+     * one output, two variants, and that pair is what has to collapse. But
+     * {@code testImplementation(testFixtures(project(":foo")))} puts a SECOND, genuinely different artifact of
+     * {@code :foo} on the same class path, and it differs from the first only by its CAPABILITY
+     * ({@code foo-test-fixtures} against {@code foo}). Keying on the project would collapse those two as well
+     * and silently remove every package the fixtures provide.
+     *
+     * <p>⚠ No corpus exercises the test-fixtures case; what stands behind it is the capability model and the
+     * fact that the failure would be silent. Said plainly rather than left to look measured.
+     */
+    private static String outputKey(ProjectComponentIdentifier pci, ResolvedArtifactResult rar) {
+        String capabilities = rar.getVariant().getCapabilities().stream()
+                .map(c -> c.getGroup() + ":" + c.getName())
+                .sorted()
+                .collect(Collectors.joining(","));
+        return pci.getProjectPath() + "|" + capabilities;
     }
 
 
