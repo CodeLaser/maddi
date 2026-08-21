@@ -412,6 +412,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         // flags: modifiers, type nature
         TypeInfo.Builder builder = typeInfo.builder();
+        // ⛔ THE SOURCE SCAN OWNS THIS TYPE'S HIERARCHY, AND SAYS SO WHERE THE CLASS SCANNER CAN SEE IT.
+        // Everything below appends -- addInterfaceImplemented, addAnnotation -- so any second writer doubles the
+        // list, and TypeInspectionImpl's distinctness assert then kills the compilation unit at commit() with
+        // "Extending multiple identical interfaces", naming the declaration and not the second writer.
+        // Claiming the shared, identity-keyed flag here does two things at once:
+        //   - a class-file load of this same TypeInfo LATER (another source set's on-demand load, a re-parse's
+        //     commitType) finds the claim taken and skips its setup block entirely;
+        //   - a class-file load that already ran, EARLIER, is undone: visitClass adopts the TypeInfo that load
+        //     registered (same FQN, same source set), so what it deposited has to go before we refill from source.
+        // That is the linear DEFINED_BY_CLASS_SCANNER/DEFINED_IN_SOURCE state ClassSymbolScanner's own STOPGAP
+        // note asks for, held on the shared registry rather than on either scanner.
+        // See docs/handoff-source-and-jar-duplicate-interfaces.md and TestPreloadBeforeSourceSymbols.
+        if (!typeData.markClassScannerSetupDone(typeInfo)) {
+            builder.clearInterfacesImplemented();
+            builder.clearAnnotations();
+        }
         flagHelper.type(jcClassDecl.sym, builder);
         builder.computeAccess();
 

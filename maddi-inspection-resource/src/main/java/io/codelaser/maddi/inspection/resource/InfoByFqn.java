@@ -52,7 +52,14 @@ public class InfoByFqn {
     // fresh identities on re-parse); library/JDK entries persist for the inspector's lifetime, as those types do.
     private final Set<TypeInfo> classScannerSetupDone = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    /** Returns true the first time this type's class-scanner setup runs; false on every later attempt (skip it). */
+    /**
+     * Returns true the first time this type's setup block is claimed; false on every later attempt (skip it).
+     * <p>
+     * ⭐ <b>The SOURCE scan claims it too</b> ({@code ScanCompilationUnit#continueType}), which is what makes this
+     * the linear "who defines this type" state rather than merely a re-entry guard: a source-defined type's
+     * hierarchy can no longer be built from a class file, in either order, in this parse or a later one. A source
+     * scan that finds the claim already taken knows a class-file load got there first and clears what it left.
+     */
     public boolean markClassScannerSetupDone(TypeInfo typeInfo) {
         return classScannerSetupDone.add(typeInfo);
     }
