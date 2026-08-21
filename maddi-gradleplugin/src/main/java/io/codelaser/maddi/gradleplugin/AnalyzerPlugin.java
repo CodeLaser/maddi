@@ -16,6 +16,7 @@ package io.codelaser.maddi.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.gradleplugin.inputconfig.SourceFactsFile;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.gradleplugin.task.AnalyzerTask;
 import io.codelaser.maddi.gradleplugin.task.WriteInputConfigurationTask;
@@ -33,6 +34,7 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.SourceSet;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -114,7 +116,17 @@ public class AnalyzerPlugin implements Plugin<Project> {
                     conf.setDescription("Source directories of " + project + ", for co-analysis by the maddi analyzer.");
                     conf.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE,
                             project.getObjects().named(Category.class, AnalyzerExtension.SOURCES_CATEGORY));
-                    conf.getOutgoing().artifacts(project.provider(() -> mainSourceDirectories(project)));
+                    // ⭐ THE FACTS FILE RIDES ALONG WITH THE SOURCE DIRECTORIES, and the provider is what
+                    // makes that legal: it runs when a CONSUMER RESOLVES this variant, which is after this
+                    // project has been configured, so the file exists by the time it is read. See
+                    // SourceFactsFile for the three shapes that were rejected -- in particular the one that
+                    // publishes a TASK's output, which does not exist at the consumer's configuration time.
+                    conf.getOutgoing().artifacts(project.provider(() -> {
+                        List<Object> artifacts = new ArrayList<>(mainSourceDirectories(project));
+                        File facts = SourceFactsFile.write(project);
+                        if (facts != null) artifacts.add(facts);
+                        return artifacts;
+                    }));
                 }));
     }
 
