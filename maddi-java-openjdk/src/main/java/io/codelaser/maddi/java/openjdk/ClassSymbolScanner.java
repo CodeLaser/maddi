@@ -245,7 +245,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // note: first put the type in typeData, only then load it... self-references are common!
                     put(enclosed);
                     loadType(cs, enclosed, LoadMode.LAZILY);
-                    owner.builder().addSubType(enclosed);
+                    // ⛔⛔ NAME THE SUBTYPE AND THE FILE IT CAME FROM. This is where a 21-source-set parse of
+                    // OpenSearch dies (12 errors in 11 units, 2026-08-20): the OWNER's inspection has already
+                    // been committed by an earlier source set, and `builder()` then refuses -- correctly. The
+                    // owner's name alone is the symptom; what identifies the case is WHICH member arrived and
+                    // from WHICH class file, because that says whether the type is on the class path as well
+                    // as in the source path, which is the only way one type can be inspected twice.
+                    try {
+                        owner.builder().addSubType(enclosed);
+                    } catch (RuntimeException re) {
+                        throw new UnsupportedOperationException("Cannot add member type "
+                                                                + enclosed.fullyQualifiedName()
+                                                                + ", loaded from class file " + cs.classfile
+                                                                + ", to " + owner.fullyQualifiedName()
+                                                                + ": " + re.getMessage(), re);
+                    }
                     return enclosed;
                 }
                 return inMap;
