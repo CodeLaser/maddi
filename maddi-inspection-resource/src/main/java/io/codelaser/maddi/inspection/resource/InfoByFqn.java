@@ -166,7 +166,15 @@ public class InfoByFqn {
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
-            assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet());
+            // A same-set overwrite is legal in exactly one case: the same jar re-read through a different
+            // class-file entry. A multi-release jar presents one FQN at both x/Y.class and
+            // META-INF/versions/N/x/Y.class, and javac selects PER SOURCE SET (--release follows
+            // SourceSet.sourceRelease()), so the reload in ClassSymbolScanner.classTypeInfo legitimately
+            // arrives here with both types in the jar's own set. Same set AND same URI stays a defect:
+            // nothing decided a reload, so someone committed the identical type twice.
+            assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())
+                    || !Objects.equals(prev.compilationUnit().uri(), typeInfo.compilationUnit().uri())
+                    : "type " + fqn + " committed twice from " + typeInfo.compilationUnit().uri();
             // all sub-types must be removed as well:
             // TODO would a TreeMap be more efficient here? We'd have to balance
             String prefix = typeInfo.fullyQualifiedName() + ".";
