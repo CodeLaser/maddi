@@ -102,9 +102,11 @@ public class ComputeSourceSets {
      * What {@link #collectProjectSources} found, keyed by project NAME: the source directories each sibling
      * publishes, and the project PATH that name belongs to.
      *
-     * <p>⭐ The path is here so that {@link #dependentProjectResult} can give a sibling its {@code buildUnit}.
-     * It is the one fact of the four a sibling used to lose that needs <b>no</b> cross-project access at all:
-     * {@code ProjectComponentIdentifier} carries it, and the consumer already has that identifier in hand.
+     * <p>⭐ The path is the sibling's IDENTITY path, so that {@link #dependentProjectResult} can give it a
+     * {@code buildUnit} that means the same thing as the analysed project's. It is the one fact of the four a
+     * sibling used to lose that needs <b>no</b> cross-project access at all: {@code ProjectComponentIdentifier}
+     * carries it, and the consumer already has that identifier in hand. See {@link #identityPathOf} for why
+     * the project path alone is not enough.
      *
      * <p>⚠ Keyed by NAME because the rest of this class is; two projects in one build may share a name and the
      * last one seen would win. Pre-existing, not introduced here, and worth knowing before anything depends on
@@ -328,7 +330,7 @@ public class ComputeSourceSets {
                     if (file.isDirectory() && file.canRead()) {
                         byProject.computeIfAbsent(pci.getProjectName(), k -> new LinkedHashSet<>())
                                 .add(file.getAbsoluteFile().toPath().normalize());
-                        pathByName.putIfAbsent(pci.getProjectName(), pci.getProjectPath());
+                        pathByName.putIfAbsent(pci.getProjectName(), identityPathOf(pci));
                     }
                 }
             }
@@ -622,6 +624,24 @@ public class ComputeSourceSets {
      * and {@code :b:util} are both {@code util}. The file name is kept as a suffix because one project may
      * contribute several directories (classes and resources) to one class path.
      */
+    /**
+     * The build unit of a SIBLING project: its identity path, which is what {@link #buildUnitOf} gives the
+     * analysed project.
+     *
+     * <p>⛔⛔ <b>NOT {@code getProjectPath()}, WHICH IS RELATIVE TO THE SIBLING'S OWN BUILD.</b> Measured on
+     * OpenSearch (2026-08-21, {@code applyTo=all}): the first version of this used the project path, and
+     * {@code missing-doclet} — the root project of an INCLUDED build — came out as {@code ":"}. Every included
+     * build has a root, so that value is ambiguous by construction, and it would have made two unrelated units
+     * one. The identity path is {@code <buildPath><projectPath>}, and it is what the analysed project's own
+     * source sets already carry, so the two sides finally agree.
+     */
+    private static String identityPathOf(ProjectComponentIdentifier pci) {
+        String buildPath = pci.getBuild().getBuildPath();
+        String projectPath = pci.getProjectPath();
+        if (buildPath == null || ":".equals(buildPath)) return projectPath;
+        return ":".equals(projectPath) ? buildPath : buildPath + projectPath;
+    }
+
     private static String projectPartName(ProjectComponentIdentifier pci, File file) {
         return pci.getProjectPath() + "/" + file.getName();
     }
