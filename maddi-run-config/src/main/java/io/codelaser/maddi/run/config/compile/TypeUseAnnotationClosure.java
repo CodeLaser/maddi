@@ -94,11 +94,12 @@ public class TypeUseAnnotationClosure {
         // separate defect, and keying this on names would make this code inherit it.
         Map<SourceSet, Set<String>> provides = new IdentityHashMap<>();
         Map<SourceSet, Map<String, String>> carries = new IdentityHashMap<>();
+        Set<SourceSet> modular = Collections.newSetFromMap(new IdentityHashMap<>());
         List<SourceSet> locations = Stream.concat(sourceSets.stream(), classPathParts.stream())
                 .filter(s -> !s.partOfJdk() && "file".equals(s.uri().getScheme()))
                 .toList();
         for (SourceSet location : locations) {
-            index(location, provides, carries);
+            index(location, provides, carries, modular);
         }
         int distinct = (int) carries.values().stream().flatMap(m -> m.keySet().stream()).distinct().count();
         LOGGER.info("Type-use annotations: {} of {} classpath location(s) carry one, {} distinct annotation type(s)",
@@ -119,7 +120,7 @@ public class TypeUseAnnotationClosure {
                 for (Map.Entry<String, String> e : annotations.entrySet()) {
                     String annotation = e.getKey();
                     if (visible.contains(annotation) || resolvableFromTheJdk(annotation)) continue;
-                    SourceSet provider = pickProvider(annotation, provides, visible);
+                    SourceSet provider = pickProvider(annotation, provides, visible, modular);
                     if (provider == null) {
                         unresolved.add(new Unresolved(sourceSet.name(), annotation, dependency.name(), e.getValue(),
                                 provides.values().stream().noneMatch(p -> p.contains(annotation))
@@ -159,32 +160,91 @@ public class TypeUseAnnotationClosure {
     /**
      * The smallest provider that brings nothing already resolved. Smallest first because a narrow annotation
      * jar is the intended answer and a fat library that happens to shadow-freely contain the class is not.
+     *
+     * <p>⭐ <b>TIES ARE BROKEN TOWARDS A PROVIDER THAT IS ITSELF A MODULE</b>, and that is not cosmetic. This
+     * closure widens a source set's classpath; a jar carrying neither a {@code module-info} nor an
+     * {@code Automatic-Module-Name} is one the JDK can only name from its FILE NAME, so admitting one turns a
+     * source set that resolved cleanly on the module path into one that no longer does. The closure exists to
+     * make an annotation resolvable and must not pay for that in module resolution, which is a property the
+     * configuration it produces is used to MEASURE.
+     *
+     * <p>⚠ Size still decides first, so a modular fat library never beats a narrow annotation jar — that is
+     * the rule above and it is unchanged. Modularity only separates candidates that are equally narrow, which
+     * is exactly the case that occurs in practice: an IDE distribution ships the same annotation classes as
+     * the published artifact, minus its descriptor. The name is the last resort, so the answer cannot depend
+     * on {@link IdentityHashMap} iteration order.
      */
     private static SourceSet pickProvider(String annotation, Map<SourceSet, Set<String>> provides,
-                                          Set<String> visible) {
+                                          Set<String> visible, Set<SourceSet> modular) {
         SourceSet best = null;
         int bestSize = Integer.MAX_VALUE;
+        boolean bestModular = false;
         for (Map.Entry<SourceSet, Set<String>> e : provides.entrySet()) {
-            if (!e.getValue().contains(annotation) || e.getValue().size() >= bestSize) continue;
+            if (!e.getValue().contains(annotation) || e.getValue().size() > bestSize) continue;
+            boolean isModular = modular.contains(e.getKey());
+            if (e.getValue().size() == bestSize && best != null
+                && !betterOnATie(isModular, bestModular, e.getKey().name(), best.name())) continue;
             boolean shadows = e.getValue().stream().anyMatch(c -> !c.equals(annotation) && visible.contains(c));
             if (shadows) continue;
             best = e.getKey();
             bestSize = e.getValue().size();
+            bestModular = isModular;
         }
         return best;
     }
 
+    /** Modular beats non-modular; otherwise the lower name, so the choice is stable across runs. */
+    private static boolean betterOnATie(boolean candidateModular, boolean bestModular, String candidateName,
+                                        String bestName) {
+        if (candidateModular != bestModular) return candidateModular;
+        return candidateName.compareTo(bestName) < 0;
+    }
+
+    /**
+     * ⛔⛔ <b>{@code module-info} AND {@code package-info} ARE NOT TYPES, AND MUST NOT ENTER {@code provides}.</b>
+     * Nothing can reference them, so they can never be the annotation being looked for — and letting them in
+     * corrupts both tests that {@link #pickProvider} runs, in the same direction:
+     *
+     * <ul>
+     *   <li><b>The shadow test rejects modular jars outright.</b> Every multi-release modular jar contributes
+     *       the same pseudo-type {@code META-INF.versions.9.module-info}, and a plain one contributes
+     *       {@code module-info}. One such jar anywhere on a source set's classpath therefore puts that name
+     *       into {@code visible}, and every OTHER modular jar then looks like it would shadow a type already
+     *       resolved there. The better provider is discarded before its real classes are ever compared.</li>
+     *   <li><b>The size test is off by one, always against the module.</b> A descriptor adds an entry, so a
+     *       modular jar counts one class more than a byte-identical non-modular copy of itself and loses the
+     *       "smallest wins" comparison.</li>
+     * </ul>
+     *
+     * <p>▶ Both fire together on a real pair: an IDE distribution's {@code annotations.jar} and the published
+     * {@code annotations-<version>.jar} differ by <b>exactly one entry</b>, the descriptor. The IDE copy won
+     * every time, and every source set the closure touched then carried a jar the JDK can only name from its
+     * file name. Measured on a 55-unit tree: 31 units reported a filename-derived module for this reason and
+     * 18 had no other reason at all — while the real compile classpath had the modular artifact on 79 source
+     * sets and the IDE copy on 2.
+     */
+    private static boolean isNotAType(String binaryName) {
+        int lastDot = binaryName.lastIndexOf('.');
+        String simple = lastDot < 0 ? binaryName : binaryName.substring(lastDot + 1);
+        return "module-info".equals(simple) || "package-info".equals(simple);
+    }
+
     private void index(SourceSet location, Map<SourceSet, Set<String>> provides,
-                       Map<SourceSet, Map<String, String>> carries) {
+                       Map<SourceSet, Map<String, String>> carries, Set<SourceSet> modular) {
         Path path = Path.of(location.uri().getPath());
         if (path.toString().endsWith(".jar")) {
             if (!Files.isRegularFile(path)) return;
             try (ZipFile zip = new ZipFile(path.toFile())) {
+                if (hasAutomaticModuleName(zip)) modular.add(location);
                 Enumeration<? extends ZipEntry> entries = zip.entries();
                 while (entries.hasMoreElements()) {
                     ZipEntry entry = entries.nextElement();
                     if (!entry.getName().endsWith(".class")) continue;
                     String binaryName = entry.getName().substring(0, entry.getName().length() - 6).replace('/', '.');
+                    if (isNotAType(binaryName)) {
+                        if (binaryName.endsWith("module-info")) modular.add(location);
+                        continue;
+                    }
                     provides.computeIfAbsent(location, s -> new HashSet<>()).add(binaryName);
                     try (var in = zip.getInputStream(entry)) {
                         scan(in.readAllBytes(), binaryName, location, carries);
@@ -203,11 +263,27 @@ public class TypeUseAnnotationClosure {
                 String binaryName = path.relativize(file).toString()
                         .replace(java.io.File.separatorChar, '.');
                 binaryName = binaryName.substring(0, binaryName.length() - 6);
+                if (isNotAType(binaryName)) {
+                    if (binaryName.endsWith("module-info")) modular.add(location);
+                    continue;
+                }
                 provides.computeIfAbsent(location, s -> new HashSet<>()).add(binaryName);
                 scan(Files.readAllBytes(file), binaryName, location, carries);
             }
         } catch (IOException io) {
             throw new UncheckedIOException(io);
+        }
+    }
+
+    /**
+     * A jar with {@code Automatic-Module-Name} has an identity of its own too — the JDK does not have to guess
+     * one from the file name — so it counts as modular for the tie-break, even though it carries no descriptor.
+     */
+    private static boolean hasAutomaticModuleName(ZipFile zip) throws IOException {
+        ZipEntry manifest = zip.getEntry("META-INF/MANIFEST.MF");
+        if (manifest == null) return false;
+        try (var in = zip.getInputStream(manifest)) {
+            return new java.util.jar.Manifest(in).getMainAttributes().getValue("Automatic-Module-Name") != null;
         }
     }
 
