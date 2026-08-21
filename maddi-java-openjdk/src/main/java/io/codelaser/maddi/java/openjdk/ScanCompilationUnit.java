@@ -362,7 +362,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 known = typeStack.getLast().findSubType(simpleName, false);
             }
 
-            if (known != null && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
+            // ⛔ A STUB IS NOT "ALREADY CREATED BECAUSE OF THE ORDER", AND IT HAS NO SOURCE SET TO COMPARE.
+            // ClassSymbolScanner mints one (ClassSymbolScanner#isStub, InfoByFqn#isStub, GAP #163) when a class
+            // file names a type the CURRENT source set's class path cannot resolve -- and the very same type is
+            // routinely the SOURCE of a LATER source set, which is this scan. Reaching its own declaration, the
+            // lookup by name found the stub and called sourceSet().equals() on it: NPE, and the compilation unit
+            // dropped. Falling through builds the real TypeInfo on this file's own CompilationUnit, and
+            // InfoByFqn.put then applies the rule it already states -- "a properly loaded type DOES displace a
+            // stub, silently". Measured on the CodeLaser tree 2026-08-21: two stubs minted while scanning
+            // codelaser-metrics-textindex/main (which reads ProjectData from a class file without
+            // codelaser-metrics-common on its class path) made codelaser-metrics-common and
+            // codelaser-metrics-dataflow unparseable. See TestStubMeetsItsOwnSource.
+            if (known != null && !ClassSymbolScanner.isStub(known)
+                && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
                 typeInfo = known; // was already created because of the order
             } else {
                 if (typeStack.isEmpty()) {

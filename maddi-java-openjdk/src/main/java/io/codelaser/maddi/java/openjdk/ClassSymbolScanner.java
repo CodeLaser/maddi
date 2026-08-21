@@ -284,6 +284,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
+    /**
+     * ⛔ <b>NO SOURCE SET IS THE STUB PREDICATE</b> — GAP #163, and {@code InfoByFqn#isStub} says the same thing in
+     * the registry. This class is where stubs are minted ({@code newCompilationUnitStub}, logged as "Creating stub
+     * type for …"): a name a class file mentions and the CURRENT source set's class path cannot resolve. It is a
+     * placeholder, not a definition, and every reader that finds one by name has to know that.
+     * <p>
+     * Named here, package-private, because three sites in this package have to ask the question and each of them
+     * learned it the hard way: {@link #classTypeInfo} (trino, 2026-08-13, stub shadowing a loadable class file) and
+     * {@code ScanCompilationUnit#visitClass} (CodeLaser, 2026-08-21, stub meeting its own source in a later source
+     * set — see {@code TestStubMeetsItsOwnSource}). Spelling it out beats {@code sourceSet() == null} at the fourth.
+     */
+    static boolean isStub(TypeInfo typeInfo) {
+        return typeInfo.compilationUnit().sourceSet() == null;
+    }
+
     // A method-owned anonymous class whose declaration is not (yet) known: create a minimal stub so a reference
     // to it (e.g. a member reference whose inferred type is the anonymous, resolved before the anonymous's own
     // 'new(){}' node is scanned) resolves. If the declaration is already known, reuse it. The stub is deliberately
@@ -1822,9 +1837,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 } else {
                     typeInfo = known;
                 }
-            } else if (knownCu.sourceSet() == null && (topCs = primary(cs)).classfile != null) {
+            } else if (isStub(known) && (topCs = primary(cs)).classfile != null) {
                 // ⛔ A STUB MUST NOT SHADOW THE REAL TYPE ONCE A LATER SOURCE SET CAN RESOLVE IT.
-                // 'sourceSet() == null' IS the stub predicate (InfoByFqn#isStub): ClassSymbolScanner mints one
+                // 'sourceSet() == null' IS the stub predicate (isStub, InfoByFqn#isStub): ClassSymbolScanner mints one
                 // when a class file names a type absent from the CURRENT source set's class path. Source sets are
                 // scanned in turn and each has its own class path, so the very same type is routinely resolvable
                 // in a later one -- and until now the stub, found by name, was simply returned instead.
