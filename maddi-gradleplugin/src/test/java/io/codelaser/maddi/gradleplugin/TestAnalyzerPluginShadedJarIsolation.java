@@ -49,10 +49,10 @@ public class TestAnalyzerPluginShadedJarIsolation {
 
     @Test
     public void shadedPluginResolvesAndRunsFromLocalRepo(@TempDir Path projectDir) throws IOException {
-        String localRepo = System.getProperty("e2immu.localPluginRepo");
-        assertNotNull(localRepo, "system property e2immu.localPluginRepo must be set by the build");
-        String pluginVersion = System.getProperty("e2immu.pluginVersion");
-        assertNotNull(pluginVersion, "system property e2immu.pluginVersion must be set by the build");
+        String localRepo = System.getProperty("maddi.localPluginRepo");
+        assertNotNull(localRepo, "system property maddi.localPluginRepo must be set by the build");
+        String pluginVersion = System.getProperty("maddi.pluginVersion");
+        assertNotNull(pluginVersion, "system property maddi.pluginVersion must be set by the build");
 
         String repoUri = Path.of(localRepo).toUri().toString();
         // Resolve the plugin ONLY from the local repo (no withPluginClasspath, no other repositories),
@@ -70,7 +70,7 @@ public class TestAnalyzerPluginShadedJarIsolation {
                     java
                     id("io.codelaser.maddi.analyzer") version "%s"
                 }
-                e2immu {
+                maddi {
                     jmods = "java.base"
                     analysisSteps = "modification"
                     sourcePackages = "com.example"
@@ -88,12 +88,12 @@ public class TestAnalyzerPluginShadedJarIsolation {
 
         BuildResult result = GradleRunner.create()
                 .withProjectDir(projectDir.toFile())
-                .withArguments("e2immu-analyzer", "--stacktrace", "--info")
+                .withArguments("maddi-analyzer", "--stacktrace", "--info")
                 .forwardOutput()
                 .build();
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":e2immu-analyzer").getOutcome());
-        Path results = projectDir.toRealPath().resolve("build/e2immu");
+        assertEquals(TaskOutcome.SUCCESS, result.task(":maddi-analyzer").getOutcome());
+        Path results = projectDir.toRealPath().resolve("build/maddi");
         assertTrue(Files.isDirectory(results), "expected results directory " + results);
         try (var stream = Files.walk(results)) {
             assertTrue(stream.anyMatch(p -> p.getFileName().toString().endsWith(".json")),

@@ -52,7 +52,14 @@ public class InfoByFqn {
     // fresh identities on re-parse); library/JDK entries persist for the inspector's lifetime, as those types do.
     private final Set<TypeInfo> classScannerSetupDone = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    /** Returns true the first time this type's class-scanner setup runs; false on every later attempt (skip it). */
+    /**
+     * Returns true the first time this type's setup block is claimed; false on every later attempt (skip it).
+     * <p>
+     * ⭐ <b>The SOURCE scan claims it too</b> ({@code ScanCompilationUnit#continueType}), which is what makes this
+     * the linear "who defines this type" state rather than merely a re-entry guard: a source-defined type's
+     * hierarchy can no longer be built from a class file, in either order, in this parse or a later one. A source
+     * scan that finds the claim already taken knows a class-file load got there first and clears what it left.
+     */
     public boolean markClassScannerSetupDone(TypeInfo typeInfo) {
         return classScannerSetupDone.add(typeInfo);
     }
@@ -166,7 +173,15 @@ public class InfoByFqn {
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
-            assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet());
+            // A same-set overwrite is legal in exactly one case: the same jar re-read through a different
+            // class-file entry. A multi-release jar presents one FQN at both x/Y.class and
+            // META-INF/versions/N/x/Y.class, and javac selects PER SOURCE SET (--release follows
+            // SourceSet.sourceRelease()), so the reload in ClassSymbolScanner.classTypeInfo legitimately
+            // arrives here with both types in the jar's own set. Same set AND same URI stays a defect:
+            // nothing decided a reload, so someone committed the identical type twice.
+            assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())
+                    || !Objects.equals(prev.compilationUnit().uri(), typeInfo.compilationUnit().uri())
+                    : "type " + fqn + " committed twice from " + typeInfo.compilationUnit().uri();
             // all sub-types must be removed as well:
             // TODO would a TreeMap be more efficient here? We'd have to balance
             String prefix = typeInfo.fullyQualifiedName() + ".";

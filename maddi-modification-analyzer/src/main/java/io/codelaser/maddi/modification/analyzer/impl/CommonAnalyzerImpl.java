@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class CommonAnalyzerImpl {
-    public static final Logger DECIDE = LoggerFactory.getLogger("e2immu.modanalyzer.decide");
-    public static final Logger UNDECIDED = LoggerFactory.getLogger("e2immu.modanalyzer.delay");
+    public static final Logger DECIDE = LoggerFactory.getLogger("maddi.modanalyzer.decide");
+    public static final Logger UNDECIDED = LoggerFactory.getLogger("maddi.modanalyzer.delay");
 
     protected final IteratingAnalyzer.Configuration configuration;
     protected final AtomicInteger propertyChanges;

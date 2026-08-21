@@ -448,6 +448,23 @@ tasks:
   config:fernflower:
     desc: 'fernflower config (Gradle compile-log)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: fernflower, TASKS: 'compileJava compileTestJava' } }]
+  # --- Gradle plugin path: the A/B twin, and the ONLY thing that measures maddi-gradleplugin
+  # against a project that is not maddi's own code. Writes inputConfiguration.PLUGIN.json beside
+  # the compile-log one; diff the two, then compare `catalogue.py baseline` for both entries --
+  # they are expected to differ in SHAPE and to agree on what PARSES.
+  config:fernflower-plugin:
+    desc: 'fernflower config via the maddi GRADLE PLUGIN (A/B twin of config:fernflower)'
+    deps: [config:plugin]
+    cmds: [{ task: _config:catalogue, vars: { NAME: fernflower-plugin } }]
+
+  # ⛔ THE ONE THAT MATTERS. fernflower is a single-project build, so it cannot reach anything the
+  # plugin does BETWEEN projects -- and four of its five 2026-08-19 defects lived there.
+  # `:managed-ledger` has 7 sibling projects and is where they were measured.
+  config:pulsar-plugin:
+    desc: 'pulsar :managed-ledger config via the maddi GRADLE PLUGIN (A/B twin of config:pulsar)'
+    deps: [config:plugin]
+    cmds: [{ task: _config:catalogue, vars: { NAME: pulsar-plugin } }]
+
   config:elasticsearch:
     desc: 'elasticsearch config (Gradle compile-log, ~27 source sets)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: elasticsearch, TASKS: 'compileTestJava' } }]
@@ -615,6 +632,29 @@ tasks:
       - 'echo ">>> {{.NAME}}: maddi-kotlin --compile-log -> inputConfiguration.json"'
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-kotlin:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+
+  # ⛔ THE COMMAND IS catalogue.py's, NOT A SECOND COPY OF IT. Every other `_config:*` helper spells
+  # its route out in YAML, which was fine while the catalogue only described a route and the Taskfile
+  # ran it. The `gradle-plugin` route is built by `catalogue.py plan` -- init script, jmods,
+  # `config.output`, a build's own `gradle_args` -- and re-spelling that here is how the two would
+  # come to disagree about which file the entry writes. Ask the product.
+  _config:catalogue:
+    internal: true
+    requires: { vars: [NAME] }
+    cmds:
+      - 'echo ">>> {{.NAME}}: catalogue route $(python3 {{.TASKFILE_DIR}}/scripts/catalogue.py show {{.NAME}} | sed -n ''s/.*"route": "\([^"]*\)".*/\1/p'')"'
+      # `env -u GRADLE_USER_HOME`: a corpus builds with its OWN Gradle home, never the workspace's.
+      # `dir:` is not set here -- catalogue.py emits absolute paths for everything it writes, and the
+      # build tool must run in the project, which `cd` below does from the entry's own `dir`.
+      # ⛔ MADDI_PLUGIN_VERSION IS EXPORTED HERE, not inherited. It is a Task VAR, and catalogue.py
+      # reads the ENVIRONMENT -- so without this the plan comes out asking for
+      # `io.codelaser:maddi-gradleplugin:` with an empty version and Gradle fails at resolution. The
+      # var is only in the environment at all when someone sets it by hand, which is exactly how this
+      # route was driven before it had a task.
+      - |
+        cd "$(python3 {{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" &&
+        MADDI_PLUGIN_VERSION='{{.MADDI_PLUGIN_VERSION}}' \
+        env -u GRADLE_USER_HOME bash -c "$(MADDI_PLUGIN_VERSION='{{.MADDI_PLUGIN_VERSION}}' python3 {{.TASKFILE_DIR}}/scripts/catalogue.py plan config {{.NAME}})"
 
   _config:gradle-log:
     internal: true

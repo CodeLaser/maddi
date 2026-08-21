@@ -15,6 +15,7 @@
 package io.codelaser.maddi.gradleplugin.inputconfig;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.file.SourceDirectorySet;
@@ -27,6 +28,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +40,76 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestComputeSourceSets {
+
+    /**
+     * The order configurations are read in, which is the order a shared class-path part is CLAIMED in:
+     * first sighting wins, and the recorder's name is where {@code test}/{@code runtimeOnly} come from.
+     *
+     * <p>⛔⛔ THE TIEBREAK COMPARED {@code n1} TWICE AND NEVER FIRED. It fell through to alphabetical, which
+     * agrees for the standard names and disagrees for every non-test configuration sorting after "test" --
+     * OpenSearch's {@code zip}, {@code jarHell}, {@code jdkJarHell}, {@code jacocoAgent},
+     * {@code missingdoclet}. Priced before repairing: 93 of 214 projects change order, 0 parts change flags.
+     */
+    @Test
+    public void aNonTestConfigurationIsReadFirstEvenWhenItSortsLast() {
+        List<String> names = new ArrayList<>(List.of("testCompileClasspath", "zip", "compileClasspath",
+                "testRuntimeClasspath", "runtimeClasspath", "jarHell", "annotationProcessor"));
+        names.sort(ComputeSourceSets.CONFIGURATION_ORDER);
+
+        assertEquals(List.of(
+                // production, non-test, alphabetical -- `zip` before `testCompileClasspath` is the repair
+                "annotationProcessor", "compileClasspath", "jarHell", "zip", "testCompileClasspath",
+                // ...then everything runtime-only, non-test first
+                "runtimeClasspath", "testRuntimeClasspath"), names);
+    }
+
+
+    /**
+     * ⛔⛔ THE ANALYSED PROJECT'S OWN VIEW OF A SOURCE SET MUST WIN OVER A DEPENDENT'S VIEW OF THE SAME SET.
+     * The two records describe one set and only one of them can see the compile task: the project's own carries
+     * {@code buildUnit}, {@code sourceRelease}, {@code addModules}, {@code warningFlags} and a class-OUTPUT uri,
+     * while {@code dependentProjectResult} passes {@code null}, {@code 0} and empty lists BY DESIGN, because a
+     * sibling's compile task belongs to another project. Merging the dependents last let the sibling-shaped
+     * record overwrite the real one -- and the project is one of its OWN dependents, because with the plugin
+     * applied it publishes {@code maddiSourceElements} and then resolves that variant through its own
+     * configurations.
+     * <p>
+     * ⚠ MEASURED on OpenSearch {@code :libs:opensearch-common} (2026-08-20): its {@code uri} came out as
+     * {@code build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar}, which does not exist, so the test set
+     * could not resolve into main at all -- "112 type(s) were parsed from it ... the compilation units holding
+     * them are dropped". None of the 11 tests in this module could see it; only a corpus could.
+     */
+    @Test
+    public void theProjectsOwnSourceSetWinsOverADependentsViewOfIt() {
+        SourceSet own = new SourceSetImpl.Builder()
+                .setName("p/main")
+                .setUri(URI.create("file:/p/build/classes/java/main/"))
+                .setBuildUnit(":p")
+                .setSourceRelease(21)
+                .setAddModules(List.of("jdk.incubator.vector"))
+                .setWarningFlags(List.of("-Xlint:cast"))
+                .build();
+        // exactly what dependentProjectResult produces for a SIBLING: it cannot reach another project's task
+        SourceSet asSeenByADependent = new SourceSetImpl.Builder()
+                .setName("p/main")
+                .setUri(URI.create("file:/p/build/distributions/p-1.0.jar"))
+                .build();
+
+        ComputeSourceSets.Result dependent = new ComputeSourceSets.Result("p/main",
+                Map.of("p/main", asSeenByADependent), List.of(), Map.of());
+        ComputeSourceSets.Result result = new ComputeSourceSets.Result("p/main",
+                Map.of("p/main", own), List.of(dependent), Map.of());
+
+        SourceSet merged = result.allSourceSetsByName().get("p/main");
+        assertNotNull(merged);
+        assertEquals(":p", merged.buildUnit(), "the project's own record must win");
+        assertEquals(21, merged.sourceRelease());
+        assertEquals(List.of("jdk.incubator.vector"), merged.addModules(),
+                "losing this loses the flag, and every type in that module stops resolving");
+        assertEquals(List.of("-Xlint:cast"), merged.warningFlags());
+        assertTrue(merged.uri().toString().endsWith("/classes/java/main/"),
+                "the uri must be the class output, not the distribution jar");
+    }
 
     @Test
     public void test() {

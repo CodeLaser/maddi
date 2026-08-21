@@ -37,7 +37,7 @@ Both interface and implementation must be analyzed *as source*: a jar type never
 abstract-method batch, so nothing an implementation computes can travel up to its interface — and by
 the hierarchy rule an undecided or mutable supertype then drags every implementation down again.
 Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the plugin's
-`e2immuSourceElements` variant is for.
+`maddiSourceElements` variant is for.
 
 How to run
 ----------
@@ -67,7 +67,7 @@ a real change does. A file-by-file diff of two dogfood runs is noise that looks 
 ```console
 $ ./gradlew :maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository
 $ ./gradlew build                                    # the dependency jars must exist
-$ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:e2immu-write-input-configuration
+$ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:maddi-write-input-configuration
 $ cd .. && ./gradlew :maddi-run-openjdk:run --args="\
     --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
     --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/log \

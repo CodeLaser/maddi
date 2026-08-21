@@ -1,0 +1,25 @@
+name: camel
+status: active
+summary: >-
+  Maven, very large reactor, one module parsed (core/camel-core-model). No parse test consumes it
+  yet; the baseline below is what watches it.
+
+source:
+  kind: git
+  url: https://github.com/apache/camel.git
+
+build:
+  cmd: mvn install -DskipTests
+  expect: complete
+  provides:
+    - core/camel-core-model/target/classes
+
+config:
+  route: maven-plugin
+  module: core/camel-core-model
+  baseline: baselines/camel.tsv
+  generates: [inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  steps: [modification]

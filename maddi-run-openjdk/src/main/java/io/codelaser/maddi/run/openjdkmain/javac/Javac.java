@@ -1,11 +1,13 @@
 package io.codelaser.maddi.run.openjdkmain.javac;
 
 import io.codelaser.maddi.run.config.compile.CompileInvocation;
+import io.codelaser.maddi.run.config.util.PluginSourceSets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -23,7 +25,8 @@ public record Javac(int sourceRelease,
                     List<String> processorPath,
                     String annotationProcessing,
                     String encoding,
-                    List<String> addModules) implements CompileInvocation {
+                    List<String> addModules,
+                    List<String> warningFlags) implements CompileInvocation {
     public static class Builder {
         int sourceRelease;
         int targetRelease;
@@ -40,13 +43,14 @@ public record Javac(int sourceRelease,
 
         String encoding;
         List<String> addModules = List.of();
+        Set<String> warningFlags = new LinkedHashSet<>();
 
         public Javac build() {
             return new Javac(sourceRelease, targetRelease, release,
                     destination, generatedHeadersDestination, generatedSourceFilesDestination,
                     classpath, modulePath, sourcePath, List.copyOf(sourceFiles),
                     processorPath, annotationProcessing,
-                    encoding, addModules);
+                    encoding, addModules, List.copyOf(warningFlags));
         }
     }
 
@@ -77,6 +81,12 @@ public record Javac(int sourceRelease,
             String option = split[i];
             if (option.endsWith(".java")) {
                 builder.sourceFiles.add(option);
+            } else if (PluginSourceSets.isWarningFlag(option)) {
+                // ⛔ BEFORE the -X branch below, which would swallow every -Xlint in silence. -Werror and -nowarn
+                // would fall through to the final `else` and be logged as unknown. This is javac's OWN line, so
+                // what it records is what the build actually passed -- after Gradle's root append and every
+                // subproject's subtraction, which is the only place that arithmetic can be observed.
+                builder.warningFlags.add(option.trim());
             } else if (option.startsWith("-X") || option.startsWith("-J")) {
                 LOGGER.debug("Ignoring -X,-J {}", option);
             } else if (isLongOptionWithEquals(option)) {

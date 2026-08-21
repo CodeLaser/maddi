@@ -7,9 +7,10 @@ levels, modification, linking, independence), read
 [`road-to-immutability/llm-summary.md`](road-to-immutability/llm-summary.md) first — this document
 deliberately does not repeat it.
 
-> Historical note: the root Java package is `org.e2immu.*`, after the project's predecessor.
-> The project, artifacts and distributions are all named **maddi**. Do not "fix" package names
-> ad hoc; a coordinated rename is planned.
+> Historical note: the root Java package was `org.e2immu.*`, after the project's predecessor. The
+> coordinated rename landed on 2026-08-17 and ships in 0.9.1: it is now `io.codelaser.maddi.*`, in
+> line with the project, artifacts and distributions, which were already named **maddi**. What an
+> existing user has to change is in [`docs/release-notes-0.9.1.md`](docs/release-notes-0.9.1.md).
 
 ## The pipeline
 
@@ -147,8 +148,7 @@ metrics until it was found.
 | `maddi-manual` | The user-facing manual (AsciiDoc → HTML/PDF): getting started, plugins, CLI, configuration, exit codes. |
 | `road-to-immutability` | The concepts book (AsciiDoc) + its maintained digest `llm-summary.md`. |
 
-Not in the Gradle build: `testgradleplugin-*` and `testmvnplugin-export` (plugin test fixtures,
-currently excluded/Maven-based), `maddi-eclipse` (Tycho), `maddi-vscode` (npm), `target/`
+Not in the Gradle build: `maddi-eclipse` (Tycho), `maddi-vscode` (npm), `target/`
 (JReleaser staging output).
 
 ## What is published, and for whom

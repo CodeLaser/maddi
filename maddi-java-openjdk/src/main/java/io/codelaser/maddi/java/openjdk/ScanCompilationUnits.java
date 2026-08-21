@@ -144,6 +144,29 @@ public class ScanCompilationUnits {
         // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
         List<CompilationUnitFailure> failures = new ArrayList<>();
 
+        // ⛔ BEFORE ANY TYPE IS LOADED, INCLUDING THE PRELOAD. This map is the scanner's only way to tell a
+        // symbol javac entered FROM THIS TASK'S SOURCES from one it read out of a class file, and
+        // ClassSymbolScanner.isSourceSymbol reads it. It used to be published AFTER the preload below, where it
+        // was still null -- and a null map answered "not a source symbol" for every question asked during the
+        // preload.
+        // ⚠ Measured: a preloaded class-path type annotated with an annotation this very source set declares
+        // (io.codelaser.jfocus.transform.support carrying maddi's own @Fluent/@NotModified) resolves that
+        // annotation to its SOURCE symbol, the guard read null, and the scanner built the source type's
+        // hierarchy -- which ScanCompilationUnit.visitClass then adopts and builds a second time, so commit()
+        // died on "Extending multiple identical interfaces". Five of maddi-annotation's twenty-seven types, in
+        // the FIRST source set of the whole-CodeLaser-tree parse, because the preload runs only there.
+        // See TestPreloadBeforeSourceSymbols and docs/handoff-source-and-jar-duplicate-interfaces.md.
+        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols
+                = StreamSupport.stream(units.spliterator(), false)
+                .flatMap(unit -> unit.getTypeDecls().stream()
+                        .filter(td -> td instanceof JCTree.JCClassDecl)
+                        .map(td -> ((JCTree.JCClassDecl) td).sym))
+                .collect(Collectors.toMap(cs -> cs, _ -> true, (_, _) -> {
+                            throw new RuntimeException();
+                        },
+                        IdentityHashMap::new));
+        classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
+
         // only index in the first pass; in the second pass, all predefined objects will be present
         List<TypeInfo> preloads;
         if (!runtime.objectTypeInfo().hasBeenInspected()) {
@@ -161,16 +184,9 @@ public class ScanCompilationUnits {
         } else {
             preloads = List.of();
         }
-        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols
-                = StreamSupport.stream(units.spliterator(), false)
-                .flatMap(unit -> unit.getTypeDecls().stream()
-                        .filter(td -> td instanceof JCTree.JCClassDecl)
-                        .map(td -> ((JCTree.JCClassDecl) td).sym))
-                .collect(Collectors.toMap(cs -> cs, _ -> true, (_, _) -> {
-                            throw new RuntimeException();
-                        },
-                        IdentityHashMap::new));
-        classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
+        // AFTER the preload, which is where this clear has always been: see
+        // ClassSymbolScanner#startOfNewSourceSet for what moving it ahead of the preload changes.
+        classSymbolScanner.startOfNewSourceSet();
 
         // Task 1 (detailed sources only): compute each unit's congocc scan result. It is javac-free, hence safe to
         // run in parallel; we barrier on all results before touching javac again. Source content is extracted on

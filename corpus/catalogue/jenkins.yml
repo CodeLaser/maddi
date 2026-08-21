@@ -1,0 +1,36 @@
+name: jenkins
+status: active
+summary: >-
+  Maven, one module parsed (core) — this is what TestJenkinsCore consumes.
+
+source:
+  kind: git
+  url: https://github.com/jenkinsci/jenkins.git
+
+build:
+  # ⚠ THE SAME FLAGS ARE NEEDED TWICE. jenkins ships a `.mvn/maven.config` that activates a profile
+  # carrying an enforcer rule the pinned enforcer cannot load; the build phase and the config phase
+  # are separate `mvn` invocations and neither inherits the other's switches.
+  cmd: mvn install -DskipTests -Dlicense.disableCheck -Denforcer.skip=true
+  expect: complete
+  provides:
+    - core/target/classes
+
+config:
+  route: maven-plugin
+  module: core
+  mvn_flags: -Denforcer.skip=true
+
+  # ⛔⛔ THIS ENTRY IS THE REASON THE OTHER TWO EXIST. Until 2026-08-19 jenkins was a Taskfile task
+  # with no catalogue entry, so it had no baseline — and its configuration carried no
+  # `sourceRelease`, which meant core parsed against whatever JDK maddi happened to be rather than
+  # against 21. It had been failing with 100 errors (the ErrorReport cap, so at least 100) at exit
+  # code 0, because `--analysis-steps=none` returns 0 whether or not the sources parse. Nothing
+  # reported it. A recorded baseline is the instrument that would have.
+  baseline: baselines/jenkins.tsv
+  generates: [inputConfiguration.json]
+
+parse:
+  runner: openjdk
+  test: TestJenkinsCore
+  steps: [modification]

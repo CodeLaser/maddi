@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * targets for sources:
  * <ul>
  *     <li>multiple directories in a source set (DONE)</li>
- *     <li>source sets beyond main, test in the same project (e.g. functionalTest in testgradlepluginanalyzer (DONE)</li>
+ *     <li>source sets beyond main, test in the same project (e.g. functionalTest) (DONE)</li>
  *     <li>dependent source project in multi-project build (DONE, see {@code collectProjectSources})</li>
  *     <li>dependent source projects in composite build (TODO, current attempts have failed)</li>
  * </ul>
@@ -68,11 +68,60 @@ public class ComputeSourceSets {
     public record Result(String mainSourceSetName, Map<String, SourceSet> sourceSetsByName,
                          List<Result> sourceSetDependencies,
                          Map<String, Set<String>> sourceProjectEdges) {
+        /**
+         * ⛔⛔ <b>THE ANALYSED PROJECT'S OWN VIEW OF A SOURCE SET WINS, AND IT USED TO LOSE.</b> The two sides
+         * describe the same set and only one of them can see the compile task: {@link #makeSourceSet} asks it for
+         * {@code buildUnit}, {@code sourceRelease}, {@code addModules} and {@code warningFlags} and points
+         * {@code uri} at the class OUTPUT, while {@link #dependentProjectResult} — which exists for SIBLINGS —
+         * passes {@code null}, {@code 0} and two empty lists by design, because a sibling's compile task belongs
+         * to another project. Merging the dependents LAST let the sibling-shaped record overwrite the real one.
+         *
+         * <p>⚠ <b>AND THE PROJECT IS ONE OF ITS OWN DEPENDENTS</b>, which is why this fires at all: with the
+         * plugin applied to it, it publishes the {@code maddiSourceElements} variant and then resolves that
+         * variant through its own configurations, so {@code collectProjectSources} hands it back to itself.
+         *
+         * <p>⚠ <b>MEASURED, on OpenSearch {@code :libs:opensearch-common}</b> (2026-08-20). Its build file scopes
+         * {@code --add-modules jdk.incubator.vector} to {@code compileJava}, so losing that set's
+         * {@code addModules} loses the flag: <b>13 × "Unknown module jdk.incubator.vector", 24 stub types</b> for
+         * {@code jdk.internal.vm.vector.VectorSupport$*}. The {@code uri} went with it — the sibling record names
+         * {@code build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar}, which does not exist — so
+         * {@code opensearch-common/test} could not resolve into {@code main} and its units were dropped.
+         *
+         * <p>⛔ <b>AND NONE OF IT REACHED THE GATE.</b> {@code ErrorReport} counted <b>1 warning</b>: the 13 are
+         * {@code ClassSymbolScanner} lines it does not collect. A parse that has lost a module reports clean.
+         */
         public Map<String, SourceSet> allSourceSetsByName() {
-            Map<String, SourceSet> map = new HashMap<>(sourceSetsByName);
+            Map<String, SourceSet> map = new HashMap<>();
             sourceSetDependencies.forEach(r -> map.putAll(r.allSourceSetsByName()));
+            map.putAll(sourceSetsByName);
             return map;
         }
+    }
+
+    /**
+     * What {@link #collectProjectSources} found, keyed by project NAME: the source directories each sibling
+     * publishes, and the project PATH that name belongs to.
+     *
+     * <p>⭐ The path is the sibling's IDENTITY path, so that {@link #dependentProjectResult} can give it a
+     * {@code buildUnit} that means the same thing as the analysed project's. It is the one fact of the four a
+     * sibling used to lose that needs <b>no</b> cross-project access at all: {@code ProjectComponentIdentifier}
+     * carries it, and the consumer already has that identifier in hand. See {@link #identityPathOf} for why
+     * the project path alone is not enough.
+     *
+     * <p>⚠ Keyed by NAME because the rest of this class is; two projects in one build may share a name and the
+     * last one seen would win. Pre-existing, not introduced here, and worth knowing before anything depends on
+     * the key being unique.
+     */
+    private record ProjectSources(Map<String, List<Path>> sourcesByName, Map<String, String> pathByName,
+                                 Map<String, SourceFacts> factsByName) {
+    }
+
+    /**
+     * A class-path part already recorded for one sibling output: its name, and whether the file behind it is a
+     * class DIRECTORY. ⚠ The flag is carried rather than re-derived from the recorded {@code uri}: a URI that
+     * happens to end in {@code /} is an inference, and {@code File.isDirectory()} is the question itself.
+     */
+    private record RecordedPart(String name, boolean directory) {
     }
 
     /*
@@ -111,15 +160,17 @@ public class ComputeSourceSets {
         List<Configuration> configurations = sortConfigurations(project);
         // sibling projects that publish their sources come first: their artifacts must NOT also be recorded as
         // jar classpath parts, or the same types arrive twice, once parsed and once shallow
-        Map<String, List<Path>> sourcesByProject = collectProjectSources(project, configurations);
+        ProjectSources projectSources = collectProjectSources(project, configurations);
+        Map<String, List<Path>> sourcesByProject = projectSources.sourcesByName();
         // ...and the artifact each of them WOULD have contributed is exactly the class output their source set
         // needs, so inspectConfigurations hands it back rather than dropping it on the floor.
         Map<String, Path> classOutputByProject = inspectConfigurations(excludeFromClasspath, configurations,
                 sourceSetsByName, sourcesByProject.keySet());
         String mainSourceSetName = projectName + "/main";
         List<Result> dependentProjects = sourcesByProject.entrySet().stream()
-                .map(e -> dependentProjectResult(e.getKey(), e.getValue(), restrictSourcesToPackages, encoding,
-                        classOutputByProject.get(e.getKey())))
+                .map(e -> dependentProjectResult(e.getKey(), projectSources.pathByName().get(e.getKey()),
+                        e.getValue(), restrictSourcesToPackages, encoding,
+                        classOutputByProject.get(e.getKey()), projectSources.factsByName().get(e.getKey())))
                 .toList();
         // the dependency edges AMONG the source-contributing projects (e.g. cst-analysis -> cst-api). Without
         // them a transitive source project cannot resolve the types it depends on and the front end drops it.
@@ -140,6 +191,20 @@ public class ComputeSourceSets {
                                        List<Configuration> configurations, Map<String, SourceSet> sourceSetsByName,
                                        Set<String> projectsProvidingSources) {
         Map<String, Path> classOutputByProject = new LinkedHashMap<>();
+        // ⛔⛔ ONE CLASS-PATH PART PER SIBLING PROJECT, AND IT USED TO BE ONE PER ARTIFACT VARIANT.
+        // Gradle answers `compileClasspath` with a project's classes DIRECTORY (java-api) and `runtimeClasspath`
+        // with its JAR (java-runtime), so a sibling that does not publish its sources was recorded TWICE, under
+        // two names, from two configurations. The de-duplication a few lines below is keyed on the sibling
+        // PUBLISHING ITS SOURCES, i.e. on the plugin being applied to it too -- which is never the case in the
+        // single-module mode a user of this plugin is in.
+        // ⚠ HARMLESS ON THE CLASS PATH AND FATAL ON THE MODULE PATH, which is why it went unnoticed:
+        // duplicate types are tolerated, ONE MODULE NAME FROM TWO LOCATIONS is not. MEASURED on OpenSearch's
+        // JPMS corpus (2026-08-20): 12 of 12 siblings recorded twice, both `module=true`, and the parse died
+        // with `Cannot map javac's type org.opensearch.core.compress.Compressor onto a TypeInfo`.
+        // ⚠ AND THE CONTROL SAYS IT IS THE MODULES AND NOT THE TWINS AS SUCH: the same module, the same
+        // plugin, the same twin shape on PRISTINE OpenSearch -- where nothing is a module -- parses. pulsar's
+        // committed configuration has the same shape for the same reason and has always parsed.
+        Map<String, RecordedPart> partByOutput = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (configuration.isCanBeResolved()) {
                 String configurationName = configuration.getName();
@@ -179,6 +244,43 @@ public class ComputeSourceSets {
                         continue;
                     }
                     if (file.canRead() && !excludeFromClasspath.contains(name) && !excludedByCoordinate) {
+                        // one part per project OUTPUT: the first sighting wins, and a DIRECTORY displaces a
+                        // jar. ⚠ sortConfigurations already puts the non-runtime configurations first, so in
+                        // practice the directory arrives first and nothing is displaced; the displacement is
+                        // here because that order is a heuristic and this rule is not.
+                        // ⚠ `projectId`, not `pci`: the pattern variable of the `else if` above is bound in a
+                        // branch that does NOT complete abruptly, so whether it is still in scope here is a
+                        // question about JLS 6.3.2 rather than about this code. A different name has no
+                        // question attached to it.
+                        if (rar.getVariant().getOwner() instanceof ProjectComponentIdentifier projectId) {
+                            String key = outputKey(projectId, rar);
+                            RecordedPart already = partByOutput.get(key);
+                            boolean isDirectory = file.isDirectory();
+                            if (already != null && already.name().equals(name)) {
+                                continue;                       // same output, same artifact, seen again
+                            }
+                            if (already == null) {
+                                partByOutput.put(key, new RecordedPart(name, isDirectory));
+                            } else if (!already.directory() && !isDirectory) {
+                                // ⛔ NOT THE CASE THIS RULE IS FOR. Two PACKAGED artifacts under one capability
+                                // are two different things, not two views of one, and collapsing them would
+                                // delete every package the second provides. Only the directory/jar pair is one
+                                // output seen twice.
+                                LOGGER.warn(" -- project {} contributes two packaged artifacts under one"
+                                            + " capability: {} and {}. Both kept.", projectId.getProjectPath(),
+                                        already.name(), name);
+                            } else if (!isDirectory) {
+                                LOGGER.info(" -- project {} already contributes the directory {}, so {} is not"
+                                            + " recorded a second time", projectId.getProjectPath(),
+                                        already.name(), name);
+                                continue;
+                            } else {
+                                LOGGER.info(" -- project {} contributes the directory {}, which replaces {}",
+                                        projectId.getProjectPath(), name, already.name());
+                                sourceSetsByName.remove(already.name());
+                                partByOutput.put(key, new RecordedPart(name, true));
+                            }
+                        }
                         SourceSet existing = sourceSetsByName.get(name);
                         if (existing == null) {
                             LOGGER.info(" -- dependency {} ({}) in {}", description, name, configurationName);
@@ -201,7 +303,7 @@ public class ComputeSourceSets {
     }
 
     /**
-     * The source directories that dependency projects publish on their {@code e2immuSourceElements} variant,
+     * The source directories that dependency projects publish on their {@code maddiSourceElements} variant,
      * keyed by project name. This is the cross-project aggregation pattern Gradle blesses (the same one
      * {@code test-report-aggregation} and {@code jacoco-report-aggregation} use): an artifact view with
      * <em>variant reselection</em> asks each already-resolved component for a different variant of itself. It
@@ -211,10 +313,12 @@ public class ComputeSourceSets {
      * Lenient because most components have no such variant at all -- every external jar, and any project on
      * which the plugin was not applied. Those must be skipped silently and stay ordinary classpath parts.
      */
-    private Map<String, List<Path>> collectProjectSources(Project project, List<Configuration> configurations) {
+    private ProjectSources collectProjectSources(Project project, List<Configuration> configurations) {
         Category sourcesCategory = project.getObjects()
                 .named(Category.class, AnalyzerExtension.SOURCES_CATEGORY);
         Map<String, Set<Path>> byProject = new LinkedHashMap<>();
+        Map<String, String> pathByName = new LinkedHashMap<>();
+        Map<String, SourceFacts> factsByName = new LinkedHashMap<>();
         for (Configuration configuration : configurations) {
             if (!configuration.isCanBeResolved()) continue;
             ArtifactView view = configuration.getIncoming().artifactView(v -> {
@@ -228,13 +332,27 @@ public class ComputeSourceSets {
                     if (file.isDirectory() && file.canRead()) {
                         byProject.computeIfAbsent(pci.getProjectName(), k -> new LinkedHashSet<>())
                                 .add(file.getAbsoluteFile().toPath().normalize());
+                        pathByName.putIfAbsent(pci.getProjectName(), identityPathOf(pci));
+                    } else if (SourceFactsFile.FILE_NAME.equals(file.getName()) && file.canRead()) {
+                        // ⭐ THE THREE FACTS A SIBLING COULD NOT HAVE, arriving through the variant it
+                        // already publishes. Matched by NAME rather than by "not a directory": a producer is
+                        // free to publish other things, and a name says what was found.
+                        SourceFacts facts = SourceFactsFile.read(file);
+                        if (facts != null) factsByName.putIfAbsent(pci.getProjectName(), facts);
                     }
                 }
             }
         }
         byProject.forEach((name, paths) -> LOGGER.info(" -- project {} contributes sources {}", name, paths));
-        return byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new));
+        // ⚠ A source-providing project WITHOUT facts is the version-skew case (an older producer), not an
+        // error; it is logged so that a run where every sibling lacks them is visible rather than assumed.
+        for (String name : byProject.keySet()) {
+            if (!factsByName.containsKey(name)) {
+                LOGGER.info(" -- project {} published sources but no {}", name, SourceFactsFile.FILE_NAME);
+            }
+        }
+        return new ProjectSources(byProject.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
+                e -> List.copyOf(e.getValue()), (a, b) -> a, LinkedHashMap::new)), pathByName, factsByName);
     }
 
     /**
@@ -246,8 +364,9 @@ public class ComputeSourceSets {
      * the user wants analyzed, and asking the sibling for its own setting would mean reading its extension,
      * i.e. the cross-project access this whole mechanism exists to avoid.
      */
-    private Result dependentProjectResult(String projectName, List<Path> paths, String restrictTo,
-                                          String encodingString, Path classOutput) {
+    private Result dependentProjectResult(String projectName, String projectPath, List<Path> paths,
+                                          String restrictTo, String encodingString, Path classOutput,
+                                          SourceFacts facts) {
         String sourceSetName = projectName + "/main";
         // ⛔ THE CLASS OUTPUT MATTERS MOST HERE, not least. The variant publishes source DIRECTORIES, so this
         // set's uri used to be the first of them -- and a dependent resolves into it through javac's class path,
@@ -256,11 +375,28 @@ public class ComputeSourceSets {
         // pulsar-common generates org.apache.pulsar.common.api.proto into a second, generated root and 64
         // diagnostics followed. The artifact the class path already carried is that output; see
         // inspectConfigurations, which now hands it over instead of discarding it.
-        // ⚠ sourceRelease stays 0: a sibling's compile task belongs to another project, and reading it is the
-        // cross-project access this whole mechanism exists to avoid.
-        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, null, paths, classOutput,
+        // ⭐ buildUnit IS available, and it used to be null. It comes from the ProjectComponentIdentifier the
+        // consumer already holds -- no cross-project access at all -- and it is the field that GROUPS source
+        // sets into build units downstream. MEASURED on OpenSearch (2026-08-20, applyTo=all): 19 of 21 source
+        // sets arrived with buildUnit=null, sourceRelease=None and warningFlags=[], and a consumer that groups
+        // by build unit had nothing to group them by.
+        // ⭐⭐ AND THE OTHER THREE ARRIVE TOO, SINCE 2026-08-21. sourceRelease, addModules and the warning
+        // flags live on a JavaCompile task, and a sibling's task belongs to another project -- reading it is
+        // the cross-project access this whole mechanism exists to avoid. They come instead through the
+        // variant the sibling ALREADY publishes, as a file its own configuration writes: SourceFactsFile,
+        // which also records the three shapes that were rejected (in particular an artifact a TASK produces,
+        // which does not exist yet at this method's configuration time -- that one was written and taken
+        // back out).
+        // ⚠ WHAT ITS ABSENCE COST, measured on OpenSearch (2026-08-20, applyTo=all): 2 source sets of 21
+        // carried any warning flag, and 19 arrived with sourceRelease=0 -- which silently reinstates
+        // "whatever JDK maddi happens to run on" for each of them.
+        // ⚠ NULL IS STILL A CASE, and it is the version-skew one: a producer without this plugin, or with an
+        // older one, publishes no such file. Then this is exactly what it was before.
+        SourceFacts f = facts == null ? new SourceFacts(0, List.of(), List.of()) : facts;
+        SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, projectPath, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), 0);
+                PluginOptions.splitToSetOrNull(restrictTo), f.sourceRelease(), f.addModules(),
+                f.warningFlags());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
         Map<String, SourceSet> byName = new HashMap<>();
@@ -302,21 +438,50 @@ public class ComputeSourceSets {
     }
 
 
+    /**
+     * The order in which configurations are read, which decides <b>which one records a shared class-path
+     * part</b>: the first sighting wins, and the recorder's NAME is where {@code test} and {@code runtimeOnly}
+     * come from. Production before runtime-only, non-test before test, then alphabetical.
+     *
+     * <p>⛔⛔ <b>THE TEST/NON-TEST TIEBREAK COMPARED {@code n1} TWICE AND THEREFORE NEVER FIRED</b>, so the
+     * order fell through to alphabetical -- which HAPPENS to agree for the standard names ({@code
+     * compileClasspath} sorts before {@code testCompileClasspath} either way) and disagrees for every
+     * non-test configuration whose name sorts after {@code test}: {@code zip}, and the tool configurations
+     * {@code jarHell}, {@code jdkJarHell}, {@code jacocoAgent}, {@code missingdoclet}, {@code
+     * loggerUsagePlugin}, {@code resolveableCompileOnly}.
+     *
+     * <p>⭐⭐ <b>THE REPAIR WAS PRICED BEFORE IT WAS MADE, and the price is the argument FOR it.</b> MEASURED
+     * on OpenSearch (2026-08-21), 214 projects, over the RESOLVABLE configurations only -- the ones this
+     * class reads: <b>93 projects change order and 109 class-path parts in 16 projects change their
+     * flags</b>, {@code :server} alone 43 of its 135. Every transition is a production dependency that had
+     * been labelled a test one: {@code opensearch-grok}, {@code opensearch-rest-client} and 60 more moved
+     * from {@code internalClusterTestRuntimeClasspath} to {@code runtimeClasspath}; {@code lucene-core} and
+     * 17 more from {@code aggregateTestReportResults} to {@code compileClasspath}. The defect was
+     * systematically calling production jars test-only wherever a test configuration's NAME sorted first.
+     *
+     * <p>⛔ <b>A THREE-PROJECT SAMPLE OF THIS SAID ZERO.</b> The projects with the most flipped PAIRS are
+     * not the projects with the most changed PARTS -- {@code :server}'s driver is a configuration the other
+     * three do not have -- so the sample, chosen by a proxy for the mechanism, measured the proxy.
+     *
+     * <p>⚠ The residue, filed and not fixed: 3 parts ({@code asm}, {@code asm-tree}, {@code asm-analysis})
+     * move from a test configuration to {@code loggerUsagePlugin}, a BUILD TOOL's own configuration. Being
+     * claimed by a tool is a third state these two flags cannot express, and no failure has demanded it.
+     */
+    static final Comparator<String> CONFIGURATION_ORDER = (n1, n2) -> {
+        boolean t1 = n1.toLowerCase().contains("runtime");
+        boolean t2 = n2.toLowerCase().contains("runtime");
+        if (!t1 && t2) return -1;
+        if (t1 && !t2) return 1;
+        boolean r1 = n1.toLowerCase().contains("test");
+        boolean r2 = n2.toLowerCase().contains("test");
+        if (!r1 && r2) return -1;
+        if (r1 && !r2) return 1;
+        return n1.compareTo(n2);
+    };
+
     private static @NotNull List<Configuration> sortConfigurations(Project project) {
         List<Configuration> configurations = new ArrayList<>(project.getConfigurations());
-        configurations.sort((c1, c2) -> {
-            String n1 = c1.getName();
-            String n2 = c2.getName();
-            boolean t1 = n1.toLowerCase().contains("runtime");
-            boolean t2 = n2.toLowerCase().contains("runtime");
-            if (!t1 && t2) return -1;
-            if (t1 && !t2) return 1;
-            boolean r1 = n1.toLowerCase().contains("test");
-            boolean r2 = n1.toLowerCase().contains("test");
-            if (!r1 && r2) return -1;
-            if (r1 && !r2) return 1;
-            return n1.compareTo(n2);
-        });
+        configurations.sort(Comparator.comparing(Configuration::getName, CONFIGURATION_ORDER));
         return configurations;
     }
 
@@ -365,7 +530,7 @@ public class ComputeSourceSets {
 
     private SourceSet makeSourceSet(Project project,
                                     org.gradle.api.tasks.SourceSet gradleSourceSet,
-                                    String e2immuSourceSetName,
+                                    String maddiSourceSetName,
                                     String buildUnit,
                                     String restrictTo,
                                     String encodingString,
@@ -385,8 +550,67 @@ public class ComputeSourceSets {
         // class path. Gradle's own destination for the java part of the set; a Kotlin set compiles to a sibling
         // directory that a single uri cannot also name.
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
-        return PluginSourceSets.sourceSet(e2immuSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
-                test, restrictToPackages, sourceReleaseOf(project, gradleSourceSet));
+        SourceFacts facts = factsOf(project, gradleSourceSet);
+        return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
+                test, restrictToPackages, facts.sourceRelease(), facts.addModules(), facts.warningFlags());
+    }
+
+    /**
+     * What one source set's {@code JavaCompile} task says about its compilation, in one value.
+     *
+     * <p>⚠ <b>ONE EXTRACTION, ONE CALLER — FOR NOW.</b> It is a method rather than three inline calls because
+     * the second caller is already named: whatever channel eventually carries these facts to a SIBLING (see
+     * {@link #dependentProjectResult}) has to produce exactly this, and a second reading of "what does this
+     * compile task say" would be a second model that agrees until the day it does not.
+     */
+    static SourceFacts factsOf(Project project, org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        return new SourceFacts(sourceReleaseOf(project, gradleSourceSet),
+                addModulesOf(project, gradleSourceSet),
+                warningFlagsOf(project, gradleSourceSet));
+    }
+
+    /**
+     * javac's {@code --add-modules} for this source set, from its own {@code JavaCompile} task's
+     * {@code options.compilerArgs}.
+     *
+     * <p>⛔ <b>NOT REACHABLE BY WIDENING {@code jmods}.</b> An incubator module is not in the {@code java.se}
+     * closure and cannot be added to it: it has to be in the ROOT SET of the compilation that uses it, or every
+     * type in it reads as "package X is not visible". Found on the Maven side, on trino (2026-08-19), and fixed
+     * here at the same time because the two plugins are twins and a defect in one is a hypothesis about the
+     * other -- which has been right both times it was tested this week.
+     *
+     * <p>⚠ <b>NO CORPUS EXERCISES THIS PATH ON THE GRADLE SIDE.</b> Neither fernflower nor pulsar passes
+     * {@code --add-modules}, so what stands behind it is the unit test and the symmetry, not a measurement. Said
+     * plainly rather than left to look measured.
+     */
+    private static List<String> addModulesOf(Project project,
+                                             org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.addModulesFrom(compile.getOptions().getCompilerArgs());
+    }
+
+    /**
+     * This source set's warning policy -- {@code -Werror}, {@code -nowarn}, {@code -Xlint...} -- from the same
+     * {@code options.compilerArgs} the modules above come from.
+     *
+     * <p>⭐ <b>THE LIST IS ALREADY RESOLVED, WHICH IS THE WHOLE VALUE OF ASKING GRADLE INSTEAD OF A BUILD
+     * FILE.</b> OpenSearch's root appends {@code -Werror} to every compile task ({@code build.gradle:280}) and
+     * 12 subprojects subtract it again ({@code libs/common/build.gradle:56}, whose comment says why: "use of
+     * incubator modules is reported as a warning"). Read here, at configuration time, the subtraction has
+     * happened: the flag is present exactly in the sets that will fail on a warning. A grep over build files
+     * finds the word in 13 places and cannot say that about any of them.
+     *
+     * <p>⚠ Asked PER SOURCE SET for the same reason {@code sourceRelease} is: each has its own
+     * {@code JavaCompile} task, and a build that exempts its main compilation need not exempt its tests.
+     */
+    private static List<String> warningFlagsOf(Project project,
+                                               org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.warningFlagsFrom(compile.getOptions().getCompilerArgs());
     }
 
     /**
@@ -446,8 +670,49 @@ public class ComputeSourceSets {
      * and {@code :b:util} are both {@code util}. The file name is kept as a suffix because one project may
      * contribute several directories (classes and resources) to one class path.
      */
+    /**
+     * The build unit of a SIBLING project: its identity path, which is what {@link #buildUnitOf} gives the
+     * analysed project.
+     *
+     * <p>⛔⛔ <b>NOT {@code getProjectPath()}, WHICH IS RELATIVE TO THE SIBLING'S OWN BUILD.</b> Measured on
+     * OpenSearch (2026-08-21, {@code applyTo=all}): the first version of this used the project path, and
+     * {@code missing-doclet} — the root project of an INCLUDED build — came out as {@code ":"}. Every included
+     * build has a root, so that value is ambiguous by construction, and it would have made two unrelated units
+     * one. The identity path is {@code <buildPath><projectPath>}, and it is what the analysed project's own
+     * source sets already carry, so the two sides finally agree.
+     */
+    private static String identityPathOf(ProjectComponentIdentifier pci) {
+        String buildPath = pci.getBuild().getBuildPath();
+        String projectPath = pci.getProjectPath();
+        if (buildPath == null || ":".equals(buildPath)) return projectPath;
+        return ":".equals(projectPath) ? buildPath : buildPath + projectPath;
+    }
+
     private static String projectPartName(ProjectComponentIdentifier pci, File file) {
         return pci.getProjectPath() + "/" + file.getName();
+    }
+
+    /**
+     * What identifies ONE OUTPUT of a sibling project, so that the same output seen through two variants is
+     * recorded once.
+     *
+     * <p>⛔⛔ <b>THE PROJECT PATH ALONE IS THE WRONG KEY, AND IT WOULD DELETE TEST FIXTURES.</b> Gradle answers
+     * {@code compileClasspath} with a project's classes DIRECTORY and {@code runtimeClasspath} with its JAR —
+     * one output, two variants, and that pair is what has to collapse. But
+     * {@code testImplementation(testFixtures(project(":foo")))} puts a SECOND, genuinely different artifact of
+     * {@code :foo} on the same class path, and it differs from the first only by its CAPABILITY
+     * ({@code foo-test-fixtures} against {@code foo}). Keying on the project would collapse those two as well
+     * and silently remove every package the fixtures provide.
+     *
+     * <p>⚠ No corpus exercises the test-fixtures case; what stands behind it is the capability model and the
+     * fact that the failure would be silent. Said plainly rather than left to look measured.
+     */
+    private static String outputKey(ProjectComponentIdentifier pci, ResolvedArtifactResult rar) {
+        String capabilities = rar.getVariant().getCapabilities().stream()
+                .map(c -> c.getGroup() + ":" + c.getName())
+                .sorted()
+                .collect(Collectors.joining(","));
+        return pci.getProjectPath() + "|" + capabilities;
     }
 
 

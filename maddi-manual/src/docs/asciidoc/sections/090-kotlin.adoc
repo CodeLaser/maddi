@@ -27,7 +27,7 @@ $ ./gradlew :maddi-run-kotlin:run --args="--compile-log mixed-build.log"
 Kotlin/mixed support is *prep-only* for now:
 
 * the *modification* analysis is not yet run on mixed projects;
-* the Gradle `e2immu-analyzer` task drives only the Java (openjdk) analyzer, so it does not yet analyze
+* the Gradle `maddi-analyzer` task drives only the Java (openjdk) analyzer, so it does not yet analyze
   `.kt` (Kotlin sources are recorded in the configuration but skipped by that task);
 * the mixed inspector's cross-language scope has known follow-ups (some Java↔Java and both-direction
   cross-language cases);

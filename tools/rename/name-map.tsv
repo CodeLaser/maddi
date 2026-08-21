@@ -120,23 +120,32 @@ org.e2immu.something	io.codelaser.maddi.something
 # project. Substitution still runs over them (so real package references are
 # renamed); only `verify` treats what is left as deliberate.
 # Reviewed line by line, rehearsal 2 — re-review if the count moves.
+#
+# ⛔⛔ ACKNOWLEDGED SILENCES `verify`; IT DOES NOT STOP `substitute`. The block below was
+# written at the cutover to protect three documents whose whole point is to name the old
+# prefix -- and it protected none of them, because it is a verify-time marker. The same
+# commit that added it, de55c1e0e, rewrote all three, and `verify` then reported clean:
+# the guard turned the alarm off over the fire. A file that must not be touched belongs in
+# section 4 (FROZEN); two of the three were moved there on 2026-08-19.
+#
+# ⛔ AND A MIXED FILE FITS NEITHER MECHANISM. PUBLISHING.md and eventual-info-hierarchy.md
+# each carry both kinds of token in the same document -- live maddi packages that MUST be
+# renamed, and claims about the old name that must not be. Per-file granularity cannot
+# express that, so they stay ACKNOWLEDGED and are hand-reviewed after `substitute`; see
+# RUNBOOK "After the rename". Of PUBLISHING.md's 3 substitutions 2 were right and 1 was
+# wrong, so the review is per line, not per file.
 ARCHITECTURE.md	ACKNOWLEDGED
 README.md	ACKNOWLEDGED
 AGENTS.md	ACKNOWLEDGED
 docs/eventual-immutability.md	ACKNOWLEDGED
 docs/eventual-info-hierarchy.md	ACKNOWLEDGED
-# Added at the cutover, 2026-08-17. Each names the old prefix in order to say something TRUE about
-# it, so a rule that rewrote them would make each one false:
-#   release notes — tells users their imports move away FROM org.e2immu.annotation. That is the
-#                   whole point of the document; rewriting it leaves migration instructions that
-#                   instruct nobody to change anything.
-#   PUBLISHING.md — records that neither `io.codelaser` nor `org.e2immu` exists on the Gradle
-#                   Plugin Portal, and that the old plugin id could not have been approved under
-#                   group io.codelaser. Both are claims about the old name.
-#   HANDOFF       — a recorded debugging session, quoting the stack frames as they read then.
-docs/release-notes-0.9.1.md	ACKNOWLEDGED
+# Added at the cutover, 2026-08-17. PUBLISHING.md records that neither `io.codelaser` nor
+# `org.e2immu` exists on the Gradle Plugin Portal, and that the old plugin id could not have been
+# approved under group io.codelaser. Both are claims about the old name — and the second was
+# rewritten into a self-contradiction (the id that satisfies the rule "would be refused"), repaired
+# by hand on 2026-08-19. The other two entries of this block are gone: the release notes are FROZEN
+# in section 4, and HANDOFF-SLOWTEST-FAILURES.md names no file in the tree.
 PUBLISHING.md	ACKNOWLEDGED
-HANDOFF-SLOWTEST-FAILURES.md	ACKNOWLEDGED
 
 ## SECTION 4	frozen content — never substituted
 # Opaque test data: a recorded dependency graph OF THE OLD e2immu-analyser
@@ -155,6 +164,18 @@ HANDOFF-SLOWTEST-FAILURES.md	ACKNOWLEDGED
 # it halfway is worse. Freeze, or re-capture against the renamed tree.
 */test/resources/gradle*.txt	FROZEN
 */test/resources/mvn*.txt	FROZEN
+#
+# Added 2026-08-19, after the cutover falsified both. A document whose SUBJECT is the old
+# name has nothing in it to substitute -- every occurrence is there to be read as the old
+# name -- so it belongs here and not in section 9. See the note there: ACKNOWLEDGED was
+# applied to these two and it is the wrong mechanism, because it does not stop `substitute`.
+#   release notes  -- the migration table's "Before" column. Rewritten, it read
+#                     `io.codelaser.maddi.annotation` -> `io.codelaser.maddi.annotation`.
+#   eventual-immu. -- paths and class names in the OLD, SEPARATE e2immu analyser repo, which
+#                     was never renamed: `org/e2immu/analyser/...`, `ComputingTypeAnalyser`.
+#                     Rewritten, they point at files that exist nowhere.
+docs/release-notes-0.9.1.md	FROZEN
+docs/eventual-immutability.md	FROZEN
 
 ## SECTION 4b	`org.e2immu.analyser` outside the .gml (~300) — kept deliberately
 # Parser test-input snippets: `package org.e2immu.analyser.resolver.testexample;`

@@ -325,6 +325,11 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         }
 
         @Override
+        public void clearAnnotations() {
+            setAnnotations(new ArrayList<>());
+        }
+
+        @Override
         public void clearInterfacesImplemented() {
             interfacesImplemented.clear();
         }

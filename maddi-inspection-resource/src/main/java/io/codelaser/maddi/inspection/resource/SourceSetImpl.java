@@ -43,6 +43,7 @@ public class SourceSetImpl implements SourceSet {
     private final String buildUnit;
     private final int sourceRelease;
     private final List<String> addModules;
+    private final List<String> warningFlags;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
@@ -56,7 +57,8 @@ public class SourceSetImpl implements SourceSet {
                           List<SourceSet> dependencies,
                           String buildUnit,
                           int sourceRelease,
-                          List<String> addModules) {
+                          List<String> addModules,
+                          List<String> warningFlags) {
         this.name = Objects.requireNonNull(name);
         this.buildUnit = buildUnit;
         this.sourceDirectories = sourceDirectories;
@@ -73,6 +75,7 @@ public class SourceSetImpl implements SourceSet {
         this.dependencies = dependencies;
         this.sourceRelease = sourceRelease;
         this.addModules = addModules == null ? List.of() : List.copyOf(addModules);
+        this.warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
 
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
         assert !partOfJdk || externalLibrary : "Parts of the JDK are also external libraries: " + name;
@@ -245,6 +248,11 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
+    public List<String> warningFlags() {
+        return warningFlags;
+    }
+
+    @Override
     public List<SourceSet> dependencies() {
         return dependencies;
     }
@@ -294,19 +302,19 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
         return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
     }
 
     @Override
     public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
     }
 
     @Override
@@ -350,6 +358,7 @@ public class SourceSetImpl implements SourceSet {
         private String buildUnit;
         private int sourceRelease;
         private List<String> addModules = List.of();
+        private List<String> warningFlags = List.of();
 
         public Builder() {
         }
@@ -374,6 +383,7 @@ public class SourceSetImpl implements SourceSet {
             // sourceRelease reinstates "whatever JDK maddi runs on" for that set, invisibly.
             sourceRelease = set.sourceRelease();
             addModules = set.addModules();
+            warningFlags = set.warningFlags();
         }
 
         public Builder setName(String name) {
@@ -453,9 +463,15 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
+        /** The set's own warning policy: {@code -Werror}, {@code -nowarn}, {@code -Xlint...}, as the build resolved them. */
+        public Builder setWarningFlags(List<String> warningFlags) {
+            this.warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
+            return this;
+        }
+
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules);
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
         }
     }
 }

@@ -388,6 +388,14 @@ public interface TypeInfo extends NamedType, Info {
         @Fluent
         Builder addTrailingComments(List<Comment> comments);
 
+        /**
+         * Removes all annotations accumulated so far. The counterpart of {@link #clearInterfacesImplemented()},
+         * and needed for the same reason: {@code addAnnotation} appends, so a second writer duplicates the list.
+         * Unlike the interface list there is no distinctness assert on annotations, which is what made the
+         * duplication silent — see {@code ScanCompilationUnit#continueType}.
+         */
+        void clearAnnotations();
+
         /** Removes all interfaces from the implemented-interfaces list. */
         void clearInterfacesImplemented();
 

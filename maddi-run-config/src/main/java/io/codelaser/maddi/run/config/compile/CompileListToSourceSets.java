@@ -644,6 +644,7 @@ public class CompileListToSourceSets {
                 // ambiguity to abstain from: this set was compiled with exactly these options.
                 .setSourceRelease(inv.effectiveRelease())
                 .setAddModules(inv.addModules())
+                .setWarningFlags(inv.warningFlags())
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);
         return sourceSet;

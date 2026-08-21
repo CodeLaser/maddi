@@ -260,7 +260,7 @@ field reasons, each worth a look but none blocking the headline.
 The "analyze cst-analysis as source" route was blocked by a plugin gap:
 `ComputeSourceSets.dependentProjectResult` built each *transitive* dependency project as a flat leaf source
 set with `List.of()` inter-project dependencies, so the cst-analysis→cst-api edge was never wired —
-cst-analysis could not resolve cst-api (`package io.codelaser.maddi.cst.api.info does not exist`) and the
+cst-analysis could not resolve cst-api (`package org.e2immu.language.cst.api.info does not exist`) and the
 front end dropped it. Fixed: `ComputeSourceSets.collectSourceProjectEdges` reconstructs the dependency DAG
 among source projects from the Gradle resolution result, and `ComputeDependencies` adds those edges to the
 graph. The dogfood now analyzes `cst-analysis` as a third source subproject.

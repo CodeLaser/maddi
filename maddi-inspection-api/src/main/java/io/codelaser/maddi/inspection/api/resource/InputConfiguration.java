@@ -46,7 +46,7 @@ public interface InputConfiguration {
      * name, so a set built the second way was never recognised, fell through to {@code Path.of(uri)} on an
      * opaque {@code jar-on-classpath:} URI, and died with
      * {@code FileSystemNotFoundException: Provider "jar-on-classpath" not installed}. That made
-     * {@code withSupportFromClasspath} and {@code withE2ImmuSupportFromClasspath} unusable as written.
+     * {@code withSupportFromClasspath} and {@code withMaddiSupportFromClasspath} unusable as written.
      * <p>
      * Asking the entry rather than its name settles it without taking the naming freedom away.
      */
@@ -194,7 +194,7 @@ public interface InputConfiguration {
 
     InputConfiguration withDefaultModules();
 
-    InputConfiguration withE2ImmuSupportFromClasspath();
+    InputConfiguration withMaddiSupportFromClasspath();
 
     InputConfiguration withSupportFromClasspath(Map<String, String> sourceSetNameToPackageDir);
 

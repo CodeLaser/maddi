@@ -15,19 +15,19 @@ plugins {
 }
 ----
 
-It registers two tasks (group `e2immu`):
+It registers two tasks (group `maddi`):
 
-`e2immu-analyzer`:: Run the analyzer over the project and write results. Depends on `compileJava`
+`maddi-analyzer`:: Run the analyzer over the project and write results. Depends on `compileJava`
 (and `compileKotlin` when the Kotlin JVM plugin is applied). Declares its source files and classpath
 as inputs and the results directory as its output, so Gradle skips it when nothing relevant changed.
 
-`e2immu-write-input-configuration`:: Write the computed input configuration to
+`maddi-write-input-configuration`:: Write the computed input configuration to
 `build/inputConfiguration.json` without running the analysis — useful for inspection, or to hand to
 the CLI later (see <<command-line>>).
 
-== The `e2immu` extension
+== The `maddi` extension
 
-Configure the run through the `e2immu` extension block. All options are optional.
+Configure the run through the `maddi` extension block. All options are optional.
 
 [cols="1,1,3",options="header"]
 |===
@@ -35,7 +35,7 @@ Configure the run through the `e2immu` extension block. All options are optional
 
 | `analysisSteps` | String | Comma-separated steps to run: `none`, `prep`, `modification`,
 `rewire-tests`. Absent runs the default pipeline.
-| `analysisResultsDir` | String | Where result `.json` files are written. Default `<build>/e2immu`.
+| `analysisResultsDir` | String | Where result `.json` files are written. Default `<build>/maddi`.
 | `incrementalAnalysis` | boolean | Build on results already present in the results directory.
 | `parallel` | boolean | Parallelize the analysis where possible.
 | `quiet` | boolean | Suppress the end-of-run summary (the exit code still reflects the outcome).
@@ -59,7 +59,7 @@ Example:
 
 [source,kotlin]
 ----
-e2immu {
+maddi {
     analysisSteps = "modification"
     sourcePackages = "com.example."           // this package and below
     jmods = "java.base"
@@ -70,15 +70,15 @@ e2immu {
 == Configuration cache and up-to-date behaviour
 
 The plugin is built on lazily-configured tasks and holds no `Project` reference at execution time, so
-it is compatible with Gradle's configuration cache. Because `e2immu-analyzer` declares its inputs and
+it is compatible with Gradle's configuration cache. Because `maddi-analyzer` declares its inputs and
 output, a second run with unchanged sources and classpath is `UP-TO-DATE`.
 
 == Kotlin-aware source-set collection
 
 When the Kotlin JVM plugin is applied, the plugin also collects each source set's Kotlin source
-directories (and depends on `compileKotlin`), so `e2immu-write-input-configuration` produces a correct
+directories (and depends on `compileKotlin`), so `maddi-write-input-configuration` produces a correct
 mixed Java+Kotlin configuration.
 
-CAUTION: The `e2immu-analyzer` task itself currently drives the *openjdk (Java)* analyzer, which parses
+CAUTION: The `maddi-analyzer` task itself currently drives the *openjdk (Java)* analyzer, which parses
 only `.java`; Kotlin sources in the configuration are recorded but not yet analyzed by this task. See
 <<kotlin>> for the state of Kotlin/mixed analysis.

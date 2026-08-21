@@ -245,7 +245,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // note: first put the type in typeData, only then load it... self-references are common!
                     put(enclosed);
                     loadType(cs, enclosed, LoadMode.LAZILY);
-                    owner.builder().addSubType(enclosed);
+                    // ⛔⛔ NAME THE SUBTYPE AND THE FILE IT CAME FROM. This is where a 21-source-set parse of
+                    // OpenSearch dies (12 errors in 11 units, 2026-08-20): the OWNER's inspection has already
+                    // been committed by an earlier source set, and `builder()` then refuses -- correctly. The
+                    // owner's name alone is the symptom; what identifies the case is WHICH member arrived and
+                    // from WHICH class file, because that says whether the type is on the class path as well
+                    // as in the source path, which is the only way one type can be inspected twice.
+                    try {
+                        owner.builder().addSubType(enclosed);
+                    } catch (RuntimeException re) {
+                        throw new UnsupportedOperationException("Cannot add member type "
+                                                                + enclosed.fullyQualifiedName()
+                                                                + ", loaded from class file " + cs.classfile
+                                                                + ", to " + owner.fullyQualifiedName()
+                                                                + ": " + re.getMessage(), re);
+                    }
                     return enclosed;
                 }
                 return inMap;
@@ -637,12 +651,28 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // (only RUNTIME/CLASS-retained annotations are present in bytecode; SOURCE-retained ones are not). Everything
     // is defensive: a value we cannot represent is skipped, and a failure never aborts the type's loading.
 
-    // true when 'symbol' belongs to a type we are currently parsing from source: those receive their
-    // annotations from ScanCompilationUnit, so we must not also load them here from the (compiled) class file
+    /**
+     * True when {@code symbol} belongs to a type we are currently parsing from source: those receive their
+     * annotations <em>and their hierarchy</em> from {@code ScanCompilationUnit}, so we must not also load them
+     * here from the (compiled) class file — {@code addInterfaceImplemented}/{@code addAnnotation} append.
+     * <p>
+     * ⛔ <b>IT USED TO FAIL OPEN.</b> {@code topLevelClassSymbolsOfSources} is published by
+     * {@link ScanCompilationUnits#scan()}, and a {@code null} map returned {@code false} — "not a source symbol" —
+     * for every symbol, which is the opposite of the safe answer. That window is now closed at the other end (the
+     * map is set before anything loads a type), but the guard must not depend on the caller's timing: <b>javac
+     * itself knows</b>. A {@code ClassSymbol} entered from source has its {@code classfile} pointing at the
+     * {@code .java} it came from — {@link #fromClassFile} is exactly that test — so a symbol with a source file
+     * and no class file is a source symbol whether or not the map has been built yet.
+     * <p>
+     * Asked of the PRIMARY type, like the map lookup below it: a member's own {@code sourcefile}/{@code classfile}
+     * are the enclosing top-level type's.
+     */
     private boolean isSourceSymbol(Symbol symbol) {
-        if (topLevelClassSymbolsOfSources == null) return false;
         Symbol.ClassSymbol enclosing = symbol.enclClass();
-        return enclosing != null && topLevelClassSymbolsOfSources.containsKey(primary(enclosing));
+        if (enclosing == null) return false;
+        Symbol.ClassSymbol top = primary(enclosing);
+        if (!fromClassFile(top) && top.sourcefile != null) return true;
+        return topLevelClassSymbolsOfSources != null && topLevelClassSymbolsOfSources.containsKey(top);
     }
 
     private List<AnnotationExpression> loadAnnotations(Symbol symbol) {
@@ -1167,6 +1197,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
         this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+    }
+
+    /**
+     * Begin this source set's "types loaded" accounting; see {@code InfoByFqn#typesLoadedForThisSourceSet}.
+     * <p>
+     * ⚠ <b>Deliberately NOT folded into {@link #setTopLevelClassSymbolsOfSources}, which is where it used to
+     * live.</b> The two answer different questions and now happen at different moments:
+     * {@code ScanCompilationUnits.scan()} must publish the source symbols BEFORE it preloads a class-path package
+     * (see the comment there), while the loaded-set must be cleared AFTER, exactly where it was — a preload's
+     * transitively loaded types are reported through {@code Result.preloads()}, not through this set, and moving
+     * the clear ahead of the preload silently adds all of them (measured: {@code java.time.LocalDate} appearing
+     * as already-loaded after a {@code java.util} preload, {@code TestSharedJdkCore}).
+     */
+    public void startOfNewSourceSet() {
         this.infoByFqn.startOfNewSourceSet();
     }
 
@@ -1871,6 +1915,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public void put(TypeInfo typeInfo) {
         String fqn = typeInfo.fullyQualifiedName();
         infoByFqn.put(fqn, typeInfo, sourceSetOfCurrentTask);
+    }
+
+    @Override
+    public boolean markClassScannerSetupDone(TypeInfo typeInfo) {
+        return infoByFqn.markClassScannerSetupDone(typeInfo);
     }
 
     @Override

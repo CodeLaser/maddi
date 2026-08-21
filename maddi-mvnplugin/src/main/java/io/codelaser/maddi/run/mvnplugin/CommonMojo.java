@@ -129,7 +129,7 @@ public abstract class CommonMojo extends AbstractMojo {
 
     private Map<String, String> makeGeneralConfigMap() {
         return PluginOptions.generalConfigMap(incrementalAnalysis, analysisResultsDir,
-                new File(project.getBuild().getDirectory(), "e2immu"), parallel, analysisSteps, debug, quiet,
+                new File(project.getBuild().getDirectory(), "maddi"), parallel, analysisSteps, debug, quiet,
                 warnNearMisses);
     }
 
@@ -170,7 +170,7 @@ public abstract class CommonMojo extends AbstractMojo {
         InputConfiguration inputConfiguration = makeInputConfiguration();
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
 
-        InputConfiguration withSupport = inputConfiguration.withE2ImmuSupportFromClasspath().withDefaultModules();
+        InputConfiguration withSupport = inputConfiguration.withMaddiSupportFromClasspath().withDefaultModules();
         getLog().info("Working directory: " + withSupport.workingDirectory());
         javaInspector.initialize(withSupport);
 

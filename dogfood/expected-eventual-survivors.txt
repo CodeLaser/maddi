@@ -200,10 +200,10 @@ io.codelaser.maddi.cst.impl.analysis.ValueImpl.VariableToTypeInfoSetImpl
 io.codelaser.maddi.cst.impl.element.CompilationUnitImpl
 io.codelaser.maddi.cst.impl.element.CompilationUnitStub
 io.codelaser.maddi.cst.impl.element.DetailedSourcesImpl.Prefix
-io.codelaser.maddi.cst.impl.element.E2ImmuAnnotationsImpl
 io.codelaser.maddi.cst.impl.element.ElementImpl
 io.codelaser.maddi.cst.impl.element.JavaDocImpl
 io.codelaser.maddi.cst.impl.element.JavaDocImpl.TagImpl
+io.codelaser.maddi.cst.impl.element.MaddiAnnotationsImpl
 io.codelaser.maddi.cst.impl.element.ModuleInfoImpl
 io.codelaser.maddi.cst.impl.element.ModuleInfoImpl.ExportsImpl
 io.codelaser.maddi.cst.impl.element.ModuleInfoImpl.OpensImpl

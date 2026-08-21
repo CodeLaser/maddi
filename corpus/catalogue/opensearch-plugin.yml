@@ -1,0 +1,73 @@
+name: opensearch-plugin
+status: active
+summary: >-
+  maddi-gradleplugin on OpenSearch `:libs:opensearch-common` — the entry that exercises the PER-SET
+  compiler configuration (`sourceRelease`, `addModules`, `warningFlags`) on a build that varies all
+  three ACROSS THE TWO SETS OF ONE PROJECT. `pulsar-plugin` covers multi-module resolution;
+  neither it nor `fernflower-plugin` varies the compile options between a project's main and test.
+
+# ⛔⛔ WHY `:libs:opensearch-common` SPECIFICALLY, AND WHY IT IS THE ONLY INTERESTING MODULE HERE.
+# Its build file (`libs/common/build.gradle:54`) scopes BOTH per-set facts to `compileJava { }`:
+#     options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+#     options.compilerArgs -= '-Werror' // use of incubator modules is reported as a warning
+# so within ONE project:
+#     main -> --add-modules jdk.incubator.vector, and NO -Werror (21 warning flags)
+#     test -> no --add-modules,                   and -Werror   (22 warning flags)
+# Measured 2026-08-20 over all 378 of OpenSearch's JavaCompile tasks: 364 keep -Werror, 6 subtract it,
+# 8 are never configured at all. `:libs:opensearch-core` keeps it on both sets and is the control.
+# ⚠ A corpus whose whole reactor agrees on its compile options cannot show a per-set defect, and
+# fernflower/pulsar both agree. That is the hole this entry fills.
+
+source:
+  kind: git
+  url: https://github.com/opensearch-project/OpenSearch.git
+
+dir: OpenSearch
+
+build:
+  cmd: ./gradlew :libs:opensearch-common:compileTestJava
+  expect: complete
+  provides:
+    - libs/common/build/classes/java/main
+    - libs/common/build/classes/java/test
+
+config:
+  route: gradle-plugin
+  # A Gradle PROJECT PATH. ⚠ NOT `libs:common`: `settings.gradle:170` renames every child of `:libs`
+  # to `opensearch-<dirname>`, so the directory and the project path do not match. Reading the
+  # directory name here yields a task that does not exist.
+  module: libs:opensearch-common
+  # Relative, so this entry owns its own file rather than overwriting a future `opensearch` entry's.
+  output: inputConfiguration.plugin.json
+  generates: [inputConfiguration.plugin.json]
+  # Siblings as ARTIFACTS, the user-facing path, as pulsar-plugin explains.
+  apply_to: ':libs:opensearch-common'
+  baseline: baselines/opensearch-plugin.tsv
+
+parse:
+  runner: openjdk
+  steps: [modification]
+
+# ⭐ WHAT THIS ENTRY FOUND ON FIRST CONTACT, 2026-08-20 — FIXED (maddi `d5b741bfb`).
+# `opensearch-common/main` was written with the SIBLING shape: no buildUnit, no sourceRelease, no
+# addModules, no warningFlags, and `build/distributions/opensearch-common-3.9.0-SNAPSHOT.jar` -- which
+# does not exist -- as its uri. `Result.allSourceSetsByName` merged the DEPENDENTS last, and the project
+# is one of its own dependents (with the plugin applied it publishes `maddiSourceElements` and then
+# resolves that variant through its own configurations). Its own record now wins.
+#     uri        distributions/*.jar (absent)  ->  build/classes/java/main/
+#     buildUnit  absent -> :libs:opensearch-common     release  absent -> 21
+#     addModules absent -> [jdk.incubator.vector]      warnFlags absent -> 21   (test: 22, -Werror)
+# ⚠ The baseline is UNCHANGED at 2 source sets / 110 primary types: the defect cost the parse its
+# cross-set resolution and its compile options, not its type count. A baseline is not a gate for this
+# class of defect -- the recorded FIELDS are.
+#
+# ⛔ STILL OPEN, AND IT IS A DIFFERENT CAUSE THAN I FIRST WROTE HERE. 13 "Unknown module
+# jdk.incubator.vector" warnings and 24 `jdk.internal.vm.vector.VectorSupport$*` stub types are
+# UNCHANGED by the fix. I had predicted they were the lost `addModules`; they are not. javac does get
+# the flag (`JavaInspectorImpl:1184` turns `addModules` into `--add-modules`) -- these come from
+# `ClassSymbolScanner`, which does not carry the incubator module among its jmods. Whoever picks this
+# up: the question is what puts `jdk.incubator.vector` on the SCANNER's path, not the compiler's.
+#
+# ⛔ AND THE GATE CANNOT SEE ANY OF IT. `ErrorReport` counted 1 warning through all of the above,
+# because the 13 are ClassSymbolScanner lines it does not collect. `--analysis-steps=none` then exits 0.
+# Count the warnings in the log; do not read the exit code.

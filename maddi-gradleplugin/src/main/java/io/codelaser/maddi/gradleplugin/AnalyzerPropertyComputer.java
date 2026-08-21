@@ -52,9 +52,9 @@ public record AnalyzerPropertyComputer(
         Project targetProject) {
 
     private static final Logger LOGGER = Logging.getLogger(AnalyzerPropertyComputer.class);
-    public static final String PREFIX = "e2immu-analyzer.";
+    public static final String PREFIX = "maddi-analyzer.";
 
-    public static final String E2IMMU_CONFIGURATION = "configuration.json";
+    public static final String MADDI_CONFIGURATION = "configuration.json";
 
     public Map<String, Object> computeProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
@@ -78,7 +78,7 @@ public record AnalyzerPropertyComputer(
         }
         try {
             String configurationJson = JsonStreaming.objectMapper().writeValueAsString(configuration);
-            properties.put(E2IMMU_CONFIGURATION, configurationJson);
+            properties.put(MADDI_CONFIGURATION, configurationJson);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -170,10 +170,10 @@ public record AnalyzerPropertyComputer(
 
     private static @NotNull Map<String, String> makeGeneralConfigMap(Project project,
                                                                      AnalyzerExtension extension) {
-        // default results directory: "${build.dir}/e2immu"
+        // default results directory: "${build.dir}/maddi"
         File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
         return PluginOptions.generalConfigMap(extension.incrementalAnalysis, extension.analysisResultsDir,
-                new File(buildDir, "e2immu"), extension.parallel, extension.analysisSteps, extension.debugTargets,
+                new File(buildDir, "maddi"), extension.parallel, extension.analysisSteps, extension.debugTargets,
                 extension.quiet, extension.warnNearMisses);
     }
 

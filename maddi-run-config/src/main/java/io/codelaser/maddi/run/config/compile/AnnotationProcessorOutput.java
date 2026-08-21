@@ -23,8 +23,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.nio.file.FileVisitResult;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -224,7 +224,16 @@ public class AnnotationProcessorOutput {
                     .setName(sourceSet.name() + APT_SUFFIX)
                     .setBuildUnit(sourceSet.buildUnit())
                     .setSourceDirectories(List.of())
-                    .setUri(URI.create("file:" + target))
+                    // ⛔⛔ toUri(), NOT "file:" + path. This threw
+                    // `IllegalArgumentException: Illegal character in path at index 90` the first time a BUILD
+                    // PLUGIN fed this class a source set, because a plugin's names come from the build model:
+                    // langchain4j-core's is `LangChain4j :: Core/test`, so the directory below has spaces and
+                    // colons in it and concatenation produces a string that is not a URI. `--compile-log` never
+                    // saw it -- its names are path-shaped (`core/main`) by construction.
+                    // ⚠ THE SAME SENTENCE IS ALREADY WRITTEN IN `PluginSourceSets.classPathPart`, one package
+                    // away: "toURI(), not 'file:' + path ... only this one stays hierarchical for every path the
+                    // build tool can hand over". Two producers of one URI, and the lesson landed in one of them.
+                    .setUri(target.toUri())
                     .setLibrary(true)
                     .setExternalLibrary(true)
                     .build();
@@ -421,7 +430,12 @@ public class AnnotationProcessorOutput {
      * which is a compiler output directory by definition, and therefore never a source tree.
      */
     static Path sideDirectory(Path destination, String sourceSetName) {
-        String leaf = sourceSetName.replace('/', '-').replace(java.io.File.separatorChar, '-');
+        // ⚠ THE LEAF IS A NAME WE INVENT, SO IT MUST BE ONE EVERY FILESYSTEM AND EVERY URI ACCEPTS. Replacing
+        // only the separators was enough while every caller was `--compile-log`, whose source-set names are
+        // path-shaped already; a build plugin's name is whatever the build model says, and Maven's is the POM's
+        // <name> -- `LangChain4j :: Core/test`, `Camel :: Core Model/main`, `ActiveMQ :: Broker/main`. Anything
+        // outside this set becomes '-', and runs collapse, so the result stays readable rather than escaped.
+        String leaf = sourceSetName.replaceAll("[^A-Za-z0-9._-]+", "-");
         Path buildOutput = CompileListToSourceSets.buildOutputDirectory(destination.toString());
         if (buildOutput != null) return buildOutput.resolve(APT_DIRECTORY).resolve(leaf);
         return destination.resolveSibling(destination.getFileName() + "-" + APT_DIRECTORY + "-" + leaf);

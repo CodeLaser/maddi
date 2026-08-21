@@ -60,32 +60,41 @@ maddi is **not yet production ready**, and this section is kept honest deliberat
 | Modification & immutability analysis | Runs to a certified fixpoint on a proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel). Not yet ready for general use |
 | Kotlin front end | Works; ships only via the mixed CLI |
 | Gradle / Maven plugins | Functional, but have had little attention recently |
-| Releases | Annotations on Maven Central (`0.9.0`). The analyzer itself is built from source (below). See [`PUBLISHING.md`](PUBLISHING.md) |
+| Releases | Annotations on Maven Central (`0.9.1`). The analyzer itself is built from source (below). See [`PUBLISHING.md`](PUBLISHING.md) |
 
 If you run it on your own code today, expect rough edges. Issues and questions are very welcome.
 
 ## The annotations
 
 The one thing your own code compiles against is the annotations library. It is on Maven Central,
-has **no transitive dependencies at all**, targets Java 17, and is **Apache-2.0** licensed — you can
-depend on it without taking on the analyzer's LGPL:
+targets Java 17, and is **Apache-2.0** licensed — you can depend on it without taking on the
+analyzer's LGPL:
 
 ```kotlin
-implementation("io.codelaser:maddi-support:0.9.0")   // Gradle
+implementation("io.codelaser:maddi-annotation:0.9.1")   // Gradle
 ```
 
 ```xml
-<dependency>                                          <!-- Maven -->
+<dependency>                                            <!-- Maven -->
   <groupId>io.codelaser</groupId>
-  <artifactId>maddi-support</artifactId>
-  <version>0.9.0</version>
+  <artifactId>maddi-annotation</artifactId>
+  <version>0.9.1</version>
 </dependency>
 ```
 
-It gives you `@Immutable`, `@Container`, `@Independent`, `@Modified` and friends — useful as
-documentation and as contracts on your interfaces even before you run the analyzer, since maddi
-verifies them against what it computes. It also carries the "eventually final" support classes
-(`SetOnce`, `Freezable`, `EventuallyFinal`, `Lazy`, `FirstThen`).
+That gives you `@Immutable`, `@Container`, `@Independent`, `@Modified` and friends, with **no
+dependencies at all** — useful as documentation and as contracts on your interfaces even before you
+run the analyzer, since maddi verifies them against what it computes.
+
+If you also want the "eventually final" support classes (`SetOnce`, `Freezable`, `EventuallyFinal`,
+`Lazy`, `FirstThen`), depend on `io.codelaser:maddi-annotation`'s companion instead:
+
+```kotlin
+implementation("io.codelaser:maddi-support:0.9.1")      // annotations arrive with it
+```
+
+`maddi-support` declares exactly one dependency, on `maddi-annotation`, and re-exports it — so if you
+were already using `maddi-support` before the two were split, nothing changes for you.
 
 > Versions up to `0.8.2` were LGPL-3.0; `0.9.0` onward is Apache-2.0.
 
@@ -141,7 +150,8 @@ Cross-module design notes and plans are indexed in [`docs/README.md`](docs/READM
 ## Background
 
 maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until it was archived.
-The root Java package is still `org.e2immu.*`, after the predecessor.
+The root Java package was `org.e2immu.*`, after the predecessor; it became
+`io.codelaser.maddi.*` in 0.9.1 — see [`docs/release-notes-0.9.1.md`](docs/release-notes-0.9.1.md).
 
 maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at
 [CodeLaser](https://codelaser.io), and is and will remain open source. The **analyzer** is

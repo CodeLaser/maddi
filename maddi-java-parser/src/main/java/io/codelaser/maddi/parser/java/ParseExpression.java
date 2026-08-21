@@ -84,6 +84,16 @@ public class ParseExpression extends CommonParse {
 
         return switch (node) {
             case DotName dotName -> parseDotName(context, comments, source, index, dotName);
+            // since the 2026-08 grammar, 'super.name' is its own node with the same <super><.><name>
+            // child layout; route it through the DotName path so field access keeps one implementation
+            case SuperDotName superDotName -> parseDotName(context, comments, source, index, superDotName);
+            // reached via a SuperDotName method call's synthetic scope Name, whose only child is the
+            // bare 'super' keyword (the old grammar wrapped it in a LiteralExpression, see parseLiteral)
+            case KeyWord kw when SUPER.equals(kw.getType()) -> runtime.newVariableExpressionBuilder()
+                    .setSource(source).addComments(comments)
+                    .setVariable(runtime.newThis(context.enclosingType().parentClass().typeInfo()
+                            .asParameterizedType(), null, true))
+                    .build();
             case MethodCall mc -> parsers.parseMethodCall().parse(context, comments, source, index, forwardType, mc);
             case LiteralExpression le -> parseLiteral(context, comments, source, le);
             case ConditionalAndExpression _, ConditionalOrExpression _ ->
@@ -683,7 +693,15 @@ public class ParseExpression extends CommonParse {
         Expression scope;
         FieldReference fr;
         Node n0 = dotName.getFirst();
-        if (n0 instanceof LiteralExpression le) {
+        if (n0 instanceof KeyWord kw && SUPER.equals(kw.getType())) {
+            // SuperDotName's first child; same semantics as the LiteralExpression 'super' branch below
+            TypeInfo parentClass = context.enclosingType().parentClass().typeInfo();
+            scope = runtime.newVariableExpressionBuilder()
+                    .setSource(source(kw))
+                    .setVariable(runtime.newThis(parentClass.asParameterizedType()))
+                    .build();
+            fr = findField(context, scope, name, true);
+        } else if (n0 instanceof LiteralExpression le) {
             if ("this".equals(le.getSource())) {
                 scope = runtime.newVariableExpressionBuilder()
                         .setSource(source(le))

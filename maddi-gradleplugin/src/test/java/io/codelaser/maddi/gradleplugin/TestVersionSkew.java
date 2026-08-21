@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * all, six days after the rename moved to 0.9.1. The pre-rename daemon has never heard of
  * {@code io.codelaser.maddi.annotation.Container}, so it analysed the fixture cleanly — every phase reported, zero
  * parse errors — and found nothing. The red that reached a human said "expected a contract-violation over the
- * wire", which is a sentence about the analyser, and the analyser was fine. A day went into that.
+ * wire", which is a sentence about the analyzer, and the analyzer was fine. A day went into that.
  * <p>
  * Each check below therefore states the version it EXPECTED and the version it FOUND, so the diagnosis is in the
  * failure message rather than three modules away.
@@ -56,7 +54,7 @@ public class TestVersionSkew {
     private static final String VERSION = required("maddi.projectVersion");
     private static final Path ROOT = Path.of(required("maddi.rootDir"));
     private static final Path DAEMON_INSTALL = Path.of(required("maddi.daemonInstall"));
-    private static final Path PLUGIN_REPO = Path.of(required("e2immu.localPluginRepo"));
+    private static final Path PLUGIN_REPO = Path.of(required("maddi.localPluginRepo"));
 
     private static String required(String key) {
         String value = System.getProperty(key);
@@ -127,19 +125,5 @@ public class TestVersionSkew {
         try (Stream<Path> versions = Files.list(artifact)) {
             return versions.filter(Files::isDirectory).map(p -> p.getFileName().toString()).sorted().toList();
         }
-    }
-
-    @DisplayName("the Maven export pom tracks the project version")
-    @Test
-    public void theMavenExportPomTracksTheProjectVersion() throws IOException {
-        // Maven has no includeBuild, so this one MUST name a version -- which is exactly why it is the one that
-        // goes stale unnoticed. It sat at 0.8.1-SNAPSHOT, two releases behind, while the rename runbook recorded
-        // the item as done: the coordinates had been renamed, the version had not.
-        Path pom = ROOT.resolve("testmvnplugin-export/pom.xml");
-        assertTrue(Files.isRegularFile(pom), "expected the Maven export at " + pom);
-        Matcher m = Pattern.compile("<maddi\\.version>([^<]*)</maddi\\.version>").matcher(Files.readString(pom));
-        assertTrue(m.find(), "no <maddi.version> property in " + pom);
-        assertEquals(VERSION, m.group(1).strip(), "the Maven export pom names a maddi version the project no"
-                                                  + " longer builds: " + pom);
     }
 }

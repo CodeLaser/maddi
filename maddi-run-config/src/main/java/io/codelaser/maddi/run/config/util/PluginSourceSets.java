@@ -26,9 +26,16 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The source set of a <em>build plugin</em>: the Gradle and the Maven plugin both ask their build tool the same
@@ -92,6 +99,16 @@ public class PluginSourceSets {
      *                      compiles two of its modules against different releases -- and abstaining means the
      *                      parse runs on whatever JDK it happens to be, where every API removed since reads as
      *                      "cannot find symbol". Per set there is nothing to abstain from.
+     * @param addModules  JDK modules outside the default root set, i.e. javac's {@code --add-modules}.
+     *                    <p>⛔⛔ <b>NOT COSMETIC, AND NOT COVERED BY {@code jmods}.</b> An INCUBATOR module is
+     *                    not in the {@code java.se} closure and is not reachable by widening it either: it has
+     *                    to be added to the root set for the compilation that uses it, which is what this is.
+     *                    Without it every type in that module reads as "package X is not visible", the
+     *                    compilation unit is dropped, and the {@code ParseResult} can be refused.
+     *                    <p>⚠ <b>MEASURED, on trino</b> (2026-08-19): {@code core/trino-main} passes
+     *                    {@code --add-modules=jdk.incubator.vector}, and {@code --compile-log} records it on 6
+     *                    of trino's 209 source sets because it reads javac's own line. <b>Neither plugin set it
+     *                    at all</b>, so the same module parsed with 1 error the log route does not have.
      * @return {@code null} when no source directory of this set exists on disk -- a set over nothing contributes
      * no compilation units, and naming an absent path in the configuration only produces an unresolvable entry.
      */
@@ -102,7 +119,9 @@ public class PluginSourceSets {
                                       Charset sourceEncoding,
                                       boolean test,
                                       Set<String> restrictToPackages,
-                                      int sourceRelease) {
+                                      int sourceRelease,
+                                      List<String> addModules,
+                                      List<String> warningFlags) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
                 .filter(Files::isDirectory)
@@ -119,6 +138,8 @@ public class PluginSourceSets {
                 .setModule(isModularSource(existing))
                 .setRestrictToPackages(restrictToPackages)
                 .setSourceRelease(sourceRelease)
+                .setAddModules(addModules == null ? List.of() : List.copyOf(addModules))
+                .setWarningFlags(warningFlags == null ? List.of() : List.copyOf(warningFlags))
                 .build();
     }
 
@@ -149,20 +170,204 @@ public class PluginSourceSets {
     }
 
     /**
-     * As {@link #isModularSource}, for a dependency: an explicit module carries a {@code module-info.class}.
-     * A directory (a sibling project's compile output) is asked directly; a jar is opened.
+     * How an artifact presents itself to JPMS, and -- the reason this is three-valued -- whether the build will
+     * put it where a named module can read it.
+     *
+     * <p>⛔⛔ {@code AUTOMATIC} AND {@code NONE} ARE NOT THE SAME ANSWER, AND ONLY ONE OF THEM WORKS. Gradle
+     * routes a jar to the module path when it carries a {@code module-info.class} or declares
+     * {@code Automatic-Module-Name}, and leaves every other jar on the class path -- where a named module cannot
+     * read it, because the class path is the unnamed module. So a {@code requires} on a {@code NONE} artifact
+     * compiles to "module not found" however correct the descriptor is.
+     *
+     * <p>⚠ <b>MEASURED, on jsr305 3.0.2</b> (2026-08-20): its manifest carries an OSGi
+     * {@code Bundle-SymbolicName: org.jsr-305} and no {@code Automatic-Module-Name}. JPMS ignores the OSGi
+     * header, so this is {@code NONE} -- and it is exactly the artifact that broke the OpenSearch JPMS work.
+     *
+     * <p>⛔ <b>{@code jar --describe-module} IS NOT THE DISCRIMINATOR, THOUGH IT LOOKS LIKE ONE.</b> On jsr305 it
+     * prints "No module descriptor found. Derived automatic module." and then {@code jsr305@3.0.2 automatic} --
+     * the JDK derives a name from the FILE NAME and calls the result automatic, so its verdict word is
+     * {@code automatic} for {@code AUTOMATIC} and {@code NONE} alike. What separates them is whether the manifest
+     * DECLARES the name, which is the only thing a build tool will route on.
      */
-    public static boolean isModularArtifact(File file) {
+    public enum ModuleKind {
+        /** Carries a {@code module-info.class}: an explicit module, on the module path. */
+        EXPLICIT,
+        /** Declares {@code Automatic-Module-Name}: an automatic module with a stable name, on the module path. */
+        AUTOMATIC,
+        /** Neither. The build leaves it on the class path, so a named module cannot read it. */
+        NONE
+    }
+
+    /**
+     * As {@link #isModularSource}, for a dependency. A directory (a sibling project's compile output) is asked
+     * directly; a jar is opened.
+     *
+     * <p>⚠ A directory is never {@link ModuleKind#AUTOMATIC}: {@code Automatic-Module-Name} is a property of a
+     * jar's manifest, and a build tool does not read one out of a compile-output directory.
+     *
+     * <p>⚠ Only the {@code META-INF/versions/9} spelling of a multi-release descriptor is read, which is what
+     * this method has always read. A descriptor added at a later release is answered {@code NONE} here; no
+     * corpus has yet produced one, and widening it is a change to which artifacts reach the module path, so it
+     * belongs with a run that can see that.
+     */
+    public static ModuleKind moduleKind(File file) {
         if (file.isDirectory()) {
-            return new File(file, "module-info.class").canRead();
+            return new File(file, "module-info.class").canRead() ? ModuleKind.EXPLICIT : ModuleKind.NONE;
         }
         try (JarFile jarFile = new JarFile(file)) {
-            return jarFile.getEntry("module-info.class") != null
-                   || jarFile.getEntry("META-INF/versions/9/module-info.class") != null;
+            if (!descriptorReleases(jarFile).isEmpty()) return ModuleKind.EXPLICIT;
+            Manifest manifest = jarFile.getManifest();
+            if (manifest != null && manifest.getMainAttributes().getValue("Automatic-Module-Name") != null) {
+                return ModuleKind.AUTOMATIC;
+            }
+            return ModuleKind.NONE;
+        } catch (IOException notAJar) {
+            LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
+            return ModuleKind.NONE;
+        }
+    }
+
+    /** {@link #ROOT} for an unversioned {@code module-info.class}, otherwise the multi-release version it sits under. */
+    private static final int ROOT = -1;
+
+    /**
+     * Every release at which this jar carries a module descriptor, so that the two questions below can read one
+     * scan and disagree about it deliberately rather than by accident.
+     *
+     * <p>⛔⛔ <b>{@code META-INF/versions/9} IS NOT THE ONLY SPELLING, AND ASSUMING IT WAS COST A WHOLE VENDOR.</b>
+     * MEASURED 2026-08-20: <b>netty keeps its descriptor at {@code META-INF/versions/11}</b>
+     * ({@code netty-codec-smtp-4.2.17.Final.jar}, {@code jar --describe-module} → {@code releases: 11}) while
+     * bouncycastle uses 9. Reading only 9 answered {@code NONE} for every netty jar there is — and netty is in the
+     * measured failure list of the OpenSearch JPMS lane's {@code #232}
+     * ({@code io.netty.transport requires io.netty.resolver}), which is the report this classification feeds.
+     *
+     * <p>⚠ The earlier version of this class said the narrow read was safe because <i>"no corpus has yet produced
+     * one"</i>. A corpus produced one the same day. <b>An assumption recorded as a limitation is still an
+     * assumption</b>; this one is now a measurement.
+     */
+    private static List<Integer> descriptorReleases(JarFile jarFile) {
+        List<Integer> releases = new ArrayList<>();
+        if (jarFile.getEntry("module-info.class") != null) releases.add(ROOT);
+        for (Enumeration<JarEntry> e = jarFile.entries(); e.hasMoreElements(); ) {
+            String name = e.nextElement().getName();
+            Matcher m = VERSIONED_DESCRIPTOR.matcher(name);
+            if (m.matches()) releases.add(Integer.parseInt(m.group(1)));
+        }
+        return releases;
+    }
+
+    private static final Pattern VERSIONED_DESCRIPTOR =
+            Pattern.compile("META-INF/versions/(\\d{1,3})/module-info\\.class");
+
+    /**
+     * Whether {@code SourceSet.isModule()} is set for this artifact, and through it whether
+     * {@code JavaInspectorImpl} puts it on javac's <em>module path</em> rather than its class path.
+     *
+     * <p>⛔ <b>DELIBERATELY NARROWER THAN {@link #moduleKind}, AND FROZEN UNTIL A RUN CAN PRICE IT.</b> It answers
+     * {@code true} only for a descriptor at the root or under {@code META-INF/versions/9} — exactly what it has
+     * always answered — while {@code moduleKind} reads every multi-release spelling and also separates
+     * {@link ModuleKind#AUTOMATIC}. Two widenings are on the table here and BOTH move artifacts between javac's
+     * two paths:
+     * <ul>
+     *   <li>including {@link ModuleKind#AUTOMATIC}: an automatic module is one a named consumer can read;</li>
+     *   <li>including a descriptor at {@code versions/11}: netty, measured 2026-08-20.</li>
+     * </ul>
+     * The risk is not the routing itself but its by-product — two artifacts arriving on the MODULE path with a
+     * package in common is <i>"package read from both"</i>, where on the class path the first simply wins.
+     *
+     * <p>⚠ <b>AND THE RUN THAT WOULD PRICE IT IS NOT AVAILABLE TODAY.</b> The branch is only reached when the
+     * CONSUMER is modular, so only a modular corpus can see it — fernflower (2 descriptors) and timefold-solver
+     * (21) are the two. Both of their {@code inputConfiguration.json} files pin class-path jars by absolute path
+     * into {@code ~/.gradle/caches}, and every one of those paths is gone (36 of 36, 537 of 537): the blast radius
+     * could not be measured, so it was not changed. <b>Rebuild those two corpora, re-measure, then widen.</b>
+     *
+     * <p>Ask {@link #moduleKind} when the question is what the BUILD will deliver — which is a different question
+     * from what maddi's own javac should be handed, and the whole reason these two are separate methods.
+     */
+    public static boolean isModularArtifact(File file) {
+        if (file.isDirectory()) return new File(file, "module-info.class").canRead();
+        try (JarFile jarFile = new JarFile(file)) {
+            List<Integer> releases = descriptorReleases(jarFile);
+            return releases.contains(ROOT) || releases.contains(9);
         } catch (IOException notAJar) {
             LOGGER.warn("Cannot read {} as a jar, assuming it is not a module: {}", file, notAJar.getMessage());
             return false;
         }
+    }
+
+    /**
+     * The modules named by {@code --add-modules} among raw javac arguments, in order, without duplicates.
+     *
+     * <p>⚠ <b>BOTH SPELLINGS, BECAUSE BOTH APPEAR.</b> javac accepts {@code --add-modules=a,b} and
+     * {@code --add-modules a,b}, and a build file may use either -- trino writes the {@code =} form into a
+     * property and Gradle users typically write the two-argument form into {@code options.compilerArgs}.
+     * Reading only one is a silent half-answer, which is worse here than reading none: the modules that ARE
+     * found look like the whole story.
+     *
+     * <p>⚠ {@code ALL-MODULE-PATH} and {@code ALL-DEFAULT} are javac's own pseudo-module names, not modules;
+     * they are dropped rather than passed on to something that will look for a jmod by that name.
+     */
+    public static List<String> addModulesFrom(List<String> compilerArgs) {
+        if (compilerArgs == null) return List.of();
+        Set<String> modules = new LinkedHashSet<>();
+        for (int i = 0; i < compilerArgs.size(); i++) {
+            String arg = compilerArgs.get(i);
+            if (arg == null) continue;
+            String value;
+            if (arg.startsWith("--add-modules=")) {
+                value = arg.substring("--add-modules=".length());
+            } else if ("--add-modules".equals(arg.trim()) && i + 1 < compilerArgs.size()) {
+                value = compilerArgs.get(++i);
+            } else {
+                continue;
+            }
+            if (value == null) continue;
+            for (String module : value.split(",")) {
+                String trimmed = module.trim();
+                if (!trimmed.isBlank() && !trimmed.startsWith("ALL-")) modules.add(trimmed);
+            }
+        }
+        return List.copyOf(modules);
+    }
+
+    /**
+     * Whether this javac argument takes part in deciding <em>whether a warning is emitted, and whether it is
+     * fatal</em>: {@code -Werror}, {@code -nowarn} and the {@code -Xlint} family.
+     *
+     * <p>⚠ Deliberately narrow. This is one question with one consumer behind it, not a general bag of compiler
+     * arguments: an attribute recorded without a failure demanding it is a guess about the future, and a guess
+     * that is wrong fails towards silence. {@code --enable-preview}, {@code --add-exports} and {@code -proc:}
+     * are real and are NOT here, because nothing has yet asked.
+     */
+    public static boolean isWarningFlag(String arg) {
+        if (arg == null) return false;
+        String trimmed = arg.trim();
+        return "-Werror".equals(trimmed) || "-nowarn".equals(trimmed) || trimmed.startsWith("-Xlint");
+    }
+
+    /**
+     * The {@linkplain #isWarningFlag warning-policy arguments} among raw javac arguments, in order, without
+     * duplicates.
+     *
+     * <p>⛔⛔ <b>THE ANSWER IS THE RESOLVED LIST, WHICH IS WHY THIS IS ASKED OF THE BUILD AND NOT OF A BUILD
+     * FILE.</b> OpenSearch adds {@code -Werror} once at the root ({@code build.gradle:280},
+     * {@code compile.options.compilerArgs << '-Werror'}) and subtracts it again in 12 files
+     * ({@code libs/common/build.gradle:56}, {@code options.compilerArgs -= '-Werror'}). Whether a given set
+     * compiles with it is the outcome of both, so a grep over build files can say where the word appears and
+     * can never say whether the flag is ON. The list this reads has already had the subtraction applied.
+     *
+     * <p>⚠ What it is FOR: a {@code requires} that pulls an incubator module into a set's resolution makes
+     * javac warn in that compilation -- and {@code -Werror} turns the warning into a build failure in every set
+     * that resolves it, whether or not that set uses the API. Which sets those are is a question about the
+     * module graph; whether it costs anything is this flag.
+     */
+    public static List<String> warningFlagsFrom(List<String> compilerArgs) {
+        if (compilerArgs == null) return List.of();
+        Set<String> flags = new LinkedHashSet<>();
+        for (String arg : compilerArgs) {
+            if (isWarningFlag(arg)) flags.add(arg.trim());
+        }
+        return List.copyOf(flags);
     }
 
     /**
