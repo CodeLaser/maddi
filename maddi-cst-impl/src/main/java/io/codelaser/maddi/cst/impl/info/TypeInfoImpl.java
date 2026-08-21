@@ -565,10 +565,25 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         inspection.setOnDemand(() -> inspector.accept(this));
     }
 
+    /**
+     * ⛔⛔ <b>THE CHECK IS NOT AN ASSERT, BECAUSE THE JVM THAT MEETS A CORPUS RUNS WITHOUT THEM.</b> This was
+     * {@code assert inspection.isVariable() : "... has already been committed"} followed by a bare cast, which
+     * is a perfectly good diagnosis in a {@code Test} task — Gradle enables assertions there — and no
+     * diagnosis at all in a {@code JavaExec}, which does not. MEASURED 2026-08-21: the DSL script runner over
+     * OpenSearch's {@code test:framework} produced ELEVEN
+     * {@code TypeInspectionImpl cannot be cast to TypeInfo$Builder} with no type named and no cause given,
+     * where the message below names both. ⚠ Same failure, same place; only the sentence differs, and the
+     * sentence is the whole value of the guard.
+     */
     @Override
     public TypeInfo.Builder builder() {
-        assert inspection.isVariable() : "Inspection of " + fullyQualifiedName + " has already been committed";
-        return (TypeInfo.Builder) inspection.get();
+        Object current = inspection.get();
+        if (current instanceof TypeInfo.Builder typeInfoBuilder) return typeInfoBuilder;
+        throw new UnsupportedOperationException("Inspection of " + fullyQualifiedName + " has already been"
+                                                + " committed, so it no longer has a builder; it is a "
+                                                + current.getClass().getSimpleName() + ". Asking for one after"
+                                                + " the commit is the defect -- this type is the symptom, and"
+                                                + " the caller is where to look.");
     }
 
     @Override
