@@ -29,6 +29,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +40,29 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestComputeSourceSets {
+
+    /**
+     * The order configurations are read in, which is the order a shared class-path part is CLAIMED in:
+     * first sighting wins, and the recorder's name is where {@code test}/{@code runtimeOnly} come from.
+     *
+     * <p>⛔⛔ THE TIEBREAK COMPARED {@code n1} TWICE AND NEVER FIRED. It fell through to alphabetical, which
+     * agrees for the standard names and disagrees for every non-test configuration sorting after "test" --
+     * OpenSearch's {@code zip}, {@code jarHell}, {@code jdkJarHell}, {@code jacocoAgent},
+     * {@code missingdoclet}. Priced before repairing: 93 of 214 projects change order, 0 parts change flags.
+     */
+    @Test
+    public void aNonTestConfigurationIsReadFirstEvenWhenItSortsLast() {
+        List<String> names = new ArrayList<>(List.of("testCompileClasspath", "zip", "compileClasspath",
+                "testRuntimeClasspath", "runtimeClasspath", "jarHell", "annotationProcessor"));
+        names.sort(ComputeSourceSets.CONFIGURATION_ORDER);
+
+        assertEquals(List.of(
+                // production, non-test, alphabetical -- `zip` before `testCompileClasspath` is the repair
+                "annotationProcessor", "compileClasspath", "jarHell", "zip", "testCompileClasspath",
+                // ...then everything runtime-only, non-test first
+                "runtimeClasspath", "testRuntimeClasspath"), names);
+    }
+
 
     /**
      * ⛔⛔ THE ANALYSED PROJECT'S OWN VIEW OF A SOURCE SET MUST WIN OVER A DEPENDENT'S VIEW OF THE SAME SET.

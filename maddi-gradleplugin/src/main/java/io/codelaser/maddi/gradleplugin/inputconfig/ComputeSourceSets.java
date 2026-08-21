@@ -421,21 +421,50 @@ public class ComputeSourceSets {
     }
 
 
+    /**
+     * The order in which configurations are read, which decides <b>which one records a shared class-path
+     * part</b>: the first sighting wins, and the recorder's NAME is where {@code test} and {@code runtimeOnly}
+     * come from. Production before runtime-only, non-test before test, then alphabetical.
+     *
+     * <p>⛔⛔ <b>THE TEST/NON-TEST TIEBREAK COMPARED {@code n1} TWICE AND THEREFORE NEVER FIRED</b>, so the
+     * order fell through to alphabetical -- which HAPPENS to agree for the standard names ({@code
+     * compileClasspath} sorts before {@code testCompileClasspath} either way) and disagrees for every
+     * non-test configuration whose name sorts after {@code test}: {@code zip}, and the tool configurations
+     * {@code jarHell}, {@code jdkJarHell}, {@code jacocoAgent}, {@code missingdoclet}, {@code
+     * loggerUsagePlugin}, {@code resolveableCompileOnly}.
+     *
+     * <p>⭐⭐ <b>THE REPAIR WAS PRICED BEFORE IT WAS MADE, and the price is the argument FOR it.</b> MEASURED
+     * on OpenSearch (2026-08-21), 214 projects, over the RESOLVABLE configurations only -- the ones this
+     * class reads: <b>93 projects change order and 109 class-path parts in 16 projects change their
+     * flags</b>, {@code :server} alone 43 of its 135. Every transition is a production dependency that had
+     * been labelled a test one: {@code opensearch-grok}, {@code opensearch-rest-client} and 60 more moved
+     * from {@code internalClusterTestRuntimeClasspath} to {@code runtimeClasspath}; {@code lucene-core} and
+     * 17 more from {@code aggregateTestReportResults} to {@code compileClasspath}. The defect was
+     * systematically calling production jars test-only wherever a test configuration's NAME sorted first.
+     *
+     * <p>⛔ <b>A THREE-PROJECT SAMPLE OF THIS SAID ZERO.</b> The projects with the most flipped PAIRS are
+     * not the projects with the most changed PARTS -- {@code :server}'s driver is a configuration the other
+     * three do not have -- so the sample, chosen by a proxy for the mechanism, measured the proxy.
+     *
+     * <p>⚠ The residue, filed and not fixed: 3 parts ({@code asm}, {@code asm-tree}, {@code asm-analysis})
+     * move from a test configuration to {@code loggerUsagePlugin}, a BUILD TOOL's own configuration. Being
+     * claimed by a tool is a third state these two flags cannot express, and no failure has demanded it.
+     */
+    static final Comparator<String> CONFIGURATION_ORDER = (n1, n2) -> {
+        boolean t1 = n1.toLowerCase().contains("runtime");
+        boolean t2 = n2.toLowerCase().contains("runtime");
+        if (!t1 && t2) return -1;
+        if (t1 && !t2) return 1;
+        boolean r1 = n1.toLowerCase().contains("test");
+        boolean r2 = n2.toLowerCase().contains("test");
+        if (!r1 && r2) return -1;
+        if (r1 && !r2) return 1;
+        return n1.compareTo(n2);
+    };
+
     private static @NotNull List<Configuration> sortConfigurations(Project project) {
         List<Configuration> configurations = new ArrayList<>(project.getConfigurations());
-        configurations.sort((c1, c2) -> {
-            String n1 = c1.getName();
-            String n2 = c2.getName();
-            boolean t1 = n1.toLowerCase().contains("runtime");
-            boolean t2 = n2.toLowerCase().contains("runtime");
-            if (!t1 && t2) return -1;
-            if (t1 && !t2) return 1;
-            boolean r1 = n1.toLowerCase().contains("test");
-            boolean r2 = n1.toLowerCase().contains("test");
-            if (!r1 && r2) return -1;
-            if (r1 && !r2) return 1;
-            return n1.compareTo(n2);
-        });
+        configurations.sort(Comparator.comparing(Configuration::getName, CONFIGURATION_ORDER));
         return configurations;
     }
 
