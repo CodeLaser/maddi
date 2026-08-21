@@ -1,13 +1,15 @@
-# Handoff: a type parsed from source whose own jar is on the class path has its hierarchy built twice
+# A type parsed from source has its hierarchy built twice, by the preload
 
-**Written 2026-08-21.** Found by parsing the whole CodeLaser tree as ONE project — 160 source sets
-over eight repositories, for the jfocus JPMS/`module-info.java` campaign. Status: **open**; nothing
-is fixed, the campaign works around it by excluding one source set from the parse.
+**Written 2026-08-21, FIXED the same day.** Found by parsing the whole CodeLaser tree as ONE project —
+160 source sets over eight repositories, for the jfocus JPMS/`module-info.java` campaign. Status:
+**closed**; fixed in `ScanCompilationUnits`, `ClassSymbolScanner` and `ScanCompilationUnit`, with a
+hermetic regression test (`TestPreloadBeforeSourceSymbols`, `maddi-inspection-openjdk`).
 
-The two guards that exist against double-building a type's hierarchy both ask about the **symbol**.
-This defect is the case where the symbol and the `TypeInfo` disagree: a class-file symbol handed to
-a `TypeInfo` the source scan already built. `ClassSymbolScanner` already calls its own arrangement
-here a **STOPGAP** (line 502); this is the case the stopgap does not cover.
+⚠ **This document was first filed with a different diagnosis, and the title above is the corrected one.**
+The original read the shape as *"one FQN reachable both as source and as bytecode, because the module's own
+jar is on 155 of the 165 compile lines"*. That is a true description of the configuration and it is **not
+what causes the duplication** — see [What the first diagnosis got wrong](#what-the-first-diagnosis-got-wrong).
+The reproduction holds **no artifact at all** for the type that doubles.
 
 ## The symptom
 
@@ -22,10 +24,6 @@ Message: Extending multiple identical interfaces
 Five of `maddi-annotation`'s twenty-seven types: `Fluent`, `Independent`, `Modified`, `NotModified`,
 `method/GetSet`. It aborts the parse, so no analysis runs.
 
-Seen through the refactoring server's `ScriptRunner`, but nothing about that path is implicated —
-the configuration is what matters (below), and the same configuration fails the same way under
-`maddi-run-openjdk`'s CLI.
-
 ## The assertion, and what it really means
 
 `TypeInspectionImpl.java:73`, in the constructor that runs at `commit()`:
@@ -37,161 +35,166 @@ assert interfacesImplemented.size() == interfacesImplemented.stream().distinct()
 
 No Java type can declare the same interface twice, so this never fires because a file said so. It
 fires because the list was **built twice**: `TypeInspectionImpl.Builder.addInterfaceImplemented`
-(line 306) appends and does not de-duplicate, so any path that re-runs a type's setup block doubles
-it. `commit()` is where it is noticed, which is why the reported location is the *declaration* and
-tells you nothing about the second writer.
+appends and does not de-duplicate, so any path that re-runs a type's setup block doubles it.
+`commit()` is where it is noticed, which is why the reported location is the *declaration* and tells
+you nothing about the second writer.
 
-## The configuration that triggers it
+## The mechanism
 
-The parse holds `maddi/maddi-annotation/main` **as a source set**, and
-`maddi-annotation-0.9.1.jar` is on the compile class path of **155 of the 165** compile lines,
-because every other module in the tree is compiled against the published artifact. So one
-fully-qualified name is reachable two ways inside a single parse:
+Two writers meet on one `TypeInfo`, and the guard that separates them was blind at exactly the moment
+they met.
 
-- as source, from the source set;
-- as bytecode, whenever another source set resolves `@NotModified` through its own class path.
+1. **`ScanCompilationUnits.scan()` preloaded a class-path package before it published this task's
+   source symbols.** The parse preloads `io.codelaser.jfocus.transform.support` from the class path
+   (a `JavaInspector.preload(...)` the refactoring server asks for). The preload ran *above* the line
+   that computes `topLevelClassSymbolsOfSources` and hands it to the scanner.
 
-`InfoByFqn` is keyed by fully-qualified name, so both routes land on the **same `TypeInfo`**.
+2. **A preloaded class-file type carries `@NotModified`, and resolving that annotation reaches a
+   source type.** `loadAnnotations` → `annotationExpression` → `convert(compound.type)` →
+   `classTypeInfo` → `lazilyLoadPrimaryTypeFromClassFile(NotModified)`. In *this* javac task
+   `io.codelaser.maddi.annotation.NotModified` is a **source** symbol (`maddi-annotation/main` is the
+   source set being scanned), so `ensureSourceSet` — whose first line is `if (!fromClassFile(cs))
+   return sourceSetOfCurrentTask` — attributes the new `TypeInfo` to **the current source set**.
 
-This is not the stale-jar case the runtime message suggests ("*if a type is defined BOTH in your
-sources and in a jar on the classpath, the jar may be stale — rebuild or delete it*"). The jar here
-was rebuilt in the same `--rerun-tasks` sweep that produced the compile log. Rebuilding changes
-nothing: the duplication is structural, not a version skew.
+3. **`isSourceSymbol` failed open, so the class scanner built the hierarchy anyway.**
 
-## Why annotation types are what trip it
+   ```java
+   private boolean isSourceSymbol(Symbol symbol) {
+       if (topLevelClassSymbolsOfSources == null) return false;   // ⛔ the wrong answer, not "unknown"
+       ...
+   ```
 
-An `@interface` implicitly implements `java.lang.annotation.Annotation`, and the source scan adds it
-explicitly — `ScanCompilationUnit.java:468`:
+   The map was still `null` — step 1 — so the guard said *"not a source symbol"* about a symbol javac
+   had entered from source. `loadType` therefore ran the whole setup block: it added
+   `java.lang.annotation.Annotation` from `cs.getInterfaces()`, and the type's own `@Target`/`@Retention`
+   from `loadAnnotations`.
 
-```java
-if (typeInfo.typeNature().isAnnotation()) {
-    ParameterizedType javaLangAnnotationAnnotation = convertType.convert(jcClassDecl.sym.getInterfaces().getFirst());
-    builder.addInterfaceImplemented(javaLangAnnotationAnnotation);
-}
-```
+4. **The source scan then adopts that very `TypeInfo` and builds it again.**
+   `ScanCompilationUnit.visitClass` looks the FQN up and reuses what it finds when the source sets
+   match — and they match, because of step 2:
 
-So an annotation's interface list is exactly one entry, and never empty. A class with no `implements`
-clause has an empty list; doubling it is still empty and the assert cannot fire. Annotations are the
-smallest possible tripwire — **not the only type at risk**. Any type with a non-empty interface list
-that arrives both ways should double the same way; that generalisation is read from the code, not
-measured, because the parse aborts at the first annotation.
+   ```java
+   if (known != null && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
+       typeInfo = known; // was already created because of the order
+   }
+   ```
 
-## Why the existing guards miss it
+   `continueType` then appends the interfaces and annotations from source, on top of what step 3 left.
+   `commit()` throws.
 
-`ClassSymbolScanner.java:495–509` is the guard, and its comment states exactly this hazard for the
-sibling case:
+**Why annotation types are the tripwire.** An `@interface` implicitly implements
+`java.lang.annotation.Annotation`, and the source scan adds it explicitly (`ScanCompilationUnit:468`),
+so its interface list is exactly one entry and never empty. A class with no `implements` clause has an
+empty list; doubling it is still empty and the assert cannot fire. Annotations are the *smallest*
+tripwire, not the only type at risk — the regression test carries a plain
+`class Impl implements Iface` beside the `@interface`, and pre-fix **both** fail.
 
-```java
-// Do not load the interfaces of a *source* type here: ... ScanCompilationUnit also adds the
-// interfaces from source -- since addInterfaceImplemented appends, the result is a duplicated
-// interface list. A source type's hierarchy is owned by ScanCompilationUnit.
-if (!isSourceSymbol(cs) && typeInterfacesLoaded.add(newTypeInfo)) {
-```
+**Why five of twenty-seven, and it is not arbitrary.** The five that die are exactly the five maddi
+annotations that occur in the preloaded package. `io.codelaser.jfocus.transform.support` uses
+`@NotModified`, `@Independent`, `@GetSet`, `@Fluent` and `@Modified` — and `@Immutable`, which appears
+there **only inside comments**. The other twenty-two annotation types are never resolved during the
+preload, so nothing writes them twice.
 
-Both halves fail open here:
+**Why the first source set.** The preload runs under `if (!runtime.objectTypeInfo().hasBeenInspected())`,
+i.e. once per parse, in whichever source set is scanned first. `maddi-annotation/main` was it.
 
-1. **`isSourceSymbol(cs)` asks about the ClassSymbol, not about the TypeInfo.** javac resolved
-   `@Fluent` out of the jar, so `cs` is a class-file symbol and the test is `false` — even though the
-   `TypeInfo` it is about to write is one `ScanCompilationUnit` owns.
-2. **`typeInterfacesLoaded` is per-scanner** (line 57), and this is that scanner's first load of the
-   type.
+## The fix
 
-The shared guard that would have caught it is never armed on this path.
-`InfoByFqn.markClassScannerSetupDone` (line 56) is identity-keyed on `TypeInfo` and outlives any one
-scanner, but only two sites set it: `loadType` itself (`ClassSymbolScanner.java:426`) and the
-**anonymous-type** `put` (line 1884, whose comment describes the equivalent defect for anonymous
-types). The ordinary source `put(TypeInfo)` at line 1871 does not mark, so a source-built primary
-type reaching `loadType` later is unguarded.
+Three changes, two of them independent repairs of the same failure and the third structural.
 
-## The same hole duplicates ANNOTATIONS, and that half has no assert
+1. **`ScanCompilationUnits.scan()` publishes `topLevelClassSymbolsOfSources` *before* the preload.**
+   Pure reordering: the map is derived from `units`, which `task.parse()`/`task.analyze()` have already
+   produced at the top of the method. It also makes `classTypeInfo`'s "one of the source files we are
+   parsing" branch correct during the preload.
 
-Worth handling in the same change. `InspectionImpl.Builder.addAnnotation`/`addAnnotations` (lines
-199, 205) append exactly like `addInterfaceImplemented`, and the type-level add is guarded at
-`ClassSymbolScanner.java:445` by `typeAnnotationsLoaded` — **per-scanner, with no `isSourceSymbol`
-half at all**. What protects it instead is `loadAnnotations` (line 648):
+2. **`ClassSymbolScanner.isSourceSymbol` no longer depends on that timing.** javac itself knows: a
+   `ClassSymbol` entered from source has its `classfile` pointing at the `.java` it came from, which is
+   precisely what `fromClassFile` tests. So
 
-```java
-private List<AnnotationExpression> loadAnnotations(Symbol symbol) {
-    if (isSourceSymbol(symbol)) return List.of();
-```
+   ```java
+   Symbol.ClassSymbol top = primary(enclosing);
+   if (!fromClassFile(top) && top.sourcefile != null) return true;
+   return topLevelClassSymbolsOfSources != null && topLevelClassSymbolsOfSources.containsKey(top);
+   ```
 
-which asks about the **symbol** again. So on this path — class-file symbol, source-built `TypeInfo`,
-fresh scanner — it returns the bytecode annotations and appends them a second time. There is no
-distinctness assert on annotations in `TypeInspectionImpl` (line 73 is the only one), so this
-half is **silent**: a duplicated `@NotModified` on a type, not a crash.
+   This is the change the regression test pins: with (1) reverted and (2) in place, the fixture passes.
 
-**Read, not measured** — the parse aborts at the interfaces assert before anything could observe it.
-Confirming it is the cheapest first step for whoever picks this up, because it decides whether this
-is a crash to fix or a wrong-answer to fix.
+3. **`ScanCompilationUnit.continueType` claims the type on the shared registry, and undoes a class-file
+   load that got there first.**
 
-## Why five of twenty-seven — it is order, not a property
+   ```java
+   if (!typeData.markClassScannerSetupDone(typeInfo)) {
+       builder.clearInterfacesImplemented();
+       builder.clearAnnotations();
+   }
+   ```
 
-Checked, and none of these discriminates:
+   `InfoByFqn.markClassScannerSetupDone` is identity-keyed on the `TypeInfo` and outlives any one
+   scanner. Claiming it here says *the source scan owns this type's hierarchy*, in a place both scanners
+   can see, which is the linear `DEFINED_BY_CLASS_SCANNER` / `DEFINED_IN_SOURCE` state that
+   `ClassSymbolScanner:502`'s STOPGAP note asks for. It works in both directions: a class-file load
+   **later** (another source set's on-demand load, a re-parse's `commitType`) finds the claim taken and
+   skips its setup block; a class-file load **earlier** is undone, because `visitClass` adopts the very
+   `TypeInfo` it registered. `TypeInfo.Builder.clearAnnotations()` is new, and is the counterpart of the
+   existing `clearInterfacesImplemented()`.
 
-| candidate rule | refuted by |
-|---|---|
-| usage count | `NotNull` (943 uses) survived; `GetSet` (119) failed |
-| `@Target` | the five span METHOD, FIELD, PARAMETER, TYPE and one with no `@Target` at all |
-| `@Retention` | 25 of the 27 are `CLASS`, including all the survivors |
+The per-scanner `typeInterfacesLoaded` / `typeAnnotationsLoaded` sets and the `isSourceSymbol` test at
+the interface guard are left as they are: they still guard the LAZILY-then-LOAD_MEMBERS re-entry, and
+nothing above makes them wrong.
 
-What decides it is **traversal order**: which annotations happen to be resolved from the jar by some
-source set *after* their own source has been scanned. That makes the failure set unstable — a
-different scan order fails on a different subset — and it means a fix must not be validated against
-"these five".
+## The annotations half — it was real, and it is silent
+
+`InspectionImpl.Builder.addAnnotation`/`addAnnotations` append exactly like `addInterfaceImplemented`,
+and there is **no distinctness assert on annotations** (line 73 is the only one). So the same hole put
+a type's own `@Target` in the list twice: a wrong answer, not a crash, and invisible because the parse
+aborted at the interfaces assert first. The regression test asserts it directly —
+`assertEquals(List.of("java.lang.annotation.Target"), markerAnnotations)` — and it fails pre-fix for the
+same reason the interfaces do.
 
 ## Reproduction
 
-No corpus is needed in principle. The shape is: one source set declaring type `T`, plus a jar
-containing `T` on the class path of a second source set that references `T`, in one
-`InputConfiguration`. `T` an `@interface` gives the crash; `T` a class with any `implements` clause
-should give it too.
+`maddi-inspection-openjdk/src/test/.../TestPreloadBeforeSourceSymbols.java`, hermetic, ~2 s. The shape:
 
-**That fixture has not been written.** The existing
-`maddi-java-openjdk/src/test/.../other/TestCrossScannerDuplicateInterfaces.java` reproduces the
-*neighbouring* case hermetically — two scanners, shared `InfoByFqn`, both class-file — and is the
-right file to extend; its `scan(...)` helper does not currently offer a class-path artifact
-shadowing a source type, which is the piece to add.
+- a class-path jar holding **only** package `p`: `p.Used`, annotated `@a.b.Marker`, and `p.User`, whose
+  field type is `a.b.Impl`;
+- one source set declaring `a.b.Marker` (an `@interface`), `a.b.Iface` and `a.b.Impl implements Iface`
+  — and **nothing of `a.b` on the class path**, so javac must resolve those names from source;
+- `javaInspector.preload("p")`.
 
-To reproduce as found: build the whole-tree input configuration described in
-`jfocus-refactor-server/work/codelaser/pipeline/`, leaving `maddi-annotation/main` in.
+Pre-fix both `a.b.Marker` and `a.b.Impl` die with *"Extending multiple identical interfaces"*.
 
-## What the code already proposes
+⚠ Two things that are **not** needed, both of which the first write-up believed were: a jar shadowing
+the source type, and a second source set. One source set and a preload are enough.
 
-`ClassSymbolScanner.java:502`, four lines above the guard, and it is the design note for this
-handoff rather than a fresh idea:
+## What the first diagnosis got wrong
 
-> **STOPGAP:** the proper fix is a linear inspection-state on the builder
-> (`DEFINED_BY_CLASS_SCANNER` vs `DEFINED_IN_SOURCE`), which would make the double-load impossible
-> (and assertable) rather than guarded.
+Recorded because the wrong reading survived a careful code walk, and the difference is instructive.
 
-That state is on the **builder**, i.e. on the thing that actually accumulates the list, and it is
-what removes the whole class of "which symbol asked?" questions. Both this defect and the
-annotations half above are instances of asking the symbol a question only the `TypeInfo` can answer.
+| the first reading | what is actually true |
+|---|---|
+| `maddi-annotation-0.9.1.jar` on 155 compile lines makes one FQN reachable two ways, and `InfoByFqn` hands both routes the same `TypeInfo`. | The jar is irrelevant. Both routes are the **same source symbol**; the guard simply could not see that yet. The fixture holds no `a.b.*` artifact at all. |
+| `isSourceSymbol(cs)` asks about the ClassSymbol rather than the TypeInfo, and javac supplies a class-file symbol. | It asks the right thing about the right symbol. Its defect was the **fail-open on a null map**, and the map was null because of *when* the preload ran. |
+| Which types fail is traversal order, so a fix must not be validated against "these five". | The rule is sharper and fully determined: the five are exactly the maddi annotations **used in the preloaded package**. (The advice not to validate against those five still stands, and the regression test does not.) |
+| A narrower repair would be to mark `markClassScannerSetupDone` from the ordinary source `put(TypeInfo)`. | That would be wrong: `lazilyLoadPrimaryTypeFromClassFile` calls the **same** `put`, so a legitimate pre-source lazy load would be left with no parent class and no type parameters. The claim belongs in `continueType`, which is where the source scan actually takes over. |
 
-A narrower repair — marking `markClassScannerSetupDone` from the ordinary source `put(TypeInfo)`, so
-the shared guard is armed for source types the way it already is for anonymous ones — would close
-the reported crash. It leaves the underlying asymmetry in place, so it is a candidate for
-*unblocking*, not for closing.
-
-## The workaround in use, and what it costs
-
-`maddi/maddi-annotation/main` is excluded from the parse (dropped from the compile log before the
-input configuration is generated). It costs nothing measurable:
-
-- the jar stays on every class path, so nothing loses the annotations;
-- `graph.moduleDependencies` still resolves `io.codelaser.maddi.annotation` as a **LIBRARY** module,
-  named from the jar's own `module-info.class`;
-- it is what `dogfood/settings.gradle.kts` already does deliberately, so that reading `@Mark`/`@Only`
-  out of **bytecode** is exercised.
+The generalisation the first write-up drew from reading — *"any type with a non-empty interface list
+that arrives both ways should double the same way"* — is right, and is now measured rather than read:
+`a.b.Impl implements Iface` fails pre-fix exactly like the `@interface`.
 
 ## Why no corpus has ever surfaced this
 
-Every OSS corpus is analysed as source with third-party jars on the class path — disjoint sets, so a
-name is never reachable both ways. It takes **self-analysis**: running the toolkit over a tree that
-publishes the very artifacts it also compiles against. `dogfood` is maddi's self-analysis instrument
-and it avoids the shape by construction, keeping `maddi-annotation`, `maddi-support` and
-`maddi-util` as jars while only `cst-api`/`cst-impl`/`cst-analysis` are source.
+It needs a **preloaded class-path package that references a type the first source set declares**. Every
+OSS corpus is analysed as source with third-party jars on the class path — disjoint sets, so a preloaded
+library never names a type the corpus itself declares. It takes **self-analysis**: running the toolkit
+over a tree that publishes the very artifacts it also compiles against, and preloading one of them.
 
-That is worth stating as a property rather than an accident: **`dogfood`'s jar/source split is load
-bearing, and not only for the reason its comments give.** A future widening of `dogfood` to cover
-more modules as source walks into this defect.
+`dogfood` is maddi's self-analysis instrument and avoids the shape by construction, keeping
+`maddi-annotation`, `maddi-support` and `maddi-util` as jars while only `cst-api`/`cst-impl`/
+`cst-analysis` are source. That split is load bearing, and not only for the reason its comments give.
+
+## The workaround that is no longer needed
+
+The jfocus JPMS campaign excluded `maddi/maddi-annotation/main` from the parse (dropped from the compile
+log before the input configuration is generated). That exclusion can be lifted; the cost of keeping it
+was small but real — the source set's own types were absent from the CST, so the campaign's
+`module-info` reconciliation could not see them.

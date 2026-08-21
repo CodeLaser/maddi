@@ -27,4 +27,15 @@ public interface TypeData {
 
     FieldInfo getOrLoadField(Symbol.VarSymbol vs);
 
+    /**
+     * Claim a type's "setup block" (access, type parameters, parent class, interfaces, annotations) for the caller,
+     * returning {@code true} the first time and {@code false} on every later attempt. Backed by the shared
+     * {@code InfoByFqn} registry, so the claim outlives any one scanner instance.
+     * <p>
+     * The source scan claims what it is about to build, so a class-file load of the same {@code TypeInfo} — before
+     * or after, in this parse or the next — cannot build it a second time. See
+     * {@code ScanCompilationUnit#continueType} and {@code ClassSymbolScanner#loadType}.
+     */
+    boolean markClassScannerSetupDone(TypeInfo typeInfo);
+
 }
