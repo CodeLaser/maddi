@@ -28,4 +28,36 @@ public class TestEscapeSequence {
         assertEquals("ab!", EscapeSequence.translateEscapeInTextBlock("ab\41"));
         assertEquals("\"ab", EscapeSequence.translateEscapeInTextBlock("\42ab"));
     }
+
+    // A unicode escape (JLS 3.3) is a lexer-level construct, so it normally never reaches this class.
+    // It does when it survives into a text block's raw token, which is how 30 questdb compilation units
+    // ended up throwing UnsupportedOperationException here.
+    @Test
+    public void testUnicodeEscapeInTextBlock() {
+        assertEquals("aAb", EscapeSequence.translateEscapeInTextBlock("a\\u0041b"));
+    }
+
+    @Test
+    public void testUnicodeEscapeRepeatedU() {
+        assertEquals("aAb", EscapeSequence.translateEscapeInTextBlock("a\\uuu0041b"));
+    }
+
+    // an escaped backslash is consumed first, so the following u is ordinary text, not an escape
+    @Test
+    public void testEscapedBackslashBeforeU() {
+        assertEquals("a\\u0041b", EscapeSequence.translateEscapeInTextBlock("a\\\\u0041b"));
+    }
+
+    // questdb's shape: a surrogate pair inside expected query output
+    @Test
+    public void testUnicodeEscapeSurrogatePair() {
+        assertEquals("ab\uDB47\uDD9Ccd",
+                EscapeSequence.translateEscapeInTextBlock("ab\\uDB47\\uDD9Ccd"));
+    }
+
+    // the other caller: ParseExpression hands a character literal's source after the backslash
+    @Test
+    public void testUnicodeEscapeInCharacterLiteral() {
+        assertEquals('A', EscapeSequence.escapeSequence("u0041'"));
+    }
 }
