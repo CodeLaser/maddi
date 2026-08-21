@@ -18,6 +18,7 @@ package io.codelaser.maddi.cst.impl.type;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -64,6 +65,23 @@ public class ParameterizedTypePrinter {
                                       Diamond diamond,
                                       boolean withoutArrays,
                                       boolean printTypeBounds) {
+        return print(qualification, parameterizedType, varargs, diamond, withoutArrays, printTypeBounds, true);
+    }
+
+    /**
+     * @param printAnnotations include the type's TYPE-USE annotations. TRUE when rendering SOURCE; FALSE when
+     *                         rendering a NAME -- {@code fullyQualifiedName()} and {@code printForMethodFQN()}
+     *                         identify a type and must not vary with what is written on a particular use of
+     *                         it, or '@NonNull a.b.Factory' starts turning up where 'a.b.Factory' is expected
+     *                         and every name-keyed lookup misses.
+     */
+    public static OutputBuilder print(Qualification qualification,
+                                      ParameterizedType parameterizedType,
+                                      boolean varargs,
+                                      Diamond diamond,
+                                      boolean withoutArrays,
+                                      boolean printTypeBounds,
+                                      boolean printAnnotations) {
         OutputBuilder outputBuilder = new OutputBuilderImpl();
         if (parameterizedType.isIntersectionType()) {
             return intersectionType(qualification, parameterizedType, printTypeBounds);
@@ -77,6 +95,22 @@ public class ParameterizedTypePrinter {
             } else if (w.isSuper()) {
                 outputBuilder.add(new TextImpl("?")).add(SpaceEnum.ONE).add(KeywordImpl.SUPER).add(SpaceEnum.ONE);
             }
+        }
+        /*
+         ⭐ TYPE-USE ANNOTATIONS, printed where they were written: after any wildcard bound and immediately
+         before the type. '? extends @Nullable Object', 'List<@Nullable String>', '@Nullable String m()'.
+         Modelled on TypeParameterImpl's own annotation printing so the two agree on spacing.
+
+         ⛔ WITHOUT THIS the parse can carry them and nothing shows it. That is worse than not carrying them
+         at all: every generated file would silently state something weaker than its source, and only a
+         nullness checker at the consumer's build would ever say so.
+         */
+        List<AnnotationExpression> typeAnnotations = printAnnotations ? parameterizedType.annotations()
+                : List.of();
+        if (!typeAnnotations.isEmpty()) {
+            OutputBuilder ab = typeAnnotations.stream().map(ae -> ae.print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.ONE));
+            outputBuilder.add(ab).add(SpaceEnum.ONE);
         }
         TypeParameter tp = parameterizedType.typeParameter();
         if (tp != null) {
