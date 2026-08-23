@@ -884,7 +884,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // referenced by analyzed-package files (e.g. the private no-arg constructor of a static-utility class
             // such as java.lang.Math); skipping them left typeInfo.constructors() empty and broke analysis decode.
             boolean load = (ms.flags() & Flags.PRIVATE) == 0 || ms.isConstructor();
-            if (load
+            MethodInfo inMap = methodSymbolMap.get(ms);
+            if (inMap != null && !inMap.hasBeenInspected()) {
+                finishAbandonedMethod(inMap, ms);
+            } else if (load
                 && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
                 MethodInfo methodInfo = addMethodToType(typeInfo, ms, false);
@@ -902,7 +905,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             boolean isPrivate = (vs.flags() & Flags.PRIVATE) != 0;
             boolean synthetic = (vs.flags() & Flags.SYNTHETIC) != 0;
             boolean load = !isPrivate || !synthetic;
-            if (load && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
+            FieldInfo inMap = varSymbolMap.get(vs);
+            if (inMap != null && !inMap.hasBeenInspected()) {
+                // the field twin of finishAbandonedMethod: the scan registers a field before its annotations too
+                if (inMap.access() == null) inMap.builder().computeAccess();
+                if (inMap.source() == null) inMap.builder().setSource(runtime.noSource());
+                if (inMap.initializer() == null) inMap.builder().setInitializer(runtime.newEmptyExpression());
+                inMap.builder().commit();
+                assert inMap.access() != null;
+            } else if (load && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
                 FieldInfo fieldInfo = addFieldToType(typeInfo, vs);
                 if (!fieldInfo.hasBeenInspected()) {
@@ -928,6 +939,44 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 enclosed.builder().computeAccess().commit();
             }
         }
+    }
+
+    /**
+     * ⛔ <b>A METHOD IN THE SYMBOL MAP IS NOT A METHOD THE SOURCE SCAN FINISHED.</b> {@code ScanCompilationUnit.visitMethod}
+     * registers a method here (its {@code typeData.put}) and on its type BEFORE it converts the annotations, and
+     * computes the access as its LAST statement; an annotation whose type javac could not resolve throws in
+     * between. The unit is then dropped, so the end-of-scan walk that commits a primary type's members never
+     * reaches it -- but the type stays registered, and {@code commitType} completes it from its symbol. Until
+     * 2026-08-23 this loop took "already in the map" for "already handled" and SKIPPED it, then committed the
+     * type around it: a committed type holding an uncommitted method whose {@code access()} is null forever.
+     * Measured on maddi-as-one-project in the IDE daemon: 18 such methods, every one of them the method in which
+     * the scan threw, 104 null reads, fatal in the guard phase (see docs/handoff-uninspected-methods-null-access.md).
+     * <p>
+     * Finish it the way a compiled member is built: the access from its modifiers (the scan set the modifiers
+     * first), no source, an empty body, the overrides from the symbol. Whatever the scan DID complete
+     * (parameters, return type, type parameters, a computed access) is kept: it is the declaration as written.
+     * <p>
+     * ⚠ Only the COMPLETE modes can meet a still-open source method: they run from {@code commitType} and
+     * {@code loadCompiledTypeOrNull}, both after the source set's scan. A method built from a symbol ahead of its
+     * declaration ({@code deferCommitToDeclaration}) is open for the same reason and finished the same way.
+     */
+    private void finishAbandonedMethod(MethodInfo methodInfo, Symbol.MethodSymbol ms) {
+        MethodInfo.Builder builder = methodInfo.builder();
+        if (methodInfo.access() == null) builder.computeAccess();
+        if (methodInfo.source() == null) builder.setSource(runtime.noSource());
+        if (methodInfo.methodBody() == null) builder.setMethodBody(runtime.emptyBlock());
+        for (TypeParameter tp : methodInfo.typeParameters()) {
+            if (!tp.hasBeenInspected()) tp.builder().commit();
+        }
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (!pi.hasBeenInspected()) pi.builder().commit();
+        }
+        if (methodInfo.overrides().isEmpty()) {
+            builder.addOverrides(computeMethodOverrides.findOverriddenMethods(ms).stream()
+                    .map(this::getOrLoadMethod).toList());
+        }
+        builder.commit();
+        assert methodInfo.access() != null;
     }
 
     private TypeInfo addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
@@ -971,6 +1020,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
+        // the access before the annotations, which can throw with the field already on its type (see
+        // finishAbandonedMethod); the caller's computeAccess() then recomputes the same value
+        fieldInfo.builder().computeAccess();
         fieldInfo.builder().addAnnotations(loadAnnotations(vs));
 
         put(vs, fieldInfo);
@@ -1159,6 +1211,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
 
         flagHelper.method(ms.flags(), builder);
+        // the access as soon as the modifiers are known, not after the annotations, parameter types and overrides
+        // below: each of those can throw on a partial class path, with the method already registered
+        // (finishAbandonedMethod)
+        builder.computeAccess();
         builder.addAnnotations(loadAnnotations(ms));
         if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
             builder.setSynthetic(true);
@@ -1200,7 +1256,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(overrides);
         if (!deferCommitToDeclaration) builder.commitParameters();
-        builder.computeAccess();
         // now the fully qualified name has been computed...
 
         clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());

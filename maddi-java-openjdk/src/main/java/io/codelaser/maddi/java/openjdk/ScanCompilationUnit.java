@@ -859,8 +859,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 typeData.put(jcMethod.sym, methodInfo);
 
 
-                // flags
+                // flags; and the access AS SOON AS its inputs exist (the modifiers and the method type). It used to
+                // be computed last, after the annotations, the parameters and the body: an unresolvable annotation
+                // threw in between, the method was already registered on its type and in typeData, and it answered
+                // access() with null for the rest of the run (ClassSymbolScanner.finishAbandonedMethod).
                 flagHelper.method(methodFlags, builder);
+                builder.computeAccess();
 
                 // type parameters; must be done in 2 stages
                 if (!jcMethod.getTypeParameters().isEmpty()) {
@@ -1016,8 +1020,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             builder.addOverrides(overrides)
                     .setSource(source)
                     .addComments(commentsForNode(source))
-                    .setMethodBody(methodBody)
-                    .computeAccess();
+                    .setMethodBody(methodBody);
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException | AssertionError | StackOverflowError re) {
@@ -2049,7 +2052,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             fieldInfo.builder().addAnnotations(annots);
 
+            // flags; and the access right away, as for methods: the annotations below can throw on a partial
+            // class path, with the field already registered on its type and in typeData
             flagHelper.field(flags, fieldInfo.builder());
+            fieldInfo.builder().computeAccess();
 
             // annotations
             for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
@@ -2098,8 +2104,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             fieldInfo.builder()
                     .addComments(commentsForNode(vdSource))
                     .setSource(nameAndInitSource.withDetailedSources(dsb.build()))
-                    .setInitializer(initializer)
-                    .computeAccess();
+                    .setInitializer(initializer);
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             deferredFieldCommits.add(fieldInfo);
             assert fieldInfo.access() != null;
