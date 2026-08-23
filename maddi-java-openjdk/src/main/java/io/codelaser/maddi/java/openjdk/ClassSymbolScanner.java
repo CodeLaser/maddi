@@ -1601,11 +1601,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
              for declarations, so an unresolvable annotation degrades to being absent rather than throwing.
              */
             ParameterizedType underlying = convertTreeDontSet(at.underlyingType, dsb, source);
-            List<AnnotationExpression> typeAnnotations = at.getAnnotations().stream()
-                    .map(a -> a.attribute)
-                    .filter(Objects::nonNull)
-                    .map(this::annotationExpression)
-                    .toList();
+            List<AnnotationExpression> typeAnnotations = new ArrayList<>();
+            for (JCTree.JCAnnotation a : at.getAnnotations()) {
+                if (a.attribute == null) continue;
+                try {
+                    typeAnnotations.add(annotationExpression(a.attribute));
+                } catch (RuntimeException re) {
+                    LOGGER.warn("Skipping type-use annotation {}: {}", a.attribute.type, re.toString());
+                }
+            }
             return typeAnnotations.isEmpty() ? underlying : underlying.withAnnotations(typeAnnotations);
         }
         if (type instanceof JCTree.JCTypeIntersection intersection) {
