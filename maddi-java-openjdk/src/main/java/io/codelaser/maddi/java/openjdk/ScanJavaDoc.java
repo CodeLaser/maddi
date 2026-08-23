@@ -89,7 +89,19 @@ public record ScanJavaDoc(Runtime runtime,
                     comment.append(tt.getExceptionName());
                     if (!tt.getDescription().isEmpty()) comment.append(" ");
                 }
-                case ReturnTree _, DeprecatedTree _, SinceTree _, AuthorTree _, VersionTree _, SeeTree _,
+                case SeeTree st -> {
+                    // G26(b): the reference of `@see a.b.C` is a ReferenceTree, not a TextTree — the
+                    // child recursion never prints it, and the tag came out truncated to a bare `@see`
+                    // (a doclint compile error once the comment is re-emitted). @throws writes its
+                    // exception name explicitly, right above; @see gets the same treatment. A leading
+                    // TextTree (e.g. `@see "text"`) still arrives via the recursion.
+                    comment.append("@see ");
+                    List<? extends DocTree> refs = st.getReference();
+                    if (refs != null && !refs.isEmpty() && refs.getFirst() instanceof ReferenceTree rt) {
+                        comment.append(rt.getSignature()).append(" ");
+                    }
+                }
+                case ReturnTree _, DeprecatedTree _, SinceTree _, AuthorTree _, VersionTree _,
                      UnknownBlockTagTree _ -> {
                     comment.append("@").append(btt.getTagName()).append(" ");
                 }
