@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.ide.daemon;
 
+import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
 import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
@@ -84,19 +85,24 @@ public class WarmAnalysisService implements AnalyzeHandler {
 
         ResultCollector collector = new ResultCollector(inspector.runtime(), sourceSet);
 
-        // parseResult() throws when haveErrors(); with parse errors we return findings-only so the IDE still
-        // sees them, and full analysis resumes once the user fixes the sources.
-        if (summary.haveErrors()) {
-            LOGGER.info("parse produced {} error(s); returning findings-only", summary.parseExceptions().size());
-            // no analysis ran, so there is no fixpoint outcome to report — UNKNOWN, not "not certified"
-            return new DaemonProtocol.Result(requestId, collector.parseFindings(summary), List.of(),
-                    initProblems, summary.parseExceptions().size(), hints, System.currentTimeMillis() - start,
-                    DaemonProtocol.OUTCOME_UNKNOWN);
+        // A parse error must not cost the whole project its analysis. This used to return findings-only on
+        // haveErrors(), which meant ONE unresolvable module yielded zero annotations everywhere — measured on
+        // Pulsar: 344 parse errors out of 98 source roots, and not one element annotation. That also
+        // contradicted setFailFast(false) above, which is set precisely so a mid-edit tree still yields
+        // something. So: analyse what did parse, and report the run as partial via parseErrorCount.
+        boolean partialParse = summary.haveErrors();
+        if (partialParse) {
+            LOGGER.info("parse produced {} error(s); analysing the {} type(s) that did parse",
+                    summary.parseExceptions().size(), summary.types().size());
         }
+        ParseResult parseResult = partialParse ? summary.parseResultIgnoringErrors() : summary.parseResult();
 
-        ParseResult parseResult = summary.parseResult();
         emit(status, requestId, "prep", "call graph", null, summary.types().size());
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(inspector.runtime());
+        // Fault-tolerant like RunAnalyzer's: on a partial parse a type whose supertype did not resolve is far
+        // likelier to trip prep, and one such type must not abort the run for everything else. The isolated
+        // failures are reported through prepAnalyzer.exceptions() below.
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(inspector.runtime(),
+                new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
         ComputeCallGraph ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(
                 Set.copyOf(parseResult.primaryTypes()),
                 parseResult.sourceSetToModuleInfoMap().values(),
@@ -132,9 +138,16 @@ public class WarmAnalysisService implements AnalyzeHandler {
                 collector.collectElementAnnotations(parseResult.primaryTypes());
 
         long elapsed = System.currentTimeMillis() - start;
-        String outcome = valueFeed.outcome();
-        LOGGER.info("analysis complete in {} ms ({}): {} findings, {} element annotations",
-                elapsed, outcome, findings.size(), elementAnnotations.size());
+        // A partial parse can never be certified: the missing compilation units contribute no references, so a
+        // surviving type's properties may be weaker than its code allows. Downgrade rather than let the client
+        // read a fixpoint outcome as final. (parseErrorCount on the Result carries the detail; no protocol change.)
+        String outcome = partialParse ? DaemonProtocol.OUTCOME_UNKNOWN : valueFeed.outcome();
+        List<AnalyzerException> prepExceptions = prepAnalyzer.exceptions();
+        if (!prepExceptions.isEmpty()) {
+            LOGGER.warn("prep isolated {} type(s)/method(s); they were skipped", prepExceptions.size());
+        }
+        LOGGER.info("analysis complete in {} ms ({}{}): {} findings, {} element annotations",
+                elapsed, outcome, partialParse ? ", PARTIAL parse" : "", findings.size(), elementAnnotations.size());
         return new DaemonProtocol.Result(requestId, findings, elementAnnotations, initProblems,
                 summary.parseExceptions().size(), hints, elapsed, outcome);
     }

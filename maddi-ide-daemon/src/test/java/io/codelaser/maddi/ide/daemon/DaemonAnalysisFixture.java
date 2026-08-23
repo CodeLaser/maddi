@@ -17,6 +17,7 @@ package io.codelaser.maddi.ide.daemon;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -60,6 +61,32 @@ public final class DaemonAnalysisFixture {
                 false,
                 warnNearMisses);
         return new WarmAnalysisService().analyze(new DaemonProtocol.AnalyzeProject("test", config), sink);
+    }
+
+    /**
+     * Analyze SEVERAL source files in one project, keyed by path relative to the source root. Needed whenever a
+     * test is about how one compilation unit affects another — a partial parse, for instance, where the point is
+     * that the file which fails must not silence the file which does not.
+     */
+    public static DaemonProtocol.Result analyzeAll(Path projectDir, Map<String, String> sourcesByRelativePath)
+            throws Exception {
+        for (Map.Entry<String, String> entry : sourcesByRelativePath.entrySet()) {
+            Path file = projectDir.resolve("src").resolve(entry.getKey());
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, entry.getValue());
+        }
+        DaemonProtocol.AnalyzeConfig config = new DaemonProtocol.AnalyzeConfig(
+                projectDir.toAbsolutePath().toString(),
+                System.getProperty("java.home"),
+                "UTF-8",
+                List.of("java.base"),
+                List.of(new DaemonProtocol.SourceRoot("main", "src", false)),
+                List.of(),
+                List.of(),
+                false,
+                false);
+        return new WarmAnalysisService().analyze(new DaemonProtocol.AnalyzeProject("test", config),
+                status -> { });
     }
 
     /** The display annotations computed for the first element of {@code kind} whose fqn contains {@code fqnPart}. */
