@@ -55,6 +55,13 @@ public class CommonTest {
     // to parse against a deliberately partial class path -- the shape that produces javac's unresolved-symbol
     // and unresolved-annotation-element markers, which the default (full test runtime) class path never does.
     protected List<File> classPathOverride = List.of();
+    // when false, the task runs with -proc:none, as the product does for a project without lombok on its class
+    // path. The difference is not cosmetic. Observed 2026-08-23: with the processor configured and one
+    // unresolvable annotation in the source set, javac handed the scan a class whose method bodies were not
+    // attributed (its implicit constructor died on "Unexpected null symbol for unqualified call to 'super'"
+    // before any field was reached); with -proc:none the same source attributed completely, as it does in the
+    // product (see TestDroppedUnitMethodAccess).
+    protected boolean annotationProcessing = true;
 
     public CommonTest() {
         this(List.of());
@@ -143,10 +150,13 @@ public class CommonTest {
                 .map(e -> new InMemoryJavaFileObject("source", e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
+        List<String> options = annotationProcessing
+                ? List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+                "--enable-preview", "--release=26")
+                : List.of("-proc:none", "--enable-preview", "--release=26");
         return (JavacTask) compiler.getTask(
                 null, fm, diagnostics,
-                List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
-                        "--enable-preview", "--release=26"),
+                options,
                 null,
                 compilationUnits
         );

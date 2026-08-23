@@ -1,9 +1,95 @@
 # A method the analyzer sees has never been inspected: `MethodInfo.access()` is null
 
-*Written 2026-08-23 from `ws/python`. **The root cause is NOT found.** The symptom, the mechanism and a
-90-second replay are established; what is missing is *why* these particular methods are never committed.
-Four candidate explanations have already been tested and killed — §5 — so please read that before re-deriving
-them.*
+*Written 2026-08-23 from `ws/python`; **root cause found and fixed the same day from `ws/server`** — §8, which
+supersedes the open question in §4 and §6. The symptom, the mechanism and the 90-second replay below are as
+they were established; §5's dead ends are still dead.*
+
+## 8. The root cause (2026-08-23, later the same day) — and the fix
+
+**Every one of the 18 is the method in which the source scan threw.** Matching the 18 names against the log's
+`Caught exception in method X` lines is 18 for 18 (`Variable.fullyQualifiedName`, `Codec.decode`,
+`MaddiDaemonProcess.ensureStarted`, …); and "all interface methods" (§2) was a coincidence of the majority —
+`InspectionImpl.Builder.setAccess` and `MaddiDaemonProcess.ensureStarted` are not. The run dropped **313**
+compilation units, not 51 (`parseErrorCount` counts javac diagnostics, `Dropping compilation unit` counts drops);
+the drops are the per-module configuration missing `maddi-annotation` / `slf4j` on most modules' class paths
+(`package io.codelaser.maddi.annotation is declared in the unnamed module, but module … does not read it`).
+
+Three steps, each established by reading the code and then by a test that runs:
+
+1. **`ScanCompilationUnit.visitMethod` registers before it resolves, and computes the access last.** The method
+   is put on its type (`currentType.builder().addMethod`) and into the scanner's symbol map (`typeData.put`,
+   ScanCompilationUnit:858) *before* the annotations are converted (the parameter annotation `@Modified` is what
+   threw for `Codec.decode`), and `computeAccess()` was the final statement of the method (:1020). A throw in
+   between leaves a registered method with no access and no commit. `visitVariable` (fields) and
+   `ClassSymbolScanner.addMethodToType` / `addFieldToType` (the symbol path) had the identical order.
+2. **The unit is dropped, the type is not.** Phase 2 of `ScanCompilationUnits.scan` never adds the unit's types
+   to `primaryTypes` (:274, the throw skips it), so the end-of-scan walk (§4) never visits them. But phase 1 had
+   already registered the type with the class-symbol scanner, so it is "loaded for this source set" and stays
+   reachable from every surviving signature — and, once committed, it is analysed like any other type.
+3. **The commit loop completes the type *around* the abandoned method.** `JavaInspectorImpl` ("copy into CTM",
+   :795–804) commits every loaded, uninspected primary type through `ClassSymbolScanner.commitType` →
+   `loadType(COMPLETE)`. There, `addMemberToType` (:880–891) **skipped any member whose symbol was already in
+   `methodSymbolMap`** — reading "in the map" as "the source scan handled it" — which is exactly the abandoned
+   method; the `computeAccess().commit()` one line below was unreachable for it; and `loadType` then committed
+   the **type**. The nested-`Builder` majority goes through `COMPLETE_SUB`, where `alwaysLoad` is true but the
+   same `!methodSymbolMap.containsKey(ms)` conjunct skips it just the same. ⇒ a committed type holding an
+   uncommitted method whose `access()` is null forever, and nothing shouts — `Codec` is NOT among the run's 116
+   `Caught exception committing type` lines, because the skip is precisely what made its commit succeed.
+
+   The other shape in the run (`MaddiDaemonProcess`): `commitType` threw on a *later* member whose parameter
+   type (`JsonNode`) does not resolve — inside `addMethodToType`, which had registered that member and would
+   have computed its access last, too. The type stays uncommitted and reachable; both methods answer null.
+
+**So: "where is a `computeAccess()` missing?"** — not at one site. It was *present but last* in four places, and
+*skipped* in one:
+
+| site | was | now |
+|---|---|---|
+| `ScanCompilationUnit.visitMethod` | `computeAccess()` after annotations, parameters, body | right after `flagHelper.method(...)` |
+| `ScanCompilationUnit.visitVariable` | after annotations, type, initializer | right after `flagHelper.field(...)` |
+| `ClassSymbolScanner.addMethodToType` | after annotations, parameter types, overrides | right after `flagHelper.method(...)` |
+| `ClassSymbolScanner.addFieldToType` | in the caller, after annotations | right after `flagHelper.field(...)` |
+| `ClassSymbolScanner.addMemberToType` | a member already in the map is skipped; the type commits | an in-map, uninspected member is **finished** (`finishAbandonedMethod` and its field twin): access if null, `noSource()`, `emptyBlock()` / empty initializer, overrides from the symbol, commit |
+
+`computeAccess` reads only the modifiers and the method type, both fixed by then; nothing between the old and the
+new site adds a modifier. The COMPLETE modes run from `commitType` and `loadCompiledTypeOrNull`, both after the
+source set's scan, so an in-map, uninspected member they meet can only be an abandoned one — not one still being
+built. Both halves are needed: the early access answers `access()` whatever happens next (including a second
+throw at commit); the finishing step is what stops a committed type from carrying uncommitted members.
+
+**Evidence.** `maddi-java-openjdk/…/other/TestDroppedUnitMethodAccess` replays step 3 with the product's own
+predicate and call, on four fixtures (throw in an outer method, in a nested `Builder` method, in a field's
+annotation, and "the scan throws in one method and the commit in another"); all four are red on the old code
+and green on the new. Corpus, §1's replay, same `maddi-permodule.json`, same 313 dropped units:
+
+| | before | after |
+|---|---|---|
+| `access()`-null crashes in the result | 57 | **0** |
+| `analysis crashed on …` findings (any cause) | 201 | **0** |
+| element annotations | 23,826 | 23,938 |
+| `Caught exception committing type` | 116 | 117 (`FactoryImpl`: the GAP #12 "already committed, second definition from a compiled artifact" family — the per-module config puts `maddi-cst-api/build/classes` on dependants' class paths; a separate issue) |
+
+⚠ **The harness runs javac with lombok's processor; the product, for a project without lombok, with `-proc:none`.**
+That decided whether the reproduction reproduced: with the processor and one unresolvable annotation in the source
+set, javac handed the scan a *class* whose method bodies were not attributed, and it died on its implicit
+constructor (`Unexpected null symbol for unqualified call to 'super'`) before any field was reached; with
+`-proc:none` the same source attributed completely, as in the product. `CommonTest.annotationProcessing = false`
+is the switch. Another instrument measuring itself first.
+
+§4's suggestion — "add `.computeAccess()` at `scanJavaDocsAndCommit:450`" — is not done here. It is no longer
+needed for this defect (the access now exists before anything can throw), and the leftovers that loop commits are
+synthetics whose access was SET, not computed: `RecordSynthetics` adds `methodModifierPublic` alongside
+`setAccess(PUBLIC)`, so recomputing would be harmless for those, but I did not audit every synthetic producer, and
+an unconditional recompute overwrites a set value. If anything is added there, make it
+`if (access() == null) computeAccess()` plus the assert the field loop already has.
+
+Residual, deliberately not touched: a type whose `commitType` throws (117 in this run) is still reachable and still
+half-built in every respect other than access. Whether such a type should be finished anyway or pruned from the
+survivors' signatures is §6.3's policy question, unchanged.
+
+---
+
+*What follows is the note as written before the root cause was found.*
 
 ## 0. The three-line summary
 
