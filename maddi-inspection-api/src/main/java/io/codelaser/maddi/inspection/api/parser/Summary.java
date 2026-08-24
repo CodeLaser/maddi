@@ -145,4 +145,19 @@ public interface Summary {
 
     ParseResult parseResult();
 
+    /**
+     * The parse result even when {@link #haveErrors()} — the types that DID parse, with the compilation units
+     * that failed simply absent.
+     * <p>
+     * {@link #parseResult()} refuses on errors, and for a batch run that is right: a configuration that does not
+     * fully resolve produces verdicts that are quietly weaker than the code allows, and silence is safer than a
+     * plausible wrong answer. An IDE is the case where it is not right — a tree is routinely mid-edit, and one
+     * unresolvable module must not cost the user every hint in every other module.
+     * <p>
+     * ⚠ The caller owns the consequences: properties of the surviving types may be weaker than they would be
+     * with the missing ones present, because a reference that did not resolve contributes nothing. Report the
+     * result as partial (a non-zero parse-error count) rather than as an analysis.
+     */
+    ParseResult parseResultIgnoringErrors();
+
 }

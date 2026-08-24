@@ -64,6 +64,20 @@ public class SummaryImpl implements Summary {
         if (haveErrors()) {
             throw new UnsupportedOperationException(refusalMessage());
         }
+        return newParseResult();
+    }
+
+    @Override
+    public ParseResult parseResultIgnoringErrors() {
+        return newParseResult();
+    }
+
+    /**
+     * The refusal in {@link #parseResult()} is policy, not a missing-data guard: everything a ParseResult needs
+     * is already collected by the time a parse error is recorded, and the failed compilation units are simply
+     * not in {@code types}. Both accessors therefore build the same object.
+     */
+    private ParseResult newParseResult() {
         return new ParseResultImpl(types, sourceSetsByName, Map.copyOf(sourceSetToModuleInfo));
     }
 

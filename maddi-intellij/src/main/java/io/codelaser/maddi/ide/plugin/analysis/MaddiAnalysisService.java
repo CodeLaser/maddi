@@ -110,7 +110,11 @@ public final class MaddiAnalysisService implements Disposable {
         }
         indicator.setText("maddi: starting daemon");
         Path logFile = Path.of(PathManager.getLogPath(), "maddi-daemon.log");
-        daemon.ensureStarted(resolveInstallDir(settings), Path.of(jdkHome), settings.daemonXmxMb, logFile);
+        Path installDir = resolveInstallDir(settings);
+        daemon.ensureStarted(installDir, Path.of(jdkHome), settings.daemonXmxMb, logFile);
+        // WHICH daemon answered, in idea.log: the bundled one is a build, not a version, and a stale bundle
+        // presents as an analyzer regression (2026-08-24). The stamp is the source state; see DaemonMain.
+        LOG.info("maddi daemon: install=" + installDir + ", build=" + daemon.buildStamp());
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;
@@ -129,8 +133,14 @@ public final class MaddiAnalysisService implements Disposable {
         applyResult(result);
         // Silence on a certified run; a run that stopped at the iteration cap or on a plateau produces
         // annotations indistinguishable from final ones, so that is worth one line.
-        AnalysisModel.Certainty certainty = AnalysisModel.certaintyOf(result);
-        if (certainty == AnalysisModel.Certainty.BEST_AVAILABLE) {
+        // A partial parse is reported separately and takes precedence: "some files did not parse" tells the
+        // user what to fix, where "no fixpoint" would send them looking at the analyser instead.
+        if (AnalysisModel.isPartialParse(result)) {
+            notifyUser(result.parseErrorCount() + " file(s) did not parse; the analysis covers the rest of the"
+                       + " project. Properties may be weaker than the code allows, because references from the"
+                       + " missing files were not seen. See the maddi tool window for the parse errors.",
+                    NotificationType.WARNING);
+        } else if (AnalysisModel.certaintyOf(result) == AnalysisModel.Certainty.BEST_AVAILABLE) {
             notifyUser("Analysis finished without reaching a fixpoint: the results are the best available,"
                        + " not certified. Some properties may be weaker than the code allows.",
                     NotificationType.WARNING);

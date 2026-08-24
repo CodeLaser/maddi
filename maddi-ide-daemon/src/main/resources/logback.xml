@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging for the maddi IDE daemon.
+
+  WITHOUT THIS FILE THE DAEMON LOGS AT DEBUG. logback ships no configuration of its own, so an unconfigured
+  classpath falls back to its built-in default: root at DEBUG on a console appender. The daemon is launched by
+  DaemonLauncher with redirectErrorStream(true), and its stdout is teed straight into the IDE log directory as
+  maddi-daemon.log, so every DEBUG line lands on the user's disk.
+  Measured 2026-08-21 on Apache Pulsar, 98 source roots: 880 MB in roughly six minutes of analysis.
+
+  The daemon runs from the `application` start script on a class path rather than a module path, so this file
+  is found in the ordinary way; see bin/maddi-ide-daemon.
+
+  INFO is not silent on a large project. Measured over one whole-tree analysis (37,347 INFO lines),
+  io.codelaser.maddi.modification.link.impl.LinkComputerImpl alone accounted for 29,934 of them (80%), because
+  it logs per statement, and maddi.modanalyzer.decide for another 5,658 (15%). Together they are 95% of the
+  INFO volume. Raising those two to WARN takes a whole-tree run down to a few thousand lines; they are left at
+  INFO here because they are genuine analysis progress, and the overrides below are ready to uncomment.
+
+  Careful when editing the comments in this file: a pair of consecutive hyphens is illegal inside an XML
+  comment, and logback answers a malformed config with a JoranException plus a fallback to its DEBUG default,
+  which is exactly the behaviour this file exists to prevent.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- System.out, matching the pre-existing behaviour: DaemonMain announces DAEMON_PORT and DAEMON_PID
+             there and DaemonLauncher scans that stream for them, tolerating interleaved log lines. -->
+        <target>System.out</target>
+        <encoder>
+            <!-- logback's own default pattern, so the log format does not change with this file -->
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- <logger name="io.codelaser.maddi.modification.link.impl.LinkComputerImpl" level="WARN"/> -->
+    <!-- <logger name="maddi.modanalyzer.decide" level="WARN"/> -->
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

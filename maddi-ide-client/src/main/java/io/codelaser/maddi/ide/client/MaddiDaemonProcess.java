@@ -33,6 +33,7 @@ public final class MaddiDaemonProcess implements Closeable {
     private final DaemonLauncher launcher = new DaemonLauncher();
     private DaemonLauncher.Handle handle;
     private DaemonClient client;
+    private String buildStamp = "unknown";
 
     /** Ensure a warm daemon is running on {@code jdkHome}; (re)launch + handshake if needed. */
     public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb, Path logFile)
@@ -50,6 +51,16 @@ public final class MaddiDaemonProcess implements Closeable {
         if (!"handshakeAck".equals(ack.path("type").asText())) {
             throw new IOException("daemon handshake failed: " + ack);
         }
+        buildStamp = ack.path("buildStamp").asText("unknown");
+    }
+
+    /**
+     * The source state the running daemon was built from, or {@code "unknown"} against a daemon predating the
+     * stamp. Worth logging next to the install directory on every start: which build the IDE is running is
+     * otherwise unobservable, and a stale bundled daemon presents as a regression in the analyzer.
+     */
+    public synchronized String buildStamp() {
+        return buildStamp;
     }
 
     /** Send an analyze request; blocks until the daemon returns {@code result} or {@code error}. */

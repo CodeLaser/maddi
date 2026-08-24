@@ -34,6 +34,16 @@ public final class AnalysisModel {
     public record ClasspathEntry(String path, String scope) {
     }
 
+    /** One compiled unit with its own class path and its own named direct dependencies; see DaemonProtocol. */
+    public record ModuleSourceSet(String name,
+                                  List<String> sourceDirectories,
+                                  String outputPath,
+                                  boolean test,
+                                  int sourceRelease,
+                                  List<String> dependencies,
+                                  List<String> classPath) {
+    }
+
     public record AnalyzeConfig(String workingDirectory,
                                 String sdkHome,
                                 String sourceEncoding,
@@ -42,7 +52,16 @@ public final class AnalysisModel {
                                 List<ClasspathEntry> classpath,
                                 List<String> restrictToPackages,
                                 boolean parallel,
-                                boolean warnNearMisses) {
+                                boolean warnNearMisses,
+                                List<ModuleSourceSet> moduleSourceSets) {
+
+        /** The flat form, for front-ends not yet moved over; the daemon then falls back to auto-wiring. */
+        public AnalyzeConfig(String workingDirectory, String sdkHome, String sourceEncoding, List<String> jmods,
+                             List<SourceRoot> sources, List<ClasspathEntry> classpath,
+                             List<String> restrictToPackages, boolean parallel, boolean warnNearMisses) {
+            this(workingDirectory, sdkHome, sourceEncoding, jmods, sources, classpath, restrictToPackages,
+                    parallel, warnNearMisses, List.of());
+        }
     }
 
     // ---- result ----
@@ -126,7 +145,15 @@ public final class AnalysisModel {
         if (result == null || result.outcome() == null || OUTCOME_UNKNOWN.equals(result.outcome())) {
             return Certainty.UNKNOWN;
         }
+        // A partial parse can never be final, whatever the fixpoint said: the compilation units that failed
+        // contribute no references, so a surviving type's properties may be weaker than its code allows.
+        if (result.parseErrorCount() > 0) return Certainty.BEST_AVAILABLE;
         return OUTCOME_CERTIFIED.equals(result.outcome()) ? Certainty.FINAL : Certainty.BEST_AVAILABLE;
+    }
+
+    /** True when some compilation units did not parse, so the analysis ran on less than the whole project. */
+    public static boolean isPartialParse(Result result) {
+        return result != null && result.parseErrorCount() > 0;
     }
 
     /** A short phrase for a status line or tooltip; null when there is nothing worth saying. */

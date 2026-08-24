@@ -54,7 +54,13 @@ public final class DaemonProtocol {
 
     // ---- responses (serialized; DaemonMain adds the "type" field) ----
 
-    public record HandshakeAck(int protocolVersion, String daemonVersion, String maddiVersion) {
+    /**
+     * @param buildStamp the source state the daemon was built from ({@code DaemonMain#BUILD_STAMP}); the only
+     *                   field here that distinguishes two builds, since the three versions are constants of the
+     *                   source, not of the build. Purely informational — no client behaviour depends on it.
+     */
+    public record HandshakeAck(int protocolVersion, String daemonVersion, String maddiVersion,
+                               String buildStamp) {
     }
 
     public record Pong(long nowNanos) {
@@ -79,6 +85,38 @@ public final class DaemonProtocol {
     public record ClasspathEntry(String path, String scope) {
     }
 
+    /**
+     * One compiled unit of the project — a maddi source set — with ITS OWN class path and ITS OWN direct
+     * dependencies, named.
+     * <p>
+     * This is the shape the javac-log route produces and the flat {@link AnalyzeConfig#sources()} /
+     * {@link AnalyzeConfig#classpath()} pair cannot express. With the flat pair, {@code InputConfiguration}'s
+     * string-style builder wires every source set to ALL class-path parts and all earlier source sets: on the
+     * CodeLaser tree that was 160 x 491 = 75,520 (set, entry) pairs against the 5,524 the javac-log
+     * configuration declares, and javac opens a ZipFileSystem per container per source set.
+     *
+     * @param name             stable identity, e.g. {@code my-module/main}; what {@link #dependencies} refer to
+     * @param sourceDirectories roots parsed from source
+     * @param outputPath       where this unit's class files live. ⚠ It is the set's IDENTITY, not a class-path
+     *                         entry: listing a module's own output on some other module's class path is what
+     *                         makes one FQN reachable as both source and bytecode
+     * @param test             a test source set
+     * @param sourceRelease    {@code --release} for this unit; 0 when unknown (then the JDK maddi runs on is
+     *                         used, which is dangerous rather than merely imprecise — see InputConfiguration)
+     * @param dependencies     names of the OTHER source sets this one compiles against. Direct only:
+     *                         {@code SourceSetImpl.recursiveDependencies} computes the closure itself
+     * @param classPath        jars and class directories for THIS unit alone, including any provided /
+     *                         compileOnly scope, which the whole-project union route drops
+     */
+    public record ModuleSourceSet(String name,
+                                  List<String> sourceDirectories,
+                                  String outputPath,
+                                  boolean test,
+                                  int sourceRelease,
+                                  List<String> dependencies,
+                                  List<String> classPath) {
+    }
+
     public record AnalyzeConfig(String workingDirectory,
                                 String sdkHome,
                                 String sourceEncoding,
@@ -87,7 +125,20 @@ public final class DaemonProtocol {
                                 List<ClasspathEntry> classpath,
                                 List<String> restrictToPackages,
                                 boolean parallel,
-                                boolean warnNearMisses) {
+                                boolean warnNearMisses,
+                                List<ModuleSourceSet> moduleSourceSets) {
+
+        /**
+         * The flat form: no per-module structure, so the assembler falls back to the string-style builder and
+         * its auto-wiring. Kept for front-ends (and fixtures) that have not been moved over, and for a client
+         * older than this field — where Jackson leaves {@code moduleSourceSets} null.
+         */
+        public AnalyzeConfig(String workingDirectory, String sdkHome, String sourceEncoding, List<String> jmods,
+                             List<SourceRoot> sources, List<ClasspathEntry> classpath,
+                             List<String> restrictToPackages, boolean parallel, boolean warnNearMisses) {
+            this(workingDirectory, sdkHome, sourceEncoding, jmods, sources, classpath, restrictToPackages,
+                    parallel, warnNearMisses, List.of());
+        }
     }
 
     public record AnalyzeProject(String requestId, AnalyzeConfig config) {
