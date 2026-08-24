@@ -51,6 +51,15 @@ public final class DaemonMain {
 
     private static final String DAEMON_VERSION = "0.1.0-dev";
 
+    /**
+     * The source state this daemon was built from — see {@code build.gradle.kts}, "build stamp". Printed at
+     * startup and returned on handshake, because the version strings alone cannot tell two builds apart: the
+     * IDE runs the daemon its plugin BUNDLES, and a plugin built from a stale (or dirty) tree announces
+     * exactly what a current one announces. "unknown" when the generated resource is absent, which is the
+     * normal case for a class-directory run (an IDE-compiled module, a test).
+     */
+    static final String BUILD_STAMP = readBuildStamp();
+
     // lenient: request frames carry a "type" discriminator that the payload records don't declare
     private final ObjectMapper mapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -83,7 +92,8 @@ public final class DaemonMain {
         System.out.println("DAEMON_PORT=" + actualPort);
         System.out.println("DAEMON_PID=" + ProcessHandle.current().pid());
         System.out.flush();
-        LOGGER.info("maddi daemon {} listening on {}:{}", DAEMON_VERSION, loopback.getHostAddress(), actualPort);
+        LOGGER.info("maddi daemon {} (build {}, maddi {}) listening on {}:{}", DAEMON_VERSION, BUILD_STAMP,
+                maddiVersion(), loopback.getHostAddress(), actualPort);
         return serverSocket;
     }
 
@@ -125,7 +135,8 @@ public final class DaemonMain {
             String type = msg.path("type").asText("");
             switch (type) {
                 case DaemonProtocol.T_HANDSHAKE -> send(out, DaemonProtocol.T_HANDSHAKE_ACK,
-                        new DaemonProtocol.HandshakeAck(DaemonProtocol.PROTOCOL_VERSION, DAEMON_VERSION, maddiVersion()));
+                        new DaemonProtocol.HandshakeAck(DaemonProtocol.PROTOCOL_VERSION, DAEMON_VERSION,
+                                maddiVersion(), BUILD_STAMP));
                 case DaemonProtocol.T_PING -> send(out, DaemonProtocol.T_PONG,
                         new DaemonProtocol.Pong(System.nanoTime()));
                 case DaemonProtocol.T_ANALYZE_PROJECT -> handleAnalyze(out, msg);
@@ -191,6 +202,21 @@ public final class DaemonMain {
         out.write(mapper.writeValueAsString(node));
         out.write('\n');
         out.flush();
+    }
+
+    /**
+     * Reads the stamp {@code generateBuildStamp} writes next to this class. Deliberately silent on every
+     * failure: an absent or unreadable stamp must degrade to "unknown", never keep the daemon from starting.
+     */
+    private static String readBuildStamp() {
+        try (java.io.InputStream in = DaemonMain.class.getResourceAsStream("build-stamp.properties")) {
+            if (in == null) return "unknown";
+            java.util.Properties properties = new java.util.Properties();
+            properties.load(in);
+            return properties.getProperty("source", "unknown");
+        } catch (IOException | RuntimeException e) {
+            return "unknown";
+        }
     }
 
     private static String maddiVersion() {

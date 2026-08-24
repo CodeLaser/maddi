@@ -110,7 +110,11 @@ public final class MaddiAnalysisService implements Disposable {
         }
         indicator.setText("maddi: starting daemon");
         Path logFile = Path.of(PathManager.getLogPath(), "maddi-daemon.log");
-        daemon.ensureStarted(resolveInstallDir(settings), Path.of(jdkHome), settings.daemonXmxMb, logFile);
+        Path installDir = resolveInstallDir(settings);
+        daemon.ensureStarted(installDir, Path.of(jdkHome), settings.daemonXmxMb, logFile);
+        // WHICH daemon answered, in idea.log: the bundled one is a build, not a version, and a stale bundle
+        // presents as an analyzer regression (2026-08-24). The stamp is the source state; see DaemonMain.
+        LOG.info("maddi daemon: install=" + installDir + ", build=" + daemon.buildStamp());
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;

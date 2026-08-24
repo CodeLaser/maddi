@@ -226,6 +226,44 @@ Each of these is a GitHub issue (#24–#28); this section stays the reasoning.
 
 ---
 
+## 4b. Which build is the IDE actually running? — DONE (2026-08-24)
+
+Not a feature. A day was spent diagnosing a "regression" that was a **stale bundled daemon**, and nothing
+observable distinguished it from a current one.
+
+**What happened.** The `access()`-null defect closed on 2026-08-23 (`d6f85131d`) came back after an IDE restart:
+50 x `MethodInfo.access()` + 1 x `FieldInfo.access()` NPEs, plus 3 x `CompilationUnit.sourceSet()` NPEs whose
+fix (`d34d6c525`) was older still. The plugin at `~/Library/.../plugins/maddi/daemon/` was carrying a
+`maddi-java-openjdk` jar **byte-identical to a build from another worktree** (`ws/python`, at `ba36eb4e1` — the
+commit that *documented* the defect, one before the fix) with the then-uncommitted per-module protocol on top:
+a combination no commit ever had. Everything on offer said the same thing a correct build says — plugin
+`0.1.0`, maddi `0.9.1`, daemon `0.1.0-dev`, and even `per-module configuration: 64 source set(s)`, which looked
+like proof of freshness and was not. Settling it took `javap -p` on the installed jar, grepping for a method
+name from the fix.
+
+⛔ **A VERSION IS A CONSTANT OF THE SOURCE; ONLY A STAMP IS A FUNCTION OF THE BUILD.** Three versions were on
+the wire already and not one of them could move between two builds of the same release.
+
+**What was added.** `generateBuildStamp` (in `maddi-ide-daemon/build.gradle.kts`) writes
+`build-stamp.properties` next to `DaemonMain`, holding a stamp derived from the **source state**:
+`7dbfd36e1` when committed and clean, `7dbfd36e1+a3f01c9e` when the working tree carries changes (the suffix
+hashes `git diff HEAD` plus `git status --porcelain`, so a new untracked file counts too), `nogit` otherwise.
+It is a function of the sources and never of the clock, so the tree's jars stay byte-reproducible. `DaemonMain`
+logs it on the first line — `maddi daemon 0.1.0-dev (build 7dbfd36e1+a3f01c9e, maddi 0.9.1) listening on …` —
+and returns it in `handshakeAck`; `MaddiDaemonProcess.buildStamp()` exposes it and `MaddiAnalysisService` logs
+it with the install directory, so `idea.log` records which daemon answered. `TestBuildStamp` covers the three
+ways the check can quietly stop working (resource not packaged, packaged in the wrong package, not on the
+wire); the middle one is the control that was run.
+
+**Also worth knowing, since it is the faster loop.** Settings → maddi → *daemon install dir* pointed at
+`…/maddi-ide-daemon/build/install/maddi-ide-daemon` skips the plugin rebuild-and-reinstall entirely; only the
+front-end needs a new plugin. ⚠ `MaddiAnalysisService.ensureStarted` returns early while the daemon is alive
+and never compares the install directory against the running process, so a changed setting (or a fresh
+`installDist`) takes effect only once that daemon dies — and there is no restart-daemon action. Small, and the
+same shape of trap: the setting says one thing and the running process is another.
+
+---
+
 ## 5. The input-configuration gap — solution sketch
 
 #30/#31/#32 are one defect wearing three hats: **`MaddiConfigBuilder` reconstructs a classpath from

@@ -54,7 +54,13 @@ public final class DaemonProtocol {
 
     // ---- responses (serialized; DaemonMain adds the "type" field) ----
 
-    public record HandshakeAck(int protocolVersion, String daemonVersion, String maddiVersion) {
+    /**
+     * @param buildStamp the source state the daemon was built from ({@code DaemonMain#BUILD_STAMP}); the only
+     *                   field here that distinguishes two builds, since the three versions are constants of the
+     *                   source, not of the build. Purely informational — no client behaviour depends on it.
+     */
+    public record HandshakeAck(int protocolVersion, String daemonVersion, String maddiVersion,
+                               String buildStamp) {
     }
 
     public record Pong(long nowNanos) {

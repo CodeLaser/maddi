@@ -133,7 +133,10 @@ async function analyze(
     const client = new DaemonClient(handle.port);
     try {
         await client.connect();
-        await client.handshake();
+        const ack = await client.handshake();
+        // WHICH daemon answered: the bundled one is a build, not a version, and a stale bundle presents as an
+        // analyzer regression rather than as a stale bundle (2026-08-24). See DaemonMain's build stamp.
+        output.appendLine(`daemon build ${ack.buildStamp ?? 'unknown'}`);
 
         // Values established by each analysis pass arrive before the run ends, so findings and hints appear
         // progressively instead of the editor staying blank until the last pass.
