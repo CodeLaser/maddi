@@ -81,23 +81,27 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
 
         TypeInfo type = resolveType(currentType, typeName, source, dsb);
         if (type == null) return null;
+        // ⭐ `#member` with NO type written resolves against the ENCLOSING SCOPE, not against one type: a
+        // javadoc inside a nested class names its outer class's members exactly as its code does. Searching
+        // only `type` made `{@link #INDEX_STORE_TYPE_SETTING}`, written inside IndexModule's nested `Type`
+        // enum, resolve to the enum -- so every consumer that asks "does this tag reference member X" was
+        // told no, and moveStaticMembers left the two links behind when the member moved out of IndexModule
+        // (OpenSearch os231, G30 arm (c): the ORIGIN then does not compile). A reference that DOES write its
+        // type ({@code Foo#bar}) is not widened: there the author named the scope.
+        boolean implicitScope = typeName.isEmpty();
 
         int paren = memberSig.indexOf('(');
         if (paren < 0) {
             // Field reference — "D#field"
-            FieldInfo fi = type.getFieldByName(memberSig, false);
-            if (fi == null) {
-                // try method, but only accept when the name is unique in the type
-                List<MethodInfo> methods = type.methods().stream()
-                        .filter(m -> memberSig.equals(m.name())).toList();
-                if (methods.size() == 1) return methods.getFirst();
+            Info member = findFieldOrUniqueMethod(type, memberSig, implicitScope);
+            if (member == null) {
                 // overloaded ('{@link StreamOutput#write}'), inherited, or simply absent: the MEMBER cannot be
                 // pinned down, but the TYPE is certain. Resolve to it rather than to nothing, so the caller keeps
                 // the detailed sources of the type part -- a consumer that relocates the referring file must be
                 // able to rewrite that token (ES server-base carve: the simple name stopped resolving otherwise).
                 return type;
             }
-            return fi;
+            return member;
         }
         // Method reference — "D#a()" or "D#a(String, int)"
         String methodName = memberSig.substring(0, paren);
@@ -109,10 +113,45 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
                 .map(String::trim)
                 .toList();
         resolveParameterTypes(currentType, signature, source, dsb, parameterTypesOut);
-        MethodInfo method = type.methods().stream().filter(mi ->
-                        methodName.equals(mi.name()) && mi.parameters().size() == paramTypes.size())
-                .findFirst().orElse(null); // FIXME do actual param type check
+        MethodInfo method = findMethod(type, methodName, paramTypes.size(), implicitScope);
         return method != null ? method : type; // fall back to the type, see above
+    }
+
+    /**
+     * The field, or the uniquely-named method, called {@code memberSig}. When the reference wrote no type at
+     * all, the search continues into the enclosing types, which is the scope {@code #member} actually has.
+     */
+    private static Info findFieldOrUniqueMethod(TypeInfo type, String memberSig, boolean implicitScope) {
+        TypeInfo t = type;
+        while (t != null) {
+            FieldInfo fi = t.getFieldByName(memberSig, false);
+            if (fi != null) return fi;
+            List<MethodInfo> methods = t.methods().stream().filter(m -> memberSig.equals(m.name())).toList();
+            if (methods.size() == 1) return methods.getFirst();
+            if (!methods.isEmpty()) return null; // overloaded: the member cannot be pinned down, and an
+            // enclosing type's same-named member is not what the author meant
+            t = implicitScope ? enclosing(t) : null;
+        }
+        return null;
+    }
+
+    /** As {@link #findFieldOrUniqueMethod}, for a reference that wrote a parameter list. */
+    private static MethodInfo findMethod(TypeInfo type, String methodName, int parameterCount,
+                                         boolean implicitScope) {
+        TypeInfo t = type;
+        while (t != null) {
+            MethodInfo method = t.methods().stream().filter(mi ->
+                            methodName.equals(mi.name()) && mi.parameters().size() == parameterCount)
+                    .findFirst().orElse(null); // FIXME do actual param type check
+            if (method != null) return method;
+            t = implicitScope ? enclosing(t) : null;
+        }
+        return null;
+    }
+
+    private static TypeInfo enclosing(TypeInfo type) {
+        return type.compilationUnitOrEnclosingType().isRight()
+                ? type.compilationUnitOrEnclosingType().getRight() : null;
     }
 
     /**
