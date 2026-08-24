@@ -128,6 +128,11 @@ public record ScanJavaDoc(Runtime runtime,
                 case DCTree.DCParam p -> p.getName().toString();
                 case DCTree.DCSee s -> s.getReference() == null ? "" : s.getReference().stream().map(this::content)
                         .collect(Collectors.joining("; "));
+                // ⭐ without a case of its own, {@value #X} fell to the default and its content became the WHOLE
+                // tag text -- so `tag.toString()` re-wrapped it into `{@value {@value #X}}`, and no consumer
+                // could read the reference out of it. It is a member reference like any other (G30 arm (a):
+                // {@value} inlines a constant, so it dangles the moment the constant's neighbour moves).
+                case DCTree.DCValue v -> v.getReference() == null ? "" : v.getReference().getSignature();
                 default -> docTree.toString();
             };
         }
@@ -141,6 +146,8 @@ public record ScanJavaDoc(Runtime runtime,
                 case DCTree.DCLink l -> source(l.getReference());
                 case DCTree.DCThrows t -> source(t.getExceptionName());
                 case DCTree.DCSee s -> sourceOfList(s.getReference());
+                // the reference's own span, which is also what makes ResolveJavaDoc look at the tag at all
+                case DCTree.DCValue v -> v.getReference() == null ? null : source(v.getReference());
                 default -> null;
             };
             Source src = source(docTree);

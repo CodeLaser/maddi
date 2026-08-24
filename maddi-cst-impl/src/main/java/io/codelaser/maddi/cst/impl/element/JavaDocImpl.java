@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Formatter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -291,6 +292,19 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
             return new ElementImpl.TypeReference(typeInfo, trn, qualifier);
         }
         return null;
+    }
+
+    /**
+     * ⛔ A ONE-LINE JAVADOC IS STILL A JAVADOC. {@link MultiLineCommentImpl#print} picks its delimiters on
+     * whether the content holds a newline, so {@code /** a one-liner *}{@code /} was re-emitted as
+     * {@code /* a one-liner *}{@code /} — legal, compiles, and invisible to the javadoc tool, which is
+     * documentation silently deleted. Only the refactoring levers see it (nothing else re-prints a parsed
+     * comment), and they see it on every moved member whose javadoc fits one line. The {@code /**} form is
+     * this class's whole identity, so it is chosen here rather than derived from the text.
+     */
+    @Override
+    public OutputBuilder print(Qualification qualification) {
+        return multilinePrint();
     }
 
     private static final Pattern STAR = Pattern.compile("^\\s*\\*\\s?");
