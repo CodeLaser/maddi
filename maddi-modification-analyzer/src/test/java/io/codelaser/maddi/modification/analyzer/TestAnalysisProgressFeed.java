@@ -16,6 +16,7 @@ package io.codelaser.maddi.modification.analyzer;
 
 import io.codelaser.maddi.cst.api.info.Info;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -32,6 +33,14 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TestAnalysisProgressFeed {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
+
     private static List<Info> sized(int n) {
         List<Info> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) list.add(null); // size is all the feed reads
@@ -40,7 +49,7 @@ public class TestAnalysisProgressFeed {
 
     @Test
     public void heartbeatEmitsJsonlAndCountsElements() throws Exception {
-        Path dir = Files.createTempDirectory("progress-feed-test");
+        Path dir = Files.createTempDirectory(tempRoot, "progress-feed-test");
         File metrics = new File(dir.toFile(), "metrics.jsonl");
         // heartbeat 0 => every wave emits, so we can assert one line per wave deterministically
         AnalysisProgressFeed feed = new AnalysisProgressFeed(1000, metrics, 0);
@@ -73,7 +82,7 @@ public class TestAnalysisProgressFeed {
         // the closed-core case: after a small wave commits, the analysis enters ONE giant SCC wave whose
         // barrier fires only at its end. elementCompleted() must advance 'done' in between, so progress is
         // not pinned for the whole (multi-hour) wave. Barrier then commits and resets the in-flight tally.
-        Path dir = Files.createTempDirectory("progress-feed-intrawave");
+        Path dir = Files.createTempDirectory(tempRoot, "progress-feed-intrawave");
         File metrics = new File(dir.toFile(), "metrics.jsonl");
         AnalysisProgressFeed feed = new AnalysisProgressFeed(1000, metrics, 0); // heartbeat 0 => emit on every event
 
@@ -96,7 +105,7 @@ public class TestAnalysisProgressFeed {
     public void samplerEmitsWithNoWaveOrPassEvents() throws Exception {
         // the giant-SCC case: pass 1 stays inside one long wave, so no wave/pass callback fires. The
         // time-based sampler must still produce heap/GC heartbeats so the run is never blind.
-        Path dir = Files.createTempDirectory("progress-feed-sampler");
+        Path dir = Files.createTempDirectory(tempRoot, "progress-feed-sampler");
         File metrics = new File(dir.toFile(), "metrics.jsonl");
         AnalysisProgressFeed feed = new AnalysisProgressFeed(500_000, metrics, 50);
         try {

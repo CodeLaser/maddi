@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.java.openjdk.CommonTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -48,6 +49,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * {@link #resolvableEnumConstantIsKept()} is the control — with the enum present, the value must be there.
  */
 public class TestUnresolvedEnumConstantInAnnotation extends CommonTest {
+
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
 
     private static final String SOURCE = "package a.b; public class X { lib.Target t; }";
 
@@ -96,8 +105,9 @@ public class TestUnresolvedEnumConstantInAnnotation extends CommonTest {
      * annotation dependency was not put on the class path.
      */
     private Path fixture(boolean keepEnum) throws IOException {
-        Path dir = Files.createTempDirectory("maddi-unresolved-enum");
-        dir.toFile().deleteOnExit();
+        Path dir = Files.createTempDirectory(tempRoot, "maddi-unresolved-enum");
+        // (was dir.toFile().deleteOnExit(): a no-op here, since File.deleteOnExit only removes an EMPTY
+        // directory and this one is filled with .java and .class files below. @TempDir above is the real fix.)
         Path src = Files.createDirectory(dir.resolve("src"));
         Path out = Files.createDirectory(dir.resolve("classes"));
         Files.writeString(src.resolve("E.java"), "package lib; public enum E { X, Y }");

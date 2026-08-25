@@ -21,9 +21,11 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Phase 4: `KotlinInspector.parseFromConfiguration` builds a real multi-module K2 session from an
@@ -33,9 +35,17 @@ import java.nio.file.Files
  */
 class TestKotlinInspectorFromConfiguration {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun dependentSourceSetResolvesUpstreamType() {
-        val tmp = Files.createTempDirectory("k-cfg")
+        val tmp = Files.createTempDirectory(tempRoot, "k-cfg")
         val aSrc = tmp.resolve("moduleA/src")
         val bSrc = tmp.resolve("moduleB/src")
         Files.createDirectories(aSrc.resolve("a"))

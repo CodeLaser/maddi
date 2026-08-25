@@ -19,6 +19,7 @@ import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.graph.analyzer.TypeGraphIO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,6 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class TestShortestCycleDijkstra {
+
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
 
     @Test
     public void test() throws IOException {
@@ -66,7 +75,7 @@ public class TestShortestCycleDijkstra {
         ShortestCycleDijkstra.Cycle<Integer> cycle0 = ShortestCycleDijkstra.shortestCycle(graph, new V<>(0));
         assertNull(cycle0);
 
-        Path tempDir = Files.createTempDirectory("test");
+        Path tempDir = Files.createTempDirectory(tempRoot, "test");
         Path outputFile = tempDir.resolve("cycle.gml");
         TypeGraphIO.dumpGraph(outputFile.toFile(), graph);
 

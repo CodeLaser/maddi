@@ -25,6 +25,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -63,6 +64,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * passed while the production path stayed broken.
  */
 public class TestModuleDirectiveResolution {
+
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
 
     private JavaInspector javaInspector;
     private SourceSet sourceSet;
@@ -178,7 +187,7 @@ public class TestModuleDirectiveResolution {
     @DisplayName("parseModuleInfo(Path) — the foreign-descriptor path — keeps the imports too")
     @Test
     public void theStandaloneDescriptorParserKeepsItsImports() throws IOException {
-        Path dir = Files.createTempDirectory("moduleinfo");
+        Path dir = Files.createTempDirectory(tempRoot, "moduleinfo");
         Path file = dir.resolve("module-info.java");
         Files.writeString(file, MODULE_INFO);
 

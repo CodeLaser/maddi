@@ -19,7 +19,9 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Phase 5 (consuming side): `MixedInspector.parseFromConfiguration` reads a mixed Java+Kotlin
@@ -28,9 +30,17 @@ import java.nio.file.Files
  */
 class TestMixedFromConfiguration {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun javaSourceSetResolvesKotlinSourceSetFromDisk() {
-        val tmp = Files.createTempDirectory("mixed-cfg")
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-cfg")
         val kDir = tmp.resolve("proj/src/main/kotlin")
         val jDir = tmp.resolve("proj/src/main/java")
         Files.createDirectories(kDir.resolve("a"))

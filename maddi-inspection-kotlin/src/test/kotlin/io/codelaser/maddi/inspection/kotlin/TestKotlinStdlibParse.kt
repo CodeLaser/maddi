@@ -19,6 +19,7 @@ import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.net.URI
 import java.nio.file.Files
@@ -35,6 +36,14 @@ import java.util.zip.ZipInputStream
  */
 class TestKotlinStdlibParse {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun parseStdlibSources() {
         val sourcesJar = System.getProperty("kotlin.stdlib.sources")?.let { Path.of(it) }
@@ -42,7 +51,7 @@ class TestKotlinStdlibParse {
         val stdlibBytecode = System.getProperty("java.class.path").split(File.pathSeparator)
             .first { Regex("kotlin-stdlib-[0-9].*\\.jar$").containsMatchIn(it) }
 
-        val extract = Files.createTempDirectory("kstdlib-src")
+        val extract = Files.createTempDirectory(tempRoot, "kstdlib-src")
         extractJar(sourcesJar, extract)
         // each immediate sub-directory of commonMain/ and jvmMain/ (kotlin, generated, jdkN, …) is a package root
         val roots = listOf("commonMain", "jvmMain").flatMap { top ->

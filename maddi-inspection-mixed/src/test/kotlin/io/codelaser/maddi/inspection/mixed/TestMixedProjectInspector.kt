@@ -19,7 +19,9 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Phase 5, multi-source-set: `MixedProjectInspector` places each type in its OWN CST source set (Kotlin `Foo`
@@ -28,9 +30,17 @@ import java.nio.file.Files
  */
 class TestMixedProjectInspector {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun typesLandInTheirOwnSourceSetsAndStillCrossResolve() {
-        val tmp = Files.createTempDirectory("mixed-proj")
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-proj")
         val kDir = tmp.resolve("proj/src/main/kotlin")
         val jDir = tmp.resolve("proj/src/main/java")
         Files.createDirectories(kDir.resolve("a"))
@@ -64,7 +74,7 @@ class TestMixedProjectInspector {
     /** The other direction: a Kotlin source set depends on a Java source set (Java-first order). */
     @Test
     fun kotlinSourceSetResolvesUpstreamJavaSourceType() {
-        val tmp = Files.createTempDirectory("mixed-k2j")
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-k2j")
         val jDir = tmp.resolve("proj/src/main/java")
         val kDir = tmp.resolve("proj/src/main/kotlin")
         Files.createDirectories(jDir.resolve("a"))
@@ -96,7 +106,7 @@ class TestMixedProjectInspector {
     /** Two Java sets (B depends on A) plus a Kotlin set: exercises Java->Java AND Java->Kotlin in one project. */
     @Test
     fun multiJavaModuleAndKotlinResolveTogether() {
-        val tmp = Files.createTempDirectory("mixed-multi")
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-multi")
         val aDir = tmp.resolve("a/src/main/java")
         val bDir = tmp.resolve("b/src/main/java")
         val kDir = tmp.resolve("k/src/main/kotlin")
