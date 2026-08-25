@@ -24,7 +24,9 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * M0/M1 spike: prove the K2 Standalone Analysis API builds a session over an in-memory Kotlin file
@@ -32,10 +34,18 @@ import java.nio.file.Files
  */
 class StandaloneApiSpike {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun resolvesSimpleClass() {
         // 1. lay the source down in a temp source root (standalone resolves from roots)
-        val srcRoot = Files.createTempDirectory("k2-spike-src")
+        val srcRoot = Files.createTempDirectory(tempRoot, "k2-spike-src")
         val ktPath = srcRoot.resolve("Foo.kt")
         Files.writeString(ktPath, "class Foo { fun bar(): Int = 1 }\n")
 

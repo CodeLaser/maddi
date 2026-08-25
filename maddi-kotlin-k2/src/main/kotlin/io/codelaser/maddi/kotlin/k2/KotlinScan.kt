@@ -222,14 +222,21 @@ class KotlinScan(
      */
     fun parse(filesByName: Map<String, String>, javaFilesByName: Map<String, String>): List<TypeInfo> {
         // Standalone resolves from source roots: lay the files down in a temp directory (Kotlin + Java).
+        // ⚠ The directory is ours alone and dies with the call: conversion below is eager, so nothing in the
+        // returned CST reads it again (only the CompilationUnit URI still names it). Leaving it behind cost
+        // us a whole test run — /tmp is a tmpfs with a hard inode cap, and one dir per parse() exhausted it.
         val srcRoot = Files.createTempDirectory("k2-src")
-        (filesByName + javaFilesByName).forEach { (name, content) ->
-            val file = srcRoot.resolve(name)
-            Files.createDirectories(file.parent ?: srcRoot)
-            Files.writeString(file, content)
+        try {
+            (filesByName + javaFilesByName).forEach { (name, content) ->
+                val file = srcRoot.resolve(name)
+                Files.createDirectories(file.parent ?: srcRoot)
+                Files.writeString(file, content)
+            }
+            val session = buildSession(srcRoot)
+            return convert(session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>())
+        } finally {
+            srcRoot.toFile().deleteRecursively()
         }
-        val session = buildSession(srcRoot)
-        return convert(session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>())
     }
 
     /**

@@ -3,6 +3,7 @@ package io.codelaser.maddi.run.kotlinmain.kotlinc;
 import io.codelaser.maddi.run.config.compile.CompileListToSourceSets;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +18,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * inference), and {@link ParseKotlincList} end to end. Portable: all paths are built under a temp directory.
  */
 public class TestKotlinc {
+
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
 
     // a real-shape Gradle main compile line (see kotlin-source-sets.md §3), abbreviated
     private static final String GRADLE_MAIN =
@@ -69,7 +78,7 @@ public class TestKotlinc {
 
     @Test
     public void engineLinksTestToMainViaFriendPaths() throws IOException {
-        Path tmp = Files.createTempDirectory("k-link");
+        Path tmp = Files.createTempDirectory(tempRoot, "k-link");
         Path mainSrc = tmp.resolve("maddi-x/src/main/kotlin/a/b/Foo.kt");
         Path testSrc = tmp.resolve("maddi-x/src/test/kotlin/a/b/FooTest.kt");
         Files.createDirectories(mainSrc.getParent());
@@ -101,7 +110,7 @@ public class TestKotlinc {
 
     @Test
     public void inferSourceDirFromSemicolonlessKotlinPackage() throws IOException {
-        Path tmp = Files.createTempDirectory("k-src");
+        Path tmp = Files.createTempDirectory(tempRoot, "k-src");
         Path foo = tmp.resolve("proj/src/main/kotlin/a/b/Foo.kt");
         Files.createDirectories(foo.getParent());
         Files.writeString(foo, "package a.b\n\nclass Foo(val id: Int)\n"); // NB no semicolon
@@ -149,7 +158,7 @@ public class TestKotlinc {
 
     @Test
     public void parseLogFileToInputConfiguration() throws IOException {
-        Path log = Files.createTempFile("kotlinc", ".txt");
+        Path log = Files.createTempFile(tempRoot, "kotlinc", ".txt");
         Files.writeString(log, GRADLE_MAIN + "\n");
         var inputConfiguration = new ParseKotlincList().parse(log);
         assertEquals(1, inputConfiguration.sourceSets().size());

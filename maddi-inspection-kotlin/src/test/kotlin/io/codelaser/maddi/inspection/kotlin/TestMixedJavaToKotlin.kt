@@ -21,6 +21,7 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import io.codelaser.maddi.kotlin.k2.KotlinScan
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -39,9 +40,17 @@ import javax.tools.ToolProvider
  */
 class TestMixedJavaToKotlin {
 
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root: each call still gets its own unique
+     * directory, and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @field:TempDir
+    lateinit var tempRoot: Path
+
     @Test
     fun javaResolvesAKotlinSourceType() {
-        val stubDir = Files.createTempDirectory("k2-stubs")
+        val stubDir = Files.createTempDirectory(tempRoot, "k2-stubs")
         // the stub directory is a classpath dependency of the (single, shared) 'main' source set
         val stubs = SourceSetImpl.Builder().setName("stubs").setUri(stubDir.toUri()).setExternalLibrary(true).build()
         val main = SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL).setUri(URI.create("file:/"))

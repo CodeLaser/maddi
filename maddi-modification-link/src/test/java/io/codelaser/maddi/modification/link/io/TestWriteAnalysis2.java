@@ -33,6 +33,7 @@ import io.codelaser.maddi.util.Trie;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +47,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestWriteAnalysis2 extends CommonTest {
+
+    /**
+     * The per-call temp dir now lives INSIDE a JUnit-managed root, so each call still gets its own unique
+     * directory and JUnit deletes the whole tree afterwards. At top level these accumulated across runs
+     * until /tmp's tmpfs ran out of INODES and createTempDirectory itself began failing.
+     */
+    @TempDir
+    private Path tempRoot;
     private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysis2.class);
 
     @Language("java")
@@ -249,7 +258,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
         WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
-        Path dest = Files.createTempDirectory("writeAnalysis2Test3");
+        Path dest = Files.createTempDirectory(tempRoot, "writeAnalysis2Test3");
         Files.createDirectories(dest);
         Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysisResults.write(dest.toFile(), typeTrie, codec);
