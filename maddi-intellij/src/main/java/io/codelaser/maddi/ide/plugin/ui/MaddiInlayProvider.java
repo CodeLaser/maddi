@@ -104,9 +104,12 @@ public class MaddiInlayProvider implements InlayHintsProvider {
                 }
             }
             if (match == null) return;
+            // abbreviated: an eventual verdict's after= roster is a union and runs to dozens of marks, which
+            // does not fit on the one line an inline hint has. The gutter tooltip carries the full text.
             String text = match.annotations().stream()
                     .filter(mode::shows)
                     .map(AnalysisModel.Annotation::text)
+                    .map(AnalysisModel::abbreviate)
                     .collect(java.util.stream.Collectors.joining(" "));
             if (text.isEmpty()) return; // everything filtered out under the current mode
             sink.addPresentation(

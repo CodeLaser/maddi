@@ -90,8 +90,65 @@ public final class AnalysisModel {
                && finding.category().startsWith(NEAR_MISS_PREFIX);
     }
 
-    /** One rendered annotation with polarity (POSITIVE/NEGATIVE/NEUTRAL) and context-default-ness. */
+    /**
+     * One rendered annotation with polarity and context-default-ness.
+     * <p>
+     * ⚠ Polarity is <b>POSITIVE / NEGATIVE / NEUTRAL / EVENTUAL</b>. The fourth is the eventual family —
+     * {@code @NotModified(after="mark")}, {@code @Immutable(hc=true,after="…")} — and it is deliberately
+     * neither positive nor negative: a filter that keeps "everything but NEGATIVE" and one that keeps
+     * "everything but POSITIVE" must both keep it, because "immutable once marked" is a different axis from
+     * "immutable" and hiding it under either heading loses the only interesting part.
+     */
     public record Annotation(String text, String polarity, boolean contextDefault) {
+    }
+
+    /** Polarity of the eventual family: a verdict that holds only after a mark. */
+    public static final String POLARITY_EVENTUAL = "EVENTUAL";
+
+    /** True when this element carries an eventual verdict, so a surface can mark it as such. */
+    public static boolean isEventual(ElementAnnotation element) {
+        return element != null && element.annotations() != null
+               && element.annotations().stream().anyMatch(a -> POLARITY_EVENTUAL.equals(a.polarity()));
+    }
+
+    /** Above this many marks the {@code after=} roster is summarised rather than listed. */
+    private static final int AFTER_MARKS_INLINE = 3;
+
+    /**
+     * An annotation's text, with a long {@code after="…"} roster collapsed to a count.
+     * <p>
+     * ⛔ <b>THE ROSTER IS A UNION AND IT IS UNBOUNDED.</b> An eventual verdict names every mark it waits on,
+     * and on a real hierarchy that list runs away: measured on maddi's own CST, {@code TestParseInstanceOf
+     * Pattern} carries 16 marks, and {@code dogfood/expected-eventual-survivors.txt} records {@code Element}
+     * standing at {@code @Immutable(hc=true)} with a <b>60-label union</b>. An inline hint is one line beside
+     * the declaration, so rendering that verbatim does not inform anyone — it hides the code.
+     * <p>
+     * What a reader needs inline is that the verdict IS eventual and roughly how far off it is; the roster
+     * itself belongs where there is room for it (the gutter tooltip renders {@code displayAnnotations}
+     * unabbreviated). A short roster is left alone: {@code after="runtime"} is the useful case, not the noisy
+     * one.
+     * <p>
+     * ⚠ <b>THE FORM IS BARE ({@code after=6}, not {@code after=6 marks}) BECAUSE THE PLATFORM TRUNCATES AT 30
+     * CHARACTERS.</b> Measured through the real declarative-inlay pass (MaddiInlayFilterTest):
+     * {@code @Immutable(hc=true,after=6 marks)} is 33 characters and renders as
+     * {@code @Immutable(hc=true,after=6 mar…} — the count, the one thing worth abbreviating TO, cut in half by
+     * the platform's own ellipsis. Note this truncation applies to the unabbreviated text as well, so an
+     * un-summarised roster never showed more than its first label or two anyway; what changes here is that the
+     * 30 characters carry the count instead.
+     */
+    public static String abbreviate(String annotationText) {
+        if (annotationText == null) return null;
+        int at = annotationText.indexOf("after=\"");
+        if (at < 0) return annotationText;
+        int from = at + "after=\"".length();
+        int to = annotationText.indexOf('"', from);
+        if (to < 0) return annotationText; // unterminated: leave it exactly as it came
+        String roster = annotationText.substring(from, to);
+        if (roster.isEmpty()) return annotationText;
+        int marks = 1;
+        for (int i = 0; i < roster.length(); i++) if (roster.charAt(i) == ',') marks++;
+        if (marks <= AFTER_MARKS_INLINE) return annotationText;
+        return annotationText.substring(0, at) + "after=" + marks + annotationText.substring(to + 1);
     }
 
     public record ElementAnnotation(String uri,
