@@ -43,8 +43,15 @@ record ExpandSlice(Graph graph) {
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
                         && entry2.getKey() instanceof DependentVariable dv
                         && negative(dv.indexExpression()) >= 0
-                        && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
-                        Edge pc = new Edge(frKv.scopeVariable(), LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
+                        && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)
+                        // real-code guard, the same shape as the ones in (2) and (3): scopeVariable() is
+                        // null whenever the scope is not a VariableExpression -- a STATIC field access, or a
+                        // scope that is an arbitrary expression. The null used to travel into Edge.from()
+                        // and NPE one frame on, in Graph.mergeEdgeBi's 'from.equals(to)', which aborted the
+                        // whole method's analysis. Guava: ImmutableBiMapTest.testOfEntries and
+                        // HttpHeadersTest.testConstantNameMatchesString, both static-field slices.
+                        && frKv.scopeVariable() instanceof Variable frKvScope) {
+                        Edge pc = new Edge(frKvScope, LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
                         List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
                         if (lists.isEmpty()) lists.add(new ArrayList<>());
                         lists.getFirst().add(new F2(frKv.fieldInfo(), frK.fieldInfo()));
