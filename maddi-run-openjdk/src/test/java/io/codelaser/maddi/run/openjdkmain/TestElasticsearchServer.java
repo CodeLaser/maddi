@@ -15,10 +15,19 @@ import java.nio.file.Files;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The elasticsearch server sources: the large-method stress corpus (the work ceiling's degradation
- * bucket lives here — see LinkComputerImpl's WORK_REPORT notes). Not on the certified proving-ground
- * list; this driver exists for A/B and capacity runs. Historically OOM'd at 8G: run with
- * TESTXMX=24G or more.
+ * The elasticsearch sources: the large-method stress corpus (the work ceiling's degradation bucket
+ * lives here — see LinkComputerImpl's WORK_REPORT notes). Not on the certified proving-ground list;
+ * this driver exists for A/B and capacity runs. Historically OOM'd at 8G: run with TESTXMX=24G or more.
+ * <p>
+ * ⛔ THE CORPUS IS {@code elasticsearch}, NOT {@code elasticsearch-server}. It asked for the latter
+ * from its introduction (2026-08-05) until 2026-08-25, and {@code corpus/Taskfile.yml} has never
+ * produced a corpus under that name — so {@code assumeCorpus()} aborted every single run and the
+ * driver never once executed. A name that no generator writes cannot be distinguished, in a battery
+ * roll-call, from a corpus that is merely not installed on this machine.
+ * <p>
+ * ⚠ {@code task corpus:config:elasticsearch} captures the whole Gradle reactor — 521 source sets,
+ * not the server module alone — so this is a bigger workload than the "server sources" the name
+ * suggests. Size TESTXMX against that, not against the historical server-only closure.
  */
 @Tag("slow")
 public class TestElasticsearchServer {
@@ -33,7 +42,7 @@ public class TestElasticsearchServer {
     }
 
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("elasticsearch-server")),
+        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("elasticsearch")),
                 "requires the elasticsearch corpus checkout with its locally generated input configuration");
     }
 
@@ -41,7 +50,7 @@ public class TestElasticsearchServer {
     public void test() throws IOException, ParseException {
         assumeCorpus();
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=" + TestOssCorpus.config("elasticsearch-server")
+                "--input-configuration=" + TestOssCorpus.config("elasticsearch")
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"
         });
