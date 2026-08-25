@@ -64,6 +64,8 @@ public final class MaddiAnalysisService implements Disposable {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private volatile AnalysisModel.Result latest;
+    private volatile String daemonInstall = "";
+    private volatile String daemonBuild = "unknown";
     // keyed by absolute source-file path (scheme stripped), so VirtualFile.getPath() lookups match
     private volatile Map<String, List<AnalysisModel.Finding>> findingsByPath = Map.of();
     private volatile Map<String, List<AnalysisModel.ElementAnnotation>> annotationsByPath = Map.of();
@@ -90,6 +92,10 @@ public final class MaddiAnalysisService implements Disposable {
                     analyze(indicator);
                 } catch (Exception e) {
                     LOG.warn("maddi analysis failed", e);
+                    // The balloon is transient and the tool window used to learn nothing at all from this
+                    // path, so a failed run was indistinguishable from a stale successful one (#29).
+                    publishFailure(e.getClass().getSimpleName(),
+                            e.getMessage() == null ? e.toString() : e.getMessage());
                     notifyUser("Analysis failed: " + e.getMessage(), NotificationType.ERROR);
                 } finally {
                     running.set(false);
@@ -105,6 +111,7 @@ public final class MaddiAnalysisService implements Disposable {
             jdkHome = System.getProperty("maddi.jdk.home", "").trim(); // dev fallback (runIde)
         }
         if (jdkHome.isEmpty()) {
+            publishFailure("configuration", "no JDK 25+ home is set (Settings → maddi)");
             notifyUser("Set a JDK 25+ home in Settings → maddi before analyzing.", NotificationType.WARNING);
             return;
         }
@@ -115,6 +122,8 @@ public final class MaddiAnalysisService implements Disposable {
         // WHICH daemon answered, in idea.log: the bundled one is a build, not a version, and a stale bundle
         // presents as an analyzer regression (2026-08-24). The stamp is the source state; see DaemonMain.
         LOG.info("maddi daemon: install=" + installDir + ", build=" + daemon.buildStamp());
+        this.daemonInstall = installDir.toString();
+        this.daemonBuild = daemon.buildStamp();
 
         indicator.setText("maddi: building configuration");
         String resolvedJdkHome = jdkHome;
@@ -122,15 +131,21 @@ public final class MaddiAnalysisService implements Disposable {
         AnalysisModel.AnalyzeConfig config = ReadAction.compute(
                 () -> new MaddiConfigBuilder().build(project, resolvedJdkHome, warnNearMisses));
         String requestId = "req-" + requestCounter.incrementAndGet();
+        publishRun(l -> l.runStarted(requestId, daemonInstall, daemonBuild));
 
         JsonNode node = daemon.analyze(requestId, config, frame -> onStreamedFrame(indicator, frame));
         if ("error".equals(node.path("type").asText())) {
-            notifyUser("Daemon error: " + node.path("message").asText(), NotificationType.ERROR);
+            String kind = node.path("kind").asText("error");
+            String message = node.path("message").asText("");
+            publishFailure(kind, message);
+            notifyUser("Daemon error: " + message, NotificationType.ERROR);
             return;
         }
         AnalysisModel.Result result =
                 daemon.client().objectMapper().treeToValue(node, AnalysisModel.Result.class);
         applyResult(result);
+        publishRun(l -> l.runFinished(result.outcome(), result.findings().size(),
+                result.elementAnnotations().size(), result.parseErrorCount(), result.elapsedMillis()));
         // Silence on a certified run; a run that stopped at the iteration cap or on a plateau produces
         // annotations indistinguishable from final ones, so that is worth one line.
         // A partial parse is reported separately and takes precedence: "some files did not parse" tells the
@@ -164,16 +179,20 @@ public final class MaddiAnalysisService implements Disposable {
                 // not known in advance, so a fraction would be invented
                 indicator.setText2("pass " + partial.iteration() + ", "
                                    + merged.elementAnnotations().size() + " element(s) so far");
+                publishRun(l -> l.passCompleted(partial.iteration(), partial.fullPass(),
+                        merged.elementAnnotations().size()));
             } catch (Exception e) {
                 // losing a streamed frame costs an early glimpse, never the run
                 LOG.warn("could not read a streamed result", e);
             }
             return;
         }
-        indicator.setText("maddi: " + frame.path("phase").asText("analyzing"));
+        String phase = frame.path("phase").asText("analyzing");
+        indicator.setText("maddi: " + phase);
         String message = frame.path("message").asText("");
         // the heartbeat carries the message during the long analysis phase; it is what shows the run is alive
         if (!message.isEmpty()) indicator.setText2(message);
+        publishRun(l -> l.statusUpdated(phase, message));
     }
 
     /**
@@ -219,6 +238,42 @@ public final class MaddiAnalysisService implements Disposable {
 
     public AnalysisModel.Result latestResult() {
         return latest;
+    }
+
+    /** Where the daemon of the last (or current) run came from, and which build it is. */
+    public String daemonInstall() {
+        return daemonInstall;
+    }
+
+    public String daemonBuild() {
+        return daemonBuild;
+    }
+
+    /**
+     * Stop the daemon; the next analysis launches a fresh one. This is the fast loop: point the daemon install
+     * directory at {@code maddi-ide-daemon/build/install/maddi-ide-daemon}, run {@code installDist}, restart
+     * the daemon, analyze — no plugin rebuild, no reinstall, no IDE restart.
+     */
+    public void restartDaemon() {
+        daemon.restart();
+        daemonBuild = "unknown";
+        publishRun(l -> l.statusUpdated("daemon", "daemon stopped; the next analysis will start a fresh one"));
+    }
+
+    /** Run events are a UI concern: always on the EDT, and never allowed to break the run that reports them. */
+    private void publishRun(java.util.function.Consumer<MaddiRunListener> event) {
+        ApplicationManager.getApplication().invokeLater(() -> {
+            if (project.isDisposed()) return;
+            try {
+                event.accept(project.getMessageBus().syncPublisher(MaddiRunListener.TOPIC));
+            } catch (Exception e) {
+                LOG.warn("maddi run listener failed", e);
+            }
+        });
+    }
+
+    private void publishFailure(String kind, String message) {
+        publishRun(l -> l.runFailed(kind, message == null ? "" : message));
     }
 
     private Path resolveInstallDir(MaddiSettings.State settings) {

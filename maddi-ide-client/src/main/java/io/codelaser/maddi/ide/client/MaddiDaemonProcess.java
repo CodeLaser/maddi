@@ -30,15 +30,30 @@ import java.util.function.Consumer;
 public final class MaddiDaemonProcess implements Closeable {
     private static final int PROTOCOL_VERSION = 1;
 
+    /** What a running daemon was launched WITH; a request that differs needs a new process, not this one. */
+    private record Launch(Path installDir, Path jdkHome, int xmxMb) {
+    }
+
     private final DaemonLauncher launcher = new DaemonLauncher();
     private DaemonLauncher.Handle handle;
     private DaemonClient client;
     private String buildStamp = "unknown";
+    private Launch launched;
 
-    /** Ensure a warm daemon is running on {@code jdkHome}; (re)launch + handshake if needed. */
+    /**
+     * Ensure a warm daemon is running on {@code jdkHome}; (re)launch + handshake if needed.
+     * <p>
+     * ⛔ <b>A LIVE PROCESS IS NOT NECESSARILY THE REQUESTED ONE.</b> This used to return early on nothing but
+     * "the process is alive", so changing the daemon install directory (or the JDK, or the heap) in the
+     * settings had no effect until that process happened to die — the setting said one thing and the running
+     * daemon was another, silently. Since the install directory is exactly how one iterates on the daemon
+     * without rebuilding and reinstalling the whole plugin, that made the fast loop unusable. Relaunching on a
+     * changed launch parameter is what makes the setting mean something.
+     */
     public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb, Path logFile)
             throws IOException, InterruptedException {
-        if (handle != null && handle.process().isAlive() && client != null) return;
+        Launch wanted = new Launch(installDir, jdkHome, xmxMb);
+        if (handle != null && handle.process().isAlive() && client != null && wanted.equals(launched)) return;
         closeQuietly();
         List<String> jvmArgs = new ArrayList<>();
         if (xmxMb > 0) {
@@ -52,6 +67,7 @@ public final class MaddiDaemonProcess implements Closeable {
             throw new IOException("daemon handshake failed: " + ack);
         }
         buildStamp = ack.path("buildStamp").asText("unknown");
+        launched = wanted;
     }
 
     /**
@@ -83,6 +99,15 @@ public final class MaddiDaemonProcess implements Closeable {
         closeQuietly();
     }
 
+    /**
+     * Stop the daemon, so the next {@code ensureStarted} launches a fresh one. The point of exposing it: after
+     * an {@code installDist} the on-disk daemon has changed but nothing about the RUNNING one has, and it would
+     * otherwise be kept warm across the very rebuild being tested.
+     */
+    public synchronized void restart() {
+        closeQuietly();
+    }
+
     private void closeQuietly() {
         if (client != null) {
             try {
@@ -101,5 +126,7 @@ public final class MaddiDaemonProcess implements Closeable {
             handle.close();
             handle = null;
         }
+        launched = null;
+        buildStamp = "unknown";
     }
 }

@@ -158,6 +158,18 @@ Each of these is a GitHub issue (#24–#28); this section stays the reasoning.
   *not* covered by this: `WarmAnalysisService` returns a real `Result` with empty `elementAnnotations` and
   `OUTCOME_UNKNOWN`, so `applyResult` does run and the tree does clear — it just goes quiet, which is its
   own reason to show the outcome in the panel rather than only in a balloon.
+  ✅ **DONE (2026-08-25), together with the rest of the tool window.** A second topic, `MaddiRunListener`,
+  carries what a run is DOING (started / status / pass / failed / finished) alongside `MaddiResultListener`,
+  which carries what it produced; every terminal path publishes, including the daemon-error branch and the
+  `catch` in `analyzeInBackground`. The findings tree is marked stale rather than cleared while a run is in
+  flight — what it holds until the terminal frame IS the previous run's findings, and destroying them buys
+  nothing. What the run was doing was the other half of the complaint that prompted this: mid-run the panel
+  rendered a merged `partialResult` as `0 finding(s), 18771 annotated element(s), 0 hint type(s), 0 ms`, since
+  three of those four numbers do not exist until the run ends. ⛔ **RENDERING "NOT KNOWN YET" AS A ZERO READS
+  AS A MEASUREMENT.** The panel now has a header (state + a client-side elapsed clock, phase and last message,
+  and the daemon's install directory and build stamp), the tree, and a timestamped run log fed by every status
+  frame, heartbeat and pass. `MaddiToolWindowTest` covers six of those behaviours; the control (unsubscribing
+  the panel from the run topic) turns all six red.
 - **(#30) Self-analysis: the IDE config makes every module both source and bytecode, and commits break.** Symptom on the
   CodeLaser tree (2026-08-21): `[ERROR/parse] UnsupportedOperationException … Cannot commit. Type
   io.codelaser.maddi.cst.impl.statement.StatementImpl.Builder has a null parent class, and it is not JLO`
@@ -255,12 +267,20 @@ it with the install directory, so `idea.log` records which daemon answered. `Tes
 ways the check can quietly stop working (resource not packaged, packaged in the wrong package, not on the
 wire); the middle one is the control that was run.
 
-**Also worth knowing, since it is the faster loop.** Settings → maddi → *daemon install dir* pointed at
-`…/maddi-ide-daemon/build/install/maddi-ide-daemon` skips the plugin rebuild-and-reinstall entirely; only the
-front-end needs a new plugin. ⚠ `MaddiAnalysisService.ensureStarted` returns early while the daemon is alive
-and never compares the install directory against the running process, so a changed setting (or a fresh
-`installDist`) takes effect only once that daemon dies — and there is no restart-daemon action. Small, and the
-same shape of trap: the setting says one thing and the running process is another.
+**The fast loop, and it now works — DONE (2026-08-25).** Settings → maddi → *Daemon install override* pointed
+at `…/maddi-ide-daemon/build/install/maddi-ide-daemon` skips the plugin rebuild-and-reinstall entirely: only a
+front-end change needs a new plugin. Two things had to change before that was usable, both the same shape of
+trap as the stale bundle itself — the setting said one thing and the running process was another:
+
+- `MaddiDaemonProcess.ensureStarted` returned early on nothing but "the process is alive", so a changed install
+  directory, JDK or heap had no effect until that daemon happened to die. It now remembers what it launched
+  WITH and relaunches when the request differs.
+- there was no way to pick up a fresh `installDist` at all, since the daemon is deliberately kept warm across
+  requests — including across the very rebuild being tested. The tool window has a **Restart daemon** button
+  (`MaddiAnalysisService.restartDaemon`).
+
+So the loop is: `./gradlew :maddi-ide-daemon:installDist` → *Restart daemon* → *Analyze*. No plugin build, no
+reinstall, no IDE restart.
 
 ---
 
