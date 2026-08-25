@@ -468,6 +468,16 @@ tasks:
   config:elasticsearch:
     desc: 'elasticsearch config (Gradle compile-log, ~27 source sets)'
     cmds: [{ task: _config:gradle-log, vars: { NAME: elasticsearch, TASKS: 'compileTestJava' } }]
+  # The whole-reactor capture above is 521 source sets and cannot be checked in (560 of its
+  # class-path entries are absolute paths into ~/.gradle/caches). TestElasticsearchServer wants
+  # the SERVER closure only, so this derives that slice from it with every path made relative,
+  # and writes it into maddi's test resources -- one file, identical on every machine.
+  # Re-run it when elasticsearch's own module layout moves, and commit the result.
+  config:elasticsearch-server:
+    desc: 'elasticsearch SERVER slice -> maddi test resources (checked in, relative paths)'
+    deps: [config:elasticsearch]
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/elasticsearch-server-input-configuration.py'
 
   # pulsar's build refuses JDK 26 without the opt-out, exactly as in `task pulsar` above; the flag
   # rides along in TASKS because _config:gradle-log interpolates it straight into the gradlew line.

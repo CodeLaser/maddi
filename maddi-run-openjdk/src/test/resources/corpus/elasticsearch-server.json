@@ -1,0 +1,650 @@
+{
+ "workingDirectory": ".",
+ "classPathParts": [
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.base",
+   "uri": "jmod:java.base",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.compiler",
+   "uri": "jmod:java.compiler",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.datatransfer",
+   "uri": "jmod:java.datatransfer",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.desktop",
+   "uri": "jmod:java.desktop",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.instrument",
+   "uri": "jmod:java.instrument",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.logging",
+   "uri": "jmod:java.logging",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.management",
+   "uri": "jmod:java.management",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.management.rmi",
+   "uri": "jmod:java.management.rmi",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.naming",
+   "uri": "jmod:java.naming",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.net.http",
+   "uri": "jmod:java.net.http",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.prefs",
+   "uri": "jmod:java.prefs",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.rmi",
+   "uri": "jmod:java.rmi",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.scripting",
+   "uri": "jmod:java.scripting",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.security.jgss",
+   "uri": "jmod:java.security.jgss",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.security.sasl",
+   "uri": "jmod:java.security.sasl",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.sql",
+   "uri": "jmod:java.sql",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.sql.rowset",
+   "uri": "jmod:java.sql.rowset",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.transaction.xa",
+   "uri": "jmod:java.transaction.xa",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.xml",
+   "uri": "jmod:java.xml",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "java.xml.crypto",
+   "uri": "jmod:java.xml.crypto",
+   "library": true,
+   "externalLibrary": true,
+   "partOfJdk": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "HdrHistogram-2.1.9.jar",
+   "uri": "gradle-cache:org.hdrhistogram/HdrHistogram/2.1.9/HdrHistogram-2.1.9.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "ecs-logging-core-1.7.0.jar",
+   "uri": "gradle-cache:co.elastic.logging/ecs-logging-core/1.7.0/ecs-logging-core-1.7.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "error_prone_annotations-2.38.0.jar",
+   "uri": "gradle-cache:com.google.errorprone/error_prone_annotations/2.38.0/error_prone_annotations-2.38.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "hppc-0.8.1.jar",
+   "uri": "gradle-cache:com.carrotsearch/hppc/0.8.1/hppc-0.8.1.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "jcodings-1.0.63.jar",
+   "uri": "gradle-cache:org.jruby.jcodings/jcodings/1.0.63/jcodings-1.0.63.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "joni-2.2.6.jar",
+   "uri": "gradle-cache:org.jruby.joni/joni/2.2.6/joni-2.2.6.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "jopt-simple-5.0.2.jar",
+   "uri": "gradle-cache:net.sf.jopt-simple/jopt-simple/5.0.2/jopt-simple-5.0.2.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "jspecify-1.0.0.jar",
+   "uri": "gradle-cache:org.jspecify/jspecify/1.0.0/jspecify-1.0.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "jsr305-3.0.2.jar",
+   "uri": "gradle-cache:com.google.code.findbugs/jsr305/3.0.2/jsr305-3.0.2.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/native/main",
+   "uri": "file:libs/native/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "log4j-api-2.26.0.jar",
+   "uri": "gradle-cache:org.apache.logging.log4j/log4j-api/2.26.0/log4j-api-2.26.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "log4j-core-2.26.0.jar",
+   "uri": "gradle-cache:org.apache.logging.log4j/log4j-core/2.26.0/log4j-core-2.26.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "log4j2-ecs-layout-1.7.0.jar",
+   "uri": "gradle-cache:co.elastic.logging/log4j2-ecs-layout/1.7.0/log4j2-ecs-layout-1.7.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-analysis-common-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-analysis-common/10.5.0/lucene-analysis-common-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-backward-codecs-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-backward-codecs/10.5.0/lucene-backward-codecs-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-core-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-core/10.5.0/lucene-core-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-facet-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-facet/10.5.0/lucene-facet-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-grouping-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-grouping/10.5.0/lucene-grouping-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-highlighter-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-highlighter/10.5.0/lucene-highlighter-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-join-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-join/10.5.0/lucene-join-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-memory-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-memory/10.5.0/lucene-memory-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-misc-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-misc/10.5.0/lucene-misc-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-queries-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-queries/10.5.0/lucene-queries-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-queryparser-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-queryparser/10.5.0/lucene-queryparser-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-sandbox-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-sandbox/10.5.0/lucene-sandbox-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "lucene-suggest-10.5.0.jar",
+   "uri": "gradle-cache:org.apache.lucene/lucene-suggest/10.5.0/lucene-suggest-10.5.0.jar",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/cli-terminal/main",
+   "uri": "file:libs/cli-terminal/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/cli/main",
+   "uri": "file:libs/cli/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/core/main",
+   "uri": "file:libs/core/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/entitlement/bridge/main",
+   "uri": "file:libs/entitlement/bridge/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/entitlement/main",
+   "uri": "file:libs/entitlement/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/exponential-histogram/main",
+   "uri": "file:libs/exponential-histogram/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/foreign-adapter/main",
+   "uri": "file:libs/foreign-adapter/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/foreign-library/main",
+   "uri": "file:libs/foreign-library/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/geo/main",
+   "uri": "file:libs/geo/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/grok/main",
+   "uri": "file:libs/grok/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/ip-location-api/main",
+   "uri": "file:libs/ip-location-api/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/logging/main",
+   "uri": "file:libs/logging/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/lz4/main",
+   "uri": "file:libs/lz4/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/plugin-analysis-api/main",
+   "uri": "file:libs/plugin-analysis-api/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/plugin-api/main",
+   "uri": "file:libs/plugin-api/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": false,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/simdvec/main",
+   "uri": "file:libs/simdvec/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/tdigest/main",
+   "uri": "file:libs/tdigest/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/user-agent-api/main",
+   "uri": "file:libs/user-agent-api/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  },
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "libs/x-content/main",
+   "uri": "file:libs/x-content/build/classes/java/main",
+   "library": true,
+   "externalLibrary": true,
+   "module": true,
+   "restrictToPackages": []
+  }
+ ],
+ "sourceSets": [
+  {
+   "sourceEncoding": "UTF-8",
+   "name": "server/main",
+   "buildUnit": "server",
+   "sourceDirectories": [
+    "server/src/main/java"
+   ],
+   "uri": "file:server/build/classes/java/main",
+   "module": true,
+   "restrictToPackages": [],
+   "dependencies": [
+    "libs/tdigest/main",
+    "libs/exponential-histogram/main",
+    "libs/x-content/main",
+    "libs/lz4/main",
+    "libs/user-agent-api/main",
+    "libs/ip-location-api/main",
+    "libs/cli/main",
+    "libs/native/main",
+    "libs/foreign-library/main",
+    "libs/core/main",
+    "libs/logging/main",
+    "libs/geo/main",
+    "libs/plugin-analysis-api/main",
+    "libs/plugin-api/main",
+    "libs/grok/main",
+    "lucene-suggest-10.5.0.jar",
+    "lucene-analysis-common-10.5.0.jar",
+    "lucene-backward-codecs-10.5.0.jar",
+    "lucene-queryparser-10.5.0.jar",
+    "lucene-sandbox-10.5.0.jar",
+    "lucene-facet-10.5.0.jar",
+    "lucene-grouping-10.5.0.jar",
+    "lucene-highlighter-10.5.0.jar",
+    "lucene-join-10.5.0.jar",
+    "lucene-memory-10.5.0.jar",
+    "lucene-misc-10.5.0.jar",
+    "lucene-queries-10.5.0.jar",
+    "lucene-core-10.5.0.jar",
+    "HdrHistogram-2.1.9.jar",
+    "log4j-api-2.26.0.jar",
+    "log4j-core-2.26.0.jar",
+    "log4j2-ecs-layout-1.7.0.jar",
+    "ecs-logging-core-1.7.0.jar",
+    "libs/simdvec/main",
+    "libs/entitlement/main",
+    "hppc-0.8.1.jar",
+    "libs/lz4/main",
+    "joni-2.2.6.jar",
+    "jcodings-1.0.63.jar",
+    "jopt-simple-5.0.2.jar",
+    "libs/cli-terminal/main",
+    "jspecify-1.0.0.jar",
+    "error_prone_annotations-2.38.0.jar",
+    "libs/foreign-adapter/main"
+   ]
+  }
+ ],
+ "alternativeJREDirectory": null
+}
