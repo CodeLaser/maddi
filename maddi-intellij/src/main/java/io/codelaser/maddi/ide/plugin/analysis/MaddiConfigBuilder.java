@@ -20,10 +20,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.CompilerModuleExtension;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.OrderEnumerator;
-import com.intellij.pom.java.LanguageLevel;
-import com.intellij.util.lang.JavaVersion;
-import com.intellij.openapi.roots.LanguageLevelModuleExtension;
-import com.intellij.openapi.roots.LanguageLevelProjectExtension;
 import com.intellij.openapi.vfs.VirtualFile;
 import io.codelaser.maddi.ide.client.AnalysisModel;
 import org.jetbrains.jps.model.java.JavaSourceRootType;
@@ -97,7 +93,7 @@ public final class MaddiConfigBuilder {
             }
 
             CompilerModuleExtension output = CompilerModuleExtension.getInstance(module);
-            int release = languageLevel(project, roots);
+            int release = apiRelease();
             if (!main.isEmpty()) {
                 sets.add(new AnalysisModel.ModuleSourceSet(mainSetName(module), main,
                         pathOrNull(output == null ? null : output.getCompilerOutputPath()),
@@ -150,17 +146,30 @@ public final class MaddiConfigBuilder {
      * maddi runs on". That default is dangerous rather than merely imprecise (see {@code InputConfiguration}),
      * so report a real number whenever IntelliJ has one.
      */
-    private static int languageLevel(Project project, ModuleRootManager roots) {
-        // a ModuleExtension, so it comes off ModuleRootManager; there is no static getInstance(Module)
-        LanguageLevelModuleExtension moduleExtension = roots.getModuleExtension(LanguageLevelModuleExtension.class);
-        LanguageLevel level = moduleExtension == null ? null : moduleExtension.getLanguageLevel();
-        if (level == null) {
-            // null means "inherit the project level", which is the common case for an imported build
-            LanguageLevelProjectExtension projectExtension = LanguageLevelProjectExtension.getInstance(project);
-            level = projectExtension == null ? null : projectExtension.getLanguageLevel();
-        }
-        JavaVersion version = level == null ? null : level.toJavaVersion();
-        return version == null ? 0 : version.feature;
+    /**
+     * ⛔⛔ <b>INTELLIJ'S LANGUAGE LEVEL IS {@code -source}, NOT {@code --release}, SO THIS CANNOT ANSWER THE
+     * QUESTION AND SAYS SO.</b> {@code ModuleSourceSet.sourceRelease} means "the build compiled this set against
+     * the API of release N" — javac's {@code --release}, which routes through {@code ct.sym}. IntelliJ's model
+     * has no such field: {@code LanguageLevelModuleExtension} carries the LANGUAGE level, which constrains
+     * syntax and leaves the API at the running JDK's. Reporting it as a release makes maddi read a
+     * {@code java.base} the build never compiled against.
+     *
+     * <p>MEASURED on maddi itself (2026-08-25), whose Gradle build compiles {@code maddi-support} with
+     * {@code -source 17 -target 17} and no {@code --release}. IntelliJ reports language level 17; sent as a
+     * release it (a) made {@code maddi-support}'s own {@code List.getFirst()} call unresolvable, and (b)
+     * committed {@code java.util.List} from the 11–20 band, after which every Java-21-or-later call in the 25
+     * modules met a {@code List} without it — <b>391 of 572 dropped compilation units</b>, {@code MethodInfo.java}
+     * among them, and 543 analysis hints skipped on stale method indices.
+     *
+     * <p>⚠ The cost of {@code 0} is real and accepted: a project whose build genuinely passes {@code --release}
+     * (pulsar does, on all 105 invocations) is parsed against the running JDK instead, so an API removed after
+     * that release resolves here when the build would reject it. That is the lesser error — it accepts too much
+     * for one set, where the old behaviour corrupted the JDK model for the whole project. The build plugins can
+     * tell the two settings apart and now do; IntelliJ's model cannot, and inventing the answer is what this
+     * fixes. See {@code CompileInvocation.effectiveRelease}.
+     */
+    private static int apiRelease() {
+        return 0;
     }
 
     /** A library root VirtualFile inside a jar reports {@code /abs/foo.jar!/}; strip to the real jar path. */

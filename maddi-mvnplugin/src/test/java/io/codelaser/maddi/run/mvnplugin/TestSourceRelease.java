@@ -58,8 +58,30 @@ public class TestSourceRelease {
      */
     @Test
     public void readsPluginManagement() {
+        MavenProject project = project(null, compilerPlugin(configuration("release", "17")));
+        assertEquals(17, ComputeSourceSets.sourceRelease(project, false));
+    }
+
+    /**
+     * ⛔⛔ <b>INVERTED EXPECTATION (2026-08-25).</b> This used to read {@code <source>1.8</source>} and assert 8.
+     * {@code <source>} is javac's {@code -source}: it sets the LANGUAGE level and leaves the API at the running
+     * JDK's, where {@code --release} pins the API and sends javac through {@code ct.sym}. Reporting the first as
+     * the second makes maddi read a {@code java.base} the build never compiled against — measured on maddi
+     * itself, whose Gradle build states only {@code -source 17} for two modules: 391 dropped compilation units,
+     * and its own {@code List.getFirst()} call (legal under {@code -source 17}) unresolvable.
+     *
+     * <p>The {@code 1.N} spelling this test used to cover is {@code PluginSourceSets.parseRelease}'s business
+     * and is tested there; it is not a reason to answer a question the build did not answer.
+     */
+    @Test
+    public void sourceAloneStatesNothingAboutTheApi() {
         MavenProject project = project(null, compilerPlugin(configuration("source", "1.8")));
-        assertEquals(8, ComputeSourceSets.sourceRelease(project, false), "the 1.N spelling stops at 1.8");
+        assertEquals(0, ComputeSourceSets.sourceRelease(project, false),
+                "<source> constrains the language, not the API");
+        MavenProject viaProperty = project(null, null);
+        viaProperty.getProperties().setProperty("maven.compiler.source", "17");
+        assertEquals(0, ComputeSourceSets.sourceRelease(viaProperty, false),
+                "same for the property spelling");
     }
 
     /** An execution may carry its own, and Maven merges executions over the plugin-level block. */

@@ -153,6 +153,22 @@ public class TestJavacGradleLine {
         assertEquals(List.of("/src/main/java"), j.sourcePath());
         assertEquals(17, j.sourceRelease());
         assertEquals(17, j.targetRelease());
+        // ⛔ ...and the API level this states is NONE. -source sets the language level and leaves the API at the
+        // running JDK's; only --release pins the API (through ct.sym). effectiveRelease() used to fall back to
+        // -source, which made maddi read a java.base the build never compiled against: measured on maddi itself,
+        // whose Gradle build emits exactly this line for two modules, 391 dropped compilation units.
+        assertEquals(0, j.effectiveRelease(), "-source is not --release");
+    }
+
+    /** And a real {@code --release} still answers it, which is the half that must not be lost. */
+    @DisplayName("--release states the API level; -source does not")
+    @Test
+    public void releaseStatesTheApiLevel() {
+        Javac withRelease = Javac.parse("-d /out --release 21 /src/A.java");
+        assertEquals(21, withRelease.effectiveRelease());
+
+        Javac neither = Javac.parse("-d /out /src/A.java");
+        assertEquals(0, neither.effectiveRelease());
     }
 
     /** javac's own short aliases, which were being ignored: {@code -cp} for the class path, {@code -p} for modules. */

@@ -360,6 +360,52 @@ Costs: `AnalyzeConfig` is flat, so the protocol needs a per-source-set shape and
 Eclipse shares the daemon and needs the same treatment. Residual risk: IntelliJ's model is itself a
 projection of the build, so shaded/relocated artifacts may still not match javac reality.
 
+### D. `-source` is not `--release`, and the shared JDK is not the first source set's — DONE (2026-08-25)
+
+Not an IDE defect, and the one that made `MethodInfo.java` carry no annotations on the CodeLaser tree.
+
+**Two conflations, both in shared code.** Every config producer collapsed javac's two level settings into one
+integer — `CompileInvocation.effectiveRelease()` (`--release` ?: `-source`), the Gradle plugin's
+`sourceReleaseOf` (`options.release` ?: `sourceCompatibility`), the Maven plugin's `sourceRelease`
+(`<release>` ?: `<source>`), IntelliJ's language level — and `JavaInspectorImpl` turns any non-zero value into
+`--release=N`, which reads `java.base` through `ct.sym`. But `-source N` sets the **language** level and leaves
+the API at the running JDK's; only `--release` pins the API. ⛔ **REPORTING THE WEAKER SETTING AS THE STRONGER
+INVENTS A PLATFORM THE BUILD NEVER COMPILED AGAINST.** maddi's own build states `-source 17 -target 17` for
+`maddi-support`, whose test calls `List.getFirst()` — legal for that build, impossible under `--release 17`.
+
+**And the shared `java.*` model was built by whichever source set happened to be scanned first.**
+`ScanCompilationUnits` preloads under `if (!runtime.objectTypeInfo().hasBeenInspected())`, through that task's
+file manager. So the first set's band became every set's `java.base`, and since a committed type cannot gain a
+member, a later set at a higher band met a `java.util.List` without the method it needed and its unit was
+dropped. Measured in the daemon on maddi itself: `maddi-annotation` (first, level 17) committed `List` from the
+11–20 band; **391 of 572 dropped compilation units**, and **543 analysis hints skipped** because the hint
+archive addresses methods by position in a method list that is shorter at 17 than at 21.
+
+⭐ **The CLI was never immune — its harness had been patched.** `postprocess.py` (the pipeline's compile-log
+step) has rewritten every `-source N`/`--release N` to 25 since 2026-08-21, with a comment naming this exact
+failure: *"java.util.List committed from the 17 band (maddi-support) cannot then gain getFirst() for a 21 source
+set (maddi-ide-client)"*. maddi's own compile log carries 31 x `-source 17`, 14 x `--release 21`, 496 x
+`-source 25`, 2 x `-source 26`.
+
+**What changed.** (1) Only a real `--release` answers "what API was this compiled against"; a build that states
+only `-source`/`sourceCompatibility`/`maven.compiler.source` now reports `0`, which is the truth. IntelliJ
+reports `0` always — its model has a language level and no `--release`, and inventing one is the defect; the
+cost is accepted and written down (a project that genuinely cross-compiles, as pulsar does, is parsed against
+the running JDK for that set). (2) The preload gets its own pass before any source set, on a source-free task
+given the RUNNING JDK, so the shared model is the superset and a set at `--release N` can only ever find what
+it needs already committed. Each set's own sources keep being attributed at its own release — the OpenSearch
+and pulsar reasoning in `createTask` is untouched, and `TestSharedJdkRelease` asserts both halves.
+
+⚠ Three things the preload pass must NOT do, each found by a test rather than by reasoning: it must not parse a
+warm-up compilation unit (a unit lands in the `Summary`, the source set's file list and the incremental
+bookkeeping — `TestAnalysisEarlyCutoffPrototype`, `TestReloadSourcesFromDisk`, `TestInvalidate`); it cannot call
+`scan()` on a source-free task (`task.parse()` answers `IllegalStateException: error: no source files`, hence
+`ScanCompilationUnits.preloadOnly()`); and it must not commit what it loads, because committing pulls
+transitive types in and copying those into the CTM makes `java.lang.invoke.VarHandle` resolvable where
+`TestJavaInspector1OnlyJmod` asserts "no pre-load". Only the release changes; everything downstream stays.
+
+---
+
 ### B. Ask the build system instead (highest fidelity, narrowest reach)
 
 Both build plugins **already emit exactly this file**: `maddi-write-input-configuration`
