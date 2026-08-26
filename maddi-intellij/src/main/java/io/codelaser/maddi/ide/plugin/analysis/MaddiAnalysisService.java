@@ -17,8 +17,6 @@ package io.codelaser.maddi.ide.plugin.analysis;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.codeInsight.hints.declarative.impl.DeclarativeInlayHintsPassFactory;
-import com.intellij.ide.plugins.IdeaPluginDescriptor;
-import com.intellij.ide.plugins.PluginManagerCore;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.Disposable;
@@ -27,7 +25,6 @@ import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
@@ -37,7 +34,9 @@ import io.codelaser.maddi.ide.client.AnalysisModel;
 import io.codelaser.maddi.ide.plugin.settings.MaddiSettings;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,10 +54,6 @@ import org.jetbrains.annotations.NotNull;
 @Service(Service.Level.PROJECT)
 public final class MaddiAnalysisService implements Disposable {
     private static final Logger LOG = Logger.getInstance(MaddiAnalysisService.class);
-    // Must equal <id> in META-INF/plugin.xml. It is also the Marketplace identity, which cannot be
-    // changed after a public release, and the plugin-structure verifier refuses an id containing
-    // "intellij" -- hence io.codelaser.maddi, not io.codelaser.maddi.intellij.
-    static final String PLUGIN_ID = "io.codelaser.maddi"; // package-private: PluginIdentityTest
     private static final String NOTIFICATION_GROUP = "maddi";
 
     private final Project project;
@@ -210,7 +205,8 @@ public final class MaddiAnalysisService implements Disposable {
             // Declarative inlay hints cache on a modification stamp that restart() alone does not invalidate,
             // so the first result would only show up on a later pass. Reset it so inlays recompute now.
             DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp();
-            DaemonCodeAnalyzer.getInstance(project).restart(); // repaint annotators/inlays/gutter
+            // restart() with no argument is deprecated; the reason shows up in the daemon's own logging.
+            DaemonCodeAnalyzer.getInstance(project).restart("maddi analysis result");
             project.getMessageBus().syncPublisher(MaddiResultListener.TOPIC).resultUpdated(result);
         });
     }
@@ -285,9 +281,34 @@ public final class MaddiAnalysisService implements Disposable {
         }
         String dev = System.getProperty("maddi.daemon.install", ""); // dev fallback (runIde)
         if (!dev.isBlank()) return Path.of(dev);
-        IdeaPluginDescriptor descriptor = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID));
-        if (descriptor == null) throw new IllegalStateException("maddi plugin descriptor not found");
-        return descriptor.getPluginPath().resolve("daemon"); // bundled (M4 packaging)
+        return bundledDaemonDir();
+    }
+
+    /**
+     * Where the daemon bundled inside this plugin lives, {@code <plugin>/daemon} (M4 packaging).
+     * <p>
+     * ⛔ DELIBERATELY NO PLATFORM API. The obvious calls — {@code PluginManagerCore.getPlugin(PluginId)},
+     * {@code PluginManager.getPluginByClass} and in fact every descriptor lookup on {@code PluginManager} —
+     * are all {@code @ApiStatus.Internal} as of 2026.2, and the plugin verifier reports each one; the
+     * Marketplace approval guidelines say a plugin may not violate internal APIs. Our own class file is
+     * loaded from {@code <plugin>/lib/maddi-intellij-<version>.jar}, so the plugin directory is two levels
+     * up, and reading that is plain JDK.
+     * <p>
+     * The fallback covers a null code source (possible under a different class loader): the plugin
+     * directory name is fixed by {@code intellijPlatform.projectName = "maddi"} in the build.
+     */
+    private static Path bundledDaemonDir() {
+        try {
+            CodeSource codeSource = MaddiAnalysisService.class.getProtectionDomain().getCodeSource();
+            if (codeSource != null && codeSource.getLocation() != null) {
+                Path jar = Path.of(codeSource.getLocation().toURI());
+                Path lib = jar.getParent();
+                if (lib != null && lib.getParent() != null) return lib.getParent().resolve("daemon");
+            }
+        } catch (URISyntaxException | IllegalArgumentException e) {
+            LOG.warn("maddi: cannot read own code source, falling back to the plugins path", e);
+        }
+        return Path.of(PathManager.getPluginsPath(), "maddi", "daemon");
     }
 
     /** maddi returns {@code file:///abs/File.java}; index/query by the bare path so VirtualFile paths match. */

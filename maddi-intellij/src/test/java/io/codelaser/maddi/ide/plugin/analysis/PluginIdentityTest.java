@@ -36,16 +36,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class PluginIdentityTest {
 
     /**
-     * ⛔ THE TWO MUST NOT DRIFT. {@code MaddiAnalysisService.resolveInstallDir} asks
-     * {@code PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))} where the plugin was installed, so that
-     * it can launch the daemon bundled at {@code <plugin>/daemon}. A constant that no longer matches
-     * {@code plugin.xml} yields a null descriptor, i.e. "no bundled daemon" — which reads as a packaging
-     * problem, not as a typo.
+     * ⛔ CHANGING THIS STRING IS A DIFFERENT PLUGIN. The id is the Marketplace identity and the key every
+     * installed copy is keyed by: an IDE does not upgrade across a rename, it ends up with two plugins, both
+     * registering the tool window and the inlay provider. It is spelled out here rather than read from the
+     * descriptor so that an edit to {@code plugin.xml} has to be a deliberate edit to a test as well.
+     * <p>
+     * No production code looks the plugin up by id any more — {@code resolveInstallDir} asks
+     * {@code PluginManager.getPluginByClass}, which cannot drift.
      */
-    @DisplayName("the constant the daemon is located with equals the descriptor's id")
+    @DisplayName("the id is the one that was published")
     @Test
-    public void constantMatchesDescriptor() {
-        assertEquals(idInPluginXml(), MaddiAnalysisService.PLUGIN_ID);
+    public void idIsTheOneThatWasPublished() {
+        assertEquals("io.codelaser.maddi", idInPluginXml());
     }
 
     /**

@@ -140,7 +140,7 @@ The IDE plugins (Package 2)
 > **Status: nothing published.** `./gradlew :maddi-intellij:buildPlugin` produces
 > `maddi-intellij/build/distributions/maddi-<version>.zip` (13.4 MB) and that is as far as it has ever
 > gone. This section is what stands between that zip and a listing; it was written on 2026-08-26 from
-> the current Marketplace rules, and step 1 below is done.
+> the current Marketplace rules; steps 1 and 3 of the order of operations below are done.
 
 Three front-ends exist (`maddi-intellij`, `maddi-eclipse`, `maddi-vscode`) and they publish to three
 unrelated stores. Only IntelliJ is worked out here; Eclipse (Eclipse Marketplace) and VS Code
@@ -195,22 +195,61 @@ version it has already seen. So these were settled before any upload:
   today contains **no COPYING or NOTICE at all** while bundling ~14 MB of third-party jars.
 * **Tags** on the upload form — they are the search filters, so they decide discoverability.
 
-=== Build wiring that does not exist yet
+=== The Plugin Verifier — wired and run (2026-08-26)
+
+The Marketplace runs the IntelliJ Plugin Verifier on upload, so `pluginVerification { ides { recommended() } }`
+runs it here first. `recommended()` resolves the same set `printProductsReleases` prints — with an
+open-ended `untilBuild` that is every release from `sinceBuild` up: **IU-253.33813.55, IU-261.27258.48,
+IU-262.10315.19**, ~2.8 GB of downloads on the first run, ~1 minute per IDE afterwards.
+
+**Result: `Compatible` against all three — no binary-compatibility problems at all.** What is left is
+API-status usage, identical on every IDE:
+
+[cols="1,1,3"]
+|===
+| Category | N | What
+
+| internal | 1 | `DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp()`
+| experimental | 2 | `AboveLineIndentedPosition`, the class and its constructor
+| deprecated | 0-1 | `ReadAction.compute(ThrowableComputable)`, deprecated from 2026.1
+|===
+
+Two findings were fixed rather than accepted, and both are worth knowing:
+
+* ⛔ **Every plugin-descriptor lookup became internal in 2026.2.** `PluginManagerCore.getPlugin(PluginId)`
+  was the original call; `PluginManager.getPluginByClass(Class)` is *equally* `@ApiStatus.Internal` there,
+  as is the whole of `PluginManager`'s lookup surface — so swapping one for the other buys nothing. The
+  plugin now derives `<plugin>/daemon` from its own `CodeSource` (plain JDK, no platform API), with
+  `PathManager.getPluginsPath()` as the fallback. A side benefit: no plugin-id constant in code to drift
+  from `plugin.xml`.
+* `DaemonCodeAnalyzer.restart()` (no argument) is deprecated; the reason-carrying overload
+  `restart(Object)` exists in every IDE from 253 on.
+
+`resetModificationStamp()` is **kept deliberately**. Declarative inlays cache on a modification stamp that
+`DaemonCodeAnalyzer.restart()` does not invalidate, so without it an analysis result only appears on some
+later pass, and the public `com.intellij.codeInsight.hints.declarative` package contains no reset of any
+kind. `ReadAction.compute` is likewise still open: the replacement is a `NonBlockingReadAction` with
+different cancellation semantics, a real change rather than an import swap.
+
+⚠ Because `failureLevel` is set explicitly (it excludes the three categories above and fails on
+everything else — compatibility, invalid plugin, missing dependencies, structure warnings, scheduled-for-removal,
+override-only, non-extendable), **a NEW internal usage would not fail the build either**. The verifier
+always prints its counts; read them, not the exit code. Reports land in
+`maddi-intellij/build/reports/pluginVerifier/<IDE>`.
+
+=== Build wiring that still does not exist
 
 ```kotlin
 intellijPlatform {
-    pluginVerification { ides { recommended() } }
     signing { certificateChain; privateKey; password }
     publishing { token = providers.gradleProperty("intellijPlatformPublishingToken") }
 }
 ```
 
-`verifyPlugin` (the IntelliJ Plugin Verifier) is the item with unbounded cost and it has **never been
-run here**: the Marketplace runs it on upload and internal-API violations block approval. Run it early.
-`signPlugin` chains ahead of `publishPlugin` and needs a certificate we do not have. Two existing
-settings are deliberate but worth re-reading before a release: `buildSearchableOptions = false` (costs
-the Settings-search entry for our configurable) and `untilBuild = null`, which matches JetBrains'
-advice — *"highly recommended not to set this attribute"*.
+`signPlugin` chains ahead of `publishPlugin` and needs a certificate we do not have. Two existing settings
+are deliberate but worth re-reading before a release: `buildSearchableOptions = false` (costs the
+Settings-search entry for our configurable) and `untilBuild = null`, which matches JetBrains' advice —
+*"highly recommended not to set this attribute"*.
 
 === What a first impression should not include
 
@@ -227,7 +266,8 @@ advice — *"highly recommended not to set this attribute"*.
 . **DONE (2026-08-26)** — id renamed, versions centralized, `verifyPluginStructure` clean, logo added,
   `PluginIdentityTest` guarding all of it.
 . Description rewrite, `<change-notes>` + CHANGELOG, vendor email, license files inside the zip.
-. Wire and **run** `verifyPlugin`; fix what it reports.
+. **DONE (2026-08-26)** — `verifyPlugin` wired and run: Compatible against all three IDEs, with one
+  deliberately-kept internal usage (above).
 . Create the CodeLaser vendor profile; accept the JetBrains Marketplace Developer Agreement.
 . **Upload the zip by hand** at `plugins.jetbrains.com/plugin/add`. The first version cannot be
   published any other way — `publishPlugin` and the API only *update* an existing plugin. Manual review
