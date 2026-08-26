@@ -1,8 +1,8 @@
 [[overview]]
 = Overview
 
-{maddi} (short for __m__odification __a__nalyzer for __d__uplication __d__etection and __i__mmutability)
-is a static analyzer for Java. It reads your source code and its compile classpath, works out how each
+{maddi} is a whole-program static analyzer for Java. It reads your source code and its compile
+classpath, works out how each
 type behaves — is it modified, is it immutable, does it leak its internals — and records the result as
 a set of annotations (`@Immutable`, `@Container`, `@NotModified`, `@Independent`, …) together with a
 machine-readable *analysis result* per package.
@@ -18,7 +18,7 @@ Given a set of source directories and a classpath, a {maddi} run performs, in or
 . *prep* — resolve the types, build the call graph, and compute the analysis order;
 . *modification analysis* — the actual immutability / modification computation (iterative);
 . *write results* — one analysis-result `.json` file per package, under the results directory
-  (default `<build>/e2immu`).
+  (default `<build>/maddi`).
 
 You can stop after any step with the `analysis-steps` option (see <<command-line>>); running `prep`
 only is a fast way to check that a project parses and resolves cleanly.

@@ -1,6 +1,13 @@
 # Landing surface — checklist
 
-**Status: plan.** Written 2026-07-22. Everything an interested outsider hits *before* they read any
+**Status: plan — SUPERSEDED 2026-08-26: the landing surface exists.** Every leg of §6 shipped with
+0.9.1 (Gradle plugin on the Plugin Portal, Maven plugin + annotations on Maven Central, CLI zips on
+the GitHub release); the book and the manual are live at `codelaser.io/maddi/road/` and
+`codelaser.io/maddi/manual/`; e2immu.org carries the notice; CI is green. Loose ends are tracked as
+GitHub issues, not here. The document is kept for the reasoning and the operational notes (the
+e2immu.org deploy procedure, the CI findings).
+
+Written 2026-07-22. Everything an interested outsider hits *before* they read any
 code, and what is currently missing from it. Ordered by leverage, not by effort.
 
 The diagnosis this came from: maddi has three public properties (`github.com/CodeLaser/maddi`,

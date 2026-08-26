@@ -1,10 +1,11 @@
 Publishing strategy
 ===================
 
-> **Status: partially active.** `io.codelaser:maddi-support` is on Maven Central — `0.9.0`
-> (2026-07-22, Apache-2.0) and `0.8.2` (2025-08-18, LGPL-3.0). Package 1's other two legs, the build
-> plugins and the CLI distributions, are wired but not yet pushed. This document records the agreed
-> strategy and the state of each leg.
+> **Status: fully active since 0.9.1 (2026-08-19).** Every leg of Package 1 is published: the
+> annotations (`io.codelaser:maddi-annotation` + `io.codelaser:maddi-support`) and the Maven plugin
+> (`io.codelaser:maddi-mvnplugin`) on Maven Central, the Gradle plugin on the Plugin Portal
+> (`io.codelaser.maddi.analyzer`), and the two CLI zips on GitHub Releases. This document records
+> the agreed strategy and the state of each leg.
 >
 > Two things learned publishing 0.9.0, worth knowing before the next release:
 >

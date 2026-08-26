@@ -123,9 +123,9 @@ files in `lib/`.
 
 ## Known limitations
 
-- **The Gradle plugin may not be installable the day this release is published.** A first
-  publication under a new namespace goes through manual review by a Gradle engineer before it
-  becomes visible on the Plugin Portal. Until it clears, use the command-line distribution.
+- ~~**The Gradle plugin may not be installable the day this release is published.**~~ *Resolved:*
+  the first-publication review by the Gradle Plugin Portal has cleared, and
+  `io.codelaser.maddi.analyzer` 0.9.1 is installable.
 - **The Maven plugin is newly published and lightly exercised.** Its descriptor is
   hand-maintained rather than generated, because the descriptor-generation tooling is not
   compatible with Gradle 9. Please report anything that does not behave as documented.

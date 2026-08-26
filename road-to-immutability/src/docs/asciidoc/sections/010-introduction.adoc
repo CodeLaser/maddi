@@ -3,7 +3,6 @@
 
 This document aims to be a logical walk through of the concepts of the {maddi} project.
 It does not intend to be complete, and is not structured for reference.
-The acronym {maddi} stands for __m__odification __a__nalyzer for __d__uplication __d__etection and __i__mmutability.
 
 The overarching aim of the {maddi} project is to improve everyday programming by making code more readable, more robust, and more future-proof.
 Concretely, the project focuses on adding various forms of immutability protections to your Java code base, by making the (im)mutable nature of the types more visible.

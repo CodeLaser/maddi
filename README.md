@@ -36,8 +36,8 @@ Change line (1) to `Map.copyOf(settings)` and the verdict moves up a level:
 
 > `@Immutable(hc=true) @Container` — after the copy the only link left runs to the map's
 > *elements*, not to the map itself. `hc=true` ("hidden content") records the one honest caveat:
-> those elements are of a type parameter maddi cannot see into. Not hc-free `@Immutable`, and it
-> should not pretend otherwise.
+> those elements are of a type parameter the `Config` class cannot see into. Not hc-free `@Immutable`, 
+> but immutable from `Config`'s point of view.
 
 That distinction is the point of the project. A tool that answers "not immutable" for both versions
 has told you nothing about the difference between them.
@@ -45,24 +45,65 @@ has told you nothing about the difference between them.
 The four levels are `@Mutable` → `@FinalFields` → `@Immutable(hc=true)` → `@Immutable`, plus a
 separate independence axis and **eventual immutability** for the builder/freeze pattern
 (`@Mark`, `@Only`, `@Immutable(after=…)`) — types that are mutable while being constructed and
-immutable ever after. The concepts are developed in full in
-[*The Road to Immutability*](road-to-immutability/src/docs/asciidoc/); the
+immutable ever after. The concepts are developed in full in the book,
+[*The Road to Immutability*](https://www.codelaser.io/maddi/road/); the
 [condensed digest](road-to-immutability/llm-summary.md) is the fastest way in.
 
-## Status — July 2026
+## Install
 
-maddi is **not yet production ready**, and this section is kept honest deliberately.
+Since `0.9.1` there is one analysis engine and three ways to run it: a Gradle plugin, a Maven
+plugin, and a self-contained command line. All three need a recent JDK (the analyzer runs on
+current Java; development happens on JDK 26).
 
-| Part | State |
-|---|---|
-| Concepts, and the book | Stable |
-| Parser / resolver (javac front end) | Robust; exercised on many open-source projects and one closed-source 3M-line codebase |
-| Modification & immutability analysis | Runs to a certified fixpoint on a proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel). Not yet ready for general use |
-| Kotlin front end | Works; ships only via the mixed CLI |
-| Gradle / Maven plugins | Functional, but have had little attention recently |
-| Releases | Annotations on Maven Central (`0.9.1`). The analyzer itself is built from source (below). See [`PUBLISHING.md`](PUBLISHING.md) |
+**Gradle** — from the
+[Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.codelaser.maddi.analyzer):
 
-If you run it on your own code today, expect rough edges. Issues and questions are very welcome.
+```kotlin
+plugins {
+    java
+    id("io.codelaser.maddi.analyzer") version "0.9.1"
+}
+
+maddi {
+    analysisSteps = "modification"   // parse -> prep -> modification -> write results
+}
+```
+
+```bash
+./gradlew maddi-analyzer     # one result .json per package, under build/maddi
+```
+
+The plugin derives the source sets and classpath from the Gradle model and forks a worker JVM with
+the flags the analyzer needs — nothing else to configure.
+
+**Maven** — `io.codelaser:maddi-mvnplugin` on Maven Central, goal prefix `maddi`, five goals
+(`run`, `write-input-configuration`, `statistics`, `write-analysis-hints`,
+`compile-analysis-hints`). The JVM running Maven needs the javac `--add-exports` flags for the
+analysis goals; set them once in `.mvn/jvm.config` or `MAVEN_OPTS` — the
+[user manual](https://www.codelaser.io/maddi/manual/) lists them.
+
+**Command line, for any build system** — two self-contained zips on the
+[latest release](https://github.com/CodeLaser/maddi/releases/latest):
+
+- `maddi-<version>.zip` — the Java analyzer, launcher `bin/maddi`
+- `maddi-kotlin-<version>.zip` — Java **and** Kotlin, launcher `bin/maddi-kotlin`
+
+Unpack and run: every jar rides along in `lib/`, and the required JVM flags are baked into the
+launcher. Kotlin support ships only this way — it depends on JetBrains K2 artifacts that are not
+on Maven Central, so it cannot be a resolvable library.
+
+To point the CLI at your project, capture what the build actually compiled and hand it to maddi —
+no build-tool integration needed:
+
+```bash
+./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
+maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
+```
+
+More worked examples, including two bundled Maven build logs you can run without checking the
+projects out: [`maddi-run-openjdk/running-examples.md`](maddi-run-openjdk/running-examples.md).
+Configuration, analysis hints, error reporting and exit codes are covered in the
+[user manual](https://www.codelaser.io/maddi/manual/).
 
 ## The annotations
 
@@ -98,17 +139,45 @@ were already using `maddi-support` before the two were split, nothing changes fo
 
 > Versions up to `0.8.2` were LGPL-3.0; `0.9.0` onward is Apache-2.0.
 
-## Try the analyzer
+## Status — August 2026
 
-Requires a recent JDK on `JAVA_HOME` (development happens on JDK 26; no Gradle toolchain
-provisioning). The analyzer is not yet released as a binary, so build it:
+`0.9.1` is the first release where everything above is installable: the Gradle plugin on the
+Plugin Portal, the Maven plugin and the annotations on Maven Central, the CLI distributions on
+GitHub Releases. Where each part stands:
+
+| Part | State |
+|---|---|
+| Concepts, and the book | Stable |
+| Parser / resolver (javac front end) | Robust; exercised on many open-source projects and one closed-source 3M-line codebase |
+| Modification & immutability analysis | Runs to a certified fixpoint on a proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
+| Gradle / Maven plugins | Published in 0.9.1; both validated against a corpus of real multi-module builds |
+| Kotlin front end | Works; ships only via the `maddi-kotlin` CLI distribution |
+
+The engine is stable on everything we run it on — and your codebase will contain Java the corpus
+does not. If maddi mis-parses, crashes, or computes something you can argue is wrong, that is
+exactly the report we want: please open an issue.
+
+## Documentation
+
+| You want to… | Read |
+|---|---|
+| Understand the concepts (levels, modification, linking, independence) | [*The Road to Immutability*](https://www.codelaser.io/maddi/road/); in-repo: the [condensed digest](road-to-immutability/llm-summary.md) and the [book sources](road-to-immutability/src/docs/asciidoc/) |
+| Run maddi on your own project | the [user manual](https://www.codelaser.io/maddi/manual/) ([sources](maddi-manual/src/docs/asciidoc/)) |
+| Understand the codebase (pipeline, ~40 modules, where to start) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Build, test, contribute | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Work on it with an AI assistant | [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) |
+
+Cross-module design notes and plans are indexed in [`docs/README.md`](docs/README.md).
+
+## Building from source
 
 ```bash
 git clone https://github.com/CodeLaser/maddi.git && cd maddi
 ./gradlew build                                  # compile + fast tests
 ```
 
-Then analyze something self-contained — maddi's own CST API, against `java.base`:
+Requires a recent JDK on `JAVA_HOME` (no Gradle toolchain provisioning). A self-contained first
+run — maddi analyzing its own CST API against `java.base`:
 
 ```bash
 ./gradlew :maddi-run-openjdk:run --args="\
@@ -117,35 +186,10 @@ Then analyze something self-contained — maddi's own CST API, against `java.bas
     --analysis-steps=prep"
 ```
 
-To point it at *your* project, capture what the build actually compiled and hand that to maddi —
-no build-tool integration needed:
-
-```bash
-./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
-maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
-```
-
-More worked examples, including two bundled Maven build logs you can run without checking the
-projects out: [`maddi-run-openjdk/running-examples.md`](maddi-run-openjdk/running-examples.md).
-Gradle and Maven plugins, configuration and exit codes are covered in the user manual
-(`./gradlew :maddi-manual:buildDocs`).
-
-> Running anything on the openjdk front end? Read
+> Embedding the openjdk front end in your own code? Read
 > [`maddi-inspection-openjdk/parsing-stability.md`](maddi-inspection-openjdk/parsing-stability.md)
 > first — javac is not thread-safe, and that document is the authoritative guide to deterministic
 > runs.
-
-## Documentation
-
-| You want to… | Read |
-|---|---|
-| Understand the concepts (levels, modification, linking, independence) | [`road-to-immutability/llm-summary.md`](road-to-immutability/llm-summary.md), then the [book](road-to-immutability/src/docs/asciidoc/) |
-| Run maddi on your own project | the user manual, [`maddi-manual/src/docs/asciidoc/`](maddi-manual/src/docs/asciidoc/) |
-| Understand the codebase (pipeline, ~40 modules, where to start) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Build, test, contribute | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| Work on it with an AI assistant | [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) |
-
-Cross-module design notes and plans are indexed in [`docs/README.md`](docs/README.md).
 
 ## Background
 
@@ -155,10 +199,10 @@ The root Java package was `org.e2immu.*`, after the predecessor; it became
 
 maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at
 [CodeLaser](https://codelaser.io), and is and will remain open source. The **analyzer** is
-LGPL-3.0. The **annotations** (`maddi-support`) — the only artifact your own code compiles
-against — are **Apache-2.0** from 0.9.0 onward, so depending on them carries no obligation.
-CodeLaser's commercial Refactor product is built on this engine; the engine stays here, under
-this licence. Questions, use cases and criticism are all welcome — mail, or open an issue.
+LGPL-3.0. The **annotations** (`maddi-annotation`, with `maddi-support`) — the only artifacts your
+own code compiles against — are **Apache-2.0** from 0.9.0 onward, so depending on them carries no
+obligation. CodeLaser's commercial Refactor product is built on this engine; the engine stays here,
+under this licence. Questions, use cases and criticism are all welcome — mail, or open an issue.
 
 ___
 
