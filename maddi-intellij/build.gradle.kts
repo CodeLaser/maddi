@@ -26,7 +26,10 @@ plugins {
 }
 
 group = "io.codelaser"
-version = "0.1.0"
+// No version here: it comes from the root gradle.properties, the one release train (PUBLISHING.md).
+// This is the user-visible version on JetBrains Marketplace, which rejects a version it has already
+// seen, so it must move with every published build -- and it dates the daemon it bundles, which IS
+// maddi. It used to say 0.1.0 while the project was at 0.9.1.
 
 // Target the IDE's runtime (JBR 21). Compile with the Gradle daemon JDK (26) but emit 21 bytecode.
 java {

@@ -55,7 +55,10 @@ import org.jetbrains.annotations.NotNull;
 @Service(Service.Level.PROJECT)
 public final class MaddiAnalysisService implements Disposable {
     private static final Logger LOG = Logger.getInstance(MaddiAnalysisService.class);
-    private static final String PLUGIN_ID = "io.codelaser.maddi.intellij";
+    // Must equal <id> in META-INF/plugin.xml. It is also the Marketplace identity, which cannot be
+    // changed after a public release, and the plugin-structure verifier refuses an id containing
+    // "intellij" -- hence io.codelaser.maddi, not io.codelaser.maddi.intellij.
+    static final String PLUGIN_ID = "io.codelaser.maddi"; // package-private: PluginIdentityTest
     private static final String NOTIFICATION_GROUP = "maddi";
 
     private final Project project;
