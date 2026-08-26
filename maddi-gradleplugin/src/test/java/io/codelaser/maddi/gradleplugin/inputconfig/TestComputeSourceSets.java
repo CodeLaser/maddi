@@ -220,9 +220,16 @@ public class TestComputeSourceSets {
      * reads as "cannot find symbol" -- measured on pulsar (release 17) as {@code Thread.suspend()} vanishing
      * under JDK 26.
      *
-     * <p>Asked per source set because Gradle answers per source set: this fixture is fernflower's shape, where
-     * {@code compileJava} pins {@code sourceCompatibility} and {@code compileTestJava} says nothing and inherits
-     * the project-wide level. A single global answer cannot express that.
+     * <p>Asked per source set because Gradle answers per source set: one set can pass {@code --release} where
+     * another does not. A single global answer cannot express that.
+     *
+     * <p>⛔⛔ <b>INVERTED EXPECTATION (2026-08-25) for the second assertion.</b> It used to expect the test set to
+     * report 21, inherited from the project-wide {@code sourceCompatibility}. That is javac's {@code -source}:
+     * it constrains the LANGUAGE, and leaves the API at the running JDK's, where {@code --release} pins the API
+     * and routes javac through {@code ct.sym}. Reporting one as the other builds a {@code java.base} the build
+     * never compiled against — measured on maddi itself (two modules state only {@code -source 17}): 391 dropped
+     * compilation units, and its own {@code List.getFirst()} call, legal for that build, unresolvable.
+     * {@code 0} is what such a set honestly states.
      */
     @Test
     public void sourceReleaseComesFromEachSourceSetsOwnCompileTask() {
@@ -238,8 +245,8 @@ public class TestComputeSourceSets {
         ComputeSourceSets.Result result = css.compute(project, null, null, Set.of());
 
         assertEquals(17, result.sourceSetsByName().get("p/main").sourceRelease(),
-                "main states --release explicitly, and --release wins");
-        assertEquals(21, result.sourceSetsByName().get("p/test").sourceRelease(),
-                "test states nothing of its own and falls back to the project-wide sourceCompatibility");
+                "main states --release explicitly, which is exactly the question being asked");
+        assertEquals(0, result.sourceSetsByName().get("p/test").sourceRelease(),
+                "test states only sourceCompatibility, which says nothing about the API it compiles against");
     }
 }

@@ -124,6 +124,37 @@ public class ScanCompilationUnits {
         }
     }
 
+    /**
+     * Materialise the shared {@code java.*} model and nothing else: the preloads {@link #scan} performs on its
+     * first pass, without a compilation unit.
+     * <p>
+     * ⛔ <b>{@code scan()} CANNOT DO THIS ON A SOURCE-FREE TASK</b> — {@code task.parse()} answers
+     * {@code IllegalStateException: error: no source files}. The preload itself needs only the javac Context
+     * (its {@code Elements} and file manager), which is exactly what the compiled-type loader task already uses
+     * without ever parsing. Being able to run it standalone is what lets the caller give this one task the
+     * running JDK while every source set keeps its own {@code --release}: see
+     * {@code JavaInspectorImpl#preloadPass} for why the shared model must be the superset.
+     * <p>
+     * ⚠ The empty {@code topLevelClassSymbolsOfSources} is published FIRST, and deliberately — empty is not
+     * null. {@code ClassSymbolScanner.isSourceSymbol} reads that map, and a null one answers "not a source
+     * symbol" for every question asked during the preload, which is the defect
+     * {@code TestPreloadBeforeSourceSymbols} covers. There are no sources here, so the honest map is empty.
+     */
+    public List<TypeInfo> preloadOnly() throws IOException {
+        classSymbolScanner.setTopLevelClassSymbolsOfSources(new IdentityHashMap<>());
+        List<TypeInfo> preloads = new LinkedList<>(indexJavaLangForJavaDocParsing());
+        for (String modulePackage : packagesToPreload) {
+            int sep = modulePackage.indexOf("::");
+            if (sep < 0) {
+                preloads.addAll(preloadClassPath(modulePackage));
+            } else {
+                preloads.addAll(preloadJdk(modulePackage.substring(0, sep), modulePackage.substring(sep + 2)));
+            }
+        }
+        classSymbolScanner.startOfNewSourceSet();
+        return preloads;
+    }
+
     public Result scan() throws IOException {
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();

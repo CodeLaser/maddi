@@ -257,19 +257,21 @@ public class ComputeSourceSets {
      */
     static int sourceRelease(MavenProject project, boolean test) {
         // test before main for the test set: a module may compile its tests at a higher level than it publishes.
-        // release before source: it is the only one that also constrains the API the code is compiled against,
-        // which is exactly the question being asked.
-        for (String key : test
-                ? new String[]{"testRelease", "testSource", "release", "source"}
-                : new String[]{"release", "source"}) {
+        // ⛔⛔ RELEASE ONLY, NEVER <source>. The comment here used to say release comes first because "it is the
+        // only one that also constrains the API the code is compiled against, which is exactly the question being
+        // asked" -- and then read <source> when there was no <release>, answering the question with a setting
+        // that does not address it. <source>/-source sets the LANGUAGE level and leaves the API at the running
+        // JDK's; --release pins the API and sends javac through ct.sym. Reporting one as the other makes maddi
+        // read java.base from a band the build never used: measured on maddi itself, 391 dropped compilation
+        // units (see CompileInvocation.effectiveRelease, which had the identical fallback).
+        for (String key : test ? new String[]{"testRelease", "release"} : new String[]{"release"}) {
             int release = PluginSourceSets.parseRelease(
                     interpolate(project, compilerConfiguration(project, key, test)));
             if (release > 0) return release;
         }
         for (String key : test
-                ? new String[]{"maven.compiler.testRelease", "maven.compiler.testSource",
-                "maven.compiler.release", "maven.compiler.source"}
-                : new String[]{"maven.compiler.release", "maven.compiler.source"}) {
+                ? new String[]{"maven.compiler.testRelease", "maven.compiler.release"}
+                : new String[]{"maven.compiler.release"}) {
             int release = PluginSourceSets.parseRelease(project.getProperties().getProperty(key));
             if (release > 0) return release;
         }

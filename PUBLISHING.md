@@ -32,9 +32,9 @@ This document describes *what* maddi publishes, *where*, and *why*. The concrete
 credentials and commands are in the appendix at the bottom.
 
 The guiding principle (agreed): the individual analyzer modules are of no use to an outside consumer,
-so **we do not publish them as a fine-grained library**. We publish only the three things people
-actually consume — the annotations, the build plugins, and the command-line tools — and we keep the
-Kotlin front-end on a separate delivery channel.
+so **we do not publish them as a fine-grained library**. We publish only the things people actually
+consume — the annotations, the build plugins, the command-line tools (Package 1) and the IDE plugins
+(Package 2) — and we keep the Kotlin front-end on a separate delivery channel.
 
 
 Why Kotlin is separate
@@ -134,13 +134,163 @@ Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-
 `maddi-java-*`, `maddi-modification-*`, `maddi-aapi-*`, `maddi-run-config`, …). No BOM.
 
 
+The IDE plugins (Package 2)
+---------------------------
+
+> **Status: nothing published.** `./gradlew :maddi-intellij:buildPlugin` produces
+> `maddi-intellij/build/distributions/maddi-<version>.zip` (13.4 MB) and that is as far as it has ever
+> gone. This section is what stands between that zip and a listing; it was written on 2026-08-26 from
+> the current Marketplace rules; steps 1 and 3 of the order of operations below are done.
+
+Three front-ends exist (`maddi-intellij`, `maddi-eclipse`, `maddi-vscode`) and they publish to three
+unrelated stores. Only IntelliJ is worked out here; Eclipse (Eclipse Marketplace) and VS Code
+(Open VSX / the VS Code Marketplace) are untouched, and both are unbuilt in some worktrees.
+
+What the IntelliJ plugin ships is unusual enough to say plainly, because both the listing text and the
+reviewer need it: the zip **bundles the whole maddi daemon distribution** at `<plugin>/daemon` (42 jars)
+and **launches it as a separate JVM process**, because the IDE runs on JBR 21 and maddi needs a JDK 25+.
+Nothing leaves the machine, which is what the form's data-collection question turns on: the only socket
+in `maddi-ide-client` is `new Socket(InetAddress.getLoopbackAddress(), port)`, and the only
+`openConnection()` in the daemon is a `jar:` URL reading a bundled resource (checked 2026-08-26). So no
+telemetry disclosure and no privacy policy are needed — but re-check before answering, because the
+answer is a statement to JetBrains, not a guess.
+
+=== Identity — the parts that cannot be changed later
+
+The Marketplace's own words about the plugin id: *"Make sure to pick a stable ID, as the value cannot be
+changed later after public release."* The same is effectively true of the version, since it rejects a
+version it has already seen. So these were settled before any upload:
+
+* **id `io.codelaser.maddi`** — renamed 2026-08-26 from `io.codelaser.maddi.intellij`, which
+  `verifyPluginStructure` refuses outright: *"The plugin ID 'io.codelaser.maddi.intellij' should not
+  include the word 'intellij'."* That check comes from the Marketplace's own `plugin-structure` library,
+  so it is what the upload would have said — after the id was already public.
+  ⛔ The id also appears in `MaddiAnalysisService.PLUGIN_ID`, which is how the plugin finds
+  `getPluginPath()/daemon`. A drifted constant yields a null descriptor, i.e. "no bundled daemon", which
+  presents as a packaging fault rather than a typo. `PluginIdentityTest` now fails if the two disagree.
+* **name `maddi`** — a Marketplace search for it returned nothing on 2026-08-26, and it satisfies the
+  naming rules (unique, ≤ 30 characters, no "Plugin"/"IntelliJ"/JetBrains product name).
+* **version = the project version** — `maddi-intellij` said `0.1.0` and `maddi-ide-client` said `0.8.2`
+  while the project was at `0.9.1`, so the shipped zip carried a stale client jar and a version number
+  that meant nothing. Both now inherit `gradle.properties`; `maddi-eclipse`'s pom pins the client
+  coordinate and moves with it.
+
+=== Before the first upload
+
+* **Logo — DONE.** `META-INF/pluginIcon.svg` + `pluginIcon_dark.svg`, the CodeLaser icon from the 2022
+  brand set, squared to the required 40x40 SVG. Required at upload, and it must not be the IntelliJ
+  template's default.
+* **Description.** The first 40 characters become the preview card, so they must be a plain English
+  summary. The present text leads with unexplained jargon ("guard-system contract violations with their
+  why-chain") and never states the two things a user must know before installing: it needs a **JDK 25+**,
+  and it runs an out-of-process daemon.
+* **`<change-notes>`.** Absent, and required content per version. `org.jetbrains.changelog` reading a
+  `CHANGELOG.md` is the conventional wiring.
+* **Vendor.** `<vendor>` carries no `email`; the guidelines require the vendor website and email to be
+  "provided, valid, and functional". A CodeLaser vendor profile must exist and the Developer Agreement
+  be accepted before the form will take anything.
+* **License.** Mandatory, and an open-source license requires a source-code link. ⚠ The plugin is
+  **LGPL-3.0-or-later**, like the analyzer it bundles — the Apache-2.0 relicensing covers only
+  `maddi-annotation` / `maddi-support` (see the 0.9.1 release notes). Independently of the form: the zip
+  today contains **no COPYING or NOTICE at all** while bundling ~14 MB of third-party jars.
+* **Tags** on the upload form — they are the search filters, so they decide discoverability.
+
+=== The Plugin Verifier — wired and run (2026-08-26)
+
+The Marketplace runs the IntelliJ Plugin Verifier on upload, so `pluginVerification { ides { recommended() } }`
+runs it here first. `recommended()` resolves the same set `printProductsReleases` prints — with an
+open-ended `untilBuild` that is every release from `sinceBuild` up: **IU-253.33813.55, IU-261.27258.48,
+IU-262.10315.19**, ~2.8 GB of downloads on the first run, ~1 minute per IDE afterwards.
+
+**Result: `Compatible` against all three — no binary-compatibility problems at all.** What is left is
+API-status usage, identical on every IDE:
+
+[cols="1,1,3"]
+|===
+| Category | N | What
+
+| internal | 1 | `DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp()`
+| experimental | 2 | `AboveLineIndentedPosition`, the class and its constructor
+| deprecated | 0-1 | `ReadAction.compute(ThrowableComputable)`, deprecated from 2026.1
+|===
+
+Two findings were fixed rather than accepted, and both are worth knowing:
+
+* ⛔ **Every plugin-descriptor lookup became internal in 2026.2.** `PluginManagerCore.getPlugin(PluginId)`
+  was the original call; `PluginManager.getPluginByClass(Class)` is *equally* `@ApiStatus.Internal` there,
+  as is the whole of `PluginManager`'s lookup surface — so swapping one for the other buys nothing. The
+  plugin now derives `<plugin>/daemon` from its own `CodeSource` (plain JDK, no platform API), with
+  `PathManager.getPluginsPath()` as the fallback. A side benefit: no plugin-id constant in code to drift
+  from `plugin.xml`.
+* `DaemonCodeAnalyzer.restart()` (no argument) is deprecated; the reason-carrying overload
+  `restart(Object)` exists in every IDE from 253 on.
+
+`resetModificationStamp()` is **kept deliberately**. Declarative inlays cache on a modification stamp that
+`DaemonCodeAnalyzer.restart()` does not invalidate, so without it an analysis result only appears on some
+later pass, and the public `com.intellij.codeInsight.hints.declarative` package contains no reset of any
+kind. `ReadAction.compute` is likewise still open: the replacement is a `NonBlockingReadAction` with
+different cancellation semantics, a real change rather than an import swap.
+
+⚠ Because `failureLevel` is set explicitly (it excludes the three categories above and fails on
+everything else — compatibility, invalid plugin, missing dependencies, structure warnings, scheduled-for-removal,
+override-only, non-extendable), **a NEW internal usage would not fail the build either**. The verifier
+always prints its counts; read them, not the exit code. Reports land in
+`maddi-intellij/build/reports/pluginVerifier/<IDE>`.
+
+=== Build wiring that still does not exist
+
+```kotlin
+intellijPlatform {
+    signing { certificateChain; privateKey; password }
+    publishing { token = providers.gradleProperty("intellijPlatformPublishingToken") }
+}
+```
+
+`signPlugin` chains ahead of `publishPlugin` and needs a certificate we do not have. Two existing settings
+are deliberate but worth re-reading before a release: `buildSearchableOptions = false` (costs the
+Settings-search entry for our configurable) and `untilBuild = null`, which matches JetBrains' advice —
+*"highly recommended not to set this attribute"*.
+
+=== What a first impression should not include
+
+* ⛔ **The JDK wall.** `MaddiAnalysisService` requires `settings.jdkHome` to be set by hand; empty means
+  a warning balloon and no analysis at all. Every Marketplace user's first run hits it. Detect the JDK
+  (project SDK, `ProjectJdkTable`, `JAVA_HOME`) and keep the setting as an override.
+* The input-configuration gaps in `docs/handoff-ide-daemon-2026-08-25.md` — a modular source set cannot
+  read a class-path jar (314 -> 153 dropped units when fixed). A dropped unit reads to a user as "maddi
+  has no opinion about this type", not as a failure.
+* Whole-project re-analysis on every trigger (`docs/ide-todo.md` §1) on a large project.
+
+=== Order of operations
+
+. **DONE (2026-08-26)** — id renamed, versions centralized, `verifyPluginStructure` clean, logo added,
+  `PluginIdentityTest` guarding all of it.
+. Description rewrite, `<change-notes>` + CHANGELOG, vendor email, license files inside the zip.
+. **DONE (2026-08-26)** — `verifyPlugin` wired and run: Compatible against all three IDEs, with one
+  deliberately-kept internal usage (above).
+. Create the CodeLaser vendor profile; accept the JetBrains Marketplace Developer Agreement.
+. **Upload the zip by hand** at `plugins.jetbrains.com/plugin/add`. The first version cannot be
+  published any other way — `publishPlugin` and the API only *update* an existing plugin. Manual review
+  follows, with no guaranteed turnaround. (Maximum plugin size is 400 MB; we are at 13.4 MB.)
+. Afterwards, updates are
+  `./gradlew :maddi-intellij:publishPlugin -PintellijPlatformPublishingToken=<token>` (a Marketplace
+  personal access token). The alpha/beta/eap channels are separate repositories that users must add by
+  URL, so they are not a soft-launch shortcut.
+
+
 Versioning
 ----------
 
 One release train, one version for the whole project, centralized in `gradle.properties`
-(`group=io.codelaser`, `version=0.8.2`) — **DONE**: the root `gradle.properties` is inherited by every
-subproject, and `maddi-support` / `maddi-mvnplugin` no longer hard-code the version. Bump it there
-before a release; Maven Central rejects re-publishing an existing version.
+(`group=io.codelaser`, currently `version=0.9.1`) — **DONE**: the root `gradle.properties` is inherited
+by every subproject. Bump it there before a release; Maven Central rejects re-publishing an existing
+version, and so does JetBrains Marketplace.
+
+"Every subproject" was aspirational until 2026-08-26: `maddi-support` and `maddi-mvnplugin` had stopped
+hard-coding a version, but `maddi-intellij` (`0.1.0`) and `maddi-ide-client` (`0.8.2`) still did, which
+is how a plugin zip built from a 0.9.1 tree came to contain `maddi-ide-client-0.8.2.jar`. Both now
+inherit. `maddi-eclipse` consumes the client from mavenLocal and pins the coordinate in its pom
+(`<maddi.client.version>`), so that property has to move with the release.
 
 
 Release checklist
@@ -175,6 +325,10 @@ cross-module types as `{@code}` text, never `{@link}`.
 . Maven plugin: publish to Central once the descriptor is generated.
 . CLI: `./release-cli.sh <tag>` (builds both `distZip`s and attaches `maddi-<version>.zip` +
   `maddi-kotlin-<version>.zip` to the GitHub Release for `<tag>`; needs an authenticated `gh`).
+. IntelliJ plugin: `./gradlew :maddi-intellij:buildPlugin`, then — for the **first** version only —
+  upload `maddi-intellij/build/distributions/maddi-<version>.zip` by hand at
+  `plugins.jetbrains.com/plugin/add`. Later versions go through `publishPlugin`. Read "The IDE plugins
+  (Package 2)" first; several of its prerequisites are not met yet.
 
 
 Deferred: the analyzer as a library

@@ -623,24 +623,32 @@ public class ComputeSourceSets {
      * not exist on JDK 26 — stopped resolving in {@code ZooKeeperUtil}.
      *
      * <p>Asked PER SOURCE SET, because Gradle answers per source set: each has its own {@code JavaCompile} task,
-     * and fernflower is the case that shows it matters — {@code compileJava} pins {@code sourceCompatibility=21}
-     * while {@code compileTestJava} says nothing and gets the toolchain's own level.
+     * and fernflower is the case that shows it matters — {@code compileJava} and {@code compileTestJava} can
+     * differ. (Note fernflower states only {@code sourceCompatibility}, so under the rule below both of its sets
+     * now report {@code 0}: its build constrains the language, never the API.)
      *
-     * <p>{@code options.release} first: it is the only setting that also constrains the API against which the
-     * code is compiled, which is exactly the question here. {@code sourceCompatibility} is the older spelling and
-     * strictly weaker (it constrains the language level), but it is what a build that predates {@code --release}
-     * states, so it is read next — first from the task, then from the project-wide extension.
+     * <p>⛔⛔ <b>{@code options.release} AND NOTHING ELSE.</b> This read {@code sourceCompatibility} as a
+     * fallback, on the argument that it is "what a build that predates {@code --release} states". The comment
+     * that argued it also stated why it is wrong, and then did it anyway: {@code release} "is the only setting
+     * that also constrains the API against which the code is compiled", while {@code sourceCompatibility} is
+     * "strictly weaker (it constrains the language level)". Reporting the weaker one as the stronger sends maddi
+     * through {@code ct.sym} for a set whose build read {@code java.base} from the running JDK.
+     *
+     * <p>MEASURED on maddi's own build (2026-08-25), which sets {@code sourceCompatibility = 17} on
+     * {@code maddi-support} and no {@code options.release}: its own test calls {@code List.getFirst()} — a Java
+     * 21 method, legal under {@code -source 17} and impossible under {@code --release 17} — and the
+     * {@code java.util.List} committed from the 11–20 band then cost 391 dropped compilation units in the sets
+     * that follow. See {@code CompileInvocation.effectiveRelease}, which had the identical fallback.
+     *
+     * <p>{@code 0} means "the build states nothing about the API", which is the truth for such a build.
      */
     private static int sourceReleaseOf(Project project, org.gradle.api.tasks.SourceSet gradleSourceSet) {
         Task task = project.getTasks().findByName(gradleSourceSet.getCompileJavaTaskName());
         if (task instanceof JavaCompile compile) {
             Integer release = compile.getOptions().getRelease().getOrNull();
             if (release != null && release > 0) return release;
-            int fromTask = PluginSourceSets.parseRelease(compile.getSourceCompatibility());
-            if (fromTask > 0) return fromTask;
         }
-        JavaPluginExtension extension = project.getExtensions().findByType(JavaPluginExtension.class);
-        return extension == null ? 0 : PluginSourceSets.parseRelease(extension.getSourceCompatibility().toString());
+        return 0;
     }
 
     /**

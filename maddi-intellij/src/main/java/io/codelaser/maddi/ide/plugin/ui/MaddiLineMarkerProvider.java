@@ -73,11 +73,19 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
         }
         if (match == null) return null;
 
+        // The gutter keeps the FULL text, roster and all: it is the surface with room for it, and the inline
+        // hint deliberately abbreviates (AnalysisModel#abbreviate).
         String text = String.join(" ", match.displayAnnotations());
+        // ⛔ AN EVENTUAL VERDICT AND A PLAIN ONE LOOKED IDENTICAL. Polarity drove filtering only, so
+        // "@Immutable" and "@Immutable(hc=true,after=…)" -- a proven property and one that holds only after a
+        // mark -- reached the gutter under the same icon, and the difference was legible only by reading the
+        // tooltip to its end. It is the distinction the whole eventual family exists to make.
+        javax.swing.Icon icon = AnalysisModel.isEventual(match)
+                ? AllIcons.Nodes.Static : AllIcons.Nodes.Annotationtype;
         return new LineMarkerInfo<>(
                 element,
                 element.getTextRange(),
-                AllIcons.Nodes.Annotationtype,
+                icon,
                 e -> "maddi: " + text,
                 null,
                 GutterIconRenderer.Alignment.LEFT,

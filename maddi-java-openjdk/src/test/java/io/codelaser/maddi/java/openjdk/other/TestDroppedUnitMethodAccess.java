@@ -196,6 +196,14 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
         List<String> problems = new ArrayList<>();
         Stream.concat(dropped.methods().stream(), builder.methods().stream()).forEach(mi -> {
             if (mi.access() == null) problems.add("null access: " + mi);
+            // ⛔ ACCESS WAS NOT THE ONLY THING COMPUTED AFTER THE THROW POINT. visitMethod sets the return type
+            // AFTER converting the annotations (:905) and the access BEFORE them (:867, moved there by the
+            // 2026-08-23 fix), so a method abandoned between the two now answers access() and NOT returnType() --
+            // and finishing it only ever filled in the fields that had already been seen to be null. Measured
+            // 2026-08-25 in the IDE daemon on the CodeLaser tree: 0 null-access reads and 862 null-returnType
+            // ones, the same defect one field along. Ask for everything the compiled path sets, not for the
+            // field that failed last time.
+            if (mi.returnType() == null) problems.add("null returnType: " + mi);
             if (commitSucceeds && !mi.hasBeenInspected()) problems.add("uncommitted in a committed type: " + mi);
         });
         for (FieldInfo fi : dropped.fields()) {

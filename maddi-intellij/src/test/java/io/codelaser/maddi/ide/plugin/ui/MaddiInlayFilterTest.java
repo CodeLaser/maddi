@@ -106,6 +106,36 @@ public class MaddiInlayFilterTest extends DeclarativeInlayHintsProviderTestCase 
                 """);
     }
 
+    /**
+     * ⛔ THE {@code after=} ROSTER DOES NOT FIT ON THE ONE LINE AN INLINE HINT HAS. It is a union of marks and
+     * unbounded — 16 on one of maddi's own types, 60 on {@code Element} per the dogfood baseline — so the
+     * inline form states that the verdict is eventual and how far off, and the gutter tooltip carries the
+     * roster. See {@code AnalysisModel#abbreviate}.
+     */
+    public void testEventualRosterIsAbbreviatedInline() {
+        myFixture.configureByText("Box.java", SOURCE);
+        String path = myFixture.getFile().getVirtualFile().getPath();
+
+        AnalysisModel.Annotation eventual = new AnalysisModel.Annotation(
+                "@Immutable(hc=true,after=\"a,b,c,d,e,f\")", "EVENTUAL", false);
+        AnalysisModel.ElementAnnotation type = new AnalysisModel.ElementAnnotation(
+                path, 1, 1, 4, 2, "TYPE", "Box", List.of(eventual.text()), List.of(eventual), Map.of());
+        MaddiAnalysisService.getInstance(getProject()).applyResult(new AnalysisModel.Result(
+                "test", List.of(), List.of(type), List.of(), 0, 0, 0, AnalysisModel.OUTCOME_CERTIFIED));
+
+        MaddiSettings.State state = MaddiSettings.getInstance().getState();
+        state.inlineHintsMode = InlineHintsMode.ALL;   // and it survives even "show everything"
+        state.hintPlacement = HintPlacement.INLINE;
+
+        doTestProviderWithConfigured(SOURCE, """
+                public class Box/*<# @Immutable(hc=true,after=6) #>*/ {
+                    public int get() { return 0; }
+                    public void set(Mutable m) { }
+                }
+                """, new MaddiInlayProvider(), Map.of(), null, false,
+                DeclarativeInlayHintsProviderTestCase.ProviderTestMode.SIMPLE);
+    }
+
     private void doFilterTest(InlineHintsMode mode, String expected) {
         myFixture.configureByText("Box.java", SOURCE);
         String path = myFixture.getFile().getVirtualFile().getPath();

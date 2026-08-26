@@ -17,6 +17,7 @@
 // only plain JSON to the maddi daemon (JDK 25) over a loopback socket, so the JDK split stays clean.
 
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel
 
 plugins {
     id("java")
@@ -26,7 +27,10 @@ plugins {
 }
 
 group = "io.codelaser"
-version = "0.1.0"
+// No version here: it comes from the root gradle.properties, the one release train (PUBLISHING.md).
+// This is the user-visible version on JetBrains Marketplace, which rejects a version it has already
+// seen, so it must move with every published build -- and it dates the daemon it bundles, which IS
+// maddi. It used to say 0.1.0 while the project was at 0.9.1.
 
 // Target the IDE's runtime (JBR 21). Compile with the Gradle daemon JDK (26) but emit 21 bytecode.
 java {
@@ -64,6 +68,38 @@ intellijPlatform {
             sinceBuild = "253" // 2025.3
             untilBuild = provider { null } // open-ended
         }
+    }
+    // JetBrains Marketplace runs the IntelliJ Plugin Verifier on every upload, and API violations block
+    // approval -- so run it here rather than discovering it during review. `recommended()` resolves the
+    // same set `printProductsReleases` prints: with an open-ended untilBuild that is every release from
+    // sinceBuild up, currently IU 2025.3 / 2026.1 / 2026.2. Each is a multi-GB download, cached in ~/.gradle.
+    pluginVerification {
+        ides {
+            recommended()
+        }
+        // What must fail the build. Deliberately NOT the default set, which fails on any internal-API
+        // usage: the plugin knowingly carries one, and there is no public equivalent (2026-08-26 run,
+        // IU-253/261/262, all three "Compatible"):
+        //   INTERNAL     DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp() -- declarative
+        //                inlays cache on a modification stamp that DaemonCodeAnalyzer.restart() does not
+        //                invalidate, so without it a result appears only on some later pass. The whole
+        //                com.intellij.codeInsight.hints.declarative package (non-impl) has no reset.
+        //   EXPERIMENTAL AboveLineIndentedPosition -- the above-line hint placement; no stable counterpart.
+        //   DEPRECATED   ReadAction.compute(ThrowableComputable), deprecated in 2026.1. Replacing it means
+        //                NonBlockingReadAction and different cancellation semantics -- a real change, not
+        //                an import swap, so it is deliberately still open.
+        // ⚠ The consequence is that a NEW internal usage would not fail the build either. The verifier
+        // always prints its counts; read them (build/reports/pluginVerifier/<IDE>) rather than the exit code.
+        failureLevel = listOf(
+            FailureLevel.COMPATIBILITY_PROBLEMS,
+            FailureLevel.COMPATIBILITY_WARNINGS,
+            FailureLevel.INVALID_PLUGIN,
+            FailureLevel.MISSING_DEPENDENCIES,
+            FailureLevel.PLUGIN_STRUCTURE_WARNINGS,
+            FailureLevel.SCHEDULED_FOR_REMOVAL_API_USAGES,
+            FailureLevel.OVERRIDE_ONLY_API_USAGES,
+            FailureLevel.NON_EXTENDABLE_API_USAGES,
+        )
     }
 }
 

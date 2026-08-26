@@ -50,10 +50,26 @@ public interface CompileInvocation {
      * {@code targetRelease} since it was written, {@code CompileInvocation} exposed none of them, and nothing
      * downstream ever asked — so the parse always used the release of the JDK it happened to run on. See
      * {@code InputConfiguration.sourceRelease()} for what that costs when the two differ.
+     *
+     * <p>⛔⛔ <b>{@code -source} IS NOT {@code --release}, AND FALLING BACK TO IT INVENTS A PLATFORM THE BUILD
+     * NEVER COMPILED AGAINST.</b> {@code -source N} sets the LANGUAGE level and leaves the API alone: the code
+     * is compiled against the running JDK's {@code java.base}. {@code --release N} additionally pins the API,
+     * which sends javac through {@code ct.sym}. This method used to return {@code -source} when no
+     * {@code --release} was given, so maddi read {@code java.base} from the {@code N} band for a set whose build
+     * had read it from the running JDK.
+     *
+     * <p>MEASURED on maddi itself (2026-08-25). Its build compiles {@code maddi-support} with
+     * {@code -source 17 -target 17} and no {@code --release}; {@code maddi-support}'s own test calls
+     * {@code List.getFirst()}, a Java 21 method — legal for that build, and impossible under {@code --release 17}.
+     * Worse, {@code java.util.List} committed from the 11–20 band cannot then gain {@code getFirst()} for the 25
+     * sets that follow, and 391 compilation units were dropped over it. The pipeline harness had been rewriting
+     * every {@code -source N} to 25 since 2026-08-21 to dodge exactly this.
+     *
+     * <p>So: only a real {@code --release} answers this question. A build that states only {@code -source}
+     * states nothing about the API, and {@code 0} is the honest answer.
      */
     default int effectiveRelease() {
-        int r = release();
-        return r > 0 ? r : sourceRelease();
+        return release();
     }
 
     /**

@@ -89,6 +89,11 @@ public class JavaInspectorImpl implements JavaInspector {
     // the most recent scan's units, retained so its still-live javac task can resolve+load a compiled type by
     // FQN on demand (the CompiledTypesManager's lazy getOrLoad path). Single-threaded, like all javac use here.
     private ScanCompilationUnits lastScanUnits;
+    /**
+     * What {@link #preloadPass} loaded, waiting for the first real scan's "copy into CTM" to commit it — see
+     * that method for why the commit is deliberately left where it was.
+     */
+    private List<TypeInfo> pendingPreloads = List.of();
     // ... unless generation destroyed that task: JavacTask.generate() tears the compiler context down, so the
     // retained scan can no longer answer getElements(). Then compiled-type loading moves to loaderUnits below.
     private boolean lastScanUnitsGenerated;
@@ -381,7 +386,7 @@ public class JavaInspectorImpl implements JavaInspector {
             // errors are not expected (nothing is compiled) and must not reach the caller's Summary either
             MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(true);
             JavacTask task = createTask(spec.sourceSet(), spec.ignoreModule(), Map.of(), diagnostics, false,
-                    null, true);
+                    null, true, false);
             if (task == null) return null;
             ParameterNameIndex pni = spec.parameterNames() || parameterNames ? parameterNameIndex() : null;
             LOGGER.info("Built a source-free javac task for compiled-type loading, on source set {}",
@@ -408,13 +413,25 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public void onlyPreload() {
-        // a throwaway compilation unit whose sole purpose is to trigger the configured preloads. Its package is
-        // kept consistent with (and unique to) its key, so the warmup type never collides with a type a test
-        // later parses — in particular a default-package 'X' (the old "a.b.X" key with package-less content
-        // registered a default-package X, which then clashed with such tests).
-        parse(Map.of("maddi.preload.WarmUp", "package maddi.preload; public class WarmUp { }"),
-                new JavaInspector.ParseOptions.Builder().build());
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder().build();
+        // the shared JDK first, deliberately (see preloadPass)...
+        preloadPass(computeScanOrder(), options);
+        // ...and then the warm-up unit, which is what leaves a LIVE task behind for on-demand loading. Callers
+        // depend on that and not only on the preload: TestNestedTypeLoad resolves java.util.Map.Entry after it,
+        // TestLazyLoaderSourceSet resolves org.slf4j.LoggerFactory, TestPrivateField a class-path type. Dropping
+        // this half turned all of them into "expected: not <null>". The preload above has already run, so this
+        // pass loads no JDK type of its own -- it exists for the loader.
+        parse(Map.of(WARM_UP_FQN, WARM_UP_SOURCE), options);
     }
+
+    /**
+     * A throwaway compilation unit: it gives {@link #onlyPreload} a task to leave behind for on-demand loading.
+     * Its package is kept consistent with (and unique to) its key, so the warm-up type never collides with a
+     * type a test later parses — in particular a default-package {@code X} (the old {@code "a.b.X"} key with
+     * package-less content registered a default-package {@code X}, which then clashed with such tests).
+     */
+    static final String WARM_UP_FQN = "maddi.preload.WarmUp";
+    static final String WARM_UP_SOURCE = "package maddi.preload; public class WarmUp { }";
 
     // main method, generally called with empty map; only tests use the map
     @Override
@@ -432,6 +449,7 @@ public class JavaInspectorImpl implements JavaInspector {
         // which records its source set, and a subsequent full parse would then find it "known and unchanged" and
         // scan nothing at all.
         if (parseOptions.invalidated() == NOT_INVALIDATED) {
+            preloadPass(linearization, parseOptions);
             for (SourceSet sourceSet : linearization) {
                 scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
             }
@@ -443,6 +461,109 @@ public class JavaInspectorImpl implements JavaInspector {
         // after all source sets are scanned: a descriptor may name a type that lives in another source set.
         ResolveModuleDirectives.go(summary, compiledTypesManager);
         return summary;
+    }
+
+    /**
+     * ⛔⛔ <b>THE SHARED JDK USED TO BE MATERIALISED BY WHICHEVER SOURCE SET HAPPENED TO BE SCANNED FIRST, AT
+     * THAT SET'S {@code --release}.</b> {@code ScanCompilationUnits} runs the configured preloads under
+     * {@code if (!runtime.objectTypeInfo().hasBeenInspected())}, so the first scan builds the {@code java.*}
+     * model for the WHOLE run — through that task's file manager, which {@code --release N} points at
+     * {@code ct.sym}'s N band. Every later set then meets a committed JDK type that may lack members its own
+     * band has, and a committed type cannot gain one.
+     *
+     * <p>MEASURED in the IDE daemon on maddi itself (2026-08-25): {@code maddi-annotation} (first, level 17)
+     * committed {@code java.util.List} from the 11–20 band, and the 25 sets that followed dropped <b>391
+     * compilation units</b> on {@code List.getLast()} — plus 543 analysis hints skipped, because the hint
+     * archive addresses methods by position in a method list that is shorter at 17 than at 21.
+     *
+     * <p>So the preload gets its own pass, before any source set, on a task that is given the RUNNING JDK
+     * rather than any band. The running JDK is the superset: a set at {@code --release N} can then only ever
+     * FIND what it needs already committed, never bring a member the committed type lacks. Each set's own
+     * sources keep being attributed at its own release, so the per-set reasoning in {@link #createTask}
+     * (OpenSearch's three releases, pulsar's removed APIs) is untouched — {@link TestSharedJdkRelease} asserts
+     * both halves.
+     *
+     * <p>⛔ <b>SOURCE-FREE, LIKE THE COMPILED-TYPE LOADER TASK.</b> The first attempt gave this pass a synthetic
+     * warm-up compilation unit (which is what {@code onlyPreload} used to parse, in EVERY source set). A unit is
+     * not free: it lands in the caller's {@code Summary} as a primary type, in the source set's file list, and
+     * in the incremental bookkeeping — {@code TestAnalysisEarlyCutoffPrototype} saw a fourth type appear and
+     * "move" between runs, {@code TestReloadSourcesFromDisk} counted one file too many, and
+     * {@code TestInvalidate} three source sets became four. The preload needs a javac Context and a file
+     * manager, not a compilation unit.
+     *
+     * <p>⚠ It runs on the first source set's class path, so the {@code CLASS_PATH} preloads ({@code org.slf4j},
+     * the maddi annotations) resolve against exactly what they did when the preload happened inside that set.
+     * Only the platform changes.
+     */
+    private void preloadPass(List<SourceSet> linearization, ParseOptions parseOptions) {
+        if (linearization.isEmpty()) return;
+        if (runtime.objectTypeInfo().hasBeenInspected()) return; // already materialised
+        SourceSet first = linearization.getFirst();
+        try {
+            // errors are not expected (nothing is compiled) and must not reach the caller's Summary either
+            MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(true);
+            JavacTask task = createTask(first, true, Map.of(), diagnostics, false, null, true, true);
+            if (task == null) return;
+            ParameterNameIndex pni = parseOptions.parameterNames() || parameterNames
+                    ? parameterNameIndex() : null;
+            ScanCompilationUnits scan = new ScanCompilationUnits(runtime, inputConfiguration, task, first,
+                    infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
+                    parseOptions.syntheticListField());
+            pendingPreloads = scan.preloadOnly();
+            // ⛔⛔ COMMITTED HERE, WITH THIS PASS'S OWN TASK -- committing is where a type's MEMBERS are filled
+            // in, so a commit run against a lower band loses whatever that band lacks. Deferring it to the first
+            // real scan (which is what singleSourceSet does for its own types) meant java.lang.* was loaded at
+            // the highest release and then completed against the first set's release: on the mixed-release
+            // configuration that is 17, and the analysis-hint archive -- which addresses methods by POSITION in
+            // a type's method list -- then lost 278 elements, concentrated exactly there (Math 70, Character 47,
+            // String 39, Long/Integer 16 each). Committing on this task brings that back to 66, which is what
+            // the uniform-release configuration measures with or without this pass.
+            for (TypeInfo typeInfo : pendingPreloads) {
+                try {
+                    if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
+                        scan.classSymbolScanner().commitType(typeInfo);
+                    }
+                } catch (RuntimeException | AssertionError | StackOverflowError e) {
+                    // accumulate, never fail: one JDK type that will not commit must not stop the parse
+                    LOGGER.warn("Cannot commit preloaded type {}: {}", typeInfo, e.toString());
+                }
+            }
+            // ⭐ AND WHAT COMPLETING THEM NEEDED, because completing is now done HERE. Committing
+            // java.lang.System requires the type of its `out` field, so java.io.PrintStream is loaded by this
+            // pass rather than by the first scan that mentions it -- and if only the preload list were handed
+            // on, PrintStream would never reach the CTM at all (TestJavaInspector1OnlyJmod: "expected: not
+            // <null>"). One rule, and a coherent one: everything the shared-JDK pass touched is registered.
+            pendingPreloads = Stream.concat(pendingPreloads.stream(),
+                    scan.classSymbolScanner().typesLoaded().stream()).distinct().toList();
+            LOGGER.info("Shared JDK preloaded at release {}, {} type(s)", sharedJdkPreloadRelease(),
+                    pendingPreloads.size());
+        } catch (IOException | RuntimeException e) {
+            // a preload that cannot run is a degraded parse, not a failed one: the types it would have
+            // committed are loaded lazily instead, at whichever set asks first -- i.e. the old behaviour
+            LOGGER.warn("Cannot preload the shared JDK on source set {}: {}", first.name(), e.toString());
+        }
+    }
+
+    /**
+     * The release the shared {@code java.*} model is built at: the highest any source set states, or {@code 0}
+     * (the running JDK) when none does.
+     * <p>
+     * ⛔ <b>THE MAXIMUM, NOT THE RUNNING JDK.</b> Both satisfy the superset property that {@link #preloadPass}
+     * needs — either is ≥ every band the run will meet, so no set can bring a member the committed type lacks.
+     * But the analysis-hint archive addresses methods by POSITION in a type's method list, so the further the
+     * shared model drifts from the platform those indices were computed against, the more hints are silently
+     * skipped. MEASURED on a mixed-release configuration (54 sets at 25, two at 17, two at 21), same tree, one
+     * line different: preloading at the running JDK (26) gave 256 skipped hint elements where preloading at 25
+     * gives 66 — the maximum is the corpus's own platform, and the running JDK is one release past it.
+     * <p>
+     * ⚠ Both are still guesses about a reference the archive does not record. Stamping the archive with the JDK
+     * it was generated from, and addressing methods by name+descriptor rather than by index, is the real fix;
+     * see {@code CodecImpl:385}, whose own message asks for the descriptor.
+     */
+    private int sharedJdkPreloadRelease() {
+        if (inputConfiguration == null) return 0;
+        int max = inputConfiguration.sourceSets().stream().mapToInt(SourceSet::sourceRelease).max().orElse(0);
+        return Math.max(max, inputConfiguration.sourceRelease());
     }
 
     private void scanSourceSet(Summary summary,
@@ -704,7 +825,7 @@ public class JavaInspectorImpl implements JavaInspector {
         Path classOutput = sourcesByFqn.isEmpty() ? prepareGeneratedClassOutput(sourceSet) : null;
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, lombok, classOutput,
-                false);
+                false, false);
         if (javacTask == null) {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
@@ -729,7 +850,8 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.warn("Lombok processor failed for source set {}; retrying without Lombok. Cause: {}",
                     sourceSet.name(), String.valueOf(re.getCause()));
             diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
-            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput, false);
+            javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput, false,
+                    false);
             scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javacTask, sourceSet,
                     infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
                     syntheticListField);
@@ -793,7 +915,9 @@ public class JavaInspectorImpl implements JavaInspector {
         // copy into CTM
         List<TypeInfo> loaded = Stream.concat(Stream.concat(scanned.primaryTypes().stream(),
                         scanCompilationUnits.classSymbolScanner().typesLoaded().stream()),
-                scanned.preloads().stream()).toList();
+                Stream.concat(scanned.preloads().stream(), pendingPreloads.stream())).toList();
+        pendingPreloads = List.of(); // the first scan takes them; there is nothing to hand the second
+        // (scanned.preloads() is empty whenever preloadPass ran: it already materialised the shared JDK)
         LOGGER.info("Committing types of source set {}, {} loaded", sourceSet.name(), loaded.size());
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
@@ -1001,7 +1125,8 @@ public class JavaInspectorImpl implements JavaInspector {
                                  MaddiDiagnosticCollector diagnostics,
                                  boolean lombok,
                                  Path classOutput,
-                                 boolean loaderOnly) throws IOException {
+                                 boolean loaderOnly,
+                                 boolean sharedJdkPreload) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         // use in-memory sources when they are supplied (parse(Map,...) and parseSingleFileInSourceSet(...));
@@ -1168,7 +1293,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 int running = java.lang.Runtime.version().feature();
                 int perSet = sourceSet.sourceRelease();
                 int global = inputConfiguration == null ? 0 : inputConfiguration.sourceRelease();
-                int configured = perSet > 0 ? perSet : global;
+                // ⭐ The preload pass builds the SHARED java.* model (see preloadPass), so it takes the HIGHEST
+                // release the configuration states rather than this set's: the shared model has to be the
+                // superset of every band the run will meet, or a later set brings a member the committed type
+                // cannot gain.
+                int configured = sharedJdkPreload ? sharedJdkPreloadRelease() : (perSet > 0 ? perSet : global);
                 if (configured > 0 && configured != running) {
                     options.add("--release=" + configured);
                 } else {

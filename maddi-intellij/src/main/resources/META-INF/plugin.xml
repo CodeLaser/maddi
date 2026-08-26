@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>io.codelaser.maddi.intellij</id>
+    <id>io.codelaser.maddi</id>
     <name>maddi</name>
     <vendor url="https://codelaser.io">CodeLaser</vendor>
     <description><![CDATA[

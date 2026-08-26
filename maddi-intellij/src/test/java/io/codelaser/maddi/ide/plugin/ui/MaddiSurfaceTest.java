@@ -75,6 +75,54 @@ public class MaddiSurfaceTest extends LightJavaCodeInsightFixtureTestCase {
                 tooltips.stream().anyMatch(t -> t.contains("@Container")));
     }
 
+    /**
+     * ⛔ AN EVENTUAL VERDICT AND A PROVEN ONE MUST NOT LOOK THE SAME IN THE GUTTER. Polarity used to drive
+     * filtering only, so {@code @Immutable} and {@code @Immutable(hc=true,after=…)} — a property that holds,
+     * and one that holds only after a mark — arrived under the same icon, and telling them apart meant reading
+     * the tooltip to its end. The tooltip keeps the FULL roster; the icon is what carries the distinction at a
+     * glance.
+     */
+    public void testEventualVerdictGetsItsOwnGutterIcon() {
+        myFixture.configureByText("Eventual.java", """
+                public class Even<caret>tual {
+                }
+                """);
+        String path = filePath();
+        AnalysisModel.Annotation eventual = new AnalysisModel.Annotation(
+                "@Immutable(hc=true,after=\"a,b,c,d,e,f\")", "EVENTUAL", false);
+        AnalysisModel.ElementAnnotation type = new AnalysisModel.ElementAnnotation(
+                path, 1, 1, 2, 1, "TYPE", "Eventual", List.of(eventual.text()), List.of(eventual), Map.of());
+        service().applyResult(result(List.of(), List.of(type)));
+
+        List<GutterMark> gutters = myFixture.findGuttersAtCaret();
+        assertFalse("expected a maddi gutter mark", gutters.isEmpty());
+        assertTrue("the eventual verdict must not use the plain annotation icon",
+                gutters.stream().anyMatch(g -> g.getIcon() == com.intellij.icons.AllIcons.Nodes.Static));
+        // ...and the roster the inline hint abbreviates is still readable here, in full
+        List<String> tooltips = gutters.stream().map(GutterMark::getTooltipText)
+                .filter(Objects::nonNull).toList();
+        assertTrue("the gutter keeps the full roster; got " + tooltips,
+                tooltips.stream().anyMatch(t -> t.contains("a,b,c,d,e,f")));
+    }
+
+    /** CONTROL: a proven (non-eventual) verdict keeps the plain icon, so the two are distinguishable. */
+    public void testProvenVerdictKeepsThePlainGutterIcon() {
+        myFixture.configureByText("Proven.java", """
+                public class Pro<caret>ven {
+                }
+                """);
+        String path = filePath();
+        AnalysisModel.Annotation immutable = new AnalysisModel.Annotation("@Immutable", "POSITIVE", false);
+        AnalysisModel.ElementAnnotation type = new AnalysisModel.ElementAnnotation(
+                path, 1, 1, 2, 1, "TYPE", "Proven", List.of(immutable.text()), List.of(immutable), Map.of());
+        service().applyResult(result(List.of(), List.of(type)));
+
+        List<GutterMark> gutters = myFixture.findGuttersAtCaret();
+        assertFalse("expected a maddi gutter mark", gutters.isEmpty());
+        assertTrue("a proven verdict keeps the plain annotation icon",
+                gutters.stream().anyMatch(g -> g.getIcon() == com.intellij.icons.AllIcons.Nodes.Annotationtype));
+    }
+
     private MaddiAnalysisService service() {
         return MaddiAnalysisService.getInstance(getProject());
     }

@@ -963,6 +963,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private void finishAbandonedMethod(MethodInfo methodInfo, Symbol.MethodSymbol ms) {
         MethodInfo.Builder builder = methodInfo.builder();
         if (methodInfo.access() == null) builder.computeAccess();
+        // The SOURCE scan sets the return type after converting the annotations (ScanCompilationUnit:905) and
+        // the access before them, so a method abandoned between the two answers access() and not returnType().
+        if (methodInfo.returnType() == null) {
+            builder.setReturnType(methodInfo.isConstructor() ? runtime.parameterizedTypeReturnTypeOfConstructor()
+                    : convert(ms.getReturnType()));
+        }
         if (methodInfo.source() == null) builder.setSource(runtime.noSource());
         if (methodInfo.methodBody() == null) builder.setMethodBody(runtime.emptyBlock());
         for (TypeParameter tp : methodInfo.typeParameters()) {
@@ -977,6 +983,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         builder.commit();
         assert methodInfo.access() != null;
+        assert methodInfo.returnType() != null;
     }
 
     private TypeInfo addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
@@ -1215,6 +1222,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // below: each of those can throw on a partial class path, with the method already registered
         // (finishAbandonedMethod)
         builder.computeAccess();
+        // ...and the return type for the same reason, from the same place. It used to be computed at the very
+        // end, after the annotations, the exception types and every parameter type -- all of which throw on a
+        // partial class path with the method already registered. Moving the ACCESS here in 2026-08-23 fixed the
+        // symptom that had been seen and left this one: the IDE daemon then reported 0 null-access reads and
+        // 862 null-returnType ones, the same defect one field along (2026-08-25).
+        // ⛔ FINISHING A HALF-BUILT MEMBER MEANS EVERY FIELD THE FULL PATH SETS, NOT THE FIELD THAT FAILED LAST TIME.
+        builder.setReturnType(isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
+                : convert(ms.getReturnType()));
         builder.addAnnotations(loadAnnotations(ms));
         if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
             builder.setSynthetic(true);
@@ -1245,14 +1260,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 pIndex++;
             }
         }
-        ParameterizedType returnType = isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
-                : convert(ms.getReturnType());
         List<MethodInfo> overrides = computeMethodOverrides
                 .findOverriddenMethods(ms)
                 .stream().map(this::getOrLoadMethod)
                 .toList();
-        builder.setReturnType(returnType)
-                .setSource(runtime.noSource())
+        // the return type is set above, as soon as its input existed
+        builder.setSource(runtime.noSource())
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(overrides);
         if (!deferCommitToDeclaration) builder.commitParameters();

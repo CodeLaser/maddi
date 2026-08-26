@@ -23,7 +23,8 @@ plugins {
     `maven-publish` // so an Eclipse/Tycho build can consume this jar from the local Maven repo (publishToMavenLocal)
 }
 
-version = "0.8.2"
+// No version here either: the root gradle.properties supplies it. maddi-eclipse consumes this jar
+// from mavenLocal and pins the coordinate in its pom (<maddi.client.version>), so the two move together.
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
@@ -33,7 +34,7 @@ java {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            from(components["java"]) // io.codelaser:maddi-ide-client:0.8.2
+            from(components["java"]) // io.codelaser:maddi-ide-client:<project version>
         }
     }
 }
