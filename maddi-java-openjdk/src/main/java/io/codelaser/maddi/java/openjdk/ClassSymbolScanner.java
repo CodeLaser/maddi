@@ -855,7 +855,24 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             LOGGER.warn("Unknown module {}, add to classpath?", module);
         }
-        return sourceSetOfCurrentTask;
+        // ⛔ NOT sourceSetOfCurrentTask. Everything reaching here is a COMPILED type -- a source file of the task
+        // being compiled returned at the top, on !fromClassFile -- so it belongs to something the configuration did
+        // not describe: an archive that is not a .jar (JAR_FILE above matches only that, while
+        // SourceSetImpl.ARCHIVE_EXTENSIONS also knows .nar and .zip), a class directory outside the registered
+        // prefixes, or a module that is neither configured nor a platform module.
+        //
+        // Handing back the current task's source set for those is not a failure to classify the type; it is a
+        // positive claim that it is part of the project's own source, and CompilationUnit.partOfJdk() and
+        // externalLibrary() -- which read the source set -- then answer "no" for it. That is what made
+        // sun.misc.Unsafe look like QuestDB's own code, costing 2832 rewritten call sites; the platform-module
+        // resolution above fixes that case, and this fixes the shape rather than the instance.
+        //
+        // null is the answer the jar branch above already gives for the same situation ("genuinely off the
+        // deliberately partial classpath"), and both callers of this method handle it: one builds a compilation
+        // unit stub, whose null source set makes partOfJdk() and externalLibrary() both answer true, and the other
+        // reports a miss rather than minting an unusable type.
+        LOGGER.debug("No source set for compiled type {} at {}; treating as off-classpath", cs.flatName(), uri);
+        return null;
     }
 
     /**
