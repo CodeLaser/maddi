@@ -19,6 +19,9 @@ import io.codelaser.maddi.inspection.api.resource.ParameterNameIndex;
 import io.codelaser.maddi.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import io.codelaser.maddi.inspection.resource.InfoByFqn;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
+import java.lang.module.ModuleFinder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -65,6 +68,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // already done. See InfoByFqn.markClassScannerSetupDone.
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
+    // sourceSetMap and sourceSetDirPrefixes below are Map.copyOf, so a module resolved on demand cannot be cached
+    // in them. Concurrent because a scan may run on several threads and this is written during it.
+    private final Map<String, Optional<SourceSet>> platformModuleSourceSets = new ConcurrentHashMap<>();
     private final Map<String, SourceSet> sourceSetMap;
     private final Map<String, SourceSet> sourceSetDirPrefixes;
     private final ComputeMethodOverrides computeMethodOverrides;
@@ -838,13 +844,55 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         Symbol.ModuleSymbol module = findModule(cs);
         if (module != null && !module.isUnnamed()) {
-            SourceSet known = getSourceSet(module.name.toString());
+            String moduleName = module.name.toString();
+            SourceSet known = getSourceSet(moduleName);
             if (known != null) {
                 return known;
+            }
+            SourceSet platform = platformModuleSourceSet(moduleName);
+            if (platform != null) {
+                return platform;
             }
             LOGGER.warn("Unknown module {}, add to classpath?", module);
         }
         return sourceSetOfCurrentTask;
+    }
+
+    /**
+     * A source set for a PLATFORM module the configuration does not list, resolved when a type from it is first met.
+     * <p>
+     * ⛔ WHAT THIS REPLACES. The line below this one returns {@code sourceSetOfCurrentTask} — the source set of the
+     * project being compiled. For a type that could not be attributed, that is not a failure to classify it; it is a
+     * positive claim that a JDK class is part of your own source code. Both {@code CompilationUnit.partOfJdk()} and
+     * {@code externalLibrary()} read the source set, so they then answer "no": the type looks like project code to
+     * every caller downstream.
+     * <p>
+     * The configured JDK modules come from the build plugins' {@code jmods} option, which defaults to
+     * {@code JavaModules.DEFAULT_JMODS} = {@code "java.se"}. That closure is the Java SE platform: twenty
+     * {@code java.*} modules and not one {@code jdk.*} module, because the {@code jdk.*} modules are outside Java SE
+     * by definition. So a project touching {@code sun.misc.Unsafe} — module {@code jdk.unsupported} — misses the
+     * lookup above on every JDK, whatever the build system, unless someone set {@code jmods} by hand.
+     * <p>
+     * Measured on QuestDB, whose {@code io.questdb.std.Unsafe} delegates to {@code sun.misc.Unsafe}: with that class
+     * counted as project code, handing a value to it read as a pass-through to another project method rather than as
+     * a use that cannot be reasoned about. Nearly every method of that class lost its parameters and 2 832 call sites
+     * were rewritten to pass nothing.
+     * <p>
+     * ⚠ ONLY A REAL PLATFORM MODULE. {@link ModuleFinder#ofSystem()} is the running JDK's own answer to "is this one
+     * of mine", so a project's own module, or a library's, is never labelled as the JDK by this. A name that is not a
+     * platform module falls through to the warning below, unchanged.
+     * <p>
+     * ⚠ Resolved ON DEMAND, not added to a default. A project that never touches a {@code jdk.*} module never gets
+     * one, and a module nobody has thought of yet works without being enumerated anywhere — which is the failure this
+     * had already had once, recorded on {@code JavaModules.DEFAULT_JMODS}: the Maven plugin defaulted to
+     * {@code java.se} while the Gradle plugin defaulted to {@code java.base} alone, and fernflower got 1 JDK class
+     * path part instead of 20.
+     */
+    private SourceSet platformModuleSourceSet(String moduleName) {
+        return platformModuleSourceSets.computeIfAbsent(moduleName, name ->
+                ModuleFinder.ofSystem().find(name).isPresent()
+                        ? Optional.of(SourceSetImpl.jdkModule(name))
+                        : Optional.empty()).orElse(null);
     }
 
     Symbol.ModuleSymbol findModule(Symbol.ClassSymbol cs) {
