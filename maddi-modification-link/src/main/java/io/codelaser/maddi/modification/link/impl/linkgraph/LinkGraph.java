@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -120,8 +121,31 @@ public class LinkGraph {
             LOGGER.debug("Bi-directional graph for local:\n{}\n{}", graph.engine().printClosure(),
                     graph.printEquivalence(LinkGraph::vertexPrinter));
         }
-        assert !checkDuplicateNames ||
-               graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
+        assert !checkDuplicateNames || duplicateNames().isEmpty() : duplicateNameReport();
+    }
+
+    /*
+     The duplicate-name check used to be written inline as a size-vs-distinct-count comparison, so when it
+     failed it threw an AssertionError carrying NOTHING -- and the throw is caught per method
+     (LinkComputerImpl.doMethod), which degrades that method to a SHALLOW summary without a word about why.
+     Measured on the OpenSearch DAG corpus on 2026-08-26: 25,143 of 170,191 methods lost their link facts
+     entirely and 177,379 statements degraded, every one here, every one reported as `null`. An assertion
+     that fires fifty thousand times and names nothing cannot be acted on, so it now names the collision.
+     */
+    private Map<String, List<Variable>> duplicateNames() {
+        Map<String, List<Variable>> byName = graph.variables().stream()
+                .collect(Collectors.groupingBy(LinkGraph::stringForDuplicate));
+        return byName.entrySet().stream().filter(e -> e.getValue().size() > 1)
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private String duplicateNameReport() {
+        return "graph.size()=" + graph.size() + ", distinct printed names="
+               + graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count()
+               + "; colliding: " + duplicateNames().entrySet().stream()
+                       .map(e -> e.getKey() + " <- " + e.getValue().stream().map(v -> v.getClass().getSimpleName()
+                               + "(" + v + ")").collect(Collectors.joining(", ")))
+                       .sorted().collect(Collectors.joining(" | "));
     }
 
     private final Set<IntermediateVariable> intermediateVariablesRemoved = new HashSet<>();
