@@ -334,6 +334,17 @@ public final class SourceCodeScan {
             switch (node2) {
                 case TypeDeclaration sub -> scanTypeDeclaration(sub);
                 case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
+                // ⛔ A COMPACT CANONICAL CONSTRUCTOR IS A DECLARATION OF ITS OWN. `private DataColumn { ... }`
+                // inside a record is a CompactConstructorDeclaration, not a ConstructorDeclaration, so it fell
+                // through to `default` and its modifier keywords were never recorded. The MODEL knew the
+                // constructor was private; nothing knew WHERE the word was written, and a consumer that
+                // rewrites an access modifier needs the token. Splitting trino's
+                // HiveWriterFactory.createWriter widened `private record DataColumn` and could not widen its
+                // canonical constructor, which a record may not be more accessible than:
+                //     invalid canonical constructor in record DataColumn
+                //         (attempting to assign stronger access privileges; was package)
+                // The refusal was invisible: the lookup returns null, and null reads as "nothing to do".
+                case CompactConstructorDeclaration ccd -> scanMethodDeclaration(ccd);
                 case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
                 case FieldDeclaration fd -> scanFieldDeclaration(fd);
                 default -> {

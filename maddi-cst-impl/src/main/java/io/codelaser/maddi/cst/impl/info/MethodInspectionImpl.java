@@ -309,7 +309,26 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
         @Override
         public Builder computeAccess() {
             if (methodInfo.isCompactConstructor()) {
-                setAccess(AccessEnum.PUBLIC);
+                // ⛔ THE DECLARED MODIFIER, NOT PUBLIC. A record's canonical constructor may carry an access
+                // modifier, and it must then grant at least as much access as the record; if it carries none,
+                // it has THE SAME ACCESS AS THE RECORD (JLS 8.10.4.1). This branch used to answer PUBLIC
+                // unconditionally, before looking at anything -- so `private DataColumn { ... }` was reported
+                // as public, and an unmodified compact constructor of a package-private record was widened to
+                // public as well. The modifier was parsed and sitting in methodModifiers all along; only the
+                // interpretation was wrong. The EXPLICIT form of the same constructor was always correct,
+                // which is why the gap showed up only on this one shape.
+                //
+                // Found by a refactoring that moves a method body into a new class beside the original and
+                // widens the private members the moved code reaches: told the constructor was public, it
+                // widened `private record DataColumn` and left its compact constructor private, which is
+                // illegal in its own right -- "invalid canonical constructor ... attempting to assign
+                // stronger access privileges". See TestParseRecordCompactConstructorAccess.
+                if (methodModifiers.stream().anyMatch(m -> m.isPrivate() || m.isProtected()
+                                                           || m.isPublic() || m.isInternal())) {
+                    setAccess(accessFromMethodModifier());
+                } else {
+                    setAccess(methodInfo.typeInfo().access());
+                }
             } else if (methodModifiers.stream().anyMatch(MethodModifier::isPrivate)) {
                 setAccess(AccessEnum.PRIVATE);
             } else {
