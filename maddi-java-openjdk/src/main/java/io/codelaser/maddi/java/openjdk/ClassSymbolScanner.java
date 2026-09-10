@@ -1136,6 +1136,35 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      * answer" shape as the enum constants in {@link #ensureField}, and the same remedy: decide it here, at the
      * one place every path goes through, rather than patching it afterwards.
      */
+    /**
+     * Is this one of the members javac generates for a record, rather than one someone wrote out?
+     * <p>
+     * ⛔ THE RECORD COUNTERPART OF {@link #isCompilerGeneratedEnumMethod} WAS MISSING. Writing
+     * {@code record Request(String model, int seed) {}} declares {@code model()} and {@code seed()},
+     * which appear nowhere in the file; javac generates them and marks them {@code GENERATED_MEMBER}.
+     * <p>
+     * {@code ScanCompilationUnit}, on reaching the record component, creates such an accessor through
+     * {@code RecordSynthetics.createAccessor}, which sets the flag. But a CALL to the accessor makes
+     * {@code ensureMethod} materialise the method first, from its symbol, and that path only ever set
+     * synthetic when its caller said so. The record scan then found the method already present, took its
+     * {@code existing} branch -- which repairs the GET_SET_FIELD link and nothing else -- and the method
+     * was left reporting that it had been written out by hand. Which of the two paths ran first is scan
+     * order, so the same record answered differently in different projects.
+     * <p>
+     * Why it matters to a caller: {@code isSynthetic()} is the only way to tell "the compiler supplied
+     * this, there is no text for it in the file" from "someone wrote this out". Told false for a supplied
+     * accessor, CodeLaser's dead-code remover asked its editor to delete the source range
+     * {@code 0:0..0:0} of {@code io.trino...OpenAiClient.ChatRequest.seed()} and the run died. See
+     * {@code TestRecordAccessorCalledIsStillSynthetic}.
+     * <p>
+     * An accessor the record WRITES OUT is a real declaration and carries no such flag, so it keeps
+     * reporting false, which is what it must do -- deleting it from the file is a meaningful edit.
+     */
+    private static boolean isCompilerGeneratedRecordMember(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        var nature = typeInfo.typeNature();
+        return nature != null && nature.isRecord() && (ms.flags() & Flags.GENERATED_MEMBER) != 0;
+    }
+
     private static boolean isCompilerGeneratedEnumMethod(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
         var nature = typeInfo.typeNature();
         if (nature == null || !nature.isEnum()) return false;
@@ -1296,7 +1325,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         builder.setReturnType(isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
                 : convert(ms.getReturnType()));
         builder.addAnnotations(loadAnnotations(ms));
-        if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)) {
+        if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)
+            || isCompilerGeneratedRecordMember(typeInfo, ms)) {
             builder.setSynthetic(true);
         }
         // exception types
