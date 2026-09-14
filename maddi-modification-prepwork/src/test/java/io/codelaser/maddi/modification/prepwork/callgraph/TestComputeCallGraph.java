@@ -20,6 +20,21 @@ import static io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGrap
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestComputeCallGraph {
+    // every count odd and every weight distinct, so no field can be read from its neighbour's bits unnoticed; the
+    // test below uses even counts only, and passed while the doc count was read from the reference count's low bit
+    @Test
+    public void eachKindIsReadFromItsOwnField() {
+        long value = 3 * DOC_REFERENCES + 5 * REFERENCES + 7 * TYPES_IN_DECLARATION + TYPE_HIERARCHY
+                     + 9 * CODE_STRUCTURE;
+        assertEquals(3, docReferenceCount(value));
+        assertEquals(5, referenceCount(value));
+        assertEquals(7, declarationCount(value));
+        assertEquals(1, hierarchyCount(value));
+        assertEquals(9, codeStructureCount(value));
+        assertEquals(3 * 2 + 5 * 3 + 7 * 5 + 7 + 9 * 11, weightedSumInteractions(value, 2, 3, 5, 7, 11));
+        assertEquals(0, weightedSumInteractions(REFERENCES, 1, 0, 0, 0, 0), "one reference is not a doc reference");
+    }
+
     @Test
     public void test() {
         long twoR = 2 * REFERENCES;
