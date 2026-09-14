@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
 public class DetailedSourcesImpl implements DetailedSources {
@@ -135,6 +136,17 @@ public class DetailedSourcesImpl implements DetailedSources {
             return list.isEmpty() ? null : (Source) list.getFirst();
         }
         return (Source) o;
+    }
+
+    @Override
+    public void forEach(BiConsumer<Object, Source> consumer) {
+        identityHashMap.forEach((key, value) -> {
+            if (value instanceof List<?> list) {
+                list.forEach(source -> consumer.accept(key, (Source) source));
+            } else {
+                consumer.accept(key, (Source) value);
+            }
+        });
     }
 
     @Override

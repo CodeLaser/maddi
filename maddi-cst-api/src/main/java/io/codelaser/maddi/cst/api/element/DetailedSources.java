@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * A fine-grained map from well-known syntactic positions (keywords, punctuation, comma separators)
@@ -135,6 +136,13 @@ public interface DetailedSources {
      */
     @NotNull
     List<Source> details(Object object);
+
+    /**
+     * Calls {@code consumer} once per recorded position, with its key: a list-valued key once per element of the
+     * list. For instruments that audit what a front-end recorded without knowing its keys in advance; a consumer
+     * that knows the key should use {@link #detail(Object)} or {@link #details(Object)}.
+     */
+    void forEach(@NotNull BiConsumer<Object, Source> consumer);
 
     /**
      * Returns a new {@code DetailedSources} combining the entries of this and {@code other}.
