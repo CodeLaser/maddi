@@ -84,6 +84,14 @@ public interface CompileInvocation {
     }
 
     /**
+     * javac's {@code --add-exports}, one entry per occurrence as javac spells it
+     * ({@code <module>/<package>=<target>[,<target>...]}); empty when the invocation passed none.
+     */
+    default List<String> addExports() {
+        return List.of();
+    }
+
+    /**
      * The warning policy this invocation compiled under ({@code -Werror}, {@code -nowarn}, {@code -Xlint...});
      * empty when it passed none. Per invocation, because it belongs to ONE source set: OpenSearch's root adds
      * {@code -Werror} to every compile task and 12 subprojects subtract it again, so it varies across a reactor
