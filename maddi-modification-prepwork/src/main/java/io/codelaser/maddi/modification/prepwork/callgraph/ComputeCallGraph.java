@@ -20,7 +20,9 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -38,7 +40,10 @@ import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -248,6 +253,7 @@ public class ComputeCallGraph {
             // a half-built method (dual-identity family, task #33: forward-created member of an anonymous
             // class) can arrive without a body; skip rather than NPE — the type will be isolated downstream
             if (mi.methodBody() != null) mi.methodBody().visit(visitor); // D
+            doRecordedReferences(mi); // D, after the body: see there
         });
         typeInfo.fields().forEach(fi -> {
             doJavadoc(fi);
@@ -258,7 +264,55 @@ public class ComputeCallGraph {
                 Visitor visitor = new Visitor(fi);
                 fi.initializer().visit(visitor); // D
             }
+            doRecordedReferences(fi);
         });
+        doRecordedReferences(typeInfo);
+    }
+
+    /*
+    D for the references a front-end RECORDED on a member's source instead of representing as elements
+    (DetailedSources.putReference). The Kotlin front-end records every project reference written in a member
+    there, because its desugared CST drops many of them: an import, an annotation argument, a call inside a lambda
+    passed to a library function. Without these edges the graph -- and every "who refers to X" answered from it --
+    would miss exactly the references the CST lost.
+
+    Runs after the member's own elements were visited, and adds an edge only where they did not: the builder
+    SUMS weights, so a reference present both as an element and as a record would count as two call sites. For a
+    method or field target the test is the R bit; for a type, any edge at all, since a type named in a signature
+    or a supertype list already has its D or H edge and naming it is not a use. Same rules as the elements
+    otherwise: recursion via handleMethodCall, the inverted own-field edge (E).
+     */
+    private void doRecordedReferences(Info from) {
+        Source source = from.source();
+        if (source == null || source.detailedSources() == null) return;
+        Set<Info> targets = Collections.newSetFromMap(new IdentityHashMap<>());
+        source.detailedSources().forEachReference((target, s) -> targets.add(target));
+        for (Info to : targets) {
+            switch (to) {
+                case MethodInfo mi -> {
+                    if (!hasReferenceEdge(from, mi)) handleMethodCall(from, mi);
+                }
+                case FieldInfo fi -> {
+                    if (!accept(fi.owner())) continue;
+                    boolean inverted = from instanceof MethodInfo m && m.typeInfo() == fi.owner();
+                    Info edgeFrom = inverted ? fi : from;
+                    Info edgeTo = inverted ? from : fi;
+                    if (!hasReferenceEdge(edgeFrom, edgeTo)) builder.mergeEdge(edgeFrom, edgeTo, REFERENCES);
+                }
+                case TypeInfo ti -> {
+                    Map<Info, Long> edges = builder.edges(from);
+                    if (edges == null || !edges.containsKey(ti)) addType(from, ti.asSimpleParameterizedType(), REFERENCES);
+                }
+                default -> {
+                }
+            }
+        }
+    }
+
+    private boolean hasReferenceEdge(Info from, Info to) {
+        Map<Info, Long> edges = builder.edges(from);
+        Long weight = edges == null ? null : edges.get(to);
+        return weight != null && isReference(weight);
     }
 
     private void go(ModuleInfo moduleInfo) {
