@@ -94,6 +94,17 @@ public interface IteratingAnalyzer {
         default boolean flattenVariableData() {
             return false;
         }
+
+        /**
+         * The wall-clock budget of one {@link #analyze} call; {@code null} (the default) is unlimited. When the run
+         * outlives it, the analyzer throws {@link AnalysisBudgetExceededException} naming the pass and the element
+         * count it reached. Checked before every element of every pass, not at pass boundaries only, because a pass
+         * can be the whole problem: the OpenSearch {@code G43} run spent 1 h 40 min in its first pass, where
+         * {@link #maxIterations()} can never fire.
+         */
+        default java.time.Duration maxDuration() {
+            return null;
+        }
     }
 
     /**

@@ -89,7 +89,8 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     boolean warnNearMisses,
                                     NearMissPolicy nearMissPolicy,
                                     boolean modificationViaReachability,
-                                    boolean flattenVariableData) implements Configuration {
+                                    boolean flattenVariableData,
+                                    Duration maxDuration) implements Configuration {
     }
 
     public static class ConfigurationBuilder {
@@ -101,6 +102,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         private boolean warnNearMisses;
         private boolean modificationViaReachability;
         private boolean flattenVariableData;
+        private Duration maxDuration; // null = unlimited
         private NearMissPolicy nearMissPolicy = NearMissPolicy.STRICT;
         private CycleBreakingStrategy cycleBreakingStrategy = CycleBreakingStrategy.NONE;
 
@@ -155,10 +157,16 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             return this;
         }
 
+        /** The wall-clock budget of one analyze() call; {@code null} = unlimited. See {@link Configuration#maxDuration()}. */
+        public ConfigurationBuilder setMaxDuration(Duration maxDuration) {
+            this.maxDuration = maxDuration;
+            return this;
+        }
+
         public Configuration build() {
             return new ConfigurationImpl(maxIterations, stopWhenCycleDetectedAndNoImprovements, cycleBreakingStrategy,
                     trackObjectCreations, guardContracts, faultTolerant, warnNearMisses, nearMissPolicy,
-                    modificationViaReachability, flattenVariableData);
+                    modificationViaReachability, flattenVariableData, maxDuration);
         }
     }
 
@@ -407,6 +415,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         int eventualDeferralRounds = 0; // terminal-phase re-derivation of the eventual family, once
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         this.lastRun = singleIterationAnalyzer;
+        // G43: the wall-clock budget starts here, and every pass and every element in it is checked against it
+        AnalysisBudget budget = AnalysisBudget.start(configuration.maxDuration(), analysisOrder.size());
+        if (budget != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl siaBudget) {
+            siaBudget.setBudget(budget);
+        }
         if (valueFeed != null && singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl sia) {
             // wave-barrier feed (first pass only): intra-pass checkpoint protection for the multi-hour
             // cold first pass; the callback runs on the coordinator thread at the wave barrier
@@ -490,6 +503,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 subset = analysisOrder.stream().filter(d::contains).toList();
                 LOGGER.info("Worklist: {} of {} elements dirty", subset.size(), analysisOrder.size());
             }
+            if (budget != null) budget.startPass(iterations, subset.size());
             if (incremental && beforeFirstRecompute != null) {
                 // clear-before-recompute: newly-dirtied elements (never analysed before in this run) may be carried
                 // types whose stale cross-type-derived values must be cleared before the fresh, possibly-lowering
