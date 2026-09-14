@@ -180,4 +180,22 @@ public class TestJavacGradleLine {
         assertEquals(List.of("/a.jar"), j.classpath());
         assertEquals(List.of("/m.jar"), j.modulePath());
     }
+
+    /**
+     * ⛔ {@code --add-exports} was not in the valued-option table, so the flag was ignored and its value read on
+     * its own -- the package opened, lost. maddi's {@code maddi-java-openjdk} compiles against javac's internals
+     * with five of these, and the parse dropped 8 of its 17 compilation units for want of them.
+     */
+    @DisplayName("--add-exports is recorded, per occurrence and in both spellings; its value is not a source file")
+    @Test
+    public void addExportsIsRecorded() {
+        Javac j = Javac.parse("-d /out -source 25"
+                              + " --add-exports jdk.compiler/com.sun.tools.javac.code=my.module,ALL-UNNAMED"
+                              + " --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED /src/A.java");
+
+        assertEquals(List.of("jdk.compiler/com.sun.tools.javac.code=my.module,ALL-UNNAMED",
+                        "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"), j.addExports());
+        assertEquals(List.of("/src/A.java"), j.sourceFiles());
+        assertEquals("/out", j.destination());
+    }
 }

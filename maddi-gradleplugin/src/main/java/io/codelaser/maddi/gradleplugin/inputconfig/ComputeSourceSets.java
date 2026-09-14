@@ -392,10 +392,10 @@ public class ComputeSourceSets {
         // "whatever JDK maddi happens to run on" for each of them.
         // ⚠ NULL IS STILL A CASE, and it is the version-skew one: a producer without this plugin, or with an
         // older one, publishes no such file. Then this is exactly what it was before.
-        SourceFacts f = facts == null ? new SourceFacts(0, List.of(), List.of()) : facts;
+        SourceFacts f = facts == null ? new SourceFacts(0, List.of(), List.of(), List.of()) : facts;
         SourceSet sourceSet = PluginSourceSets.sourceSet(sourceSetName, projectPath, paths, classOutput,
                 encodingString == null ? null : Charset.forName(encodingString), false,
-                PluginOptions.splitToSetOrNull(restrictTo), f.sourceRelease(), f.addModules(),
+                PluginOptions.splitToSetOrNull(restrictTo), f.sourceRelease(), f.addModules(), f.addExports(),
                 f.warningFlags());
         // null when none of the published directories exists any more. Map.of would throw on it, and a Result
         // holding no source set is exactly what "this project contributes nothing" means.
@@ -552,7 +552,8 @@ public class ComputeSourceSets {
         Path classOutput = gradleSourceSet.getJava().getClassesDirectory().get().getAsFile().toPath();
         SourceFacts facts = factsOf(project, gradleSourceSet);
         return PluginSourceSets.sourceSet(maddiSourceSetName, buildUnit, paths, classOutput, sourceEncoding,
-                test, restrictToPackages, facts.sourceRelease(), facts.addModules(), facts.warningFlags());
+                test, restrictToPackages, facts.sourceRelease(), facts.addModules(), facts.addExports(),
+                facts.warningFlags());
     }
 
     /**
@@ -566,6 +567,7 @@ public class ComputeSourceSets {
     static SourceFacts factsOf(Project project, org.gradle.api.tasks.SourceSet gradleSourceSet) {
         return new SourceFacts(sourceReleaseOf(project, gradleSourceSet),
                 addModulesOf(project, gradleSourceSet),
+                addExportsOf(project, gradleSourceSet),
                 warningFlagsOf(project, gradleSourceSet));
     }
 
@@ -589,6 +591,19 @@ public class ComputeSourceSets {
                 .findByName(gradleSourceSet.getCompileJavaTaskName());
         if (compile == null) return List.of();
         return PluginSourceSets.addModulesFrom(compile.getOptions().getCompilerArgs());
+    }
+
+    /**
+     * javac's {@code --add-exports} for this source set, from the same {@code options.compilerArgs}. ⚠ Like
+     * {@link #addModulesOf}, found on another route (the compile log, on maddi's own {@code maddi-java-openjdk})
+     * and carried here by symmetry.
+     */
+    private static List<String> addExportsOf(Project project,
+                                             org.gradle.api.tasks.SourceSet gradleSourceSet) {
+        JavaCompile compile = (JavaCompile) project.getTasks()
+                .findByName(gradleSourceSet.getCompileJavaTaskName());
+        if (compile == null) return List.of();
+        return PluginSourceSets.addExportsFrom(compile.getOptions().getCompilerArgs());
     }
 
     /**

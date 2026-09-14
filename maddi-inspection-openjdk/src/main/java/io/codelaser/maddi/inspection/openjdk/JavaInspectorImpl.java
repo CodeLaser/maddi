@@ -1313,7 +1313,19 @@ public class JavaInspectorImpl implements JavaInspector {
                 // superset of every band the run will meet, or a later set brings a member the committed type
                 // cannot gain.
                 int configured = sharedJdkPreload ? sharedJdkPreloadRelease() : (perSet > 0 ? perSet : global);
-                if (configured > 0 && configured != running) {
+                if (!sharedJdkPreload && exportsFromSystemModule(sourceSet)) {
+                    // ⛔ javac refuses `--add-exports` of a SYSTEM module under --release ("exporting a package
+                    // from system module ... is not allowed with --release"), so a set whose build opens javac's
+                    // internals cannot have been compiled with one -- and is not parsed with one: against the
+                    // running JDK's modules, as its build was. See addExportsOptions below.
+                    if (configured > 0 && configured != running) {
+                        LOGGER.warn("Source set {} opens packages of a system module (--add-exports) and states"
+                                    + " release {}: javac cannot combine the two, parsing on the running JDK ({})",
+                                sourceSet.name(), configured, running);
+                    }
+                    options.add("--enable-preview");
+                    options.add("--source=" + running);
+                } else if (configured > 0 && configured != running) {
                     options.add("--release=" + configured);
                 } else {
                     options.add("--enable-preview");
@@ -1328,8 +1340,49 @@ public class JavaInspectorImpl implements JavaInspector {
             if (!sourceSet.addModules().isEmpty()) {
                 options.add("--add-modules=" + String.join(",", sourceSet.addModules()));
             }
+            // ...and --add-exports, the set's own, for the same reason: maddi-java-openjdk compiles against javac's
+            // internals with five of them, and without them 8 of its 17 units were dropped. Not on the shared-JDK
+            // preload task, which compiles nothing of the set's and runs under --release; not under jdkInternals,
+            // which already opens every non-exported package of the JDK.
+            if (!sharedJdkPreload && !jdkInternals && !sourceSet.addExports().isEmpty()) {
+                options.addAll(addExportsOptions(sourceSet, ignoreModule || !hasModuleInfo));
+            }
             return (JavacTask) javaCompiler.getTask(null, fm, diagnostics, options, null, allCompilationUnits);
         }
+    }
+
+    /**
+     * Whether the set's {@code --add-exports} open a package of a module the running JDK provides -- the case javac
+     * will not combine with {@code --release}.
+     */
+    private static boolean exportsFromSystemModule(SourceSet sourceSet) {
+        if (sourceSet.addExports().isEmpty()) return false;
+        ModuleFinder system = ModuleFinder.ofSystem();
+        return sourceSet.addExports().stream()
+                .map(export -> export.indexOf('/') > 0 ? export.substring(0, export.indexOf('/')) : "")
+                .anyMatch(module -> !module.isEmpty() && system.find(module).isPresent());
+    }
+
+    /**
+     * The set's own {@code --add-exports}, for this task.
+     * <p>
+     * ⚠ THE TARGET IS THE COMPILATION'S, NOT THE BUILD'S. A build names the module it compiles
+     * ({@code =io.codelaser.maddi.java.openjdk}) and often {@code ALL-UNNAMED} too; a task that compiles into the
+     * unnamed module (ignoreModule, or a set without module-info) is reached only by {@code ALL-UNNAMED}, so there
+     * the package is opened to exactly that. A named compilation keeps the build's own targets.
+     */
+    private static List<String> addExportsOptions(SourceSet sourceSet, boolean unnamed) {
+        List<String> options = new ArrayList<>();
+        for (String export : sourceSet.addExports()) {
+            int eq = export.indexOf('=');
+            if (eq <= 0) {
+                LOGGER.warn("Ignoring malformed --add-exports '{}' of source set {}", export, sourceSet.name());
+                continue;
+            }
+            options.add("--add-exports=" + export.substring(0, eq) + "="
+                        + (unnamed ? "ALL-UNNAMED" : export.substring(eq + 1)));
+        }
+        return options;
     }
 
     // Set javac's compile class path for this source set. With no file dependencies we leave javac's default

@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -26,6 +27,7 @@ public record Javac(int sourceRelease,
                     String annotationProcessing,
                     String encoding,
                     List<String> addModules,
+                    List<String> addExports,
                     List<String> warningFlags) implements CompileInvocation {
     public static class Builder {
         int sourceRelease;
@@ -43,6 +45,7 @@ public record Javac(int sourceRelease,
 
         String encoding;
         List<String> addModules = List.of();
+        List<String> addExports = new ArrayList<>();
         Set<String> warningFlags = new LinkedHashSet<>();
 
         public Javac build() {
@@ -50,7 +53,7 @@ public record Javac(int sourceRelease,
                     destination, generatedHeadersDestination, generatedSourceFilesDestination,
                     classpath, modulePath, sourcePath, List.copyOf(sourceFiles),
                     processorPath, annotationProcessing,
-                    encoding, addModules, List.copyOf(warningFlags));
+                    encoding, addModules, List.copyOf(addExports), List.copyOf(warningFlags));
         }
     }
 
@@ -129,7 +132,11 @@ public record Javac(int sourceRelease,
             "-sourcepath", "--source-path",
             // ⚠ VALUED: `--add-modules jdk.incubator.vector`. Without it here the module name is read as a
             // source FILE, so the flag is lost AND a bogus compilation unit is added.
-            "--add-modules");
+            "--add-modules",
+            // ⚠ VALUED AND REPEATABLE: `--add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED`, once per
+            // package. Absent from this table it was dropped, and the module that compiles against javac's internals
+            // (maddi-java-openjdk: five of them) lost 8 of its 17 compilation units in the parse.
+            "--add-exports");
 
     /**
      * A long option carrying its value inline. Restricted to {@code --} so that a value containing an {@code '='}
@@ -156,6 +163,8 @@ public record Javac(int sourceRelease,
             // unchanged -- this records what the build said, it does not interpret it
             case "--add-modules" -> builder.addModules = Arrays.stream(value.split(","))
                     .map(String::strip).filter(m -> !m.isBlank()).toList();
+            // one entry per occurrence, as javac spells it: <module>/<package>=<target>[,<target>...]
+            case "--add-exports" -> builder.addExports.add(value.strip());
             default -> LOGGER.debug("Ignoring parameter option {}", option);
         }
     }
