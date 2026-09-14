@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.expression.InlineConditional
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.expression.StringConcat
+import io.codelaser.maddi.cst.api.expression.StringConstant
 import io.codelaser.maddi.cst.api.expression.SwitchExpression
 import io.codelaser.maddi.cst.api.expression.VariableExpression
 import io.codelaser.maddi.cst.api.info.ParameterInfo
@@ -616,6 +617,26 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals(3, call.parameterExpressions().size)
         // a=1, b=10 (default), c=5 -- in declaration order
         assertEquals(listOf("1", "10", "5"), call.parameterExpressions().map { it.toString() })
+    }
+
+    @Test
+    fun constructorWithNamedAndDefaultArguments() {
+        // `Finding(message = "m", entity = 1)` against a third, defaulted parameter: the constructor is found by the
+        // arguments in declaration order, defaults filled -- it used to find no two-parameter constructor and
+        // become a `k2-ctor-unresolved` placeholder, taking its arguments with it
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "F.kt",
+            "class Finding(val entity: Int, val message: String, val weight: Int = 7)\n" +
+                "fun make(): Finding = Finding(message = \"m\", entity = 1)\n"
+        )
+        val made = (types.flatMap { it.methods() }.first { it.name() == "make" }
+            .methodBody().statements().first() as ReturnStatement).expression()
+        assertTrue(made is ConstructorCall, "expected a ConstructorCall, got $made")
+        val arguments = (made as ConstructorCall).parameterExpressions()
+        assertEquals(3, arguments.size)
+        assertEquals("1", arguments[0].toString())      // entity, named second
+        assertTrue(arguments[1] is StringConstant)       // message, named first
+        assertEquals("7", arguments[2].toString())      // weight, the declared default
     }
 
     @Test

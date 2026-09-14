@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
@@ -452,12 +453,25 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         // type parameters; must be done in 2 stages
         if (!jcClassDecl.getTypeParameters().isEmpty()) {
+            // A caller scanned first may have loaded this type from its symbol, which left its type parameters
+            // created but uncommitted (ClassSymbolScanner.loadType), with signatures already built on them. Fill
+            // those in; a replace would leave the signatures holding a second instance. TestClassTypeParameterIdentity.
+            List<TypeParameter> existing = typeInfo.typeParameters();
+            List<JCTree.JCTypeParameter> jcTypeParameters = jcClassDecl.getTypeParameters();
+            boolean fillIn = existing.size() == jcTypeParameters.size()
+                             && IntStream.range(0, existing.size()).allMatch(k -> !existing.get(k).hasBeenInspected()
+                    && existing.get(k).simpleName().equals(jcTypeParameters.get(k).getName().toString()));
             int index = 0;
             List<TypeParameter> newTypeParameters = new ArrayList<>();
-            for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+            for (JCTree.JCTypeParameter jcTypeParameter : jcTypeParameters) {
                 String name = jcTypeParameter.getName().toString();
-                TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
-                builder.addOrSetTypeParameter(tp);
+                TypeParameter tp;
+                if (fillIn) {
+                    tp = existing.get(index);
+                } else {
+                    tp = runtime.newTypeParameter(index, name, typeInfo);
+                    builder.addOrSetTypeParameter(tp);
+                }
                 elementStack.put(name, tp);
                 newTypeParameters.add(tp);
                 ++index;

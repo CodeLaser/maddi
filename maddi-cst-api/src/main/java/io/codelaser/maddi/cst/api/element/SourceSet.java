@@ -81,6 +81,19 @@ public interface SourceSet {
     }
 
     /**
+     * The packages this source set's build opens beyond what their modules export ({@code javac --add-exports}),
+     * each as javac spells it: {@code <module>/<package>=<target>[,<target>...]}; empty when it passed none.
+     * <p>
+     * Not cosmetic: maddi's own {@code maddi-java-openjdk} compiles against javac's internals with five
+     * {@code --add-exports jdk.compiler/com.sun.tools.javac.*}, and without them 8 of its 17 compilation units
+     * do not resolve ({@code Types}, {@code Type}, {@code Flags}) and are dropped. Per set for the reason
+     * {@link #addModules()} is: the one set that opens javac up is not a licence for the rest.
+     */
+    default List<String> addExports() {
+        return List.of();
+    }
+
+    /**
      * The arguments this source set's build passes that decide whether a warning is emitted and whether it is
      * fatal -- {@code -Werror}, {@code -nowarn}, the {@code -Xlint} family -- empty when it passed none.
      * <p>

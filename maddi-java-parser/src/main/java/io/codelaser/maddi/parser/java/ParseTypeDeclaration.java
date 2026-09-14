@@ -520,7 +520,7 @@ public class ParseTypeDeclaration extends CommonParse {
                 builder.addConstructor(cc);
             }
             // finally, add synthetic methods if needed
-            createAccessors(rs, recordFields).forEach(accessor -> {
+            createAccessors(rs, builder, recordFields).forEach(accessor -> {
                 builder.addMethod(accessor);
                 context.resolver().addRecordAccessor(accessor);
             });
@@ -541,8 +541,17 @@ public class ParseTypeDeclaration extends CommonParse {
         return rs.createSyntheticConstructor(source, fields, last != null && last.varargs() ? last.fieldInfo() : null);
     }
 
-    private List<MethodInfo> createAccessors(RecordSynthetics rs, List<ParseTypeDeclaration.RecordField> recordFields) {
-        return recordFields.stream().map(rf -> rs.createAccessor(rf.fieldInfo())).toList();
+    /*
+    An accessor the record writes out replaces the one the compiler would supply (JLS 8.10.3), so only the
+    missing ones are created; the openjdk front end's ClassSymbolScanner makes the same name-and-arity check.
+     */
+    private List<MethodInfo> createAccessors(RecordSynthetics rs,
+                                             TypeInfo.Builder builder,
+                                             List<ParseTypeDeclaration.RecordField> recordFields) {
+        return recordFields.stream()
+                .filter(rf -> builder.methods().stream()
+                        .noneMatch(mi -> mi.name().equals(rf.fieldInfo().name()) && mi.parameters().isEmpty()))
+                .map(rf -> rs.createAccessor(rf.fieldInfo())).toList();
     }
 
     private boolean haveConstructorMatchingFields(TypeInfo.Builder builder, List<RecordField> recordFields) {

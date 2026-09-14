@@ -149,6 +149,11 @@ public class JsonStreaming {
             if (addModulesNode != null) {
                 for (JsonNode m : addModulesNode) addModules.add(m.asText());
             }
+            List<String> addExports = new ArrayList<>();
+            JsonNode addExportsNode = node.get("addExports");
+            if (addExportsNode != null) {
+                for (JsonNode e : addExportsNode) addExports.add(e.asText());
+            }
             List<String> warningFlags = new ArrayList<>();
             JsonNode warningFlagsNode = node.get("warningFlags");
             if (warningFlagsNode != null) {
@@ -166,6 +171,7 @@ public class JsonStreaming {
                     .setDependencies(List.copyOf(dependencies))
                     .setSourceRelease(sourceRelease)
                     .setAddModules(List.copyOf(addModules))
+                    .setAddExports(List.copyOf(addExports))
                     .setWarningFlags(List.copyOf(warningFlags))
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
@@ -222,6 +228,11 @@ public class JsonStreaming {
             if (!value.addModules().isEmpty()) {
                 gen.writeArrayFieldStart("addModules");
                 for (String m : value.addModules()) gen.writeString(m);
+                gen.writeEndArray();
+            }
+            if (!value.addExports().isEmpty()) {
+                gen.writeArrayFieldStart("addExports");
+                for (String e : value.addExports()) gen.writeString(e);
                 gen.writeEndArray();
             }
             if (value.restrictToPackages() != null) {

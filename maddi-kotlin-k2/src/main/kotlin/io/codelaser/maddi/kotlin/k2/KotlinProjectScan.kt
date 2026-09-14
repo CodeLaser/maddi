@@ -58,7 +58,8 @@ class KotlinProjectScan(
      *        `TypeInfo` still comes from the shared registry/CTM (those Java sets must be parsed first).
      */
     fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
-              javaSourceRoots: List<Path> = emptyList()): Map<SourceSet, List<TypeInfo>> {
+              javaSourceRoots: List<Path> = emptyList(),
+              observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> {
         val jvm = JvmPlatforms.defaultJvmPlatform
         val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
 
@@ -106,11 +107,16 @@ class KotlinProjectScan(
         }
 
         val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
+        val sourceSetOf = LinkedHashMap<KtFile, String>()
         orderedSourceSets.forEach { ss ->
             val module = moduleBySourceSet[ss]!!
             val ktFiles = (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
             result[ss] = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager).convert(ktFiles)
+            ktFiles.forEach { sourceSetOf[it] = ss.name() }
         }
+        // after every set is converted, so a reference into an upstream set finds its CST; the session is still alive
+        val allTypes = result.values.flatten()
+        observers.forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
         return result
     }
 }

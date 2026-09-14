@@ -2,7 +2,16 @@
 
 **Audience:** whoever owns maddi (`maddi-cst-impl` / the parser + analysis).
 **Goal:** fix the *root cause* in maddi so downstream consumers don't need the identity workaround we added in `jfocus-refactor-service`.
-**Status:** currently *worked around* caller-side in the rename module (commit `40ee3366` on branch `fix/rename` of `jfocus-refactor-service`). The maddi bug itself is unfixed.
+**Status:** **RESOLVED 2026-09-14, with a different diagnosis than this handoff's.** Neither analysis nor a
+race was involved. The Java front-end built two `TypeParameter` instances for one class type parameter when the
+caller was scanned before the declaration, and the test's `Map.of` randomised the scan order per JVM run. Fixed in
+`maddi-java-openjdk` by filling the symbol-built instances in instead of replacing them. See
+[method-type-parameter-source-loss.md](method-type-parameter-source-loss.md) §9 and
+`TestClassTypeParameterIdentity`.
+
+**Do not implement Option A below.** Value-keyed ("canonical") lookups would have hidden the defect, which also
+put a different bound on the second instance. The analysis in "Root cause" §3–§4 is kept only as the record of
+the hypothesis.
 
 ---
 

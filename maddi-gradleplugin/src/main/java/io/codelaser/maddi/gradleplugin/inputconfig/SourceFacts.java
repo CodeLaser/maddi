@@ -41,14 +41,19 @@ import java.util.List;
  * @param addModules    JDK modules outside the default root set. ⛔ An INCUBATOR module is not in the
  *                      {@code java.se} closure, so without this every type in it is "package X is not
  *                      visible" and its compilation units are dropped.
+ * @param addExports    javac's {@code --add-exports}: packages opened beyond their module's exports (javac's
+ *                      internals, for a module compiling against them). Without it those units are dropped.
  * @param warningFlags  the resolved warning policy — {@code -Xlint:*}, {@code -Werror}, {@code -nowarn}.
  *                      ⚠ Resolved, not declared: OpenSearch adds {@code -Werror} once at the root and six
  *                      compile tasks subtract it again, and only this list knows which.
  */
-public record SourceFacts(int sourceRelease, List<String> addModules, List<String> warningFlags) {
+public record SourceFacts(int sourceRelease, List<String> addModules, List<String> addExports,
+                          List<String> warningFlags) {
 
     public SourceFacts {
         addModules = addModules == null ? List.of() : List.copyOf(addModules);
+        // null when a sibling's facts file was written by a plugin that predates this field: nothing to open
+        addExports = addExports == null ? List.of() : List.copyOf(addExports);
         warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
     }
 }

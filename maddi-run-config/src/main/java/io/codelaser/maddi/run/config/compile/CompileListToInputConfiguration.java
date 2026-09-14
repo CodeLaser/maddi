@@ -121,8 +121,18 @@ public class CompileListToInputConfiguration {
      * {@code --jre}/{@code alternativeJREDirectory} deliberately, which is the more specific instruction and
      * wins in {@code JavaInspectorImpl} either way.
      *
-     * <p>⚠ An invocation that passes no {@code --release} and no {@code -source} contributes nothing rather
-     * than a zero: absent is not "release 0", and letting it into the set would make every corpus look mixed.
+     * <p>⚠ An invocation that passes no {@code --release} contributes no RELEASE rather than a zero: absent is
+     * not "release 0", and letting it into the set of releases would make every corpus look mixed.
+     *
+     * <p>⛔⛔ <b>BUT IT DOES NOT ABSTAIN EITHER.</b> It compiled against its build's own JDK — a platform of its own,
+     * just not one the command line names — so a corpus where some invocations state {@code --release N} and
+     * others state none is MIXED, not unanimous. This method used to count only the invocations that stated one,
+     * and the parse applies the global value to every set without a release of its own: so the few that stated
+     * one imposed it on all the rest. MEASURED on the jfocus/maddi workspace (2026-09-14, 90 main source sets): 4
+     * invocations pass {@code --release 21}, 86 pass only {@code -source 25/17/26/21} and compiled against the
+     * build's JDK 26 — and all 86 were parsed at {@code --release=21}, language level and API both, with the log
+     * reading "All 90 compile invocation(s) that state one target Java release 21". The 4 lose nothing when the
+     * global stays unset: each carries its release per source set ({@code CompileListToSourceSets}).
      */
     private static void setSourceRelease(CompileListToSourceSets.Result result,
                                          InputConfigurationImpl.Builder builder) {
@@ -130,18 +140,26 @@ public class CompileListToInputConfiguration {
         // was discovered, and callers that build a configuration directly (every fixture in
         // TestNamesAreIdentities and TestExcludeSourceSets) pass none. Four green tests turned red on the first
         // run of this method for want of one null check.
-        Set<Integer> releases = result.jSourceSets().stream()
+        List<CompileInvocation> invocations = result.jSourceSets().stream()
                 .map(CompileListToSourceSets.JSourceSet::invocation)
                 .filter(java.util.Objects::nonNull)
+                .toList();
+        Set<Integer> releases = invocations.stream()
                 .map(CompileInvocation::effectiveRelease)
                 .filter(r -> r > 0)
                 .collect(Collectors.toCollection(TreeSet::new));
-        if (releases.size() == 1) {
+        long silent = invocations.stream().filter(inv -> inv.effectiveRelease() <= 0).count();
+        if (releases.size() == 1 && silent == 0) {
             int release = releases.iterator().next();
             builder.setSourceRelease(release);
-            LOGGER.info("All {} compile invocation(s) that state one target Java release {}; the parse will use"
-                        + " it rather than the JDK it runs on ({})", result.jSourceSets().size(), release,
-                    Runtime.version().feature());
+            LOGGER.info("All {} compile invocation(s) state Java release {}; the parse will use it rather than the"
+                        + " JDK it runs on ({})", invocations.size(), release, Runtime.version().feature());
+        } else if (releases.size() == 1) {
+            LOGGER.warn("{} of {} compile invocation(s) state --release {}, {} state none and compiled against"
+                        + " their build's own JDK: leaving the global sourceRelease unset. The {} keep their release"
+                        + " per source set; the others are parsed on the running JDK ({}).",
+                    invocations.size() - silent, invocations.size(), releases.iterator().next(), silent,
+                    invocations.size() - silent, Runtime.version().feature());
         } else if (releases.size() > 1) {
             LOGGER.warn("Compile invocations target {} different Java releases {}: leaving sourceRelease unset,"
                         + " so the parse uses the running JDK ({}). If that JDK is newer than the lowest release"

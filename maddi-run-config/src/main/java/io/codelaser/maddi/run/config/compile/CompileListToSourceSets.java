@@ -12,6 +12,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -127,7 +128,12 @@ public class CompileListToSourceSets {
         Map<String, String> jarFileToDestination = computePackagedJars(list);
         // ⚠ THE --module-path MAPPING WINS WHERE BOTH FIRE. It is the older rule and the one the modular corpora
         // are validated against, so the addition above can only ever ADD edges, never re-point an existing one.
-        jarFileToDestination.putAll(computeModuleJars(buildRoot, buildUnitByDestination, list));
+        jarFileToDestination.putAll(computeModuleJars(buildRoot, buildUnitByDestination, list,
+                CompileInvocation::modulePath));
+        // ...and the CLASS PATH by name only fills gaps: where the path rule already answered (maven's packaged
+        // jars, the jenkins fix), that answer stands; gradle's build/libs jars are the gap it fills.
+        computeModuleJars(buildRoot, buildUnitByDestination, list, CompileInvocation::classpath)
+                .forEach(jarFileToDestination::putIfAbsent);
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
         Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestination);
@@ -261,8 +267,27 @@ public class CompileListToSourceSets {
         return jarFileName.endsWith("-tests.jar") || jarFileName.endsWith("-test.jar");
     }
 
+    /**
+     * A reactor sibling's jar, mapped back to the destination that produced it — keyed by NAME, the gradle form of
+     * {@link #computePackagedJars}: gradle names a module's jar after the module ({@code maddi-ide-client-0.9.1.jar})
+     * but writes it to {@code build/libs}, away from {@code build/classes/java/main}, so the path rule never meets it.
+     *
+     * <p>⛔ <b>THE CLASS PATH TOO, NOT ONLY THE MODULE PATH</b> ({@code pathOf} picks which). This read only
+     * {@code --module-path}, so a sibling
+     * reached a modular consumer as its source set and a NON-modular consumer as an opaque library — the same
+     * edge, two spellings, and only one of them resolved. MEASURED on the jfocus/maddi workspace (2026-09-14):
+     * every modular set resolved, while {@code maddi-intellij} (no {@code module-info}) bound
+     * {@code maddi-ide-client-0.9.1.jar} although {@code maddi-ide-client} was a source set of the same parse —
+     * parsed twice, and the edge lost. The {@link #couldBeReactorOutput} guard applies to both paths alike;
+     * the caller lets a class-path answer only fill a gap the path rule left.
+     *
+     * <p>⚠ Names are registered as the log is walked, so a jar only matches a producer listed before it. That is
+     * the order {@link #compute} relies on throughout (a dependency's source set must exist before its consumer's
+     * is built), and a build tool guarantees it: a consumer's javac cannot start before its dependency compiled.
+     */
     private Map<String, String> computeModuleJars(String buildRoot, Map<String, String> buildUnitByDestination,
-                                                  List<? extends CompileInvocation> list) {
+                                                  List<? extends CompileInvocation> list,
+                                                  Function<CompileInvocation, List<String>> pathOf) {
         Map<String, String> moduleJarToDestination = new HashMap<>();
         Map<String, String> moduleNameToDestination = new HashMap<>();
         for (CompileInvocation inv : list) {
@@ -278,19 +303,21 @@ public class CompileListToSourceSets {
                         destination);
             }
 
-            if (inv.modulePath() != null) {
-                for (String modulePart : inv.modulePath()) {
-                    if (!moduleJarToDestination.containsKey(modulePart) && modulePart.endsWith(".jar")
-                        && couldBeReactorOutput(buildRoot, modulePart)) {
-                        String moduleDestination = computeModuleName(modulePart, moduleNameToDestination);
-                        if (moduleDestination != null) {
-                            moduleJarToDestination.put(modulePart, moduleDestination);
+            List<String> paths = pathOf.apply(inv);
+            if (paths != null) {
+                for (String part : paths) {
+                    if (!moduleJarToDestination.containsKey(part) && part.endsWith(".jar")
+                        && couldBeReactorOutput(buildRoot, part)) {
+                        String moduleDestination = computeModuleName(part, moduleNameToDestination);
+                        // a module's own jar on its own path is not a dependency on itself
+                        if (moduleDestination != null && !moduleDestination.equals(inv.destination())) {
+                            moduleJarToDestination.put(part, moduleDestination);
                         }
                     }
                 }
             }
         }
-        LOGGER.info("Computed {} moduleJarToDestination entries", moduleJarToDestination.size());
+        LOGGER.info("Computed {} jar -> source-set entries by module name", moduleJarToDestination.size());
         return moduleJarToDestination;
     }
 
@@ -332,6 +359,11 @@ public class CompileListToSourceSets {
     private String computeModuleName(String modulePart, Map<String, String> moduleNameToDestination) {
         int lastSlash = modulePart.lastIndexOf('/');
         String lastModulePart = lastSlash < 0 ? modulePart : modulePart.substring(lastSlash + 1);
+        // ⛔ A CLASSIFIED JAR IS NOT ITS MODULE'S MAIN OUTPUT, and "<prefix>/main" would claim it all the same:
+        // x-1.0-test-fixtures.jar has the prefix x. Claimed, it leaves the parse (handleClasspath does not make a
+        // claimed jar a library), and the fixtures with it -- computePackagedJars records what that cost on
+        // timefold. Unclaimed, it stays a library, as it always was.
+        if (lastModulePart.endsWith("-test-fixtures.jar") || hasTestClassifier(lastModulePart)) return null;
         Matcher m = PATTERN.matcher(lastModulePart);
         while (m.find()) {
             String prefix = lastModulePart.substring(0, m.start());
@@ -644,6 +676,7 @@ public class CompileListToSourceSets {
                 // ambiguity to abstain from: this set was compiled with exactly these options.
                 .setSourceRelease(inv.effectiveRelease())
                 .setAddModules(inv.addModules())
+                .setAddExports(inv.addExports())
                 .setWarningFlags(inv.warningFlags())
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);
