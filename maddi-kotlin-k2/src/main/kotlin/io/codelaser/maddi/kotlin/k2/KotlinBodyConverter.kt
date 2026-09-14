@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -933,7 +934,7 @@ internal class KotlinBodyConverter(
      * name, and an omitted parameter uses its declared default value. Returns null when a parameter can be
      * filled neither by an argument nor by a default (so the caller falls back to the positional list).
      */
-    private fun KaSession.orderedArguments(call: KtCallExpression, calleeSymbol: KaNamedFunctionSymbol,
+    private fun KaSession.orderedArguments(call: KtCallExpression, calleeSymbol: KaFunctionSymbol,
                                            method: MethodInfo, locals: Map<String, Variable>): List<Expression>? {
         val positional = call.valueArguments.filter { it.getArgumentName() == null }
         val byName = call.valueArguments.mapNotNull { va ->
@@ -1029,11 +1030,14 @@ internal class KotlinBodyConverter(
         // so it must NOT be appended again from `call.lambdaArguments` (that double-counts the lambda).
         val hasTrailingLambda = call.lambdaArguments.isNotEmpty()
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
-        val calleeSymbol = call.resolveSymbol() as? KaNamedFunctionSymbol
+        val resolved = call.resolveSymbol()
+        val calleeSymbol = resolved as? KaNamedFunctionSymbol
         // named and/or defaulted arguments (`f(1, c = 5)`): rebuild the list in declaration order, filling
         // omitted parameters with their default value (the JVM `f$default` shape). Only for the plain case
         // (no trailing lambda, no vararg); otherwise the positional args (incl. any trailing lambda) are used.
-        val ordered = calleeSymbol?.takeIf {
+        // A constructor needs it as much as a function: `Finding(e, "m")` against a third, defaulted parameter
+        // otherwise finds no two-parameter constructor and becomes a placeholder, arguments and all.
+        val ordered = (resolved as? KaFunctionSymbol)?.takeIf {
             !hasTrailingLambda && it.valueParameters.none { p -> p.isVararg } &&
                 (call.valueArguments.any { a -> a.getArgumentName() != null } ||
                     call.valueArguments.size < it.valueParameters.size)
@@ -1041,7 +1045,7 @@ internal class KotlinBodyConverter(
         val arguments = ordered ?: valueArgs
 
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
-        if (call.resolveSymbol() is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
+        if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
 
         // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
         if (receiver != null && calleeSymbol?.receiverParameter != null) {
