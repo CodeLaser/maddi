@@ -40,6 +40,7 @@ dependencies {
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path
+    testImplementation(project(":maddi-kotlin-k2"))                    // ReferenceRecall, the editor's-eye instrument
     testImplementation(testFixtures(project(":maddi-run-openjdk")))    // TestOssCorpus
 }
 

@@ -513,10 +513,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         created.add(newTp);
                         builder.addOrSetTypeParameter(newTp);
                     }
-                    int i = 0;
-                    for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
-                        TypeParameter newTp = created.get(i++);
-                        addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
+                    // The declaration is in this task's source and will be visited: create the type parameters, so
+                    // that whatever this load builds on them (the signatures of the methods a caller resolves) holds
+                    // them, and leave the rest to the declaration. ScanCompilationUnit.continueType fills THESE
+                    // instances in -- source, annotations, bounds as written -- rather than making new ones.
+                    //
+                    // It used to commit them here and let the declaration replace them with addOrSetTypeParameter.
+                    // The replace reached the type's own list and its fields, but not the signatures this load had
+                    // already built, so a caller scanned first left one type with TWO instances of its T: the
+                    // signatures' had no source and the bound widened to '? extends', and their positions, filed
+                    // under the declared instance in an identity-keyed DetailedSources, could not be found from them.
+                    // The third route of docs/method-type-parameter-source-loss.md (§9); TestClassTypeParameterIdentity.
+                    // Same condition as deferCommitToDeclaration in addMethodToType, for the same reason.
+                    boolean deferToDeclaration = !fromClassFile(cs)
+                                                 && newTypeInfo.compilationUnit() != null
+                                                 && sourceSetOfCurrentTask.equals(newTypeInfo.compilationUnit().sourceSet());
+                    if (!deferToDeclaration) {
+                        int i = 0;
+                        for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                            TypeParameter newTp = created.get(i++);
+                            addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
+                        }
                     }
                 }
                 popTypeParameterMap();
