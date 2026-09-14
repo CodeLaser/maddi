@@ -768,7 +768,7 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     public JavaDoc.Tag newJavaDocTag(JavaDoc.TagIdentifier tagIdentifier, String content,
                                      Info resolvedReference, Source source, Source sourceOfReference,
                                      boolean blockTag) {
-        return new JavaDocImpl.TagImpl(tagIdentifier, content, null, source, sourceOfReference,
+        return new JavaDocImpl.TagImpl(tagIdentifier, content, resolvedReference, source, sourceOfReference,
                 blockTag);
     }
 

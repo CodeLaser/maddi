@@ -105,6 +105,7 @@ class KotlinProjectScan(
                 }
             }
         }
+        session.registerKDocResolution()
 
         val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
         val sourceSetOf = LinkedHashMap<KtFile, String>()

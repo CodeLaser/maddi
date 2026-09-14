@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import com.intellij.openapi.util.TextRange
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
 import com.intellij.psi.PsiElement
 import io.codelaser.maddi.cst.api.element.DetailedSources
 import io.codelaser.maddi.cst.api.element.Source
@@ -32,9 +34,17 @@ import org.jetbrains.kotlin.psi.KtUserType
  * sources possible from this single parse. Falls back to an indexed `noSource()` for elements without a
  * document (e.g. synthetic ones). Shared by `KotlinScan` (declarations) and `KotlinBodyConverter` (bodies).
  */
-internal fun sourceOf(runtime: Runtime, psi: PsiElement, index: String): Source {
+internal fun sourceOf(runtime: Runtime, psi: PsiElement, index: String): Source =
+    sourceOf(runtime, psi, psi.textRange, index)
+
+/** Where a KDoc name spells its last segment: `subConfig` of `[Config.subConfig]`. */
+internal fun nameSourceOf(runtime: Runtime, name: KDocName): Source =
+    sourceOf(runtime, name, name.getNameTextRange().shiftRight(name.textRange.startOffset), "-")
+
+/** The source of [range], absolute offsets in [psi]'s file. */
+internal fun sourceOf(runtime: Runtime, psi: PsiElement, range: TextRange?, index: String): Source {
     val document = psi.containingFile?.viewProvider?.document ?: return runtime.noSource().withIndex(index)
-    val range = psi.textRange ?: return runtime.noSource().withIndex(index)
+    if (range == null) return runtime.noSource().withIndex(index)
     val lastOffset = (range.endOffset - 1).coerceAtLeast(range.startOffset) // inclusive last character
     val startLine = document.getLineNumber(range.startOffset)
     val endLine = document.getLineNumber(lastOffset)

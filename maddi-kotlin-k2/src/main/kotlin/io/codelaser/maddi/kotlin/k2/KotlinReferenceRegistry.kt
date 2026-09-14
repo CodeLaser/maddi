@@ -14,6 +14,8 @@
 package io.codelaser.maddi.kotlin.k2
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import io.codelaser.maddi.cst.api.element.JavaDoc
 import io.codelaser.maddi.cst.api.element.Source
 import io.codelaser.maddi.cst.api.info.FieldInfo
 import io.codelaser.maddi.cst.api.info.Info
@@ -21,6 +23,11 @@ import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.kdoc.parser.KDocKnownTag
+import org.jetbrains.kotlin.kdoc.psi.api.KDoc
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocLink
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocSection
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocTag
 import org.jetbrains.kotlin.psi.KtFile
 import java.util.IdentityHashMap
 
@@ -47,6 +54,10 @@ internal class KotlinReferenceRegistry {
     private val hostOf = IdentityHashMap<PsiElement, Info>()
     private val recorded = IdentityHashMap<Info, MutableList<Pair<Info, Source>>>()
 
+    // a declaration's KDoc, and the links in it that name project declarations: its JavaDoc, set in attach
+    private val kdocOf = IdentityHashMap<Info, KDoc>()
+    private val docTags = IdentityHashMap<Info, MutableList<JavaDoc.Tag>>()
+
     /** The URLs of every Kotlin file converted so far, across source sets: what [KotlinReferenceWalker] calls project. */
     val projectFiles: MutableSet<String> = HashSet()
 
@@ -58,7 +69,10 @@ internal class KotlinReferenceRegistry {
         if (psi != null) hostOf[psi] = info
     }
 
-    /** Records every project reference of [ktFile] on its innermost host. */
+    /**
+     * Records every project reference of [ktFile] on its innermost host, and every KDoc with the project declarations
+     * its links name on the declaration it documents.
+     */
     fun KaSession.record(runtime: Runtime, ktFile: KtFile, walker: KotlinReferenceWalker) {
         with(walker) {
             walk(ktFile) { reference, symbols ->
@@ -67,8 +81,35 @@ internal class KotlinReferenceRegistry {
                 val targets = symbols.mapNotNull { symbol -> declarationPsi(symbol)?.let { targetOf[it] } }.distinct()
                 targets.forEach { target -> recorded.getOrPut(host) { ArrayList() } += target to identifier }
             }
+            for (kdoc in PsiTreeUtil.findChildrenOfType(ktFile, KDoc::class.java)) {
+                kdoc.getOwner()?.let { documented(it) }?.let { kdocOf[it] = kdoc }
+            }
+            walkDocs(ktFile) { name, symbols ->
+                val owner = PsiTreeUtil.getParentOfType(name, KDoc::class.java)?.getOwner()?.let { documented(it) }
+                    ?: return@walkDocs
+                val link = PsiTreeUtil.getParentOfType(name, KDocLink::class.java)
+                val tag = PsiTreeUtil.getParentOfType(name, KDocTag::class.java)
+                // the subject of a block tag (`@see x`), else a link in running text (`[x]`)
+                val blockTag = tag != null && tag !is KDocSection && link != null && tag.getSubjectLink() == link
+                val identifierOfTag = if (!blockTag) JavaDoc.TagIdentifier.LINK else when (tag?.knownTag) {
+                    KDocKnownTag.SEE -> JavaDoc.TagIdentifier.SEE
+                    KDocKnownTag.THROWS, KDocKnownTag.EXCEPTION -> JavaDoc.TagIdentifier.THROWS
+                    KDocKnownTag.PARAM -> JavaDoc.TagIdentifier.PARAM
+                    else -> JavaDoc.TagIdentifier.UNKNOWN_BLOCK_TAG
+                }
+                val content = link?.getLinkText() ?: name.text
+                val source = sourceOf(runtime, link ?: name, "-")
+                val nameSource = nameSourceOf(runtime, name) // the segment itself: `subConfig` of `Config.subConfig`
+                symbols.mapNotNull { symbol -> declarationPsi(symbol)?.let { targetOf[it] } }.distinct().forEach { target ->
+                    docTags.getOrPut(owner) { ArrayList() } +=
+                        runtime.newJavaDocTag(identifierOfTag, content, target, source, nameSource, blockTag)
+                }
+            }
         }
     }
+
+    /** The Info a KDoc on [declaration] belongs to: what the declaration became, else (a delegated property) its host. */
+    private fun documented(declaration: PsiElement): Info? = targetOf[declaration] ?: hostOf[declaration]
 
     private fun hostFor(element: PsiElement): Info? {
         var p: PsiElement? = element
@@ -79,8 +120,20 @@ internal class KotlinReferenceRegistry {
         return null
     }
 
-    /** Puts the records of [host] on its source; to be called while its builder is still open. */
+    /** Puts the records of [host] on its source, and its KDoc; to be called while its builder is still open. */
     fun attach(runtime: Runtime, host: Info) {
+        kdocOf.remove(host)?.let { kdoc ->
+            // as Java's: the running text for the comment, every resolved link a tag whose sourceOfReference is the
+            // name it spells. Only links to project declarations are tags: the rest resolve to nothing here.
+            val javaDoc = runtime.newJavaDoc(sourceOf(runtime, kdoc, "-"), kdoc.getDefaultSection().getContent(),
+                docTags.remove(host).orEmpty())
+            when (host) {
+                is MethodInfo -> host.builder().setJavaDoc(javaDoc)
+                is FieldInfo -> host.builder().setJavaDoc(javaDoc)
+                is TypeInfo -> host.builder().setJavaDoc(javaDoc)
+                else -> {}
+            }
+        }
         val records = recorded.remove(host) ?: return
         // a file facade has no declaration of its own: its records ride on a source without a position
         val source = host.source() ?: runtime.noSource()

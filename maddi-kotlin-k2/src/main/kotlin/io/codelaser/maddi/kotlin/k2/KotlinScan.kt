@@ -274,7 +274,7 @@ class KotlinScan(
                 Files.createDirectories(file.parent ?: srcRoot)
                 Files.writeString(file, content)
             }
-            val session = buildSession(srcRoot)
+            val session = buildSession(srcRoot).also { it.registerKDocResolution() }
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
             observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
@@ -664,6 +664,9 @@ class KotlinScan(
                 .addFieldModifier(runtime.fieldModifierStatic())
                 .addFieldModifier(runtime.fieldModifierFinal())
                 .setInitializer(runtime.newEmptyExpression())
+                // every Info has a source (the Java parsers give even a synthesized one noSource()): consumers such
+                // as the text index read it unguarded
+                .setSource(declarationSource(entry) { putPsi(runtime, field.name(), entry.nameIdentifier) })
                 .computeAccess().commit()
             typeInfo.builder().addField(field)
         }
@@ -678,6 +681,7 @@ class KotlinScan(
             .addFieldModifier(runtime.fieldModifierStatic())
             .addFieldModifier(runtime.fieldModifierFinal())
             .setInitializer(runtime.newEmptyExpression())
+            .setSource(runtime.noSource()) // compiler-made: no text of its own
             .computeAccess().commit()
         return field
     }
@@ -973,6 +977,7 @@ class KotlinScan(
         field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
             .addFieldModifier(runtime.fieldModifierFinal()) // final on the JVM, for a `var` property too
+            .setSource(runtime.noSource()) // compiler-made; attach adds what the `by` expression names
         if (static) field.builder().addFieldModifier(runtime.fieldModifierStatic())
         owner.builder().addField(field)
         // the field is the host of what the `by` expression names: it is where that expression ends up
