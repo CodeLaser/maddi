@@ -258,3 +258,65 @@ else falls through to the symbol path exactly as before.
 Deliberately narrow. The alternative — having `ScanCompilationUnit.continueType` mark the type as
 class-scanner-setup-done, so the whole block is skipped — is tidier but also skips the parent class, the
 interfaces and the annotations, which is a much larger behavioural change for no measured benefit.
+
+## 9. The third route: class type parameters, replaced under signatures already built (2026-09-14)
+
+§2 explained why classes were "mostly spared": `addOrSetTypeParameter` lets the declaration replace what the
+symbol scanner left. That replace is exactly this route's defect.
+
+```java
+// a/A.java
+class A<T extends Tuple> {
+    private T first;
+    public void add(T tuple) { ... }
+    public T next(T tuple) { ... }
+}
+// a/User.java  -- scanned first: resolving these calls loads A from its SYMBOL
+void use(A<Tuple> list, Tuple t) { list.add(t); Tuple n = list.next(t); }
+```
+
+With `User` first, the symbol load of `A` creates a `T` (no source, bound `? extends Tuple`, committed) and builds
+the signatures of `add` and `next` on it. The source scan of `A` then creates a second `T` and replaces the first
+in the type's list, so `A.typeParameters()` and the field `first` hold the declared `T`. The signatures, built
+earlier, still hold the other one. One type ends up with **two instances of one type parameter**, and which
+occurrence holds which depends on the scan order.
+
+**Why §3's instrument could not see it.** It counted declared type parameters without a source: zero here, since
+the type's list holds the right instance. The defect is in the *occurrences*. Counting occurrences in field,
+return and parameter types that are not the instance their owner declares:
+
+| corpus | class type-parameter occurrences in signatures | not the declared instance, before | after |
+|---|---:|---:|---:|
+| guava | 8,946 | 1,731 (19%) | 0 |
+| timefold-solver | 19,929 | 3,520 (18%) | 0 |
+| jenkins | 826 | 332 (40%) | 0 |
+
+The same count for method type parameters was 0 before and after (§7 holds). No class type parameter is left
+uncommitted after the fix on any of the three corpora.
+
+**What it broke.** The same two symptoms as §1:
+- **No source for the signature's `T`.** Its positions are filed in `DetailedSources` under the declared
+  instance, and `DetailedSources` is identity-keyed, so a lookup with the signature's `T` misses. The jfocus rename
+  of a class type parameter left `add(T tuple)` unrenamed; jfocus carried a caller-side workaround that looked
+  the declared instance up by owner and index.
+- **A different bound on the same type parameter**, `? extends Tuple` against `Tuple`, decided by scan order and
+  visible to the analyzer.
+
+`TypeParameter.equals` calls the two instances equal (owner and index), so only identity sees the difference.
+Making `DetailedSources` equals-keyed ("canonical keys") would have hidden both symptoms, and it was rejected
+for that reason.
+
+**The fix.** It has the same shape as §7: fill in, never replace.
+- `ClassSymbolScanner.loadType` still creates and registers the class type parameters. When the declaration is in
+  the current task's source (`deferCommitToDeclaration`'s condition), it now leaves bounds, annotations and the
+  commit to the declaration.
+- `ScanCompilationUnit.continueType` fills in those instances when they are there, uncommitted, with matching
+  count and names. Otherwise it creates new ones as before.
+
+The §8 guard is unchanged: it keeps type parameters the source scan already committed.
+
+**How it was found, and a wrong diagnosis to avoid.** The jfocus test was flaky, about 5 runs in 12, and a
+handoff attributed that to a race in parallel prepwork and to the translation machinery. It was neither: the
+test gives the parser a `Map.of`, and its iteration order, which is randomised per JVM run, is the scan order.
+That is §6's lesson again. Pinned by `TestClassTypeParameterIdentity`, which scans in both orders with a
+`LinkedHashMap`.
