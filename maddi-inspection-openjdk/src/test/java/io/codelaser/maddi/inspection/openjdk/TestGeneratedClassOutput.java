@@ -208,6 +208,38 @@ public class TestGeneratedClassOutput {
         assertTrue(holds(summary, USER_FQN), "javac compiled a.b.Base implicitly from the class path");
     }
 
+    /**
+     * A package-info can never be the target of a reference, so it never has to resolve through a class file — and
+     * javac writes none for a package-info without annotations, nor for a compilation unit that declares no type at
+     * all, which the parse also models as a package-info ({@code ScanCompilationUnit}, "getTypeDecls().isEmpty()").
+     * Measured on Apache Ignite (2026-09-14): {@code GridTcpCommunicationBenchmark.java} is commented out below its
+     * package line, and each of 22 source sets depending on {@code core/test-classes} was warned that
+     * {@code …loadtests.communication.package-info} had "neither a class file nor a source file" and that units
+     * were dropped. A per-set reconciliation of the parse showed none were.
+     */
+    @DisplayName("a package-info, or a unit that declares no type, is not reported for lacking a class file")
+    @Test
+    public void testPackageInfoWithoutClassFileIsNotReported() throws IOException {
+        setup(BASE, USER);
+        Files.writeString(mainSrc.resolve("package-info.java"), "/** The a.b package. */\npackage a.b;\n");
+        Path typeless = Files.createDirectories(root.resolve("main-src/e/f"));
+        Files.writeString(typeless.resolve("Commented.java"), "package e.f;\n// public class Commented { }\n");
+        compile(List.of(mainSrc.resolve("Base.java"), mainSrc.resolve("package-info.java"),
+                typeless.resolve("Commented.java")), mainClasses);
+        assertTrue(Files.exists(mainClasses.resolve("a/b/Base.class")), "control: the build is complete");
+        assertFalse(Files.exists(mainClasses.resolve("a/b/package-info.class")),
+                "control: javac writes no class for a package-info without annotations");
+        assertFalse(Files.exists(mainClasses.resolve("e/f/package-info.class")),
+                "control: nor for a unit that declares no type");
+
+        Summary summary = parse(null);
+
+        assertTrue(holds(summary, "a.b.package-info"), "control: the parse models the package-info");
+        assertTrue(holds(summary, "e.f.package-info"), "control: and the type-less unit as one");
+        assertEquals(List.of(), classOutputWarnings(summary), "nothing can reference a package-info");
+        assertTrue(holds(summary, USER_FQN));
+    }
+
     @DisplayName("class output one edit behind: reported as stale, and the new member is lost")
     @Test
     public void testStaleClassOutputIsReported() throws IOException {

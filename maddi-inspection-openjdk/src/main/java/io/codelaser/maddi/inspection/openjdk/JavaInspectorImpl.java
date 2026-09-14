@@ -1480,6 +1480,12 @@ public class JavaInspectorImpl implements JavaInspector {
         List<String> missing = new ArrayList<>();
         List<String> stale = new ArrayList<>();
         for (TypeInfo typeInfo : parsed) {
+            // ⛔ A PACKAGE-INFO IS NEVER THE TARGET OF A REFERENCE, so it never has to resolve through a class file —
+            // and javac writes none for a package-info without annotations, nor for a unit that declares no type
+            // (which the parse models as a package-info too). Counted, it claimed dropped units that were not:
+            // Apache Ignite's commented-out GridTcpCommunicationBenchmark.java warned 22 dependent source sets.
+            // By name, not typeNature(): '-' cannot occur in a Java identifier, and the name holds before commit.
+            if ("package-info".equals(typeInfo.simpleName())) continue;
             // a primary type is top-level, so its class file sits at the package path under the output directory
             String path = typeInfo.fullyQualifiedName().replace('.', '/');
             File classFile = new File(dir, path + ".class");
