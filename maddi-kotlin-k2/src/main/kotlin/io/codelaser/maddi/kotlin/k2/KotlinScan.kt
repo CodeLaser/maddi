@@ -190,6 +190,8 @@ class KotlinScan(
     override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
         convertMethod(owner, function)
 
+    override fun KaSession.finishAnonMembers(owner: TypeInfo) = convertInitializers(owner)
+
     override fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
                                           outerLocals: Map<String, Variable>): TypeInfo =
         buildLocalTypeImpl(enclosingMethod, declaration, outerLocals)
@@ -361,7 +363,7 @@ class KotlinScan(
                     ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
                 facadeBodies.forEach { (method, sym) -> finishMethodBody(sym, method) }
-                fc.facade?.let { convertDelegateInitializers(it) } // top-level `val x by lazy { … }`
+                fc.facade?.let { convertInitializers(it) } // top-level `val x = …`, `val x by lazy { … }`
             }
         }
         // every type now has its members, so a delegate declared after its user resolves: fill the accessors
@@ -487,6 +489,15 @@ class KotlinScan(
     // delegated properties awaiting their initializer + accessor bodies: see drainDelegatedProperties
     private val pendingDelegates = mutableListOf<PendingDelegate>()
 
+    // property initializers awaiting conversion, while their owner is open and its members exist: see
+    // convertInitializers. One its owner never reaches keeps the empty initializer it was created with.
+    private val pendingInitializers = mutableListOf<PendingInitializer>()
+    private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
+                                     val static: Boolean)
+
+    // the constructor an instance property's initializer runs in, per type: the primary one, else the first
+    private val runsInitOf = java.util.IdentityHashMap<TypeInfo, MethodInfo>()
+
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
         val facade = runtime.newTypeInfo(compilationUnit, facadeSimpleName(ktFile))
@@ -567,6 +578,7 @@ class KotlinScan(
                 typeInfo.builder().addConstructor(constructor)
                 if (runsInit == null || ctor.isPrimary) runsInit = constructor
             }
+        runsInit?.let { runsInitOf[typeInfo] = it }
         // an `init` block is code of the primary constructor (of every constructor without one): what it names is
         // recorded there, where the graph looks for a caller, rather than falling through to the class
         if (bodyDepth == 0) runsInit?.let { ctor -> declaration.getAnonymousInitializers().forEach { references.host(it, ctor) } }
@@ -592,9 +604,9 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
-        // delegate expressions now: the type is still open (a lambda mints an anonymous type on its builder)
-        // and its own methods exist. See convertDelegateInitializers.
-        convertDelegateInitializers(typeInfo)
+        // initializers and delegate expressions now: the type is still open (a lambda mints an anonymous type on
+        // its builder) and its own methods exist. See convertInitializers.
+        convertInitializers(typeInfo)
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
@@ -673,6 +685,18 @@ class KotlinScan(
         enclosing.builder().addSubType(companion)
         infoByFqn.put(companion.fullyQualifiedName(), companion, sourceSet)
         references.target(companionSymbol.psi, companion)
+        // the private constructor kotlinc gives it, called once, from the enclosing class's static initializer. The
+        // companion's properties are instance fields of it, so their initializers run there, as a class's run in its
+        // primary constructor. Built as the Java parser builds a class's default constructor.
+        val constructor = runtime.newConstructor(companion, runtime.methodTypeSyntheticConstructor())
+        constructor.builder()
+            .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+            .setMethodBody(runtime.emptyBlock())
+            .addMethodModifier(runtime.methodModifierPrivate())
+            .setSynthetic(true).setSource(runtime.noSource()).commitParameters().computeAccess()
+        companion.builder().addConstructor(constructor)
+        runsInitOf[companion] = constructor
+        commitOrDefer(constructor, null) { constructor.builder().commit() }
 
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -680,6 +704,7 @@ class KotlinScan(
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
+        convertInitializers(companion)
         companion.builder().commit()
 
         // the singleton handle: `public static final <Companion> Companion` on the enclosing class
@@ -823,7 +848,8 @@ class KotlinScan(
         val field = runtime.newFieldInfo(name, static, type, owner)
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
-            .setInitializer(runtime.newEmptyExpression())
+            .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
+        (property.psi as? KtProperty)?.initializer?.let { pendingInitializers += PendingInitializer(owner, field, it, static) }
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
@@ -928,6 +954,48 @@ class KotlinScan(
     }
 
     /**
+     * Convert [owner]'s property initializers (see [initializerContext]) and delegate expressions (see
+     * [convertDelegateInitializers]) into their fields' initializers, while [owner] is open and its members exist.
+     */
+    private fun KaSession.convertInitializers(owner: TypeInfo) {
+        convertDelegateInitializers(owner)
+        // a snapshot, like the delegates': an `object :` expression in an initializer queues its own properties,
+        // which its conversion finishes (finishAnonMembers) before this loop reaches them
+        pendingInitializers.toList().forEach { p ->
+            if (p.owner !== owner || !pendingInitializers.remove(p)) return@forEach
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(owner, p.static), emptyMap()))
+        }
+    }
+
+    /**
+     * The member a property initializer is code of, which is where kotlinc compiles it: an instance property's into
+     * the primary constructor (of a class, an `object`, a companion); a top-level property's into the file facade's
+     * static initializer; an `object :` expression's, which has no constructor in the CST (nor in Java's), into an
+     * instance initializer. An `object :` expression or a lambda in the initializer is enclosed by that member, and a
+     * primary-constructor parameter the initializer reads resolves as the constructor's parameter.
+     */
+    private fun initializerContext(owner: TypeInfo, static: Boolean): MethodInfo =
+        if (static) initializerMethod(owner, runtime.methodTypeStaticInitializer(), "<static_0>") { it.isStaticInitializer }
+        else runsInitOf[owner] ?: initializerMethod(owner, runtime.methodTypeInstanceInitializer(), "<init_0>") {
+            it.isInstanceInitializer
+        }
+
+    /** The synthetic initializer block of [owner], made on first use: empty, private, as the Java parser names one. */
+    private fun initializerMethod(owner: TypeInfo, type: MethodInfo.MethodType, name: String,
+                                  existing: (MethodInfo) -> Boolean): MethodInfo {
+        owner.methods().firstOrNull(existing)?.let { return it }
+        val method = runtime.newMethod(owner, name, type)
+        method.builder()
+            .setReturnType(runtime.voidParameterizedType())
+            .setMethodBody(runtime.emptyBlock())
+            .setAccess(runtime.accessPrivate())
+            .setSynthetic(true).setSource(runtime.noSource()).commitParameters()
+        owner.builder().addMethod(method)
+        commitOrDefer(method, null) { method.builder().commit() }
+        return method
+    }
+
+    /**
      * Convert the delegate expressions of [owner]'s delegated properties into their fields' initializers.
      * Called while [owner] is still **open**, at the end of its member conversion: a delegate expression is
      * usually a call with a lambda (`lazy { … }`), and a lambda mints an anonymous type on its enclosing
@@ -950,7 +1018,7 @@ class KotlinScan(
 
     private fun finishDelegate(p: PendingDelegate) {
         if (!p.initialized) {
-            // not converted while the owner was open (an anonymous object's property, say): mark rather than
+            // not converted while the owner was open (no convertInitializers reached it): mark rather than
             // convert -- a lambda in the expression would need the owner's builder, and it is committed now
             p.field.builder().setInitializer(runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}"))
                 .computeAccess()

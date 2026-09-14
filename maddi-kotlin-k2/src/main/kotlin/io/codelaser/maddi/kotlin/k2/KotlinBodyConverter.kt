@@ -128,6 +128,9 @@ internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
     fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
 
+    /** Convert the property initializers of the anonymous type [owner] while it is still open. */
+    fun KaSession.finishAnonMembers(owner: TypeInfo)
+
     /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
     fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
                                  outerLocals: Map<String, Variable>): TypeInfo
@@ -993,6 +996,7 @@ internal class KotlinBodyConverter(
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
             ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+        with(memberConverter) { finishAnonMembers(anon) }
         builder.commit()
 
         return runtime.newConstructorCallBuilder()

@@ -89,10 +89,14 @@ class ReferenceRecallTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun aPropertyInitializerIsConverted() {
+        // it was not, and every reference in one was DROPPED; it is now its field's initializer
+        assertRow(rows(), "Model.kt:4:19", "size", Site.NAME, Region.PROPERTY_INITIALIZER, Target.PROPERTY, Tier.EXACT)
+    }
+
+    @Test
     fun unconvertedRegionsAreDropped() {
         val rows = rows()
-        // member property initializers are not converted
-        assertRow(rows, "Model.kt:4:19", "size", Site.NAME, Region.PROPERTY_INITIALIZER, Target.PROPERTY, Tier.DROPPED)
         // an unresolved library extension call is one placeholder: its receiver and its lambda go with it
         assertRow(rows, "Model.kt:9:46", "items", Site.NAME, Region.FUNCTION_BODY, Target.PARAMETER, Tier.DROPPED)
         assertRow(rows, "Model.kt:9:61", "grow", Site.CALLEE, Region.LAMBDA_TO_LIBRARY, Target.FUNCTION, Tier.DROPPED)
