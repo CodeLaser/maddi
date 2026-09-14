@@ -73,6 +73,7 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
@@ -190,7 +191,10 @@ class KotlinScan(
     override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
         convertMethod(owner, function)
 
-    override fun KaSession.finishAnonMembers(owner: TypeInfo) = convertInitializers(owner)
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtObjectDeclaration) {
+        convertInitializers(owner)
+        convertInitBlocks(declaration, owner)
+    }
 
     override fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
                                           outerLocals: Map<String, Variable>): TypeInfo =
@@ -203,6 +207,9 @@ class KotlinScan(
 
     private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo, locals: Map<String, Variable>) =
         inBody { with(bodyConverter) { convertExpression(expression, method, locals) } }
+
+    private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
+        inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
 
     private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String) =
@@ -495,8 +502,13 @@ class KotlinScan(
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
                                      val static: Boolean)
 
-    // the constructor an instance property's initializer runs in, per type: the primary one, else the first
+    // the constructor an instance property's initializer and an init block run in, per type: the primary one, else
+    // the first that calls super rather than this(...)
     private val runsInitOf = java.util.IdentityHashMap<TypeInfo, MethodInfo>()
+
+    // init blocks converted in pass B1, per constructor, waiting for the rest of its body: see convertInitBlocks
+    private val initBlocksOf = java.util.IdentityHashMap<MethodInfo, PlannedInitBlocks>()
+    private class PlannedInitBlocks(val prefix: Int, val total: Int, val blocks: List<Statement>)
 
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
@@ -576,11 +588,14 @@ class KotlinScan(
                 references.target(ctorPsi, constructor)
                 if (bodyDepth == 0) references.host(ctorPsi, constructor) // attached in finalizeType
                 typeInfo.builder().addConstructor(constructor)
-                if (runsInit == null || ctor.isPrimary) runsInit = constructor
+                // the primary constructor; without one, init code runs in each constructor that calls super rather
+                // than this(...): the first of those is the one it is converted into (twice would declare twice)
+                val callsThis = (ctor.psi as? KtSecondaryConstructor)?.getDelegationCall()?.isCallToThis == true
+                if (ctor.isPrimary || runsInit == null && !callsThis) runsInit = constructor
             }
         runsInit?.let { runsInitOf[typeInfo] = it }
-        // an `init` block is code of the primary constructor (of every constructor without one): what it names is
-        // recorded there, where the graph looks for a caller, rather than falling through to the class
+        // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
+        // the graph looks for a caller, rather than falling through to the class
         if (bodyDepth == 0) runsInit?.let { ctor -> declaration.getAnonymousInitializers().forEach { references.host(it, ctor) } }
     }
 
@@ -604,9 +619,10 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
-        // initializers and delegate expressions now: the type is still open (a lambda mints an anonymous type on
-        // its builder) and its own methods exist. See convertInitializers.
+        // initializers, delegate expressions and init blocks now: the type is still open (a lambda mints an
+        // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
         convertInitializers(typeInfo)
+        convertInitBlocks(declaration, typeInfo)
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
@@ -705,6 +721,11 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
         convertInitializers(companion)
+        (companionSymbol.psi as? KtObjectDeclaration)?.let { declaration ->
+            declaration.getAnonymousInitializers().forEach { references.host(it, constructor) }
+            convertInitBlocks(declaration, companion)
+            initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(constructorBody(listOf(), it)) }
+        }
         companion.builder().commit()
 
         // the singleton handle: `public static final <Companion> Companion` on the enclosing class
@@ -779,15 +800,69 @@ class KotlinScan(
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
                     ?.let { statements.add(assignFieldFromParam(typeInfo, it, param, false)) }
             }
-            val body = runtime.newBlockBuilder()
-            statements.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i, statements.size))) }
-            cst.builder().setMethodBody(body.build())
+            cst.builder().setMethodBody(constructorBody(statements, initBlocksOf.remove(cst)))
             references.attach(runtime, cst)
             cst.builder().commit()
         }
         references.attach(runtime, typeInfo)
         typeInfo.builder().commit() // access already computed in convertMembers (B1)
     }
+
+    /**
+     * A constructor's body: [prefix] (the `this(...)`/`super(...)` invocation, the parameter-property assignments),
+     * then the `init` blocks [planned] for it in pass B1, whose statement indices were fixed then. The prefix is
+     * indexed into the slots planned for it, right-aligned: a planned invocation that did not resolve leaves its slot
+     * empty rather than shifting indices the blocks already carry.
+     */
+    private fun constructorBody(prefix: List<Statement>, planned: PlannedInitBlocks?): Block {
+        val body = runtime.newBlockBuilder()
+        if (planned == null) {
+            prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i, prefix.size))) }
+        } else {
+            val shift = planned.prefix - prefix.size
+            check(shift >= 0) { "constructor body: ${prefix.size} statements before the init blocks, ${planned.prefix} planned" }
+            prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i + shift, planned.total))) }
+            planned.blocks.forEach { body.addStatement(it) }
+        }
+        return body.build()
+    }
+
+    /**
+     * Convert [declaration]'s `init` blocks, in pass B1, so that what they declare (an `object :` expression, its
+     * overrides) exists before references are recorded. They are code of the constructor [runsInitOf] names -- which
+     * is where kotlinc compiles them -- appended to its body after the invocation and the parameter-property
+     * assignments, each a nested block with its own scope. The body itself is assembled in pass B2 (finalizeType),
+     * so the prefix is counted here as finalizeType will build it. A type without a constructor (an `object :`
+     * expression) gets them as the body of its instance initializer.
+     */
+    private fun KaSession.convertInitBlocks(declaration: KtClassOrObject, owner: TypeInfo) {
+        val inits = declaration.getAnonymousInitializers()
+        if (inits.isEmpty()) return
+        val ctor = runsInitOf[owner]
+        if (ctor == null) {
+            val initializer = initializerMethod(owner, runtime.methodTypeInstanceInitializer(), "<init_0>") {
+                it.isInstanceInitializer
+            }
+            val body = runtime.newBlockBuilder()
+            inits.forEachIndexed { j, init -> body.addStatement(convertInitBlock(init, initializer, bodyConverter.pad(j, inits.size))) }
+            initializer.builder().setMethodBody(body.build())
+            return
+        }
+        val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
+            ?.filterIsInstance<KaConstructorSymbol>()?.toList()?.getOrNull(owner.constructors().indexOf(ctor))
+        val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
+        val prefix = invocation + ctor.parameters().count { p -> owner.fields().any { it.name() == p.name() } }
+        val total = prefix + inits.size
+        val blocks = inits.mapIndexed { j, init -> convertInitBlock(init, ctor, bodyConverter.pad(prefix + j, total)) }
+        initBlocksOf[ctor] = PlannedInitBlocks(prefix, total, blocks)
+    }
+
+    /** Whether [ctor] is written with a `this(...)`/`super(...)` call, resolved or not: see [explicitConstructorInvocation]. */
+    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctor: KaConstructorSymbol): Boolean =
+        when (val psi = ctor.psi) {
+            is KtSecondaryConstructor -> !psi.getDelegationCall().isImplicit
+            else -> declaration.superTypeListEntries.any { it is KtSuperTypeCallEntry }
+        }
 
     /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
     private fun KaSession.explicitConstructorInvocation(

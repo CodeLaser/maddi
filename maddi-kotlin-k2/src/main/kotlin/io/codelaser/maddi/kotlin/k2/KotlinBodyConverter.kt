@@ -71,6 +71,7 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
@@ -128,8 +129,8 @@ internal interface MemberConverter {
     fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol)
     fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
 
-    /** Convert the property initializers of the anonymous type [owner] while it is still open. */
-    fun KaSession.finishAnonMembers(owner: TypeInfo)
+    /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
+    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtObjectDeclaration)
 
     /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
     fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
@@ -555,6 +556,10 @@ internal class KotlinBodyConverter(
             .setOperator(opAndPrecedence.first).setPrecedence(opAndPrecedence.second)
             .setParameterizedType(left.parameterizedType()).setSource(runtime.noSource()).build()
     }
+
+    /** An `init { … }` block, as a nested [Block] at [index] in [method]'s body, with a scope of its own. */
+    internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String): Block =
+        convertBlock(init.body, method, emptyMap(), index)
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
@@ -996,7 +1001,7 @@ internal class KotlinBodyConverter(
             ?.forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
         symbol?.declaredMemberScope?.declarations?.filterIsInstance<KaNamedFunctionSymbol>()
             ?.forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
-        with(memberConverter) { finishAnonMembers(anon) }
+        with(memberConverter) { finishAnonMembers(anon, expression.objectDeclaration) }
         builder.commit()
 
         return runtime.newConstructorCallBuilder()
