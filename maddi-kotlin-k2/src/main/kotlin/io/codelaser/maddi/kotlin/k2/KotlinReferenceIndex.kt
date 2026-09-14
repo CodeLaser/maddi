@@ -195,4 +195,7 @@ class KotlinReferenceIndex : KotlinParseObserver() {
         family(key).flatMap { listOfNotNull(declarations[it]) + references(it) }
 
     fun declarationCount(): Int = declarations.size
+
+    /** Every declaration indexed or referenced: to compare what each reference names across two parses. */
+    fun keys(): Set<DeclarationKey> = declarations.keys + references.keys
 }
