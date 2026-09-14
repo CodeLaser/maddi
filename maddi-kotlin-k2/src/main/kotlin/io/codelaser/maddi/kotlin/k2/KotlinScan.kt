@@ -221,7 +221,7 @@ class KotlinScan(
      * CompiledTypesManager (built authoritatively by the Java front-end), not rebuilt from K2.
      */
     fun parse(filesByName: Map<String, String>, javaFilesByName: Map<String, String>,
-              recall: ReferenceRecall? = null): List<TypeInfo> {
+              observers: List<KotlinParseObserver> = emptyList()): List<TypeInfo> {
         // Standalone resolves from source roots: lay the files down in a temp directory (Kotlin + Java).
         // ⚠ The directory is ours alone and dies with the call: conversion below is eager, so nothing in the
         // returned CST reads it again (only the CompilationUnit URI still names it). Leaving it behind cost
@@ -236,7 +236,7 @@ class KotlinScan(
             val session = buildSession(srcRoot)
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
-            recall?.measure(runtime, ktFiles, types) { sourceSet.name() }
+            observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
             return types
         } finally {
             srcRoot.toFile().deleteRecursively()

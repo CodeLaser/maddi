@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,7 +55,7 @@ public class TestDetektReferenceRecall {
         inspector.initialize(JsonStreaming.objectMapper().readValue(config.toFile(), InputConfigurationImpl.class));
 
         ReferenceRecall recall = new ReferenceRecall(6);
-        inspector.parseFromConfiguration(recall);
+        inspector.parseFromConfiguration(List.of(recall));
 
         String report = recall.report();
         Path out = Path.of("build/reports/reference-recall/detekt.txt");

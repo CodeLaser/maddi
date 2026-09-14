@@ -59,7 +59,7 @@ class KotlinProjectScan(
      */
     fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
               javaSourceRoots: List<Path> = emptyList(),
-              recall: ReferenceRecall? = null): Map<SourceSet, List<TypeInfo>> {
+              observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> {
         val jvm = JvmPlatforms.defaultJvmPlatform
         val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
 
@@ -115,7 +115,8 @@ class KotlinProjectScan(
             ktFiles.forEach { sourceSetOf[it] = ss.name() }
         }
         // after every set is converted, so a reference into an upstream set finds its CST; the session is still alive
-        recall?.measure(runtime, sourceSetOf.keys.toList(), result.values.flatten()) { sourceSetOf.getValue(it) }
+        val allTypes = result.values.flatten()
+        observers.forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
         return result
     }
 }

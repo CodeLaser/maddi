@@ -97,7 +97,7 @@ import java.util.IdentityHashMap
  * becomes an accessor call in the CST. Positions use [sourceOf], the computation the CST itself uses, so equal
  * means equal. Nothing is asserted here: a caller reads [report] or [rows].
  */
-class ReferenceRecall(private val samplesPerCell: Int = 6) {
+class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver() {
 
     enum class Tier { EXACT, CONTAINED, COVERED, DROPPED }
 
@@ -122,9 +122,10 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) {
     private val rows = ArrayList<Row>()
     private val sourceLines = HashMap<String, List<String>>()
     private val unresolvedSamples = ArrayList<String>()
-    var libraryReferences = 0; private set
-    var unresolvedReferences = 0; private set
-    var failedReferences = 0; private set
+    private var walker = KotlinReferenceWalker(emptySet())
+    val libraryReferences get() = walker.libraryReferences
+    val unresolvedReferences get() = walker.unresolvedReferences
+    val failedReferences get() = walker.failedReferences
     var filesWithoutCst = 0; private set
 
     fun rows(): List<Row> = rows
@@ -132,9 +133,9 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) {
     // ---------------------------------------------------------------------------------------------------------------
     // measuring: called by the scan, while its K2 session is alive and after every file has been converted
 
-    internal fun measure(runtime: Runtime, ktFiles: List<KtFile>, types: List<TypeInfo>,
+    override fun observe(runtime: Runtime, ktFiles: List<KtFile>, types: List<TypeInfo>,
                          sourceSetName: (KtFile) -> String) {
-        val projectFiles = ktFiles.mapNotNull { it.virtualFile?.url }.toHashSet()
+        walker = KotlinReferenceWalker(ktFiles.mapNotNull { it.virtualFile?.url }.toHashSet())
         val typesByUri = types.groupBy { it.compilationUnit().uri().toString() }
         for (ktFile in ktFiles) {
             val url = ktFile.virtualFile?.url ?: continue
@@ -143,56 +144,27 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) {
             val index = CstIndex().also { idx -> cstTypes.forEach { idx.walkType(it) } }
             sourceLines[url] = ktFile.text.lines()
             val sourceSet = sourceSetName(ktFile)
-            analyze(ktFile) { measureFile(runtime, ktFile, sourceSet, url, projectFiles, index) }
+            analyze(ktFile) { measureFile(runtime, ktFile, sourceSet, url, index) }
         }
     }
 
-    @OptIn(KaExperimentalApi::class)
     private fun KaSession.measureFile(runtime: Runtime, ktFile: KtFile, sourceSet: String, url: String,
-                                      projectFiles: Set<String>, index: CstIndex) {
-        ktFile.accept(object : KtTreeVisitorVoid() {
-            override fun visitReferenceExpression(expression: org.jetbrains.kotlin.psi.KtReferenceExpression) {
-                super.visitReferenceExpression(expression)
-                val reference = expression as? KtNameReferenceExpression ?: return
-                if (reference.getReferencedNameElementType() != KtTokens.IDENTIFIER) return
-                if (PsiTreeUtil.getParentOfType(reference, KtPackageDirective::class.java) != null) return
-                // resolveSymbol answers expression positions; a type reference or import segment needs the
-                // PSI reference instead
-                val symbol = try {
-                    reference.resolveSymbol() ?: reference.mainReference.resolveToSymbol()
-                } catch (e: RuntimeException) {
-                    failedReferences++
-                    return
-                }
-                if (symbol == null) {
-                    unresolvedReferences++
-                    if (unresolvedSamples.size < samplesPerCell * 2) {
-                        val at = sourceOf(runtime, reference, "-")
-                        unresolvedSamples += "${url.substringAfterLast('/')}:${at.beginLine()}:${at.beginPos()} " +
-                                             "'${reference.getReferencedName()}'  |  " +
-                                             (reference.parent?.text?.lineSequence()?.firstOrNull()?.trim()?.take(100) ?: "")
-                    }
-                    return
-                }
-                if (symbol is KaPackageSymbol) return
-                if (!isProjectDeclaration(symbol, projectFiles)) {
-                    libraryReferences++
-                    return
-                }
-                val identifier = sourceOf(runtime, reference.getReferencedNameElement(), "-")
-                val name = reference.getReferencedName()
-                val enclosing = enclosingExpressions(reference).map { sourceOf(runtime, it, "-") }
-                rows += Row(sourceSet, url, identifier.beginLine(), identifier.beginPos(), name, site(reference),
-                    region(reference), target(symbol), index.grade(name, identifier, enclosing))
+                                      index: CstIndex) = with(walker) {
+        walk(ktFile, onUnresolved = { reference ->
+            if (unresolvedSamples.size < samplesPerCell * 2) {
+                val at = sourceOf(runtime, reference, "-")
+                unresolvedSamples += "${url.substringAfterLast('/')}:${at.beginLine()}:${at.beginPos()} " +
+                                     "'${reference.getReferencedName()}'  |  " +
+                                     (reference.parent?.text?.lineSequence()?.firstOrNull()?.trim()?.take(100) ?: "")
             }
-        })
-    }
-
-    private fun KaSession.isProjectDeclaration(symbol: KaSymbol, projectFiles: Set<String>): Boolean {
-        if (symbol.origin == KaSymbolOrigin.JAVA_SOURCE) return true
-        val psi = symbol.psi ?: (symbol as? KaCallableSymbol)?.fakeOverrideOriginal?.psi ?: return false
-        val url = psi.containingFile?.virtualFile?.url ?: return false
-        return url in projectFiles
+        }) { reference, symbols ->
+            val symbol = symbols.first()
+            val identifier = sourceOf(runtime, reference.getReferencedNameElement(), "-")
+            val name = reference.getReferencedName()
+            val enclosing = enclosingExpressions(reference).map { sourceOf(runtime, it, "-") }
+            rows += Row(sourceSet, url, identifier.beginLine(), identifier.beginPos(), name, site(reference),
+                region(reference), target(symbol), index.grade(name, identifier, enclosing))
+        }
     }
 
     /**

@@ -21,7 +21,7 @@ import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.resource.InfoByFqn
 import io.codelaser.maddi.kotlin.k2.KotlinProjectScan
-import io.codelaser.maddi.kotlin.k2.ReferenceRecall
+import io.codelaser.maddi.kotlin.k2.KotlinParseObserver
 import io.codelaser.maddi.kotlin.k2.KotlinScan
 import java.nio.file.Files
 import java.nio.file.Path
@@ -63,10 +63,13 @@ class KotlinInspector(private val runtime: Runtime) {
      * sharing the one [infoByFqn]. Returns the committed types per source set. The analogue of how
      * `JavaInspectorImpl` consumes an `InputConfiguration`.
      */
-    fun parseFromConfiguration(): Map<SourceSet, List<TypeInfo>> = parseFromConfiguration(null)
+    fun parseFromConfiguration(): Map<SourceSet, List<TypeInfo>> = parseFromConfiguration(emptyList())
 
-    /** As [parseFromConfiguration], with a [ReferenceRecall] instrument measured over the parse (null: none). */
-    fun parseFromConfiguration(recall: ReferenceRecall?): Map<SourceSet, List<TypeInfo>> {
+    /**
+     * As [parseFromConfiguration], with [observers] reading the parse through its K2 session before it closes
+     * (e.g. a [io.codelaser.maddi.kotlin.k2.KotlinReferenceIndex]).
+     */
+    fun parseFromConfiguration(observers: List<KotlinParseObserver>): Map<SourceSet, List<TypeInfo>> {
         val ordered = dependencyOrder(inputConfiguration.sourceSets().filter { !it.externalLibrary() })
         // library jars from the configuration's classpath (external, non-JDK, on disk); the JDK comes from the SDK module
         val libraryRoots = inputConfiguration.classPathParts()
@@ -74,7 +77,7 @@ class KotlinInspector(private val runtime: Runtime) {
             .mapNotNull { uriToPath(it.uri()) }
             .filter { Files.exists(it) }
         val jdkHome = Paths.get(System.getProperty("java.home"))
-        return KotlinProjectScan(runtime, infoByFqn).parse(ordered, libraryRoots, jdkHome, recall = recall)
+        return KotlinProjectScan(runtime, infoByFqn).parse(ordered, libraryRoots, jdkHome, observers = observers)
     }
 
     /** Topological order (dependencies before dependents) over the given source sets; ignores library deps. */

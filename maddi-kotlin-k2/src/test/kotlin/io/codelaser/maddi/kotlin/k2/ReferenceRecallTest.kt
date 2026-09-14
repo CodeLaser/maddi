@@ -56,7 +56,7 @@ class ReferenceRecallTest : KotlinScanTestBase() {
 
     private fun rows(): Map<String, ReferenceRecall.Row> {
         val recall = ReferenceRecall()
-        KotlinScan(runtime, sourceSet).parse(mapOf("a/Model.kt" to model, "b/User.kt" to user), emptyMap(), recall)
+        KotlinScan(runtime, sourceSet).parse(mapOf("a/Model.kt" to model, "b/User.kt" to user), emptyMap(), listOf(recall))
         assertEquals(0, recall.unresolvedReferences, "every project reference must resolve")
         assertEquals(0, recall.failedReferences)
         return recall.rows().associateBy { "${it.file.substringAfterLast('/')}:${it.line}:${it.column}" }
