@@ -35,6 +35,9 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
         }
         fun String.path(): String = this
         fun Int.path(): String = toString()
+        fun take(f: (item: String) -> Unit) = f("x")
+        interface HasName { val name: String }
+        class Named(override val name: String) : HasName
         """.trimIndent() + "\n"
 
     private val user = """
@@ -87,6 +90,19 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
     fun overridingALibraryDeclarationCannotBeRenamed() {
         val index = index()
         assertTrue(index.overridesOutsideProject(index.keyOf(method("Task", "run"))!!))
+    }
+
+    @Test
+    fun aConstructorPropertyJoinsTheFamilyItOverrides() {
+        // building the index at all is half the test: `item` (line 14) is a named parameter of a function type, for
+        // which K2 refuses to create a symbol
+        val index = index()
+        val uri = index.keyOf(method("Base", "greet"))!!.uri
+        val inInterface = KotlinReferenceIndex.DeclarationKey(uri, 15, 25)
+        val inConstructor = KotlinReferenceIndex.DeclarationKey(uri, 16, 26)
+        assertEquals("name", index.declaration(inInterface)?.name)
+        assertEquals("name", index.declaration(inConstructor)?.name)
+        assertEquals(setOf(inInterface, inConstructor), index.family(inConstructor))
     }
 
     @Test

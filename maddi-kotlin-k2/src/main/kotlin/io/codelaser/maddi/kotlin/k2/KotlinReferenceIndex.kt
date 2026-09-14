@@ -21,9 +21,11 @@ import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
-import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 
 /**
@@ -98,12 +100,15 @@ class KotlinReferenceIndex : KotlinParseObserver() {
                 val nameIdentifier = declaration.nameIdentifier ?: return
                 val key = keyOf(runtime, declaration) ?: return
                 declarations[key] = occurrence(runtime, url, nameIdentifier, declaration.name ?: return, true)
-                if (declaration !is KtCallableDeclaration) return
-                val symbol = declaration.symbol as? KaCallableSymbol ?: return
+                // only these can override; asking K2 for the symbol of anything else can throw (a named parameter
+                // of a function type has none)
+                val canOverride = declaration is KtNamedFunction || declaration is KtProperty
+                                  || declaration is KtParameter && declaration.hasValOrVar()
+                if (!canOverride) return
                 val overriddenSymbols = try {
-                    symbol.allOverriddenSymbols.toList()
+                    (declaration.symbol as? KaCallableSymbol)?.allOverriddenSymbols?.toList() ?: return
                 } catch (e: RuntimeException) {
-                    return // e.g. a value parameter: nothing to override
+                    return
                 }
                 for (overridden in overriddenSymbols) {
                     val overriddenDeclaration = with(walker) {
