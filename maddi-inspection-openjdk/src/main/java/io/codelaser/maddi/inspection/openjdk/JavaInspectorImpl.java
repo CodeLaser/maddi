@@ -545,8 +545,17 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     /**
-     * The release the shared {@code java.*} model is built at: the highest any source set states, or {@code 0}
-     * (the running JDK) when none does.
+     * The release the shared {@code java.*} model is built at: the highest release any source set will be PARSED
+     * at, or {@code 0} (the running JDK) when none states one.
+     * <p>
+     * ⛔ <b>A SET THAT STATES NO RELEASE IS PARSED ON THE RUNNING JDK, SO IT COUNTS AS THE RUNNING JDK.</b> The
+     * per-set rule in {@link #createTask}'s release branch is: the set's own release, else the configuration's
+     * global one, else the running JDK. This maximum used to read only the first two, so a configuration mixing
+     * sets at {@code 21} with sets that state nothing (and no global) preloaded at 21 while the silent sets were
+     * attributed at the running JDK's band — the superset property below, broken by exactly the sets that said
+     * nothing. That shape arises as soon as {@code CompileListToInputConfiguration#setSourceRelease} declines to
+     * make a global out of a partial vote (the jfocus/maddi workspace: 4 of 90 invocations at
+     * {@code --release 21}, 86 compiled against the build's JDK), and a build plugin can hand it over directly.
      * <p>
      * ⛔ <b>THE MAXIMUM, NOT THE RUNNING JDK.</b> Both satisfy the superset property that {@link #preloadPass}
      * needs — either is ≥ every band the run will meet, so no set can bring a member the committed type lacks.
@@ -562,8 +571,14 @@ public class JavaInspectorImpl implements JavaInspector {
      */
     private int sharedJdkPreloadRelease() {
         if (inputConfiguration == null) return 0;
-        int max = inputConfiguration.sourceSets().stream().mapToInt(SourceSet::sourceRelease).max().orElse(0);
-        return Math.max(max, inputConfiguration.sourceRelease());
+        int global = inputConfiguration.sourceRelease();
+        int running = java.lang.Runtime.version().feature();
+        // a library set is never attributed from source, so it needs no band of its own
+        int max = inputConfiguration.sourceSets().stream()
+                .filter(set -> !set.library())
+                .mapToInt(set -> set.sourceRelease() > 0 ? set.sourceRelease() : global > 0 ? global : running)
+                .max().orElse(0);
+        return Math.max(max, global);
     }
 
     private void scanSourceSet(Summary summary,
