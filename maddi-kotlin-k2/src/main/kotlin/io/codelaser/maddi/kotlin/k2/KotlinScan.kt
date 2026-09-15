@@ -99,6 +99,7 @@ import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtPropertyAccessor
 import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
@@ -959,8 +960,55 @@ class KotlinScan(
         // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
         val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
         val isPrivate = property.visibility == KaSymbolVisibility.PRIVATE
-        if (!isConst && !isPrivate) owner.builder().addMethod(buildGetter(owner, field, type, property, static))
-        if (!isConst && !isVal) owner.builder().addMethod(buildSetter(owner, field, type, property, static))
+        // a written accessor body (`get() = field.trim()`, `set(v) { field = v.coerceAtLeast(0) }`) is converted:
+        // kotlinc compiles it into the accessor, even for a private property. Only a default one is synthesized.
+        val customGetter = (property.psi as? KtProperty)?.getter?.takeIf { it.hasBody() }
+        val customSetter = (property.psi as? KtProperty)?.setter?.takeIf { it.hasBody() }
+        if (!isConst && customGetter != null) {
+            owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customGetter))
+        } else if (!isConst && !isPrivate) {
+            owner.builder().addMethod(buildGetter(owner, field, type, property, static))
+        }
+        if (!isConst && !isVal && customSetter != null) {
+            owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
+        } else if (!isConst && !isVal) {
+            owner.builder().addMethod(buildSetter(owner, field, type, property, static))
+        }
+    }
+
+    /**
+     * A property's written getter or setter: its real body, where `field` is the backing field, and the setter's
+     * parameter named as written. Not tagged as a getter/setter of the field: the analyzer's normalisation of
+     * `getX() { return x; }` to a field read would hide what the body does. What its text names is recorded on it.
+     */
+    private fun KaSession.buildCustomAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+                                              property: KaPropertySymbol, static: Boolean,
+                                              accessor: KtPropertyAccessor): MethodInfo {
+        val setter = accessor.isSetter
+        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get", field.name()), methodType(static))
+        val builder = method.builder()
+        builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
+        if (setter) {
+            val psi = accessor.parameter
+            parameter(builder.addParameter(psi?.name ?: "value", type), psi, type)
+        }
+        addMethodModifiers(builder, property)
+        builder.commitParameters().computeAccess()
+        builder.setSource(declarationSource(accessor) {})
+        val scope = mutableMapOf<String, Variable>("field" to runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+        val body = runtime.newBlockBuilder()
+        val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
+        if (expressionBody != null) {
+            val value = convertExpression(expressionBody, method, scope)
+            body.addStatement(bodyConverter.indexed(if (setter) runtime.newExpressionAsStatement(value)
+                else runtime.newReturnStatement(value), "0"))
+        } else {
+            val statements = accessor.bodyBlockExpression?.statements.orEmpty()
+            statements.forEachIndexed { i, st -> body.addStatement(convertStatement(st, method, scope, bodyConverter.pad(i, statements.size))) }
+        }
+        builder.setMethodBody(body.build())
+        commitOrDefer(method, accessor) { method.builder().commit() }
+        return method
     }
 
     /**
