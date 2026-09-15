@@ -111,8 +111,9 @@ public interface DetailedSources {
 
     /**
      * Position of a parameter's default value (e.g. Kotlin {@code b: Int = 1}), on the parameter's own source. The
-     * value is the callee's code, evaluated when a call omits the argument; a CST without default values has only
-     * this trace of it, which tells a caller how few arguments the parameter list accepts.
+     * value is the callee's code, evaluated when a call omits the argument: the Kotlin front end converts it into the
+     * body of the callee's synthetic {@code f$default}, as kotlinc compiles it, and a call omitting an argument calls
+     * that. On the declaration, this position tells a caller how few arguments the parameter list accepts.
      */
     Object DEFAULT_VALUE = new Object();
 

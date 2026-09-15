@@ -605,8 +605,8 @@ class ExpressionTest : KotlinScanTestBase() {
 
     @Test
     fun namedAndDefaultArguments() {
-        // `named(1, c = 5)` with `named(a, b = 10, c = 20)` -> arguments reordered + defaults filled:
-        // a=1 (positional), b=10 (default), c=5 (named)
+        // `named(1, c = 5)` with `named(a, b = 10, c = 20)` -> arguments reordered, and b omitted: the call is to
+        // `named$default`, which evaluates b's default (see DefaultArgumentTest)
         val types = KotlinScan(runtime, sourceSet).parse(
             "N.kt",
             "fun named(a: Int, b: Int = 10, c: Int = 20): Int = a + b + c\n" +
@@ -614,16 +614,16 @@ class ExpressionTest : KotlinScanTestBase() {
         )
         val call = (types.flatMap { it.methods() }.first { it.name() == "call" }
             .methodBody().statements().first() as ReturnStatement).expression() as MethodCall
-        assertEquals(3, call.parameterExpressions().size)
-        // a=1, b=10 (default), c=5 -- in declaration order
-        assertEquals(listOf("1", "10", "5"), call.parameterExpressions().map { it.toString() })
+        assertEquals("named\$default", call.methodInfo().name())
+        // a=1, b omitted (its zero), c=5 -- in declaration order -- then the mask: bit 1, b
+        assertEquals(listOf("1", "0", "5", "2"), call.parameterExpressions().map { it.toString() })
     }
 
     @Test
     fun constructorWithNamedAndDefaultArguments() {
-        // `Finding(message = "m", entity = 1)` against a third, defaulted parameter: the constructor is found by the
-        // arguments in declaration order, defaults filled -- it used to find no two-parameter constructor and
-        // become a `k2-ctor-unresolved` placeholder, taking its arguments with it
+        // `Finding(message = "m", entity = 1)` against a third, defaulted parameter: the arguments in declaration
+        // order, to the `$default` constructor -- it used to find no two-parameter constructor and become a
+        // `k2-ctor-unresolved` placeholder, taking its arguments with it
         val types = KotlinScan(runtime, sourceSet).parse(
             "F.kt",
             "class Finding(val entity: Int, val message: String, val weight: Int = 7)\n" +
@@ -633,10 +633,13 @@ class ExpressionTest : KotlinScanTestBase() {
             .methodBody().statements().first() as ReturnStatement).expression()
         assertTrue(made is ConstructorCall, "expected a ConstructorCall, got $made")
         val arguments = (made as ConstructorCall).parameterExpressions()
-        assertEquals(3, arguments.size)
+        assertTrue(made.constructor().isSynthetic)
+        assertEquals(5, arguments.size)
         assertEquals("1", arguments[0].toString())      // entity, named second
         assertTrue(arguments[1] is StringConstant)       // message, named first
-        assertEquals("7", arguments[2].toString())      // weight, the declared default
+        assertEquals("0", arguments[2].toString())      // weight, omitted: the `$default` constructor evaluates it
+        assertEquals("4", arguments[3].toString())      // the mask: bit 2, weight
+        assertEquals("null", arguments[4].toString())   // the marker
     }
 
     @Test

@@ -77,6 +77,7 @@ import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
+import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtEnumEntry
@@ -154,6 +155,7 @@ class KotlinScan(
 
     init {
         bodyConverter.memberConverter = this
+        bodyConverter.defaultsOf = { references.defaultsOf(it) }
     }
 
     // Where each member names a project declaration (see KotlinReferenceRegistry). A project scan shares one
@@ -166,6 +168,13 @@ class KotlinScan(
     // (commitDeferred): a host for its records, and any method for what it overrides.
     private var bodyDepth = 0
     private val deferredCommits = ArrayList<Pair<Info, () -> Unit>>()
+
+    // a `$default` synthetic whose body waits for the members its defaults name (see defaultsMethod), with the
+    // declaration it calls and that declaration's parameters; and the constructors among them, committed in finalizeType
+    private class PendingDefaults(val target: MethodInfo, val parameters: List<KtParameter?>)
+    private val pendingDefaults = java.util.IdentityHashMap<MethodInfo, PendingDefaults>()
+    private val defaultsConstructors = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<MethodInfo, Boolean>())
+    private val defaultsMethodOf = java.util.IdentityHashMap<MethodInfo, MethodInfo>()
 
     private inline fun <T> inBody(block: () -> T): T {
         bodyDepth++
@@ -579,10 +588,12 @@ class KotlinScan(
         if (bodyDepth == 0) references.host(declaration, typeInfo) // attached in finalizeType
         // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
         var runsInit: MethodInfo? = null
+        val declared = ArrayList<Pair<KaConstructorSymbol, MethodInfo>>()
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { ctor ->
                 val constructor = convertConstructorStructure(typeInfo, ctor)
+                declared += ctor to constructor
                 // an implicit constructor's psi is the CLASS: only a written one is a declaration of its own, so a
                 // call to an implicit one records the class, which is what the call spells anyway
                 val ctorPsi = ctor.psi as? KtConstructor<*>
@@ -594,6 +605,8 @@ class KotlinScan(
                 val callsThis = (ctor.psi as? KtSecondaryConstructor)?.getDelegationCall()?.isCallToThis == true
                 if (ctor.isPrimary || runsInit == null && !callsThis) runsInit = constructor
             }
+        // after the declared constructors, which finalizeType pairs with their symbols by position
+        declared.forEach { (ctor, constructor) -> defaultsConstructor(typeInfo, ctor, constructor) }
         runsInit?.let { runsInitOf[typeInfo] = it }
         // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
         // the graph looks for a caller, rather than falling through to the class
@@ -655,6 +668,10 @@ class KotlinScan(
         // companion object -> a nested `Companion` type + a static field on the enclosing class
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // a named object (singleton) gets a `public static final INSTANCE` field of its own type
+        // the `$default` constructors' bodies, last: a default may call a companion's function
+        typeInfo.constructors().forEach { c ->
+            pendingDefaults.remove(c)?.let { c.builder().setMethodBody(defaultsBody(c, it.target, it.parameters)) }
+        }
         if (classSymbol.classKind == KaClassKind.OBJECT) {
             typeInfo.builder().addField(singletonField(typeInfo, "INSTANCE", typeInfo.asParameterizedType()))
         }
@@ -825,6 +842,7 @@ class KotlinScan(
             references.attach(runtime, cst)
             cst.builder().commit()
         }
+        typeInfo.constructors().filter { defaultsConstructors.remove(it) }.forEach { it.builder().commit() }
         references.attach(runtime, typeInfo)
         typeInfo.builder().commit() // access already computed in convertMembers (B1)
     }
@@ -885,26 +903,36 @@ class KotlinScan(
             else -> declaration.superTypeListEntries.any { it is KtSuperTypeCallEntry }
         }
 
-    /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
+    /**
+     * Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved).
+     * Its arguments are ordered and completed as at any call: one omitting an argument invokes the target's `$default`
+     * constructor.
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.explicitConstructorInvocation(
         owner: TypeInfo, declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo,
     ): Statement? {
-        val (isSuper, arguments) = when (val psi = ctor.psi) {
+        val (isSuper, call) = when (val psi = ctor.psi) {
             is KtSecondaryConstructor -> {
                 val delegation = psi.getDelegationCall()
                 if (delegation.isImplicit) return null // implicit super() — not represented
-                !delegation.isCallToThis to delegation.valueArguments
+                !delegation.isCallToThis to (delegation as KtCallElement)
             }
             else -> { // primary constructor: an explicit super-type call `class Sub : Base(args)`
                 val superCall = declaration.superTypeListEntries.filterIsInstance<KtSuperTypeCallEntry>().firstOrNull()
                     ?: return null
-                true to superCall.valueArguments
+                true to (superCall as KtCallElement)
             }
         }
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner) ?: return null
-        // resolve the target constructor by arity (refine to full overload resolution later)
-        val target = targetType.constructors().firstOrNull { it.parameters().size == arguments.size } ?: return null
-        val argExpressions = arguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
+        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)?.takeIf { s -> s.valueParameters.none { it.isVararg } }
+            ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
+        val argExpressions = ordered?.expressions ?: call.valueArguments
+            .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
+        // else resolve the target constructor by arity (refine to full overload resolution later)
+        val target = ordered?.defaults
+            ?: targetType.constructors().firstOrNull { !it.isSynthetic && it.parameters().size == argExpressions.size }
+            ?: return null
         return runtime.newExplicitConstructorInvocationBuilder()
             .setIsSuper(isSuper)
             .setMethodInfo(target)
@@ -1330,6 +1358,11 @@ class KotlinScan(
                                            outerLocals: Map<String, Variable> = emptyMap()) {
         method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals))
         commitOrDefer(method, function.psi) { method.builder().commit() }
+        defaultsMethodOf.remove(method)?.let { defaults ->
+            val pending = pendingDefaults.remove(defaults)!!
+            defaults.builder().setMethodBody(defaultsBody(defaults, method, pending.parameters))
+            commitOrDefer(defaults, null) { defaults.builder().commit() }
+        }
     }
 
     /**
@@ -1425,7 +1458,139 @@ class KotlinScan(
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess() // eventual access from the visibility modifier + owner type; commit after the body
+        if (psi != null) defaultsMethod(owner, function, method, static, psi)
         return method
+    }
+
+    /**
+     * kotlinc's `f$default`, for a function [psi] that declares a default value: [target]'s parameters, then a bit mask
+     * of the omitted ones (`$mask`, one per 32 parameters). Its body ([defaultsBody]) evaluates each omitted
+     * parameter's default where kotlinc does, in the function's own scope, then calls [target]; a call that omits an
+     * argument calls it instead of [target] (KotlinBodyConverter.callArguments). Where kotlinc makes a member's
+     * `f$default` static, with the receiver as its first parameter, this one is an instance method, so that the
+     * defaults read `this` as written. Not for a vararg function: a call with a vararg is not ordered.
+     */
+    private fun KaSession.defaultsMethod(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
+                                         static: Boolean, psi: KtNamedFunction) {
+        if (psi.valueParameters.none { it.defaultValue != null } || function.valueParameters.any { it.isVararg }) return
+        val method = runtime.newMethod(owner, target.name() + "\$default",
+            if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
+        val builder = method.builder().setSynthetic(true)
+        function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method).also { builder.addTypeParameter(it) } to tp
+        }.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
+        function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
+        function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
+        masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
+        builder.commitParameters()
+            .setReturnType(mapType(function.returnType, owner, method))
+            .setSource(runtime.noSource())
+        visibilityMethodModifier(function)?.let { builder.addMethodModifier(it) }
+        builder.addMethodModifier(when {
+            static -> runtime.methodModifierStatic()
+            owner.isInterface -> runtime.methodModifierDefault()
+            else -> runtime.methodModifierFinal()
+        })
+        builder.computeAccess()
+        owner.builder().addMethod(method)
+        references.defaults(psi, method)
+        defaultsMethodOf[target] = method
+        pendingDefaults[method] = PendingDefaults(target, psi.valueParameters)
+    }
+
+    /**
+     * The `$default` constructor, for a constructor [ctor] declaring a default value: [target]'s parameters, the masks,
+     * and kotlinc's `DefaultConstructorMarker`, which keeps it from colliding with a declared constructor. See
+     * [defaultsMethod]; its body, [defaultsBody], ends in `this(...)`.
+     */
+    private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo) {
+        val declaration = ctor.psi ?: return
+        val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
+        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return
+        val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+        val builder = constructor.builder().setSynthetic(true)
+        target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
+        masks(parameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
+        syntheticParameter(builder, "\$marker", defaultConstructorMarker())
+        builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor()).setSource(runtime.noSource())
+        visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
+        builder.commitParameters().computeAccess()
+        owner.builder().addConstructor(constructor)
+        references.defaults(declaration, constructor)
+        pendingDefaults[constructor] = PendingDefaults(target, parameters)
+        defaultsConstructors += constructor
+    }
+
+    private fun syntheticParameter(builder: MethodInfo.Builder, name: String, type: ParameterizedType) {
+        builder.addParameter(name, type).builder().setSource(runtime.noSource())
+    }
+
+    /** The names of the masks of a `$default` for [parameters] parameters: one int per 32. */
+    private fun masks(parameters: Int): List<String> =
+        (0 until (parameters + 31) / 32).map { if (it == 0) "\$mask" else "\$mask$it" }
+
+    private fun KaSession.defaultConstructorMarker(): ParameterizedType =
+        (findClass(ClassId.fromString("kotlin/jvm/internal/DefaultConstructorMarker")) as? KaNamedClassSymbol)
+            ?.let { with(typeMapper) { loadLibraryClass(it) } }?.asParameterizedType()
+            ?: runtime.objectParameterizedType()
+
+    /**
+     * The body of [defaults], the `$default` of [target] ([defaultsMethod], [defaultsConstructor]): for each of
+     * [parameters] with a default value, `if (($mask & bit) != 0) p = <default>`, in order, so a default reads the
+     * parameters before it as completed; then `return target(...)`, or `this(...)`. A default is converted in
+     * [defaults]' scope: [target]'s parameters by name, its `this`, its receiver.
+     */
+    private fun KaSession.defaultsBody(defaults: MethodInfo, target: MethodInfo, parameters: List<KtParameter?>): Block {
+        val passed = defaults.parameters().subList(0, target.parameters().size)
+        val masks = defaults.parameters().subList(passed.size, passed.size + masks(parameters.size).size)
+        val offset = passed.size - parameters.size // an extension's receiver comes first
+        val withDefault = parameters.withIndex().filter { it.value?.defaultValue != null }
+        val count = withDefault.size + 1
+        val body = runtime.newBlockBuilder()
+        withDefault.forEachIndexed { j, (i, psi) ->
+            val index = bodyConverter.pad(j, count)
+            val value = convertExpression(psi!!.defaultValue!!, defaults, emptyMap())
+            val assignment = runtime.newAssignmentBuilder()
+                .setTarget(runtime.newVariableExpressionBuilder().setVariable(passed[offset + i]).setSource(runtime.noSource()).build())
+                .setValue(value).setSource(runtime.noSource()).build()
+            body.addStatement(runtime.newIfElseBuilder()
+                .setExpression(maskTest(masks[i / 32], 1 shl (i % 32)))
+                .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.0"))
+                    .addStatement(bodyConverter.indexed(runtime.newExpressionAsStatement(assignment), "$index.0.0")).build())
+                .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.1")).build())
+                .setSource(runtime.noSource().withIndex(index)).build())
+        }
+        val index = bodyConverter.pad(count - 1, count)
+        val arguments = passed.map { bodyConverter.variableExpression(it) }
+        body.addStatement(if (target.isConstructor) {
+            runtime.newExplicitConstructorInvocationBuilder().setIsSuper(false).setMethodInfo(target)
+                .setParameterExpressions(arguments).setSource(runtime.noSource().withIndex(index)).build()
+        } else {
+            val owner = target.typeInfo()
+            val call = runtime.newMethodCallBuilder()
+                .setObject(if (target.isStatic) runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo())
+                           else bodyConverter.variableExpression(runtime.newThis(owner.asParameterizedType())))
+                .setObjectIsImplicit(!target.isStatic).setMethodInfo(target).setParameterExpressions(arguments)
+                .setConcreteReturnType(target.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+            bodyConverter.indexed(if (target.returnType() == runtime.voidParameterizedType())
+                runtime.newExpressionAsStatement(call) else runtime.newReturnStatement(call), index)
+        })
+        return body.build()
+    }
+
+    /** `($mask & bit) != 0`: whether the parameter with [bit] was omitted. */
+    private fun maskTest(mask: ParameterInfo, bit: Int): Expression {
+        val and = runtime.newBinaryOperatorBuilder().setLhs(bodyConverter.variableExpression(mask)).setRhs(runtime.newInt(bit))
+            .setOperator(runtime.andOperatorInt()).setPrecedence(runtime.precedenceBitwiseAnd())
+            .setParameterizedType(runtime.intParameterizedType()).setSource(runtime.noSource()).build()
+        return runtime.newBinaryOperatorBuilder().setLhs(and).setRhs(runtime.intZero())
+            .setOperator(runtime.notEqualsOperatorInt()).setPrecedence(runtime.precedenceEquality())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
     }
 
     /**
