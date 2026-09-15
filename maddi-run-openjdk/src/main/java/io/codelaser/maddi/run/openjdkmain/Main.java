@@ -355,14 +355,14 @@ public class Main {
             ObjectMapper objectMapper = JsonStreaming.objectMapper();
             File file = new File(inputConfigurationFile);
             LOGGER.info("Reading inputConfiguration from file {}", inputConfigurationFile);
-            return objectMapper.readValue(file, InputConfigurationImpl.class);
+            return withStatedJre(cmd, objectMapper.readValue(file, InputConfigurationImpl.class));
         }
         String compileLog = cmd.getOptionValue(COMPILE_LOG);
         if (compileLog != null) {
             String[] extraJmods = cmd.getOptionValues(EXTRA_JMOD);
             List<String> extraJmodList = extraJmods == null ? List.of() : Arrays.asList(extraJmods);
             LOGGER.info("Deriving inputConfiguration from compile log {} (extra jmods {})", compileLog, extraJmodList);
-            return new ParseJavacList().parse(Path.of(compileLog), extraJmodList);
+            return withStatedJre(cmd, new ParseJavacList().parse(Path.of(compileLog), extraJmodList));
         }
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
 
@@ -391,6 +391,30 @@ public class Main {
         splitAndAdd(restrictTestSourceToPackages, COMMA, builder::addRestrictTestSourceToPackages);
 
         return builder.build();
+    }
+
+    /**
+     * Applies {@code --jre} to a configuration that came from a file or a compile log.
+     *
+     * <p>⛔ <b>IT WAS ACCEPTED AND SILENTLY DROPPED ON BOTH ROUTES.</b> Only the explicit
+     * {@code --source}/{@code --classpath} route read it; the other two returned before reaching that line. A
+     * compile log is where it matters most: an invocation with {@code -source N} and no {@code --release} states
+     * no platform, so the parse runs on the analyzer's own JDK. Measured on Apache Ignite (2026-09-14): built on
+     * JDK 17, parsed on 26, {@code Thread.stop()} gone, 6 units failed and the whole parse was refused. Naming the
+     * build's JDK is the fix; {@code --release 17} is not, because javac forbids {@code --add-exports} of
+     * system-module packages under {@code --release} and the corpus needs {@code java.base/jdk.internal.misc}.
+     *
+     * <p>A stated {@code --jre} wins over whatever the file or the log carried: it is the more specific
+     * instruction, and it also wins over {@code sourceRelease} at parse time (see
+     * {@link InputConfiguration#sourceRelease()}).
+     */
+    private static InputConfiguration withStatedJre(CommandLine cmd, InputConfiguration ic) {
+        String jre = cmd.getOptionValue(JRE);
+        if (jre == null || jre.isBlank()) return ic;
+        LOGGER.info("Parsing against the JRE stated by --{}: {} (was {})", JRE, jre,
+                ic.alternativeJREDirectory() == null ? "the analyzer's own JDK" : ic.alternativeJREDirectory());
+        return new InputConfigurationImpl(ic.workingDirectory(), ic.sourceSets(), ic.classPathParts(),
+                Path.of(jre), ic.sourceRelease());
     }
 
     /* ******* AnalysisHints configuration ******** */

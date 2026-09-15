@@ -81,6 +81,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // type (nature/parent/access set) instead of being left as bare stubs. Needed to analyze code that uses JDK
     // internals (e.g. the java.net.http sources, for hint deduction).
     private final boolean jdkInternals;
+    // ⛔ THE jdk.internal PACKAGES THE CORPUS ITSELF OPENS, with a source set's own --add-exports: the corpus compiles
+    // against them, so they are loaded like any class-file type even without jdkInternals. Left as stubs, they have no
+    // type parameters and no members, and the first generic reference fails. Measured on Apache Ignite (2026-09-14,
+    // every set exports java.base/jdk.internal.loader): committing jdk.internal.loader.ClassLoaderValue died on
+    // "Type parameter 'CLV' not found in AbstractClassLoaderValue", and a unit declaring a ClassLoaderValue<String>
+    // is dropped on "'V' not found". The UNION over all source sets, because a class-file type is loaded once and
+    // shared: were it decided per set, whichever set touched it first would fix it for the rest.
+    private final Set<String> exportedJdkInternalPackages;
 
     // when true, java.util.List.get/set receive a synthetic '_synthetic_list' element field (array-access
     // standardization); see JavaInspector.ParseOptions.syntheticListField and CreateSyntheticFieldsForGetSet
@@ -139,6 +147,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
+        this.exportedJdkInternalPackages = inputConfiguration.sourceSets().stream()
+                .flatMap(s -> s.addExports().stream())
+                .map(ClassSymbolScanner::exportedPackage)
+                .filter(p -> p != null && p.startsWith("jdk.internal."))
+                .collect(Collectors.toUnmodifiableSet());
         this.syntheticListField = syntheticListField;
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime, syntheticListField);
@@ -332,6 +345,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return stub;
     }
 
+    /** The package of an {@code --add-exports} entry, {@code module/package=target(,target)*}; null when malformed. */
+    static String exportedPackage(String export) {
+        int slash = export.indexOf('/');
+        if (slash <= 0) return null;
+        int eq = export.indexOf('=', slash + 1);
+        String pkg = (eq < 0 ? export.substring(slash + 1) : export.substring(slash + 1, eq)).trim();
+        return pkg.isEmpty() ? null : pkg;
+    }
+
     TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
@@ -372,7 +394,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 // jdk.internal.* is normally left as a stub (not loaded); with the JDK-internals flag we load it
                 // like any other class-file type, so its nature/parent/access are set and referencing types commit.
-                internal = !jdkInternals && cs.packge().toString().startsWith("jdk.internal.");
+                String pkg = cs.packge().toString();
+                internal = !jdkInternals && pkg.startsWith("jdk.internal.")
+                           && !exportedJdkInternalPackages.contains(pkg);
                 if (internal) {
                     uri = URI.create("jrt:/internal/");
                 } else {
