@@ -597,6 +597,13 @@ class KotlinScan(
         // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
         // the graph looks for a caller, rather than falling through to the class
         if (bodyDepth == 0) runsInit?.let { ctor -> declaration.getAnonymousInitializers().forEach { references.host(it, ctor) } }
+        // so are a superclass constructor call in the header (`: Base(x = 1)`) and a delegation (`: I by d`): kotlinc
+        // compiles them into the primary constructor, and the CST converts the call there, as its `super(...)`
+        if (bodyDepth == 0) runsInit?.let { ctor ->
+            declaration.superTypeListEntries
+                .filter { it is KtSuperTypeCallEntry || it is KtDelegatedSuperTypeEntry }
+                .forEach { references.host(it, ctor) }
+        }
     }
 
     /**
@@ -782,7 +789,10 @@ class KotlinScan(
     private fun KaSession.convertConstructorStructure(owner: TypeInfo, ctor: KaConstructorSymbol): MethodInfo {
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder()
-        ctor.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
+        ctor.valueParameters.forEach { p ->
+            val type = mapType(p.returnType, owner)
+            parameter(builder.addParameter(p.name.asString(), type), p.psi as? KtParameter, type)
+        }
         builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
         visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
         builder.commitParameters().computeAccess()
@@ -1346,12 +1356,7 @@ class KotlinScan(
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
             parameterInfo.builder().setVarArgs(p.isVararg)
-            // name (keyed by parameterInfo.name(), like the Java parser) + type-reference detail (into generics)
-            val parameterPsi = if (forwarder) null else p.psi as? KtParameter
-            parameterInfo.builder().setSource(declarationSource(parameterPsi) {
-                putPsi(runtime, parameterInfo.name(), parameterPsi?.nameIdentifier)
-                putTypeReference(runtime, elementType, parameterPsi?.typeReference)
-            })
+            parameter(parameterInfo, if (forwarder) null else p.psi as? KtParameter, elementType)
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = if (forwarder) null else function.psi as? KtNamedFunction
@@ -1367,6 +1372,21 @@ class KotlinScan(
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess() // eventual access from the visibility modifier + owner type; commit after the body
         return method
+    }
+
+    /**
+     * A parameter's declaration source (its name keyed by `parameterInfo.name()`, like the Java parser; its type
+     * reference; where its default value is written, [DetailedSources.DEFAULT_VALUE]), and the parameter as the target
+     * of the references to it. Not a constructor's `val`/`var` parameter: its declaration is the property's, and a
+     * reference to it names the property ([convertProperty]).
+     */
+    private fun parameter(parameterInfo: ParameterInfo, psi: KtParameter?, type: ParameterizedType) {
+        parameterInfo.builder().setSource(declarationSource(psi) {
+            putPsi(runtime, parameterInfo.name(), psi?.nameIdentifier)
+            putTypeReference(runtime, type, psi?.typeReference)
+            psi?.defaultValue?.let { put(DetailedSources.DEFAULT_VALUE, sourceOf(runtime, it, "-")) }
+        })
+        if (psi != null && !psi.hasValOrVar()) references.target(psi, parameterInfo)
     }
 
     /**
