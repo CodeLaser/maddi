@@ -44,6 +44,7 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
@@ -75,7 +76,9 @@ import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
+import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
 import org.jetbrains.kotlin.psi.KtDoWhileExpression
@@ -154,6 +157,9 @@ internal class KotlinBodyConverter(
 ) {
     // set by KotlinScan after construction (the bodies<->declarations cycle)
     lateinit var memberConverter: MemberConverter
+
+    // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
+    var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
 
     // type mapping lives on the collaborator; it's a KaSession member extension, so reach it via with(…)
     private fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null) =
@@ -743,11 +749,16 @@ internal class KotlinBodyConverter(
         variableExpression(runtime.newFieldReference(field,
             runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), field.type()))
 
-    /** `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count. */
-    private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo): Expression {
+    /**
+     * `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count, or
+     * [defaults], the `$default` synthetic constructor, when the call omits an argument.
+     */
+    private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo,
+                                                 defaults: MethodInfo?): Expression {
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: return runtime.newEmptyExpression("k2-ctor-type")
-        val constructor = type.typeInfo()?.constructors()?.firstOrNull { it.parameters().size == arguments.size }
+        val constructor = defaults
+            ?: type.typeInfo()?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             ?: return runtime.newEmptyExpression("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}")
         return runtime.newConstructorCallBuilder()
             .setConstructor(constructor)
@@ -946,26 +957,57 @@ internal class KotlinBodyConverter(
     }
 
     /**
-     * The argument expressions in the callee's parameter order, for a call with named and/or omitted
-     * (defaulted) arguments: positional arguments fill the leading parameters, named arguments fill by
-     * name, and an omitted parameter uses its declared default value. Returns null when a parameter can be
-     * filled neither by an argument nor by a default (so the caller falls back to the positional list).
+     * A call's arguments in the callee's parameter order. When the call omits one, [defaults] is the callee's
+     * `$default` synthetic, the method the call binds to: it takes the omitted argument's zero value, a bit mask of
+     * the omitted parameters (`$mask`), and for a constructor a `null` marker, and evaluates each omitted default in
+     * the callee's scope, as kotlinc compiles it (see KotlinScan.defaultsMethod).
      */
-    private fun KaSession.orderedArguments(call: KtCallExpression, calleeSymbol: KaFunctionSymbol,
-                                           method: MethodInfo, locals: Map<String, Variable>): List<Expression>? {
-        val positional = call.valueArguments.filter { it.getArgumentName() == null }
+    internal class Arguments(val expressions: List<Expression>, val defaults: MethodInfo?)
+
+    /**
+     * [call]'s arguments for [callee]: positional arguments fill the leading parameters, named arguments fill by
+     * name, a trailing lambda the last parameter. Null when a parameter is filled neither by an argument nor by a
+     * default, or when the declaration with the defaults has no `$default` in this project (a library function):
+     * the caller falls back to the written arguments.
+     */
+    internal fun KaSession.callArguments(call: KtCallElement, callee: KaFunctionSymbol, method: MethodInfo,
+                                         locals: Map<String, Variable>): Arguments? {
+        val lambda = call.valueArguments.lastOrNull()?.takeIf { it is KtLambdaArgument }
+        val positional = call.valueArguments.filter { it.getArgumentName() == null && it !== lambda }
         val byName = call.valueArguments.mapNotNull { va ->
             va.getArgumentName()?.asName?.asString()?.let { it to va }
         }.toMap()
-        return calleeSymbol.valueParameters.mapIndexed { i, p ->
-            val argExpr = when {
-                i < positional.size -> positional[i].getArgumentExpression()
-                p.name.asString() in byName -> byName[p.name.asString()]?.getArgumentExpression()
-                else -> (p.psi as? KtParameter)?.defaultValue // the declared default (`b: Int = 10`)
+        val parameters = callee.valueParameters
+        val declaring = declaringDefaults(callee)
+        val masks = IntArray((parameters.size + 31) / 32)
+        val expressions = parameters.mapIndexed { i, p ->
+            val argument = when {
+                i < positional.size -> positional[i]
+                p.name.asString() in byName -> byName[p.name.asString()]
+                i == parameters.lastIndex && lambda != null -> lambda
+                else -> null
             }
-            argExpr?.let { convertExpression(it, method, locals) } ?: return null
+            if (argument != null) {
+                argument.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null
+            } else {
+                if ((declaring?.valueParameters?.get(i)?.psi as? KtParameter)?.defaultValue == null) return null
+                masks[i / 32] = masks[i / 32] or (1 shl (i % 32))
+                runtime.nullValue(mapType(p.returnType, method.typeInfo(), method))
+            }
         }
+        if (masks.all { it == 0 }) return Arguments(expressions, null)
+        val defaults = defaultsOf(declaring?.psi) ?: return null
+        val marker = if (callee is KaConstructorSymbol) listOf(runtime.nullConstant()) else listOf()
+        return Arguments(expressions + masks.map { runtime.newInt(it) } + marker, defaults)
     }
+
+    /**
+     * The declaration whose default values a call to [symbol] uses: its own, or those of the member it overrides (an
+     * override cannot declare defaults of its own). Null for a library declaration: its defaults are not source.
+     */
+    private fun KaSession.declaringDefaults(symbol: KaFunctionSymbol): KaFunctionSymbol? =
+        (sequenceOf(symbol) + symbol.allOverriddenSymbols.filterIsInstance<KaFunctionSymbol>())
+            .firstOrNull { s -> s.valueParameters.any { (it.psi as? KtParameter)?.defaultValue != null } }
 
     /** Collect every method named [name] with [arity] parameters on [type] and its supertypes. */
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
@@ -1046,35 +1088,35 @@ internal class KotlinBodyConverter(
             ?: return runtime.newEmptyExpression("k2-unsupported-callee")
         // `call.valueArguments` already includes a trailing lambda (a KtLambdaArgument IS a KtValueArgument),
         // so it must NOT be appended again from `call.lambdaArguments` (that double-counts the lambda).
-        val hasTrailingLambda = call.lambdaArguments.isNotEmpty()
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
         val resolved = call.resolveSymbol()
         val calleeSymbol = resolved as? KaNamedFunctionSymbol
-        // named and/or defaulted arguments (`f(1, c = 5)`): rebuild the list in declaration order, filling
-        // omitted parameters with their default value (the JVM `f$default` shape). Only for the plain case
-        // (no trailing lambda, no vararg); otherwise the positional args (incl. any trailing lambda) are used.
-        // A constructor needs it as much as a function: `Finding(e, "m")` against a third, defaulted parameter
-        // otherwise finds no two-parameter constructor and becomes a placeholder, arguments and all.
+        // named and/or omitted arguments (`f(1, c = 5)`): rebuild the list in declaration order; a call omitting
+        // one binds to the callee's `f$default` (see callArguments). Not for a vararg; a trailing lambda fills the
+        // last parameter. A constructor needs it as much as a function: `Finding(e, "m")` against a third,
+        // defaulted parameter otherwise finds no two-parameter constructor and becomes a placeholder, arguments
+        // and all.
         val ordered = (resolved as? KaFunctionSymbol)?.takeIf {
-            !hasTrailingLambda && it.valueParameters.none { p -> p.isVararg } &&
+            it.valueParameters.none { p -> p.isVararg } &&
                 (call.valueArguments.any { a -> a.getArgumentName() != null } ||
                     call.valueArguments.size < it.valueParameters.size)
-        }?.let { orderedArguments(call, it, method, locals) }
-        val arguments = ordered ?: valueArgs
+        }?.let { callArguments(call, it, method, locals) }
+        val arguments = ordered?.expressions ?: valueArgs
+        val defaults = ordered?.defaults
 
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
-        if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method)
+        if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method, defaults)
 
         // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
         if (receiver != null && calleeSymbol?.receiverParameter != null) {
-            extensionCall(name, receiver.first, arguments, calleeSymbol, call, method)?.let { return it }
+            extensionCall(name, receiver.first, arguments, calleeSymbol, call, method, defaults)?.let { return it }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
-        companionCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+        companionCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
         // a qualified call on a named object `Object.member(args)` routes through `Object.INSTANCE`
-        if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+        if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
         // a top-level function `f(args)` called from another type -> the file facade's static `<File>Kt.f(args)`
-        if (receiver == null) facadeCall(name, calleeSymbol, arguments, call, method)?.let { return it }
+        if (receiver == null) facadeCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
 
         // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
         // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
@@ -1088,7 +1130,7 @@ internal class KotlinBodyConverter(
         }
 
         val ownerType = receiver?.second ?: method.typeInfo()
-        val callee = resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
+        val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
         val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
@@ -1122,10 +1164,11 @@ internal class KotlinBodyConverter(
      * static method can't be resolved (e.g. a library extension whose facade isn't in this compilation).
      */
     private fun KaSession.extensionCall(name: String, receiverExpr: Expression, arguments: List<Expression>,
-                                        symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo): Expression? {
+                                        symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo,
+                                        defaults: MethodInfo?): Expression? {
         val facade = extensionFacade(symbol) ?: return null
         val facadeArgs = listOf(receiverExpr) + arguments
-        val callee = resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
+        val callee = defaults ?: resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
@@ -1144,7 +1187,7 @@ internal class KotlinBodyConverter(
      * callee isn't a companion member or its types aren't in this compilation.
      */
     private fun KaSession.companionCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
-                                        call: KtCallExpression, method: MethodInfo): Expression? {
+                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
         val companionDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
         if (!companionDecl.isCompanion()) return null
         val enclosingFqn = (companionDecl.containingClassOrObject?.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString()
@@ -1153,7 +1196,7 @@ internal class KotlinBodyConverter(
         val companionName = companionDecl.name ?: "Companion"
         val companion = enclosing.subTypes().firstOrNull { it.simpleName() == companionName } ?: return null
         val companionField = enclosing.fields().firstOrNull { it.name() == companionName } ?: return null
-        val callee = resolveCallee(companion, name, arguments, callReturnFqn(call, method)) ?: return null
+        val callee = defaults ?: resolveCallee(companion, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(enclosing, companionField, callee, arguments, call, method)
     }
 
@@ -1162,13 +1205,13 @@ internal class KotlinBodyConverter(
      * call's object is a field access of the singleton (`Outer.Companion` or `Object.INSTANCE`).
      */
     private fun KaSession.objectCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
-                                     call: KtCallExpression, method: MethodInfo): Expression? {
+                                     call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
         val objectDecl = (calleeSymbol?.psi as? KtNamedFunction)?.containingClassOrObject as? KtObjectDeclaration ?: return null
         if (objectDecl.isCompanion()) return null // companions go through companionCall
         val fqn = (objectDecl.symbol as? KaNamedClassSymbol)?.classId?.asFqNameString() ?: return null
         val objectType = infoByFqn.getType(fqn, sourceSet) ?: return null
         val instanceField = objectType.fields().firstOrNull { it.name() == "INSTANCE" } ?: return null
-        val callee = resolveCallee(objectType, name, arguments, callReturnFqn(call, method)) ?: return null
+        val callee = defaults ?: resolveCallee(objectType, name, arguments, callReturnFqn(call, method)) ?: return null
         return singletonMemberCall(objectType, instanceField, callee, arguments, call, method)
     }
 
@@ -1196,7 +1239,7 @@ internal class KotlinBodyConverter(
      * when the enclosing method already is that facade (the normal path handles it), or when unresolved.
      */
     private fun KaSession.facadeCall(name: String, calleeSymbol: KaNamedFunctionSymbol?, arguments: List<Expression>,
-                                     call: KtCallExpression, method: MethodInfo): Expression? {
+                                     call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
         if (calleeSymbol == null || calleeSymbol.receiverParameter != null) return null
         if ((calleeSymbol.psi as? KtNamedFunction)?.containingClassOrObject != null) return null // a member, not top-level
         // a same-compilation top-level function lives on a source facade; a library one (e.g. kotlin.io.println)
@@ -1204,7 +1247,7 @@ internal class KotlinBodyConverter(
         val facade = extensionFacade(calleeSymbol)?.takeIf { it != method.typeInfo() }
             ?: with(typeMapper) { loadLibraryFacadeFor(calleeSymbol) }
             ?: return null
-        val callee = resolveCallee(facade, name, arguments, callReturnFqn(call, method)) ?: return null
+        val callee = defaults ?: resolveCallee(facade, name, arguments, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))

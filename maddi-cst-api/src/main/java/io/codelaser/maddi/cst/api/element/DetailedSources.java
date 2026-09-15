@@ -110,6 +110,14 @@ public interface DetailedSources {
     Object FINAL = new Object();
 
     /**
+     * Position of a parameter's default value (e.g. Kotlin {@code b: Int = 1}), on the parameter's own source. The
+     * value is the callee's code, evaluated when a call omits the argument: the Kotlin front end converts it into the
+     * body of the callee's synthetic {@code f$default}, as kotlinc compiles it, and a call omitting an argument calls
+     * that. On the declaration, this position tells a caller how few arguments the parameter list accepts.
+     */
+    Object DEFAULT_VALUE = new Object();
+
+    /**
      * Source-form markers. A surface construct that desugars to a more general CST node carries one of these
      * on that node's source, recording how it was written so a refactoring engine can reproduce the original
      * syntax rather than the expansion. The value is the position of the operator token. Cross-language sugar

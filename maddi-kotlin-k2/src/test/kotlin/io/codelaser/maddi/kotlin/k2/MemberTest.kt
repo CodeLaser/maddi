@@ -311,4 +311,21 @@ class MemberTest : KotlinScanTestBase() {
         assertEquals(1, p.parameterizedType().arrays())
     }
 
+    /**
+     * A method calls a sibling declared after it, in a class and in a companion: every signature exists before any
+     * body. K2's `declarations` is a lazy Sequence, and mapping it without `toList()` converted each body right after
+     * its own signature, so `b()` below was a `k2-unresolved-call` placeholder.
+     */
+    @Test
+    fun aBodyCallsASiblingDeclaredAfterIt() {
+        val types = KotlinScan(runtime, sourceSet).parse("x/X.kt",
+            "package x\nclass X {\n fun a() = b()\n fun b() = 1\n companion object {\n fun c() = d()\n fun d() = 2\n }\n}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        for ((caller, callee) in listOf("a" to "b", "c" to "d")) {
+            val method = all.flatMap { it.methods() }.single { it.name() == caller }
+            val call = (method.methodBody().statements().single() as ReturnStatement).expression()
+            assertTrue(call is MethodCall, "$caller: $call")
+            assertEquals(callee, (call as MethodCall).methodInfo().name())
+        }
+    }
 }

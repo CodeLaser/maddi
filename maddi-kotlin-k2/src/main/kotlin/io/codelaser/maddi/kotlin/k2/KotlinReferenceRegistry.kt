@@ -61,9 +61,20 @@ internal class KotlinReferenceRegistry {
     /** The URLs of every Kotlin file converted so far, across source sets: what [KotlinReferenceWalker] calls project. */
     val projectFiles: MutableSet<String> = HashSet()
 
+    // not a reference: the `$default` synthetic of each function or constructor that declares a default value, by the
+    // declaration's PSI. A call that omits an argument calls it, from any source set, hence kept here.
+    private val defaultsOf = IdentityHashMap<PsiElement, MethodInfo>()
+
     fun target(psi: PsiElement?, info: Info) {
         if (psi != null) targetOf[psi] = info
     }
+
+    fun defaults(declaration: PsiElement, method: MethodInfo) {
+        defaultsOf[declaration] = method
+    }
+
+    /** The `$default` synthetic of the function or constructor [declaration], or null if it declares no default. */
+    fun defaultsOf(declaration: PsiElement?): MethodInfo? = declaration?.let { defaultsOf[it] }
 
     fun host(psi: PsiElement?, info: Info) {
         if (psi != null) hostOf[psi] = info
