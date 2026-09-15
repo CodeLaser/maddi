@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import io.codelaser.maddi.cst.api.element.SourceSet
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
@@ -60,10 +62,25 @@ class KotlinProjectScan(
     fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
               javaSourceRoots: List<Path> = emptyList(),
               observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> {
+        // The session's project lives until this disposable is disposed: IntelliJ's Disposer tree is static, so an
+        // undisposed session -- every PSI file, every FIR cache -- stays reachable for the life of the JVM. A host
+        // that parses more than once (the refactoring server re-parses after every write) kept one full detekt
+        // session per parse: 1,413 live KtFiles more each time. Nothing reads PSI after this returns.
+        val disposable = Disposer.newDisposable("maddi KotlinProjectScan")
+        try {
+            return parse(disposable, orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots, observers)
+        } finally {
+            Disposer.dispose(disposable)
+        }
+    }
+
+    private fun parse(disposable: Disposable, orderedSourceSets: List<SourceSet>,
+                      libraryRoots: List<Path>, jdkHome: Path, javaSourceRoots: List<Path>,
+                      observers: List<KotlinParseObserver>): Map<SourceSet, List<TypeInfo>> {
         val jvm = JvmPlatforms.defaultJvmPlatform
         val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
 
-        val session = buildStandaloneAnalysisAPISession {
+        val session = buildStandaloneAnalysisAPISession(disposable) {
             buildKtModuleProvider {
                 platform = jvm
                 val jdk = buildKtSdkModule {

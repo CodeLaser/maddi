@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiElement
 import io.codelaser.maddi.cst.api.element.CompilationUnit
 import io.codelaser.maddi.cst.api.element.DetailedSources
@@ -278,18 +280,21 @@ class KotlinScan(
         // returned CST reads it again (only the CompilationUnit URI still names it). Leaving it behind cost
         // us a whole test run — /tmp is a tmpfs with a hard inode cap, and one dir per parse() exhausted it.
         val srcRoot = Files.createTempDirectory("k2-src")
+        // disposed with the temporary sources: an undisposed session stays reachable (see KotlinProjectScan.parse)
+        val disposable = Disposer.newDisposable("maddi KotlinScan")
         try {
             (filesByName + javaFilesByName).forEach { (name, content) ->
                 val file = srcRoot.resolve(name)
                 Files.createDirectories(file.parent ?: srcRoot)
                 Files.writeString(file, content)
             }
-            val session = buildSession(srcRoot).also { it.registerKDocResolution() }
+            val session = buildSession(disposable, srcRoot).also { it.registerKDocResolution() }
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
             observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
             return types
         } finally {
+            Disposer.dispose(disposable)
             srcRoot.toFile().deleteRecursively()
         }
     }
@@ -298,7 +303,8 @@ class KotlinScan(
      * Build a standalone session over [srcRoot], with the running JVM's JDK and this process's classpath
      * (kotlin-stdlib, etc.) as library dependencies, so library types resolve to real symbols.
      */
-    private fun buildSession(srcRoot: java.nio.file.Path) = buildStandaloneAnalysisAPISession {
+    private fun buildSession(disposable: Disposable, srcRoot: java.nio.file.Path) =
+        buildStandaloneAnalysisAPISession(disposable) {
         buildKtModuleProvider {
             val jvm = JvmPlatforms.defaultJvmPlatform
             platform = jvm
