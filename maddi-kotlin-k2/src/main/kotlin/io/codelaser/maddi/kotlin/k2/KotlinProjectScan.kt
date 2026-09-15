@@ -105,13 +105,17 @@ class KotlinProjectScan(
                 }
             }
         }
+        session.registerKDocResolution()
 
         val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
         val sourceSetOf = LinkedHashMap<KtFile, String>()
+        // one registry for the project: a set's members name the members of the sets upstream of it
+        val references = KotlinReferenceRegistry()
         orderedSourceSets.forEach { ss ->
             val module = moduleBySourceSet[ss]!!
             val ktFiles = (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
-            result[ss] = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager).convert(ktFiles)
+            result[ss] = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager)
+                .also { it.references = references }.convert(ktFiles)
             ktFiles.forEach { sourceSetOf[it] = ss.name() }
         }
         // after every set is converted, so a reference into an upstream set finds its CST; the session is still alive

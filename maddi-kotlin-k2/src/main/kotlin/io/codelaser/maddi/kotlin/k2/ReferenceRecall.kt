@@ -18,6 +18,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.cst.api.element.Source
 import io.codelaser.maddi.cst.api.expression.ConstructorCall
+import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.MethodCall
@@ -293,7 +294,9 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
             if (seen.put(element, true) != null) return false
             addDetails(element)
             val source = element.source()
-            if (source != null && source.beginLine() > 0 && element is Expression) {
+            // a placeholder keeps the range of the code it stands for, which the CST does not hold: not coverage
+            val placeholder = element is EmptyExpression && element.msg()?.startsWith("k2-") == true
+            if (source != null && source.beginLine() > 0 && element is Expression && !placeholder) {
                 expressionRanges += rangeKey(source)
                 referenceName(element)?.let { name ->
                     add(Rec(name, false, source.beginLine(), source.beginPos(), source.endLine(), source.endPos()))

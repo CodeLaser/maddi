@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaPackageSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtFile
@@ -82,6 +83,24 @@ internal class KotlinReferenceWalker(private val projectFiles: Set<String>) {
                 consumer(reference, project)
             }
         })
+    }
+
+    /**
+     * Every KDoc name of a Kotlin file that K2 resolves to a project declaration: a link `[Config.subConfig]`, the
+     * subject of `@see`, `@throws`, `@param`, ... Each segment of a qualified name is a name of its own (`Config`
+     * resolves to the class, `subConfig` to the member). Separate from [walk]: a documentation link is not a
+     * reference in code, and must not be counted or recorded as one.
+     */
+    fun KaSession.walkDocs(ktFile: KtFile, consumer: KaSession.(KDocName, List<KaSymbol>) -> Unit) {
+        for (name in PsiTreeUtil.findChildrenOfType(ktFile, KDocName::class.java)) {
+            val symbols = try {
+                name.mainReference.resolveToSymbols().toList()
+            } catch (e: RuntimeException) {
+                continue
+            }
+            val project = symbols.filter { it !is KaPackageSymbol && isProjectDeclaration(it) }
+            if (project.isNotEmpty()) consumer(name, project)
+        }
     }
 
     fun KaSession.isProjectDeclaration(symbol: KaSymbol): Boolean {

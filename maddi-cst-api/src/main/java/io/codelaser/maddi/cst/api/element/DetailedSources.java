@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.api.element;
 
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
@@ -145,6 +146,20 @@ public interface DetailedSources {
     void forEach(@NotNull BiConsumer<Object, Source> consumer);
 
     /**
+     * The positions at which this element's text names {@code target}, as recorded with
+     * {@link Builder#putReference(Info, Source)}; empty when none were.
+     * <p>
+     * Forward and local, like every other entry: an element records where its own text names a declaration. It does
+     * not answer "who names {@code target}" -- that is the dependency graph's question, which reads these entries
+     * as edges (ComputeCallGraph).
+     */
+    @NotNull
+    List<Source> references(Info target);
+
+    /** Calls {@code consumer} once per recorded reference position, with the declaration it names. */
+    void forEachReference(@NotNull BiConsumer<Info, Source> consumer);
+
+    /**
      * Returns a new {@code DetailedSources} combining the entries of this and {@code other}.
      */
     DetailedSources merge(DetailedSources other);
@@ -179,6 +194,14 @@ public interface DetailedSources {
         }
 
         Builder putList(Object object, List<Source> sourceList);
+
+        /**
+         * Records that this element's text names {@code target} at {@code identifier}, the exact range of the name.
+         * For a front-end whose CST does not represent every reference as an element of its own (Kotlin's desugared
+         * CST), so that an editor can still find each place a declaration is spelled. Kept apart from
+         * {@link #put(Object, Source)}: an Info-keyed detail is not necessarily a reference.
+         */
+        Builder putReference(Info target, Source identifier);
 
         DetailedSources build();
 

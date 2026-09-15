@@ -54,9 +54,19 @@ public class EmptyExpressionImpl extends ExpressionImpl implements EmptyExpressi
         parameterizedType = predefined.voidParameterizedType();
     }
 
+    private EmptyExpressionImpl(String msg, ParameterizedType parameterizedType, Source source) {
+        super(null, source, 1);
+        this.msg = msg;
+        this.parameterizedType = parameterizedType;
+    }
+
+    /**
+     * A copy at [source]: a front end's placeholder for code it could not convert keeps the range of that code, so a
+     * consumer can tell what the CST does not represent.
+     */
     @Override
     public Expression withSource(Source source) {
-        throw new UnsupportedOperationException();
+        return new EmptyExpressionImpl(msg, parameterizedType, source);
     }
 
     @Override

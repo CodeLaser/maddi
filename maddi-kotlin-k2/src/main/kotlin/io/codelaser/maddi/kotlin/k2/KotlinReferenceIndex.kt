@@ -43,7 +43,8 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  * one family ([family]); renaming a member renames the family. A family that overrides a declaration outside the
  * project cannot be renamed at all ([overridesOutsideProject]).
  *
- * Not included: KDoc links (`[name]`), string contents, and references K2 does not resolve.
+ * KDoc links (`[name]`, `@see name`) are included, marked [Occurrence.isDoc]. Not included: string contents, and
+ * references K2 does not resolve.
  */
 class KotlinReferenceIndex : KotlinParseObserver() {
 
@@ -57,13 +58,14 @@ class KotlinReferenceIndex : KotlinParseObserver() {
      */
     data class Occurrence(val uri: String, val beginLine: Int, val beginPos: Int, val endLine: Int, val endPos: Int,
                           val name: String, val isDeclaration: Boolean,
-                          val sharedWith: Set<DeclarationKey> = emptySet())
+                          val sharedWith: Set<DeclarationKey> = emptySet(), val isDoc: Boolean = false)
 
     private val declarations = HashMap<DeclarationKey, Occurrence>()
     private val references = HashMap<DeclarationKey, MutableList<Occurrence>>()
     private val parent = HashMap<DeclarationKey, DeclarationKey>()
     private val outsideProject = HashSet<DeclarationKey>()
     var referenceCount = 0; private set
+    var docReferenceCount = 0; private set
     var unresolvedReferences = 0; private set
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -85,6 +87,16 @@ class KotlinReferenceIndex : KotlinParseObserver() {
                                 .copy(sharedWith = keys - key)
                         }
                         if (keys.isNotEmpty()) referenceCount++
+                    }
+                    // KDoc links: occurrences a rename rewrites too, marked so they are not taken for code
+                    walkDocs(ktFile) { name, symbols ->
+                        val s = nameSourceOf(runtime, name)
+                        val keys = symbols.mapNotNull { namedDeclaration(it)?.let { d -> keyOf(runtime, d) } }.toSet()
+                        for (key in keys) {
+                            references.getOrPut(key) { ArrayList() } += Occurrence(url, s.beginLine(), s.beginPos(),
+                                s.endLine(), s.endPos(), name.getNameText(), false, keys - key, isDoc = true)
+                        }
+                        if (keys.isNotEmpty()) docReferenceCount++
                     }
                 }
             }
@@ -183,4 +195,7 @@ class KotlinReferenceIndex : KotlinParseObserver() {
         family(key).flatMap { listOfNotNull(declarations[it]) + references(it) }
 
     fun declarationCount(): Int = declarations.size
+
+    /** Every declaration indexed or referenced: to compare what each reference names across two parses. */
+    fun keys(): Set<DeclarationKey> = declarations.keys + references.keys
 }

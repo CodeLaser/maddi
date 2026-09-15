@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.VariableExpression
 import io.codelaser.maddi.cst.api.info.FieldInfo
+import io.codelaser.maddi.cst.api.info.Info
 import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.MethodModifier
 import io.codelaser.maddi.cst.api.info.ParameterInfo
@@ -72,6 +73,7 @@ import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
@@ -97,6 +99,7 @@ import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
@@ -152,12 +155,46 @@ class KotlinScan(
         bodyConverter.memberConverter = this
     }
 
+    // Where each member names a project declaration (see KotlinReferenceRegistry). A project scan shares one
+    // across its source sets; a standalone scan has its own.
+    internal var references = KotlinReferenceRegistry()
+
+    // > 0 while a body is being converted: a member built then (a local class's, an `object :` expression's)
+    // records nothing, what is written in it is recorded on the member it is written in; a member built at 0 is a
+    // reference host. Every member's commit waits in deferredCommits until every file's members exist
+    // (commitDeferred): a host for its records, and any method for what it overrides.
+    private var bodyDepth = 0
+    private val deferredCommits = ArrayList<Pair<Info, () -> Unit>>()
+
+    private inline fun <T> inBody(block: () -> T): T {
+        bodyDepth++
+        try {
+            return block()
+        } finally {
+            bodyDepth--
+        }
+    }
+
+    /**
+     * Commits [info] once every member exists ([commitDeferred]); a source-level member with a [psi] is a reference
+     * host, and gets its records then.
+     */
+    private fun commitOrDefer(info: Info, psi: PsiElement?, commit: () -> Unit) {
+        if (bodyDepth == 0 && psi != null) references.host(psi, info)
+        deferredCommits += info to commit
+    }
+
     // MemberConverter: an `object : Super { … }` body builds the anonymous type's members via these.
     override fun KaSession.buildAnonProperty(owner: TypeInfo, property: KaPropertySymbol) =
         convertProperty(owner, property)
 
     override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
         convertMethod(owner, function)
+
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtObjectDeclaration) {
+        convertInitializers(owner)
+        convertInitBlocks(declaration, owner)
+    }
 
     override fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
                                           outerLocals: Map<String, Variable>): TypeInfo =
@@ -166,14 +203,17 @@ class KotlinScan(
     // Body conversion delegated to KotlinBodyConverter (KaSession member extensions -> with(…)).
     private fun KaSession.convertBody(function: KaNamedFunctionSymbol, returnType: ParameterizedType,
                                       method: MethodInfo, outerLocals: Map<String, Variable> = emptyMap()) =
-        with(bodyConverter) { convertBody(function, returnType, method, outerLocals) }
+        inBody { with(bodyConverter) { convertBody(function, returnType, method, outerLocals) } }
 
     private fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo, locals: Map<String, Variable>) =
-        with(bodyConverter) { convertExpression(expression, method, locals) }
+        inBody { with(bodyConverter) { convertExpression(expression, method, locals) } }
+
+    private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
+        inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
 
     private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String) =
-        with(bodyConverter) { convertStatement(statement, method, locals, index) }
+        inBody { with(bodyConverter) { convertStatement(statement, method, locals, index) } }
 
     /**
      * Build a method-local type (`class C : A { … }` declared inside [enclosingMethod]'s body) as a full source
@@ -199,6 +239,7 @@ class KotlinScan(
         }
         typeInfo.builder().setEnclosingMethod(enclosingMethod)
         infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
+        references.target(declaration, typeInfo)
         // a local type has no ClassId, so register it by PSI too -- a use-site `C()` resolves through this
         classSymbol.psi?.let { typeMapper.registerLocalType(it, typeInfo) }
         prepareType(declaration, typeInfo)
@@ -233,7 +274,7 @@ class KotlinScan(
                 Files.createDirectories(file.parent ?: srcRoot)
                 Files.writeString(file, content)
             }
-            val session = buildSession(srcRoot)
+            val session = buildSession(srcRoot).also { it.registerKDocResolution() }
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
             observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
@@ -286,6 +327,7 @@ class KotlinScan(
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
         facadeByFqn.clear()
         pendingDelegates.clear()
+        ktFiles.forEach { f -> f.virtualFile?.url?.let { references.projectFiles += it } }
         // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
         // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
         typeMapper.registerTypeAliases(ktFiles)
@@ -311,6 +353,8 @@ class KotlinScan(
                 declarations.flatMap { registerTypeTree(compilationUnit, null, it) } to
                         (if (hasFacade) registerFacade(compilationUnit, ktFile) else null)
             }
+            // imports and file annotations are written in the file, outside any member
+            (facade ?: pairs.firstOrNull()?.second)?.let { references.host(ktFile, it) }
             FileConversion(ktFile, compilationUnit, pairs.map { it.first }, pairs.map { it.second },
                 facade, topLevelFunctions, topLevelProperties)
         }
@@ -326,11 +370,14 @@ class KotlinScan(
                     ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
                 fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
                 facadeBodies.forEach { (method, sym) -> finishMethodBody(sym, method) }
-                fc.facade?.let { convertDelegateInitializers(it) } // top-level `val x by lazy { … }`
+                fc.facade?.let { convertInitializers(it) } // top-level `val x = …`, `val x by lazy { … }`
             }
         }
         // every type now has its members, so a delegate declared after its user resolves: fill the accessors
         drainDelegatedProperties()
+        // ...and every declaration a reference can name exists: record them, then commit the members that waited
+        recordReferences(perFile)
+        commitDeferred()
         // pass B2 (all files): wire constructor this(...)/super(...) delegations — now every constructor
         // exists, so even super() to another source type resolves — then commit.
         val committedFacades = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
@@ -340,11 +387,41 @@ class KotlinScan(
             // a @JvmMultifileClass facade is shared by several files: commit it once (its first file owns it)
             // and list it only in that file's compilation unit
             val ownsFacade = facade != null && committedFacades.add(facade)
-            if (ownsFacade) facade!!.builder().commit()
+            if (ownsFacade) {
+                references.attach(runtime, facade!!)
+                facade.builder().commit()
+            }
             fc.compilationUnit.setTypes(if (facade != null && !ownsFacade) fc.types else fc.allTypes())
         }
         drainDelegatedProperties() // a delegated property built while B2 converted a body is finished here
+        commitDeferred() // ...and a member built there (an `object :` in a constructor argument, say)
         return perFile.flatMap { it.allTypes() }.distinct()
+    }
+
+    /**
+     * Records every project reference of these files on its host member (see [KotlinReferenceRegistry]). The hosts
+     * pick theirs up as they commit: the members in [commitDeferred], the constructors, classes and facades in
+     * pass B2.
+     */
+    private fun recordReferences(perFile: List<FileConversion>) {
+        val walker = KotlinReferenceWalker(references.projectFiles)
+        perFile.forEach { fc -> analyze(fc.ktFile) { with(references) { record(runtime, fc.ktFile, walker) } } }
+    }
+
+    /** Commits the members that waited for every member to exist, each with its records and overrides. */
+    private fun commitDeferred() {
+        val waiting = deferredCommits.toList()
+        deferredCommits.clear()
+        waiting.forEach { (member, commit) ->
+            // every project method exists now, so what a method overrides can be computed -- it never was for
+            // Kotlin, which left every override family (and the graph's methodsThatOverride) empty. An `object :`
+            // expression's and a local class's methods included: they are how a family reaches into a body.
+            if (member is MethodInfo && !member.isConstructor && !member.isStatic) {
+                member.builder().addOverrides(runtime.computeMethodOverrides().overrides(member))
+            }
+            references.attach(runtime, member)
+            commit()
+        }
     }
 
     private class FileConversion(
@@ -394,6 +471,7 @@ class KotlinScan(
                 .commit()
         }
         infoByFqn.put(typeInfo.fullyQualifiedName(), typeInfo, sourceSet)
+        references.target(declaration, typeInfo)
         return typeInfo
     }
 
@@ -417,6 +495,20 @@ class KotlinScan(
 
     // delegated properties awaiting their initializer + accessor bodies: see drainDelegatedProperties
     private val pendingDelegates = mutableListOf<PendingDelegate>()
+
+    // property initializers awaiting conversion, while their owner is open and its members exist: see
+    // convertInitializers. One its owner never reaches keeps the empty initializer it was created with.
+    private val pendingInitializers = mutableListOf<PendingInitializer>()
+    private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
+                                     val static: Boolean)
+
+    // the constructor an instance property's initializer and an init block run in, per type: the primary one, else
+    // the first that calls super rather than this(...)
+    private val runsInitOf = java.util.IdentityHashMap<TypeInfo, MethodInfo>()
+
+    // init blocks converted in pass B1, per constructor, waiting for the rest of its body: see convertInitBlocks
+    private val initBlocksOf = java.util.IdentityHashMap<MethodInfo, PlannedInitBlocks>()
+    private class PlannedInitBlocks(val prefix: Int, val total: Int, val blocks: List<Statement>)
 
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
@@ -483,10 +575,28 @@ class KotlinScan(
             attachModifiers(runtime, declaration) { typeModifierFor(it) }
             superTypeDetails.forEach { (superType, reference) -> putTypeReference(runtime, superType, reference) }
         })
+        if (bodyDepth == 0) references.host(declaration, typeInfo) // attached in finalizeType
         // constructor structures (params); bodies + delegations are wired in pass B2 (finalizeType)
+        var runsInit: MethodInfo? = null
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
-            .forEach { ctor -> typeInfo.builder().addConstructor(convertConstructorStructure(typeInfo, ctor)) }
+            .forEach { ctor ->
+                val constructor = convertConstructorStructure(typeInfo, ctor)
+                // an implicit constructor's psi is the CLASS: only a written one is a declaration of its own, so a
+                // call to an implicit one records the class, which is what the call spells anyway
+                val ctorPsi = ctor.psi as? KtConstructor<*>
+                references.target(ctorPsi, constructor)
+                if (bodyDepth == 0) references.host(ctorPsi, constructor) // attached in finalizeType
+                typeInfo.builder().addConstructor(constructor)
+                // the primary constructor; without one, init code runs in each constructor that calls super rather
+                // than this(...): the first of those is the one it is converted into (twice would declare twice)
+                val callsThis = (ctor.psi as? KtSecondaryConstructor)?.getDelegationCall()?.isCallToThis == true
+                if (ctor.isPrimary || runsInit == null && !callsThis) runsInit = constructor
+            }
+        runsInit?.let { runsInitOf[typeInfo] = it }
+        // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
+        // the graph looks for a caller, rather than falling through to the class
+        if (bodyDepth == 0) runsInit?.let { ctor -> declaration.getAnonymousInitializers().forEach { references.host(it, ctor) } }
     }
 
     /**
@@ -509,9 +619,10 @@ class KotlinScan(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
-        // delegate expressions now: the type is still open (a lambda mints an anonymous type on its builder)
-        // and its own methods exist. See convertDelegateInitializers.
-        convertDelegateInitializers(typeInfo)
+        // initializers, delegate expressions and init blocks now: the type is still open (a lambda mints an
+        // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
+        convertInitializers(typeInfo)
+        convertInitBlocks(declaration, typeInfo)
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
@@ -553,6 +664,9 @@ class KotlinScan(
                 .addFieldModifier(runtime.fieldModifierStatic())
                 .addFieldModifier(runtime.fieldModifierFinal())
                 .setInitializer(runtime.newEmptyExpression())
+                // every Info has a source (the Java parsers give even a synthesized one noSource()): consumers such
+                // as the text index read it unguarded
+                .setSource(declarationSource(entry) { putPsi(runtime, field.name(), entry.nameIdentifier) })
                 .computeAccess().commit()
             typeInfo.builder().addField(field)
         }
@@ -567,6 +681,7 @@ class KotlinScan(
             .addFieldModifier(runtime.fieldModifierStatic())
             .addFieldModifier(runtime.fieldModifierFinal())
             .setInitializer(runtime.newEmptyExpression())
+            .setSource(runtime.noSource()) // compiler-made: no text of its own
             .computeAccess().commit()
         return field
     }
@@ -589,6 +704,19 @@ class KotlinScan(
             .computeAccess() // nested: combines with the (already-computed) enclosing access
         enclosing.builder().addSubType(companion)
         infoByFqn.put(companion.fullyQualifiedName(), companion, sourceSet)
+        references.target(companionSymbol.psi, companion)
+        // the private constructor kotlinc gives it, called once, from the enclosing class's static initializer. The
+        // companion's properties are instance fields of it, so their initializers run there, as a class's run in its
+        // primary constructor. Built as the Java parser builds a class's default constructor.
+        val constructor = runtime.newConstructor(companion, runtime.methodTypeSyntheticConstructor())
+        constructor.builder()
+            .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+            .setMethodBody(runtime.emptyBlock())
+            .addMethodModifier(runtime.methodModifierPrivate())
+            .setSynthetic(true).setSource(runtime.noSource()).commitParameters().computeAccess()
+        companion.builder().addConstructor(constructor)
+        runsInitOf[companion] = constructor
+        commitOrDefer(constructor, null) { constructor.builder().commit() }
 
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
@@ -596,6 +724,12 @@ class KotlinScan(
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
+        convertInitializers(companion)
+        (companionSymbol.psi as? KtObjectDeclaration)?.let { declaration ->
+            declaration.getAnonymousInitializers().forEach { references.host(it, constructor) }
+            convertInitBlocks(declaration, companion)
+            initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(constructorBody(listOf(), it)) }
+        }
         companion.builder().commit()
 
         // the singleton handle: `public static final <Companion> Companion` on the enclosing class
@@ -670,12 +804,69 @@ class KotlinScan(
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
                     ?.let { statements.add(assignFieldFromParam(typeInfo, it, param, false)) }
             }
-            val body = runtime.newBlockBuilder()
-            statements.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i, statements.size))) }
-            cst.builder().setMethodBody(body.build()).commit()
+            cst.builder().setMethodBody(constructorBody(statements, initBlocksOf.remove(cst)))
+            references.attach(runtime, cst)
+            cst.builder().commit()
         }
+        references.attach(runtime, typeInfo)
         typeInfo.builder().commit() // access already computed in convertMembers (B1)
     }
+
+    /**
+     * A constructor's body: [prefix] (the `this(...)`/`super(...)` invocation, the parameter-property assignments),
+     * then the `init` blocks [planned] for it in pass B1, whose statement indices were fixed then. The prefix is
+     * indexed into the slots planned for it, right-aligned: a planned invocation that did not resolve leaves its slot
+     * empty rather than shifting indices the blocks already carry.
+     */
+    private fun constructorBody(prefix: List<Statement>, planned: PlannedInitBlocks?): Block {
+        val body = runtime.newBlockBuilder()
+        if (planned == null) {
+            prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i, prefix.size))) }
+        } else {
+            val shift = planned.prefix - prefix.size
+            check(shift >= 0) { "constructor body: ${prefix.size} statements before the init blocks, ${planned.prefix} planned" }
+            prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i + shift, planned.total))) }
+            planned.blocks.forEach { body.addStatement(it) }
+        }
+        return body.build()
+    }
+
+    /**
+     * Convert [declaration]'s `init` blocks, in pass B1, so that what they declare (an `object :` expression, its
+     * overrides) exists before references are recorded. They are code of the constructor [runsInitOf] names -- which
+     * is where kotlinc compiles them -- appended to its body after the invocation and the parameter-property
+     * assignments, each a nested block with its own scope. The body itself is assembled in pass B2 (finalizeType),
+     * so the prefix is counted here as finalizeType will build it. A type without a constructor (an `object :`
+     * expression) gets them as the body of its instance initializer.
+     */
+    private fun KaSession.convertInitBlocks(declaration: KtClassOrObject, owner: TypeInfo) {
+        val inits = declaration.getAnonymousInitializers()
+        if (inits.isEmpty()) return
+        val ctor = runsInitOf[owner]
+        if (ctor == null) {
+            val initializer = initializerMethod(owner, runtime.methodTypeInstanceInitializer(), "<init_0>") {
+                it.isInstanceInitializer
+            }
+            val body = runtime.newBlockBuilder()
+            inits.forEachIndexed { j, init -> body.addStatement(convertInitBlock(init, initializer, bodyConverter.pad(j, inits.size))) }
+            initializer.builder().setMethodBody(body.build())
+            return
+        }
+        val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
+            ?.filterIsInstance<KaConstructorSymbol>()?.toList()?.getOrNull(owner.constructors().indexOf(ctor))
+        val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
+        val prefix = invocation + ctor.parameters().count { p -> owner.fields().any { it.name() == p.name() } }
+        val total = prefix + inits.size
+        val blocks = inits.mapIndexed { j, init -> convertInitBlock(init, ctor, bodyConverter.pad(prefix + j, total)) }
+        initBlocksOf[ctor] = PlannedInitBlocks(prefix, total, blocks)
+    }
+
+    /** Whether [ctor] is written with a `this(...)`/`super(...)` call, resolved or not: see [explicitConstructorInvocation]. */
+    private fun hasExplicitInvocation(declaration: KtClassOrObject, ctor: KaConstructorSymbol): Boolean =
+        when (val psi = ctor.psi) {
+            is KtSecondaryConstructor -> !psi.getDelegationCall().isImplicit
+            else -> declaration.superTypeListEntries.any { it is KtSuperTypeCallEntry }
+        }
 
     /** Build the `this(...)`/`super(...)` invocation for a constructor, or null if there is none (or it is unresolved). */
     private fun KaSession.explicitConstructorInvocation(
@@ -736,7 +927,8 @@ class KotlinScan(
         val field = runtime.newFieldInfo(name, static, type, owner)
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
-            .setInitializer(runtime.newEmptyExpression())
+            .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
+        (property.psi as? KtProperty)?.initializer?.let { pendingInitializers += PendingInitializer(owner, field, it, static) }
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
@@ -745,7 +937,9 @@ class KotlinScan(
             (property.psi as? KtModifierListOwner)?.let { attachModifiers(runtime, it) { t -> fieldModifierFor(t) } }
             putTypeReference(runtime, type, (property.psi as? KtCallableDeclaration)?.typeReference)
         })
-        fieldBuilder.computeAccess().commit()
+        fieldBuilder.computeAccess()
+        references.target(property.psi, field)
+        commitOrDefer(field, property.psi) { field.builder().commit() }
         owner.builder().addField(field)
 
         // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
@@ -783,8 +977,11 @@ class KotlinScan(
         field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
             .addFieldModifier(runtime.fieldModifierFinal()) // final on the JVM, for a `var` property too
+            .setSource(runtime.noSource()) // compiler-made; attach adds what the `by` expression names
         if (static) field.builder().addFieldModifier(runtime.fieldModifierStatic())
         owner.builder().addField(field)
+        // the field is the host of what the `by` expression names: it is where that expression ends up
+        commitOrDefer(field, psi) { field.builder().commit() }
 
         // an accessor at every visibility, `private` included — unlike a backing-field property, the delegate
         // field is the only route to the value, so a read has nothing else to resolve against
@@ -813,10 +1010,15 @@ class KotlinScan(
         return accessor
     }
 
-    /** A delegated property whose field initializer and accessor bodies wait for every type's members. */
+    /**
+     * A delegated property whose field initializer and accessor bodies wait for every type's members. The field
+     * itself commits with the other members ([commitDeferred]); [initialized] says its initializer is set.
+     */
     private class PendingDelegate(val owner: TypeInfo, val field: FieldInfo, val type: ParameterizedType,
                                   val static: Boolean, val getter: MethodInfo, val setter: MethodInfo?,
-                                  val delegateExpression: KtExpression?)
+                                  val delegateExpression: KtExpression?) {
+        var initialized = false
+    }
 
     /**
      * Fill in the delegate accessors' bodies and commit them, plus any field whose initializer was never
@@ -832,6 +1034,48 @@ class KotlinScan(
     }
 
     /**
+     * Convert [owner]'s property initializers (see [initializerContext]) and delegate expressions (see
+     * [convertDelegateInitializers]) into their fields' initializers, while [owner] is open and its members exist.
+     */
+    private fun KaSession.convertInitializers(owner: TypeInfo) {
+        convertDelegateInitializers(owner)
+        // a snapshot, like the delegates': an `object :` expression in an initializer queues its own properties,
+        // which its conversion finishes (finishAnonMembers) before this loop reaches them
+        pendingInitializers.toList().forEach { p ->
+            if (p.owner !== owner || !pendingInitializers.remove(p)) return@forEach
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(owner, p.static), emptyMap()))
+        }
+    }
+
+    /**
+     * The member a property initializer is code of, which is where kotlinc compiles it: an instance property's into
+     * the primary constructor (of a class, an `object`, a companion); a top-level property's into the file facade's
+     * static initializer; an `object :` expression's, which has no constructor in the CST (nor in Java's), into an
+     * instance initializer. An `object :` expression or a lambda in the initializer is enclosed by that member, and a
+     * primary-constructor parameter the initializer reads resolves as the constructor's parameter.
+     */
+    private fun initializerContext(owner: TypeInfo, static: Boolean): MethodInfo =
+        if (static) initializerMethod(owner, runtime.methodTypeStaticInitializer(), "<static_0>") { it.isStaticInitializer }
+        else runsInitOf[owner] ?: initializerMethod(owner, runtime.methodTypeInstanceInitializer(), "<init_0>") {
+            it.isInstanceInitializer
+        }
+
+    /** The synthetic initializer block of [owner], made on first use: empty, private, as the Java parser names one. */
+    private fun initializerMethod(owner: TypeInfo, type: MethodInfo.MethodType, name: String,
+                                  existing: (MethodInfo) -> Boolean): MethodInfo {
+        owner.methods().firstOrNull(existing)?.let { return it }
+        val method = runtime.newMethod(owner, name, type)
+        method.builder()
+            .setReturnType(runtime.voidParameterizedType())
+            .setMethodBody(runtime.emptyBlock())
+            .setAccess(runtime.accessPrivate())
+            .setSynthetic(true).setSource(runtime.noSource()).commitParameters()
+        owner.builder().addMethod(method)
+        commitOrDefer(method, null) { method.builder().commit() }
+        return method
+    }
+
+    /**
      * Convert the delegate expressions of [owner]'s delegated properties into their fields' initializers.
      * Called while [owner] is still **open**, at the end of its member conversion: a delegate expression is
      * usually a call with a lambda (`lazy { … }`), and a lambda mints an anonymous type on its enclosing
@@ -844,19 +1088,22 @@ class KotlinScan(
         // a snapshot: converting a delegate expression can build an anonymous type whose own delegated
         // properties append to this very list
         pendingDelegates.toList().forEach { p ->
-            if (p.owner !== owner || p.field.hasBeenInspected()) return@forEach
+            if (p.owner !== owner || p.initialized) return@forEach
             val initializer = p.delegateExpression?.let { convertExpression(it, p.getter, emptyMap()) }
                 ?: runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
-            p.field.builder().setInitializer(initializer).computeAccess().commit()
+            p.field.builder().setInitializer(initializer).computeAccess()
+            p.initialized = true
         }
     }
 
     private fun finishDelegate(p: PendingDelegate) {
-        if (!p.field.hasBeenInspected()) {
-            // not converted while the owner was open (an anonymous object's property, say): mark rather than
+        if (!p.initialized) {
+            // not converted while the owner was open (no convertInitializers reached it): mark rather than
             // convert -- a lambda in the expression would need the owner's builder, and it is committed now
-            p.field.builder().setInitializer(runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}"))
-                .computeAccess().commit()
+            val placeholder = runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
+            p.field.builder().setInitializer(p.delegateExpression?.let { placeholder.withSource(sourceOf(runtime, it, "-")) }
+                ?: placeholder).computeAccess()
+            p.initialized = true
         }
         if (!p.getter.hasBeenInspected()) {
             val read = runtime.newReturnBuilder()
@@ -948,7 +1195,10 @@ class KotlinScan(
             val scope = mutableMapOf<String, Variable>()
             statements.forEachIndexed { i, s -> body.addStatement(convertStatement(s, getter, scope, bodyConverter.pad(i, statements.size))) }
         }
-        getter.builder().setMethodBody(body.build()).commit()
+        getter.builder().setMethodBody(body.build())
+        // a computed property has no field: its getter is what a reference names, and where its body's are recorded
+        references.target(property.psi, getter)
+        commitOrDefer(getter, property.psi) { getter.builder().commit() }
         return getter
     }
 
@@ -1014,7 +1264,8 @@ class KotlinScan(
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
-        method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals)).commit()
+        method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals))
+        commitOrDefer(method, function.psi) { method.builder().commit() }
     }
 
     /**
@@ -1050,22 +1301,30 @@ class KotlinScan(
                 .filter { it.modality == KaSymbolModality.ABSTRACT }
                 .forEach { function ->
                     if (!present.add(function.name.asString() to function.valueParameters.size)) return@forEach
-                    val method = convertMethodSignature(typeInfo, function)
+                    val method = convertMethodSignature(typeInfo, function, forwarder = true)
                     typeInfo.builder().addMethod(method)
-                    method.builder().setMethodBody(runtime.emptyBlock()).commit()
+                    method.builder().setMethodBody(runtime.emptyBlock())
+                    commitOrDefer(method, null) { method.builder().commit() } // for its overrides
+
                 }
         }
     }
 
+    /**
+     * @param forwarder a `by`-delegation forwarder: [function] is the delegated interface's member, whose PSI is
+     * that member's declaration, in another file. The forwarder is compiler-generated: it spells nothing, and it is
+     * not what that PSI declares.
+     */
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                                 static: Boolean = false): MethodInfo {
+                                                 static: Boolean = false, forwarder: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
         val jvmName = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }
         val method = runtime.newMethod(owner, jvmName ?: function.name.asString(), methodType)
+        if (!forwarder) references.target(function.psi, method)
         val builder = method.builder()
         // compiler-generated members of a source class (a data class's componentN()/copy(), …) are synthetic
-        if (function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED) builder.setSynthetic(true)
+        if (forwarder || function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED) builder.setSynthetic(true)
         // method type parameters (`fun <T : Comparable<T>> …`): create them first (a bound may reference a
         // sibling, `T : Comparable<T>`), then set bounds -- resolved with `method` so a bare `T` binds here
         val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
@@ -1088,14 +1347,14 @@ class KotlinScan(
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
             parameterInfo.builder().setVarArgs(p.isVararg)
             // name (keyed by parameterInfo.name(), like the Java parser) + type-reference detail (into generics)
-            val parameterPsi = p.psi as? KtParameter
+            val parameterPsi = if (forwarder) null else p.psi as? KtParameter
             parameterInfo.builder().setSource(declarationSource(parameterPsi) {
                 putPsi(runtime, parameterInfo.name(), parameterPsi?.nameIdentifier)
                 putTypeReference(runtime, elementType, parameterPsi?.typeReference)
             })
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
-        val psi = function.psi as? KtNamedFunction
+        val psi = if (forwarder) null else function.psi as? KtNamedFunction
         builder
             .setReturnType(returnType)
             // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser

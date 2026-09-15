@@ -16,10 +16,12 @@ package io.codelaser.maddi.cst.impl.element;
 
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,16 +31,31 @@ import java.util.stream.Stream;
 public class DetailedSourcesImpl implements DetailedSources {
     private final IdentityHashMap<Object, Object> identityHashMap;
     private final IdentityHashMap<Object, Object> association;
+    // putReference: the declarations this element's text names, and where; null when none were recorded
+    private final IdentityHashMap<Info, List<Source>> references;
 
     private DetailedSourcesImpl(IdentityHashMap<Object, Object> identityHashMap,
-                                IdentityHashMap<Object, Object> association) {
+                                IdentityHashMap<Object, Object> association,
+                                IdentityHashMap<Info, List<Source>> references) {
         this.identityHashMap = identityHashMap;
         this.association = association;
+        this.references = references;
+    }
+
+    private static IdentityHashMap<Info, List<Source>> mergeReferences(IdentityHashMap<Info, List<Source>> a,
+                                                                       IdentityHashMap<Info, List<Source>> b) {
+        if (a == null && b == null) return null;
+        IdentityHashMap<Info, List<Source>> merged = new IdentityHashMap<>();
+        for (IdentityHashMap<Info, List<Source>> m : Arrays.asList(a, b)) {
+            if (m != null) m.forEach((k, v) -> merged.computeIfAbsent(k, _ -> new ArrayList<>()).addAll(v));
+        }
+        return merged;
     }
 
     public static class BuilderImpl implements DetailedSources.Builder {
         private final IdentityHashMap<Object, Object> identityHashMap = new IdentityHashMap<>();
         private IdentityHashMap<Object, Object> association;
+        private IdentityHashMap<Info, List<Source>> references;
 
         @Override
         public Object getAssociated(Object pt) {
@@ -54,6 +71,7 @@ public class DetailedSourcesImpl implements DetailedSources {
                 if (association == null) association = new IdentityHashMap<>();
                 association.putAll(dsi.association);
             }
+            references = mergeReferences(references, dsi.references);
             return this;
         }
 
@@ -64,7 +82,15 @@ public class DetailedSourcesImpl implements DetailedSources {
             if (association != null) {
                 copy.association = new IdentityHashMap<>(association);
             }
+            copy.references = mergeReferences(references, null);
             return copy;
+        }
+
+        @Override
+        public Builder putReference(Info target, Source identifier) {
+            if (references == null) references = new IdentityHashMap<>();
+            references.computeIfAbsent(target, _ -> new ArrayList<>()).add(identifier);
+            return this;
         }
 
         @SuppressWarnings("unchecked")
@@ -92,7 +118,7 @@ public class DetailedSourcesImpl implements DetailedSources {
 
         @Override
         public DetailedSourcesImpl build() {
-            return new DetailedSourcesImpl(identityHashMap, association);
+            return new DetailedSourcesImpl(identityHashMap, association, references);
         }
 
         // used for the type without array [] [] parts
@@ -139,6 +165,18 @@ public class DetailedSourcesImpl implements DetailedSources {
     }
 
     @Override
+    public List<Source> references(Info target) {
+        if (references == null) return List.of();
+        List<Source> list = references.get(target);
+        return list == null ? List.of() : List.copyOf(list);
+    }
+
+    @Override
+    public void forEachReference(BiConsumer<Info, Source> consumer) {
+        if (references != null) references.forEach((target, list) -> list.forEach(s -> consumer.accept(target, s)));
+    }
+
+    @Override
     public void forEach(BiConsumer<Object, Source> consumer) {
         identityHashMap.forEach((key, value) -> {
             if (value instanceof List<?> list) {
@@ -173,7 +211,8 @@ public class DetailedSourcesImpl implements DetailedSources {
                 copyAssociation.putAll(otherAssociation);
             }
         }
-        return new DetailedSourcesImpl(copy, copyAssociation);
+        return new DetailedSourcesImpl(copy, copyAssociation,
+                mergeReferences(references, ((DetailedSourcesImpl) other).references));
     }
 
     @Override
@@ -183,7 +222,7 @@ public class DetailedSourcesImpl implements DetailedSources {
         IdentityHashMap<Object, Object> copy = new IdentityHashMap<>(identityHashMap.size());
         copy.putAll(identityHashMap);
         copy.put(o, sources);
-        return new DetailedSourcesImpl(copy, copyAssociation);
+        return new DetailedSourcesImpl(copy, copyAssociation, references);
     }
 
     @Override
