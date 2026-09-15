@@ -48,3 +48,13 @@ tasks.withType<Test> {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     )
 }
+
+// JVM 25 bytecode, as every other maddi module (their java blocks) and the jfocus convention: left to the daemon JDK
+// (26), these three alone came out as class-file version 70, which a 25 consumer can neither compile against nor load.
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25) }
+}

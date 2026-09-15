@@ -77,7 +77,16 @@ configurations.all {
 }
 
 // No jvmToolchain(): match the rest of the project, which compiles on the Gradle daemon JDK
-// (JDK 26 here) rather than a provisioned toolchain. Kotlin 2.4 caps its target at JVM 25.
+// (JDK 26 here) rather than a provisioned toolchain.
+// JVM 25 bytecode, as every other maddi module (their java blocks) and the jfocus convention: left to the daemon JDK
+// (26), these three alone came out as class-file version 70, which a 25 consumer can neither compile against nor load.
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25) }
+}
 
 tasks.withType<Test> {
     useJUnitPlatform()
