@@ -275,8 +275,21 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     .reduce((a, b) -> a + ", " + b).orElse("-");
             LOGGER.info("Slowest elements: {}", slowest);
         } else {
+            // the same "slowest elements" line the parallel branch prints: the sequential first iteration is
+            // the one every corpus probe runs, and it had no per-element figure at all
+            java.util.Map<Info, Long> elementMillis = LOGGER.isInfoEnabled() ? new java.util.HashMap<>() : null;
             for (Info info : analysisOrder) {
+                long t0 = System.nanoTime();
                 processElement(info, activateCycleBreaking, firstIteration, abstractTypes);
+                if (elementMillis != null) elementMillis.put(info, (System.nanoTime() - t0) / 1_000_000);
+            }
+            if (elementMillis != null) {
+                String slowest = elementMillis.entrySet().stream()
+                        .sorted(java.util.Map.Entry.<Info, Long>comparingByValue().reversed())
+                        .limit(10)
+                        .map(e -> e.getKey().fullyQualifiedName() + "=" + e.getValue() + "ms")
+                        .reduce((a, b) -> a + ", " + b).orElse("-");
+                LOGGER.info("Slowest elements (sequential, {} elements): {}", analysisOrder.size(), slowest);
             }
         }
         long endLoop = System.currentTimeMillis();
