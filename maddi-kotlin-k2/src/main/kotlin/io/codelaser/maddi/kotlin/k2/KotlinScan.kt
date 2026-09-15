@@ -622,10 +622,13 @@ class KotlinScan(
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
-        // method SIGNATURES first, then bodies -- so a method body can call a sibling declared later (or itself)
+        // method SIGNATURES first, then bodies -- so a method body can call a sibling declared later (or itself).
+        // `declarations` is a lazy Sequence: without toList() each signature was followed by its body, and a call to
+        // a sibling declared later was a placeholder.
         val pendingMethods = classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
+            .toList()
         pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
         // initializers, delegate expressions and init blocks now: the type is still open (a lambda mints an
         // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
@@ -729,9 +732,12 @@ class KotlinScan(
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(companion, property) }
+        // signatures first, then bodies, as for a class (convertMembers)
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
-            .forEach { function -> companion.builder().addMethod(convertMethod(companion, function)) }
+            .map { function -> convertMethodSignature(companion, function).also { companion.builder().addMethod(it) } to function }
+            .toList()
+            .forEach { (method, function) -> finishMethodBody(function, method) }
         convertInitializers(companion)
         (companionSymbol.psi as? KtObjectDeclaration)?.let { declaration ->
             declaration.getAnonymousInitializers().forEach { references.host(it, constructor) }
