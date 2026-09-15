@@ -217,6 +217,14 @@ internal class KotlinBodyConverter(
 
     private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
 
+    /** One of this front end's placeholders (`k2-…`) without a range yet. */
+    private fun isPlaceholder(e: Expression): Boolean =
+        e is EmptyExpression && e.msg()?.startsWith("k2-") == true && e.source() == null
+
+    /** A placeholder standing for all of [statement], which was not converted. */
+    private fun placeholder(msg: String, statement: PsiElement): Expression =
+        runtime.newEmptyExpression(msg).withSource(source(statement, "-"))
+
     /**
      * A single-entry [DetailedSources] recording a source-form [marker] (e.g. `NULL_COALESCING`) at the
      * operator token [psi], so the refactoring engine can reproduce the original surface syntax of a
@@ -260,11 +268,11 @@ internal class KotlinBodyConverter(
                 // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
                 val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
                 runtime.newExpressionAsStatement(
-                    if (combined == null) runtime.newEmptyExpression("k2-augmented-index:${statement.operationToken}")
+                    if (combined == null) placeholder("k2-augmented-index:${statement.operationToken}", statement)
                     else convertIndexedSet(left, combined, method, locals))
             } else {
                 val target = left?.let { convertExpression(it, method, locals) } as? VariableExpression
-                if (target == null) runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-assign-target"))
+                if (target == null) runtime.newExpressionAsStatement(placeholder("k2-assign-target", statement))
                 else {
                     val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
                     augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
@@ -356,10 +364,10 @@ internal class KotlinBodyConverter(
                 runtime.newMethodCallBuilder().setObject(initializer).setObjectIsImplicit(false).setMethodInfo(it)
                     .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
                     .setSource(runtime.noSource()).build()
-            } ?: runtime.newEmptyExpression("k2-component${i + 1}")
+            } ?: placeholder("k2-component${i + 1}", statement)
             runtime.newLocalVariable(name, type, componentInit).also { locals[name] = it }
         }
-        if (variables.isEmpty()) return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-destructuring"))
+        if (variables.isEmpty()) return runtime.newExpressionAsStatement(placeholder("k2-destructuring", statement))
         val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
         variables.drop(1).forEach { builder.addOtherLocalVariable(it) }
         return builder.setSource(runtime.noSource()).build()
@@ -580,7 +588,8 @@ internal class KotlinBodyConverter(
     internal fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
         val raw = convertExpressionRaw(expression, method, locals)
-        if (raw is EmptyExpression) return raw // singleton; rejects withSource
+        // a placeholder for code not converted keeps that code's range: what the CST does not represent
+        if (raw is EmptyExpression) return if (isPlaceholder(raw)) raw.withSource(source(expression, "-")) else raw
         // apply the element's full range, but keep any DetailedSources a converter (e.g. convertCall) attached
         val rangeSource = source(expression, "-")
         val detailed = raw.source()?.detailedSources()

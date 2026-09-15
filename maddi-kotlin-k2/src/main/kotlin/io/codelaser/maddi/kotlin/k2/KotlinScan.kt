@@ -1100,8 +1100,9 @@ class KotlinScan(
         if (!p.initialized) {
             // not converted while the owner was open (no convertInitializers reached it): mark rather than
             // convert -- a lambda in the expression would need the owner's builder, and it is committed now
-            p.field.builder().setInitializer(runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}"))
-                .computeAccess()
+            val placeholder = runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
+            p.field.builder().setInitializer(p.delegateExpression?.let { placeholder.withSource(sourceOf(runtime, it, "-")) }
+                ?: placeholder).computeAccess()
             p.initialized = true
         }
         if (!p.getter.hasBeenInspected()) {
