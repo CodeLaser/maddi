@@ -2049,6 +2049,27 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 typeData.put(varSymbol, fieldInfo);
             } else {
                 fieldInfo = inMap;
+                /*
+                 The field already exists when its type was built from javac's symbol before this unit was
+                 scanned -- a unit scanned EARLIER referenced the type, and ClassSymbolScanner built it, fields
+                 included, with types from convert(Type). This visit converted the declared type AGAIN, from the
+                 tree, and convertTree keyed the type's source by the instance it made. DetailedSources is
+                 identity-keyed and every caller looks the type up as fieldInfo.type(), which is the FIRST
+                 instance -- so for every reference-typed field of a type that happened to be referenced before
+                 it was scanned, detail(field.type()) was null. Primitives never showed it: their
+                 ParameterizedTypes are runtime singletons, the same instance on both paths.
+
+                 Same defect, same fix as the name three lines down. Found by a refactoring that inserts
+                 'final' in front of a field's type, on a closed-core isolate: 'com.example.a.User' is
+                 scanned before 'com.example.b.Dto', the int and long fields had a type position and the
+                 String one did not. A fixture whose DTO sorts before its user never sees this, and every
+                 fixture did. TestFieldTypeDetailUnitOrder.
+                */
+                if (type != fieldInfo.type()) {
+                    for (Source typeSource : dsb.build().details(type)) {
+                        dsb.put(fieldInfo.type(), typeSource);
+                    }
+                }
             }
             fieldInfo.builder().addAnnotations(annots);
 
