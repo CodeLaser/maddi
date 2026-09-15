@@ -57,6 +57,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
+
+    /**
+     * The {@code LabeledStatementTree} wrapping each labelled statement, so the statement's source can begin at
+     * its label rather than at the statement the label precedes. See {@link #statementSourceForNode(Tree)}.
+     */
+    private final Map<StatementTree, LabeledStatementTree> labelledStatementOf = new IdentityHashMap<>();
     private final Map<JCTree.JCVariableDecl, Source> wholeFieldDeclarationSources = new IdentityHashMap<>();
     // fields whose commit createField deferred, so that ScanCompilationUnits can resolve their javadoc first
     private final List<FieldInfo> deferredFieldCommits = new ArrayList<>();
@@ -1714,6 +1720,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     @Override
     public Void visitLabeledStatement(LabeledStatementTree node, Void unused) {
         statementLabels.put(node.getStatement(), node.getLabel().toString());
+        labelledStatementOf.put(node.getStatement(), node);
         return super.visitLabeledStatement(node, unused);
     }
 
@@ -3552,12 +3559,38 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 : scanResult.findCommaList(typeSource, DetailedSources.TYPE_ARGUMENT_COMMAS);
     }
 
+    /**
+     * A statement's own source — <b>beginning at its label when it carries one</b>.
+     *
+     * <h2>Why the label is part of the statement's text</h2>
+     * javac hands a labelled statement over as a {@code LabeledStatementTree} whose child is the statement
+     * itself, and the child's start position is the {@code while}/{@code for}/{@code switch}, not the
+     * {@code OUT:} in front of it. Taking the child's position meant a labelled statement's recorded span did
+     * not include its own label, and any consumer that COPIES or REPLACES a statement by that span silently
+     * dropped it — after which every {@code break OUT;} inside the copied text named a label that no longer
+     * existed.
+     *
+     * <p>The label is not decoration attached to a statement, it is part of the statement: {@code OUT: while
+     * (…) {…}} is one statement and that is its text. So the span starts at the {@code LabeledStatementTree},
+     * whose end position is the same either way.
+     *
+     * <p>Found from the refactoring side: {@code extract.splitPromote} refused to make any labelled statement
+     * a piece, in three separate places, because a piece is a line range and the range would have dropped the
+     * label. On questdb's {@code ExpressionParser.parseExpr}, whose main loop carries a label, that refusal
+     * left a piece of 432 lines.
+     */
     private Source statementSourceForNode(Tree node) {
-        return sourceForNode(node, statementIndex());
+        return sourceForNode(labelledOuterNode(node), statementIndex());
     }
 
     private Source statementSourceForNode(Tree node, DetailedSources.Builder dsb) {
-        return sourceForNode(node, statementIndex()).withDetailedSources(dsb.build());
+        return sourceForNode(labelledOuterNode(node), statementIndex()).withDetailedSources(dsb.build());
+    }
+
+    /** The {@code LabeledStatementTree} around {@code node}, or {@code node} itself when it carries no label. */
+    private Tree labelledOuterNode(Tree node) {
+        LabeledStatementTree outer = labelledStatementOf.get(node);
+        return outer == null ? node : outer;
     }
 
     private Source scanSource(Tree tree) {
