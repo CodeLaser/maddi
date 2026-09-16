@@ -34,6 +34,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -129,9 +132,38 @@ public class RunMixedPrepAnalyzer {
             analyzer.analyze(order, callGraph); // the graph enables worklist narrowing
             LOGGER.info("Modification analysis finished");
             immutableTypes = (int) primaryTypes.stream().filter(RunMixedPrepAnalyzer::isImmutable).count();
+            // every SOURCE type, not the primaries: a verdict that moves between runs may well be a nested
+            // type's, and a dump that cannot show it cannot rule it out either (#34)
+            writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
                 primaryTypes.size(), order.size(), prepErrors, immutableTypes);
+    }
+
+    /**
+     * The immutability verdict of every primary type, one {@code <verdict> <fqn>} line, sorted by name, to the
+     * file named by {@code -Dmaddi.verdictDump} (absent: no file, no cost). A count is not enough to debug a run
+     * that disagrees with the previous one over the same tree (#34): two dumps diff to the types that moved,
+     * which is where a cause can be looked for. Never assert on this — it is an instrument, not a result.
+     */
+    private static void writeVerdicts(List<TypeInfo> types) throws IOException {
+        String target = System.getProperty("maddi.verdictDump");
+        if (target == null || target.isBlank()) return;
+        List<String> lines = types.stream()
+                .map(t -> verdict(t) + " " + t.fullyQualifiedName())
+                .sorted(Comparator.comparing(s -> s.substring(s.indexOf(' ') + 1)))
+                .toList();
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} type verdict(s) to {}", lines.size(), path);
+    }
+
+    /** The name of a type's {@code IMMUTABLE_TYPE} value, or {@code NONE} when the analysis concluded nothing. */
+    private static String verdict(TypeInfo typeInfo) {
+        Value.Immutable immutable = typeInfo.analysis()
+                .getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class);
+        return immutable == null ? "NONE" : immutable.toString();
     }
 
     /**

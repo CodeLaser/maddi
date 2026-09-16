@@ -61,6 +61,10 @@ tasks.withType<Test> {
     // via a reused daemon. Unset -> the helper defaults to ../../test-oss. Mirrors maddi-run-openjdk.
     System.getProperty("test.oss.root")?.let { systemProperty("test.oss.root", it) }
     System.getenv("TEST_OSS_ROOT")?.let { environment("TEST_OSS_ROOT", it) }
+    // per-type immutability verdicts of a corpus run, for diffing two runs of the same tree (#34); see
+    // RunMixedPrepAnalyzer.writeVerdicts. Unset -> nothing is written.
+    System.getProperty("maddi.verdictDump")?.let { systemProperty("maddi.verdictDump", it) }
+    System.getenv("MADDI_VERDICT_DUMP")?.let { systemProperty("maddi.verdictDump", it) }
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
 
