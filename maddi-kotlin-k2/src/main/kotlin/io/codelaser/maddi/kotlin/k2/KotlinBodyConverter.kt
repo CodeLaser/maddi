@@ -718,9 +718,12 @@ internal class KotlinBodyConverter(
             }
             else -> runtime.newEmptyExpression("k2-unsupported-selector")
         }
-        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token
+        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token.
+        // The receiver stands in the test as well as in the call, and the CST is a tree: it is converted a second
+        // time for the test rather than shared, as the elvis operand above (#32).
         return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
-            .setCondition(runtime.newEquals(receiver, runtime.nullConstant()))
+            .setCondition(runtime.newEquals(convertExpression(expression.receiverExpression, method, locals),
+                    runtime.nullConstant()))
             .setIfTrue(runtime.nullConstant()).setIfFalse(selectorResult)
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
             .build(runtime)
@@ -1332,10 +1335,14 @@ internal class KotlinBodyConverter(
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
-        // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token
+        // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token.
+        // The left operand stands in the lowering TWICE, and the CST is a TREE: the same instance in both places
+        // makes every consumer that walks it visit its statements twice, and prep then throws "Trying to overwrite
+        // a value for property variableData" -- 7 of the 8 methods it isolated on detekt (#32). So it is converted
+        // a second time, which is also what the lowering says: `a` is written in the test and in the branch.
         if (expression.operationToken == KtTokens.ELVIS) return runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(left, runtime.nullConstant()))
-            .setIfTrue(right).setIfFalse(left)
+            .setIfTrue(right).setIfFalse(expression.left!!.let { convertExpression(it, method, locals) })
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_COALESCING, expression.operationReference)))
             .build(runtime)
         // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)
