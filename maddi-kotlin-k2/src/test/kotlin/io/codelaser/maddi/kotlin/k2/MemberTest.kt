@@ -47,6 +47,7 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -327,5 +328,40 @@ class MemberTest : KotlinScanTestBase() {
             assertTrue(call is MethodCall, "$caller: $call")
             assertEquals(callee, (call as MethodCall).methodInfo().name())
         }
+    }
+
+    /**
+     * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
+     * by: its position sits on the member's own source under [DetailedSources.OVERRIDE]. A rename that takes one
+     * member out of its override family has to remove it.
+     */
+    @Test
+    fun theOverrideKeywordHasAPosition() {
+        val types = KotlinScan(runtime, sourceSet).parse("y/Y.kt",
+            "package y\n" +                                    // 1
+                "interface I {\n" +                            // 2
+                "    fun f(): Int\n" +                         // 3
+                "    val v: Int\n" +                           // 4
+                "}\n" +                                        // 5
+                "class C : I {\n" +                            // 6
+                "    override fun f(): Int = 1\n" +            // 7, `override` at cols 5..12
+                "    override val v: Int = 2\n" +              // 8, `override` at cols 5..12
+                "    fun g(): Int = 3\n" +                     // 9, no override
+                "}\n")
+        val c = types.single { it.simpleName() == "C" }
+        val f = c.methods().single { it.name() == "f" }
+        val override = f.source().detailedSources().detail(DetailedSources.OVERRIDE)
+        assertNotNull(override)
+        assertEquals(7, override.beginLine())
+        assertEquals(5, override.beginPos())
+        assertEquals(12, override.endPos())
+
+        val v = c.fields().single { it.name() == "v" }
+        val propertyOverride = v.source().detailedSources().detail(DetailedSources.OVERRIDE)
+        assertNotNull(propertyOverride)
+        assertEquals(8, propertyOverride.beginLine())
+
+        val g = c.methods().single { it.name() == "g" }
+        assertNull(g.source().detailedSources().detail(DetailedSources.OVERRIDE))
     }
 }

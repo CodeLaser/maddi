@@ -110,6 +110,16 @@ public interface DetailedSources {
     Object FINAL = new Object();
 
     /**
+     * Position of Kotlin's {@code override} keyword, on the method's own source (a property's, for an overriding
+     * property). It is a modifier in Kotlin, where Java has an annotation, so the CST -- which models Java -- has no
+     * modifier object to key it by, as {@link #FINAL} has none on a parameter.
+     * <p>
+     * A member that stops overriding must lose it or the code does not compile ("overrides nothing"), which is what a
+     * rename of one member of an override family needs.
+     */
+    Object OVERRIDE = new Object();
+
+    /**
      * Position of a parameter's default value (e.g. Kotlin {@code b: Int = 1}), on the parameter's own source. The
      * value is the callee's code, evaluated when a call omits the argument: the Kotlin front end converts it into the
      * body of the callee's synthetic {@code f$default}, as kotlinc compiles it, and a call omitting an argument calls

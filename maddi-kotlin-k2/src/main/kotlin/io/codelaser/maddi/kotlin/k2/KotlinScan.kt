@@ -986,6 +986,7 @@ class KotlinScan(
         fieldBuilder.setSource(declarationSource(property.psi) {
             putPsi(runtime, field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
             (property.psi as? KtModifierListOwner)?.let { attachModifiers(runtime, it) { t -> fieldModifierFor(t) } }
+            (property.psi as? KtModifierListOwner)?.let { attachOverride(runtime, it) }
             putTypeReference(runtime, type, (property.psi as? KtCallableDeclaration)?.typeReference)
         })
         fieldBuilder.computeAccess()
@@ -1459,6 +1460,7 @@ class KotlinScan(
             .setSource(declarationSource(psi) {
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
                 psi?.let { attachModifiers(runtime, it) { t -> methodModifierFor(t) } }
+                psi?.let { attachOverride(runtime, it) }
                 putTypeReference(runtime, returnType, psi?.typeReference)
             })
         addMethodModifiers(builder, function)
