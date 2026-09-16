@@ -331,6 +331,44 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     /**
+     * A declaration without a body is an ABSTRACT method, as in the Java front ends; an interface member with one is
+     * a `default` method, which is what kotlinc compiles it to. Abstractness used to be the `abstract` modifier only,
+     * so `isAbstract()` was false for every Kotlin interface member and prep registered no implementations (#35).
+     */
+    @Test
+    fun anAbstractFunctionIsAnAbstractMethod() {
+        val types = KotlinScan(runtime, sourceSet).parse("z/Z.kt",
+            "package z\n" +
+                "interface I {\n" +
+                "    fun f(): Int\n" +                        // abstract
+                "    fun withBody(): Int = 1\n" +             // default
+                "    val v: Int\n" +                          // abstract getter
+                "}\n" +
+                "abstract class A {\n" +
+                "    abstract fun g(): Int\n" +               // abstract
+                "    fun h(): Int = 2\n" +                    // a plain method
+                "}\n" +
+                "class C : I {\n" +
+                "    override fun f(): Int = 3\n" +
+                "    override val v: Int = 4\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        fun method(type: String, name: String) =
+            all.single { it.simpleName() == type }.methods().single { it.name() == name }
+
+        assertTrue(method("I", "f").isAbstract, "an interface member without a body")
+        assertTrue(method("I", "getV").isAbstract, "the getter of an abstract property")
+        assertTrue(method("A", "g").isAbstract, "an abstract function of an abstract class")
+        assertTrue(method("I", "withBody").isDefault, "an interface member with a body")
+        assertFalse(method("A", "h").isAbstract, "a plain method")
+        assertFalse(method("C", "f").isAbstract, "an implementation")
+
+        // what prep reads to register an implementation: overrides(), filtered on isAbstract()
+        assertEquals(listOf(method("I", "f")), method("C", "f").overrides().toList())
+        assertTrue(method("C", "f").overrides().all { it.isAbstract })
+    }
+
+    /**
      * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
      * by: its position sits on the member's own source under [DetailedSources.OVERRIDE]. A rename that takes one
      * member out of its override family has to remove it.

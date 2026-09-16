@@ -1260,8 +1260,20 @@ class KotlinScan(
     private fun thisRef(owner: TypeInfo, static: Boolean): Expression =
         if (static) runtime.nullConstant() else fieldAccessScope(owner, false)
 
-    private fun methodType(static: Boolean) =
-        if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+    /**
+     * The method type, mirroring java-openjdk's `FlagHelper.methodType`: static first, then a declaration without a
+     * body (Kotlin's `abstract` modality, which an interface member without a body has), then a member of an
+     * interface that does have one -- what Java calls a `default` method, and what kotlinc compiles it to.
+     *
+     * Abstractness used to survive only as the `abstract` MODIFIER, so `MethodInfo.isAbstract()` was false for every
+     * Kotlin interface member, and prep registered no implementation for any of them (#35).
+     */
+    private fun methodType(static: Boolean, symbol: KaDeclarationSymbol? = null, owner: TypeInfo? = null) = when {
+        static -> runtime.methodTypeStaticMethod()
+        symbol?.modality == KaSymbolModality.ABSTRACT -> runtime.methodTypeAbstractMethod()
+        owner?.isInterface == true -> runtime.methodTypeDefaultMethod()
+        else -> runtime.methodTypeMethod()
+    }
 
     /** Scope for a backing-field access: `this` for an instance member, the owning type for a static one. */
     private fun fieldAccessScope(owner: TypeInfo, static: Boolean): Expression =
@@ -1277,7 +1289,8 @@ class KotlinScan(
     /** A computed property's getter: its real (custom) body, no field-access tagging. */
     private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
                                               type: ParameterizedType, static: Boolean): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), methodType(static))
+        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()),
+                methodType(static, property, owner))
         getter.builder().setReturnType(type)
         // an extension property (`val Int.doubled get() = this * 2`) becomes a static getter whose first
         // parameter is the `$receiver` -- so `this` in the body resolves to it (the JVM model)
@@ -1421,7 +1434,8 @@ class KotlinScan(
      */
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                  static: Boolean = false, forwarder: Boolean = false): MethodInfo {
-        val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+        // a `by`-delegation forwarder is built from the interface's ABSTRACT symbol but has a body of its own
+        val methodType = methodType(static, if (forwarder) null else function, owner)
         // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
         val jvmName = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }
         val method = runtime.newMethod(owner, jvmName ?: function.name.asString(), methodType)
