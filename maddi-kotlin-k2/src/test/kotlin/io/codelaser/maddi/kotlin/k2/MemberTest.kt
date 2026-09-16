@@ -331,6 +331,70 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     /**
+     * A `var` without a backing field has a setter too (#36): an interface's abstract one, and a computed one whose
+     * written `set(value) { … }` is converted. Only the getter used to be built, so an assignment to such a property
+     * had no target and a written setter's body was code nothing saw.
+     */
+    @Test
+    fun aVarWithoutABackingFieldHasASetter() {
+        val types = KotlinScan(runtime, sourceSet).parse("v/V.kt",
+            "package v\n" +
+                "interface I {\n" +
+                "    var v: Int\n" +
+                "    val r: Int\n" +
+                "}\n" +
+                "class C {\n" +
+                "    private var store = 0\n" +
+                "    var computed: Int\n" +
+                "        get() = store\n" +
+                "        set(value) { store = value + 1 }\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val i = all.single { it.simpleName() == "I" }
+        assertEquals(listOf("getR", "getV", "setV"), i.methods().map { it.name() }.sorted())
+        assertTrue(i.methods().single { it.name() == "setV" }.isAbstract, "an interface's var")
+        val setV = i.methods().single { it.name() == "setV" }
+        assertEquals(listOf("value"), setV.parameters().map { it.name() })
+        assertEquals(runtime.intParameterizedType(), setV.parameters().first().parameterizedType())
+
+        val c = all.single { it.simpleName() == "C" }
+        val setComputed = c.methods().single { it.name() == "setComputed" }
+        assertFalse(setComputed.isAbstract)
+        assertEquals(listOf("value"), setComputed.parameters().map { it.name() })
+        // the written body is converted: `store = value + 1`
+        val statement = setComputed.methodBody().statements().single()
+        assertTrue(statement is ExpressionAsStatement, statement.toString())
+        assertTrue((statement as ExpressionAsStatement).expression() is Assignment, statement.expression().toString())
+    }
+
+    /**
+     * Assigning to a property without a backing field is a call of its setter, as kotlinc compiles it. The read is
+     * a call of the getter, so the assignment used to have no target at all and became a placeholder (#36).
+     */
+    @Test
+    fun anAssignmentToAPropertyWithoutABackingFieldCallsItsSetter() {
+        val types = KotlinScan(runtime, sourceSet).parse("t/T.kt",
+            "package t\n" +
+                "class C {\n" +
+                "    private var store = 0\n" +
+                "    var computed: Int\n" +
+                "        get() = store\n" +
+                "        set(value) { store = value }\n" +
+                "}\n" +
+                "interface I { var v: Int }\n" +
+                "fun use(c: C, i: I) {\n" +
+                "    c.computed = 7\n" +
+                "    i.v = 8\n" +
+                "}\n")
+        val use = types.flatMap { it.recursiveSubTypeStream().toList() }
+            .flatMap { it.methods() }.single { it.name() == "use" }
+        val calls = use.methodBody().statements().map { (it as ExpressionAsStatement).expression() }
+        assertEquals(listOf("setComputed", "setV"), calls.map { (it as MethodCall).methodInfo().name() },
+            calls.toString())
+        assertEquals(listOf(1, 1), calls.map { (it as MethodCall).parameterExpressions().size })
+    }
+
+    /**
      * A declaration without a body is an ABSTRACT method, as in the Java front ends; an interface member with one is
      * a `default` method, which is what kotlinc compiles it to. Abstractness used to be the `abstract` modifier only,
      * so `isAbstract()` was false for every Kotlin interface member and prep registered no implementations (#35).

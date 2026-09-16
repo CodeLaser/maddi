@@ -972,6 +972,8 @@ class KotlinScan(
         // a getter with its real body — no field, no getter/setter field tagging.
         if ((property as? KaKotlinPropertySymbol)?.hasBackingField == false) {
             owner.builder().addMethod(buildComputedGetter(owner, property, type, static))
+            // a `var` has a setter too, written or abstract (#36)
+            if (!isVal) owner.builder().addMethod(buildComputedSetter(owner, property, type, static))
             return
         }
 
@@ -1022,13 +1024,20 @@ class KotlinScan(
      * parameter named as written. Not tagged as a getter/setter of the field: the analyzer's normalisation of
      * `getX() { return x; }` to a field read would hide what the body does. What its text names is recorded on it.
      */
-    private fun KaSession.buildCustomAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+    private fun KaSession.buildCustomAccessor(owner: TypeInfo, field: FieldInfo?, type: ParameterizedType,
                                               property: KaPropertySymbol, static: Boolean,
                                               accessor: KtPropertyAccessor): MethodInfo {
         val setter = accessor.isSetter
-        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get", field.name()), methodType(static))
+        // [field] is null for a property that has none (a computed `var`'s written setter, #36): the accessor is
+        // named after the property, and `field` is not in scope -- Kotlin forbids it where there is no backing field
+        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get",
+                field?.name() ?: property.name.asString()), methodType(static, property, owner))
         val builder = method.builder()
         builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
+        // an extension property's accessor is static, with the receiver first (the JVM model), as the getter has it
+        if (field == null) property.receiverParameter?.let {
+            builder.addParameter("\$receiver", mapType(it.returnType, owner))
+        }
         if (setter) {
             val psi = accessor.parameter
             parameter(builder.addParameter(psi?.name ?: "value", type), psi, type)
@@ -1036,7 +1045,8 @@ class KotlinScan(
         addMethodModifiers(builder, property)
         builder.commitParameters().computeAccess()
         builder.setSource(declarationSource(accessor) {})
-        val scope = mutableMapOf<String, Variable>("field" to runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+        val scope = mutableMapOf<String, Variable>()
+        field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
         val body = runtime.newBlockBuilder()
         val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
         if (expressionBody != null) {
@@ -1312,6 +1322,32 @@ class KotlinScan(
         references.target(property.psi, getter)
         commitOrDefer(getter, property.psi) { getter.builder().commit() }
         return getter
+    }
+
+    /**
+     * The setter of a `var` that has no backing field (#36): a computed one, whose written `set(value) { … }` is
+     * converted as any accessor body is, and an abstract one -- an interface's `var v: Int`, where the class that
+     * implements it overrides this declaration. Without it, an assignment to such a property had no target, and a
+     * written setter's body was code nothing saw.
+     */
+    private fun KaSession.buildComputedSetter(owner: TypeInfo, property: KaPropertySymbol,
+                                              type: ParameterizedType, static: Boolean): MethodInfo {
+        val accessor = (property.psi as? KtProperty)?.setter
+        if (accessor != null && accessor.hasBody()) {
+            return buildCustomAccessor(owner, null, type, property, static, accessor)
+        }
+        val setter = runtime.newMethod(owner, accessorName("set", property.name.asString()),
+                methodType(static, property, owner))
+        val builder = setter.builder()
+        builder.setReturnType(runtime.voidParameterizedType())
+        property.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        parameter(builder.addParameter(accessor?.parameter?.name ?: "value", type), accessor?.parameter, type)
+        addMethodModifiers(builder, property)
+        builder.commitParameters().computeAccess()
+        builder.setSource(declarationSource(accessor) {})
+        builder.setMethodBody(runtime.emptyBlock())
+        commitOrDefer(setter, accessor) { setter.builder().commit() }
+        return setter
     }
 
     private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
