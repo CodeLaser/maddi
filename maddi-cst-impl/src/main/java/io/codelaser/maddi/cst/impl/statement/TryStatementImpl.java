@@ -342,7 +342,12 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
             for (CatchClause cc : catchClauses) {
                 ++i;
                 visitor.startSubBlock(i);
-                cc.visit(visitor);
+                // ⛔ ONCE. This said cc.visit(visitor) twice, so every element written inside a catch clause
+                // was announced to the visitor twice over. A visitor that counts saw double; one that
+                // collects saw duplicates. The two metrics that read this -- CyclomaticComplexity and
+                // CognitiveComplexity -- happen to be immune because each keeps an identity set of nodes it
+                // has already seen, added for an unrelated reason, so nothing noticed for as long as they
+                // were the only consumers looking inside a try.
                 cc.visit(visitor);
                 visitor.endSubBlock(i);
             }

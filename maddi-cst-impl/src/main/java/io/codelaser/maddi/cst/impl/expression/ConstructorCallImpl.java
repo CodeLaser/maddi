@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import io.codelaser.maddi.cst.impl.element.VisitTypeBody;
 
 public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCall {
     private final MethodInfo constructor;
@@ -282,8 +283,13 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             if (object != null) object.visit(visitor);
             parameterExpressions.forEach(p -> p.visit(visitor));
             if (arrayInitializer != null) arrayInitializer.visit(visitor);
-            // as above, and additionally: the Visitor protocol has no hook for entering a type, so the
-            // anonymous class's statements would arrive with no signal that the scope changed.
+            // The hook the comment that stood here was asking for. It said: "the Visitor protocol has no
+            // hook for entering a type, so the anonymous class's statements would arrive with no signal
+            // that the scope changed." Visitor.beforeType is that signal, it defaults to false, and a
+            // visitor that does not want the body is left exactly where it was.
+            if (anonymousClass != null) {
+                VisitTypeBody.visit(visitor, anonymousClass);
+            }
         }
         visitor.afterExpression(this);
     }

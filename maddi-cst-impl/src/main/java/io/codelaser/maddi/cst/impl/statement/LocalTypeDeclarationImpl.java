@@ -34,6 +34,7 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import io.codelaser.maddi.cst.impl.element.VisitTypeBody;
 
 public class LocalTypeDeclarationImpl extends StatementImpl implements LocalTypeDeclaration {
     private final TypeInfo typeInfo;
@@ -100,9 +101,12 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
 
     @Override
     public void visit(Visitor visitor) {
-        visitor.beforeStatement(this);
+        if (visitor.beforeStatement(this)) {
+            // "following anonymous class, we're not going deeper here" -- and now it follows it there too:
+            // Visitor.beforeType decides, and defaults to not entering.
+            VisitTypeBody.visit(visitor, typeInfo);
+        }
         visitor.afterStatement(this);
-        // following anonymous class, we're not going deeper here
     }
 
     @Override

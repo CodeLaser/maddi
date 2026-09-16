@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.api.element;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
@@ -46,6 +47,34 @@ public interface Visitor {
      * Called before visiting a {@link Statement}.
      * @return {@code true} to descend into the statement's sub-elements; {@code false} to skip.
      */
+    /**
+     * A type declared inside the code being walked is about to be entered: the body of an anonymous class,
+     * or a class or record declared inside a method.
+     *
+     * <h2>Why this exists, and why it defaults to NOT entering</h2>
+     * Until this hook existed, {@code visit} stopped at both. The reason was not an oversight: the protocol
+     * had no way to say "the scope has changed", so the statements of an anonymous class would have arrived
+     * looking exactly like statements of the method the class is written in — a different method, of a
+     * different type, with a different {@code this}. A lambda has no such problem, and has always been
+     * entered: its body is the enclosing method's scope.
+     *
+     * <p>The cost of stopping is that work written inside an anonymous class is attributed to nothing. A
+     * method whose whole body is {@code return new SomeVisitor<>() { ... }} looks empty to anything that
+     * counts, however much is written inside the braces.
+     *
+     * <p>So the choice is now the visitor's, and the default is the behaviour every existing visitor was
+     * written against: do not enter. Return {@code true} to be given the type's field initialisers,
+     * constructors and method bodies, each bracketed by this call and {@link #afterType}.
+     *
+     * @return {@code true} to walk what is written inside the type
+     */
+    default boolean beforeType(TypeInfo typeInfo) {
+        return false;
+    }
+
+    default void afterType(TypeInfo typeInfo) {
+    }
+
     default boolean beforeStatement(Statement statement) {
         return true;
     }
