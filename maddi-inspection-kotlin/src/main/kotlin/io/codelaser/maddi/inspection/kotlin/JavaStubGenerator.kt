@@ -235,30 +235,9 @@ object JavaStubGenerator {
             tp.simpleName() + if (bounds.isEmpty()) "" else " extends " + bounds.joinToString(" & ", transform = ::javaType)
         } + "> "
 
-    /**
-     * Kotlin's primitive array classes, which compile to the unboxed JVM arrays (unlike `Array<T>`, which
-     * boxes). The CST does not yet model them that way — a `ByteArray` currently arrives as a shell `TypeInfo`
-     * literally named `kotlin.ByteArray` — so the name is translated here, where it is purely a matter of
-     * emitting valid Java.
-     *
-     * This belongs in `KotlinTypeMapper.mapClassType` alongside the other builtin mappings, and was tried
-     * there: it is correct, but it perturbs the order in which library types are first reached, and that
-     * order decides whether a type keeps its members (`maxMemberDepth`, first-visit-wins). It stranded
-     * `java.util.Iterator` as a members-less shell — reached at depth 2 while loading `java.lang.String` —
-     * and broke `TypeResolutionTest.chainedLibraryCallResolves` (`list.iterator().next()`). Raising the depth
-     * to 3 traded that for four other failures. Fixing it properly means making the loader deepen a shell on a
-     * later, shallower visit instead of letting the first visit decide; until then the translation stays here,
-     * where it cannot affect resolution.
-     */
-    private val KOTLIN_PRIMITIVE_ARRAYS = mapOf(
-        "kotlin.ByteArray" to "byte", "kotlin.ShortArray" to "short", "kotlin.IntArray" to "int",
-        "kotlin.LongArray" to "long", "kotlin.CharArray" to "char", "kotlin.FloatArray" to "float",
-        "kotlin.DoubleArray" to "double", "kotlin.BooleanArray" to "boolean")
-
     /** A Java type reference without generic arguments, or a type-parameter name, with array brackets. */
     private fun rawType(pt: ParameterizedType): String {
         val typeInfo = pt.typeInfo()
-        KOTLIN_PRIMITIVE_ARRAYS[typeInfo?.fullyQualifiedName()]?.let { return it + "[]".repeat(pt.arrays() + 1) }
         val base = pt.typeParameter()?.simpleName() ?: typeInfo?.fullyQualifiedName() ?: "java.lang.Object"
         return base + "[]".repeat(pt.arrays())
     }
@@ -275,7 +254,6 @@ object JavaStubGenerator {
     private fun javaType(pt: ParameterizedType): String {
         if (pt.isUnboundWildcard) return "?"
         val typeInfo = pt.typeInfo()
-        KOTLIN_PRIMITIVE_ARRAYS[typeInfo?.fullyQualifiedName()]?.let { return it + "[]".repeat(pt.arrays() + 1) }
         val typeParameter = pt.typeParameter()
         val base = typeParameter?.simpleName() ?: typeInfo?.fullyQualifiedName() ?: "java.lang.Object"
         val arguments = if (typeParameter != null) emptyList() else pt.parameters()

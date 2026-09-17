@@ -502,6 +502,7 @@ class KotlinScan(
         }
         drainDelegatedProperties() // a delegated property built while B2 converted a body is finished here
         commitDeferred() // ...and a member built there (an `object :` in a constructor argument, say)
+        typeMapper.commitShells() // the library types no body reached from a shallower depth
         return perFile.flatMap { it.allTypes() }.distinct()
     }
 

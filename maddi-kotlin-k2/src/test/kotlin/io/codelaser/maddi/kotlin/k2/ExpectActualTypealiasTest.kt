@@ -15,7 +15,6 @@
 package io.codelaser.maddi.kotlin.k2
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
@@ -87,15 +86,11 @@ class ExpectActualTypealiasTest : KotlinScanTestBase() {
      * Kotlin's primitive array classes are the unboxed JVM arrays, not `Array<T>` (which boxes) — so
      * `ByteArray` should be `byte[]`, not a shell type named `kotlin.ByteArray`.
      *
-     * Disabled because the mapping cannot go in `mapClassType` yet. It is correct in isolation, but adding it
-     * changes the order in which library types are first reached, and `maxMemberDepth`'s first-visit-wins rule
-     * makes that order decide whether a type keeps its members: it stranded `java.util.Iterator` as a shell
-     * (reached at depth 2 while loading `java.lang.String`), breaking
-     * `TypeResolutionTest.chainedLibraryCallResolves`. Raising the depth to 3 traded one failure for four.
-     * The prerequisite is a loader that deepens a shell on a later, shallower visit. Until then
-     * `JavaStubGenerator` translates these names so the generated Java is at least valid.
+     * Once blocked on the library loader: the first visit of a type decided whether it kept its members, and mapping
+     * these here changed which visit came first, so `java.util.Iterator` lost its members and
+     * `TypeResolutionTest.chainedLibraryCallResolves` failed. A type first reached too deep now waits for a
+     * shallower visit (`KotlinTypeMapper.deepen`).
      */
-    @Disabled("blocked on library-loader order-dependence (maxMemberDepth first-visit-wins); see the javadoc")
     @Test
     fun primitiveArrayClassesAreJvmPrimitiveArrays() {
         val types = KotlinScan(runtime, sourceSet).parse(

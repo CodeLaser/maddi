@@ -405,7 +405,10 @@ Four things this needed that were not visible before:
 Test: `TestMixedSourceSet` (maddi-inspection-mixed). Corpus: javalin — 0 Java types before; 11 of 156 Java
 compilation units failed with the overloads stubbed only, 3 once they were members, and 1 since use-site projections are wildcards (`Class<*>` is `Class<?>`, `out T`
 `? extends T`, `in T` `? super T`; javac read `Class<*>` as `Class<Object>`) and `T & Any` is `T` (it was `Object`).
-The next tail: (1) `kotlin.ByteArray` and the other primitive arrays are still shell types in the CST (see
-`JavaStubGenerator.KOTLIN_PRIMITIVE_ARRAYS`), so a Java call to `Context.result(byte[])` finds no member; (2) an
+The last unit, a Java call to `Context.result(byte[])`, needed `kotlin.ByteArray` and the other primitive arrays to
+be `byte[]` in the CST rather than shell types; that mapping had waited on the library loader, whose first visit of
+a type decided for good whether it kept its members (a type first reached too deep now waits for a shallower visit,
+`KotlinTypeMapper.deepen`). With it, javalin parses: every Java unit, and prep then runs. Open: (1) prep isolates two
+Kotlin test methods, `return try { … }` (the returned tail has no statement index); (2) an
 `object`'s JVM statics beyond its `@JvmStatic` functions: `const val`, a `@JvmStatic` property's accessors, and the
 overloads of a `@JvmStatic @JvmOverloads` function.

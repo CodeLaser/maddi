@@ -52,6 +52,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
@@ -145,6 +146,34 @@ internal class KotlinTypeMapper(
     private val maxMemberDepth = 2 // load members this many levels deep; deeper co-loaded types stay shells
 
     /**
+     * The library types first reached too deep to load their members, each with its symbol: left open, so that a later
+     * visit from a shallower depth can still give it members ([deepen]). Which visit came first used to decide for
+     * good: loading `java.lang.String` reaches `java.util.Iterator` at depth 2, through `Charset`, so a later
+     * `list.iterator().next()` found no `next()` -- unless something else happened to load `Iterator` sooner, as
+     * `kotlin.ByteArray`'s `ByteIterator` did while that was a type of its own. Committed by [commitShells].
+     */
+    private val shells = java.util.IdentityHashMap<TypeInfo, KaSymbolPointer<KaNamedClassSymbol>>()
+
+    /** Give a [shells] type its members, when reached from where its first visit could not. */
+    private fun KaSession.deepen(typeInfo: TypeInfo) {
+        if (memberDepth >= maxMemberDepth) return
+        val pointer = shells.remove(typeInfo) ?: return
+        if (typeInfo.hasBeenInspected()) return // shared with a CompiledTypesManager, which completed it
+        val symbol = pointer.restoreSymbol() ?: return typeInfo.builder().commit()
+        loadLibraryMembers(typeInfo, symbol)
+        typeInfo.builder().commit()
+    }
+
+    /**
+     * Commit every library type still waiting in [shells], memberless: its visits are over. Not one the Java front
+     * end's `CompiledTypesManager` has completed in the meantime, from its class file.
+     */
+    internal fun commitShells() {
+        shells.keys.filterNot { it.hasBeenInspected() }.forEach { it.builder().commit() }
+        shells.clear()
+    }
+
+    /**
      * Map a resolved Kotlin type to a CST [ParameterizedType], in the context of [owner] (whose type
      * parameters a bare `T` may refer to). Handles: the Kotlin builtins with a JVM/java.lang counterpart;
      * type parameters; and references to other types of the current compilation, with their generic
@@ -217,6 +246,14 @@ internal class KotlinTypeMapper(
             "kotlin.Unit" -> return runtime.voidParameterizedType()
             "kotlin.String" -> return runtime.stringParameterizedType()
             "kotlin.Any" -> return runtime.objectParameterizedType()
+            "kotlin.ByteArray" -> return runtime.byteParameterizedType().copyWithArrays(1)
+            "kotlin.ShortArray" -> return runtime.shortParameterizedType().copyWithArrays(1)
+            "kotlin.IntArray" -> return runtime.intParameterizedType().copyWithArrays(1)
+            "kotlin.LongArray" -> return runtime.longParameterizedType().copyWithArrays(1)
+            "kotlin.CharArray" -> return runtime.charParameterizedType().copyWithArrays(1)
+            "kotlin.FloatArray" -> return runtime.floatParameterizedType().copyWithArrays(1)
+            "kotlin.DoubleArray" -> return runtime.doubleParameterizedType().copyWithArrays(1)
+            "kotlin.BooleanArray" -> return runtime.booleanParameterizedType().copyWithArrays(1)
             "kotlin.Array" -> {
                 // Kotlin's Array<T> is the JVM reified array T[] (boxed element): model it as an array so that
                 // overloads differing only in the element type -- Array<Double>.max vs Array<Float>.max, both
@@ -283,6 +320,7 @@ internal class KotlinTypeMapper(
                 else symbolScanner.getOrLoad(jvmFqn, type.typeArguments.size) // not on classpath -> shell
             } else loadLibraryType(type.symbol as KaNamedClassSymbol, jvmFqn) // non-mapped -> deepen from symbol
         }
+        deepen(typeInfo)
         return parameterize(typeInfo, type, owner, method)
     }
 
@@ -395,7 +433,7 @@ internal class KotlinTypeMapper(
     internal fun KaSession.loadLibraryClass(symbol: KaNamedClassSymbol): TypeInfo? {
         val classId = symbol.classId ?: return null
         val jvmFqn = mapToJvmFqn(classId)
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
         // Shared-core delegation, exactly as in mapClassType: when a driver injected the Java front-end's
         // CompiledTypesManager, the library type may already have been built (and COMMITTED) from bytecode under
         // its own source set, which the registry lookup above — keyed by librarySourceSet — does not see.
@@ -421,7 +459,7 @@ internal class KotlinTypeMapper(
     }
 
     private fun KaSession.loadLibraryType(symbol: KaNamedClassSymbol, jvmFqn: String): TypeInfo {
-        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
+        infoByFqn.getType(jvmFqn, librarySourceSet)?.let { deepen(it); return it }
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(jvmFqn.substringBeforeLast('.', "")),
             jvmFqn.substringAfterLast('.')
@@ -444,47 +482,54 @@ internal class KotlinTypeMapper(
         applyHierarchy(builder, typeInfo, symbol)
         builder.computeAccess()
 
-        // Members, flattened: the full member scope (declared + inherited), so calls resolve to inherited
-        // methods too (`equals`/`hashCode`/`toString` from Any, interface methods, …) -- the predefined
-        // Object carries no such instance methods, so they must sit on each type. Bounded by depth so the
-        // cascade terminates: types referenced beyond maxMemberDepth stay hierarchy-only shells. Depth 2 lets
-        // a single chained call resolve (e.g. list.iterator().next() -- Iterator gets members too).
         if (memberDepth < maxMemberDepth) {
-            memberDepth++
-            try {
-                // Static fields FIRST (`System.out`, `Integer.MAX_VALUE`, `Math.PI`, …): they live in the static
-                // member scope as KaJavaFieldSymbols (not properties), and are commonly used as call receivers
-                // (`System.out.println(...)`). Loading them before the methods means the field's own type
-                // (PrintStream) loads WITH its members here, rather than being shelled first by some method's
-                // transitive type at a deeper level -- so the chained call resolves.
-                val seenFields = mutableSetOf<String>()
-                symbol.staticMemberScope.declarations
-                    .filterIsInstance<KaJavaFieldSymbol>()
-                    .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
-                // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
-                // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
-                val seen = mutableSetOf<String>()
-                symbol.memberScope.declarations
-                    .filterIsInstance<KaNamedFunctionSymbol>()
-                    .map { convertLibraryMethod(typeInfo, it) }
-                    .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
-                // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
-                // property access as a field access, like a source type's backing field)
-                symbol.memberScope.declarations
-                    .filterIsInstance<KaPropertySymbol>()
-                    .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
-                // constructors (declared; not inherited) so `Foo(...)` resolves the called constructor
-                val seenCtors = mutableSetOf<String>()
-                symbol.declaredMemberScope.declarations
-                    .filterIsInstance<KaConstructorSymbol>()
-                    .map { convertLibraryConstructor(typeInfo, it) }
-                    .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
-            } finally {
-                memberDepth--
-            }
+            loadLibraryMembers(typeInfo, symbol)
+            builder.commit()
+        } else {
+            shells[typeInfo] = symbol.createPointer()
         }
-        builder.commit()
         return typeInfo
+    }
+
+    // Members, flattened: the full member scope (declared + inherited), so calls resolve to inherited
+    // methods too (`equals`/`hashCode`/`toString` from Any, interface methods, …) -- the predefined
+    // Object carries no such instance methods, so they must sit on each type. Bounded by depth so the
+    // cascade terminates: types referenced beyond maxMemberDepth wait in [shells]. Depth 2 lets
+    // a single chained call resolve (e.g. list.iterator().next() -- Iterator gets members too).
+    private fun KaSession.loadLibraryMembers(typeInfo: TypeInfo, symbol: KaNamedClassSymbol) {
+        val builder = typeInfo.builder()
+        memberDepth++
+        try {
+            // Static fields FIRST (`System.out`, `Integer.MAX_VALUE`, `Math.PI`, …): they live in the static
+            // member scope as KaJavaFieldSymbols (not properties), and are commonly used as call receivers
+            // (`System.out.println(...)`). Loading them before the methods means the field's own type
+            // (PrintStream) loads WITH its members here, rather than being shelled first by some method's
+            // transitive type at a deeper level -- so the chained call resolves.
+            val seenFields = mutableSetOf<String>()
+            symbol.staticMemberScope.declarations
+                .filterIsInstance<KaJavaFieldSymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
+            // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
+            // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
+            val seen = mutableSetOf<String>()
+            symbol.memberScope.declarations
+                .filterIsInstance<KaNamedFunctionSymbol>()
+                .map { convertLibraryMethod(typeInfo, it) }
+                .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+            // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
+            // property access as a field access, like a source type's backing field)
+            symbol.memberScope.declarations
+                .filterIsInstance<KaPropertySymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
+            // constructors (declared; not inherited) so `Foo(...)` resolves the called constructor
+            val seenCtors = mutableSetOf<String>()
+            symbol.declaredMemberScope.declarations
+                .filterIsInstance<KaConstructorSymbol>()
+                .map { convertLibraryConstructor(typeInfo, it) }
+                .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
+        } finally {
+            memberDepth--
+        }
     }
 
     /** A library method: signature only (params + return type), no body (the analogue of a class-file method). */
