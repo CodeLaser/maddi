@@ -15,6 +15,7 @@
 package io.codelaser.maddi.kotlin.k2
 
 import io.codelaser.maddi.cst.api.expression.MethodCall
+import io.codelaser.maddi.cst.api.info.Info
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -48,5 +49,45 @@ class DataClassTest : KotlinScanTestBase() {
                 as ReturnStatement).expression()
         assertTrue(expr is MethodCall)
         assertEquals(point, (expr as MethodCall).methodInfo().typeInfo())
+    }
+
+    /**
+     * K2 gives a data class's generated members the PSI they were generated FROM: `componentN()` the constructor
+     * parameter, `copy()` the class. Registered as that PSI's reference target and host, they overwrote the real
+     * ones -- so every reference to a data class's constructor property named `component1()`, and a call of its
+     * constructor named `copy()`. A property rename then found no reference to the property at all (#38). A
+     * generated member spells nothing, and it is not what that PSI declares.
+     */
+    @Test
+    fun aReferenceToADataClassPropertyNamesTheProperty() {
+        val types = KotlinScan(runtime, sourceSet).parse("y/Y.kt", """
+            package y
+
+            data class Node(val indent: Int = 0)
+
+            fun Node.deeper(): Node = Node(indent = indent + 1)
+            fun Node.explicit(): Int = this.indent
+            fun other(n: Node): Int = n.indent
+            """.trimIndent() + "\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val node = all.single { it.simpleName() == "Node" }
+        val facade = all.single { it.simpleName() == "YKt" }
+        val indent = node.fields().single { it.name() == "indent" }
+        val constructor = node.constructors().single { it.parameters().size == 1 }
+        fun host(name: String) = facade.methods().single { it.name() == name }
+        fun refs(host: Info, target: Info) =
+            host.source().detailedSources()?.references(target).orEmpty().map { "${it.beginLine()}:${it.beginPos()}" }.sorted()
+
+        assertEquals(listOf("5:32", "5:41"), refs(host("deeper"), indent), "the named argument and the bare read")
+        assertEquals(listOf("5:27"), refs(host("deeper"), constructor), "`Node(` is the constructor")
+        assertEquals(listOf("6:33"), refs(host("explicit"), indent), "`this.indent`")
+        assertEquals(listOf("7:29"), refs(host("other"), indent), "`n.indent`")
+
+        val generated = node.methods().filter { it.name() == "component1" || it.name() == "copy" }
+        assertEquals(2, generated.size)
+        for (g in generated) {
+            assertEquals(listOf<String>(), listOf(host("deeper"), host("explicit"), host("other")).flatMap { refs(it, g) },
+                "${g.name()} is generated: no text names it")
+        }
     }
 }
