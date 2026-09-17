@@ -109,6 +109,9 @@ public class PluginSourceSets {
      *                    {@code --add-modules=jdk.incubator.vector}, and {@code --compile-log} records it on 6
      *                    of trino's 209 source sets because it reads javac's own line. <b>Neither plugin set it
      *                    at all</b>, so the same module parsed with 1 error the log route does not have.
+     * @param addExports  javac's {@code --add-exports}, one entry per occurrence ({@code <module>/<package>=<targets>}):
+     *                    the packages this set's build opens beyond their module's exports -- javac's internals, for
+     *                    a module that compiles against them. See {@link #addExportsFrom}.
      * @return {@code null} when no source directory of this set exists on disk -- a set over nothing contributes
      * no compilation units, and naming an absent path in the configuration only produces an unresolvable entry.
      */
@@ -121,6 +124,7 @@ public class PluginSourceSets {
                                       Set<String> restrictToPackages,
                                       int sourceRelease,
                                       List<String> addModules,
+                                      List<String> addExports,
                                       List<String> warningFlags) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
@@ -139,6 +143,7 @@ public class PluginSourceSets {
                 .setRestrictToPackages(restrictToPackages)
                 .setSourceRelease(sourceRelease)
                 .setAddModules(addModules == null ? List.of() : List.copyOf(addModules))
+                .setAddExports(addExports == null ? List.of() : List.copyOf(addExports))
                 .setWarningFlags(warningFlags == null ? List.of() : List.copyOf(warningFlags))
                 .build();
     }
@@ -328,6 +333,32 @@ public class PluginSourceSets {
             }
         }
         return List.copyOf(modules);
+    }
+
+    /**
+     * javac's {@code --add-exports} from a build's compiler arguments, one entry per occurrence as javac spells it
+     * ({@code <module>/<package>=<target>[,<target>...]}), in order and without repeats.
+     *
+     * <p>⚠ <b>BOTH SPELLINGS</b>, for the reason {@link #addModulesFrom} gives: {@code --add-exports=v} and
+     * {@code --add-exports v} are both javac's, and a build file may write either.
+     */
+    public static List<String> addExportsFrom(List<String> compilerArgs) {
+        if (compilerArgs == null) return List.of();
+        Set<String> exports = new LinkedHashSet<>();
+        for (int i = 0; i < compilerArgs.size(); i++) {
+            String arg = compilerArgs.get(i);
+            if (arg == null) continue;
+            String value;
+            if (arg.startsWith("--add-exports=")) {
+                value = arg.substring("--add-exports=".length());
+            } else if ("--add-exports".equals(arg.trim()) && i + 1 < compilerArgs.size()) {
+                value = compilerArgs.get(++i);
+            } else {
+                continue;
+            }
+            if (value != null && !value.isBlank()) exports.add(value.trim());
+        }
+        return List.copyOf(exports);
     }
 
     /**

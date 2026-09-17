@@ -355,8 +355,17 @@ public class SharedVariables {
     // recipient, never the reverse.
     private Variable derivedFaceKeyed(Variable m, Variable primary) {
         if (Gate.isSet("NODF")) return null;
-        for (Variable pf : memberToGroup.keySet()) {
-            if (pf.equals(primary) || !Util.isPartOf(primary, pf)) continue;
+        /*
+         The candidates are the members that are PARTS of the primary, and membersByPrefix answers that
+         directly. Scanning the whole key set with isPartOf here was 40% of the analysis of a transformed
+         loop body (asprof-style sampling, 2026-09-15): the transform packs thirty locals into
+         `ld.variables[i]` slots, every slot is a group member, and this ran for every member of every
+         group, for every variable, at every sub-block merge -- the quadratic the design notes name.
+         Same order as the key set: both are first-membership order (LinkedHashMap put on an existing key
+         keeps its place, so does the LinkedHashSet in the index).
+        */
+        for (Variable pf : membersRootedAt(primary)) {
+            if (pf.equals(primary)) continue;
             for (Variable s : assignmentSources(pf)) {
                 Variable root = Util.primary(s);
                 // an array access on an EXPRESSION base has no primary variable (clone-bench shapes) — nothing
@@ -488,8 +497,8 @@ public class SharedVariables {
     // is a member of the {this.i, 0:i} group and therefore invisible under the {return, this} group's rep — but
     // it is a field of the face 'this' and must be discoverable for the field-level mirror (setI.i ← this.i).
     public Stream<Variable> memberFieldsOf(Variable owner) {
-        return memberToGroup.keySet().stream()
-                .filter(m -> !m.equals(owner) && Util.isPartOf(owner, m));
+        // membersRootedAt(owner) IS {m : isPartOf(owner, m)}, in first-membership order like the key set
+        return membersRootedAt(owner).stream().filter(m -> !m.equals(owner));
     }
 
     // the whole-object group members that 'variable' was (transitively) assigned FROM: for 'return zs' with group

@@ -71,7 +71,7 @@ public class ComputeCallGraph {
     public static final long TYPES_IN_DECLARATION = 1L << TYPES_IN_DECLARATION_BITS;
     private static final long REFERENCES_BITS = 16;
     public static final long REFERENCES = 1L << REFERENCES_BITS;
-    private static final long DOC_REFERENCES = 1;
+    public static final long DOC_REFERENCES = 1;
 
     private G<Info> graph;
 
@@ -110,6 +110,22 @@ public class ComputeCallGraph {
         return (int) ((value & (TYPES_IN_DECLARATION - 1)) >> REFERENCES_BITS);
     }
 
+    public static int docReferenceCount(long value) {
+        return (int) (value & (REFERENCES - 1));
+    }
+
+    public static int declarationCount(long value) {
+        return (int) ((value & (TYPE_HIERARCHY - 1)) >> TYPES_IN_DECLARATION_BITS);
+    }
+
+    public static int hierarchyCount(long value) {
+        return (int) ((value & (CODE_STRUCTURE - 1)) >> TYPE_HIERARCHY_BITS);
+    }
+
+    public static int codeStructureCount(long value) {
+        return (int) (value >>> CODE_STRUCTURE_BITS);
+    }
+
     public static String print(G<Info> graph) {
         return graph.toString(", ", ComputeCallGraph::edgeValuePrinter);
     }
@@ -126,13 +142,11 @@ public class ComputeCallGraph {
 
     public static int weightedSumInteractions(long l, int docsWeight, int refsWeight, int declarationWeight,
                                               int hierarchyWeight, int codeStructureWeight) {
-        int docs = (int) (l & (REFERENCES));
-        int refs = (int) ((l & (TYPES_IN_DECLARATION - 1)) >> REFERENCES_BITS);
-        int declaration = (int) ((l & (TYPE_HIERARCHY - 1)) >> TYPES_IN_DECLARATION_BITS);
-        int hierarchy = (int) ((l & (CODE_STRUCTURE - 1)) >> TYPE_HIERARCHY_BITS);
-        int codeStructure = (int) (l >> CODE_STRUCTURE_BITS);
-        return docs * docsWeight + refs * refsWeight + declaration * declarationWeight + hierarchy * hierarchyWeight
-               + codeStructure * codeStructureWeight;
+        // the doc count is the low 16 bits; this read `l & REFERENCES`, the lowest bit of the REFERENCE count, so an
+        // odd number of references weighed 65536 docs. Every production caller passed docsWeight 0.
+        return docReferenceCount(l) * docsWeight + referenceCount(l) * refsWeight
+               + declarationCount(l) * declarationWeight + hierarchyCount(l) * hierarchyWeight
+               + codeStructureCount(l) * codeStructureWeight;
     }
 
     public ComputeCallGraph go() {

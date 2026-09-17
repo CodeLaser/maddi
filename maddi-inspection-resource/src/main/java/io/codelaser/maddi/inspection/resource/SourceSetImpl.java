@@ -43,6 +43,7 @@ public class SourceSetImpl implements SourceSet {
     private final String buildUnit;
     private final int sourceRelease;
     private final List<String> addModules;
+    private final List<String> addExports;
     private final List<String> warningFlags;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
@@ -58,6 +59,7 @@ public class SourceSetImpl implements SourceSet {
                           String buildUnit,
                           int sourceRelease,
                           List<String> addModules,
+                          List<String> addExports,
                           List<String> warningFlags) {
         this.name = Objects.requireNonNull(name);
         this.buildUnit = buildUnit;
@@ -75,6 +77,7 @@ public class SourceSetImpl implements SourceSet {
         this.dependencies = dependencies;
         this.sourceRelease = sourceRelease;
         this.addModules = addModules == null ? List.of() : List.copyOf(addModules);
+        this.addExports = addExports == null ? List.of() : List.copyOf(addExports);
         this.warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
 
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
@@ -248,6 +251,11 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
+    public List<String> addExports() {
+        return addExports;
+    }
+
+    @Override
     public List<String> warningFlags() {
         return warningFlags;
     }
@@ -302,19 +310,19 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
         return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
     }
 
     @Override
     public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
     }
 
     @Override
@@ -358,6 +366,7 @@ public class SourceSetImpl implements SourceSet {
         private String buildUnit;
         private int sourceRelease;
         private List<String> addModules = List.of();
+        private List<String> addExports = List.of();
         private List<String> warningFlags = List.of();
 
         public Builder() {
@@ -383,6 +392,7 @@ public class SourceSetImpl implements SourceSet {
             // sourceRelease reinstates "whatever JDK maddi runs on" for that set, invisibly.
             sourceRelease = set.sourceRelease();
             addModules = set.addModules();
+            addExports = set.addExports();
             warningFlags = set.warningFlags();
         }
 
@@ -463,6 +473,12 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
+        /** The set's own {@code javac --add-exports}, each {@code <module>/<package>=<target>[,<target>...]}. */
+        public Builder setAddExports(List<String> addExports) {
+            this.addExports = addExports == null ? List.of() : List.copyOf(addExports);
+            return this;
+        }
+
         /** The set's own warning policy: {@code -Werror}, {@code -nowarn}, {@code -Xlint...}, as the build resolved them. */
         public Builder setWarningFlags(List<String> warningFlags) {
             this.warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
@@ -471,7 +487,7 @@ public class SourceSetImpl implements SourceSet {
 
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, warningFlags);
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
         }
     }
 }

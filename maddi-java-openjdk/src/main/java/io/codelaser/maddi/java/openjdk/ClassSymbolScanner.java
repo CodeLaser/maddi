@@ -81,6 +81,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // type (nature/parent/access set) instead of being left as bare stubs. Needed to analyze code that uses JDK
     // internals (e.g. the java.net.http sources, for hint deduction).
     private final boolean jdkInternals;
+    // ⛔ THE jdk.internal PACKAGES THE CORPUS ITSELF OPENS, with a source set's own --add-exports: the corpus compiles
+    // against them, so they are loaded like any class-file type even without jdkInternals. Left as stubs, they have no
+    // type parameters and no members, and the first generic reference fails. Measured on Apache Ignite (2026-09-14,
+    // every set exports java.base/jdk.internal.loader): committing jdk.internal.loader.ClassLoaderValue died on
+    // "Type parameter 'CLV' not found in AbstractClassLoaderValue", and a unit declaring a ClassLoaderValue<String>
+    // is dropped on "'V' not found". The UNION over all source sets, because a class-file type is loaded once and
+    // shared: were it decided per set, whichever set touched it first would fix it for the rest.
+    private final Set<String> exportedJdkInternalPackages;
 
     // when true, java.util.List.get/set receive a synthetic '_synthetic_list' element field (array-access
     // standardization); see JavaInspector.ParseOptions.syntheticListField and CreateSyntheticFieldsForGetSet
@@ -139,6 +147,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.diagnosticCollector = maddiDiagnosticCollector;
         this.parameterNameIndex = parameterNameIndex;
         this.jdkInternals = jdkInternals;
+        this.exportedJdkInternalPackages = inputConfiguration.sourceSets().stream()
+                .flatMap(s -> s.addExports().stream())
+                .map(ClassSymbolScanner::exportedPackage)
+                .filter(p -> p != null && p.startsWith("jdk.internal."))
+                .collect(Collectors.toUnmodifiableSet());
         this.syntheticListField = syntheticListField;
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime, syntheticListField);
@@ -332,6 +345,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return stub;
     }
 
+    /** The package of an {@code --add-exports} entry, {@code module/package=target(,target)*}; null when malformed. */
+    static String exportedPackage(String export) {
+        int slash = export.indexOf('/');
+        if (slash <= 0) return null;
+        int eq = export.indexOf('=', slash + 1);
+        String pkg = (eq < 0 ? export.substring(slash + 1) : export.substring(slash + 1, eq)).trim();
+        return pkg.isEmpty() ? null : pkg;
+    }
+
     TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
@@ -372,7 +394,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 // jdk.internal.* is normally left as a stub (not loaded); with the JDK-internals flag we load it
                 // like any other class-file type, so its nature/parent/access are set and referencing types commit.
-                internal = !jdkInternals && cs.packge().toString().startsWith("jdk.internal.");
+                String pkg = cs.packge().toString();
+                internal = !jdkInternals && pkg.startsWith("jdk.internal.")
+                           && !exportedJdkInternalPackages.contains(pkg);
                 if (internal) {
                     uri = URI.create("jrt:/internal/");
                 } else {
@@ -872,6 +896,22 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             LOGGER.warn("Unknown module {}, add to classpath?", module);
         }
+        // ⭐ AT --release 8 AND BELOW THERE ARE NO MODULES. javac reads the platform from its release table (ct.sym)
+        // and every JDK package sits in the UNNAMED module, so the branch above cannot place a JDK type at all. Place
+        // it by its PACKAGE instead, asking the running JDK's own system modules which one holds it: java.nio.charset
+        // is java.base, com.sun.net.httpserver is jdk.httpserver -- the same answer a later release gets from the
+        // module symbol. Only for a class file read from the release table: a library's type in a JDK-named package
+        // is not the JDK. (Until 0b873b335 these fell through to the current task's source set -- wrong, but mapped;
+        // since then they were a miss, and OpenSearch's release-8 client/rest stopped the whole parse.)
+        if ((module == null || module.isUnnamed()) && fromReleaseTable(uri)) {
+            String moduleName = systemModuleOfPackage(cs.packge().fullname.toString());
+            if (moduleName != null) {
+                SourceSet known = getSourceSet(moduleName);
+                if (known != null) return known;
+                SourceSet platform = platformModuleSourceSet(moduleName);
+                if (platform != null) return platform;
+            }
+        }
         // ⛔ NOT sourceSetOfCurrentTask. Everything reaching here is a COMPILED type -- a source file of the task
         // being compiled returned at the top, on !fromClassFile -- so it belongs to something the configuration did
         // not describe: an archive that is not a .jar (JAR_FILE above matches only that, while
@@ -890,6 +930,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // reports a miss rather than minting an unusable type.
         LOGGER.debug("No source set for compiled type {} at {}; treating as off-classpath", cs.flatName(), uri);
         return null;
+    }
+
+    /** javac's release table: the file {@code --release N} reads the platform from, instead of the jmods. */
+    static boolean fromReleaseTable(URI uri) {
+        return uri != null && uri.toString().contains("ct.sym!");
+    }
+
+    /**
+     * The system module of the RUNNING JDK that holds {@code packageName}, or null when none does (a package the
+     * platform has since dropped, such as {@code javax.xml.bind} at release 8).
+     */
+    static String systemModuleOfPackage(String packageName) {
+        return SystemPackages.MODULE_BY_PACKAGE.get(packageName);
+    }
+
+    private static final class SystemPackages {
+        static final Map<String, String> MODULE_BY_PACKAGE = ModuleFinder.ofSystem().findAll().stream()
+                .map(java.lang.module.ModuleReference::descriptor)
+                .flatMap(d -> d.packages().stream().map(p -> Map.entry(p, d.name())))
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue,
+                        (a, b) -> a));
     }
 
     /**

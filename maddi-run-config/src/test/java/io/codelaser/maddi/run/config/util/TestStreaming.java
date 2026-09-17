@@ -137,6 +137,7 @@ public class TestStreaming {
                 .setUri(URI.create("file:/repo/libs/common"))
                 .setSourceRelease(8)
                 .setAddModules(List.of("jdk.incubator.vector"))
+                .setAddExports(List.of("jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"))
                 .setWarningFlags(List.of("-Werror"))
                 .build();
         SourceSet modern = new SourceSetImpl.Builder()
@@ -155,6 +156,7 @@ public class TestStreaming {
         Assertions.assertEquals(List.of("jdk.incubator.vector"), renamed.addModules());
         // ⛔ the copy Builder assigns FIELD BY FIELD, so a new one forgotten here is dropped in SILENCE
         Assertions.assertEquals(List.of("-Werror"), renamed.warningFlags());
+        Assertions.assertEquals(List.of("jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"), renamed.addExports());
 
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         // global sourceRelease 0: the mixed corpus the global field cannot express
@@ -165,6 +167,9 @@ public class TestStreaming {
 
         Assertions.assertEquals(8, copy.sourceSets().get(0).sourceRelease());
         Assertions.assertEquals(List.of("jdk.incubator.vector"), copy.sourceSets().get(0).addModules());
+        Assertions.assertEquals(List.of("jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"),
+                copy.sourceSets().get(0).addExports());
+        Assertions.assertTrue(copy.sourceSets().get(2).addExports().isEmpty());
         Assertions.assertEquals(21, copy.sourceSets().get(1).sourceRelease());
         // a set that states nothing keeps stating nothing, and says so by omission rather than by a 0 key
         Assertions.assertEquals(0, copy.sourceSets().get(2).sourceRelease());
@@ -174,6 +179,7 @@ public class TestStreaming {
         Assertions.assertTrue(copy.sourceSets().get(2).warningFlags().isEmpty());
         Assertions.assertFalse(json.contains("\"sourceRelease\":0"), json);
         Assertions.assertFalse(json.contains("\"addModules\":[]"), json);
+        Assertions.assertFalse(json.contains("\"addExports\":[]"), json);
         Assertions.assertFalse(json.contains("\"warningFlags\":[]"), json);
     }
 
@@ -187,6 +193,7 @@ public class TestStreaming {
         InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
         Assertions.assertEquals(0, copy.sourceSets().getFirst().sourceRelease());
         Assertions.assertTrue(copy.sourceSets().getFirst().addModules().isEmpty());
+        Assertions.assertTrue(copy.sourceSets().getFirst().addExports().isEmpty());
         Assertions.assertTrue(copy.sourceSets().getFirst().warningFlags().isEmpty());
     }
 

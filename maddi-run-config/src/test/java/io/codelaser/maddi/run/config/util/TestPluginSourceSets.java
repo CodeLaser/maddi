@@ -48,7 +48,7 @@ public class TestPluginSourceSets {
         Path classes = Files.createDirectories(dir.resolve("build/classes/java/main"));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
-                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of());
+                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(classes.toUri(), set.uri(), "the uri must be the class output, not the source directory");
@@ -71,7 +71,7 @@ public class TestPluginSourceSets {
         assertFalse(Files.exists(notCompiledYet));
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), notCompiledYet,
-                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of());
+                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(notCompiledYet.toUri(), set.uri(),
@@ -83,7 +83,7 @@ public class TestPluginSourceSets {
     public void noClassOutputFallsBackToTheSourceDirectory(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
 
-        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0, List.of(), List.of());
+        SourceSet set = PluginSourceSets.sourceSet("p/main", null, List.of(src), null, null, false, null, 0, List.of(), List.of(), List.of());
 
         assertNotNull(set);
         assertEquals(src.toUri(), set.uri());
@@ -100,11 +100,11 @@ public class TestPluginSourceSets {
         Path absent = dir.resolve("src/main/generated");
 
         SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(real, absent), null, null, false,
-                null, 0, List.of(), List.of());
+                null, 0, List.of(), List.of(), List.of());
         assertNotNull(set);
         assertEquals(List.of(real), set.sourceDirectories());
 
-        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0, List.of(), List.of()),
+        assertNull(PluginSourceSets.sourceSet("p/main", ":p", List.of(absent), null, null, false, null, 0, List.of(), List.of(), List.of()),
                 "a source set over no existing directory must not be created at all");
     }
 
@@ -118,7 +118,7 @@ public class TestPluginSourceSets {
         assertFalse(PluginSourceSets.isModularSource(List.of(plain)));
         assertTrue(PluginSourceSets.isModularSource(List.of(plain, modular)));
 
-        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0, List.of(), List.of());
+        SourceSet set = PluginSourceSets.sourceSet("m/main", ":m", List.of(modular), null, null, false, null, 0, List.of(), List.of(), List.of());
         assertNotNull(set);
         assertTrue(set.isModule());
     }
@@ -132,11 +132,11 @@ public class TestPluginSourceSets {
     @Test
     public void sourceReleaseIsRecordedPerSet(@TempDir Path dir) throws IOException {
         Path src = Files.createDirectories(dir.resolve("src"));
-        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17, List.of(), List.of());
+        SourceSet set = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), null, null, false, null, 17, List.of(), List.of(), List.of());
         assertNotNull(set);
         assertEquals(17, set.sourceRelease());
         // 0 means "the build said nothing", which is not the same as "release 0"
-        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0, List.of(), List.of());
+        SourceSet silent = PluginSourceSets.sourceSet("p/test", ":p", List.of(src), null, null, true, null, 0, List.of(), List.of(), List.of());
         assertNotNull(silent);
         assertEquals(0, silent.sourceRelease());
     }
@@ -279,6 +279,19 @@ public class TestPluginSourceSets {
         assertEquals(List.of("a", "b"),
                 PluginSourceSets.addModulesFrom(List.of("--add-modules=a", "--add-modules", "b", "--add-modules=a")),
                 "accumulated across occurrences, in order, without duplicates");
+    }
+
+    @Test
+    public void addExportsIsReadInBothSpellings() {
+        assertEquals(List.of("jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                        "jdk.compiler/com.sun.tools.javac.util=a.b,ALL-UNNAMED"),
+                PluginSourceSets.addExportsFrom(List.of("-g",
+                        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=a.b,ALL-UNNAMED",
+                        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED")),
+                "one entry per occurrence as javac spells it, in order, without repeats");
+        assertEquals(List.of(), PluginSourceSets.addExportsFrom(List.of("-g", "--add-modules=x")));
+        assertEquals(List.of(), PluginSourceSets.addExportsFrom(null));
     }
 
     /**

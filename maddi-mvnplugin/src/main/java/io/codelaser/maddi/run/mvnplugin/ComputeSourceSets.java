@@ -70,7 +70,7 @@ public class ComputeSourceSets {
 
             SourceSet mainSourceSet = PluginSourceSets.sourceSet(projectName + "/main", buildUnit, sourcePaths,
                     Path.of(project.getBuild().getOutputDirectory()), encoding, false, restrictToPackages,
-                    sourceRelease(project, false), addModules(project, false),
+                    sourceRelease(project, false), addModules(project, false), addExports(project, false),
                     warningFlags(project, false));
             if (mainSourceSet != null) {
                 mainSourceSet = mainSourceSet.withDependencies(List.copyOf(deps));
@@ -87,6 +87,7 @@ public class ComputeSourceSets {
             SourceSet testSourceSet = PluginSourceSets.sourceSet(projectName + "/test", buildUnit, testSourcePaths,
                     Path.of(project.getBuild().getTestOutputDirectory()), encoding, true,
                     restrictToTestPackages, sourceRelease(project, true), addModules(project, true),
+                    addExports(project, true),
                     warningFlags(project, true));
             if (testSourceSet != null) {
                 testSourceSet = testSourceSet.withDependencies(List.copyOf(deps));
@@ -296,6 +297,11 @@ public class ComputeSourceSets {
      */
     private static List<String> addModules(MavenProject project, boolean test) {
         return PluginSourceSets.addModulesFrom(resolvedCompilerArgs(project, test));
+    }
+
+    /** javac's {@code --add-exports}, from the same resolved {@code <compilerArgs>}; see {@link #addModules}. */
+    private static List<String> addExports(MavenProject project, boolean test) {
+        return PluginSourceSets.addExportsFrom(resolvedCompilerArgs(project, test));
     }
 
     /**

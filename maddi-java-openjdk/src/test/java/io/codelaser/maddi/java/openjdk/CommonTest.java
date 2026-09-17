@@ -62,6 +62,10 @@ public class CommonTest {
     // before any field was reached); with -proc:none the same source attributed completely, as it does in the
     // product (see TestDroppedUnitMethodAccess).
     protected boolean annotationProcessing = true;
+    // when positive, the task compiles with --release=<release> and -proc:none, as the product does for a source set
+    // that states an older release (JavaInspectorImpl, per source set). At 8 there is no module system: javac reads
+    // the platform from its release table (ct.sym) and every JDK package sits in the unnamed module.
+    protected int release = 0;
 
     public CommonTest() {
         this(List.of());
@@ -150,7 +154,8 @@ public class CommonTest {
                 .map(e -> new InMemoryJavaFileObject("source", e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
-        List<String> options = annotationProcessing
+        List<String> options = release > 0 ? List.of("-proc:none", "--release=" + release)
+                : annotationProcessing
                 ? List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
                 "--enable-preview", "--release=26")
                 : List.of("-proc:none", "--enable-preview", "--release=26");

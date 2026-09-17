@@ -104,6 +104,45 @@ public class TestSharedJdkRelease {
     }
 
     /**
+     * A set that states NO release is attributed on the running JDK, so the shared model has to reach that band
+     * too. The maximum used to read only the releases that were stated: a set at 17 beside a silent one (and no
+     * global release) preloaded {@code List} from the 11–20 band, which the silent set's sources then met without
+     * {@code getFirst()}. The shape of the jfocus/maddi workspace (2026-09-14): 4 sets at 21, 86 silent.
+     */
+    @DisplayName("a set that states no release counts as the running JDK for the shared java.util.List")
+    @Test
+    public void aSilentSetCountsAsTheRunningJdk() throws java.io.IOException {
+        int running = Runtime.version().feature();
+        Assumptions.assumeTrue(running >= 21, "the probe is List.getFirst(), added in Java 21 (running on "
+                                              + running + ")");
+
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        SourceSet low = new SourceSetImpl.Builder()
+                .setName(TEST_PROTOCOL)
+                .setUri(URI.create("file:/low"))
+                .setSourceRelease(17)
+                .build();
+        SourceSet silent = new SourceSetImpl.Builder()
+                .setName("silent")
+                .setUri(URI.create("file:/silent"))
+                .build();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addSourceSets(low, silent)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
+        javaInspector.preload("java.base::java.util");
+        javaInspector.initialize(inputConfiguration);
+        javaInspector.parse(Map.of("p.X", INPUT), JavaInspectorImpl.DETAILED_SOURCES);
+
+        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        assertNotNull(list, "java.util.List is preloaded");
+        List<String> names = list.methods().stream().map(MethodInfo::name).toList();
+        assertTrue(names.contains("getFirst"),
+                "'silent' is parsed on the running JDK (" + running + "), so the shared java.util.List must not"
+                + " come from the 17 band; methods seen: " + names);
+    }
+
+    /**
      * ...and the set's OWN sources keep being attributed at its own release. Fix 2 must not become fix 1: the
      * per-set {@code --release} is a separate, deliberate decision ({@code createTask}, and
      * {@link TestPerSourceSetRelease}), and only the preload pass is exempt from it.

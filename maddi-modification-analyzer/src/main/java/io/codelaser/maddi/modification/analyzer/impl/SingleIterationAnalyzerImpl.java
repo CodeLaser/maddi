@@ -117,6 +117,15 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         this.elementCompletedCallback = callback;
     }
 
+    // G43: the run's wall-clock budget, checked before every element (the workers included); null = unlimited.
+    // Set by IteratingAnalyzerImpl, which names each pass on it before calling go().
+    private AnalysisBudget budget;
+    private final AtomicInteger elementsDoneInPass = new AtomicInteger();
+
+    void setBudget(AnalysisBudget budget) {
+        this.budget = budget;
+    }
+
     public static final String ANALYZER_CRASH = "analyzer-crash";
     public static final String LINK_CRASH = "link-crash";
 
@@ -197,6 +206,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration,
                    List<List<List<Info>>> firstIterationWaves) {
         linkComputer.reset();
+        elementsDoneInPass.set(0);
         changedInfos.clear();
         summaryChangedInfos.clear();
         TolerantWrite.resetChangedTargets();
@@ -275,8 +285,21 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     .reduce((a, b) -> a + ", " + b).orElse("-");
             LOGGER.info("Slowest elements: {}", slowest);
         } else {
+            // the same "slowest elements" line the parallel branch prints: the sequential first iteration is
+            // the one every corpus probe runs, and it had no per-element figure at all
+            java.util.Map<Info, Long> elementMillis = LOGGER.isInfoEnabled() ? new java.util.HashMap<>() : null;
             for (Info info : analysisOrder) {
+                long t0 = System.nanoTime();
                 processElement(info, activateCycleBreaking, firstIteration, abstractTypes);
+                if (elementMillis != null) elementMillis.put(info, (System.nanoTime() - t0) / 1_000_000);
+            }
+            if (elementMillis != null) {
+                String slowest = elementMillis.entrySet().stream()
+                        .sorted(java.util.Map.Entry.<Info, Long>comparingByValue().reversed())
+                        .limit(10)
+                        .map(e -> e.getKey().fullyQualifiedName() + "=" + e.getValue() + "ms")
+                        .reduce((a, b) -> a + ", " + b).orElse("-");
+                LOGGER.info("Slowest elements (sequential, {} elements): {}", analysisOrder.size(), slowest);
             }
         }
         long endLoop = System.currentTimeMillis();
@@ -420,6 +443,10 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     private void processElement(Info info, boolean activateCycleBreaking, boolean firstIteration,
                                 Set<TypeInfo> abstractTypes) {
+        // G43: OUTSIDE the fault-tolerant try below — a spent budget is not this element's crash, and must not be
+        // recorded as a finding and swallowed. On a pool worker it reaches the caller through joinAll.
+        AnalysisBudget b = budget;
+        if (b != null) b.check(elementsDoneInPass.get());
         if (faultTolerant && failed.contains(info)) return; // an earlier iteration already crashed on this one
         int changesBefore = propertiesChanged.get();
         // task #35 Phase A: attribute all analysis() touches during this element to it (CONSEDGES gate)
@@ -477,6 +504,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             // under PARALLEL the delta can over-attribute (another thread's change lands in the window);
             // a superset of changed elements is safe for the worklist
             if (propertiesChanged.get() > changesBefore) changedInfos.add(info);
+            elementsDoneInPass.incrementAndGet();
             // intra-wave progress tick (in finally: a fault-tolerant crash still counts as processed)
             Runnable ec = elementCompletedCallback;
             if (ec != null) ec.run();

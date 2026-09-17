@@ -279,6 +279,15 @@ tasks:
       - { task: _clone, vars: { NAME: hive, URL: 'https://github.com/apache/hive.git' } }
       - { task: _build, vars: { NAME: hive, BUILD: 'mvn install -DskipTests' } }
 
+  # Apache Ignite 2.x — the apache/ignite repo IS the 2.x line (Ignite 3 is apache/ignite-3). master,
+  # not a release branch: upstream is carving ignite-core by hand (IEP-119), so a release is stale.
+  # Cloned as `ignite-core` (the modularization campaign's name for it). The build itself happens in
+  # config:ignite-core — one pass builds AND captures, as for trino.
+  ignite-core:
+    desc: 'ignite-core — Apache Ignite 2.x master (clone only; build + capture is config:ignite-core)'
+    cmds:
+      - { task: _clone, vars: { NAME: ignite-core, URL: 'https://github.com/apache/ignite.git' } }
+
   keycloak:
     desc: 'keycloak — Maven wrapper'
     cmds:
@@ -437,6 +446,39 @@ tasks:
     cmds:
       - { task: _config:maven-log,
           vars: { NAME: guava, TASKS: 'install -DskipTests', REWRITE_REACTOR_JARS: 'true' } }
+  # ignite-core: `install` + REWRITE_REACTOR_JARS, the guava route, for a plainer reason: the reactor
+  # is known to build under `install` (43/43, ~2 min), and the later modules then name siblings as
+  # target/*.jar and *-tests.jar (measured: ignite-core, -tests, commons, binary-api/impl, nio, ...),
+  # which the rewrite turns back into their output directories.
+  # JDK 17 for the BUILD: parent/pom.xml sets maven.compiler.source/target 17, and core's compilerArgs
+  # carry --add-exports java.base/jdk.internal.misc (et al.) — so the parse needs maddi 302a7c397+
+  # ("Carry javac's --add-exports per source set"), or core's users of those packages drop.
+  # ⚠ core runs three annotation processors from modules/codegen (MessageProcessor,
+  # IgniteDataTransferObjectProcessor, SystemViewRowAttributeWalkerProcessor) into
+  # core/target/generated-sources/codegen — ~796 generated files beside ~3,900 hand-written ones.
+  config:ignite-core:
+    desc: 'ignite-core config (Maven compile-log over `install`, whole default reactor, JDK 17 build)'
+    vars:
+      IGNITE_JAVA_HOME:
+        sh: /usr/libexec/java_home -v 17 2>/dev/null || true
+    preconditions:
+      - sh: 'test -x "{{.IGNITE_JAVA_HOME}}/bin/javac"'
+        msg: 'No JDK 17 found — set IGNITE_JAVA_HOME (ignite master targets 17).'
+      - sh: 'test -f "{{.IGNITE_JAVA_HOME}}/jmods/java.base.jmod"'
+        msg: 'maddi reads an alternative JRE from its jmods/ — {{.IGNITE_JAVA_HOME}} has none.'
+    cmds:
+      - task: _config:maven-log
+        vars: { NAME: ignite-core, TASKS: 'install -DskipTests -Dstyle.color=never', REWRITE_REACTOR_JARS: 'true',
+                BUILD_JAVA_HOME: '{{.IGNITE_JAVA_HOME}}', MADDI_ARGS: '--jre {{.IGNITE_JAVA_HOME}}' }
+
+  # ⛔ THE PARSE MUST SEE THE BUILD'S JDK, AND NOTHING IN THE LOG SAYS WHICH ONE THAT WAS — hence --jre above.
+  # ignite compiles with -source/-target 17 and no --release, so maddi (rightly —
+  # CompileInvocation.effectiveRelease) states no release and would parse on the JDK it runs on, 26, where
+  # java.lang.Thread has no stop(): measured 2026-09-14, 6 units (WorkersControlMXBeanImpl in core/main, 5 in
+  # core/test-classes) failed and the whole parse was REFUSED. --release 17 is NOT the fix: javac forbids
+  # --add-exports of system-module packages under --release, and core needs java.base/jdk.internal.misc.
+  # ⚠ --jre needs maddi with Main.withStatedJre (2026-09-14): before it, --jre was accepted and silently
+  # dropped together with --compile-log, and this recipe had to post-process the written JSON instead.
   config:jenkins:
     desc: 'jenkins config (module core — this is what TestJenkinsCore consumes)'
     cmds: [{ task: _config:maven, vars: { NAME: jenkins, MODULE: core, MVN_FLAGS: '-Denforcer.skip=true' } }]
@@ -623,7 +665,8 @@ tasks:
         test "$after" -eq 0{{end}}
       - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
-      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      # MADDI_ARGS: extra maddi options for this project's configuration, e.g. ignite-core's `--jre <JDK 17>`.
+      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json{{if .MADDI_ARGS}} {{.MADDI_ARGS}}{{end}}"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
 
   # The Kotlin sibling of _config:gradle-log. Three differences, all forced by the corpus:

@@ -159,6 +159,53 @@ public class TestCompileLogCli {
     }
 
     /**
+     * {@code --jre} must reach a configuration DERIVED FROM A COMPILE LOG. It used to be read only on the third
+     * route (explicit {@code --source}/{@code --classpath}): {@code parseInputConfiguration} returned the
+     * {@code ParseJavacList} result before looking at it, so the option was accepted and silently dropped.
+     * <p>
+     * ⛔ And a compile log is exactly where it is needed. A corpus compiled with {@code -source N} and no
+     * {@code --release} states no platform ({@code CompileInvocation.effectiveRelease}), so the parse runs on the
+     * analyzer's JDK — measured on Apache Ignite (2026-09-14): built on JDK 17, parsed on 26, where
+     * {@code Thread.stop()} no longer exists, 6 units failed and the whole parse was refused. {@code --release 17}
+     * cannot stand in: javac forbids {@code --add-exports} of system-module packages under it, and Ignite needs
+     * {@code java.base/jdk.internal.misc}. Naming the build's JDK is the only instruction that fits.
+     */
+    @Test
+    public void jreReachesAConfigurationDerivedFromACompileLog(@TempDir Path tempDir) throws Exception {
+        Path jre = Path.of(System.getProperty("java.home"));
+        File out = tempDir.resolve("input.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.JRE, jre.toString(),
+                "--" + Main.WRITE_INPUT_CONFIGURATION, out.getAbsolutePath()}));
+
+        InputConfiguration ic = read(out);
+        assertEquals(jre, ic.alternativeJREDirectory(), "--jre must be recorded in the derived configuration");
+        assertFalse(ic.sourceSets().isEmpty(), "and applying it must not lose what the log derived");
+    }
+
+    /** The same silent drop, on the {@code --input-configuration} route: a stated {@code --jre} overrides the file's. */
+    @Test
+    public void jreOverridesTheJreOfAnInputConfigurationFile(@TempDir Path tempDir) throws Exception {
+        File derived = tempDir.resolve("derived.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.WRITE_INPUT_CONFIGURATION, derived.getAbsolutePath()}));
+        assertNull(read(derived).alternativeJREDirectory(), "control: nothing states a JRE yet");
+
+        Path jre = Path.of(System.getProperty("java.home"));
+        File out = tempDir.resolve("out.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.INPUT_CONFIGURATION, derived.getAbsolutePath(),
+                "--" + Main.JRE, jre.toString(),
+                "--" + Main.WRITE_INPUT_CONFIGURATION, out.getAbsolutePath()}));
+
+        InputConfiguration ic = read(out);
+        assertEquals(jre, ic.alternativeJREDirectory());
+        assertEquals(read(derived).sourceSets().size(), ic.sourceSets().size());
+    }
+
+    /**
      * End-to-end on a real, on-disk project: this very repository. {@code maddi-cst-api} sits at the bottom of the
      * module hierarchy (single dependency: {@code maddi-support}), so it is fast to analyze. We synthesize a javac
      * invocation for its sources -- source directory from the repo, libraries from this test JVM's own runtime
