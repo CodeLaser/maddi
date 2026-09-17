@@ -517,6 +517,8 @@ class MemberTest : KotlinScanTestBase() {
                 "    fun inSamLambda(): Runnable = Runnable { use(object : I { override fun f(): Int = 3 }) }\n" +
                 "    fun inJavaSamArgument(): Thread = Thread { use(object : I { override fun f(): Int = 4 }) }\n" +
                 "    fun inLambdaLocal(): Thread = Thread { val x = object : I { override fun f(): Int = 5 }; use(x) }\n" +
+                "    fun inInlineLambda(): I = run { object : I { override fun f(): Int = 6 } }\n" +
+                "    val inInitializer: I = run { object : I { override fun f(): Int = 7 } }\n" +
                 "    fun use(i: I) { i.f() }\n" +
                 "}\n")
         val all = types.flatMap { it.recursiveSubTypeStream().toList() }
@@ -537,11 +539,101 @@ class MemberTest : KotlinScanTestBase() {
             }
         }
         walk(all.flatMap { it.methods() })
+        all.flatMap { it.fields() }.forEach { f ->
+            f.initializer()?.visit { e ->
+                val found = when (e) {
+                    is io.codelaser.maddi.cst.api.expression.ConstructorCall -> e.anonymousClass()
+                    is io.codelaser.maddi.cst.api.expression.Lambda -> e.methodInfo().typeInfo()
+                    else -> null
+                }
+                if (found != null && anonymous.add(found)) walk(found.methods())
+                true
+            }
+        }
         val overrides = (all + anonymous).flatMap { it.methods() }
             .filter { it.name() == "f" && it.overrides().contains(iF) }
+        // ⛔ FIVE OF SEVEN, AND THE TWO MISSING ONES ARE WHY A REFERENCE IS NOT RECORDED ON WHAT DECLARES IT.
+        // `run { … }` is a library EXTENSION function, and a call to one does not resolve: the body of
+        // inInlineLambda and the initializer of inInitializer are `{return;}`, the object literal in each dropped
+        // with the lambda that carried it. K2 still resolves every name written in them, and
+        // KotlinReferenceRegistry still records those on the enclosing member -- which is the point: the records
+        // must survive what the CST loses. Turn this into 7 when library extension calls resolve.
         assertEquals(5, overrides.size,
             "each object literal's f() overrides I.f; anonymous types found: " + anonymous.map { it.simpleName() })
     }
+
+    /**
+     * ⛔ WHAT AN `object :` EXPRESSION WRITES IS RECORDED ON THE MEMBER IT IS WRITTEN IN, not on the override, and
+     * the javalin parameter census is what made the rule worth pinning. Both directions live here: the override's
+     * OWN parameter, used in its body, and a CAPTURED one, the enclosing function's parameter used there.
+     * <p>
+     * It is tempting to give the override its own records -- its text is its own, and that is what
+     * {@link io.codelaser.maddi.cst.api.element.DetailedSources} promises of every other entry. Measured, it loses
+     * more than it gains: a record has to survive what the desugared CST drops, and the CST drops the object
+     * literal itself whenever the call carrying it does not resolve (see the `run { … }` arms of
+     * [anOverrideInAnObjectLiteralInsideALambda]). An override the CST cannot reach cannot be asked what it
+     * spells; the enclosing member can always be asked. A rename planner therefore walks OUTWARD -- from a family
+     * member declared in a body to the member it is written in -- and the front end keeps the records where the
+     * walk can find them.
+     */
+    @Test
+    fun anObjectLiteralsSpellingsAreRecordedOnTheMemberItIsWrittenIn() {
+        val types = KotlinScan(runtime, sourceSet).parse("x/X.kt",
+            "package x\n" +                                                                 // 1
+                "interface R { fun pre(layout: String): String }\n" +                       // 2
+                "fun runIt(block: () -> Unit) { block() }\n" +                              // 3
+                "class C {\n" +                                                             // 4
+                "    fun direct(): R = object : R {\n" +                                    // 5
+                "        override fun pre(layout: String): String = layout + \"D\"\n" +     // 6
+                "    }\n" +                                                                 // 7
+                "    fun inLambda() { runIt {\n" +                                          // 8
+                "        use(object : R {\n" +                                              // 9
+                "            override fun pre(layout: String): String = layout + \"L\"\n" + // 10
+                "        })\n" +                                                            // 11
+                "    } }\n" +                                                               // 12
+                "    fun use(r: R) { r.pre(\"\") }\n" +                                     // 13
+                "    fun capturing(prefix: String): R = object : R {\n" +                   // 14
+                "        override fun pre(layout: String): String = prefix + layout\n" +    // 15
+                "    }\n" +                                                                 // 16
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val c = all.single { it.simpleName() == "C" }
+        fun method(name: String) = c.methods().single { it.name() == name }
+        fun linesNaming(host: io.codelaser.maddi.cst.api.info.Info, target: io.codelaser.maddi.cst.api.info.Info) =
+            host.source()?.detailedSources()?.references(target).orEmpty().map { it.beginLine() }
+
+        // the override's own parameter, used in its own body: recorded on the member the object literal sits in
+        val anonymous = mutableSetOf<io.codelaser.maddi.cst.api.info.TypeInfo>()
+        fun walk(methods: List<io.codelaser.maddi.cst.api.info.MethodInfo>) {
+            methods.forEach { m ->
+                runCatching { m.methodBody() }.getOrNull()?.visit { e ->
+                    val found = when (e) {
+                        is io.codelaser.maddi.cst.api.expression.ConstructorCall -> e.anonymousClass()
+                        is Lambda -> e.methodInfo().typeInfo()
+                        else -> null
+                    }
+                    if (found != null && anonymous.add(found)) walk(found.methods())
+                    true
+                }
+            }
+        }
+        walk(c.methods())
+        val overrides = anonymous.flatMap { it.methods() }.filter { it.name() == "pre" }
+        assertEquals(3, overrides.size, "one override per object literal")
+        overrides.forEach { override ->
+            assertEquals(listOf<Int>(), linesNaming(override, override.parameters()[0]),
+                "${override.fullyQualifiedName()} records nothing of its own")
+        }
+        assertEquals(listOf(6), linesNaming(method("direct"), overrideIn(overrides, 6).parameters()[0]))
+        assertEquals(listOf(10), linesNaming(method("inLambda"), overrideIn(overrides, 10).parameters()[0]))
+        assertEquals(listOf(15), linesNaming(method("capturing"), overrideIn(overrides, 15).parameters()[0]))
+        // the captured one, the enclosing function's own parameter: the same member, the same record
+        assertEquals(listOf(15), linesNaming(method("capturing"), method("capturing").parameters()[0]))
+    }
+
+    /** The `pre` override whose body is written on [line]. */
+    private fun overrideIn(overrides: List<io.codelaser.maddi.cst.api.info.MethodInfo>, line: Int) =
+        overrides.single { it.source().beginLine() == line }
 
     /**
      * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
