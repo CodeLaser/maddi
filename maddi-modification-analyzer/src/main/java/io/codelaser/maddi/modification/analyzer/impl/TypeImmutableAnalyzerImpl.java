@@ -186,15 +186,16 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                     stopExternal = true;
                 }
             } else {
-                // EXPERIMENTAL (EVENTUALCLUSTER), after-mark path only: a supertype at FINAL_FIELDS caps the
-                // subtype at FINAL_FIELDS via the min below -- the sub inherits the super's post-mark-mutable
-                // content, no more -- instead of falling through the isMutable(@FinalFields) exit to MUTABLE.
-                // The sink zeroed whole families: one transiently-capped FF write on Expression (the enm batch
-                // not yet re-run in the epoch) turned every subtype @Mutable, and "buys nothing" erased the
-                // subtree. A truly MUTABLE super still sinks; the unconditional domain is untouched.
-                boolean ffCapsAfterMark = EventualCluster.ENABLED && !afterMark.isNone()
-                                          && immutableSuper.isFinalFields();
-                if (immutableSuper.isMutable() && !ffCapsAfterMark) {
+                // a supertype at FINAL_FIELDS caps the subtype at FINAL_FIELDS via the min below -- deriving from a
+                // class cannot increase the immutability level (road to immutability, 050); the parent caps, it does
+                // not sink -- rather than falling through the isMutable() exit (true for FINAL_FIELDS too). Only a truly
+                // MUTABLE supertype sinks the subtype. First on the after-mark path, where the sink zeroed whole
+                // families (one transiently-capped FF write on Expression turned every subtype @Mutable); now on
+                // the unconditional path too, where it made the verdict order-dependent (#34): the breaking pass
+                // floors an UNDECIDED supertype at FINAL_FIELDS, so a subtype computed before its parent was decided
+                // got @FinalFields, one computed after got @Mutable, and the refused downgrade froze whichever ran
+                // first -- on 8 threads, DetektError's subclasses in 1 run in 4.
+                if (immutableSuper.isMutable() && !immutableSuper.isFinalFields()) {
                     if (dbg && !afterMark.isNone()) {
                         System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
                                            + " MUTABLE: super " + superType.typeInfo().fullyQualifiedName());
@@ -209,11 +210,12 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             // an undecided supertype may still force MUTABLE: wait rather than conclude FINAL_FIELDS prematurely
             return stopExternal ? null : FINAL_FIELDS;
         }
-        if (immFromHierarchy.isFinalFields()) return FINAL_FIELDS;
-
+        // before the FINAL_FIELDS cap: a FINAL_FIELDS parent beside an undecided interface must wait too, or the
+        // interface turning out MUTABLE would need the downgrade that is refused
         if (stopExternal) {
             return null;
         }
+        if (immFromHierarchy.isFinalFields()) return FINAL_FIELDS;
 
         // fields and abstract methods (those annotated by hand)
 
