@@ -192,9 +192,6 @@ class KotlinProjectScan(
         fun delegationOf(constructor: io.codelaser.maddi.cst.api.info.MethodInfo): KotlinScan.ConstructorDelegation? =
             scans.values.firstNotNullOfOrNull { it.delegationOf(constructor) }
 
-        /** See [KotlinScan.overloadsOf]; [method] may belong to any set of this session. */
-        fun overloadsOf(method: io.codelaser.maddi.cst.api.info.MethodInfo): List<List<Int>> =
-            scans.values.firstNotNullOfOrNull { it.overloadsOf(method).takeIf { o -> o.isNotEmpty() } } ?: emptyList()
 
         /** See [KotlinScan.hasOrAwaitsBody]; [method] may belong to any set of this session. */
         fun hasOrAwaitsBody(method: io.codelaser.maddi.cst.api.info.MethodInfo): Boolean =

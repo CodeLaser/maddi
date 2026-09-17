@@ -15,6 +15,7 @@
 package io.codelaser.maddi.inspection.mixed
 
 import io.codelaser.maddi.cst.api.element.Element
+import io.codelaser.maddi.cst.api.expression.ConstructorCall
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
@@ -106,6 +107,22 @@ class TestMixedSourceSet {
 
             fun nested(): Router.Nested = Router.Nested()
         }
+
+        class Settings(val level: Int = 1, val name: String = "x") {
+            @JvmOverloads
+            fun greet(who: String, times: Int = 1, loud: Boolean = false): String = who.repeat(times) + loud
+        }
+        """.trimIndent()
+
+    // Java leaving Kotlin's defaults out: it calls the overloads kotlinc adds, which must be CST members
+    private val user = """
+        package p;
+
+        public class User {
+            public String use() {
+                return new Settings().greet("a") + new Settings().greet("b", 2);
+            }
+        }
         """.trimIndent()
 
     @Test
@@ -115,10 +132,15 @@ class TestMixedSourceSet {
         Files.writeString(dir.resolve("p/Handler.java"), handler)
         Files.writeString(dir.resolve("p/Router.java"), router)
         Files.writeString(dir.resolve("p/Echo.java"), echo)
+        Files.writeString(dir.resolve("p/User.java"), user)
         Files.writeString(dir.resolve("p/Context.kt"), context)
+        // kotlin-stdlib, for `@JvmOverloads` to resolve
+        val stdlib = Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        val stdlibSet = SourceSetImpl.Builder().setName("kotlin-stdlib").setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
         val main = SourceSetImpl.Builder().setName("main").setSourceDirectories(listOf(dir)).setUri(dir.toUri())
-            .build()
-        val config = InputConfigurationImpl.Builder().addSourceSets(main).build()
+            .setDependencies(listOf(stdlibSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet).addSourceSets(main).build()
 
         val result = MixedProjectInspector().parse(config)
 
@@ -129,7 +151,7 @@ class TestMixedSourceSet {
         val echoType = java("Echo")
         val contextType = kotlin("Context")
         val defaultContext = kotlin("DefaultContext")
-        assertEquals(setOf("Echo", "Handler", "Router"), result.javaTypes.map { it.simpleName() }.toSet())
+        assertEquals(setOf("Echo", "Handler", "Router", "User"), result.javaTypes.map { it.simpleName() }.toSet())
         listOf(handlerType, routerType, contextType, defaultContext).forEach {
             assertEquals("main", it.compilationUnit().sourceSet().name(), it.fullyQualifiedName())
             assertTrue(it.hasBeenInspected(), it.fullyQualifiedName())
@@ -152,6 +174,24 @@ class TestMixedSourceSet {
             "Router.run calls the Kotlin Context.result")
         // and overriding across the boundary
         assertTrue(echoType.findUniqueMethod("result", 1).overrides().contains(result0))
+
+        // kotlinc's overloads: a Java call binds to a synthetic member whose body calls the `$default`
+        val settings = kotlin("Settings")
+        val noArgs = settings.constructors().single { it.parameters().isEmpty() }
+        assertTrue(noArgs.isSynthetic)
+        val use = java("User").findUniqueMethod("use", 0)
+        val constructed = mutableListOf<MethodInfo>()
+        use.methodBody().visit { e: Element ->
+            if (e is ConstructorCall) constructed += e.constructor()
+            true
+        }
+        assertEquals(listOf(noArgs, noArgs), constructed)
+        val greets = calls(use)
+        assertEquals(listOf(1, 2), greets.map { it.parameters().size })
+        greets.forEach { greet ->
+            assertTrue(greet.isSynthetic && greet.typeInfo() === settings, greet.fullyQualifiedName())
+            assertEquals(listOf("greet\$default"), calls(greet).map { it.name() })
+        }
     }
 
     private fun calls(method: MethodInfo): List<MethodInfo> {

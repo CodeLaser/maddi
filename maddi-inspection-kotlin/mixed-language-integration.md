@@ -389,16 +389,22 @@ Four things this needed that were not visible before:
   target — recorded from K2 in `prepareType`, with the checked exceptions of a bytecode parent constructor.
   Without the last, 91 of javalin's stubs called a no-argument parent constructor that does not exist.
 - **Stub fidelity, generally**: generic arguments are kept everywhere (erased, 60 of javalin's 101 javac errors
-  were Java seeing `Object`); a `vararg` is `T...`; the overloads kotlinc adds (`@JvmOverloads`, the no-argument
-  constructor of an all-defaults primary constructor) are stubbed; `$default` constructors are not; one method per
+  were Java seeing `Object`); a `vararg` is `T...`; `$default` constructors are not stubbed; one method per
   Java signature (a private `var`'s synthesized setter and a written `setX` are one JVM method); a `sealed` class
   is abstract; a nested class
   is `static` unless `inner` — in the CST too (`KotlinTypeMapper.applyHierarchy`), where every Kotlin nested class
   used to be an inner class; and a `@JvmField` property has no accessors in the CST, where one was minted under
   the property's own name and collided with a written `fun sessionId()`.
+- **kotlinc's overloads are CST members** (`KotlinScan.overloadMethods`/`overloadConstructors`): one per defaulted
+  parameter under `@JvmOverloads`, and the no-argument constructor of an all-defaults primary constructor. Each is
+  synthetic, and its body calls the `$default` with the zero value and mask bit of what it leaves out, as kotlinc
+  compiles it; the stub emits them as any other member. Stubbed only, a Java call to one (`new CompressionStrategy()`)
+  found no CST member, and the Java scan loaded javalin's class file as a second definition of the type. A Kotlin
+  call never binds to one: it passes every argument, to the `$default` (`KotlinBodyConverter.resolveCallee`).
 
-Test: `TestMixedSourceSet` (maddi-inspection-mixed). Corpus: javalin — 0 Java types before; now 11 of 156 Java
-compilation units still fail, on the next tail: (1) the overloads exist in the stubs but not in the CST, so a Java
-call to one finds no member; (2) Kotlin use-site variance (`out T`, `in T`, `*`) is not mapped to wildcards, so
-javac sees `Class<ContextPlugin<Object, T>>` where kotlinc emits `Class<? extends ContextPlugin<?, T>>`; (3) a
-companion's `const`/`@JvmStatic` members as statics of an interface or of the enclosing class.
+Test: `TestMixedSourceSet` (maddi-inspection-mixed). Corpus: javalin — 0 Java types before; 11 of 156 Java
+compilation units failed with the overloads stubbed only, 3 (all in the test set) now, on the next tail: (1) Kotlin
+use-site variance (`out T`, `in T`, `*`) is not mapped to wildcards, so
+javac sees `Class<ContextPlugin<Object, T>>` where kotlinc emits `Class<? extends ContextPlugin<?, T>>`; (2) an
+`object`'s JVM statics beyond its `@JvmStatic` functions: `const val`, a `@JvmStatic` property's accessors, and the
+overloads of a `@JvmStatic @JvmOverloads` function.

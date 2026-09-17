@@ -958,6 +958,10 @@ internal class KotlinBodyConverter(
         val all = mutableListOf<MethodInfo>()
         collectMethods(type, name, arguments.size, mutableSetOf(), all)
         if (all.size <= 1) return all.firstOrNull()
+        // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
+        // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
+        all.removeIf { m -> m.isSynthetic && all.any { !it.isSynthetic && it.typeInfo() === m.typeInfo() } }
+        if (all.size == 1) return all.first()
         // overloads that share erased params but differ by return type (Kotlin inline numeric specializations,
         // e.g. maxOf((T)->Double):Double vs :Float vs :R): pick the one whose erased return type matches the
         // resolved call. Then disambiguate any remainder by argument type, as before.

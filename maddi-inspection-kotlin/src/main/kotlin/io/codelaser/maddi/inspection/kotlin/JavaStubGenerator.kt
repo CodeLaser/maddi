@@ -52,9 +52,6 @@ object JavaStubGenerator {
 
         /** The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. */
         fun delegation(constructor: MethodInfo): KotlinScan.ConstructorDelegation? = null
-
-        /** The JVM overloads kotlinc adds to [method], each as the indices of the parameters it keeps. */
-        fun overloads(method: MethodInfo): List<List<Int>> = emptyList()
     }
 
     private val DEFAULT_HINTS = object : StubHints {}
@@ -76,8 +73,8 @@ object JavaStubGenerator {
                 && Character.isJavaIdentifierStart(name[0]) && name.all { Character.isJavaIdentifierPart(it) }
 
     /** Positional parameter names: javac resolves a call by argument types, never by parameter name. */
-    private fun parameterList(m: MethodInfo, kept: List<Int>? = null): String =
-        m.parameters().withIndex().filter { (i, _) -> kept == null || i in kept }.joinToString(", ") { (i, p) ->
+    private fun parameterList(m: MethodInfo): String =
+        m.parameters().withIndex().joinToString(", ") { (i, p) ->
             val type = javaType(p.parameterizedType())
             // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve
             (if (p.isVarArgs && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
@@ -189,20 +186,18 @@ object JavaStubGenerator {
     private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String,
                              hints: StubHints, emitted: MutableSet<String> = HashSet()) {
         // a `$default` constructor (the trailing `int` mask and DefaultConstructorMarker) is kotlinc's, called by
-        // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker
-        if (m.isConstructor && m.isSynthetic) return
+        // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
+        // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
+        if (m.isConstructor && m.isSynthetic && (m.methodModifiers().any { it.isPrivate } || m.parameters().lastOrNull()?.name() == "\$marker")) return
         val isStatic = m.isStatic || hints.isJvmStatic(m)
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
         val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)
         val delegated = if (m.isConstructor) hints.delegation(m) else null
-        // the method itself, then the overloads kotlinc adds (@JvmOverloads; a primary constructor whose parameters
-        // all have defaults gets a no-argument one): a Java call that leaves the defaults out resolves to those
-        (listOf<List<Int>?>(null) + hints.overloads(m)).forEach { kept ->
-            val parameters = m.parameters().indices.filter { kept == null || it in kept }
+        run {
             val signature = (if (m.isConstructor) "<init>" else m.name()) +
-                    parameters.joinToString(",", "(", ")") { rawType(m.parameters()[it].parameterizedType()) }
-            if (!emitted.add(signature)) return@forEach
+                    m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) }
+            if (!emitted.add(signature)) return@run
             sb.append(indent).append("public ")
             if (isStatic) sb.append("static ")
             if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
@@ -210,7 +205,7 @@ object JavaStubGenerator {
             sb.append(typeParameters(m.typeParameters()))
             if (!m.isConstructor) sb.append(javaType(m.returnType())).append(" ")
             sb.append(if (m.isConstructor) owner.simpleName() else m.name())
-            sb.append("(").append(parameterList(m, kept)).append(")")
+            sb.append("(").append(parameterList(m)).append(")")
             val emitBody = m.isConstructor || isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)
             delegated?.thrown?.takeIf { it.isNotEmpty() }
                 ?.let { thrown -> sb.append(" throws ").append(thrown.joinToString(", ", transform = ::rawType)) }

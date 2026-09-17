@@ -777,8 +777,16 @@ class KotlinScan(
                 if (ctor.isPrimary || runsInit == null && !callsThis) runsInit = constructor
             }
         // after the declared constructors, which finalizeType pairs with their symbols by position
-        declared.forEach { (ctor, constructor) -> defaultsConstructor(typeInfo, ctor, constructor) }
+        declared.forEach { (ctor, constructor) ->
+            defaultsConstructor(typeInfo, ctor, constructor)?.let { overloadConstructors(typeInfo, ctor, constructor, it) }
+        }
         if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor, constructor) }
+        // an overload's `this(...)` is into its target, and throws what the target's own delegation throws
+        if (bodyDepth == 0) overloadTargets.forEach { (overload, target) ->
+            if (overload.typeInfo() === typeInfo) delegationOf[overload] = ConstructorDelegation(false,
+                target.parameters().map { p -> p.parameterizedType().takeIf { it.typeParameter() == null } },
+                delegationOf[target]?.thrown ?: emptyList())
+        }
         runsInit?.let { runsInitOf[typeInfo] = it }
         // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
         // the graph looks for a caller, rather than falling through to the class
@@ -1018,8 +1026,6 @@ class KotlinScan(
         builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
         visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
         builder.commitParameters().computeAccess()
-        recordOverloads(constructor, 0, ctor.valueParameters.map { it.hasDefaultValue },
-            ctor.annotations.contains(JVM_OVERLOADS), ctor.isPrimary)
         return constructor
     }
 
@@ -1189,27 +1195,112 @@ class KotlinScan(
     }
 
     /**
-     * The JVM overloads kotlinc adds to a function or constructor, as the parameter indices each keeps: one per
-     * defaulted parameter under `@JvmOverloads`, dropping them from the last; and the no-argument constructor of a
-     * primary constructor whose parameters all have defaults. Java calls them (javalin's
-     * `new CompressionStrategy()`, `addWsHandler` without its roles); a stub without them does not compile the
-     * Java that does.
+     * The JVM overloads kotlinc adds to a function or constructor with default values, as the parameter indices each
+     * keeps: one per defaulted parameter under `@JvmOverloads`, dropping them from the last; and the no-argument
+     * constructor of a primary constructor whose parameters all have defaults. Java calls them (javalin's
+     * `new CompressionStrategy()`, `addWsHandler` without its roles). [offset]: the parameters before the value
+     * parameters, an extension's receiver.
      */
-    private val overloadsOf = java.util.IdentityHashMap<MethodInfo, List<List<Int>>>()
-
-    fun overloadsOf(method: MethodInfo): List<List<Int>> = overloadsOf[method] ?: emptyList()
-
-    /** [offset]: the parameters before the value parameters, an extension's receiver. */
-    private fun recordOverloads(method: MethodInfo, offset: Int, defaults: List<Boolean>, jvmOverloads: Boolean,
-                                primaryConstructor: Boolean) {
+    private fun overloadParameters(offset: Int, defaults: List<Boolean>, jvmOverloads: Boolean,
+                                   primaryConstructor: Boolean): List<List<Int>> {
         val all = (0 until offset + defaults.size).toList()
         val defaulted = defaults.indices.filter { defaults[it] }.map { it + offset }
-        val overloads = when {
+        return when {
             jvmOverloads -> (1..defaulted.size).map { drop -> all - defaulted.takeLast(drop).toSet() }
             primaryConstructor && defaults.isNotEmpty() && defaults.all { it } -> listOf(emptyList())
             else -> emptyList()
         }
-        if (overloads.isNotEmpty()) overloadsOf[method] = overloads
+    }
+
+    /** Each overload constructor ([overloadConstructors]) and the constructor it stands for. */
+    private val overloadTargets = java.util.IdentityHashMap<MethodInfo, MethodInfo>()
+
+    /**
+     * kotlinc's overloads of [target] ([overloadParameters]) as members of [owner]: synthetic, as a data class's
+     * `copy()` is, since they spell nothing; each passes its parameters on to [defaults], [target]'s `$default`, with
+     * the zero value and the mask bit of every one it leaves out -- the call kotlinc compiles into them. A Java call
+     * that leaves the defaults out binds to one; a Kotlin call never does (it binds to [defaults] itself).
+     */
+    private fun KaSession.overloadMethods(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
+                                          static: Boolean) {
+        val defaults = defaultsMethodOf[target] ?: return
+        val offset = if (function.receiverParameter != null) 1 else 0
+        overloadParameters(offset, function.valueParameters.map { it.hasDefaultValue },
+            function.annotations.contains(JVM_OVERLOADS), false).forEach { kept ->
+            val method = runtime.newMethod(owner, target.name(), target.methodType())
+            val builder = method.builder().setSynthetic(true)
+            addTypeParameters(builder, function, owner, method)
+            kept.forEach { i ->
+                if (i < offset) syntheticParameter(builder, "\$receiver", mapType(function.receiverParameter!!.returnType, owner, method))
+                else function.valueParameters[i - offset].let { p ->
+                    syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method))
+                }
+            }
+            builder.commitParameters()
+                .setReturnType(mapType(function.returnType, owner, method))
+                .setSource(runtime.noSource())
+            visibilityMethodModifier(function)?.let { builder.addMethodModifier(it) }
+            builder.addMethodModifier(when {
+                static -> runtime.methodModifierStatic()
+                owner.isInterface -> runtime.methodModifierDefault()
+                else -> runtime.methodModifierFinal()
+            })
+            builder.computeAccess()
+            builder.setMethodBody(overloadBody(method, defaults, kept, offset, function.valueParameters.size))
+            owner.builder().addMethod(method)
+            commitOrDefer(method, null) { method.builder().commit() }
+        }
+    }
+
+    /** [overloadMethods], for a constructor: the body is `this(...)` into [defaults], the `$default` constructor. */
+    private fun overloadConstructors(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo, defaults: MethodInfo) {
+        overloadParameters(0, ctor.valueParameters.map { it.hasDefaultValue }, ctor.annotations.contains(JVM_OVERLOADS),
+            ctor.isPrimary).forEach { kept ->
+            // a no-argument constructor written by hand is the one kotlinc keeps
+            if (kept.isEmpty() && owner.constructors().any { !it.isSynthetic && it.parameters().isEmpty() }) return@forEach
+            val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+            val builder = constructor.builder().setSynthetic(true)
+            kept.forEach { i -> target.parameters()[i].let { syntheticParameter(builder, it.name(), it.parameterizedType()) } }
+            builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor()).setSource(runtime.noSource())
+            visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
+            builder.commitParameters().computeAccess()
+            builder.setMethodBody(overloadBody(constructor, defaults, kept, 0, ctor.valueParameters.size))
+            owner.builder().addConstructor(constructor)
+            overloadTargets[constructor] = target
+            defaultsConstructors += constructor // committed with the `$default` constructors, after the declared ones
+        }
+    }
+
+    /**
+     * An overload's body: [defaults] called with the [overload]'s parameters where [kept] keeps them, the zero value of
+     * the rest, their bits in the masks, and for a constructor the `null` marker.
+     */
+    private fun overloadBody(overload: MethodInfo, defaults: MethodInfo, kept: List<Int>, offset: Int,
+                             valueParameters: Int): Block {
+        val passed = defaults.parameters().subList(0, offset + valueParameters)
+        val masks = IntArray(masks(valueParameters).size)
+        val arguments = passed.mapIndexed { i, p ->
+            val k = kept.indexOf(i)
+            if (k >= 0) bodyConverter.variableExpression(overload.parameters()[k])
+            else {
+                masks[(i - offset) / 32] = masks[(i - offset) / 32] or (1 shl ((i - offset) % 32))
+                runtime.nullValue(p.parameterizedType())
+            }
+        } + masks.map { runtime.newInt(it) } + if (overload.isConstructor) listOf(runtime.nullConstant()) else listOf()
+        val statement = if (overload.isConstructor) {
+            runtime.newExplicitConstructorInvocationBuilder().setIsSuper(false).setMethodInfo(defaults)
+                .setParameterExpressions(arguments).setSource(runtime.noSource().withIndex("0")).build()
+        } else {
+            val owner = defaults.typeInfo()
+            val call = runtime.newMethodCallBuilder()
+                .setObject(if (defaults.isStatic) runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo())
+                           else bodyConverter.variableExpression(runtime.newThis(owner.asParameterizedType())))
+                .setObjectIsImplicit(!defaults.isStatic).setMethodInfo(defaults).setParameterExpressions(arguments)
+                .setConcreteReturnType(defaults.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+            bodyConverter.indexed(if (defaults.returnType() == runtime.voidParameterizedType())
+                runtime.newExpressionAsStatement(call) else runtime.newReturnStatement(call), "0")
+        }
+        return runtime.newBlockBuilder().addStatement(statement).build()
     }
 
     /** An `object`'s `@JvmStatic` functions: static on the JVM, instance methods of the singleton in the CST. */
@@ -1804,8 +1895,6 @@ class KotlinScan(
             parameter(parameterInfo, if (forwarder) null else p.psi as? KtParameter, elementType)
         }
         builder.commitParameters() // so method.parameters() is available while converting the body
-        if (!forwarder) recordOverloads(method, if (function.receiverParameter != null) 1 else 0,
-            function.valueParameters.map { it.hasDefaultValue }, function.annotations.contains(JVM_OVERLOADS), false)
         val psi = if (forwarder) null else function.psi as? KtNamedFunction
         builder
             .setReturnType(returnType)
@@ -1820,6 +1909,7 @@ class KotlinScan(
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess() // eventual access from the visibility modifier + owner type; commit after the body
         if (psi != null) defaultsMethod(owner, function, method, static, psi)
+        if (psi != null) overloadMethods(owner, function, method, static)
         return method
     }
 
@@ -1837,14 +1927,7 @@ class KotlinScan(
         val method = runtime.newMethod(owner, target.name() + "\$default",
             if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
         val builder = method.builder().setSynthetic(true)
-        function.typeParameters.mapIndexed { index, tp ->
-            runtime.newTypeParameter(index, tp.name.asString(), method).also { builder.addTypeParameter(it) } to tp
-        }.forEach { (cstTp, tp) ->
-            cstTp.builder()
-                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
-                .setVariance(mapVariance(tp.variance))
-                .commit()
-        }
+        addTypeParameters(builder, function, owner, method)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
         masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
@@ -1869,10 +1952,10 @@ class KotlinScan(
      * and kotlinc's `DefaultConstructorMarker`, which keeps it from colliding with a declared constructor. See
      * [defaultsMethod]; its body, [defaultsBody], ends in `this(...)`.
      */
-    private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo) {
-        val declaration = ctor.psi ?: return
+    private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo): MethodInfo? {
+        val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
-        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return
+        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
@@ -1885,6 +1968,20 @@ class KotlinScan(
         references.defaults(declaration, constructor)
         pendingDefaults[constructor] = PendingDefaults(target, parameters)
         defaultsConstructors += constructor
+        return constructor
+    }
+
+    /** [function]'s type parameters, as [method]'s own: a synthetic member made from [function]'s declaration. */
+    private fun KaSession.addTypeParameters(builder: MethodInfo.Builder, function: KaNamedFunctionSymbol, owner: TypeInfo,
+                                            method: MethodInfo) {
+        function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method).also { builder.addTypeParameter(it) } to tp
+        }.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
     }
 
     private fun syntheticParameter(builder: MethodInfo.Builder, name: String, type: ParameterizedType) {
