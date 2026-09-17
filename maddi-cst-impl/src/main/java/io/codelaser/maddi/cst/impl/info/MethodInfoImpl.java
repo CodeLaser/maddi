@@ -138,7 +138,22 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         if (!(o instanceof MethodInfoImpl that)) return false;
         return fullyQualifiedName().equals(that.fullyQualifiedName())
                // note: the primitive types have no source set
-               && Objects.equals(typeInfo.compilationUnit().sourceSet(), that.typeInfo.compilationUnit().sourceSet());
+               && Objects.equals(typeInfo.compilationUnit().sourceSet(), that.typeInfo.compilationUnit().sourceSet())
+               && sameReturnTypeIfKnown(that);
+    }
+
+    /*
+    #39: Kotlin can declare two methods with one name and one erased parameter list that differ in return type --
+    `open val indent: Int` (its accessor getIndent()I) beside `private fun getIndent(): String` -- which is legal on
+    the JVM, and MethodMapImpl keeps both. Equal by name alone, every hash collection keyed by MethodInfo merged them.
+    Java never has two such methods, so for Java this changes nothing. Compared only when both are known: a method
+    still being built may not have its return type yet. hashCode stays by name, which equal methods still share.
+     */
+    private boolean sameReturnTypeIfKnown(MethodInfoImpl that) {
+        ParameterizedType mine = inspection.get().returnType();
+        ParameterizedType theirs = that.inspection.get().returnType();
+        return mine == null || theirs == null
+               || mine.erasedForFQN().fullyQualifiedName().equals(theirs.erasedForFQN().fullyQualifiedName());
     }
 
     @Override

@@ -45,6 +45,7 @@ import io.codelaser.maddi.cst.api.type.NullableState
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -466,6 +467,35 @@ class MemberTest : KotlinScanTestBase() {
             "a class property's override: the getter")
         assertEquals(listOf(method("Base", "setName")), method("Sub", "setName").overrides().toList(),
             "and the setter")
+    }
+
+    /**
+     * A property's accessor and a function can share a JVM name: detekt's `YML` has `open val indent: Int` and
+     * `private fun getIndent(): String`. What `YamlNode`'s `override val indent` overrides is the accessor, never the
+     * private function (another return type, and private), and nothing overrides the function. The rename census
+     * planned the function with the override's accessor in its family, and refused it.
+     */
+    @Test
+    fun anAccessorOverridesTheAccessorNotAFunctionOfTheSameJvmName() {
+        val types = KotlinScan(runtime, sourceSet).parse("u/Y.kt",
+            "package u\n" +
+                "sealed class YML(open val indent: Int = 0) {\n" +
+                "    private fun getIndent(): String = \"-\".repeat(indent)\n" +
+                "    fun show() = getIndent()\n" +
+                "}\n" +
+                "data class YamlNode(override val indent: Int = 0) : YML()\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val yml = all.single { it.simpleName() == "YML" }
+        val node = all.single { it.simpleName() == "YamlNode" }
+        val accessor = yml.methods().single { it.name() == "getIndent" && it.returnType().isInt }
+        val function = yml.methods().single { it.name() == "getIndent" && !it.returnType().isInt }
+        val override = node.methods().single { it.name() == "getIndent" }
+
+        assertEquals(listOf(accessor), override.overrides().toList(), "the override's accessor overrides the accessor")
+        assertTrue(function.overrides().isEmpty(), "the private function overrides nothing")
+        // #39: two methods, not one, wherever a MethodInfo is a key
+        assertNotEquals(accessor, function)
+        assertEquals(2, setOf(accessor, function).size)
     }
 
     /**
