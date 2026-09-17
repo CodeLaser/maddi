@@ -14,6 +14,9 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiElement
@@ -421,7 +424,52 @@ class KotlinScan(
      */
     private fun recordReferences(perFile: List<FileConversion>) {
         val walker = KotlinReferenceWalker(references.projectFiles)
-        perFile.forEach { fc -> analyze(fc.ktFile) { with(references) { record(runtime, fc.ktFile, walker) } } }
+        perFile.forEach { fc ->
+            val owner = fc.allTypes().firstOrNull()
+            analyze(fc.ktFile) {
+                with(references) {
+                    record(runtime, fc.ktFile, walker) { symbol -> owner?.let { javaSourceTarget(symbol, it) } }
+                }
+            }
+        }
+    }
+
+    /**
+     * The Java front end's declaration behind a Java-source [symbol] that a Kotlin reference resolves to, in a mixed
+     * project: its type, and on it the method or constructor of that name whose parameters map to the same types, or
+     * the field. Null when there is none, or more than one. [owner] is where type parameters are looked up.
+     */
+    private fun KaSession.javaSourceTarget(symbol: KaSymbol, owner: TypeInfo): Info? {
+        if (symbol.origin != KaSymbolOrigin.JAVA_SOURCE) return null
+        return when (symbol) {
+            is KaNamedClassSymbol -> javaSourceType(symbol.classId, owner)
+            is KaConstructorSymbol -> javaSourceType(symbol.containingClassId, owner)
+                ?.let { matching(it.constructors(), symbol.valueParameters, owner) }
+            is KaNamedFunctionSymbol -> javaSourceType(symbol.callableId?.classId, owner)?.let { type ->
+                matching(type.methods().filter { it.name() == symbol.name.asString() }, symbol.valueParameters, owner)
+            }
+            is KaJavaFieldSymbol -> javaSourceType(symbol.callableId?.classId, owner)
+                ?.fields()?.firstOrNull { it.name() == symbol.name.asString() }
+            else -> null
+        }
+    }
+
+    private fun KaSession.javaSourceType(classId: ClassId?, owner: TypeInfo): TypeInfo? {
+        classId ?: return null
+        infoByFqn.getType(classId.asFqNameString(), sourceSet)?.let { return it }
+        val classSymbol = findClass(classId) as? KaNamedClassSymbol ?: return null
+        return mapType(buildClassType(classSymbol), owner).typeInfo()
+    }
+
+    private fun KaSession.matching(candidates: List<MethodInfo>, parameters: List<KaValueParameterSymbol>,
+                                   owner: TypeInfo): MethodInfo? {
+        val byArity = candidates.filter { it.parameters().size == parameters.size }
+        if (byArity.size <= 1) return byArity.singleOrNull()
+        return byArity.singleOrNull { m ->
+            m.parameters().zip(parameters).all { pair ->
+                pair.first.parameterizedType().typeInfo() == mapType(pair.second.returnType, owner).typeInfo()
+            }
+        }
     }
 
     /** Commits the members that waited for every member to exist, each with its records and overrides. */

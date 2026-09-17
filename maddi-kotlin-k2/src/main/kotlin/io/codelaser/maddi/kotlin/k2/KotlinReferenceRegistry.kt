@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.kdoc.parser.KDocKnownTag
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocLink
@@ -84,12 +85,16 @@ internal class KotlinReferenceRegistry {
      * Records every project reference of [ktFile] on its innermost host, and every KDoc with the project declarations
      * its links name on the declaration it documents.
      */
-    fun KaSession.record(runtime: Runtime, ktFile: KtFile, walker: KotlinReferenceWalker) {
+    fun KaSession.record(runtime: Runtime, ktFile: KtFile, walker: KotlinReferenceWalker,
+                         javaTarget: KaSession.(KaSymbol) -> Info? = { null }) {
         with(walker) {
             walk(ktFile) { reference, symbols ->
                 val host = hostFor(reference) ?: return@walk
                 val identifier = sourceOf(runtime, reference.getReferencedNameElement(), "-")
-                val targets = symbols.mapNotNull { symbol -> declarationPsi(symbol)?.let { targetOf[it] } }.distinct()
+                // a declaration in Java source has no PSI of ours: the Java front end's Info for it
+                val targets = symbols.mapNotNull { symbol ->
+                    declarationPsi(symbol)?.let { targetOf[it] } ?: javaTarget(symbol)
+                }.distinct()
                 targets.forEach { target -> recorded.getOrPut(host) { ArrayList() } += target to identifier }
             }
             for (kdoc in PsiTreeUtil.findChildrenOfType(ktFile, KDoc::class.java)) {
