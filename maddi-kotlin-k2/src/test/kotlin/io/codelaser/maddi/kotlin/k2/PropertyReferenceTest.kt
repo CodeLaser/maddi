@@ -45,6 +45,12 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         fun use(p: P): Int = p.a + p.b + p.c
         fun set(p: P) { p.b = 3 }
         fun make() = P(a = 1)
+
+        class Q {
+            var value: String = ""
+                get() = field
+                set(v) { field = v }
+        }
         """.trimIndent() + "\n"
 
     private lateinit var types: List<TypeInfo>
@@ -108,6 +114,22 @@ class PropertyReferenceTest : KotlinScanTestBase() {
             val accessor = p.constructorAndMethodStream().toList().single { it.name() == name }
             assertEquals(listOf<String>(), hosts.flatMap { references(it, accessor) }, name)
         }
+    }
+
+    /**
+     * `field` inside a written accessor is the KEYWORD for the backing field, not a spelling of the property
+     * name. If it recorded a reference, a rename would rewrite the keyword -- and a length check would not
+     * catch it for a property whose name is five characters, like this one.
+     */
+    @Test
+    fun theFieldKeywordIsNotAReferenceToTheProperty() {
+        parse()
+        val q = type("Q")
+        val value = q.fields().single { it.name() == "value" }
+        val hosts: List<Info> = listOf(q) + q.fields() + q.constructorAndMethodStream().toList()
+        val refs = hosts.flatMap { h -> references(h, value).map { "$h@$it" } }
+        assertEquals(listOf<String>(), refs, "`field` is the keyword, not a spelling of `value`")
+        assertNotNull(value.source().detailedSources().detail(value.name()), "its declaration is still recorded")
     }
 
     /** A property with no backing field: the getter carries the references, spelled as the property name. */
