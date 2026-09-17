@@ -26,8 +26,8 @@ import java.util.zip.GZIPInputStream;
  *
  * <p>A single pass over the log, in **log order** (which real build tools emit in dependency order — a
  * dependency's compile line precedes its dependent's, so classpath output-identity links resolve). Each line is
- * tried as a javac line, then as a Kotlin Gradle/CLI line. NB: Kotlin's Maven multi-line blocks are not
- * interleaved here (mixed-Maven is an edge case; a pure-Kotlin Maven log should use {@link ParseKotlincList}).
+ * tried as a javac line, then as a Kotlin line: a Gradle/CLI single line, or part of a kotlin-maven-plugin
+ * multi-line block (which a mixed Maven build logs just before the same source set's javac line).
  */
 public class ParseMixedList {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseMixedList.class);
@@ -37,14 +37,14 @@ public class ParseMixedList {
     }
 
     public InputConfiguration parse(Path logFile, List<String> extraJmods) throws IOException {
-        List<CompileInvocation> ordered = invocations(logFile);
+        List<CompileInvocation> ordered = SharedDestination.merge(invocations(logFile));
         return new ParseKotlincList().inputConfiguration(ordered, extraJmods);
     }
 
     /** The javac + kotlinc invocations of the log, in log order. */
     public List<CompileInvocation> invocations(Path logFile) throws IOException {
         ParseJavacList javacParser = new ParseJavacList();
-        ParseKotlincList kotlincParser = new ParseKotlincList();
+        ParseKotlincList.LineReader kotlincReader = new ParseKotlincList().new LineReader();
         List<CompileInvocation> ordered = new ArrayList<>();
         int javacCount = 0, kotlincCount = 0;
         for (String line : readLines(logFile)) {
@@ -54,7 +54,7 @@ public class ParseMixedList {
                 javacCount++;
                 continue;
             }
-            Kotlinc k = kotlincParser.kotlincSingleLine(line);
+            Kotlinc k = kotlincReader.accept(line);
             if (k != null) {
                 ordered.add(k);
                 kotlincCount++;
