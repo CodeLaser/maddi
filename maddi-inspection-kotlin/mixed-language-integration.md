@@ -385,7 +385,7 @@ Four things this needed that were not visible before:
   to the compiled-type manager, whose javac found the build's `Endpoint$Companion.class` in `target/classes` and
   committed a bytecode copy.
 - **A stub made before bodies exist asks the scan** (`JavaStubGenerator.StubHints`): whether an interface method
-  has a body (`default`), an `object`'s `@JvmStatic` functions, and each constructor's `super(...)`/`this(...)`
+  has a body (`default`), and each constructor's `super(...)`/`this(...)`
   target — recorded from K2 in `prepareType`, with the checked exceptions of a bytecode parent constructor.
   Without the last, 91 of javalin's stubs called a no-argument parent constructor that does not exist.
 - **Stub fidelity, generally**: generic arguments are kept everywhere (erased, 60 of javalin's 101 javac errors
@@ -408,7 +408,11 @@ compilation units failed with the overloads stubbed only, 3 once they were membe
 The last unit, a Java call to `Context.result(byte[])`, needed `kotlin.ByteArray` and the other primitive arrays to
 be `byte[]` in the CST rather than shell types; that mapping had waited on the library loader, whose first visit of
 a type decided for good whether it kept its members (a type first reached too deep now waits for a shallower visit,
-`KotlinTypeMapper.deepen`). With it, javalin parses: every Java unit, and prep then runs. Open: (1) prep isolates two
-Kotlin test methods, `return try { … }` (the returned tail has no statement index); (2) an
-`object`'s JVM statics beyond its `@JvmStatic` functions: `const val`, a `@JvmStatic` property's accessors, and the
-overloads of a `@JvmStatic @JvmOverloads` function.
+`KotlinTypeMapper.deepen`). With it, every Java unit parses. Then prep isolated two Kotlin test methods, `return
+try { … }`, whose returned tail had no statement index. And javac still reported 8 errors, tolerated: an `object`'s
+`const val`, `@JvmField` and `@JvmStatic` members, static on the JVM, were instance members of the singleton in the
+CST, made static only in the stubs by a hint for its functions; Java's `Header.AUTHORIZATION` and
+`JavalinLogger.error(..)` were then calls on a type to an instance member (an assertion under `-ea`). They are static
+in the CST now (`KotlinScan.isJvmStatic`): Kotlin calls them on the type, and a static function of an object reaches
+the object's other members through `INSTANCE` (`KotlinBodyConverter.self`), as kotlinc compiles it. javalin: no javac
+error, no dropped unit, no prep error.

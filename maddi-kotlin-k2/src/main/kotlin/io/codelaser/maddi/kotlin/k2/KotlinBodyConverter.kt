@@ -652,8 +652,7 @@ internal class KotlinBodyConverter(
         }
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
-            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) }
-                ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) } ?: self(method)
             // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
@@ -1170,7 +1169,9 @@ internal class KotlinBodyConverter(
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
-        val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+        val obj = receiver?.first
+            ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+            else self(method)
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         // DetailedSources (layer 2), mirroring exactly what the Java parser records for a method call: the
         // closing parenthesis (END_OF_ARGUMENT_LIST) and the argument commas (ARGUMENT_COMMAS) -- both shared
@@ -1257,8 +1258,11 @@ internal class KotlinBodyConverter(
     private fun KaSession.singletonMemberCall(holder: TypeInfo, singletonField: FieldInfo, callee: MethodInfo,
                                               arguments: List<Expression>, call: KtCallExpression, method: MethodInfo): Expression {
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        // an object's `@JvmStatic` function is static (KotlinScan.isJvmStatic): called on the type, not the instance
+        val scope = if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+                    else singletonAccess(holder, singletonField)
         return runtime.newMethodCallBuilder()
-            .setObject(singletonAccess(holder, singletonField)).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setObject(scope).setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(arguments).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -1480,8 +1484,10 @@ internal class KotlinBodyConverter(
     private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
-        method.typeInfo().fields().firstOrNull { it.name() == name }
-            ?.let { return variableExpression(runtime.newFieldReference(it)) }
+        method.typeInfo().fields().firstOrNull { it.name() == name }?.let { field ->
+            return variableExpression(if (field.isStatic || !method.isStatic) runtime.newFieldReference(field)
+                                      else runtime.newFieldReference(field, self(method), field.type()))
+        }
         // unqualified access to a member of the extension receiver: `name` means `$receiver.name`
         receiverParam(method)?.let { receiver ->
             receiver.parameterizedType().typeInfo()?.fields()?.firstOrNull { it.name() == name }?.let { field ->
@@ -1502,11 +1508,24 @@ internal class KotlinBodyConverter(
         }
         // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
-        if (!method.isStatic) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
-            return accessorCall(variableExpression(runtime.newThis(method.typeInfo().asParameterizedType())), accessor)
+        if (!method.isStatic || singleton(method.typeInfo()) != null) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
+            return accessorCall(self(method), accessor)
         }
         return null
     }
+
+    /**
+     * What `this` is in [method]: `this`, but in a static function of an `object` (`@JvmStatic`, see
+     * KotlinScan.isJvmStatic) the object's `INSTANCE`, which is how kotlinc compiles it.
+     */
+    private fun self(method: MethodInfo): Expression {
+        val type = method.typeInfo()
+        if (method.isStatic) singleton(type)?.let { return singletonAccess(type, it) }
+        return variableExpression(runtime.newThis(type.asParameterizedType()))
+    }
+
+    /** An `object`'s `INSTANCE` field, or null. */
+    private fun singleton(type: TypeInfo): FieldInfo? = type.fields().firstOrNull { it.name() == "INSTANCE" && it.isStatic }
 
     internal fun variableExpression(variable: Variable): Expression =
         runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()

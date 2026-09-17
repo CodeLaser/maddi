@@ -184,9 +184,6 @@ class KotlinProjectScan(
             return complete(ss)
         }
 
-        /** See [KotlinScan.isJvmStaticInObject]; [method] may belong to any set of this session. */
-        fun isJvmStaticInObject(method: io.codelaser.maddi.cst.api.info.MethodInfo): Boolean =
-            scans.values.any { it.isJvmStaticInObject(method) }
 
         /** See [KotlinScan.delegationOf]; [constructor] may belong to any set of this session. */
         fun delegationOf(constructor: io.codelaser.maddi.cst.api.info.MethodInfo): KotlinScan.ConstructorDelegation? =

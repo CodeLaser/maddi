@@ -810,9 +810,10 @@ class KotlinScan(
                                          outerLocals: Map<String, Variable> = emptyMap()) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // properties (+ enum entry fields) before methods, so a method body can reference them
+        val isObject = classSymbol.classKind == KaClassKind.OBJECT
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
-            .forEach { property -> convertProperty(typeInfo, property) }
+            .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
@@ -821,12 +822,12 @@ class KotlinScan(
         // a sibling declared later was a placeholder.
         val pendingMethods = classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
-            .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
+            .map { function ->
+                val static = isObject && function.annotations.contains(JVM_STATIC)
+                convertMethodSignature(typeInfo, function, static).also { typeInfo.builder().addMethod(it) } to function
+            }
             .toList()
         pendingMethods.forEach { (method, _) -> awaitBody(method) }
-        if (classSymbol.classKind == KaClassKind.OBJECT) pendingMethods
-            .filter { (_, function) -> function.annotations.contains(JVM_STATIC) }
-            .forEach { (method, _) -> jvmStaticInObject += method }
         val pendingPointers = pendingMethods.map { (method, function) -> method to function.createPointer() }
         body {
             pendingPointers.forEach { (method, pointer) -> finishMethodBody(restore(pointer), method, outerLocals) }
@@ -1304,10 +1305,18 @@ class KotlinScan(
         return runtime.newBlockBuilder().addStatement(statement).build()
     }
 
-    /** An `object`'s `@JvmStatic` functions: static on the JVM, instance methods of the singleton in the CST. */
-    private val jvmStaticInObject = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<MethodInfo, Boolean>())
-
-    fun isJvmStaticInObject(method: MethodInfo): Boolean = method in jvmStaticInObject
+    /**
+     * Whether [property], of an `object`, is static on the JVM, as the members Java names on the type are
+     * (javalin's `Header.AUTHORIZATION`, `RouteOverviewUtil.getMetaInfo(handler)`): a `const val`, a `@JvmField`, and a
+     * `@JvmStatic` property with its accessors. So are the object's `@JvmStatic` functions. The rest of an object's
+     * members belong to its `INSTANCE`.
+     */
+    private fun isJvmStatic(property: KaPropertySymbol): Boolean =
+        (property as? KaKotlinPropertySymbol)?.isConst == true
+                || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
+                || property.annotations.contains(JVM_FIELD)
+                || property.annotations.contains(JVM_STATIC)
+                || property.getter?.annotations?.contains(JVM_STATIC) == true
 
     /**
      * Convert a Kotlin property (`val`/`var`, incl. primary-constructor `val x: Int`) into a backing

@@ -118,6 +118,14 @@ class TestMixedSourceSet {
             // `T & Any` is `T`: Java's `Integer i = settings.first(Integer.class)`
             fun <T> first(type: Class<T>): T & Any = type.getDeclaredConstructor().newInstance()!!
         }
+
+        // an object's JVM statics, named on the type by Java
+        object Registry {
+            const val KEY = "k"
+            @JvmField val shared = StringBuilder()
+            @JvmStatic @JvmOverloads fun log(message: String, level: Int = 0): String = message + level
+            @JvmStatic val Any.tag: String get() = toString()
+        }
         """.trimIndent()
 
     // Java leaving Kotlin's defaults out: it calls the overloads kotlinc adds, which must be CST members
@@ -130,6 +138,10 @@ class TestMixedSourceSet {
                 java.util.List<Integer> source = java.util.List.of(1);
                 return new Settings().greet("a") + new Settings().greet("b", 2)
                     + new Settings().accept(Integer.class, sink, source) + first();
+            }
+
+            private static String statics(Object o) {
+                return Registry.KEY + Registry.shared + Registry.log("x") + Registry.log("y", 1) + Registry.getTag(o);
             }
 
             private static Integer first() {
@@ -200,6 +212,9 @@ class TestMixedSourceSet {
             true
         }
         assertEquals(listOf(noArgs, noArgs, noArgs), constructed.filter { it.typeInfo() === settings })
+        val registry = kotlin("Registry")
+        assertEquals(listOf("log", "log", "getTag"),
+            calls(java("User").findUniqueMethod("statics", 1)).filter { it.typeInfo() === registry }.map { it.name() })
         val greets = calls(use).filter { it.name() == "greet" }
         assertEquals(listOf(1, 2), greets.map { it.parameters().size })
         val accept = settings.findUniqueMethod("accept", 3)

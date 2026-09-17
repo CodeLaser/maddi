@@ -47,9 +47,6 @@ object JavaStubGenerator {
         /** An implementation rather than an abstract declaration: a Kotlin interface's `default` method. */
         fun hasBody(method: MethodInfo): Boolean = runCatching { method.methodBody() }.getOrNull() != null
 
-        /** Static on the JVM though not in the CST: an `object`'s `@JvmStatic` function. */
-        fun isJvmStatic(method: MethodInfo): Boolean = false
-
         /** The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. */
         fun delegation(constructor: MethodInfo): KotlinScan.ConstructorDelegation? = null
     }
@@ -189,7 +186,7 @@ object JavaStubGenerator {
         // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
         // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
         if (m.isConstructor && m.isSynthetic && (m.methodModifiers().any { it.isPrivate } || m.parameters().lastOrNull()?.name() == "\$marker")) return
-        val isStatic = m.isStatic || hints.isJvmStatic(m)
+        val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
         val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)

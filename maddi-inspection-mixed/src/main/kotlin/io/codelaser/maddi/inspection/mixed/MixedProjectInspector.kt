@@ -282,7 +282,6 @@ class MixedProjectInspector {
                             val hints = object : JavaStubGenerator.StubHints {
                                 // no body yet, but an abstract declaration is one kotlinc left abstract
                                 override fun hasBody(method: MethodInfo) = !method.isAbstract
-                                override fun isJvmStatic(method: MethodInfo) = kotlin.isJvmStaticInObject(method)
                                 override fun delegation(constructor: MethodInfo) = kotlin.delegationOf(constructor)
                             }
                             compileStubs(fresh.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it, hints) },
