@@ -1021,4 +1021,47 @@ public class TestIsolateClass4Compiles {
         // only moved the message one level up while dropping 15 trees elsewhere.
         assertCompiles(tree);
     }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String MEMBER_POLICY = """
+            package p.q;
+            public interface Policy {
+                interface Props { }
+                Props props();
+            }
+            """;
+
+    @Language("java")
+    private static final String MEMBER_POLICY_IMPL = """
+            package p.q;
+            public class PolicyImpl implements Policy, Policy.Props {
+                public Props props() { return this; }
+            }
+            """;
+
+    @Language("java")
+    private static final String USES_MEMBER_POLICY = """
+            package a.b;
+            import p.q.PolicyImpl;
+            public class UsesPolicy {
+                public Object run() {
+                    return new PolicyImpl().props();
+                }
+            }
+            """;
+
+    @DisplayName("a stub whose header names a member type of the interface it implements keeps the import")
+    @Test
+    public void headerNamesAnInheritedMemberType() throws IOException {
+        Map<String, String> tree = isolate(Map.of("p.q.Policy", MEMBER_POLICY, "p.q.PolicyImpl", MEMBER_POLICY_IMPL,
+                "a.b.UsesPolicy", USES_MEMBER_POLICY), "a.b.UsesPolicy");
+        // The stub is 'class PolicyImpl implements Policy, Props'. Props is inherited from Policy, so it is in
+        // scope in PolicyImpl's BODY -- and the import computer, told on 2026-08-19 that an inherited member
+        // type needs no import, dropped 'import p.q.Policy.Props'. But an 'implements' clause is not the body:
+        // "cannot find symbol" at the header, four closed-core class isolates (2026-09-17), none of them
+        // touched by anything but that one line. Fixed in ImportComputerImpl.inheritedIntoScope.
+        assertCompiles(tree);
+    }
 }

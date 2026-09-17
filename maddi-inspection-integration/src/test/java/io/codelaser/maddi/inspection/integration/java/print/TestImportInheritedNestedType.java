@@ -143,4 +143,44 @@ public class TestImportInheritedNestedType extends CommonTest2 {
         String imports = importsOf(parseResult, "b.Deeper");
         assertEquals(-1, imports.indexOf("a.Base.Nested.Deep"), "the printer renders this down its chain");
     }
+
+    /**
+     * ⛔ THE OTHER CONTROL, found the hard way on 2026-09-17: inheritance puts a member type in scope in the
+     * class BODY, and the header is not the body. {@code implements Route} resolves only through the import,
+     * so the import has to stay even though {@code Impl} inherits {@code Route} — dropping it is
+     * "cannot find symbol" at the {@code implements} clause. The bound of a type parameter is header too.
+     */
+    @Language("java")
+    private static final String IMPL = """
+            package b;
+            import a.Base;
+            import a.Base.Route;
+            public class Impl extends Base implements Route {
+                Route other;
+            }
+            """;
+
+    @Test
+    public void aHeaderIsNotTheBody() throws IOException {
+        ParseResult parseResult = init(Map.of("a.Base", BASE, "b.Impl", IMPL));
+        String imports = importsOf(parseResult, "b.Impl");
+        assertEquals("a.Base, a.Base.Route", imports);
+    }
+
+    @Language("java")
+    private static final String BOUND = """
+            package b;
+            import a.Base;
+            import a.Base.Route;
+            public class Bound<R extends Route> extends Base {
+                R route;
+            }
+            """;
+
+    @Test
+    public void aTypeParameterBoundIsHeaderToo() throws IOException {
+        ParseResult parseResult = init(Map.of("a.Base", BASE, "b.Bound", BOUND));
+        String imports = importsOf(parseResult, "b.Bound");
+        assertEquals("a.Base, a.Base.Route", imports);
+    }
 }

@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.ImportStatement;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.output.QualificationImpl;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
@@ -101,9 +102,45 @@ public class ImportComputerImpl implements ImportComputer {
         var enclosing = ti.compilationUnitOrEnclosingType();
         if (enclosing.isLeft()) return false;
         TypeInfo declaring = enclosing.getRight();
-        return compilationUnit.types().stream()
-                .flatMap(TypeInfo::recursiveSubTypeStream)
-                .anyMatch(t -> t.superTypesExcludingJavaLangObject().contains(declaring));
+        List<TypeInfo> typesOfUnit = compilationUnit.types().stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream).toList();
+        if (typesOfUnit.stream().noneMatch(t -> inherits(t, declaring))) return false;
+        // ⛔ INTO THE BODY, NOT INTO THE HEADER. An inherited member type is in scope in the class BODY of the
+        // type that inherits it (JLS 8.5, 6.3); the 'extends' and 'implements' clauses and the type parameter
+        // bounds are outside that body. 'class Impl extends Base implements Route' therefore needs
+        // 'import a.Base.Route' -- or the qualified spelling -- and without it is "cannot find symbol".
+        // Found 2026-09-17 regenerating the closed-core class isolates: a stub whose header names a nested
+        // interface of the interface it implements lost its import, and four trees stopped compiling on it.
+        // The header is safe only when the type naming it is itself nested in a type that inherits the member.
+        // ⚠ Errs towards an import: a header that spells the name qualified ('implements Base.Route') while a
+        // body spells it bare now gets an import it does not strictly need. Legal, and rare.
+        return typesOfUnit.stream().noneMatch(t -> namedInHeader(t, ti) && !nestedInAnInheritor(t, declaring));
+    }
+
+    private static boolean inherits(TypeInfo t, TypeInfo declaring) {
+        return t.superTypesExcludingJavaLangObject().contains(declaring);
+    }
+
+    private static boolean nestedInAnInheritor(TypeInfo t, TypeInfo declaring) {
+        var enclosing = t.compilationUnitOrEnclosingType();
+        while (enclosing.isRight()) {
+            TypeInfo outer = enclosing.getRight();
+            if (inherits(outer, declaring)) return true;
+            enclosing = outer.compilationUnitOrEnclosingType();
+        }
+        return false;
+    }
+
+    private static boolean namedInHeader(TypeInfo t, TypeInfo ti) {
+        if (t.parentClass() != null && mentions(t.parentClass(), ti)) return true;
+        if (t.interfacesImplemented().stream().anyMatch(pt -> mentions(pt, ti))) return true;
+        return t.typeParameters().stream()
+                .flatMap(tp -> tp.typeBounds().stream()).anyMatch(pt -> mentions(pt, ti));
+    }
+
+    private static boolean mentions(ParameterizedType pt, TypeInfo ti) {
+        if (pt.typeInfo() == ti) return true;
+        return pt.parameters().stream().anyMatch(p -> mentions(p, ti));
     }
 
     private static class PerPackage {
