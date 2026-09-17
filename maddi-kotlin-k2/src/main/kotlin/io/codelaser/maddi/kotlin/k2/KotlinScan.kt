@@ -1363,7 +1363,9 @@ class KotlinScan(
         addMethodModifiers(getter.builder(), property)
         getter.builder().commitParameters().computeAccess()
         runtime.setGetSetField(getter, field, false, -1, false)
-        getter.builder().commit()
+        // deferred, like every other member, FOR ITS OVERRIDES: they are computed in commitDeferred, once every
+        // member exists. Committed on the spot, an `override val`'s getter overrode nothing (#37).
+        commitOrDefer(getter, null) { getter.builder().commit() }
         return getter
     }
 
@@ -1377,7 +1379,7 @@ class KotlinScan(
         addMethodModifiers(setter.builder(), property)
         setter.builder().commitParameters().computeAccess()
         runtime.setGetSetField(setter, field, true, -1, false)
-        setter.builder().commit()
+        commitOrDefer(setter, null) { setter.builder().commit() } // for its overrides, as the getter (#37)
         return setter
     }
 

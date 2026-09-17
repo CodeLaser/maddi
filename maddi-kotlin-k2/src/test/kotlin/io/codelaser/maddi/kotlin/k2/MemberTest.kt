@@ -433,6 +433,42 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     /**
+     * The accessors of a property with a backing field are synthesized, and were committed on the spot -- so they
+     * never reached [KotlinScan.commitDeferred], where overrides are computed, and every one recorded `overrides()`
+     * empty. An `override val` implementing an interface's `val` overrode nothing in the CST: prep registered no
+     * implementation of any Kotlin abstract property (#35's defect, for properties), and `rename.field` saw a family
+     * of one and planned a rename that leaves the `override` overriding nothing.
+     */
+    @Test
+    fun anOverridingPropertysAccessorsRecordWhatTheyOverride() {
+        val types = KotlinScan(runtime, sourceSet).parse("o/O.kt",
+            "package o\n" +
+                "interface Provider {\n" +
+                "    val id: String\n" +                      // abstract: no backing field
+                "}\n" +
+                "class Impl : Provider {\n" +
+                "    override val id = \"impl\"\n" +          // implements it, with a backing field
+                "}\n" +
+                "open class Base {\n" +
+                "    open var name: String = \"b\"\n" +
+                "}\n" +
+                "class Sub : Base() {\n" +
+                "    override var name: String = \"s\"\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        fun method(type: String, name: String) =
+            all.single { it.simpleName() == type }.methods().single { it.name() == name }
+
+        assertEquals(listOf(method("Provider", "getId")), method("Impl", "getId").overrides().toList(),
+            "an interface property's implementation")
+        assertTrue(method("Impl", "getId").overrides().all { it.isAbstract }, "so prep registers the implementation")
+        assertEquals(listOf(method("Base", "getName")), method("Sub", "getName").overrides().toList(),
+            "a class property's override: the getter")
+        assertEquals(listOf(method("Base", "setName")), method("Sub", "setName").overrides().toList(),
+            "and the setter")
+    }
+
+    /**
      * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
      * by: its position sits on the member's own source under [DetailedSources.OVERRIDE]. A rename that takes one
      * member out of its override family has to remove it.
