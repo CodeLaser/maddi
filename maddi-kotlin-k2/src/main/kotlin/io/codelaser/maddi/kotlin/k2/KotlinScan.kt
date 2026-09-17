@@ -1397,6 +1397,10 @@ class KotlinScan(
 
 
     /** JavaBean accessor name, matching the JVM names Kotlin generates (and that maddi recognises). */
+    /** Compiler-generated: a `by`-delegation [forwarder], or a source class's generated member (componentN, copy). */
+    private fun isGenerated(function: KaNamedFunctionSymbol, forwarder: Boolean): Boolean =
+        forwarder || function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED
+
     private fun accessorName(prefix: String, fieldName: String): String =
         prefix + fieldName.replaceFirstChar { it.uppercaseChar() }
 
@@ -1415,7 +1419,8 @@ class KotlinScan(
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
         method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals))
-        commitOrDefer(method, function.psi) { method.builder().commit() }
+        // nor does it host that PSI: references written there are the property's or the class's, not copy()'s (#38)
+        commitOrDefer(method, if (isGenerated(function, false)) null else function.psi) { method.builder().commit() }
         defaultsMethodOf.remove(method)?.let { defaults ->
             val pending = pendingDefaults.remove(defaults)!!
             defaults.builder().setMethodBody(defaultsBody(defaults, method, pending.parameters))
@@ -1477,10 +1482,13 @@ class KotlinScan(
         // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
         val jvmName = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }
         val method = runtime.newMethod(owner, jvmName ?: function.name.asString(), methodType)
-        if (!forwarder) references.target(function.psi, method)
+        // a GENERATED member's PSI is what it was generated from -- a data class's componentN() has the constructor
+        // parameter's, copy() the class's -- so as that PSI's target it overwrote the property and the constructor,
+        // and every reference to them named componentN()/copy() (#38). It spells nothing, as a forwarder does not
+        if (!isGenerated(function, forwarder)) references.target(function.psi, method)
         val builder = method.builder()
         // compiler-generated members of a source class (a data class's componentN()/copy(), …) are synthetic
-        if (forwarder || function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED) builder.setSynthetic(true)
+        if (isGenerated(function, forwarder)) builder.setSynthetic(true)
         // method type parameters (`fun <T : Comparable<T>> …`): create them first (a bound may reference a
         // sibling, `T : Comparable<T>`), then set bounds -- resolved with `method` so a bare `T` binds here
         val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
