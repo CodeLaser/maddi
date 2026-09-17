@@ -34,15 +34,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * detekt's {@code DetektError.kt}, the whole file, on its own: the shape behind #34. {@code IssuesFound} and
- * {@code InvalidConfig} are character-identical apart from their name, so whatever the right verdict is, it is
- * the SAME for both -- which is what this asserts, rather than pinning a verdict that is still in question.
+ * {@code InvalidConfig} are character-identical apart from their name.
  * <p>
- * On the corpus, {@code InvalidConfig} moved from {@code @Mutable} to {@code @FinalFields} in 2 of 14 runs while
- * its twin never did, both runs converging in 19 iterations (#34). This is the same shape at four types instead
- * of 1,271: if the flake ever reproduces here, it is a seconds-long bisection target rather than a 5-minute one.
+ * On the corpus the subclasses were {@code @Mutable} in most runs and {@code @FinalFields} in about 1 in 4. The breaking
+ * pass floors an undecided supertype at FINAL_FIELDS, so a subclass computed before {@code DetektError} was decided got
+ * {@code @FinalFields}; one computed after saw its parent at FINAL_FIELDS, which then sank it to MUTABLE; and the
+ * refused downgrade froze whichever came first. Iterations run on 8 threads there; this file is below the parallel
+ * threshold, so here the parent always came first and the verdict was always {@code @Mutable}.
  * <p>
- * Which of the two verdicts is correct is open. Both extend {@code RuntimeException}, and the JDK annotated APIs
- * give {@code Throwable} no type-level verdict at all, only method-level ones.
+ * The parent caps a subtype, it does not sink it (road to immutability, 050: deriving from a class cannot increase the
+ * immutability level). A subclass adding only final fields to a {@code @FinalFields} parent is {@code @FinalFields},
+ * whatever the order. A {@code @Mutable} parent still makes its subclass {@code @Mutable}.
  */
 public class TestSealedErrorHierarchy {
 
@@ -56,13 +58,17 @@ public class TestSealedErrorHierarchy {
             class InvalidConfig(message: String) : DetektError(message)
 
             class UnexpectedError(override val cause: Throwable) : DetektError(null, cause)
+
+            open class Counter { var count = 0 }
+
+            class Named(val name: String) : Counter()
             """;
 
     private static final List<String> JDK_ANNOTATED_APIS = List.of(
             "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk");
 
     @Test
-    public void twoIdenticalClassesGetTheSameVerdict(@TempDir Path tmp) throws Exception {
+    public void aFinalFieldsParentCapsItsSubclassesAndAMutableOneSinksThem(@TempDir Path tmp) throws Exception {
         Path kDir = tmp.resolve("src/main/kotlin/a");
         Files.createDirectories(kDir);
         Files.writeString(kDir.resolve("DetektError.kt"), DETEKT_ERROR);
@@ -93,7 +99,12 @@ public class TestSealedErrorHierarchy {
 
         Map<String, String> verdicts = Files.readAllLines(dump).stream()
                 .collect(Collectors.toMap(l -> l.substring(l.indexOf(' ') + 1), l -> l.substring(0, l.indexOf(' '))));
-        assertEquals(verdicts.get("a.IssuesFound"), verdicts.get("a.InvalidConfig"),
-                "two character-identical classes disagree; all four: " + verdicts);
+        assertEquals("@FinalFields", verdicts.get("a.DetektError"), verdicts::toString);
+        for (String subclass : List.of("a.IssuesFound", "a.InvalidConfig", "a.UnexpectedError")) {
+            assertEquals("@FinalFields", verdicts.get(subclass), () -> subclass + ": a @FinalFields parent caps, it does"
+                    + " not sink; all: " + verdicts);
+        }
+        assertEquals("@Mutable", verdicts.get("a.Counter"), verdicts::toString);
+        assertEquals("@Mutable", verdicts.get("a.Named"), () -> "a @Mutable parent still sinks: " + verdicts);
     }
 }
