@@ -444,8 +444,9 @@ internal class KotlinBodyConverter(
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
             val stmt = convertStatement(s, method, childLocals, childIndex)
+            // the `return` takes the index of the statement it replaces: the analyzer requires one on every statement
             block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
-                runtime.newReturnStatement(stmt.expression()) else stmt)
+                indexed(runtime.newReturnStatement(stmt.expression()), childIndex) else stmt)
         }
         return block.build()
     }
