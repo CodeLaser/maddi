@@ -192,4 +192,25 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         val link = low.javaDoc()?.tags()?.singleOrNull()
         assertEquals(high, link?.resolvedReference(), "the entry's KDoc link `[HIGH]`")
     }
+
+    /**
+     * The accessors carry kotlinc's JVM names, which a Java caller spells: `isEnabled()`/`setEnabled(v)` for a
+     * property named `isEnabled`, and what `@get:JvmName`/`@set:JvmName` say. A written getter too.
+     */
+    @Test
+    fun accessorsHaveTheirJvmNames() {
+        types = KotlinScan(runtime, sourceSet).parse("j/J.kt", """
+            package j
+
+            class Flags {
+                var isEnabled: Boolean = false
+                val isEmpty: Boolean get() = !isEnabled
+                @get:JvmName("visible") @set:JvmName("show")
+                var shown: Boolean = true
+                var issue: Int = 0
+            }
+            """.trimIndent() + "\n")
+        assertEquals(listOf("<init>", "isEnabled", "setEnabled", "isEmpty", "visible", "show", "getIssue", "setIssue"),
+                type("Flags").constructorAndMethodStream().toList().map { it.name() })
+    }
 }

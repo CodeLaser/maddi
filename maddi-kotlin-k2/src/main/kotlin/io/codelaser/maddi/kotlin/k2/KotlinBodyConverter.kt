@@ -546,13 +546,16 @@ internal class KotlinBodyConverter(
 
     /**
      * The setter call that [getterCall] -- the read of a property without a backing field -- becomes when it is
-     * assigned to: the same receiver, the sibling `setX` of its `getX`, and the assigned [value] as the argument.
-     * Null when there is no such setter, which leaves the caller its placeholder.
+     * assigned to: the same receiver, the sibling `setX` of its `getX` (of its `isX`, for a property named `isX`), and
+     * the assigned [value] as the argument. Null when there is no such setter, which leaves the caller its placeholder.
      */
     private fun setterCall(getterCall: MethodCall, value: Expression): MethodCall? {
         val getter = getterCall.methodInfo()
-        if (!getter.name().startsWith("get")) return null
-        val setterName = "set" + getter.name().substring(3)
+        val setterName = when {
+            getter.name().startsWith("get") -> "set" + getter.name().substring(3)
+            getter.name().startsWith("is") -> "set" + getter.name().substring(2)
+            else -> return null
+        }
         val setter = getter.typeInfo().methods().singleOrNull {
             it.name() == setterName && it.parameters().size == getter.parameters().size + 1
         } ?: return null

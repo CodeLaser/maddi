@@ -350,7 +350,9 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
 
             fun acceptedNames(name: String): Set<String> {
                 val capitalized = name.replaceFirstChar { it.uppercaseChar() }
-                return setOf(name, "get$capitalized", "set$capitalized", "$name\$delegate")
+                // `isEnabled`'s accessors are `isEnabled` and `setEnabled`
+                val setterOfIs = if (name.startsWith("is")) setOf("set" + name.substring(2)) else setOf()
+                return setOf(name, "get$capitalized", "set$capitalized", "$name\$delegate") + setterOfIs
             }
 
             fun referenceName(element: Element): String? = when (element) {

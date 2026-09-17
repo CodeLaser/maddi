@@ -1034,8 +1034,7 @@ class KotlinScan(
         val setter = accessor.isSetter
         // [field] is null for a property that has none (a computed `var`'s written setter, #36): the accessor is
         // named after the property, and `field` is not in scope -- Kotlin forbids it where there is no backing field
-        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get",
-                field?.name() ?: property.name.asString()), methodType(static, property, owner))
+        val method = runtime.newMethod(owner, accessorName(property, setter), methodType(static, property, owner))
         val builder = method.builder()
         builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
         // an extension property's accessor is static, with the receiver first (the JVM model), as the getter has it
@@ -1112,10 +1111,9 @@ class KotlinScan(
      * body is filled in [drainDelegatedProperties], once every type of the compilation has its members. No
      * `setGetSetField` tagging: this is a call into the delegate, not a field access.
      */
-    private fun buildDelegateAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+    private fun KaSession.buildDelegateAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
                                       property: KaPropertySymbol, static: Boolean, write: Boolean): MethodInfo {
-        val name = property.name.asString()
-        val accessor = runtime.newMethod(owner, accessorName(if (write) "set" else "get", name), methodType(static))
+        val accessor = runtime.newMethod(owner, accessorName(property, write), methodType(static))
         if (write) accessor.builder().addParameter("value", type)
         accessor.builder().setReturnType(if (write) runtime.voidParameterizedType() else type)
         addMethodModifiers(accessor.builder(), property)
@@ -1303,7 +1301,7 @@ class KotlinScan(
     /** A computed property's getter: its real (custom) body, no field-access tagging. */
     private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
                                               type: ParameterizedType, static: Boolean): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()),
+        val getter = runtime.newMethod(owner, accessorName(property, false),
                 methodType(static, property, owner))
         getter.builder().setReturnType(type)
         // an extension property (`val Int.doubled get() = this * 2`) becomes a static getter whose first
@@ -1340,7 +1338,7 @@ class KotlinScan(
         if (accessor != null && accessor.hasBody()) {
             return buildCustomAccessor(owner, null, type, property, static, accessor)
         }
-        val setter = runtime.newMethod(owner, accessorName("set", property.name.asString()),
+        val setter = runtime.newMethod(owner, accessorName(property, true),
                 methodType(static, property, owner))
         val builder = setter.builder()
         builder.setReturnType(runtime.voidParameterizedType())
@@ -1356,7 +1354,7 @@ class KotlinScan(
 
     private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
                                       property: KaPropertySymbol, static: Boolean): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", field.name()), methodType(static))
+        val getter = runtime.newMethod(owner, accessorName(property, false), methodType(static))
         val source = runtime.noSource()
         val returnField = runtime.newReturnBuilder()
             .setExpression(fieldReadExpression(owner, field, static))
@@ -1375,7 +1373,7 @@ class KotlinScan(
 
     private fun KaSession.buildSetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
                                       property: KaPropertySymbol, static: Boolean): MethodInfo {
-        val setter = runtime.newMethod(owner, accessorName("set", field.name()), methodType(static))
+        val setter = runtime.newMethod(owner, accessorName(property, true), methodType(static))
         val value = setter.builder().addParameter("value", type)
         setter.builder()
             .setReturnType(runtime.voidParameterizedType())
@@ -1405,8 +1403,17 @@ class KotlinScan(
     private fun isGenerated(function: KaNamedFunctionSymbol, forwarder: Boolean): Boolean =
         forwarder || function.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED
 
-    private fun accessorName(prefix: String, fieldName: String): String =
-        prefix + fieldName.replaceFirstChar { it.uppercaseChar() }
+    /**
+     * The JVM name kotlinc gives [property]'s getter or setter: `getName`/`setName`, but `isEnabled`/`setEnabled` for
+     * `isEnabled`, and whatever `@get:JvmName`/`@set:JvmName` says. A Java caller spells that name, and a class file
+     * of the same code carries it.
+     */
+    @OptIn(KaExperimentalApi::class) // javaGetterName, javaSetterName
+    private fun KaSession.accessorName(property: KaPropertySymbol, setter: Boolean): String {
+        val jvmName = if (setter) property.javaSetterName else property.javaGetterName
+        return jvmName?.asString()
+            ?: ((if (setter) "set" else "get") + property.name.asString().replaceFirstChar { it.uppercaseChar() })
+    }
 
     /**
      * Convert one declared function symbol into a committed CST method (with parameters and body).
