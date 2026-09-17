@@ -128,6 +128,55 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return compilationUnit;
     }
 
+    /**
+     * The top-level class declarations of this unit, by simple name; for {@link SourceSetInterleave}.
+     */
+    Map<String, JCTree.JCClassDecl> topLevelDeclarations() {
+        Map<String, JCTree.JCClassDecl> result = new LinkedHashMap<>();
+        for (Tree tree : compilationUnitTree.getTypeDecls()) {
+            if (tree instanceof JCTree.JCClassDecl cd) result.put(cd.getSimpleName().toString(), cd);
+        }
+        return result;
+    }
+
+    /**
+     * Registers the {@link TypeInfo} of the top-level [declaration] and of every class nested in it, uncommitted and
+     * without members, so that a second front end can name them before javac attributes this unit (see
+     * {@link SourceSetInterleave}). Phase 1 must have built the compilation unit.
+     * <p>
+     * {@link #visitClass} adopts each, as a type of this source set, exactly as it adopts one a forward reference
+     * loaded from its symbol. Nature and type parameters come from the tree: what a signature naming the type needs,
+     * and what visitClass sets again, the same (it fills existing uncommitted type parameters in).
+     */
+    TypeInfo declareFromTree(JCTree.JCClassDecl declaration, TypeInfo enclosing) {
+        String simpleName = declaration.getSimpleName().toString();
+        TypeInfo typeInfo;
+        if (enclosing == null) {
+            assert compilationUnit != null : "Phase 1 has not built the compilation unit";
+            typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+        } else {
+            typeInfo = runtime.newTypeInfo(enclosing, simpleName);
+            enclosing.builder().addSubType(typeInfo);
+        }
+        TypeInfo.Builder builder = typeInfo.builder();
+        builder.setTypeNature(switch (declaration.getKind()) {
+            case INTERFACE -> runtime.typeNatureInterface();
+            case ENUM -> runtime.typeNatureEnum();
+            case ANNOTATION_TYPE -> runtime.typeNatureAnnotation();
+            case RECORD -> runtime.typeNatureRecord();
+            default -> runtime.typeNatureClass();
+        });
+        int index = 0;
+        for (JCTree.JCTypeParameter tp : declaration.getTypeParameters()) {
+            builder.addOrSetTypeParameter(runtime.newTypeParameter(index++, tp.getName().toString(), typeInfo));
+        }
+        typeData.put(typeInfo);
+        for (JCTree member : declaration.getMembers()) {
+            if (member instanceof JCTree.JCClassDecl nested) declareFromTree(nested, typeInfo);
+        }
+        return typeInfo;
+    }
+
     // result
     public List<TypeInfo> types() {
         return collectedPrimaryTypes;

@@ -52,6 +52,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
@@ -127,6 +128,15 @@ internal class KotlinTypeMapper(
     // (the K2-based library loading below is used).
     private val compiledTypesManager: CompiledTypesManager? = null,
 ) {
+    /**
+     * Mixed-language, a source set holding Java and Kotlin that reference each other: the Java front end's
+     * [io.codelaser.maddi.cst.api.info.TypeInfo] of one of the set's Java SOURCE types, by FQN, made on request before
+     * javac has attributed it (see `SourceSetInterleave`). Without it, a Kotlin signature naming such a type built a
+     * committed library copy from K2's view, and the Java front end then built the real one beside it: two instances,
+     * and every Kotlin reference on the wrong one.
+     */
+    var javaSourceTypes: ((String) -> TypeInfo?)? = null
+
     private val symbolScanner = KotlinSymbolScanner(runtime, infoByFqn, librarySourceSet)
     private var memberDepth = 0
     private val maxMemberDepth = 2 // load members this many levels deep; deeper co-loaded types stay shells
@@ -245,7 +255,9 @@ internal class KotlinTypeMapper(
         // type, so the sibling-source lookup below would otherwise return it and break the JVM model (and the
         // enum/annotation parent invariants asserted at commit). So skip that lookup for mapped builtins.
         // already known (a sibling source type, or a previously loaded library type), else load it:
-        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet)) ?: run {
+        val typeInfo = (if (mapped) null else infoByFqn.getType(kotlinFqn, sourceSet))
+            ?: (if (!mapped && type.symbol.origin == KaSymbolOrigin.JAVA_SOURCE) javaSourceTypes?.invoke(kotlinFqn) else null)
+            ?: run {
             // Phase 1 -- shared JDK/library core: delegate to the injected CompiledTypesManager (its
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
@@ -567,6 +579,13 @@ internal class KotlinTypeMapper(
         }
         builder.setTypeNature(natureFor(classSymbol.classKind))
             .setParentClass(parentClass ?: runtime.objectParameterizedType())
+        // a class nested in another is static on the JVM unless it is `inner`: without the modifier every Kotlin
+        // nested class was an inner class of the CST (TypeInfo.isInnerClass), capturing an enclosing instance it
+        // does not have. A local class is not nested in a type, and an object/interface/enum is static by nature.
+        if (owner.compilationUnitOrEnclosingType().isRight && classSymbol.classKind == KaClassKind.CLASS
+            && (classSymbol as? KaNamedClassSymbol)?.isInner != true && classSymbol.classId != null) { // a local class: no ClassId
+            builder.addTypeModifier(runtime.typeModifierStatic())
+        }
         when (classSymbol.modality) {
             KaSymbolModality.ABSTRACT -> builder.addTypeModifier(runtime.typeModifierAbstract())
             KaSymbolModality.SEALED -> builder.addTypeModifier(runtime.typeModifierSealed())

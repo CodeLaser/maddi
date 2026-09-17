@@ -348,3 +348,57 @@ with no Java source there is no consumer. Generating them anyway made every `Jav
 hard failure on a parse that was otherwise complete: detekt parsed all 31 source sets and then aborted
 compiling stubs nothing would read. The known gaps are listed in `docs/kotlin-corpora.md` §5.5; they matter
 again as soon as a corpus mixes Java *and* Kotlin source.
+
+## 12. One source set, both languages (added 2026-09-17)
+
+The directional flows of §7 and §8 assume a cross-language reference goes one way between two source sets. A
+real mixed module is **one** source set holding both languages, referencing each other both ways: javalin keeps
+`.kt` and `.java` side by side in `src/main/java`, its `Handler.java` takes a Kotlin `Context`, and 28 Kotlin files
+take a `Handler`. On that layout neither front end can go first, and the directional driver parsed **0 Java
+types**: it gave javac only sets without `.kt`, and Kotlin-first minted a K2 library copy of every Java type it named.
+
+`MixedProjectInspector.parseInterleaved` (chosen when any set has both extensions) lets javac scan every set with
+`.java` in its own order, and interleaves the Kotlin front end per set through `SourceSetInterleave`:
+
+1. **`beforeAttribution`** — `ScanCompilationUnits.scan` has built the set's compilation units from the trees
+   (Phase 1, moved ahead of `analyze()` only when an interleave is set) and attributed nothing. The Kotlin scan
+   **declares** the set (`KotlinScan.declare`: types, hierarchy, constructors, fields, accessors, method
+   signatures — no bodies). A Java type a signature names is made on request by `SourceTypes.declare`:
+   uncommitted, memberless, with its nature and type parameters, its whole primary-type tree at once, registered
+   in the set so that `ScanCompilationUnit.visitClass` adopts it. Then stubs are generated from the declarations
+   and compiled with the set's Java sources on the source path (`-implicit:none`).
+2. javac attributes the set against the stubs and maddi scans and commits it, as for any Java set.
+3. **`afterCommit`** — the Kotlin scan **completes** the set (`KotlinScan.complete`): bodies, which now call Java
+   members that exist, references, overrides, commits.
+
+Kotlin-only sets are converted whole when a javac-scanned set depends on them, and at the end otherwise.
+
+Four things this needed that were not visible before:
+
+- **Bodies wait, as pointers.** `KotlinScan.body` queues every top-level body conversion until `complete`. A
+  queued closure holds `KaSymbolPointer`s, not symbols: a symbol stays valid (the standalone session's lifetime
+  tokens are always accessible) but pins its analysis session's FIR caches, and the kotlin-stdlib parse then kept
+  500 MB live and failed on a 512 MB test heap. The pending initializers and delegates are indexed by owner for
+  the same parse: a flat list scanned per type went quadratic once it held a whole set (26 s → 189 s).
+- **Companions are registered in pass A**, with the classes nested in them (`registerTypeTree`). Registered only
+  when their class's members were converted, a signature naming `Endpoint.Companion.EndpointBuilder` fell through
+  to the compiled-type manager, whose javac found the build's `Endpoint$Companion.class` in `target/classes` and
+  committed a bytecode copy.
+- **A stub made before bodies exist asks the scan** (`JavaStubGenerator.StubHints`): whether an interface method
+  has a body (`default`), an `object`'s `@JvmStatic` functions, and each constructor's `super(...)`/`this(...)`
+  target — recorded from K2 in `prepareType`, with the checked exceptions of a bytecode parent constructor.
+  Without the last, 91 of javalin's stubs called a no-argument parent constructor that does not exist.
+- **Stub fidelity, generally**: generic arguments are kept everywhere (erased, 60 of javalin's 101 javac errors
+  were Java seeing `Object`); a `vararg` is `T...`; the overloads kotlinc adds (`@JvmOverloads`, the no-argument
+  constructor of an all-defaults primary constructor) are stubbed; `$default` constructors are not; one method per
+  Java signature (a private `var`'s synthesized setter and a written `setX` are one JVM method); a `sealed` class
+  is abstract; a nested class
+  is `static` unless `inner` — in the CST too (`KotlinTypeMapper.applyHierarchy`), where every Kotlin nested class
+  used to be an inner class; and a `@JvmField` property has no accessors in the CST, where one was minted under
+  the property's own name and collided with a written `fun sessionId()`.
+
+Test: `TestMixedSourceSet` (maddi-inspection-mixed). Corpus: javalin — 0 Java types before; now 11 of 156 Java
+compilation units still fail, on the next tail: (1) the overloads exist in the stubs but not in the CST, so a Java
+call to one finds no member; (2) Kotlin use-site variance (`out T`, `in T`, `*`) is not mapped to wildcards, so
+javac sees `Class<ContextPlugin<Object, T>>` where kotlinc emits `Class<? extends ContextPlugin<?, T>>`; (3) a
+companion's `const`/`@JvmStatic` members as statics of an interface or of the enclosing class.

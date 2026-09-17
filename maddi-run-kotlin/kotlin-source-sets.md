@@ -139,14 +139,15 @@ KOTLINC: kotlinc(?:-jvm)?\s+(.+)             # raw CLI
     gets the Java dirs as source roots). Java sets are rebuilt in dependency order with their Java-set deps
     remapped to the rebuilt instances, so Java→Java links across source sets survive the `withDependencies`
     rebuild. Test `TestMixedProjectInspector` (both cross-language directions + a two-Java-module project).
-    Remaining follow-ups: a project mixing *both* cross-language directions (intra-module Kotlin↔Java cycle —
-    the skeleton-pre-pass case), and mixed-Maven block interleaving on the parse side.
+    A module mixing *both* directions in one source set is parsed by `MixedProjectInspector.parseInterleaved`
+    (see `maddi-inspection-kotlin/mixed-language-integration.md` §12), and the mixed-Maven blocks are interleaved
+    on the parse side (`ParseMixedList`, `SharedDestination`).
 
 ## 7. Known limitations / follow-ups
 
-- **Mixed Maven modules**: kotlin-maven-plugin and maven-compiler-plugin both output to `target/classes`, so a
-  Java and a Kotlin compile in one module collide on one output identity. Fine for pure-Kotlin modules; for
-  Phase 5 (one-pass javac+kotlinc) this needs `-module-name` / language-tagging to keep them distinct.
+- **Mixed Maven modules**: kotlin-maven-plugin and maven-compiler-plugin both output to `target/classes`. The
+  two invocations are folded into ONE source set holding both languages (`SharedDestination`): one output
+  directory is one source set, and the language of a file is its extension.
 - Naming still uses the destination path-suffix heuristic (proven for both languages); `-module-name` is
   captured but not yet the naming source.
 - Bare source **directory** args on a raw `kotlinc` line (not files, not Maven's `sourcePath`) are not treated
