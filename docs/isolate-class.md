@@ -505,6 +505,15 @@ writers to 79. ⛔ A final METHOD is not reproduced: the isolator copies an inhe
 sub-stub that owes it, and a copy below a final declaration is "cannot override … overridden method is final"
 — tried, three trees broke (15 against 12), backed out. It needs the pass over the finished stub graph.
 
+**Visible finality, same day, and opt-in.** The keyword is rare and the fact is common: of the corpus's own
+classes, 19,198 are extended by nothing in the whole program — named, local or anonymous subclass — and an
+isolate has lost the subclasses it would take to see that. `ProgramHierarchy.classesNeverExtended` computes the
+set from the program the isolator has in hand, and `IsolateClass.withClassesNeverExtended` carries it into the
+stubs as the only thing a declaration can say, `final`. It is a statement about the closed program the isolate
+was cut from, not about the original's text, which is why a driver has to ask for it. Only the program's own
+source classes are candidates: a library class's subclasses are not loaded until something names them. Compile
+ratchet with it on: 2 / 1 / 9, unchanged.
+
 ⚠ Two things that run taught, neither about the rule. The corpus was being **edited and rebuilt by another
 session** while it was parsed — class files rewritten mid-parse the first time, one source file the third —
 and one unit javac cannot read degrades attribution for the rest of its source set, which arrives here as

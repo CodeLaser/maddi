@@ -97,6 +97,17 @@ public class IsolateClass {
         this.runtime = javaInspector.runtime();
     }
 
+    private Set<TypeInfo> classesNeverExtended = Set.of();
+
+    /**
+     * Carry "nothing in the program extends this class" into the stubs, as {@code final}: see
+     * {@link ProgramHierarchy#classesNeverExtended}. Without it a stub is final only where the original says so.
+     */
+    public IsolateClass withClassesNeverExtended(Set<TypeInfo> classesNeverExtended) {
+        this.classesNeverExtended = Set.copyOf(classesNeverExtended);
+        return this;
+    }
+
     /**
      * @param isolatedUnits one compilation unit per isolated type, in the order they were asked for
      * @param stubs         one compilation unit per stubbed dependency, in the package its original came from
@@ -168,6 +179,7 @@ public class IsolateClass {
         ClassStubs(List<TypeInfo> originalTypes, Map<TypeInfo, TypeInfo> isolatedTypes) {
             super(IsolateClass.this.javaInspector, originalTypes);
             this.isolatedTypes = isolatedTypes;
+            this.classesNeverExtended = IsolateClass.this.classesNeverExtended;
         }
 
         // originals the verbatim text names by their simple name; that spelling is fixed, so on a simple-name
