@@ -163,6 +163,16 @@ abstract class IsolationCore {
         if (original.isAbstract() && !original.isInterface() && !original.typeNature().isEnum()) {
             stub.builder().addTypeModifier(runtime.typeModifierAbstract());
         }
+        // A FINAL original stays final, for the mirror-image reason: the modifier costs nothing -- the verbatim
+        // text cannot extend a type the original could not extend either -- and it is a fact consumers of the
+        // isolate decide on. "Can another body run in place of this method?" is answered from the declaration
+        // (static, private, final, or a member of a final class), and a stub that drops 'final' turns a yes into
+        // a no: on the closed-core class isolates the flagship factory is an instance method of a final class,
+        // and every site anchored on it was refused as overridable on the word of a stub (2026-09-17).
+        // Only a plain class: enums and records are final implicitly, and the modifier on them is an error.
+        if (original.isFinal() && original.typeNature().isClass() && !original.isAbstract()) {
+            stub.builder().addTypeModifier(runtime.typeModifierFinal());
+        }
         // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
         // but making an INNER class static breaks the one spelling that needs the instance --
         // 'outer.new Inner()' in the verbatim text is then "qualified new of static class" (5 class isolates).
@@ -580,7 +590,8 @@ abstract class IsolationCore {
         Block.Builder mb = runtime.newBlockBuilder();
         ParameterizedType newReturnType = eraseOutOfScope(ensureTypes(methodInfo.returnType()), owner, newMethod);
         if (!methodInfo.isConstructor() && !methodInfo.returnType().isVoid()) {
-            Expression expression = runtime.nullValue(newReturnType);
+            Expression fresh = freshReturnOrNull(methodInfo, newReturnType);
+            Expression expression = fresh != null ? fresh : runtime.nullValue(newReturnType);
             mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
         }
         // the isolated type's own member may OVERRIDE the method being stubbed, and an override may not narrow
@@ -605,6 +616,13 @@ abstract class IsolationCore {
             newMethod.builder().addMethodModifier(keepProtected
                     ? runtime.methodModifierProtected() : runtime.methodModifierPublic());
         }
+        // ⛔ NOT 'final', although the declaration says so and applyStubTypeAccess reproduces it on a TYPE. The
+        // isolator copies an inherited implementation onto the stub that owes it (declaredImplementation, for an
+        // interface the sub-stub implements), and a copy below a final declaration is "cannot override ...
+        // overridden method is final": tried 2026-09-17, three closed-core class isolates stopped compiling
+        // (a command base class with a final execute(), an assertion library's final varargs method). Doing it
+        // properly needs the pass over the finished stub graph that the throws clause also wants; a final
+        // CLASS has no sub-stubs, which is why the type-level modifier is safe where this one is not.
         newMethod.builder()
                 .setReturnType(newReturnType)
                 .setAccess(runtime.accessPackage())
@@ -627,6 +645,62 @@ abstract class IsolationCore {
         LOGGER.info("Adding method {}", newMethod);
         owner.builder().addMethod(newMethod);
         methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
+    }
+
+    // stubs a stub method instantiates ('return new T();'), and the no-arg constructor that call names. The
+    // constructor is attached to the stub only when the stub turns out to declare OTHER constructors (see
+    // addDefaultConstructorsWhereExtended): a stub without any keeps the implicit one, as it always did
+    final Map<TypeInfo, MethodInfo> noArgConstructorPerInstantiatedStub = new HashMap<>();
+
+    /**
+     * {@code new T()} when the ORIGINAL constructs what it returns and {@code T} is a concrete class this isolate
+     * stubs; otherwise {@code null}, and the stub says {@code return null;} as before. The decision is
+     * {@link ConstructedReturn}'s; this method adds the four things only the isolator knows: the constructed
+     * class has to be the return type itself (a factory returning an interface keeps {@code null}), it has to be
+     * a plain class stub — not abstract, not an enum, record, interface or annotation, not an inner class whose
+     * {@code new} would need an enclosing instance — and it must not be a JDK type or the isolated type itself,
+     * whose verbatim constructors this pass cannot vouch for.
+     * <p>
+     * Why it is worth doing: a stub's body is never run, but it is READ. The analyses consuming an isolate
+     * take {@code return null;} at its word, and a local bound to such a factory then has no creation — every
+     * write through it is a write on an unknown object, and the freshness question ("does this factory hand
+     * out an object nobody else holds?") has no summary to answer from. On the closed-core class isolates the
+     * flagship fill type is obtained almost only through factories, and every one of those sites was refused
+     * on that account (2026-09-17). Measured against the originals, all three factory families of that corpus
+     * satisfy the rule, and the one that publishes the object before returning it is correctly refused.
+     */
+    private Expression freshReturnOrNull(MethodInfo original, ParameterizedType newReturnType) {
+        if (newReturnType.arrays() > 0 || newReturnType.typeInfo() == null) return null;
+        ParameterizedType returnType = original.returnType();
+        if (returnType.typeInfo() == null || returnType.arrays() > 0) return null;
+        TypeInfo constructed = ConstructedReturn.of(original);
+        if (constructed == null || !constructed.equals(returnType.typeInfo())) return null;
+        TypeInfo stub = typeMap.get(constructed);
+        if (stub == null || stub != newReturnType.typeInfo() || isJdkType(constructed)) return null;
+        if (interfaceStubs.contains(stub) || annotationStubs.contains(stub) || enumStubs.contains(stub)) return null;
+        if (!constructed.typeNature().isClass() || constructed.isAbstract()) return null;
+        if (enclosingTypeOrNull(stub) != null && !constructed.isStatic()) return null;   // needs an enclosing instance
+        MethodInfo noArg = noArgConstructorPerInstantiatedStub.computeIfAbsent(stub, this::newNoArgConstructor);
+        boolean generic = !constructed.typeParameters().isEmpty();
+        LOGGER.info("Stub of {} returns a fresh {}", original, constructed.simpleName());
+        return runtime.newConstructorCallBuilder()
+                .setConstructor(noArg)
+                .setConcreteReturnType(newReturnType)
+                .setDiamond(generic ? runtime.diamondYes() : runtime.diamondNo())
+                .setParameterExpressions(List.of())
+                .setSource(runtime.noSource())
+                .build();
+    }
+
+    private MethodInfo newNoArgConstructor(TypeInfo stub) {
+        MethodInfo noArg = runtime.newConstructor(stub);
+        noArg.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                .setSource(runtime.noSource())
+                .setMethodBody(runtime.emptyBlock())
+                .setAccess(stubsCrossPackageBoundaries() ? runtime.accessPublic() : runtime.accessPackage());
+        if (stubsCrossPackageBoundaries()) noArg.builder().addMethodModifier(runtime.methodModifierPublic());
+        noArg.builder().commit();
+        return noArg;
     }
 
     /**
@@ -809,6 +883,9 @@ abstract class IsolationCore {
             TypeInfo parentStub = typeMap.get(parent.typeInfo());
             if (parentStub != null) extended.add(parentStub);
         }
+        // a stub that a stub method instantiates ('return new T();', see freshReturnOrNull) needs the same thing
+        // for the same reason: 'new T()' resolves against the implicit constructor only while no other is declared
+        extended.addAll(noArgConstructorPerInstantiatedStub.keySet());
         for (TypeInfo stub : typeMap.values()) {
             if (!extended.contains(stub) || interfaceStubs.contains(stub) || annotationStubs.contains(stub)) continue;
             // BOTH lists: TypeInfo.Builder.addMethod files everything under methods(), addConstructor under
@@ -819,15 +896,9 @@ abstract class IsolationCore {
                     .filter(MethodInfo::isConstructor).toList();
             if (constructors.isEmpty()) continue;      // the implicit no-arg constructor is there already
             if (constructors.stream().anyMatch(ctor -> ctor.parameters().isEmpty())) continue;
-            MethodInfo noArg = runtime.newConstructor(stub);
-            noArg.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-                    .setSource(runtime.noSource())
-                    .setMethodBody(runtime.emptyBlock())
-                    .setAccess(stubsCrossPackageBoundaries() ? runtime.accessPublic() : runtime.accessPackage());
-            if (stubsCrossPackageBoundaries()) noArg.builder().addMethodModifier(runtime.methodModifierPublic());
-            noArg.builder().commit();
+            MethodInfo noArg = noArgConstructorPerInstantiatedStub.computeIfAbsent(stub, this::newNoArgConstructor);
             stub.builder().addMethod(noArg);
-            LOGGER.info("Added a no-arg constructor to {}, which is extended by another stub", stub);
+            LOGGER.info("Added a no-arg constructor to {}, which is extended or instantiated by another stub", stub);
         }
     }
 

@@ -468,6 +468,51 @@ away. Verified: narrowing it to the declaring type fails the driver.
 - **two isolates that would share a path** (`p.A.X` and `p.B.X` both emit `p/X.java`). `print` keys its result by
   path, so the second silently overwrote the first and the caller got a tree one file short.
 
+## 11. A factory stub constructs what the original constructs, 2026-09-17
+
+Every non-void stub said `return null;`. Nothing runs a stub, so that was harmless for the question the isolate
+was built for (does it compile) — and wrong for the one it is used for now. The analyses that consume an isolate
+READ stub bodies: a local bound to a `return null;` factory has no creation, every write through it is a write
+on an unknown object, and the link analysis has no summary from which to answer "is the returned object fresh".
+On the closed-core class isolates the flagship fill type is obtained almost only through factories, and all of
+those sites were refused on the strength of a line the isolator had invented.
+
+`ConstructedReturn` decides, from the ORIGINAL's body alone, whether a method constructs what it returns: every
+`return` is a plain `new T(..)`, a call to a method that itself qualifies (followed through the declared bodies,
+depth-bounded, cycle-guarded), or a local initialised that way which is only ever a RECEIVER — the object of a
+call, the scope of a field write, the returned expression. A local passed as an argument or stored anywhere has
+been published, and the method keeps `return null;`: *created is not fresh*. `IsolationCore.freshReturnOrNull`
+adds what only the isolator knows — `T` is the return type itself and a plain concrete class stub, not nested
+as an inner class — and `addDefaultConstructorsWhereExtended` now also writes the no-arg constructor for a stub
+that is instantiated this way and declares other constructors.
+
+It is syntax, not analysis, because the analysis may not be run on the corpus the isolate is taken from. Known
+misjudgements, all stated in the class javadoc: a receiver-only call that registers the object from the inside
+passes; a fresh object returned as its interface is refused; an overriding body is never consulted. The
+decision table is `TestIsolateClass6FreshFactories` — nine shapes, four `new`, five `null`.
+
+Measured on the 530-tree closed-core corpus, 2026-09-17: **1,614** stub methods in 338 trees now construct, the
+flagship fill type's factories alone 438 of them; the other ~176,000 non-void stubs keep `return null;`. A
+control run with the rule switched off broke exactly the same trees, so it costs the compile ratchet nothing
+(2 / 1 / 9, unchanged since §9).
+
+**And `final` on a stub TYPE, same day, for the other half of the same question.** "Can another body run in
+place of this factory?" is answered from the declaration — static, private, final, or a member of a final
+class — and the stub had dropped the modifier: the corpus's flagship factory is an instance method of a final
+class, so constructing was not enough and the first demo run with the new bodies moved nothing (123 fill sites
+before and after). With the type's `final` reproduced the same host went to 142 sites and from 96 residual
+writers to 79. ⛔ A final METHOD is not reproduced: the isolator copies an inherited implementation onto the
+sub-stub that owes it, and a copy below a final declaration is "cannot override … overridden method is final"
+— tried, three trees broke (15 against 12), backed out. It needs the pass over the finished stub graph.
+
+⚠ Two things that run taught, neither about the rule. The corpus was being **edited and rebuilt by another
+session** while it was parsed — class files rewritten mid-parse the first time, one source file the third —
+and one unit javac cannot read degrades attribution for the rest of its source set, which arrives here as
+dozens of "Cannot add member type X.class" in units nobody touched. Parse a snapshot (`git archive` of the
+sources, a copy of the class directories, a rewritten input configuration), not a working tree somebody is
+in. And the `[verify]` report file outlives a run that fails before verification: read its timestamp, or
+delete it first.
+
 ## State, so a later run can tell drift from regression
 
 Measured 2026-07-28, top 100 closed-core types by total statement count:
