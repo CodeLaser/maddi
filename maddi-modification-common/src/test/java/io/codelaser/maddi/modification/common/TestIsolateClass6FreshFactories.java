@@ -7,6 +7,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.modification.common.util.IsolateClass;
+import io.codelaser.maddi.modification.common.util.ProgramHierarchy;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -191,6 +194,71 @@ public class TestIsolateClass6FreshFactories {
         assertTrue(open.contains("public class Open"), open);
         assertTrue(open.matches("(?s).*public Item sealedMake\\(\\).*"), open);
         assertTrue(open.matches("(?s).*public Item openMake\\(\\).*"), open);
+        assertCompiles(tree);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Language("java")
+    private static final String HIERARCHY = """
+            package p.q;
+            public class Hierarchy {
+                public static class Leaf { public Item make() { return new Item(); } }
+                public static class Base { public Item make() { return new Item(); } }
+                public static class Derived extends Base { }
+                public static class AnonymousBase { public Item make() { return new Item(); } }
+                public static class LocalBase { public Item make() { return new Item(); } }
+                public static abstract class Abstract { }
+                public static final class Final { }
+                public interface Face { }
+                static Object anonymous() {
+                    Runnable r = () -> { Object o = new AnonymousBase() { }; };
+                    return r;
+                }
+                static Object local() {
+                    class Local extends LocalBase { }
+                    return new Local();
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String USE_HIERARCHY = """
+            package a.b;
+            import p.q.Hierarchy;
+            public class UseHierarchy {
+                public int run(Hierarchy.Leaf leaf, Hierarchy.Base base, Hierarchy.AnonymousBase anonymous) {
+                    return leaf.make().weight + base.make().weight + anonymous.make().weight;
+                }
+            }
+            """;
+
+    @DisplayName("visible finality: a class the whole program never extends is final in its stub, on request")
+    @Test
+    public void classesNeverExtended() throws IOException {
+        Map<String, String> sources = Map.of("p.q.Shape", SHAPE, "p.q.Item", ITEM, "p.q.Hierarchy", HIERARCHY,
+                "a.b.UseHierarchy", USE_HIERARCHY);
+        var parsed = javaInspector.parse(sources,
+                new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true).build());
+        Set<TypeInfo> never = ProgramHierarchy.classesNeverExtended(parsed.parseResult().primaryTypes());
+        // Derived and the kept type are leaves too; Base has a named subclass, AnonymousBase an anonymous one
+        // inside a lambda, LocalBase a local one; abstract, final, and interface types are not candidates
+        assertEquals("Derived, Hierarchy, Item, Leaf, UseHierarchy",
+                never.stream().map(TypeInfo::simpleName).sorted().collect(Collectors.joining(", ")));
+
+        TypeInfo type = parsed.parseResult().findType("a.b.UseHierarchy");
+        isolateClass.withClassesNeverExtended(never);
+        IsolateClass.Result r = isolateClass.isolate(type);
+        Map<MethodInfo, String> memberSources = new LinkedHashMap<>();
+        for (MethodInfo original : r.markers().values()) {
+            memberSources.put(original, verbatim(sources.get(original.primaryType().fullyQualifiedName()), original));
+        }
+        Map<String, String> tree = isolateClass.print(r, memberSources);
+        String hierarchy = tree.get("p/q/Hierarchy.java");
+        System.out.println(hierarchy);
+        assertTrue(hierarchy.contains("static final class Leaf"), hierarchy);
+        assertTrue(hierarchy.matches("(?s).*static class Base\\b.*"), hierarchy);
+        assertTrue(hierarchy.matches("(?s).*static class AnonymousBase\\b.*"), hierarchy);
         assertCompiles(tree);
     }
 

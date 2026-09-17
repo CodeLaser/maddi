@@ -170,7 +170,12 @@ abstract class IsolationCore {
         // a no: on the closed-core class isolates the flagship factory is an instance method of a final class,
         // and every site anchored on it was refused as overridable on the word of a stub (2026-09-17).
         // Only a plain class: enums and records are final implicitly, and the modifier on them is an error.
-        if (original.isFinal() && original.typeNature().isClass() && !original.isAbstract()) {
+        // ... and so does a class that nothing in the whole program extends, when the caller says which those are
+        // (ProgramHierarchy.classesNeverExtended): VISIBLE finality. The keyword is rare and the fact is common,
+        // and an isolate has lost the subclasses it would take to see it. A statement about the closed program
+        // the isolate was cut from, not about the original's text -- hence opt-in.
+        boolean neverExtended = classesNeverExtended.contains(original);
+        if ((original.isFinal() || neverExtended) && original.typeNature().isClass() && !original.isAbstract()) {
             stub.builder().addTypeModifier(runtime.typeModifierFinal());
         }
         // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
@@ -197,6 +202,9 @@ abstract class IsolationCore {
     void applyStubMemberAccess(MethodInfo.Builder builder) {
         if (stubsCrossPackageBoundaries()) builder.addMethodModifier(runtime.methodModifierPublic());
     }
+
+    /** Classes the whole program never extends; empty unless the caller supplies them. See applyStubTypeAccess. */
+    Set<TypeInfo> classesNeverExtended = Set.of();
 
     final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
     // keyed by (owner, method), NOT by method alone: one declared method can legitimately be stubbed on several
