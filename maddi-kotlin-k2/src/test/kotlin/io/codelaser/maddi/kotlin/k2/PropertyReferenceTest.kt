@@ -158,4 +158,59 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         assertEquals(listOf("9:36"), references(
                 type("RKt").methods().toList().single { it.name() == "use" }, getC), "`p.c`")
     }
+
+    /** An enum entry is a static field: each spelling of it, qualified, bare in a `when`, or imported, names it. */
+    @Test
+    fun anEnumEntryIsReferencedByItsField() {
+        types = KotlinScan(runtime, sourceSet).parse("e/E.kt", """
+            package e
+
+            import e.Level.HIGH
+
+            enum class Level {
+                /** Below [HIGH]. */
+                LOW,
+                HIGH
+            }
+
+            fun low() = Level.LOW
+            fun name(l: Level) = when (l) {
+                Level.LOW -> "low"
+                HIGH -> "high"
+            }
+            """.trimIndent() + "\n")
+        val level = type("Level")
+        val low = level.fields().single { it.name() == "LOW" }
+        val high = level.fields().single { it.name() == "HIGH" }
+        val facade = type("EKt")
+        fun method(name: String) = facade.methods().single { it.name() == name }
+        assertEquals("7:5", low.source().detailedSources().detail(low.name()).let { "${it.beginLine()}:${it.beginPos()}" })
+        assertEquals(listOf("11:19"), references(method("low"), low))
+        assertEquals(listOf("13:11"), references(method("name"), low), "a qualified `when` branch")
+        assertEquals(listOf("14:5"), references(method("name"), high), "an imported entry in a `when` branch")
+        assertEquals(listOf("3:16"), references(facade, high), "the import")
+        val link = low.javaDoc()?.tags()?.singleOrNull()
+        assertEquals(high, link?.resolvedReference(), "the entry's KDoc link `[HIGH]`")
+    }
+
+    /**
+     * The accessors carry kotlinc's JVM names, which a Java caller spells: `isEnabled()`/`setEnabled(v)` for a
+     * property named `isEnabled`, and what `@get:JvmName`/`@set:JvmName` say. A written getter too.
+     */
+    @Test
+    fun accessorsHaveTheirJvmNames() {
+        types = KotlinScan(runtime, sourceSet).parse("j/J.kt", """
+            package j
+
+            class Flags {
+                var isEnabled: Boolean = false
+                val isEmpty: Boolean get() = !isEnabled
+                @get:JvmName("visible") @set:JvmName("show")
+                var shown: Boolean = true
+                var issue: Int = 0
+            }
+            """.trimIndent() + "\n")
+        assertEquals(listOf("<init>", "isEnabled", "setEnabled", "isEmpty", "visible", "show", "getIssue", "setIssue"),
+                type("Flags").constructorAndMethodStream().toList().map { it.name() })
+    }
 }
