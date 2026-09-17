@@ -701,7 +701,11 @@ class KotlinScan(
                 // every Info has a source (the Java parsers give even a synthesized one noSource()): consumers such
                 // as the text index read it unguarded
                 .setSource(declarationSource(entry) { putPsi(runtime, field.name(), entry.nameIdentifier) })
-                .computeAccess().commit()
+                .computeAccess()
+            // a reference to the entry (`Level.LOW`, `LOW` in a `when`) is recorded against this field, and the
+            // entry's KDoc (whose links name project declarations) waits, as a property's, for every target to exist
+            references.target(entry, field)
+            commitOrDefer(field, entry) { field.builder().commit() }
             typeInfo.builder().addField(field)
         }
         EnumSynthetics(runtime, typeInfo, typeInfo.builder()).create()
