@@ -114,13 +114,36 @@ public class TestIsolateClass6FreshFactories {
             }
             """;
 
+    /** The other half of "can this factory be trusted": whether another body can run in its place. */
+    @Language("java")
+    private static final String MAKER = """
+            package p.q;
+            public final class Maker {
+                public Item make() { return new Item(); }
+            }
+            """;
+
+    @Language("java")
+    private static final String OPEN = """
+            package p.q;
+            public class Open {
+                public final Item sealedMake() { return new Item(); }
+                public Item openMake() { return new Item(); }
+            }
+            """;
+
     @Language("java")
     private static final String USE = """
             package a.b;
             import p.q.Item;
             import p.q.Items;
+            import p.q.Maker;
+            import p.q.Open;
             import p.q.Shape;
             public class Use {
+                public int made(Maker maker, Open open) {
+                    return maker.make().weight + open.sealedMake().weight + open.openMake().weight;
+                }
                 public int run(Items items, boolean b) {
                     Item a = Items.direct();
                     Item c = Items.filled();
@@ -142,7 +165,7 @@ public class TestIsolateClass6FreshFactories {
     @Test
     public void freshFactories() throws IOException {
         Map<String, String> tree = isolate(Map.of("p.q.Shape", SHAPE, "p.q.Item", ITEM, "p.q.Items", ITEMS,
-                "a.b.Use", USE), "a.b.Use");
+                "p.q.Maker", MAKER, "p.q.Open", OPEN, "a.b.Use", USE), "a.b.Use");
         String items = tree.get("p/q/Items.java");
         assertEquals("new Item()", returned(items, "direct"));
         assertEquals("new Item()", returned(items, "filled"));
@@ -158,6 +181,16 @@ public class TestIsolateClass6FreshFactories {
         String item = tree.get("p/q/Item.java");
         assertTrue(item.contains("Item(int weight)"), item);
         assertTrue(item.matches("(?s).*\\bItem\\(\\)\\s*\\{.*"), item);
+        // 'final' is what "no other body can run in its place" is decided from, so a stub TYPE keeps it.
+        // ⚠ A final METHOD does not, yet: the isolator copies inherited implementations onto sub-stubs, and a
+        // copy below a final declaration does not compile (see IsolationCore.ensureMethodInfo). Pinned here so
+        // that whoever adds it meets the reason first.
+        String maker = tree.get("p/q/Maker.java");
+        assertTrue(maker.contains("public final class Maker"), maker);
+        String open = tree.get("p/q/Open.java");
+        assertTrue(open.contains("public class Open"), open);
+        assertTrue(open.matches("(?s).*public Item sealedMake\\(\\).*"), open);
+        assertTrue(open.matches("(?s).*public Item openMake\\(\\).*"), open);
         assertCompiles(tree);
     }
 

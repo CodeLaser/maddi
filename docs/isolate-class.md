@@ -496,6 +496,15 @@ flagship fill type's factories alone 438 of them; the other ~176,000 non-void st
 control run with the rule switched off broke exactly the same trees, so it costs the compile ratchet nothing
 (2 / 1 / 9, unchanged since §9).
 
+**And `final` on a stub TYPE, same day, for the other half of the same question.** "Can another body run in
+place of this factory?" is answered from the declaration — static, private, final, or a member of a final
+class — and the stub had dropped the modifier: the corpus's flagship factory is an instance method of a final
+class, so constructing was not enough and the first demo run with the new bodies moved nothing (123 fill sites
+before and after). With the type's `final` reproduced the same host went to 142 sites and from 96 residual
+writers to 79. ⛔ A final METHOD is not reproduced: the isolator copies an inherited implementation onto the
+sub-stub that owes it, and a copy below a final declaration is "cannot override … overridden method is final"
+— tried, three trees broke (15 against 12), backed out. It needs the pass over the finished stub graph.
+
 ⚠ Two things that run taught, neither about the rule. The corpus was being **edited and rebuilt by another
 session** while it was parsed — class files rewritten mid-parse the first time, one source file the third —
 and one unit javac cannot read degrades attribution for the rest of its source set, which arrives here as

@@ -163,6 +163,16 @@ abstract class IsolationCore {
         if (original.isAbstract() && !original.isInterface() && !original.typeNature().isEnum()) {
             stub.builder().addTypeModifier(runtime.typeModifierAbstract());
         }
+        // A FINAL original stays final, for the mirror-image reason: the modifier costs nothing -- the verbatim
+        // text cannot extend a type the original could not extend either -- and it is a fact consumers of the
+        // isolate decide on. "Can another body run in place of this method?" is answered from the declaration
+        // (static, private, final, or a member of a final class), and a stub that drops 'final' turns a yes into
+        // a no: on the closed-core class isolates the flagship factory is an instance method of a final class,
+        // and every site anchored on it was refused as overridable on the word of a stub (2026-09-17).
+        // Only a plain class: enums and records are final implicitly, and the modifier on them is an error.
+        if (original.isFinal() && original.typeNature().isClass() && !original.isAbstract()) {
+            stub.builder().addTypeModifier(runtime.typeModifierFinal());
+        }
         // 'static' only when the original is: a nested stub has to be nameable without an enclosing instance,
         // but making an INNER class static breaks the one spelling that needs the instance --
         // 'outer.new Inner()' in the verbatim text is then "qualified new of static class" (5 class isolates).
@@ -606,6 +616,13 @@ abstract class IsolationCore {
             newMethod.builder().addMethodModifier(keepProtected
                     ? runtime.methodModifierProtected() : runtime.methodModifierPublic());
         }
+        // ⛔ NOT 'final', although the declaration says so and applyStubTypeAccess reproduces it on a TYPE. The
+        // isolator copies an inherited implementation onto the stub that owes it (declaredImplementation, for an
+        // interface the sub-stub implements), and a copy below a final declaration is "cannot override ...
+        // overridden method is final": tried 2026-09-17, three closed-core class isolates stopped compiling
+        // (a command base class with a final execute(), an assertion library's final varargs method). Doing it
+        // properly needs the pass over the finished stub graph that the throws clause also wants; a final
+        // CLASS has no sub-stubs, which is why the type-level modifier is safe where this one is not.
         newMethod.builder()
                 .setReturnType(newReturnType)
                 .setAccess(runtime.accessPackage())
