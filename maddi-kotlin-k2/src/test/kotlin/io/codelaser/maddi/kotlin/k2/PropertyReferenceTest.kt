@@ -51,6 +51,9 @@ class PropertyReferenceTest : KotlinScanTestBase() {
                 get() = field
                 set(v) { field = v }
         }
+        class T(val who: String) {
+            fun greet() = "hello ${'$'}who and ${'$'}{who.length}"
+        }
         """.trimIndent() + "\n"
 
     private lateinit var types: List<TypeInfo>
@@ -130,6 +133,18 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         val refs = hosts.flatMap { h -> references(h, value).map { "$h@$it" } }
         assertEquals(listOf<String>(), refs, "`field` is the keyword, not a spelling of `value`")
         assertNotNull(value.source().detailedSources().detail(value.name()), "its declaration is still recorded")
+    }
+
+    /** A string template's `${'$'}who` is a real reference: a rename that missed it would break the string. */
+    @Test
+    fun aStringTemplateNamesTheProperty() {
+        parse()
+        val t = type("T")
+        val who = t.fields().single { it.name() == "who" }
+        val greet = t.constructorAndMethodStream().toList().single { it.name() == "greet" }
+        // both the short form and the braced one, each the bare identifier and nothing around it, so the
+        // planner's "spelled as the plain name" length check passes and rewrites exactly the name
+        assertEquals(listOf("19:27", "19:37"), references(greet, who))
     }
 
     /** A property with no backing field: the getter carries the references, spelled as the property name. */
