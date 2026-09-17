@@ -73,6 +73,15 @@ internal fun DetailedSources.Builder.attachModifiers(runtime: Runtime, owner: Kt
     }
 }
 
+/**
+ * Record the position of [owner]'s `override` keyword, if it has one, under [DetailedSources.OVERRIDE]. It is a
+ * modifier in Kotlin where Java has an annotation, so there is no modifier object for [attachModifiers] to key it by.
+ */
+internal fun DetailedSources.Builder.attachOverride(runtime: Runtime, owner: KtModifierListOwner) {
+    val keyword = owner.modifierList?.getModifier(KtTokens.OVERRIDE_KEYWORD) ?: return
+    put(DetailedSources.OVERRIDE, sourceOf(runtime, keyword, "-"))
+}
+
 /** A Kotlin visibility keyword to its runtime type modifier (shared shape; per-element families differ). */
 private inline fun <T> KtModifierKeywordToken.visibility(pub: () -> T, priv: () -> T, prot: () -> T, internal: () -> T): T? =
     when (this) {

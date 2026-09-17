@@ -47,6 +47,7 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -327,5 +328,142 @@ class MemberTest : KotlinScanTestBase() {
             assertTrue(call is MethodCall, "$caller: $call")
             assertEquals(callee, (call as MethodCall).methodInfo().name())
         }
+    }
+
+    /**
+     * A `var` without a backing field has a setter too (#36): an interface's abstract one, and a computed one whose
+     * written `set(value) { … }` is converted. Only the getter used to be built, so an assignment to such a property
+     * had no target and a written setter's body was code nothing saw.
+     */
+    @Test
+    fun aVarWithoutABackingFieldHasASetter() {
+        val types = KotlinScan(runtime, sourceSet).parse("v/V.kt",
+            "package v\n" +
+                "interface I {\n" +
+                "    var v: Int\n" +
+                "    val r: Int\n" +
+                "}\n" +
+                "class C {\n" +
+                "    private var store = 0\n" +
+                "    var computed: Int\n" +
+                "        get() = store\n" +
+                "        set(value) { store = value + 1 }\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val i = all.single { it.simpleName() == "I" }
+        assertEquals(listOf("getR", "getV", "setV"), i.methods().map { it.name() }.sorted())
+        assertTrue(i.methods().single { it.name() == "setV" }.isAbstract, "an interface's var")
+        val setV = i.methods().single { it.name() == "setV" }
+        assertEquals(listOf("value"), setV.parameters().map { it.name() })
+        assertEquals(runtime.intParameterizedType(), setV.parameters().first().parameterizedType())
+
+        val c = all.single { it.simpleName() == "C" }
+        val setComputed = c.methods().single { it.name() == "setComputed" }
+        assertFalse(setComputed.isAbstract)
+        assertEquals(listOf("value"), setComputed.parameters().map { it.name() })
+        // the written body is converted: `store = value + 1`
+        val statement = setComputed.methodBody().statements().single()
+        assertTrue(statement is ExpressionAsStatement, statement.toString())
+        assertTrue((statement as ExpressionAsStatement).expression() is Assignment, statement.expression().toString())
+    }
+
+    /**
+     * Assigning to a property without a backing field is a call of its setter, as kotlinc compiles it. The read is
+     * a call of the getter, so the assignment used to have no target at all and became a placeholder (#36).
+     */
+    @Test
+    fun anAssignmentToAPropertyWithoutABackingFieldCallsItsSetter() {
+        val types = KotlinScan(runtime, sourceSet).parse("t/T.kt",
+            "package t\n" +
+                "class C {\n" +
+                "    private var store = 0\n" +
+                "    var computed: Int\n" +
+                "        get() = store\n" +
+                "        set(value) { store = value }\n" +
+                "}\n" +
+                "interface I { var v: Int }\n" +
+                "fun use(c: C, i: I) {\n" +
+                "    c.computed = 7\n" +
+                "    i.v = 8\n" +
+                "}\n")
+        val use = types.flatMap { it.recursiveSubTypeStream().toList() }
+            .flatMap { it.methods() }.single { it.name() == "use" }
+        val calls = use.methodBody().statements().map { (it as ExpressionAsStatement).expression() }
+        assertEquals(listOf("setComputed", "setV"), calls.map { (it as MethodCall).methodInfo().name() },
+            calls.toString())
+        assertEquals(listOf(1, 1), calls.map { (it as MethodCall).parameterExpressions().size })
+    }
+
+    /**
+     * A declaration without a body is an ABSTRACT method, as in the Java front ends; an interface member with one is
+     * a `default` method, which is what kotlinc compiles it to. Abstractness used to be the `abstract` modifier only,
+     * so `isAbstract()` was false for every Kotlin interface member and prep registered no implementations (#35).
+     */
+    @Test
+    fun anAbstractFunctionIsAnAbstractMethod() {
+        val types = KotlinScan(runtime, sourceSet).parse("z/Z.kt",
+            "package z\n" +
+                "interface I {\n" +
+                "    fun f(): Int\n" +                        // abstract
+                "    fun withBody(): Int = 1\n" +             // default
+                "    val v: Int\n" +                          // abstract getter
+                "}\n" +
+                "abstract class A {\n" +
+                "    abstract fun g(): Int\n" +               // abstract
+                "    fun h(): Int = 2\n" +                    // a plain method
+                "}\n" +
+                "class C : I {\n" +
+                "    override fun f(): Int = 3\n" +
+                "    override val v: Int = 4\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        fun method(type: String, name: String) =
+            all.single { it.simpleName() == type }.methods().single { it.name() == name }
+
+        assertTrue(method("I", "f").isAbstract, "an interface member without a body")
+        assertTrue(method("I", "getV").isAbstract, "the getter of an abstract property")
+        assertTrue(method("A", "g").isAbstract, "an abstract function of an abstract class")
+        assertTrue(method("I", "withBody").isDefault, "an interface member with a body")
+        assertFalse(method("A", "h").isAbstract, "a plain method")
+        assertFalse(method("C", "f").isAbstract, "an implementation")
+
+        // what prep reads to register an implementation: overrides(), filtered on isAbstract()
+        assertEquals(listOf(method("I", "f")), method("C", "f").overrides().toList())
+        assertTrue(method("C", "f").overrides().all { it.isAbstract })
+    }
+
+    /**
+     * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
+     * by: its position sits on the member's own source under [DetailedSources.OVERRIDE]. A rename that takes one
+     * member out of its override family has to remove it.
+     */
+    @Test
+    fun theOverrideKeywordHasAPosition() {
+        val types = KotlinScan(runtime, sourceSet).parse("y/Y.kt",
+            "package y\n" +                                    // 1
+                "interface I {\n" +                            // 2
+                "    fun f(): Int\n" +                         // 3
+                "    val v: Int\n" +                           // 4
+                "}\n" +                                        // 5
+                "class C : I {\n" +                            // 6
+                "    override fun f(): Int = 1\n" +            // 7, `override` at cols 5..12
+                "    override val v: Int = 2\n" +              // 8, `override` at cols 5..12
+                "    fun g(): Int = 3\n" +                     // 9, no override
+                "}\n")
+        val c = types.single { it.simpleName() == "C" }
+        val f = c.methods().single { it.name() == "f" }
+        val override = f.source().detailedSources().detail(DetailedSources.OVERRIDE)
+        assertNotNull(override)
+        assertEquals(7, override.beginLine())
+        assertEquals(5, override.beginPos())
+        assertEquals(12, override.endPos())
+
+        val v = c.fields().single { it.name() == "v" }
+        val propertyOverride = v.source().detailedSources().detail(DetailedSources.OVERRIDE)
+        assertNotNull(propertyOverride)
+        assertEquals(8, propertyOverride.beginLine())
+
+        val g = c.methods().single { it.name() == "g" }
+        assertNull(g.source().detailedSources().detail(DetailedSources.OVERRIDE))
     }
 }

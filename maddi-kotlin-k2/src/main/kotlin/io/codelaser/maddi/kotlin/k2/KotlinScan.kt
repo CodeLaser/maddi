@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiElement
 import io.codelaser.maddi.cst.api.element.CompilationUnit
 import io.codelaser.maddi.cst.api.element.DetailedSources
@@ -278,18 +280,21 @@ class KotlinScan(
         // returned CST reads it again (only the CompilationUnit URI still names it). Leaving it behind cost
         // us a whole test run — /tmp is a tmpfs with a hard inode cap, and one dir per parse() exhausted it.
         val srcRoot = Files.createTempDirectory("k2-src")
+        // disposed with the temporary sources: an undisposed session stays reachable (see KotlinProjectScan.parse)
+        val disposable = Disposer.newDisposable("maddi KotlinScan")
         try {
             (filesByName + javaFilesByName).forEach { (name, content) ->
                 val file = srcRoot.resolve(name)
                 Files.createDirectories(file.parent ?: srcRoot)
                 Files.writeString(file, content)
             }
-            val session = buildSession(srcRoot).also { it.registerKDocResolution() }
+            val session = buildSession(disposable, srcRoot).also { it.registerKDocResolution() }
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
             observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
             return types
         } finally {
+            Disposer.dispose(disposable)
             srcRoot.toFile().deleteRecursively()
         }
     }
@@ -298,7 +303,8 @@ class KotlinScan(
      * Build a standalone session over [srcRoot], with the running JVM's JDK and this process's classpath
      * (kotlin-stdlib, etc.) as library dependencies, so library types resolve to real symbols.
      */
-    private fun buildSession(srcRoot: java.nio.file.Path) = buildStandaloneAnalysisAPISession {
+    private fun buildSession(disposable: Disposable, srcRoot: java.nio.file.Path) =
+        buildStandaloneAnalysisAPISession(disposable) {
         buildKtModuleProvider {
             val jvm = JvmPlatforms.defaultJvmPlatform
             platform = jvm
@@ -966,6 +972,8 @@ class KotlinScan(
         // a getter with its real body — no field, no getter/setter field tagging.
         if ((property as? KaKotlinPropertySymbol)?.hasBackingField == false) {
             owner.builder().addMethod(buildComputedGetter(owner, property, type, static))
+            // a `var` has a setter too, written or abstract (#36)
+            if (!isVal) owner.builder().addMethod(buildComputedSetter(owner, property, type, static))
             return
         }
 
@@ -980,6 +988,7 @@ class KotlinScan(
         fieldBuilder.setSource(declarationSource(property.psi) {
             putPsi(runtime, field.name(), (property.psi as? KtNamedDeclaration)?.nameIdentifier)
             (property.psi as? KtModifierListOwner)?.let { attachModifiers(runtime, it) { t -> fieldModifierFor(t) } }
+            (property.psi as? KtModifierListOwner)?.let { attachOverride(runtime, it) }
             putTypeReference(runtime, type, (property.psi as? KtCallableDeclaration)?.typeReference)
         })
         fieldBuilder.computeAccess()
@@ -1015,13 +1024,20 @@ class KotlinScan(
      * parameter named as written. Not tagged as a getter/setter of the field: the analyzer's normalisation of
      * `getX() { return x; }` to a field read would hide what the body does. What its text names is recorded on it.
      */
-    private fun KaSession.buildCustomAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
+    private fun KaSession.buildCustomAccessor(owner: TypeInfo, field: FieldInfo?, type: ParameterizedType,
                                               property: KaPropertySymbol, static: Boolean,
                                               accessor: KtPropertyAccessor): MethodInfo {
         val setter = accessor.isSetter
-        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get", field.name()), methodType(static))
+        // [field] is null for a property that has none (a computed `var`'s written setter, #36): the accessor is
+        // named after the property, and `field` is not in scope -- Kotlin forbids it where there is no backing field
+        val method = runtime.newMethod(owner, accessorName(if (setter) "set" else "get",
+                field?.name() ?: property.name.asString()), methodType(static, property, owner))
         val builder = method.builder()
         builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
+        // an extension property's accessor is static, with the receiver first (the JVM model), as the getter has it
+        if (field == null) property.receiverParameter?.let {
+            builder.addParameter("\$receiver", mapType(it.returnType, owner))
+        }
         if (setter) {
             val psi = accessor.parameter
             parameter(builder.addParameter(psi?.name ?: "value", type), psi, type)
@@ -1029,7 +1045,8 @@ class KotlinScan(
         addMethodModifiers(builder, property)
         builder.commitParameters().computeAccess()
         builder.setSource(declarationSource(accessor) {})
-        val scope = mutableMapOf<String, Variable>("field" to runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+        val scope = mutableMapOf<String, Variable>()
+        field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
         val body = runtime.newBlockBuilder()
         val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
         if (expressionBody != null) {
@@ -1253,8 +1270,20 @@ class KotlinScan(
     private fun thisRef(owner: TypeInfo, static: Boolean): Expression =
         if (static) runtime.nullConstant() else fieldAccessScope(owner, false)
 
-    private fun methodType(static: Boolean) =
-        if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+    /**
+     * The method type, mirroring java-openjdk's `FlagHelper.methodType`: static first, then a declaration without a
+     * body (Kotlin's `abstract` modality, which an interface member without a body has), then a member of an
+     * interface that does have one -- what Java calls a `default` method, and what kotlinc compiles it to.
+     *
+     * Abstractness used to survive only as the `abstract` MODIFIER, so `MethodInfo.isAbstract()` was false for every
+     * Kotlin interface member, and prep registered no implementation for any of them (#35).
+     */
+    private fun methodType(static: Boolean, symbol: KaDeclarationSymbol? = null, owner: TypeInfo? = null) = when {
+        static -> runtime.methodTypeStaticMethod()
+        symbol?.modality == KaSymbolModality.ABSTRACT -> runtime.methodTypeAbstractMethod()
+        owner?.isInterface == true -> runtime.methodTypeDefaultMethod()
+        else -> runtime.methodTypeMethod()
+    }
 
     /** Scope for a backing-field access: `this` for an instance member, the owning type for a static one. */
     private fun fieldAccessScope(owner: TypeInfo, static: Boolean): Expression =
@@ -1270,7 +1299,8 @@ class KotlinScan(
     /** A computed property's getter: its real (custom) body, no field-access tagging. */
     private fun KaSession.buildComputedGetter(owner: TypeInfo, property: KaPropertySymbol,
                                               type: ParameterizedType, static: Boolean): MethodInfo {
-        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()), methodType(static))
+        val getter = runtime.newMethod(owner, accessorName("get", property.name.asString()),
+                methodType(static, property, owner))
         getter.builder().setReturnType(type)
         // an extension property (`val Int.doubled get() = this * 2`) becomes a static getter whose first
         // parameter is the `$receiver` -- so `this` in the body resolves to it (the JVM model)
@@ -1292,6 +1322,32 @@ class KotlinScan(
         references.target(property.psi, getter)
         commitOrDefer(getter, property.psi) { getter.builder().commit() }
         return getter
+    }
+
+    /**
+     * The setter of a `var` that has no backing field (#36): a computed one, whose written `set(value) { … }` is
+     * converted as any accessor body is, and an abstract one -- an interface's `var v: Int`, where the class that
+     * implements it overrides this declaration. Without it, an assignment to such a property had no target, and a
+     * written setter's body was code nothing saw.
+     */
+    private fun KaSession.buildComputedSetter(owner: TypeInfo, property: KaPropertySymbol,
+                                              type: ParameterizedType, static: Boolean): MethodInfo {
+        val accessor = (property.psi as? KtProperty)?.setter
+        if (accessor != null && accessor.hasBody()) {
+            return buildCustomAccessor(owner, null, type, property, static, accessor)
+        }
+        val setter = runtime.newMethod(owner, accessorName("set", property.name.asString()),
+                methodType(static, property, owner))
+        val builder = setter.builder()
+        builder.setReturnType(runtime.voidParameterizedType())
+        property.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        parameter(builder.addParameter(accessor?.parameter?.name ?: "value", type), accessor?.parameter, type)
+        addMethodModifiers(builder, property)
+        builder.commitParameters().computeAccess()
+        builder.setSource(declarationSource(accessor) {})
+        builder.setMethodBody(runtime.emptyBlock())
+        commitOrDefer(setter, accessor) { setter.builder().commit() }
+        return setter
     }
 
     private fun KaSession.buildGetter(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
@@ -1414,7 +1470,8 @@ class KotlinScan(
      */
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                  static: Boolean = false, forwarder: Boolean = false): MethodInfo {
-        val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
+        // a `by`-delegation forwarder is built from the interface's ABSTRACT symbol but has a body of its own
+        val methodType = methodType(static, if (forwarder) null else function, owner)
         // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
         val jvmName = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }
         val method = runtime.newMethod(owner, jvmName ?: function.name.asString(), methodType)
@@ -1453,6 +1510,7 @@ class KotlinScan(
             .setSource(declarationSource(psi) {
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
                 psi?.let { attachModifiers(runtime, it) { t -> methodModifierFor(t) } }
+                psi?.let { attachOverride(runtime, it) }
                 putTypeReference(runtime, returnType, psi?.typeReference)
             })
         addMethodModifiers(builder, function)

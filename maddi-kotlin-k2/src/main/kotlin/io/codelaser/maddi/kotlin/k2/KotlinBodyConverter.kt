@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.NullConstant
 import io.codelaser.maddi.cst.api.expression.Lambda
+import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.expression.VariableExpression
 import io.codelaser.maddi.cst.api.info.FieldInfo
 import io.codelaser.maddi.cst.api.info.MethodInfo
@@ -277,8 +278,14 @@ internal class KotlinBodyConverter(
                     if (combined == null) placeholder("k2-augmented-index:${statement.operationToken}", statement)
                     else convertIndexedSet(left, combined, method, locals))
             } else {
-                val target = left?.let { convertExpression(it, method, locals) } as? VariableExpression
-                if (target == null) runtime.newExpressionAsStatement(placeholder("k2-assign-target", statement))
+                val leftExpression = left?.let { convertExpression(it, method, locals) }
+                val target = leftExpression as? VariableExpression
+                // a property with no backing field reads as a call of its getter: assigning to it is a call of its
+                // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
+                val setterCall = if (target != null || statement.operationToken != KtTokens.EQ) null
+                else (leftExpression as? MethodCall)?.let { setterCall(it, value) }
+                if (target == null) runtime.newExpressionAsStatement(
+                    setterCall ?: placeholder("k2-assign-target", statement))
                 else {
                     val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
                     augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
@@ -537,6 +544,26 @@ internal class KotlinBodyConverter(
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
+    /**
+     * The setter call that [getterCall] -- the read of a property without a backing field -- becomes when it is
+     * assigned to: the same receiver, the sibling `setX` of its `getX`, and the assigned [value] as the argument.
+     * Null when there is no such setter, which leaves the caller its placeholder.
+     */
+    private fun setterCall(getterCall: MethodCall, value: Expression): MethodCall? {
+        val getter = getterCall.methodInfo()
+        if (!getter.name().startsWith("get")) return null
+        val setterName = "set" + getter.name().substring(3)
+        val setter = getter.typeInfo().methods().singleOrNull {
+            it.name() == setterName && it.parameters().size == getter.parameters().size + 1
+        } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(getterCall.`object`()).setObjectIsImplicit(getterCall.objectIsImplicit())
+            .setMethodInfo(setter)
+            .setParameterExpressions(getterCall.parameterExpressions() + value)
+            .setConcreteReturnType(runtime.voidParameterizedType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
+    }
+
     private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
         token == KtTokens.EQ || augmentedOperator(token) != null
 
@@ -691,9 +718,12 @@ internal class KotlinBodyConverter(
             }
             else -> runtime.newEmptyExpression("k2-unsupported-selector")
         }
-        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token
+        // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token.
+        // The receiver stands in the test as well as in the call, and the CST is a tree: it is converted a second
+        // time for the test rather than shared, as the elvis operand above (#32).
         return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
-            .setCondition(runtime.newEquals(receiver, runtime.nullConstant()))
+            .setCondition(runtime.newEquals(convertExpression(expression.receiverExpression, method, locals),
+                    runtime.nullConstant()))
             .setIfTrue(runtime.nullConstant()).setIfFalse(selectorResult)
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
             .build(runtime)
@@ -1305,10 +1335,14 @@ internal class KotlinBodyConverter(
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
         if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
-        // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token
+        // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token.
+        // The left operand stands in the lowering TWICE, and the CST is a TREE: the same instance in both places
+        // makes every consumer that walks it visit its statements twice, and prep then throws "Trying to overwrite
+        // a value for property variableData" -- 7 of the 8 methods it isolated on detekt (#32). So it is converted
+        // a second time, which is also what the lowering says: `a` is written in the test and in the branch.
         if (expression.operationToken == KtTokens.ELVIS) return runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(left, runtime.nullConstant()))
-            .setIfTrue(right).setIfFalse(left)
+            .setIfTrue(right).setIfFalse(expression.left!!.let { convertExpression(it, method, locals) })
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_COALESCING, expression.operationReference)))
             .build(runtime)
         // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)

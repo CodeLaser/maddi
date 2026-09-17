@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
+import io.codelaser.maddi.cst.impl.element.SourceImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.List;
@@ -58,7 +59,10 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     }
 
     protected StatementImpl() {
-        this(List.of(), null, List.of(), 1, null);
+        // NO_SOURCE, not null: Element.source() is @NotNull, and a consumer reads it without asking. Every
+        // statement built through a convenience constructor -- the Kotlin front end's delegated-property setter,
+        // say -- used to carry null here, and prep died on `statement.source().index()` (#32).
+        this(List.of(), SourceImpl.NO_SOURCE, List.of(), 1, null);
     }
 
     protected OutputBuilder outputBuilder(Qualification qualification) {
