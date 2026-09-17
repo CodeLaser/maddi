@@ -403,8 +403,9 @@ Four things this needed that were not visible before:
   call never binds to one: it passes every argument, to the `$default` (`KotlinBodyConverter.resolveCallee`).
 
 Test: `TestMixedSourceSet` (maddi-inspection-mixed). Corpus: javalin — 0 Java types before; 11 of 156 Java
-compilation units failed with the overloads stubbed only, 3 (all in the test set) now, on the next tail: (1) Kotlin
-use-site variance (`out T`, `in T`, `*`) is not mapped to wildcards, so
-javac sees `Class<ContextPlugin<Object, T>>` where kotlinc emits `Class<? extends ContextPlugin<?, T>>`; (2) an
+compilation units failed with the overloads stubbed only, 3 once they were members, and 1 since use-site projections are wildcards (`Class<*>` is `Class<?>`, `out T`
+`? extends T`, `in T` `? super T`; javac read `Class<*>` as `Class<Object>`) and `T & Any` is `T` (it was `Object`).
+The next tail: (1) `kotlin.ByteArray` and the other primitive arrays are still shell types in the CST (see
+`JavaStubGenerator.KOTLIN_PRIMITIVE_ARRAYS`), so a Java call to `Context.result(byte[])` finds no member; (2) an
 `object`'s JVM statics beyond its `@JvmStatic` functions: `const val`, a `@JvmStatic` property's accessors, and the
 overloads of a `@JvmStatic @JvmOverloads` function.

@@ -56,10 +56,13 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaDefinitelyNotNullType
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
+import org.jetbrains.kotlin.analysis.api.types.KaStarTypeProjection
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
+import org.jetbrains.kotlin.analysis.api.types.KaTypeArgumentWithVariance
 import org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.name.ClassId
@@ -152,6 +155,9 @@ internal class KotlinTypeMapper(
         // a Java platform type (`PrintStream!`, `String!`) is a flexible type (T..T?); map its non-null lower
         // bound, so Java library member types (e.g. the type of `System.out`) resolve instead of degrading to Object
         if (type is KaFlexibleType) return mapType(type.lowerBound, owner, method)
+        // `T & Any`, a definitely-non-null type parameter, is `T` on the JVM (javalin's `Validator<T>.get(): T & Any`);
+        // falling through to Object, Java saw `ctx.queryParamAsClass("from", Instant.class).get()` return an Object
+        if (type is KaDefinitelyNotNullType) return mapType(type.original, owner, method)
         val base = when (type) {
             is KaClassType -> mapClassType(type, owner, method)
             is KaTypeParameterType -> {
@@ -280,12 +286,22 @@ internal class KotlinTypeMapper(
         return parameterize(typeInfo, type, owner, method)
     }
 
-    /** Build the parameterized type for [typeInfo], converting and boxing the use-site type arguments. */
+    /**
+     * Build the parameterized type for [typeInfo], converting and boxing the use-site type arguments. A use-site
+     * projection is the wildcard kotlinc writes into the JVM signature: `*` is `?`, `out T` is `? extends T`, `in T` is
+     * `? super T`. As `Object` and `T`, javac read `Class<*>` as `Class<Object>`, which no `Instant.class` converts to.
+     */
     private fun KaSession.parameterize(typeInfo: TypeInfo, type: KaClassType, owner: TypeInfo,
                                        method: MethodInfo? = null): ParameterizedType {
         val typeArguments = type.typeArguments.map { projection ->
-            val arg = projection.type?.let { mapType(it, owner, method) } ?: runtime.objectParameterizedType() // star
-            if (arg.isPrimitiveExcludingVoid) arg.ensureBoxed(runtime) else arg // List<Int> -> List<Integer>
+            if (projection is KaStarTypeProjection) return@map runtime.parameterizedTypeWildcard()
+            val mapped = projection.type?.let { mapType(it, owner, method) } ?: runtime.objectParameterizedType()
+            val arg = if (mapped.isPrimitiveExcludingVoid) mapped.ensureBoxed(runtime) else mapped // List<Int> -> List<Integer>
+            when ((projection as? KaTypeArgumentWithVariance)?.variance) {
+                KotlinVariance.OUT_VARIANCE -> arg.withWildcard(runtime.wildcardExtends())
+                KotlinVariance.IN_VARIANCE -> arg.withWildcard(runtime.wildcardSuper())
+                else -> arg
+            }
         }
         return runtime.newParameterizedType(typeInfo, typeArguments)
     }

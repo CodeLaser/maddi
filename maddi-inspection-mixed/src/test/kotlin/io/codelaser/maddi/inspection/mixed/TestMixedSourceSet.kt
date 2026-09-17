@@ -111,6 +111,12 @@ class TestMixedSourceSet {
         class Settings(val level: Int = 1, val name: String = "x") {
             @JvmOverloads
             fun greet(who: String, times: Int = 1, loud: Boolean = false): String = who.repeat(times) + loud
+
+            // use-site projections are wildcards on the JVM: Java passes an Integer.class and an ArrayList<Object>
+            fun accept(type: Class<*>, sink: MutableList<in String>, source: List<out Number>): Int = source.size
+
+            // `T & Any` is `T`: Java's `Integer i = settings.first(Integer.class)`
+            fun <T> first(type: Class<T>): T & Any = type.getDeclaredConstructor().newInstance()!!
         }
         """.trimIndent()
 
@@ -120,7 +126,15 @@ class TestMixedSourceSet {
 
         public class User {
             public String use() {
-                return new Settings().greet("a") + new Settings().greet("b", 2);
+                java.util.List<Object> sink = new java.util.ArrayList<>();
+                java.util.List<Integer> source = java.util.List.of(1);
+                return new Settings().greet("a") + new Settings().greet("b", 2)
+                    + new Settings().accept(Integer.class, sink, source) + first();
+            }
+
+            private static Integer first() {
+                Integer i = new Settings().first(Integer.class);
+                return i;
             }
         }
         """.trimIndent()
@@ -185,9 +199,15 @@ class TestMixedSourceSet {
             if (e is ConstructorCall) constructed += e.constructor()
             true
         }
-        assertEquals(listOf(noArgs, noArgs), constructed)
-        val greets = calls(use)
+        assertEquals(listOf(noArgs, noArgs, noArgs), constructed.filter { it.typeInfo() === settings })
+        val greets = calls(use).filter { it.name() == "greet" }
         assertEquals(listOf(1, 2), greets.map { it.parameters().size })
+        val accept = settings.findUniqueMethod("accept", 3)
+        assertTrue(calls(use).any { it === accept })
+        assertEquals(listOf("?", "? super String", "? extends Number"),
+            accept.parameters().map { it.parameterizedType().parameters().single().let { a ->
+                if (a.isUnboundWildcard) "?" else (if (a.wildcard().isSuper) "? super " else "? extends ") + a.typeInfo().simpleName()
+            } })
         greets.forEach { greet ->
             assertTrue(greet.isSynthetic && greet.typeInfo() === settings, greet.fullyQualifiedName())
             assertEquals(listOf("greet\$default"), calls(greet).map { it.name() })
