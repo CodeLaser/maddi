@@ -499,6 +499,51 @@ class MemberTest : KotlinScanTestBase() {
     }
 
     /**
+     * An `object :` expression declares an override wherever it sits, and the rename censuses have to find it: in a
+     * function body, in a lambda, in a lambda passed to a Java method or constructor, and in the lambda of a SAM
+     * constructor (`Runnable { … }`). The last was dropped whole -- the call resolved to a
+     * `KaSamConstructorSymbol`, which nothing handled, so the placeholder swallowed the lambda and everything
+     * declared in it (KotlinBodyConverter.convertCall).
+     */
+    @Test
+    fun anOverrideInAnObjectLiteralInsideALambda() {
+        val types = KotlinScan(runtime, sourceSet).parse("w/W.kt",
+            "package w\n" +
+                "interface I { fun f(): Int }\n" +
+                "fun runIt(block: () -> Unit) { block() }\n" +
+                "class C {\n" +
+                "    fun direct(): I = object : I { override fun f(): Int = 1 }\n" +
+                "    fun inLambda() { runIt { use(object : I { override fun f(): Int = 2 }) } }\n" +
+                "    fun inSamLambda(): Runnable = Runnable { use(object : I { override fun f(): Int = 3 }) }\n" +
+                "    fun inJavaSamArgument(): Thread = Thread { use(object : I { override fun f(): Int = 4 }) }\n" +
+                "    fun inLambdaLocal(): Thread = Thread { val x = object : I { override fun f(): Int = 5 }; use(x) }\n" +
+                "    fun use(i: I) { i.f() }\n" +
+                "}\n")
+        val all = types.flatMap { it.recursiveSubTypeStream().toList() }
+        val iF = all.single { it.simpleName() == "I" }.methods().single { it.name() == "f" }
+        // the anonymous types are not subtypes: they are reached through the bodies that construct them
+        val anonymous = mutableSetOf<io.codelaser.maddi.cst.api.info.TypeInfo>()
+        fun walk(methods: List<io.codelaser.maddi.cst.api.info.MethodInfo>) {
+            methods.forEach { m ->
+                runCatching { m.methodBody() }.getOrNull()?.visit { e ->
+                    val found = when (e) {
+                        is io.codelaser.maddi.cst.api.expression.ConstructorCall -> e.anonymousClass()
+                        is io.codelaser.maddi.cst.api.expression.Lambda -> e.methodInfo().typeInfo()
+                        else -> null
+                    }
+                    if (found != null && anonymous.add(found)) walk(found.methods())
+                    true
+                }
+            }
+        }
+        walk(all.flatMap { it.methods() })
+        val overrides = (all + anonymous).flatMap { it.methods() }
+            .filter { it.name() == "f" && it.overrides().contains(iF) }
+        assertEquals(5, overrides.size,
+            "each object literal's f() overrides I.f; anonymous types found: " + anonymous.map { it.simpleName() })
+    }
+
+    /**
      * Kotlin's `override` is a modifier, where Java has an annotation, so the CST has no modifier object to key it
      * by: its position sits on the member's own source under [DetailedSources.OVERRIDE]. A rename that takes one
      * member out of its override family has to remove it.

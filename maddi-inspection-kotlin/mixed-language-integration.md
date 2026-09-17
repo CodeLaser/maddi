@@ -416,3 +416,18 @@ CST, made static only in the stubs by a hint for its functions; Java's `Header.A
 in the CST now (`KotlinScan.isJvmStatic`): Kotlin calls them on the type, and a static function of an object reaches
 the object's other members through `INSTANCE` (`KotlinBodyConverter.self`), as kotlinc compiles it. javalin: no javac
 error, no dropped unit, no prep error.
+
+Five more came out of the rename censuses on javalin (jfocus `TestKotlinRenameJavalin`), and each is a case a
+Kotlin-only corpus cannot have:
+- **A `Type.method(args)` call on a Java static** (javalin's `TestUtil.test(app) { … }`) did not resolve: the
+  receiver is a type, not a value, so it became a placeholder, and so did the call -- which swallowed its arguments,
+  a lambda and every declaration inside it included (`KotlinBodyConverter.staticCall`).
+- **A SAM constructor** (`Runnable { … }`) was dropped the same way, expression and all; it is the lambda, carrying
+  the interface it names rather than a Kotlin function type.
+- **A library method's checked exceptions** are read from the class file's PSI (a Kotlin symbol has no `throws`):
+  without them a stub's `super(...)` into a bytecode parent does not compile.
+- **An accessor is not synthesized when the type writes a function with its JVM signature** -- name, parameters AND
+  return type. A private `var` has no accessors on the JVM, so javalin's written `setRouteRoles(Set<RouteRole>)` and
+  the synthesized setter were two CST methods of one signature (an assertion in `MethodMapImpl`).
+- **The mixed inspector takes parse observers** (`MixedProjectInspector.parse(config, observers)`), so a mixed
+  project can be compared against K2's own index, as a Kotlin-only one already could.

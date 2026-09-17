@@ -811,6 +811,7 @@ class KotlinScan(
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // properties (+ enum entry fields) before methods, so a method body can reference them
         val isObject = classSymbol.classKind == KaClassKind.OBJECT
+        recordWrittenSignatures(typeInfo, classSymbol)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
@@ -937,6 +938,7 @@ class KotlinScan(
         runsInitOf[companion] = constructor
         commitOrDefer(constructor, null) { constructor.builder().commit() }
 
+        recordWrittenSignatures(companion, companionSymbol)
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(companion, property) }
@@ -1184,15 +1186,25 @@ class KotlinScan(
         }
         // a bytecode parent is loaded with its members; a source parent (Kotlin, or Java not yet parsed) throws nothing
         // javac would ask about
-        val thrown = if (!isSuper) emptyList() else owner.parentClass()?.typeInfo()
+        val parentConstructors = if (!isSuper) emptyList() else owner.parentClass()?.typeInfo()
             ?.takeIf { it.compilationUnit().externalLibrary() }
             ?.let { parent -> runCatching { parent.constructors() }.getOrDefault(emptyList()) }
-            ?.firstOrNull { c ->
-                c.parameters().size == parameterTypes.size && c.parameters().zip(parameterTypes).all { (p, t) ->
-                    t == null || p.parameterizedType().typeInfo() == t.typeInfo()
-                }
-            }
-            ?.let { runCatching { it.exceptionTypes() }.getOrDefault(emptyList()) } ?: emptyList()
+            ?.filter { it.parameters().size == parameterTypes.size } ?: emptyList()
+        // the one whose parameter types match; failing that -- a nested or generic parameter type can map to
+        // another instance than the one the parent carries -- what EVERY parent constructor of that arity throws.
+        // Intersecting, never adding: a `throws` the real constructor does not have would force a Java caller of
+        // this Kotlin constructor to catch what it cannot throw (javalin's `LeveledBrotli4jStream`, whose parent
+        // `BrotliOutputStream(OutputStream, Encoder.Parameters)` throws IOException).
+        val matched = parentConstructors.firstOrNull { c ->
+            c.parameters().zip(parameterTypes).all { (p, t) -> t == null || p.parameterizedType().typeInfo() == t.typeInfo() }
+        }
+        val exceptions = { c: MethodInfo -> runCatching { c.exceptionTypes() }.getOrDefault(emptyList()) }
+        val thrown = when {
+            matched != null -> exceptions(matched)
+            parentConstructors.isEmpty() -> emptyList()
+            else -> parentConstructors.map { exceptions(it).toSet() }
+                .reduce { a, b -> a.intersect(b) }.toList()
+        }
         delegationOf[constructor] = ConstructorDelegation(isSuper, parameterTypes, thrown)
     }
 
@@ -1311,6 +1323,42 @@ class KotlinScan(
      * `@JvmStatic` property with its accessors. So are the object's `@JvmStatic` functions. The rest of an object's
      * members belong to its `INSTANCE`.
      */
+    /**
+     * The JVM signatures of the functions a type writes, by type: an accessor maddi would synthesize for one of its
+     * properties is not synthesized when the type declares that signature itself. kotlinc gives a PRIVATE property no
+     * accessors at all, so javalin's `private var routeRoles` plus its written `fun setRouteRoles(Set<RouteRole>)` are
+     * one JVM method, and minting the setter too put two methods of one signature in the type (an assertion in
+     * MethodMapImpl, and the stub had to dedupe them).
+     */
+    private val writtenSignatures = java.util.IdentityHashMap<TypeInfo, Set<String>>()
+
+    private fun KaSession.recordWrittenSignatures(owner: TypeInfo, classSymbol: KaNamedClassSymbol) {
+        writtenSignatures[owner] = classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { function ->
+                val name = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) } ?: function.name.asString()
+                signature(name, function.valueParameters.map { mapType(it.returnType, owner) },
+                    mapType(function.returnType, owner))
+            }.toSet()
+    }
+
+    /**
+     * A JVM signature: name, parameter types, AND return type -- the JVM keys a method by all three, and Kotlin uses
+     * that. detekt's `YML` has `open val indent: Int` next to a `private fun getIndent(): String`, two methods
+     * (MemberTest.anAccessorOverridesTheAccessorNotAFunctionOfTheSameJvmName); javalin's written
+     * `setRouteRoles(Set<RouteRole>)` returns Unit, exactly as the setter maddi would synthesize.
+     */
+    private fun signature(name: String, parameterTypes: List<ParameterizedType>, returnType: ParameterizedType): String =
+        name + parameterTypes.joinToString(",", "(", ")") { erasedName(it) } + ":" + erasedName(returnType)
+
+    private fun erasedName(pt: ParameterizedType): String =
+        (pt.typeInfo()?.fullyQualifiedName() ?: pt.typeParameter()?.simpleName() ?: "?") + "[]".repeat(pt.arrays())
+
+    /** Whether [owner] writes a function with this accessor's JVM signature ([writtenSignatures]). */
+    private fun isWritten(owner: TypeInfo, name: String, parameterTypes: List<ParameterizedType>,
+                          returnType: ParameterizedType): Boolean =
+        writtenSignatures[owner]?.contains(signature(name, parameterTypes, returnType)) == true
+
     private fun isJvmStatic(property: KaPropertySymbol): Boolean =
         (property as? KaKotlinPropertySymbol)?.isConst == true
                 || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
@@ -1384,14 +1432,18 @@ class KotlinScan(
         // kotlinc compiles it into the accessor, even for a private property. Only a default one is synthesized.
         val customGetter = (property.psi as? KtProperty)?.getter?.takeIf { it.hasBody() }
         val customSetter = (property.psi as? KtProperty)?.setter?.takeIf { it.hasBody() }
-        if (!isConst && customGetter != null) {
+        // ... nor one whose JVM signature the type writes itself (see writtenSignatures)
+        val hasGetter = !isConst && !isWritten(owner, accessorName(property, false), listOf(), type)
+        val hasSetter = !isConst && !isVal
+                && !isWritten(owner, accessorName(property, true), listOf(type), runtime.voidParameterizedType())
+        if (hasGetter && customGetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customGetter))
-        } else if (!isConst && !isPrivate) {
+        } else if (hasGetter && !isPrivate) {
             owner.builder().addMethod(buildGetter(owner, field, type, property, static))
         }
-        if (!isConst && !isVal && customSetter != null) {
+        if (hasSetter && customSetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
-        } else if (!isConst && !isVal) {
+        } else if (hasSetter) {
             owner.builder().addMethod(buildSetter(owner, field, type, property, static))
         }
     }

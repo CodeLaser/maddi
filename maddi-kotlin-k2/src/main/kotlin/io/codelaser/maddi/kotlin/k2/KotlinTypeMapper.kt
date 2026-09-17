@@ -44,8 +44,10 @@ import org.jetbrains.kotlin.analysis.api.components.packageScope
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import com.intellij.psi.PsiMethod
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -543,6 +545,7 @@ internal class KotlinTypeMapper(
             .setReturnType(mapType(function.returnType, owner))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
+        declaredExceptions(function).forEach { builder.addExceptionType(it) }
         addMethodModifiers(builder, function)
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.commitParameters().computeAccess().commit()
@@ -601,9 +604,27 @@ internal class KotlinTypeMapper(
         builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
+        declaredExceptions(ctor).forEach { builder.addExceptionType(it) }
         visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
         builder.commitParameters().computeAccess().commit()
         return constructor
+    }
+
+    /**
+     * The checked exceptions a library method or constructor declares. A Kotlin symbol has no `throws` of its own --
+     * Kotlin has no checked exceptions -- so they come from the PSI of the class file, which is what javac reads too.
+     * Without them a Java stub calling such a constructor through `super(...)` does not compile: javalin's
+     * `LeveledBrotli4jStream` extends brotli4j's `BrotliOutputStream(OutputStream, Encoder.Parameters)`, which throws
+     * IOException. (The Java front end reads them from the symbol; a type this front end loads had none.)
+     */
+    private fun KaSession.declaredExceptions(symbol: KaFunctionSymbol): List<ParameterizedType> {
+        val throwsList = (symbol.psi as? PsiMethod)?.throwsList ?: return listOf()
+        return throwsList.referencedTypes.mapNotNull { type ->
+            val fqn = type.resolve()?.qualifiedName ?: return@mapNotNull null
+            // by name only: an exception type is named in a `throws`, never called through, and loading it here
+            // would decide the members of whatever it reaches first (see [shells])
+            (infoByFqn.getType(fqn, librarySourceSet) ?: symbolScanner.getOrLoad(fqn, 0))?.asParameterizedType()
+        }
     }
 
     /** A Java static field (`java.lang.System.out`, `Integer.MAX_VALUE`) -> a `public static` field on [owner]. */

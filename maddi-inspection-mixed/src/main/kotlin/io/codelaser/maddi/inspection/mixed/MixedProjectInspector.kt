@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.inspection.api.integration.JavaInspector
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.kotlin.JavaStubGenerator
+import io.codelaser.maddi.kotlin.k2.KotlinParseObserver
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
 import io.codelaser.maddi.java.openjdk.SourceSetInterleave
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
@@ -84,10 +85,16 @@ class MixedProjectInspector {
         val kotlinTypes: List<TypeInfo> get() = kotlinBySourceSet.values.flatten()
     }
 
-    fun parse(config: InputConfiguration): Result {
+    /**
+     * @param observers read the Kotlin parse through its K2 session before it closes (e.g. a
+     * [io.codelaser.maddi.kotlin.k2.KotlinReferenceIndex], the oracle a rename census compares against). As
+     * `KotlinInspector.parseFromConfiguration(observers)`, which a mixed project cannot use.
+     */
+    @JvmOverloads
+    fun parse(config: InputConfiguration, observers: List<KotlinParseObserver> = emptyList()): Result {
         val sourceSets = config.sourceSets().filter { !it.externalLibrary() }
         // one module, both languages, referencing each other: neither front end can go first (see parseInterleaved)
-        if (sourceSets.any { hasExtension(it, ".kt") && hasExtension(it, ".java") }) return parseInterleaved(config)
+        if (sourceSets.any { hasExtension(it, ".kt") && hasExtension(it, ".java") }) return parseInterleaved(config, observers)
         val kotlinSets = sourceSets.filter { hasExtension(it, ".kt") }
         val javaSets = sourceSets.filter { !hasExtension(it, ".kt") && hasExtension(it, ".java") }
         val javaSetIdentity = javaSets.toSet()
@@ -178,12 +185,13 @@ class MixedProjectInspector {
             val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
             val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
-                .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots)
+                .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots, observers)
             return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
-        val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm).parse(orderedKotlin, libraryRoots, jdkHome)
+        val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
+            .parse(orderedKotlin, libraryRoots, jdkHome, observers = observers)
         val kotlinTypes = kotlinBySourceSet.values.flatten()
         // PRIMARY types only: JavaStubGenerator already recurses into subTypes(), so stubbing a nested type
         // as well emits it twice — once nested inside its parent's stub, once as a top-level class in the
@@ -216,7 +224,7 @@ class MixedProjectInspector {
      * from those declarations, which javac then reads; its bodies once the set's Java types are committed. A
      * Kotlin-only set is converted whole when a set scanned by javac needs it, and at the end otherwise.
      */
-    private fun parseInterleaved(config: InputConfiguration): Result {
+    private fun parseInterleaved(config: InputConfiguration, observers: List<KotlinParseObserver>): Result {
         val sourceSets = config.sourceSets().filter { !it.externalLibrary() }
         val kotlinSets = sourceSets.filter { hasExtension(it, ".kt") }
         val javaSets = sourceSets.filter { hasExtension(it, ".java") }
@@ -300,6 +308,7 @@ class MixedProjectInspector {
                     javaInspector.setInterleave(null)
                 }
                 orderedKotlin.filter { !kotlin.isDeclared(it) }.forEach { kotlin.convert(it) }
+                kotlin.observe(observers)
                 val kotlinBySourceSet = LinkedHashMap<SourceSet, List<TypeInfo>>()
                 orderedKotlin.forEach { kotlinBySourceSet[it] = kotlin.result.getValue(it) }
                 return Result(kotlinBySourceSet, javaTypes, javaInspector.runtime(), javaInspector)

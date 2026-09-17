@@ -57,6 +57,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
@@ -705,6 +706,11 @@ internal class KotlinBodyConverter(
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
         staticMemberAccess(expression, method)?.let { return it }
+        // `Type.method(args)` where the receiver is a TYPE: a Java static (javalin's `TestUtil.test(app) { … }`).
+        // The receiver is no value, so it converted to a placeholder and the call to another, which swallowed the
+        // arguments -- including a lambda declaring an `object :` the rename censuses then never saw.
+        (expression.selectorExpression as? KtCallExpression)
+            ?.let { staticCall(expression.receiverExpression, it, method, locals) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
@@ -731,6 +737,24 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
             .build(runtime)
         else selectorResult
+    }
+
+    /**
+     * A call on a type rather than a value, `Type.method(args)`, when the method is static on the JVM: the object is
+     * a type expression, as the Java front end builds it. Null when the receiver is not a type, the type is not
+     * known, or the callee is an instance method (a Kotlin `object`'s or companion's member, which
+     * [KotlinBodyConverter.convertCall] routes through its singleton).
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.staticCall(receiverExpression: KtExpression, call: KtCallExpression, method: MethodInfo,
+                                     locals: Map<String, Variable>): Expression? {
+        val receiverClass = (receiverExpression as? KtNameReferenceExpression)
+            ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        if ((call.resolveSymbol() as? KaNamedFunctionSymbol)?.isStatic != true) return null
+        val fqn = receiverClass.classId?.asFqNameString() ?: return null
+        val type = infoByFqn.getType(fqn, sourceSet) ?: with(typeMapper) { loadLibraryClass(receiverClass) } ?: return null
+        val scope = runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo())
+        return convertCall(call, scope to type, false, method, locals)
     }
 
     /**
@@ -871,7 +895,7 @@ internal class KotlinBodyConverter(
      * not yet resolved). Implicit `it` is materialised when the function type has one parameter.
      */
     private fun KaSession.convertLambda(lambda: KtLambdaExpression, method: MethodInfo,
-                                        locals: Map<String, Variable>): Expression {
+                                        locals: Map<String, Variable>, samType: ParameterizedType? = null): Expression {
         val enclosingType = method.typeInfo()
         val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
         anonymousType.builder()
@@ -880,8 +904,13 @@ internal class KotlinBodyConverter(
             .setParentClass(runtime.objectParameterizedType())
 
         val functionType = lambda.expressionType as? KaFunctionType
-        val functionalType = lambda.expressionType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
-        val sam = runtime.newMethod(anonymousType, "invoke", runtime.methodTypeMethod())
+        // [samType] is the interface a SAM constructor names; otherwise the lambda's own Kotlin function type
+        val functionalType = samType ?: lambda.expressionType?.let { mapType(it, enclosingType) }
+            ?: runtime.objectParameterizedType()
+        val samName = samType?.typeInfo()
+            ?.let { t -> runCatching { t.methods().singleOrNull { m -> m.isAbstract }?.name() }.getOrNull() }
+            ?: "invoke"
+        val sam = runtime.newMethod(anonymousType, samName, runtime.methodTypeMethod())
         val samBuilder = sam.builder()
         val outputVariants = mutableListOf<Lambda.OutputVariant>()
 
@@ -1141,6 +1170,16 @@ internal class KotlinBodyConverter(
         val arguments = ordered?.expressions ?: valueArgs
         val defaults = ordered?.defaults
 
+        // a SAM constructor, `Runnable { … }`: what it makes IS the lambda, whose anonymous type implements the
+        // interface -- so the lambda is the expression, carrying that interface rather than its Kotlin function type.
+        // Unhandled, the call fell through to an unresolved placeholder that swallowed the lambda and every
+        // declaration inside it (javalin's censuses lost the overrides declared in one).
+        if (resolved is KaSamConstructorSymbol) {
+            val lambda = call.valueArguments.singleOrNull()?.getArgumentExpression() as? KtLambdaExpression
+            if (lambda != null) {
+                return convertLambda(lambda, method, locals, call.expressionType?.let { mapType(it, method.typeInfo()) })
+            }
+        }
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
         if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method, defaults)
 

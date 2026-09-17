@@ -335,6 +335,25 @@ class TypeStructureTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun aWrittenAccessorSignatureIsNotSynthesizedTwice() {
+        // kotlinc gives a private property no accessors, so the written function is the only `setRouteRoles` on the
+        // JVM (javalin's JavalinServletContext). Two CST methods of one signature trip MethodMapImpl's assertion.
+        val c = KotlinScan(runtime, sourceSet).parse(
+            "R.kt",
+            "class R(private var roles: Set<String> = emptySet()) {\n" +
+                "    fun roles() = roles\n" +
+                "    fun setRoles(roles: Set<String>) { this.roles = roles }\n" +
+                "    fun setRoles(role: String) { this.roles = setOf(role) }\n" +
+                "}\n"
+        ).first()
+        // the written ones only: one taking a Set (the synthesized setter's signature), one taking a String
+        assertEquals(listOf("java.util.Set", "java.lang.String"),
+            c.methods().filter { it.name() == "setRoles" }
+                .map { it.parameters().single().parameterizedType().typeInfo()!!.fullyQualifiedName() })
+        assertTrue(c.fields().any { it.name() == "roles" }, "the backing field stays")
+    }
+
+    @Test
     fun objectJvmStaticsAreStatic() {
         // on the JVM an object's const val, @JvmField and @JvmStatic members are static: Java names them on the type
         val types = KotlinScan(runtime, sourceSet).parse(
