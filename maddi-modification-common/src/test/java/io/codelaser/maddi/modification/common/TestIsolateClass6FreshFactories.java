@@ -262,6 +262,34 @@ public class TestIsolateClass6FreshFactories {
         assertCompiles(tree);
     }
 
+    @DisplayName("a factory of a KEPT type constructs too: carrying a type must not change what its factories say")
+    @Test
+    public void freshFactoriesOfAKeptType() throws IOException {
+        Map<String, String> sources = Map.of("p.q.Shape", SHAPE, "p.q.Item", ITEM, "p.q.Items", ITEMS,
+                "p.q.Maker", MAKER, "p.q.Open", OPEN, "a.b.Use", USE);
+        var parsed = javaInspector.parse(sources,
+                new JavaInspector.ParseOptions.Builder().setDetailedSources(true).setFailFast(true).build());
+        // the group isolate: Use AND Item verbatim, the way a corpus driver carries a DTO beside its host
+        IsolateClass.Result r = isolateClass.isolate(java.util.List.of(parsed.parseResult().findType("a.b.Use"),
+                parsed.parseResult().findType("p.q.Item")));
+        Map<MethodInfo, String> memberSources = new LinkedHashMap<>();
+        for (MethodInfo original : r.markers().values()) {
+            memberSources.put(original, verbatim(sources.get(original.primaryType().fullyQualifiedName()), original));
+        }
+        Map<String, String> tree = isolateClass.print(r, memberSources);
+        String items = tree.get("p/q/Items.java");
+        System.out.println(items);
+        // the same decision table as with Item stubbed; Item has a declared public empty constructor
+        assertEquals("new Item()", returned(items, "direct"));
+        assertEquals("new Item()", returned(items, "filled"));
+        assertEquals("new Item()", returned(items, "delegating"));
+        assertEquals("null", returned(items, "shared"));
+        assertEquals("null", returned(items, "registered"));
+        // and Item is its own text: nothing was declared on it
+        assertTrue(tree.get("p/q/Item.java").contains("public Item(int weight) { this.weight = weight; }"));
+        assertCompiles(tree);
+    }
+
     /** The expression the stub of {@code name} returns. */
     private static String returned(String unit, String name) {
         Matcher m = Pattern.compile("\\b" + name + "\\([^)]*\\)\\s*\\{\\s*return\\s+([^;]+);").matcher(unit);

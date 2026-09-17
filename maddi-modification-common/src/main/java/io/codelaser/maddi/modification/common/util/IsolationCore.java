@@ -684,6 +684,13 @@ abstract class IsolationCore {
         TypeInfo constructed = ConstructedReturn.of(original);
         if (constructed == null || !constructed.equals(returnType.typeInfo())) return null;
         TypeInfo stub = typeMap.get(constructed);
+        if (stub == null && isIsolated(constructed)) {
+            // a KEPT type -- a member of a group isolate, carried verbatim beside its host. Its constructors are
+            // its own text, so this pass declares nothing: it may only call an empty constructor that is there
+            // and reachable from another package. Leaving kept types out made the same factory say 'return new
+            // T();' in one tree and 'return null;' in the next, depending on whether the driver carried T.
+            return freshReturnOfAKeptType(original, constructed, newReturnType);
+        }
         if (stub == null || stub != newReturnType.typeInfo() || isJdkType(constructed)) return null;
         if (interfaceStubs.contains(stub) || annotationStubs.contains(stub) || enumStubs.contains(stub)) return null;
         if (!constructed.typeNature().isClass() || constructed.isAbstract()) return null;
@@ -695,6 +702,30 @@ abstract class IsolationCore {
                 .setConstructor(noArg)
                 .setConcreteReturnType(newReturnType)
                 .setDiamond(generic ? runtime.diamondYes() : runtime.diamondNo())
+                .setParameterExpressions(List.of())
+                .setSource(runtime.noSource())
+                .build();
+    }
+
+    // the empty constructor a stub's 'new Kept()' names, per kept type; never attached to anything -- a kept
+    // type's constructors are verbatim text, and an implicit one has no MethodInfo to point at
+    private final Map<TypeInfo, MethodInfo> emptyConstructorOfKeptType = new HashMap<>();
+
+    private Expression freshReturnOfAKeptType(MethodInfo original, TypeInfo kept, ParameterizedType newReturnType) {
+        TypeInfo standIn = originalTypeStub(kept);
+        if (standIn == null || standIn != newReturnType.typeInfo()) return null;
+        if (!kept.typeNature().isClass() || kept.isAbstract()) return null;
+        if (!kept.isPrimaryType() && !kept.isStatic()) return null;                      // needs an enclosing instance
+        // stubs live in other packages: the implicit constructor of a public class, or a declared public one
+        boolean reachable = kept.constructors().isEmpty() ? kept.access().isPublic()
+                : kept.constructors().stream().anyMatch(c -> c.parameters().isEmpty() && c.access().isPublic());
+        if (!reachable) return null;
+        MethodInfo noArg = emptyConstructorOfKeptType.computeIfAbsent(standIn, this::newNoArgConstructor);
+        LOGGER.info("Stub of {} returns a fresh {}, a kept type", original, kept.simpleName());
+        return runtime.newConstructorCallBuilder()
+                .setConstructor(noArg)
+                .setConcreteReturnType(newReturnType)
+                .setDiamond(kept.typeParameters().isEmpty() ? runtime.diamondNo() : runtime.diamondYes())
                 .setParameterExpressions(List.of())
                 .setSource(runtime.noSource())
                 .build();
