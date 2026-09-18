@@ -48,6 +48,9 @@ import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
+import org.jetbrains.kotlin.analysis.api.resolution.KaImplicitReceiverValue
+import org.jetbrains.kotlin.analysis.api.resolution.KaSmartCastedReceiverValue
+import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
@@ -57,6 +60,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
@@ -914,6 +918,14 @@ internal class KotlinBodyConverter(
         val samBuilder = sam.builder()
         val outputVariants = mutableListOf<Lambda.OutputVariant>()
 
+        // ⛔ A RECEIVER LAMBDA'S RECEIVER IS ITS FIRST PARAMETER, as kotlinc compiles it: `T.() -> R` IS a
+        // `Function1<T, R>`, and while the parameter was missing the SAM contradicted the interface it claimed to
+        // implement (arity 0 against Function1), and the body had nothing to resolve `append` in
+        // `sb.apply { append("x") }` against -- a placeholder, swallowing whatever that call's arguments declared.
+        functionType?.receiverType?.let {
+            samBuilder.addParameter("\$receiver", mapType(it, enclosingType))
+            outputVariants.add(runtime.lambdaOutputVariantEmpty())
+        }
         val parameters = lambda.valueParameters
         if (parameters.isNotEmpty()) {
             parameters.forEachIndexed { i, p ->
@@ -925,6 +937,9 @@ internal class KotlinBodyConverter(
             }
         } else if (functionType != null && functionType.parameterTypes.size == 1) {
             samBuilder.addParameter("it", mapType(functionType.parameterTypes[0], enclosingType)) // implicit `it`
+            // ⛔ ONE PER PARAMETER, OR LambdaImpl.print READS PAST THE END. Unreachable while `x.let { … }` was a
+            // placeholder: nothing built a Lambda for a call that did not resolve, so nothing ever printed one.
+            outputVariants.add(runtime.lambdaOutputVariantEmpty())
         }
         val returnType = functionType?.returnType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
         samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
@@ -1183,9 +1198,12 @@ internal class KotlinBodyConverter(
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
         if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method, defaults)
 
-        // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0)
-        if (receiver != null && calleeSymbol?.receiverParameter != null) {
-            extensionCall(name, receiver.first, arguments, calleeSymbol, call, method, defaults)?.let { return it }
+        // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0).
+        // The receiver need not be written: `run { … }` inside a member is `this.run { … }`.
+        if (calleeSymbol?.receiverParameter != null) {
+            (receiver?.first ?: implicitExtensionReceiver(call, method, locals))?.let { recv ->
+                extensionCall(name, recv, arguments, calleeSymbol, call, method, defaults)?.let { return it }
+            }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
         companionCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
@@ -1203,6 +1221,20 @@ internal class KotlinBodyConverter(
                     .setMethodInfo(invoke).setParameterExpressions(arguments).setConcreteReturnType(returnType)
                     .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
             }
+        }
+
+        // a member called on the receiver of the lambda it is written in -- `append` in `sb.apply { append("x") }`,
+        // which Kotlin source never spells a receiver for. convertLambda holds it as the lambda's `$receiver`.
+        if (receiver == null) locals["\$receiver"]?.let { lambdaReceiver ->
+            lambdaReceiver.parameterizedType().typeInfo()
+                ?.let { resolveCallee(it, name, arguments, callReturnFqn(call, method)) }?.let { callee ->
+                    return runtime.newMethodCallBuilder()
+                        .setObject(variableExpression(lambdaReceiver)).setObjectIsImplicit(true)
+                        .setMethodInfo(callee).setParameterExpressions(arguments)
+                        .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) }
+                            ?: callee.returnType())
+                        .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                }
         }
 
         val ownerType = receiver?.second ?: method.typeInfo()
@@ -1237,14 +1269,43 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * The value an extension call with no written receiver applies to: `run { … }` in a member of `C` is
+     * `this.run { … }`, and inside `fun String.f()` it is that function's own `$receiver`. K2 says which, and
+     * nothing is guessed: an implicit receiver this converter cannot name returns null, and the call stays a
+     * placeholder rather than being given the wrong object.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.implicitExtensionReceiver(call: KtCallExpression, method: MethodInfo,
+                                                    locals: Map<String, Variable>): Expression? {
+        val written = call.resolveToCall()?.singleFunctionCallOrNull()?.extensionReceiver ?: return null
+        val implicit = generateSequence(written) { (it as? KaSmartCastedReceiverValue)?.original }
+            .filterIsInstance<KaImplicitReceiverValue>().firstOrNull() ?: return null
+        return when (val symbol = implicit.symbol) {
+            // `this` of the class the call is written in, or of one enclosing it
+            is KaClassSymbol -> symbol.classId?.asFqNameString()?.let { infoByFqn.getType(it, sourceSet) }?.let {
+                if (it == method.typeInfo()) self(method) else variableExpression(runtime.newThis(it.asParameterizedType()))
+            }
+            // an enclosing receiver: the lambda's own (`$receiver` in scope, innermost) or the extension function's
+            // parameter of that name. Only when it is the one K2 means -- receivers nest, and the type says which.
+            is KaReceiverParameterSymbol -> {
+                val wanted = mapType(implicit.type, method.typeInfo()).typeInfo()
+                (locals["\$receiver"] ?: method.parameters().firstOrNull { it.name() == "\$receiver" })
+                    ?.takeIf { it.parameterizedType().typeInfo() == wanted }?.let { variableExpression(it) }
+            }
+            else -> null
+        }
+    }
+
+    /**
      * Build an extension-function call as a static call on the file facade with the receiver as argument 0
-     * (the JVM shape): `recv.ext(args)` → `<File>Kt.ext(recv, args)`. Returns null when the facade or the
-     * static method can't be resolved (e.g. a library extension whose facade isn't in this compilation).
+     * (the JVM shape): `recv.ext(args)` → `<File>Kt.ext(recv, args)`. A library extension has no source facade;
+     * its JVM one is loaded from the class path, as a top-level library function's is. Returns null when neither
+     * the facade nor the static method can be resolved.
      */
     private fun KaSession.extensionCall(name: String, receiverExpr: Expression, arguments: List<Expression>,
                                         symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo,
                                         defaults: MethodInfo?): Expression? {
-        val facade = extensionFacade(symbol) ?: return null
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val facadeArgs = listOf(receiverExpr) + arguments
         val callee = defaults ?: resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()

@@ -552,13 +552,10 @@ class MemberTest : KotlinScanTestBase() {
         }
         val overrides = (all + anonymous).flatMap { it.methods() }
             .filter { it.name() == "f" && it.overrides().contains(iF) }
-        // ⛔ FIVE OF SEVEN, AND THE TWO MISSING ONES ARE WHY A REFERENCE IS NOT RECORDED ON WHAT DECLARES IT.
-        // `run { … }` is a library EXTENSION function, and a call to one does not resolve: the body of
-        // inInlineLambda and the initializer of inInitializer are `{return;}`, the object literal in each dropped
-        // with the lambda that carried it. K2 still resolves every name written in them, and
-        // KotlinReferenceRegistry still records those on the enclosing member -- which is the point: the records
-        // must survive what the CST loses. Turn this into 7 when library extension calls resolve.
-        assertEquals(5, overrides.size,
+        // all seven, and two of them only since maddi#43: `run { … }` is a library EXTENSION function, and while
+        // a call to one did not resolve, the body of inInlineLambda and the initializer of inInitializer were
+        // `{return;}` -- the object literal in each dropped with the lambda that carried it.
+        assertEquals(7, overrides.size,
             "each object literal's f() overrides I.f; anonymous types found: " + anonymous.map { it.simpleName() })
     }
 

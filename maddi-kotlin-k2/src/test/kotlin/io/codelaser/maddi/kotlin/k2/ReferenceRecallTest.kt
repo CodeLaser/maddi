@@ -94,13 +94,21 @@ class ReferenceRecallTest : KotlinScanTestBase() {
         assertRow(rows(), "Model.kt:4:19", "size", Site.NAME, Region.PROPERTY_INITIALIZER, Target.PROPERTY, Tier.EXACT)
     }
 
+    /**
+     * `items.map { it.grow(1) }`. It used to be one placeholder -- an unresolved library extension call takes its
+     * receiver and its lambda with it -- and both rows were DROPPED. maddi#43 converts the call to the facade
+     * static `CollectionsKt.map(items, lambda)`, so the receiver and everything the lambda declares survive.
+     */
+    @Test
+    fun aCallToALibraryExtensionIsConverted() {
+        val rows = rows()
+        assertRow(rows, "Model.kt:9:46", "items", Site.NAME, Region.FUNCTION_BODY, Target.PARAMETER, Tier.EXACT)
+        assertRow(rows, "Model.kt:9:61", "grow", Site.CALLEE, Region.LAMBDA_TO_LIBRARY, Target.FUNCTION, Tier.EXACT)
+    }
+
     @Test
     fun unconvertedRegionsAreDropped() {
-        val rows = rows()
-        // an unresolved library extension call is one placeholder: its receiver and its lambda go with it
-        assertRow(rows, "Model.kt:9:46", "items", Site.NAME, Region.FUNCTION_BODY, Target.PARAMETER, Tier.DROPPED)
-        assertRow(rows, "Model.kt:9:61", "grow", Site.CALLEE, Region.LAMBDA_TO_LIBRARY, Target.FUNCTION, Tier.DROPPED)
         // import directives are not recorded
-        assertRow(rows, "User.kt:3:10", "Model", Site.IMPORT, Region.IMPORT, Target.TYPE, Tier.DROPPED)
+        assertRow(rows(), "User.kt:3:10", "Model", Site.IMPORT, Region.IMPORT, Target.TYPE, Tier.DROPPED)
     }
 }

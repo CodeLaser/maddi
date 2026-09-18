@@ -22,6 +22,10 @@ import org.junit.jupiter.api.Test
  * so its range is the only trace of it: a consumer that must know every call spelled in the source (jfocus's rename
  * clash check) scans those ranges. An operator whose operand is unresolved replaces both operands, so the inner
  * placeholder is gone and the outer range must cover it.
+ *
+ * The unconverted operand here is `String.length`: `kotlin.String` maps to the predefined `java.lang.String`, whose
+ * property accesses do not resolve to its `length()` (the other half of bootstrapString). It used to be a library
+ * extension call, which maddi#43 converts.
  */
 class PlaceholderSourceTest : KotlinScanTestBase() {
 
@@ -29,18 +33,15 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            class Bag(private val items: List<Int>) : Iterable<Int> {
-                override fun iterator() = items.iterator()
-            }
-            fun use(b: Bag) = b.first() + 1
+            fun use(s: String) = s.length + 1
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `b.first() + 1`, columns 19-31 of line 5
-        assertEquals(listOf(5, 19, 5, 31), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `s.length + 1`, columns 22-33 of line 2
+        assertEquals(listOf(2, 22, 2, 33), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }
