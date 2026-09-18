@@ -209,7 +209,10 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
             }
             """;
 
-    @DisplayName("a stub method overriding java.lang.Object (toString) must be public")
+    // Until 2026-09-19 the stub re-declared toString() -- 'public String toString() { return null; }', public
+    // because an override cannot reduce visibility. It is now left to java.lang.Object, whose summary the
+    // analyses know; the stub's empty body was an invented one (IsolationCore.inheritedFromAnalysedSupertype)
+    @DisplayName("an override of java.lang.Object's toString is inherited, not re-declared")
     @Test
     public void test5() {
         TypeInfo x = parse("a.b.X", INPUT5);
@@ -222,11 +225,7 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         String expected = """
                 public class X_method {
                     static class IDataType { }
-                    static class ObjectID extends IDataType {
-                        public String toString() { return null; }
-                        String getDefaultValue() { return null; }
-                    }
-
+                    static class ObjectID extends IDataType {String getDefaultValue() { return null; } }
                     String method(ObjectID id) {
                     return id.toString() + id.getDefaultValue();
                 }
@@ -252,7 +251,11 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
             }
             """;
 
-    @DisplayName("a stub method overriding an inherited interface method (Collection.add) must be public")
+    // Until 2026-09-19 the stub re-declared add(I) as 'public boolean add(I o) { return false; }': the very stub
+    // that made a closed-core registering utility's 'items.add(c); return c;' link the returned object to
+    // nothing, so that a factory publishing what it returns was judged fresh. java.util.ArrayList.add is
+    // inherited and has a summary; the stub declares nothing (IsolationCore.inheritedFromAnalysedSupertype)
+    @DisplayName("an override of a concrete JDK method (ArrayList.add) is inherited, not re-declared")
     @Test
     public void test6() {
         TypeInfo x = parse("a.b.X", INPUT6);
@@ -266,11 +269,65 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    static class ArrayList<I> extends java.util.ArrayList<I> {ArrayList() { }public boolean add(I o) { return false; } }
+                    static class ArrayList<I> extends java.util.ArrayList<I> {ArrayList() { } }
                     Object method() {
                     ArrayList<String> list = new ArrayList<>();
                     list.add("x");
                     return list;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT6B = """
+            package a.b;
+            public class X {
+                int method() {
+                    Ints list = new Ints();
+                    return list.get(0) + list.size();
+                }
+            }
+            class Ints extends java.util.AbstractList<Integer> {
+                public Integer get(int i) { return i; }
+                public int size() { return 3; }
+            }
+            """;
+
+    // the half of the old test6 that still stands: what the stub DOES declare -- here an implementation a
+    // class stub owes, get() and size() being abstract in AbstractList -- must be public, an override cannot
+    // reduce visibility
+    @DisplayName("a stub method implementing an inherited abstract method (AbstractList.get) must be public")
+    @Test
+    public void test6b() {
+        TypeInfo x = parse("a.b.X", INPUT6B);
+        String m = """
+                int method() {
+                    Ints list = new Ints();
+                    return list.get(0) + list.size();
+                }""";
+        String out = isolate(x, "method", 0, m);
+        // the dummy pass also supplies iterator(): it reads AbstractCollection's abstract methods without
+        // seeing that AbstractList implements this one -- harmless, and not what this test is about
+        @Language("java")
+        String expected = """
+                import java.util.AbstractCollection;
+                import java.util.AbstractList;
+                import java.util.Iterator;
+                public class X_method {
+                    static class Ints extends AbstractList<Integer> {
+                        Ints() { }
+                        public Integer get(int i) { return null; }
+                        public int size() { return 0; }
+                        public Iterator<Integer> iterator() { return null; }
+                    }
+
+                    int method() {
+                    Ints list = new Ints();
+                    return list.get(0) + list.size();
                 }
                 }
                 """;
