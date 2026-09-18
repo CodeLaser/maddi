@@ -186,6 +186,21 @@ e.g. every `DefaultValue` subclass in `detekt-generator`, whose `printAsYaml` wr
 The fix is an annotated-API archive for `kotlin-stdlib`, the way the JDK has one. Until then, expect a
 Kotlin corpus to under-report immutability wherever the stdlib's extension functions touch a field.
 
+**Started, and the first measurement is about the SHAPE of the work.** `libs/kotlin` existed (for
+`kotlin.Lazy`) but no Kotlin corpus ever loaded it — `TestDetektCorpus` preloaded `jdk` alone; it now
+loads both, and `kotlin.Pair` + `kotlin.TuplesKt.to` are in the archive. **Neither moves a single one of
+the 1271 verdicts.** A type's verdict is held down by *every* unannotated call in it, not by the first one
+contracted: `DefaultValue` is a sealed interface whose subclasses also call `map`, `mapOf` and `error`, so
+contracting `to` alone changes nothing. The archive therefore pays off in steps of a whole type's call
+set, and **a partial archive is indistinguishable from none** — which is why it should be built by taking
+one affected type at a time to green, not by working down a frequency list of stdlib methods.
+
+Two silent failures to know about when adding to it. An unresolved symbol in a hints file drops the
+**whole compilation unit**, and `compileAnalysisHints` still exits 0 — "annotated 0 types" in a log nobody
+reads, the previous `.json` left in place; check the file changed. And naming a real Kotlin type needs
+`kotlin-stdlib` on `maddi-aapi-archive`'s own compile path (`compileOnly` + `requires static`), which
+nothing needed before: the Lazy contract names only its own shadow.
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
