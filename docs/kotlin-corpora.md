@@ -236,9 +236,33 @@ Pair)` collided with the single-pair overload and one of them was dropped; and
 `TestParseAnalyzeWrite` parses the whole archive with the shared inspector factory, which deliberately
 carries no kotlin-stdlib — so both Kotlin hints files are dropped whole there, and the count says so.
 
-detekt now skips **no hint at all**, and the verdicts are byte-identical at 1271 — `map` and `mapOf` are
-applied, and `DefaultValue` is still held down by the rest of its call set (`error`, and detekt's own
-`YamlNode` builders). Which is the §5.5 rule again: a whole type's calls, or nothing.
+detekt then skipped **no hint at all** — and `map` and `mapOf` still carried nothing but
+`{"annotatedApi":1}`. A third silent failure, below the two above:
+
+#### ⚠ A resolved contract for a package-private type says nothing
+
+`ShallowAnalyzer.go` filtered *every* type through `acceptAccess(info) = !onlyPublic ||
+info.access().isPublic()`, and `AnalysisHintsCompiler` passes `onlyPublic = true`. A package-private type
+handed to it was dropped from `allTypes` and never reached `DEFAULTS_ANALYZER` — so the contract parsed,
+resolved, wrote its `.json`, and exited 0 carrying only the `ANNOTATED_API` marker and no computed
+property. Nothing in the pipeline says so.
+
+That is not an edge case for the Kotlin stdlib, it is the whole of it: a multifile facade's part class is
+package-private **by construction**, and the public facade declares nothing. `onlyPublic` is meant to prune
+the closure the analyzer walks into — sub- and supertypes it reaches on its own — not the list it was
+handed, so `inScope(t, requested)` now exempts the types the caller NAMED (`AnalysisHintsParser.types()`,
+which is exactly what a hand-written shadow writes down, nested types included).
+
+Across the 27-file JDK archive plus `libs/`, exactly two `.json` files move: `KotlinCollections.json`, and
+`JavaAwt.json` — whose hand-written contracts for `java.awt.Component`'s two **protected** nested classes,
+`BltBufferStrategy` and `FlipBufferStrategy`, had been writing marker-only shells all along.
+
+One level up, `CompileAnalysisHints.compile` was discarding the `List<Message>` that `AnalysisHintsCompiler.go`
+returns — the analyzer's complaints about the shadows, thrown away exactly where the archive is regenerated.
+
+`map` and `mapOf` are applied now, and `DefaultValue` is still held down by the rest of its call set
+(`error`, and detekt's own `YamlNode` builders). Which is the §5.5 rule again: a whole type's calls, or
+nothing.
 
 ### 5.6 `JavaStubGenerator` fidelity
 
