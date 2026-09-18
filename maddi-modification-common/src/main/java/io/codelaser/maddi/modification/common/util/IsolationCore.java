@@ -567,6 +567,11 @@ abstract class IsolationCore {
         if (alreadyDeclaredWithoutStub(owner, methodInfo)) return;
         MethodInfo inMap = methodMap.get(new OwnedMethod(owner, methodInfo));
         if (inMap != null) return;
+        MethodInfo inherited = inheritedFromAnalysedSupertype(owner, methodInfo);
+        if (inherited != null) {
+            LOGGER.info("Not stubbing {}: the stub inherits {}", methodInfo, inherited);
+            return;
+        }
         // a member of an '@interface' is an attribute, which has a shape of its own
         if (annotationStubs.contains(owner)) {
             ensureAnnotationAttribute(owner, methodInfo);
@@ -653,6 +658,51 @@ abstract class IsolationCore {
         LOGGER.info("Adding method {}", newMethod);
         owner.builder().addMethod(newMethod);
         methodMap.put(new OwnedMethod(owner, methodInfo), newMethod);
+    }
+
+    /**
+     * A method the stub INHERITS from a supertype whose analysis is trustworthy, so that re-declaring it with an
+     * empty body would replace a real summary by an invented one: the JDK's, or a type carried verbatim in this
+     * isolate. Everything else the stub declares is empty by construction, and the analyses consuming the
+     * isolate take an empty body at its word — which is fine for a method nothing describes better, and a lie
+     * for one that IS described. {@code class ArrayList<I> extends java.util.ArrayList<I>} overriding
+     * {@code add(I)} is the case that found it: the stub said {@code add(I o) { return false; }}, the
+     * registering utility's {@code items.add(c); return c;} then linked the returned object to nothing, and a
+     * factory that publishes what it returns was judged fresh — 409 wrong rewrites in 50 closed-core class
+     * isolates, every one of them accepted by javac (2026-09-19). Same family as a dropped element reading as
+     * immutable: an empty body is an OPTIMISTIC verdict, not a missing one.
+     * <p>
+     * The declaration is left out only when the verbatim text cannot tell the difference: the inherited method is
+     * public (an override that widens {@code protected} to {@code public} is relied on by callers in other
+     * packages), returns the same erasure (a covariant return is relied on the same way), declares no checked
+     * exception the override dropped (a caller without the catch would stop compiling), and is not abstract —
+     * unless the stub is an interface, which inherits an abstract method without owing it a body. A class stub
+     * owing an implementation keeps the empty one, as before; the dummy pass supplies the rest.
+     *
+     * @return the inherited method, or null when the stub has to declare {@code methodInfo} itself
+     */
+    private MethodInfo inheritedFromAnalysedSupertype(TypeInfo owner, MethodInfo methodInfo) {
+        if (methodInfo.isConstructor() || methodInfo.isStatic()) return null;
+        boolean ownerIsInterface = interfaceStubs.contains(owner);
+        for (MethodInfo inherited : methodInfo.overrides()) {
+            TypeInfo declaring = inherited.typeInfo();
+            if (inherited.isStatic() || !inherited.access().isPublic()) continue;
+            if (inherited.isAbstract() && !ownerIsInterface) continue;
+            if (!partOfJdk(declaring) && !declaring.packageName().startsWith("java.") && !isIsolated(declaring)) {
+                continue;
+            }
+            if (!sameErasure(inherited.returnType(), methodInfo.returnType())) continue;
+            boolean exceptionsCovered = inherited.exceptionTypes().stream().allMatch(et ->
+                    methodInfo.exceptionTypes().stream().anyMatch(own -> sameErasure(own, et)));
+            if (!exceptionsCovered) continue;
+            return inherited;
+        }
+        return null;
+    }
+
+    private static boolean sameErasure(ParameterizedType a, ParameterizedType b) {
+        if (a.isVoid() || b.isVoid()) return a.isVoid() && b.isVoid();
+        return a.arrays() == b.arrays() && erasedName(a).equals(erasedName(b));
     }
 
     // stubs a stub method instantiates ('return new T();'), and the no-arg constructor that call names. The

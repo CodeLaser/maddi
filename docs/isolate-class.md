@@ -522,6 +522,33 @@ sources, a copy of the class directories, a rewritten input configuration), not 
 in. And the `[verify]` report file outlives a run that fails before verification: read its timestamp, or
 delete it first.
 
+## 12. A stub does not re-declare what it inherits from an analysed supertype, 2026-09-19 (issue #44)
+
+The mirror image of §11, found the same way: by a rewrite the isolate's javac gate accepted and the analysis
+got wrong. A closed-core `ArrayList<I> extends java.util.ArrayList<I>` overrides `add(I)`; the stub of it
+re-declared the override as `public boolean add(I o) { return false; }`. A utility carried verbatim beside the
+host registers an object in a field of that type and returns it — `items.add(c); return c;` — and against the
+stub that `add` links nothing, so the utility's link summary said the returned object escapes nowhere, the
+freshness rule downstream called the factory fresh, and 409 fill sites in 50 isolates were seeded with a
+register-and-return call: the registered object and the built one are two objects. The stub's empty body was not
+a missing verdict but an optimistic one, and the real method — `java.util.ArrayList.add`, with a summary that
+links the argument into the list — was one `extends` away the whole time.
+
+`IsolationCore.inheritedFromAnalysedSupertype`: a method the stub would inherit from the JDK, or from a type kept
+verbatim in this isolate, is not declared on the stub. The verbatim callers must not be able to tell: the inherited
+method has to be public (an override widening `protected` is relied on across the package boundary the stub sits
+behind), return the same erasure (a covariant return is relied on the same way), declare no checked exception the
+override dropped (a caller without the catch stops compiling), and not be abstract — unless the stub is an
+interface, which inherits an abstract method without owing a body. A class stub that owes an implementation keeps
+the empty one it always had, `public` as §6 requires; the dummy pass is untouched. A stubbed supertype gains
+nothing from the rule and is not consulted: its own copy of the method is just as empty.
+
+Decision table: `TestIsolateClass7InheritedMembers` — dropped are `add`, `get`, `toString` and `clone` on a list
+(`ArrayList` makes `clone` public), and an interface's re-declaration of `List.add`; kept are `clone` on a stream
+(`Object`'s is protected), `read` (abstract in `InputStream`), `close` (drops `IOException`), and any member the
+supertype does not have. `TestIsolateMethod14Hierarchy` tests 5 and 6 pinned the old behaviour and now pin the
+new; 6b keeps the "must be public" half on an `AbstractList` subclass, where the implementation is owed.
+
 ## State, so a later run can tell drift from regression
 
 Measured 2026-07-28, top 100 closed-core types by total statement count:
