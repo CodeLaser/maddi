@@ -201,39 +201,44 @@ reads, the previous `.json` left in place; check the file changed. And naming a 
 `kotlin-stdlib` on `maddi-aapi-archive`'s own compile path (`compileOnly` + `requires static`), which
 nothing needed before: the Lazy contract names only its own shadow.
 
-#### ⛔ And then it stops: a multifile facade cannot be contracted at all
+#### ⚠ A contract must name the PART class, and a method token must carry its parameter types
 
-`TuplesKt` could be written because it is a **single-file** facade that declares `to` itself. Every facade
-that matters — `CollectionsKt`, `MapsKt`, `StringsKt`, `SetsKt`, `SequencesKt` — is a **multifile class
-facade**: `kotlin.collections.CollectionsKt` declares *nothing at all* but a private constructor, and
-`extends CollectionsKt___CollectionsKt`, from which it inherits every method. Writing the contract yields
+`TuplesKt` could be written straight off because it is a **single-file** facade that declares `to` itself.
+Every facade that matters — `CollectionsKt`, `MapsKt`, `StringsKt`, `SetsKt`, `SequencesKt` — is a
+**multifile class facade**: `kotlin.collections.CollectionsKt` declares *nothing at all* but a private
+constructor, and `extends CollectionsKt___CollectionsKt`, from which it inherits every method. A contract
+written against the facade is ignored method by method —
 
 ```
 Ignoring method 'CollectionsKt$.map(Iterable,Function1)', not found in target type 'kotlin.collections.CollectionsKt'
 ```
 
-and a `.json` holding the type with **no method contracts** — inert, and green. So `map`, `filter`,
-`joinToString`, `mapOf`, `trimIndent` are all currently unreachable, which is most of what a Kotlin corpus
-calls. Two layers have to change, and neither is a hints file:
+— leaving a `.json` that holds the type with **no method contracts**, and a green build. Name the **part
+class** instead: that is also what a CALL names, since `jvmFacadeClassId` reads the symbol's FIR
+containerSource, whose ClassId for a multifile part is the part
+(`FacadeAndExtensionTest.aMultifileFacadeCallNamesTheClassThatDeclaresIt` pins it).
 
-1. **`AnalysisHintsParser` matches declared methods only.** It would have to resolve through the target
-   type's hierarchy, and still record the contract under the facade — because that is where the *call*
-   points: the Kotlin front end synthesises the facade's methods from K2 symbols onto `CollectionsKt`
-   (`KotlinTypeMapper.loadLibraryFacadeFor`), while the bytecode loader puts them on the part class. The
-   two front ends model one method on two different types.
-2. **The codec addresses a method by POSITIONAL INDEX** into the type's sorted method list (`Mmap(3)`),
-   falling back to a unique simple name. A facade's index is computed from the bytecode view (no methods)
-   and resolved against the Kotlin view (as many overloads as the corpus calls), so it is stale by
-   construction and `map` is never unique. `CodecImpl` already says what is needed when it throws:
-   "name+descriptor needed to disambiguate".
+That was enough for `map`. `mapOf` still fell out at load, and for an unrelated reason worth knowing:
 
-Until a method token carries a descriptor, the Kotlin archive can hold **types** (`Lazy`, `Pair`) and
-single-file facades, and nothing else.
+```
+Skipping analysis hint for unresolvable element 'mapOf(15)': ambiguous method 'mapOf' (2 overloads) with a stale index
+```
 
-The token change looks additive rather than breaking: a method is encoded `M<name>(<index>)`, and the
-decoder already tolerates a stale index by falling back to a unique simple name. Carrying the erased
-parameter types alongside the index would let a new archive disambiguate while every existing one — the 27
-JDK files included — decodes exactly as it does today.
+A method was addressed by a positional **index** into the type's sorted method list, with a fallback to a
+unique simple name. An overload has neither: the index is computed from the bytecode the archive is built
+from and resolved against the Kotlin front end's model of the same class, which is a different list. The
+token carries the erased parameter types now — always, because whether a name is overloaded is a property
+of the *decoder's* view and the encoder cannot know it (`mapOf` is one method in bytecode and two in the
+Kotlin model). They are optional in the grammar, so every archive written before them still decodes.
+
+Two defects surfaced on the way: a library `vararg` was modelled as its ELEMENT type, so `mapOf(vararg
+Pair)` collided with the single-pair overload and one of them was dropped; and
+`TestParseAnalyzeWrite` parses the whole archive with the shared inspector factory, which deliberately
+carries no kotlin-stdlib — so both Kotlin hints files are dropped whole there, and the count says so.
+
+detekt now skips **no hint at all**, and the verdicts are byte-identical at 1271 — `map` and `mapOf` are
+applied, and `DefaultValue` is still held down by the rest of its call set (`error`, and detekt's own
+`YamlNode` builders). Which is the §5.5 rule again: a whole type's calls, or nothing.
 
 ### 5.6 `JavaStubGenerator` fidelity
 
