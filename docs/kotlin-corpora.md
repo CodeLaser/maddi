@@ -288,6 +288,27 @@ An aside for the `error` case whenever it does matter: every function in `kotlin
 is `private static final` in bytecode, because they are all `inline`. That is no obstacle — maddi models a
 library type through the K2 front end, where they are public, and `forEach`/`filter` are `inline` too.
 
+#### `kotlin.text.Regex`: contract the TYPE, not the methods that take it
+
+The same classification, run over the whole dump rather than one type, names the next target on its own: seven
+types capped by a field of type `Regex` (`multipleWhitespaces`, `identifierRegex`, `escapeSequenceRegex`,
+`messageReplacementRegex`, `detektSuppressionPrefixRegex`, `STRING_CONCAT_REGEX`, `javaAutolinkRegex`). A
+file-level `private val x = Regex(…)` is an everyday Kotlin shape.
+
+`kotlin.text.Regex` is the exact analogue of `java.util.regex.Pattern`, which `jdk/JavaUtilRegex` already
+contracts as `@ImmutableContainer` — it wraps one. `libs/kotlin/KotlinText` now says the same.
+
+**What is worth keeping is what was NOT needed.** Five of the seven reach `Regex` as a *parameter* of a stdlib
+extension (`replace(CharSequence, Regex, String)` and `matches(CharSequence, Regex)`, both in
+`StringsKt__StringsKt`); none of those was contracted. The type-level `@ImmutableContainer` propagates to every
+parameter of that type on its own. So when a field's type is the blocker, contract the **type** — one shadow
+instead of a method-by-method chase through every facade that accepts it. Nine verdicts move: the seven, plus
+`rules.style.Forbidden` → `@Immutable` and `ForbiddenComment.Comment` `@Immutable(hc=true)` → `@Immutable`.
+
+That gives two shapes to recognise, and the FPDUMP classification tells them apart before any contract is
+written: a **field's type** is uncontracted (contract the type), or a **field flows into a callee's `@Modified`
+parameter** (contract that callee — the `forEach`/`filter` case above).
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
