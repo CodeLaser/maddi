@@ -1,4 +1,60 @@
 [
+{"name": "Tkotlin.collections.CollectionsKt__CollectionsJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mbuild(0,java.util.List)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "McopyToArrayOfAny(1,T[],boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyToArrayOfAny(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PisVarargs(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McreateListBuilder(2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "McreateListBuilder(3,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pcapacity(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlistOf(4,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mshuffled(5,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Mshuffled(6,java.lang.Iterable,java.util.Random)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MterminateCollectionToArray(7,int,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "PcollectionSize(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parray(1)", "data":{"containerParameter":1,"immutableParameter":1}}]}]},
+
+{"name": "Tkotlin.collections.CollectionsKt__CollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MarrayListOf(0,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasCollection(1,T[],boolean)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$asCollection(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PisVarargs(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(2,java.util.List,T,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(3,java.util.List,T,java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(4,java.util.List,int,int,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearchBy(5,java.util.List,K,int,int,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McollectionToArrayCommonImpl(6,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}},
+ {"name": "McollectionToArrayCommonImpl(7,java.util.Collection,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "Parray(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MemptyList(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}},
+ {"name": "MgetIndices(9,java.util.Collection)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MgetLastIndex(10,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MlistOf(11,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlistOfNotNull(12,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlistOfNotNull(13,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MmutableListOf(14,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MoptimizeReadOnlyList(15,java.util.List)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Mshuffled(16,java.lang.Iterable,kotlin.random.Random)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MthrowCountOverflow(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MthrowIndexOverflow(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}]},
+
 {"name": "Tkotlin.collections.CollectionsKt___CollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mall(0,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
@@ -255,7 +311,7 @@
 {"name": "Tkotlin.collections.MapsKt__MapsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mcopy(0,java.util.Map.Entry)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "MemptyMap(1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MemptyMap(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}},
  {"name": "Mfilter(2,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MfilterKeys(3,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MfilterNot(4,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
@@ -309,5 +365,35 @@
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MtoMap(38,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MtoMap(39,kotlin.sequences.Sequence,M)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "MtoMutableMap(40,java.util.Map)", "data":{"defaultsAnalyzer":1,"independentMethod":2}}]}
+ {"name": "MtoMutableMap(40,java.util.Map)", "data":{"defaultsAnalyzer":1,"independentMethod":2}}]},
+
+{"name": "Tkotlin.collections.SetsKt__SetsJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mbuild(0,java.util.Set)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "McreateSetBuilder(1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "McreateSetBuilder(2,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pcapacity(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetOf(3,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsortedSetOf(4,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MsortedSetOf(5,java.util.Comparator,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]}]},
+
+{"name": "Tkotlin.collections.SetsKt__SetsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MemptySet(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}},
+ {"name": "MhashSetOf(1,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MlinkedSetOf(2,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MmutableSetOf(3,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MoptimizeReadOnlySet(4,java.util.Set)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MsetOf(5,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetOfNotNull(6,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetOfNotNull(7,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}}]}
 ]

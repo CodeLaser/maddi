@@ -23,6 +23,7 @@ import kotlin.jvm.functions.Function1;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The annotated API for {@code kotlin.collections}: the extension functions every Kotlin codebase calls on a
@@ -88,6 +89,66 @@ public class KotlinCollections {
         @NotNull
         @SafeVarargs
         static <K, V> Map<K, V> mapOf(@NotModified Pair<? extends K, ? extends V>... pairs) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> emptyMap() {
+            return null;
+        }
+    }
+
+    /*
+    The read-only collection factories. `listOf`, `setOf` and their empty forms are the most-called functions in
+    any Kotlin codebase, and a `val x = setOf(..)` or `= emptySet()` field stays @Dependent without them — which
+    caps its type. Each returns a fresh (or, for the empty forms, a shared constant) read-only collection holding
+    the arguments as hidden content, and modifies nothing it is given.
+
+    ⛔ The single-element overloads live in the JVM part class, not the common one.
+    */
+    class CollectionsKt__CollectionsKt$ {
+        @Independent(hc = true)
+        @NotNull
+        @SafeVarargs
+        static <T> List<T> listOf(@NotModified T... elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> emptyList() {
+            return null;
+        }
+    }
+
+    class CollectionsKt__CollectionsJVMKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> listOf(@NotModified T element) {
+            return null;
+        }
+    }
+
+    class SetsKt__SetsKt$ {
+        @Independent(hc = true)
+        @NotNull
+        @SafeVarargs
+        static <T> Set<T> setOf(@NotModified T... elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> emptySet() {
+            return null;
+        }
+    }
+
+    class SetsKt__SetsJVMKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> setOf(@NotModified T element) {
             return null;
         }
     }

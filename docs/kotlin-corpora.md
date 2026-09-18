@@ -309,6 +309,29 @@ That gives two shapes to recognise, and the FPDUMP classification tells them apa
 written: a **field's type** is uncontracted (contract the type), or a **field flows into a callee's `@Modified`
 parameter** (contract that callee — the `forEach`/`filter` case above).
 
+#### A null result: the read-only collection factories, and the ceiling behind them
+
+Restricted to the **1271 source primary types** (not the 2982 elements the dump holds — the classification
+must be run on the population that matters, or lambda and library types swamp it), 176 are still
+`@FinalFields` after the above, and the largest bucket is a `@Dependent` field, not a supertype cap.
+
+`listOf`, `setOf`, `emptyList`, `emptySet`, `emptyMap` are contracted now — the single-element overloads live
+in the JVM part class (`CollectionsKt__CollectionsJVMKt`, `SetsKt__SetsJVMKt`), not the common one. They move
+**zero** verdicts, and the null result is the useful part: it rules the factories out as a suspect, and points
+at what actually caps this bucket.
+
+`private object TestExclusions : Exclusions() { override val rules = setOf(…) }` keeps `rules` at `@Dependent`
+however independent `setOf` is declared to be, because the field's declared type is `java.util.Set`. Kotlin's
+read-only `Set`/`List`/`Map` and their `Mutable*` counterparts **both** map to the JDK interface —
+`KotlinTypeMapper` does this deliberately, so the shared `java.*` type carries its real JVM surface and matches
+the Java front end and the annotated APIs. A publicly exposed `val x: Set<String>` is therefore
+indistinguishable from a `MutableSet`, and no archive entry can change that.
+
+So detekt is no longer **stdlib-limited**: what remains is honest (visitors mutating their accumulators;
+collection fields genuinely handed in and stored), third-party (IntelliJ `Key` and PSI, JCommander converters —
+a different archive, and detekt-specific rather than universal), or this type-mapping ceiling. The ceiling is a
+front-end design question with a real trade-off on the other side, not an archive gap.
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
