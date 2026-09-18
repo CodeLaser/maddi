@@ -15,12 +15,15 @@
 package io.codelaser.maddi.inspection.mixed
 
 import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.inspection.api.integration.JavaInspector
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.kotlin.JavaStubGenerator
+import io.codelaser.maddi.kotlin.k2.KotlinParseObserver
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
+import io.codelaser.maddi.java.openjdk.SourceSetInterleave
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
 import io.codelaser.maddi.kotlin.k2.KotlinProjectScan
@@ -82,8 +85,16 @@ class MixedProjectInspector {
         val kotlinTypes: List<TypeInfo> get() = kotlinBySourceSet.values.flatten()
     }
 
-    fun parse(config: InputConfiguration): Result {
+    /**
+     * @param observers read the Kotlin parse through its K2 session before it closes (e.g. a
+     * [io.codelaser.maddi.kotlin.k2.KotlinReferenceIndex], the oracle a rename census compares against). As
+     * `KotlinInspector.parseFromConfiguration(observers)`, which a mixed project cannot use.
+     */
+    @JvmOverloads
+    fun parse(config: InputConfiguration, observers: List<KotlinParseObserver> = emptyList()): Result {
         val sourceSets = config.sourceSets().filter { !it.externalLibrary() }
+        // one module, both languages, referencing each other: neither front end can go first (see parseInterleaved)
+        if (sourceSets.any { hasExtension(it, ".kt") && hasExtension(it, ".java") }) return parseInterleaved(config, observers)
         val kotlinSets = sourceSets.filter { hasExtension(it, ".kt") }
         val javaSets = sourceSets.filter { !hasExtension(it, ".kt") && hasExtension(it, ".java") }
         val javaSetIdentity = javaSets.toSet()
@@ -174,12 +185,13 @@ class MixedProjectInspector {
             val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
             val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
-                .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots)
+                .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots, observers)
             return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
-        val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm).parse(orderedKotlin, libraryRoots, jdkHome)
+        val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
+            .parse(orderedKotlin, libraryRoots, jdkHome, observers = observers)
         val kotlinTypes = kotlinBySourceSet.values.flatten()
         // PRIMARY types only: JavaStubGenerator already recurses into subTypes(), so stubbing a nested type
         // as well emits it twice — once nested inside its parent's stub, once as a top-level class in the
@@ -198,6 +210,109 @@ class MixedProjectInspector {
         }
         val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
         return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
+    }
+
+    /**
+     * The parse of a configuration in which at least one source set holds Java AND Kotlin sources -- javalin's
+     * `src/main/java`, where `Handler.java` takes a Kotlin `Context` and 28 Kotlin files take a `Handler`. The
+     * directional flows above cannot: Kotlin-first minted a K2 library copy of every Java type it named, and the
+     * Java front end, never given the set (it holds `.kt`), parsed none of its `.java` files at all -- 0 Java types
+     * on javalin.
+     *
+     * Each set is scanned by the Java front end in its own order, and the Kotlin front end is interleaved per set
+     * ([SourceSetInterleave]): its declarations, on the Java types it names, before javac attributes the set; stubs
+     * from those declarations, which javac then reads; its bodies once the set's Java types are committed. A
+     * Kotlin-only set is converted whole when a set scanned by javac needs it, and at the end otherwise.
+     */
+    private fun parseInterleaved(config: InputConfiguration, observers: List<KotlinParseObserver>): Result {
+        val sourceSets = config.sourceSets().filter { !it.externalLibrary() }
+        val kotlinSets = sourceSets.filter { hasExtension(it, ".kt") }
+        val javaSets = sourceSets.filter { hasExtension(it, ".java") }
+        val kotlinSetNames = kotlinSets.map { it.name() }.toSet()
+        val javaSetIdentity = javaSets.toSet()
+
+        val stubSet: SourceSet = SourceSetImpl.Builder().setName("mixed-stubs")
+            .setUri(stubDir.toUri()).setExternalLibrary(true).build()
+        val javaInspector = JavaInspectorImpl()
+        val javaBase = SourceSetImpl.javaBase()
+        val projectClassPath = config.classPathParts()
+        val javaConfig = InputConfigurationImpl.Builder().addClassPathParts(stubSet)
+        projectClassPath.forEach { javaConfig.addClassPathParts(it) }
+        if (projectClassPath.none { it.partOfJdk() }) {
+            javaConfig.addClassPathParts(javaBase).addClassPath("jmod:java.se")
+        }
+        // as in parse: a Kotlin-only dependency is satisfied by the stubs; a Java-scanned one is its rebuilt instance
+        val rebuiltJavaSet = LinkedHashMap<SourceSet, SourceSet>()
+        dependencyOrder(javaSets).forEach { js ->
+            val keptDeps = js.dependencies().mapNotNull { d ->
+                when {
+                    d.externalLibrary() -> d
+                    d in javaSetIdentity -> rebuiltJavaSet[d] ?: d
+                    else -> null
+                }
+            }
+            val rebuilt = js.withDependencies(keptDeps + stubSet)
+            rebuiltJavaSet[js] = rebuilt
+            javaConfig.addSourceSets(rebuilt)
+        }
+        javaInspector.initialize(javaConfig.build())
+        javaInspector.onlyPreload()
+
+        val libraryRoots = config.classPathParts()
+            .filter { it.externalLibrary() && !it.partOfJdk() }
+            .mapNotNull { uriToPath(it.uri()) }.filter { Files.exists(it) }
+        val jdkHome = Paths.get(System.getProperty("java.home"))
+        val orderedKotlin = dependencyOrder(kotlinSets)
+        // a Kotlin-only set reads the Java-only sets' sources through K2's java-sources module; a mixed set's own
+        // Java files are in its own module's roots already
+        val javaOnlyRoots = javaSets.filter { it.name() !in kotlinSetNames }.flatMap { it.sourceDirectories() }
+        val javaSourceDirs = javaSets.flatMap { it.sourceDirectories() }.filter { Files.exists(it) }
+        val kotlinByName = orderedKotlin.associateBy { it.name() }
+        val stubbed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
+
+        KotlinProjectScan(javaInspector.runtime(), javaInspector.infoByFqn(), javaInspector.compiledTypesManager())
+            .open(orderedKotlin, libraryRoots, jdkHome, javaOnlyRoots).use { kotlin ->
+                fun convertUpstream(ss: SourceSet) {
+                    ss.dependencies().forEach { d ->
+                        val k = kotlinByName[d.name()] ?: return@forEach
+                        if (d.name() in javaSetIdentity.map { it.name() }) return@forEach // scanned by javac, in order
+                        convertUpstream(k)
+                        if (!kotlin.isDeclared(k)) kotlin.convert(k)
+                    }
+                }
+                javaInspector.setInterleave(object : SourceSetInterleave {
+                    override fun beforeAttribution(sourceSet: SourceSet, sourceTypes: java.util.function.Function<String, TypeInfo>) {
+                        convertUpstream(sourceSet)
+                        kotlinByName[sourceSet.name()]?.let { k -> kotlin.declare(k) { fqn -> sourceTypes.apply(fqn) } }
+                        // every Kotlin type made so far that javac has no class file for yet
+                        val fresh = kotlin.declaredTypes().filter { it.primaryType() === it && stubbed.add(it) }
+                        if (fresh.isNotEmpty()) {
+                            val hints = object : JavaStubGenerator.StubHints {
+                                // no body yet, but an abstract declaration is one kotlinc left abstract
+                                override fun hasBody(method: MethodInfo) = !method.isAbstract
+                                override fun delegation(constructor: MethodInfo) = kotlin.delegationOf(constructor)
+                            }
+                            compileStubs(fresh.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it, hints) },
+                                libraryRoots, javaSourceDirs)
+                        }
+                    }
+
+                    override fun afterCommit(sourceSet: SourceSet) {
+                        kotlinByName[sourceSet.name()]?.let { kotlin.complete(it) }
+                    }
+                })
+                val options = JavaInspector.ParseOptions.Builder().build()
+                val javaTypes = try {
+                    javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
+                } finally {
+                    javaInspector.setInterleave(null)
+                }
+                orderedKotlin.filter { !kotlin.isDeclared(it) }.forEach { kotlin.convert(it) }
+                kotlin.observe(observers)
+                val kotlinBySourceSet = LinkedHashMap<SourceSet, List<TypeInfo>>()
+                orderedKotlin.forEach { kotlinBySourceSet[it] = kotlin.result.getValue(it) }
+                return Result(kotlinBySourceSet, javaTypes, javaInspector.runtime(), javaInspector)
+            }
     }
 
     private fun hasExtension(sourceSet: SourceSet, extension: String): Boolean =
@@ -227,13 +342,32 @@ class MixedProjectInspector {
      *        `okio.FileSystem`, and `kotlin.Pair` / `CoroutineContext` / `Function1` come from the stdlib), and
      *        javac cannot compile a stub naming a type it cannot resolve.
      */
-    private fun compileStubs(stubsByFqn: Map<String, String>, libraryRoots: List<Path>) {
+    /**
+     * @param javaSourceDirs a mixed source set's Java sources, on the **source path**: a stub made from a Kotlin
+     *        declaration names the Java types it takes and returns, which have no class file yet. `-implicit:none`,
+     *        so javac reads them to resolve the stubs and writes nothing for them.
+     */
+    private fun compileStubs(stubsByFqn: Map<String, String>, libraryRoots: List<Path>,
+                             javaSourceDirs: List<Path> = emptyList()) {
         val compiler = ToolProvider.getSystemJavaCompiler()
         compiler.getStandardFileManager(null, null, null).use { fm ->
             fm.setLocation(StandardLocation.CLASS_OUTPUT, listOf(stubDir.toFile()))
-            fm.setLocation(StandardLocation.CLASS_PATH, libraryRoots.map { it.toFile() })
+            // the stub directory too: stubs made for an earlier source set are what these may name
+            fm.setLocation(StandardLocation.CLASS_PATH, libraryRoots.map { it.toFile() } + stubDir.toFile())
+            if (javaSourceDirs.isNotEmpty()) fm.setLocation(StandardLocation.SOURCE_PATH, javaSourceDirs.map { it.toFile() })
             val files = stubsByFqn.map { (fqn, code) -> inMemorySource(fqn, code) }
-            check(compiler.getTask(null, fm, null, null, null, files).call()) { "stub compilation failed" }
+            val options = if (javaSourceDirs.isEmpty()) null else listOf("-implicit:none", "-proc:none")
+            if (!compiler.getTask(null, fm, null, options, null, files).call()) {
+                // the diagnostics name `/p/K.java` lines of sources that exist only in memory: keep them where the
+                // lines can be read
+                val kept = Files.createTempDirectory("mixed-stub-sources")
+                stubsByFqn.forEach { (fqn, code) ->
+                    val file = kept.resolve(fqn.replace('.', '/') + ".java")
+                    Files.createDirectories(file.parent)
+                    Files.writeString(file, code)
+                }
+                error("stub compilation failed; the stub sources are in $kept")
+            }
         }
     }
 

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
@@ -154,6 +155,13 @@ class KotlinScan(
         .setExternalLibrary(true).build()
     private val typeMapper = KotlinTypeMapper(runtime, infoByFqn, sourceSet, librarySourceSet, compiledTypesManager)
 
+    /** See [KotlinTypeMapper.javaSourceTypes]. */
+    var javaSourceTypes: ((String) -> TypeInfo?)?
+        get() = typeMapper.javaSourceTypes
+        set(value) {
+            typeMapper.javaSourceTypes = value
+        }
+
     // Function-body conversion (statements/expressions/calls/lambdas). It builds anonymous-object members
     // through `this` (KotlinScan is the MemberConverter), breaking the bodies<->declarations cycle.
     private val bodyConverter = KotlinBodyConverter(runtime, infoByFqn, sourceSet, typeMapper)
@@ -180,6 +188,44 @@ class KotlinScan(
     private val pendingDefaults = java.util.IdentityHashMap<MethodInfo, PendingDefaults>()
     private val defaultsConstructors = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<MethodInfo, Boolean>())
     private val defaultsMethodOf = java.util.IdentityHashMap<MethodInfo, MethodInfo>()
+
+    // ⛔ A BODY IS NOT A DECLARATION, AND IN A MIXED SOURCE SET THE DIFFERENCE IS THE WHOLE PARSE. Between [declare]
+    // and [complete] every type, member signature, field and accessor exists, and no body does: bodies wait here,
+    // each with the file whose session converts it. A driver runs another front end in the gap -- javac, whose Java
+    // sources call into these signatures (through stubs generated from them) and whose members these bodies call.
+    // Converting a body before that would resolve a call into Java against a type with no members yet: a
+    // `k2-unresolved-call` placeholder, silently. A Kotlin-only parse gains too: no body is converted before
+    // another FILE's signatures exist, where B1 used to run file by file.
+    // ⛔ A WAITING BODY HOLDS POINTERS, NOT SYMBOLS. A symbol would stay valid (the standalone session's lifetime
+    // tokens are always accessible), but it pins the analysis session it came from, and with it every FIR cache K2
+    // would otherwise let go of: the kotlin-stdlib parse kept 500 MB live and failed on a 512 MB test heap, where
+    // converting each body at once lets the collector bring it back to 224 MB.
+    private var declaring = false
+    private var declaringFile: KtFile? = null
+    private val pendingBodies = ArrayList<Pair<KtFile, KaSession.() -> Unit>>()
+    private val methodsWithPendingBody = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<MethodInfo, Boolean>())
+    private var declared: List<FileConversion>? = null
+
+    private fun <S : KaSymbol> KaSession.restore(pointer: KaSymbolPointer<S>): S =
+        checkNotNull(pointer.restoreSymbol()) { "the symbol of a waiting body no longer resolves: $pointer" }
+
+    /** Marks [method]'s body as waiting in [body], when it does: see [hasOrAwaitsBody]. */
+    private fun awaitBody(method: MethodInfo) {
+        if (declaring && bodyDepth == 0) methodsWithPendingBody += method
+    }
+
+    /** Runs [action] now, or, for a top-level declaration while [declare] runs, in [complete]. */
+    private fun KaSession.body(action: KaSession.() -> Unit) {
+        val file = declaringFile
+        if (declaring && bodyDepth == 0 && file != null) pendingBodies += file to action else action()
+    }
+
+    /**
+     * Whether [method] has, or will have once [complete] runs, a body: an implementation rather than an abstract
+     * declaration. What a stub generated between [declare] and [complete] needs, where `methodBody()` is still null.
+     */
+    fun hasOrAwaitsBody(method: MethodInfo): Boolean =
+        method in methodsWithPendingBody || runCatching { method.methodBody() }.getOrNull() != null
 
     private inline fun <T> inBody(block: () -> T): T {
         bodyDepth++
@@ -344,8 +390,19 @@ class KotlinScan(
      * real classpath before calling this); this is where multi-file projects are handled.
      */
     fun convert(ktFiles: List<KtFile>): List<TypeInfo> {
+        declare(ktFiles)
+        return complete()
+    }
+
+    /**
+     * Passes A and B1 without bodies: every type of [ktFiles] registered, with its hierarchy, constructors, fields,
+     * accessors and method signatures, uncommitted. Bodies wait for [complete]; see [body]. Returns the types.
+     */
+    fun declare(ktFiles: List<KtFile>): List<TypeInfo> {
+        check(declared == null) { "declare() twice without complete()" }
         facadeByFqn.clear()
         pendingDelegates.clear()
+        pendingDelegatesOf.clear()
         ktFiles.forEach { f -> f.virtualFile?.url?.let { references.projectFiles += it } }
         // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
         // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
@@ -378,20 +435,51 @@ class KotlinScan(
                 facade, topLevelFunctions, topLevelProperties)
         }
         // pass B1 (all files): members. B1a (prepareType) adds hierarchy + constructor structures for EVERY
-        // type first, then B1b (convertMembers) converts bodies -- so a body can `new`/call a forward type.
-        perFile.forEach { fc ->
-            analyze(fc.ktFile) {
-                fc.declarations.zip(fc.types).forEach { (d, ti) -> prepareType(d, ti) }
-                // facade SIGNATURES first (so a class method can call a top-level function like `gcd(...)`),
-                // then class members, then facade BODIES (so an extension function body can read its receiver's
-                // members / call a class method -- those class members now exist)
-                val facadeBodies = fc.facade
-                    ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
-                fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
-                facadeBodies.forEach { (method, sym) -> finishMethodBody(sym, method) }
-                fc.facade?.let { convertInitializers(it) } // top-level `val x = …`, `val x by lazy { … }`
+        // type first, then B1b (convertMembers) declares members -- their bodies wait, see [body].
+        declaring = true
+        try {
+            perFile.forEach { fc ->
+                declaringFile = fc.ktFile
+                analyze(fc.ktFile) {
+                    fc.declarations.zip(fc.types).forEach { (d, ti) -> prepareType(d, ti) }
+                    // facade SIGNATURES first (so a class method can call a top-level function like `gcd(...)`),
+                    // then class members, then facade BODIES (so an extension function body can read its receiver's
+                    // members / call a class method -- those class members now exist)
+                    val facadeBodies = fc.facade
+                        ?.let { convertFacadeSignatures(it, fc.topLevelFunctions, fc.topLevelProperties) } ?: emptyList()
+                    fc.declarations.zip(fc.types).forEach { (d, ti) -> convertMembers(d, ti) }
+                    facadeBodies.forEach { (method, _) -> awaitBody(method) }
+                    val facadePointers = facadeBodies.map { (method, sym) -> method to sym.createPointer() }
+                    body {
+                        facadePointers.forEach { (method, pointer) -> finishMethodBody(restore(pointer), method) }
+                        fc.facade?.let { convertInitializers(it) } // top-level `val x = …`, `val x by lazy { … }`
+                    }
+                }
             }
+        } finally {
+            declaring = false
+            declaringFile = null
         }
+        declared = perFile
+        return perFile.flatMap { it.allTypes() }.distinct()
+    }
+
+    /** The bodies [declare] left waiting, then references, overrides and commits (pass B2). Returns the types. */
+    fun complete(): List<TypeInfo> {
+        val perFile = checkNotNull(declared) { "complete() without declare()" }
+        declared = null
+        val waiting = pendingBodies.toList()
+        pendingBodies.clear()
+        var i = 0
+        while (i < waiting.size) {
+            val file = waiting[i].first
+            var j = i
+            while (j < waiting.size && waiting[j].first === file) j++
+            val run = waiting.subList(i, j)
+            analyze(file) { run.forEach { (_, action) -> action() } }
+            i = j
+        }
+        methodsWithPendingBody.clear()
         // every type now has its members, so a delegate declared after its user resolves: fill the accessors
         drainDelegatedProperties()
         // ...and every declaration a reference can name exists: record them, then commit the members that waited
@@ -414,6 +502,7 @@ class KotlinScan(
         }
         drainDelegatedProperties() // a delegated property built while B2 converted a body is finished here
         commitDeferred() // ...and a member built there (an `object :` in a constructor argument, say)
+        typeMapper.commitShells() // the library types no body reached from a shallower depth
         return perFile.flatMap { it.allTypes() }.distinct()
     }
 
@@ -540,29 +629,56 @@ class KotlinScan(
     }
 
     /**
-     * Register [declaration] and its nested (non-companion) classes recursively, returning flat
-     * (declaration, TypeInfo) pairs in outer-before-nested order for the later passes. Companion objects are
-     * handled separately by [convertMembers] (they get an INSTANCE-style field), so they're skipped here.
+     * Register [declaration] and its nested classes recursively, returning flat (declaration, TypeInfo) pairs in
+     * outer-before-nested order for the later passes. A companion object is converted with its class
+     * ([convertCompanion]: it gets a singleton field, forwarders), so it is not a pair -- but it is REGISTERED here,
+     * and the classes nested in it are pairs.
+     *
+     * ⛔ Registering it only when its class's members were converted left a window, and nothing registered the
+     * classes nested in a companion at all. A signature naming one -- javalin's `Endpoint.Companion.EndpointBuilder`
+     * -- missed the registry and fell through to the shared compiled-type manager, whose javac found the BUILD's
+     * `Endpoint${'$'}Companion.class` in `target/classes` and committed a bytecode copy of a type this scan was about to
+     * build from source: "Inspection of io.javalin.router.Endpoint.Companion has already been committed".
      */
     private fun KaSession.registerTypeTree(compilationUnit: CompilationUnit, enclosing: TypeInfo?,
                                            declaration: KtClassOrObject): List<Pair<KtClassOrObject, TypeInfo>> {
         val typeInfo = registerType(compilationUnit, enclosing, declaration)
-        val nested = declaration.declarations.filterIsInstance<KtClassOrObject>()
-            // enum entries are KtClassOrObject too, but they're constants (handled with the enum), not classes
-            .filterNot { it is KtEnumEntry || (it is KtObjectDeclaration && it.isCompanion()) }
-            .flatMap { registerTypeTree(compilationUnit, typeInfo, it) }
-        return listOf(declaration to typeInfo) + nested
+        val nested = nestedClasses(declaration).flatMap { registerTypeTree(compilationUnit, typeInfo, it) }
+        val companionPairs = declaration.declarations.filterIsInstance<KtObjectDeclaration>()
+            .firstOrNull { it.isCompanion() }
+            ?.let { companion ->
+                val name = companion.name ?: "Companion"
+                val companionType = runtime.newTypeInfo(typeInfo, name)
+                typeInfo.builder().addSubType(companionType)
+                infoByFqn.put(companionType.fullyQualifiedName(), companionType, sourceSet)
+                registeredCompanions[typeInfo] = companionType
+                nestedClasses(companion).flatMap { registerTypeTree(compilationUnit, companionType, it) }
+            } ?: emptyList()
+        return listOf(declaration to typeInfo) + nested + companionPairs
     }
+
+    // enum entries are KtClassOrObject too, but they're constants (handled with the enum), not classes
+    private fun nestedClasses(declaration: KtClassOrObject): List<KtClassOrObject> =
+        declaration.declarations.filterIsInstance<KtClassOrObject>()
+            .filterNot { it is KtEnumEntry || (it is KtObjectDeclaration && it.isCompanion()) }
+
+    // a companion registered in pass A, by its class; set up in prepareType, converted in convertCompanion
+    private val registeredCompanions = java.util.IdentityHashMap<TypeInfo, TypeInfo>()
 
     // @JvmMultifileClass facades shared across files in this convert() run: FQN -> the single facade TypeInfo
     private val facadeByFqn = HashMap<String, TypeInfo>()
 
     // delegated properties awaiting their initializer + accessor bodies: see drainDelegatedProperties
     private val pendingDelegates = mutableListOf<PendingDelegate>()
+    // ...and the same, by owner, for convertDelegateInitializers
+    private val pendingDelegatesOf = java.util.IdentityHashMap<TypeInfo, MutableList<PendingDelegate>>()
 
     // property initializers awaiting conversion, while their owner is open and its members exist: see
     // convertInitializers. One its owner never reaches keeps the empty initializer it was created with.
-    private val pendingInitializers = mutableListOf<PendingInitializer>()
+    // ⚠ BY OWNER. A flat list scanned per owner was harmless while each type drained its own right after declaring
+    // them; with every body waiting for complete() it held all of a source set's initializers at once, and copying
+    // and scanning it per type made the kotlin-stdlib parse quadratic: 26 s became 189 s and then a heap failure.
+    private val pendingInitializers = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
                                      val static: Boolean)
 
@@ -628,6 +744,8 @@ class KotlinScan(
         // hierarchy first, so method bodies can resolve inherited callees via parentClass/interfaces
         applyHierarchy(typeInfo.builder(), typeInfo, classSymbol)
         typeInfo.builder().computeAccess() // eventual type access, needed before members' computeAccess()
+        // ...and before its companion's, which a class nested in the companion needs in ITS prepareType, next
+        registeredCompanions[typeInfo]?.let { setUpCompanion(it) }
         // declaration source (nature is set now): name keyed by simpleName(), keyword by typeNature(), and
         // each supertype reference keyed by its TypeInfo (the `: Base(), Iface` clause) -- mirroring Java
         val superTypeDetails = declaration.superTypeListEntries.mapNotNull { entry ->
@@ -660,7 +778,16 @@ class KotlinScan(
                 if (ctor.isPrimary || runsInit == null && !callsThis) runsInit = constructor
             }
         // after the declared constructors, which finalizeType pairs with their symbols by position
-        declared.forEach { (ctor, constructor) -> defaultsConstructor(typeInfo, ctor, constructor) }
+        declared.forEach { (ctor, constructor) ->
+            defaultsConstructor(typeInfo, ctor, constructor)?.let { overloadConstructors(typeInfo, ctor, constructor, it) }
+        }
+        if (bodyDepth == 0) declared.forEach { (ctor, constructor) -> recordDelegation(declaration, ctor, constructor) }
+        // an overload's `this(...)` is into its target, and throws what the target's own delegation throws
+        if (bodyDepth == 0) overloadTargets.forEach { (overload, target) ->
+            if (overload.typeInfo() === typeInfo) delegationOf[overload] = ConstructorDelegation(false,
+                target.parameters().map { p -> p.parameterizedType().takeIf { it.typeParameter() == null } },
+                delegationOf[target]?.thrown ?: emptyList())
+        }
         runsInit?.let { runsInitOf[typeInfo] = it }
         // an `init` block is code of that constructor (convertInitBlocks): what it names is recorded there, where
         // the graph looks for a caller, rather than falling through to the class
@@ -683,9 +810,11 @@ class KotlinScan(
                                          outerLocals: Map<String, Variable> = emptyMap()) {
         val classSymbol = declaration.symbol as KaNamedClassSymbol
         // properties (+ enum entry fields) before methods, so a method body can reference them
+        val isObject = classSymbol.classKind == KaClassKind.OBJECT
+        recordWrittenSignatures(typeInfo, classSymbol)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
-            .forEach { property -> convertProperty(typeInfo, property) }
+            .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
@@ -694,13 +823,20 @@ class KotlinScan(
         // a sibling declared later was a placeholder.
         val pendingMethods = classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
-            .map { function -> convertMethodSignature(typeInfo, function).also { typeInfo.builder().addMethod(it) } to function }
+            .map { function ->
+                val static = isObject && function.annotations.contains(JVM_STATIC)
+                convertMethodSignature(typeInfo, function, static).also { typeInfo.builder().addMethod(it) } to function
+            }
             .toList()
-        pendingMethods.forEach { (method, function) -> finishMethodBody(function, method, outerLocals) }
-        // initializers, delegate expressions and init blocks now: the type is still open (a lambda mints an
-        // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
-        convertInitializers(typeInfo)
-        convertInitBlocks(declaration, typeInfo)
+        pendingMethods.forEach { (method, _) -> awaitBody(method) }
+        val pendingPointers = pendingMethods.map { (method, function) -> method to function.createPointer() }
+        body {
+            pendingPointers.forEach { (method, pointer) -> finishMethodBody(restore(pointer), method, outerLocals) }
+            // initializers, delegate expressions and init blocks now: the type is still open (a lambda mints an
+            // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
+            convertInitializers(typeInfo)
+            convertInitBlocks(declaration, typeInfo)
+        }
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
         // user declared them; componentN/copy/getters are already provided by K2's member scope
@@ -723,8 +859,10 @@ class KotlinScan(
         classSymbol.companionObject?.let { convertCompanion(typeInfo, it) }
         // a named object (singleton) gets a `public static final INSTANCE` field of its own type
         // the `$default` constructors' bodies, last: a default may call a companion's function
-        typeInfo.constructors().forEach { c ->
-            pendingDefaults.remove(c)?.let { c.builder().setMethodBody(defaultsBody(c, it.target, it.parameters)) }
+        body {
+            typeInfo.constructors().forEach { c ->
+                pendingDefaults.remove(c)?.let { c.builder().setMethodBody(defaultsBody(c, it.target, it.parameters)) }
+            }
         }
         if (classSymbol.classKind == KaClassKind.OBJECT) {
             typeInfo.builder().addField(singletonField(typeInfo, "INSTANCE", typeInfo.asParameterizedType()))
@@ -780,16 +918,12 @@ class KotlinScan(
      */
     private fun KaSession.convertCompanion(enclosing: TypeInfo, companionSymbol: KaNamedClassSymbol) {
         val name = companionSymbol.name?.asString() ?: "Companion"
-        val companion = runtime.newTypeInfo(enclosing, name)
-        companion.builder()
-            .setTypeNature(runtime.typeNatureClass())
-            .setParentClass(runtime.objectParameterizedType())
-            .addTypeModifier(runtime.typeModifierPublic())
-            .addTypeModifier(runtime.typeModifierStatic()) // a nested object is a static nested class on the JVM
-            .addTypeModifier(runtime.typeModifierFinal())
-            .computeAccess() // nested: combines with the (already-computed) enclosing access
-        enclosing.builder().addSubType(companion)
-        infoByFqn.put(companion.fullyQualifiedName(), companion, sourceSet)
+        // registered in pass A (registerTypeTree) for a class of a file; a local class's is made here
+        val companion = registeredCompanions.remove(enclosing) ?: runtime.newTypeInfo(enclosing, name).also {
+            enclosing.builder().addSubType(it)
+            infoByFqn.put(it.fullyQualifiedName(), it, sourceSet)
+            setUpCompanion(it)
+        }
         references.target(companionSymbol.psi, companion)
         // the private constructor kotlinc gives it, called once, from the enclosing class's static initializer. The
         // companion's properties are instance fields of it, so their initializers run there, as a class's run in its
@@ -804,27 +938,45 @@ class KotlinScan(
         runsInitOf[companion] = constructor
         commitOrDefer(constructor, null) { constructor.builder().commit() }
 
+        recordWrittenSignatures(companion, companionSymbol)
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property -> convertProperty(companion, property) }
         // signatures first, then bodies, as for a class (convertMembers)
-        companionSymbol.declaredMemberScope.declarations
+        val pendingMethods = companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
             .map { function -> convertMethodSignature(companion, function).also { companion.builder().addMethod(it) } to function }
             .toList()
-            .forEach { (method, function) -> finishMethodBody(function, method) }
-        convertInitializers(companion)
-        (companionSymbol.psi as? KtObjectDeclaration)?.let { declaration ->
+        pendingMethods.forEach { (method, _) -> awaitBody(method) }
+        val companionPsi = companionSymbol.psi as? KtObjectDeclaration
+        companionPsi?.let { declaration ->
             declaration.getAnonymousInitializers().forEach { references.host(it, constructor) }
-            convertInitBlocks(declaration, companion)
-            initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(constructorBody(listOf(), it)) }
         }
-        companion.builder().commit()
+        val pendingPointers = pendingMethods.map { (method, function) -> method to function.createPointer() }
+        body {
+            pendingPointers.forEach { (method, pointer) -> finishMethodBody(restore(pointer), method) }
+            convertInitializers(companion)
+            companionPsi?.let { declaration ->
+                convertInitBlocks(declaration, companion)
+                initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(constructorBody(listOf(), it)) }
+            }
+            companion.builder().commit()
+        }
 
         // the singleton handle: `public static final <Companion> Companion` on the enclosing class
         val companionField = singletonField(enclosing, name, companion.asParameterizedType())
         enclosing.builder().addField(companionField)
         addCompanionStatics(enclosing, companion, companionField, companionSymbol)
+    }
+
+    private fun setUpCompanion(companion: TypeInfo) {
+        companion.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+            .addTypeModifier(runtime.typeModifierPublic())
+            .addTypeModifier(runtime.typeModifierStatic()) // a nested object is a static nested class on the JVM
+            .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // nested: combines with the (already-computed) enclosing access
     }
 
     /**
@@ -1000,6 +1152,221 @@ class KotlinScan(
     }
 
     /**
+     * What a constructor's `this(...)`/`super(...)` calls, for a Java stub made before any body exists: the call
+     * itself is converted in pass B2 ([explicitConstructorInvocation]). A stub constructor without it calls the
+     * parent's no-argument constructor, which javalin's `JavalinServletContext` -- and 90 more -- do not have.
+     * A parameter typed by a type parameter is null: its substitution is the use site's, and a stub passes a bare
+     * `null` for it. [thrown]: the checked exceptions of a Java or library parent constructor, which kotlinc never
+     * has to declare and javac does (javalin's `LeveledBrotli4jStream` calls `BrotliOutputStream`'s, which throws
+     * `IOException`).
+     */
+    class ConstructorDelegation(val isSuper: Boolean, val parameterTypes: List<ParameterizedType?>,
+                                val thrown: List<ParameterizedType>)
+
+    private val delegationOf = java.util.IdentityHashMap<MethodInfo, ConstructorDelegation>()
+
+    fun delegationOf(constructor: MethodInfo): ConstructorDelegation? = delegationOf[constructor]
+
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
+    private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo) {
+        val (isSuper, call) = when (val psi = ctor.psi) {
+            is KtSecondaryConstructor -> {
+                val delegation = psi.getDelegationCall()
+                if (delegation.isImplicit) return
+                !delegation.isCallToThis to (delegation as KtCallElement)
+            }
+            else -> true to (declaration.superTypeListEntries.filterIsInstance<KtSuperTypeCallEntry>().firstOrNull()
+                ?: return)
+        }
+        val target = call.resolveSymbol() as? KaConstructorSymbol ?: return
+        val owner = constructor.typeInfo()
+        val parameterTypes = target.valueParameters.map { p ->
+            if (p.returnType is KaTypeParameterType) null
+            else mapType(p.returnType, owner).let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it }
+        }
+        // a bytecode parent is loaded with its members; a source parent (Kotlin, or Java not yet parsed) throws nothing
+        // javac would ask about
+        val parentConstructors = if (!isSuper) emptyList() else owner.parentClass()?.typeInfo()
+            ?.takeIf { it.compilationUnit().externalLibrary() }
+            ?.let { parent -> runCatching { parent.constructors() }.getOrDefault(emptyList()) }
+            ?.filter { it.parameters().size == parameterTypes.size } ?: emptyList()
+        // the one whose parameter types match; failing that -- a nested or generic parameter type can map to
+        // another instance than the one the parent carries -- what EVERY parent constructor of that arity throws.
+        // Intersecting, never adding: a `throws` the real constructor does not have would force a Java caller of
+        // this Kotlin constructor to catch what it cannot throw (javalin's `LeveledBrotli4jStream`, whose parent
+        // `BrotliOutputStream(OutputStream, Encoder.Parameters)` throws IOException).
+        val matched = parentConstructors.firstOrNull { c ->
+            c.parameters().zip(parameterTypes).all { (p, t) -> t == null || p.parameterizedType().typeInfo() == t.typeInfo() }
+        }
+        val exceptions = { c: MethodInfo -> runCatching { c.exceptionTypes() }.getOrDefault(emptyList()) }
+        val thrown = when {
+            matched != null -> exceptions(matched)
+            parentConstructors.isEmpty() -> emptyList()
+            else -> parentConstructors.map { exceptions(it).toSet() }
+                .reduce { a, b -> a.intersect(b) }.toList()
+        }
+        delegationOf[constructor] = ConstructorDelegation(isSuper, parameterTypes, thrown)
+    }
+
+    /**
+     * The JVM overloads kotlinc adds to a function or constructor with default values, as the parameter indices each
+     * keeps: one per defaulted parameter under `@JvmOverloads`, dropping them from the last; and the no-argument
+     * constructor of a primary constructor whose parameters all have defaults. Java calls them (javalin's
+     * `new CompressionStrategy()`, `addWsHandler` without its roles). [offset]: the parameters before the value
+     * parameters, an extension's receiver.
+     */
+    private fun overloadParameters(offset: Int, defaults: List<Boolean>, jvmOverloads: Boolean,
+                                   primaryConstructor: Boolean): List<List<Int>> {
+        val all = (0 until offset + defaults.size).toList()
+        val defaulted = defaults.indices.filter { defaults[it] }.map { it + offset }
+        return when {
+            jvmOverloads -> (1..defaulted.size).map { drop -> all - defaulted.takeLast(drop).toSet() }
+            primaryConstructor && defaults.isNotEmpty() && defaults.all { it } -> listOf(emptyList())
+            else -> emptyList()
+        }
+    }
+
+    /** Each overload constructor ([overloadConstructors]) and the constructor it stands for. */
+    private val overloadTargets = java.util.IdentityHashMap<MethodInfo, MethodInfo>()
+
+    /**
+     * kotlinc's overloads of [target] ([overloadParameters]) as members of [owner]: synthetic, as a data class's
+     * `copy()` is, since they spell nothing; each passes its parameters on to [defaults], [target]'s `$default`, with
+     * the zero value and the mask bit of every one it leaves out -- the call kotlinc compiles into them. A Java call
+     * that leaves the defaults out binds to one; a Kotlin call never does (it binds to [defaults] itself).
+     */
+    private fun KaSession.overloadMethods(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
+                                          static: Boolean) {
+        val defaults = defaultsMethodOf[target] ?: return
+        val offset = if (function.receiverParameter != null) 1 else 0
+        overloadParameters(offset, function.valueParameters.map { it.hasDefaultValue },
+            function.annotations.contains(JVM_OVERLOADS), false).forEach { kept ->
+            val method = runtime.newMethod(owner, target.name(), target.methodType())
+            val builder = method.builder().setSynthetic(true)
+            addTypeParameters(builder, function, owner, method)
+            kept.forEach { i ->
+                if (i < offset) syntheticParameter(builder, "\$receiver", mapType(function.receiverParameter!!.returnType, owner, method))
+                else function.valueParameters[i - offset].let { p ->
+                    syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method))
+                }
+            }
+            builder.commitParameters()
+                .setReturnType(mapType(function.returnType, owner, method))
+                .setSource(runtime.noSource())
+            visibilityMethodModifier(function)?.let { builder.addMethodModifier(it) }
+            builder.addMethodModifier(when {
+                static -> runtime.methodModifierStatic()
+                owner.isInterface -> runtime.methodModifierDefault()
+                else -> runtime.methodModifierFinal()
+            })
+            builder.computeAccess()
+            builder.setMethodBody(overloadBody(method, defaults, kept, offset, function.valueParameters.size))
+            owner.builder().addMethod(method)
+            commitOrDefer(method, null) { method.builder().commit() }
+        }
+    }
+
+    /** [overloadMethods], for a constructor: the body is `this(...)` into [defaults], the `$default` constructor. */
+    private fun overloadConstructors(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo, defaults: MethodInfo) {
+        overloadParameters(0, ctor.valueParameters.map { it.hasDefaultValue }, ctor.annotations.contains(JVM_OVERLOADS),
+            ctor.isPrimary).forEach { kept ->
+            // a no-argument constructor written by hand is the one kotlinc keeps
+            if (kept.isEmpty() && owner.constructors().any { !it.isSynthetic && it.parameters().isEmpty() }) return@forEach
+            val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
+            val builder = constructor.builder().setSynthetic(true)
+            kept.forEach { i -> target.parameters()[i].let { syntheticParameter(builder, it.name(), it.parameterizedType()) } }
+            builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor()).setSource(runtime.noSource())
+            visibilityMethodModifier(ctor)?.let { builder.addMethodModifier(it) }
+            builder.commitParameters().computeAccess()
+            builder.setMethodBody(overloadBody(constructor, defaults, kept, 0, ctor.valueParameters.size))
+            owner.builder().addConstructor(constructor)
+            overloadTargets[constructor] = target
+            defaultsConstructors += constructor // committed with the `$default` constructors, after the declared ones
+        }
+    }
+
+    /**
+     * An overload's body: [defaults] called with the [overload]'s parameters where [kept] keeps them, the zero value of
+     * the rest, their bits in the masks, and for a constructor the `null` marker.
+     */
+    private fun overloadBody(overload: MethodInfo, defaults: MethodInfo, kept: List<Int>, offset: Int,
+                             valueParameters: Int): Block {
+        val passed = defaults.parameters().subList(0, offset + valueParameters)
+        val masks = IntArray(masks(valueParameters).size)
+        val arguments = passed.mapIndexed { i, p ->
+            val k = kept.indexOf(i)
+            if (k >= 0) bodyConverter.variableExpression(overload.parameters()[k])
+            else {
+                masks[(i - offset) / 32] = masks[(i - offset) / 32] or (1 shl ((i - offset) % 32))
+                runtime.nullValue(p.parameterizedType())
+            }
+        } + masks.map { runtime.newInt(it) } + if (overload.isConstructor) listOf(runtime.nullConstant()) else listOf()
+        val statement = if (overload.isConstructor) {
+            runtime.newExplicitConstructorInvocationBuilder().setIsSuper(false).setMethodInfo(defaults)
+                .setParameterExpressions(arguments).setSource(runtime.noSource().withIndex("0")).build()
+        } else {
+            val owner = defaults.typeInfo()
+            val call = runtime.newMethodCallBuilder()
+                .setObject(if (defaults.isStatic) runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo())
+                           else bodyConverter.variableExpression(runtime.newThis(owner.asParameterizedType())))
+                .setObjectIsImplicit(!defaults.isStatic).setMethodInfo(defaults).setParameterExpressions(arguments)
+                .setConcreteReturnType(defaults.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+            bodyConverter.indexed(if (defaults.returnType() == runtime.voidParameterizedType())
+                runtime.newExpressionAsStatement(call) else runtime.newReturnStatement(call), "0")
+        }
+        return runtime.newBlockBuilder().addStatement(statement).build()
+    }
+
+    /**
+     * Whether [property], of an `object`, is static on the JVM, as the members Java names on the type are
+     * (javalin's `Header.AUTHORIZATION`, `RouteOverviewUtil.getMetaInfo(handler)`): a `const val`, a `@JvmField`, and a
+     * `@JvmStatic` property with its accessors. So are the object's `@JvmStatic` functions. The rest of an object's
+     * members belong to its `INSTANCE`.
+     */
+    /**
+     * The JVM signatures of the functions a type writes, by type: an accessor maddi would synthesize for one of its
+     * properties is not synthesized when the type declares that signature itself. kotlinc gives a PRIVATE property no
+     * accessors at all, so javalin's `private var routeRoles` plus its written `fun setRouteRoles(Set<RouteRole>)` are
+     * one JVM method, and minting the setter too put two methods of one signature in the type (an assertion in
+     * MethodMapImpl, and the stub had to dedupe them).
+     */
+    private val writtenSignatures = java.util.IdentityHashMap<TypeInfo, Set<String>>()
+
+    private fun KaSession.recordWrittenSignatures(owner: TypeInfo, classSymbol: KaNamedClassSymbol) {
+        writtenSignatures[owner] = classSymbol.declaredMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { function ->
+                val name = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) } ?: function.name.asString()
+                signature(name, function.valueParameters.map { mapType(it.returnType, owner) },
+                    mapType(function.returnType, owner))
+            }.toSet()
+    }
+
+    /**
+     * A JVM signature: name, parameter types, AND return type -- the JVM keys a method by all three, and Kotlin uses
+     * that. detekt's `YML` has `open val indent: Int` next to a `private fun getIndent(): String`, two methods
+     * (MemberTest.anAccessorOverridesTheAccessorNotAFunctionOfTheSameJvmName); javalin's written
+     * `setRouteRoles(Set<RouteRole>)` returns Unit, exactly as the setter maddi would synthesize.
+     */
+    private fun signature(name: String, parameterTypes: List<ParameterizedType>, returnType: ParameterizedType): String =
+        name + parameterTypes.joinToString(",", "(", ")") { erasedName(it) } + ":" + erasedName(returnType)
+
+    private fun erasedName(pt: ParameterizedType): String =
+        (pt.typeInfo()?.fullyQualifiedName() ?: pt.typeParameter()?.simpleName() ?: "?") + "[]".repeat(pt.arrays())
+
+    /** Whether [owner] writes a function with this accessor's JVM signature ([writtenSignatures]). */
+    private fun isWritten(owner: TypeInfo, name: String, parameterTypes: List<ParameterizedType>,
+                          returnType: ParameterizedType): Boolean =
+        writtenSignatures[owner]?.contains(signature(name, parameterTypes, returnType)) == true
+
+    private fun isJvmStatic(property: KaPropertySymbol): Boolean =
+        (property as? KaKotlinPropertySymbol)?.isConst == true
+                || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
+                || property.annotations.contains(JVM_FIELD)
+                || property.annotations.contains(JVM_STATIC)
+                || property.getter?.annotations?.contains(JVM_STATIC) == true
+
+    /**
      * Convert a Kotlin property (`val`/`var`, incl. primary-constructor `val x: Int`) into a backing
      * [FieldInfo] plus accessor methods whose bodies maddi already recognises as getters/setters:
      * `getX() { return this.x; }` and (for `var`) `setX(v) { this.x = v; }`. Each accessor is tagged via
@@ -1033,7 +1400,9 @@ class KotlinScan(
         val fieldBuilder = field.builder()
             .addFieldModifier(runtime.fieldModifierPrivate())
             .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
-        (property.psi as? KtProperty)?.initializer?.let { pendingInitializers += PendingInitializer(owner, field, it, static) }
+        (property.psi as? KtProperty)?.initializer?.let {
+            pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(owner, field, it, static)
+        }
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
@@ -1053,20 +1422,28 @@ class KotlinScan(
         // of the same signature (DoubleCompanionObject.getMIN_VALUE; ParameterizedTypeImpl.getOwnerType, a
         // private val overriding a Java interface method). Setter: kept for every `var` (incl. private) -- the
         // finality analysis models a var's field-demoting setter (see TestFinalFieldBranchAssignment).
+        // @JvmField: the field is the JVM surface, with no accessor either. One made anyway was named what K2 reports
+        // for it -- the property's own name -- and collided with a written `fun sessionId()` (javalin's WsContext)
         val isConst = (property as? KaKotlinPropertySymbol)?.isConst == true
+                || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
+                || property.annotations.contains(JVM_FIELD)
         val isPrivate = property.visibility == KaSymbolVisibility.PRIVATE
         // a written accessor body (`get() = field.trim()`, `set(v) { field = v.coerceAtLeast(0) }`) is converted:
         // kotlinc compiles it into the accessor, even for a private property. Only a default one is synthesized.
         val customGetter = (property.psi as? KtProperty)?.getter?.takeIf { it.hasBody() }
         val customSetter = (property.psi as? KtProperty)?.setter?.takeIf { it.hasBody() }
-        if (!isConst && customGetter != null) {
+        // ... nor one whose JVM signature the type writes itself (see writtenSignatures)
+        val hasGetter = !isConst && !isWritten(owner, accessorName(property, false), listOf(), type)
+        val hasSetter = !isConst && !isVal
+                && !isWritten(owner, accessorName(property, true), listOf(type), runtime.voidParameterizedType())
+        if (hasGetter && customGetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customGetter))
-        } else if (!isConst && !isPrivate) {
+        } else if (hasGetter && !isPrivate) {
             owner.builder().addMethod(buildGetter(owner, field, type, property, static))
         }
-        if (!isConst && !isVal && customSetter != null) {
+        if (hasSetter && customSetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customSetter))
-        } else if (!isConst && !isVal) {
+        } else if (hasSetter) {
             owner.builder().addMethod(buildSetter(owner, field, type, property, static))
         }
     }
@@ -1096,20 +1473,23 @@ class KotlinScan(
         addMethodModifiers(builder, property)
         builder.commitParameters().computeAccess()
         builder.setSource(declarationSource(accessor) {})
-        val scope = mutableMapOf<String, Variable>()
-        field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
-        val body = runtime.newBlockBuilder()
-        val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
-        if (expressionBody != null) {
-            val value = convertExpression(expressionBody, method, scope)
-            body.addStatement(bodyConverter.indexed(if (setter) runtime.newExpressionAsStatement(value)
-                else runtime.newReturnStatement(value), "0"))
-        } else {
-            val statements = accessor.bodyBlockExpression?.statements.orEmpty()
-            statements.forEachIndexed { i, st -> body.addStatement(convertStatement(st, method, scope, bodyConverter.pad(i, statements.size))) }
+        awaitBody(method)
+        body {
+            val scope = mutableMapOf<String, Variable>()
+            field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
+            val block = runtime.newBlockBuilder()
+            val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
+            if (expressionBody != null) {
+                val value = convertExpression(expressionBody, method, scope)
+                block.addStatement(bodyConverter.indexed(if (setter) runtime.newExpressionAsStatement(value)
+                    else runtime.newReturnStatement(value), "0"))
+            } else {
+                val statements = accessor.bodyBlockExpression?.statements.orEmpty()
+                statements.forEachIndexed { i, st -> block.addStatement(convertStatement(st, method, scope, bodyConverter.pad(i, statements.size))) }
+            }
+            builder.setMethodBody(block.build())
+            commitOrDefer(method, accessor) { method.builder().commit() }
         }
-        builder.setMethodBody(body.build())
-        commitOrDefer(method, accessor) { method.builder().commit() }
         return method
     }
 
@@ -1149,7 +1529,9 @@ class KotlinScan(
         owner.builder().addMethod(getter)
         val setter = if (property.isVal) null
         else buildDelegateAccessor(owner, field, type, property, static, write = true).also { owner.builder().addMethod(it) }
-        pendingDelegates.add(PendingDelegate(owner, field, type, static, getter, setter, psi?.delegateExpression))
+        val pending = PendingDelegate(owner, field, type, static, getter, setter, psi?.delegateExpression)
+        pendingDelegates.add(pending)
+        pendingDelegatesOf.getOrPut(owner) { mutableListOf() } += pending
     }
 
     /**
@@ -1198,10 +1580,9 @@ class KotlinScan(
      */
     private fun KaSession.convertInitializers(owner: TypeInfo) {
         convertDelegateInitializers(owner)
-        // a snapshot, like the delegates': an `object :` expression in an initializer queues its own properties,
-        // which its conversion finishes (finishAnonMembers) before this loop reaches them
-        pendingInitializers.toList().forEach { p ->
-            if (p.owner !== owner || !pendingInitializers.remove(p)) return@forEach
+        // an `object :` expression in an initializer queues its own properties under its own type, which its
+        // conversion finishes (finishAnonMembers)
+        pendingInitializers.remove(owner)?.forEach { p ->
             p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(owner, p.static), emptyMap()))
         }
     }
@@ -1244,10 +1625,10 @@ class KotlinScan(
      * calling a type declared later does not, exactly as for every other body converted in this pass.
      */
     private fun KaSession.convertDelegateInitializers(owner: TypeInfo) {
-        // a snapshot: converting a delegate expression can build an anonymous type whose own delegated
-        // properties append to this very list
-        pendingDelegates.toList().forEach { p ->
-            if (p.owner !== owner || p.initialized) return@forEach
+        // converting a delegate expression can build an anonymous type, whose own delegated properties are queued
+        // under that type
+        pendingDelegatesOf.remove(owner)?.forEach { p ->
+            if (p.initialized) return@forEach
             val initializer = p.delegateExpression?.let { convertExpression(it, p.getter, emptyMap()) }
                 ?: runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
             p.field.builder().setInitializer(initializer).computeAccess()
@@ -1358,19 +1739,23 @@ class KotlinScan(
         addMethodModifiers(getter.builder(), property)
         getter.builder().commitParameters().computeAccess()
         val accessor = (property.psi as? KtProperty)?.getter
-        val body = runtime.newBlockBuilder()
-        val expressionBody = accessor?.bodyExpression
-        if (expressionBody != null) {
-            body.addStatement(bodyConverter.indexed(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())), "0"))
-        } else {
-            val statements = accessor?.bodyBlockExpression?.statements.orEmpty()
-            val scope = mutableMapOf<String, Variable>()
-            statements.forEachIndexed { i, s -> body.addStatement(convertStatement(s, getter, scope, bodyConverter.pad(i, statements.size))) }
-        }
-        getter.builder().setMethodBody(body.build())
         // a computed property has no field: its getter is what a reference names, and where its body's are recorded
-        references.target(property.psi, getter)
-        commitOrDefer(getter, property.psi) { getter.builder().commit() }
+        val propertyPsi = property.psi
+        references.target(propertyPsi, getter)
+        awaitBody(getter)
+        body {
+            val block = runtime.newBlockBuilder()
+            val expressionBody = accessor?.bodyExpression
+            if (expressionBody != null) {
+                block.addStatement(bodyConverter.indexed(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())), "0"))
+            } else {
+                val statements = accessor?.bodyBlockExpression?.statements.orEmpty()
+                val scope = mutableMapOf<String, Variable>()
+                statements.forEachIndexed { i, s -> block.addStatement(convertStatement(s, getter, scope, bodyConverter.pad(i, statements.size))) }
+            }
+            getter.builder().setMethodBody(block.build())
+            commitOrDefer(getter, propertyPsi) { getter.builder().commit() }
+        }
         return getter
     }
 
@@ -1586,6 +1971,7 @@ class KotlinScan(
         if (static) builder.addMethodModifier(runtime.methodModifierStatic())
         builder.computeAccess() // eventual access from the visibility modifier + owner type; commit after the body
         if (psi != null) defaultsMethod(owner, function, method, static, psi)
+        if (psi != null) overloadMethods(owner, function, method, static)
         return method
     }
 
@@ -1603,14 +1989,7 @@ class KotlinScan(
         val method = runtime.newMethod(owner, target.name() + "\$default",
             if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
         val builder = method.builder().setSynthetic(true)
-        function.typeParameters.mapIndexed { index, tp ->
-            runtime.newTypeParameter(index, tp.name.asString(), method).also { builder.addTypeParameter(it) } to tp
-        }.forEach { (cstTp, tp) ->
-            cstTp.builder()
-                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
-                .setVariance(mapVariance(tp.variance))
-                .commit()
-        }
+        addTypeParameters(builder, function, owner, method)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
         masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
@@ -1635,10 +2014,10 @@ class KotlinScan(
      * and kotlinc's `DefaultConstructorMarker`, which keeps it from colliding with a declared constructor. See
      * [defaultsMethod]; its body, [defaultsBody], ends in `this(...)`.
      */
-    private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo) {
-        val declaration = ctor.psi ?: return
+    private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo): MethodInfo? {
+        val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
-        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return
+        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
@@ -1651,6 +2030,20 @@ class KotlinScan(
         references.defaults(declaration, constructor)
         pendingDefaults[constructor] = PendingDefaults(target, parameters)
         defaultsConstructors += constructor
+        return constructor
+    }
+
+    /** [function]'s type parameters, as [method]'s own: a synthetic member made from [function]'s declaration. */
+    private fun KaSession.addTypeParameters(builder: MethodInfo.Builder, function: KaNamedFunctionSymbol, owner: TypeInfo,
+                                            method: MethodInfo) {
+        function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method).also { builder.addTypeParameter(it) } to tp
+        }.forEach { (cstTp, tp) ->
+            cstTp.builder()
+                .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
+                .setVariance(mapVariance(tp.variance))
+                .commit()
+        }
     }
 
     private fun syntheticParameter(builder: MethodInfo.Builder, name: String, type: ParameterizedType) {
@@ -1770,3 +2163,7 @@ class KotlinScan(
     private fun visibilityMethodModifier(symbol: KaDeclarationSymbol): MethodModifier? =
         typeMapper.visibilityMethodModifier(symbol)
 }
+
+private val JVM_STATIC = ClassId.fromString("kotlin/jvm/JvmStatic")
+private val JVM_FIELD = ClassId.fromString("kotlin/jvm/JvmField")
+private val JVM_OVERLOADS = ClassId.fromString("kotlin/jvm/JvmOverloads")

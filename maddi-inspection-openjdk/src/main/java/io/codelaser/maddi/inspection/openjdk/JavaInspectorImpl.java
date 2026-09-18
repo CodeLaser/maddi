@@ -39,6 +39,7 @@ import io.codelaser.maddi.java.openjdk.ClassSymbolScanner;
 import io.codelaser.maddi.java.openjdk.InMemoryJavaFileObject;
 import io.codelaser.maddi.java.openjdk.MaddiDiagnosticCollector;
 import io.codelaser.maddi.java.openjdk.ScanCompilationUnits;
+import io.codelaser.maddi.java.openjdk.SourceSetInterleave;
 import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
@@ -825,6 +826,17 @@ public class JavaInspectorImpl implements JavaInspector {
         }
     }
 
+    private SourceSetInterleave interleave;
+
+    /**
+     * A second front end sharing the source sets this inspector scans: see {@link SourceSetInterleave}. Called for
+     * every source set scanned from then on, a Java-only one included (the other front end may have declarations
+     * that set's Java needs first).
+     */
+    public void setInterleave(SourceSetInterleave interleave) {
+        this.interleave = interleave;
+    }
+
     private void singleSourceSet(Summary summary,
                                  Map<String, String> sourcesByFqn,
                                  InfoByFqn infoByFqn,
@@ -854,10 +866,12 @@ public class JavaInspectorImpl implements JavaInspector {
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
                 computeFingerPrints, syntheticListField);
         ScanCompilationUnits.Result scanned;
+        scanCompilationUnits.setInterleave(interleave);
         try {
             scanned = scanCompilationUnits.scan();
         } catch (RuntimeException re) {
-            if (!lombok || !lombokFailure(re)) throw re;
+            // not with a second front end: it has declared against the first attempt's compilation units already
+            if (!lombok || !lombokFailure(re) || interleave != null) throw re;
             // The Lombok processor itself crashed inside javac -- typically a corpus pins a lombok version too
             // old for the embedded compiler (langchain4j's 1.18.30 reflects on TypeTag.UNKNOWN, gone in recent
             // JDKs). Degrade to the pre-processor behavior: parse without Lombok; its generated members are then
@@ -987,6 +1001,7 @@ public class JavaInspectorImpl implements JavaInspector {
                             + " class output", sourceSet.name());
             }
         }
+        if (interleave != null) interleave.afterCommit(sourceSet);
     }
 
     /**

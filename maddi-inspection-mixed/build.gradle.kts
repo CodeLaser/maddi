@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":maddi-kotlin-k2"))          // KotlinScan
     implementation(project(":maddi-inspection-kotlin"))  // JavaStubGenerator
     implementation(project(":maddi-inspection-openjdk")) // the openjdk (javac) Java front-end
+    implementation(project(":maddi-java-openjdk"))       // SourceSetInterleave
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")

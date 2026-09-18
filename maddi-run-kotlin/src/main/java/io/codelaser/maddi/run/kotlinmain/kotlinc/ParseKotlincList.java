@@ -109,19 +109,34 @@ public class ParseKotlincList {
      */
     List<Kotlinc> parseLines(List<String> lines) {
         List<Kotlinc> result = new ArrayList<>();
-        MavenBlock block = null;
+        LineReader reader = new LineReader();
         for (String line : lines) {
+            Kotlinc k = reader.accept(line);
+            if (k != null) result.add(k);
+        }
+        return result;
+    }
+
+    /**
+     * The line-by-line state of {@link #parseLines}, for a caller that interleaves other compilers' lines
+     * ({@link ParseMixedList}): a mixed Maven build logs a kotlin-maven-plugin block, then maven-compiler-plugin's
+     * javac line, per module and source set.
+     */
+    public final class LineReader {
+        private MavenBlock block;
+
+        /** @return the invocation this line completes, or {@code null} (not a Kotlin line, or a block in progress) */
+        public Kotlinc accept(String line) {
             Kotlinc single = convertSingleLine(line);
             if (single != null) {
-                result.add(single);
                 block = null;
-                continue;
+                return single;
             }
             Matcher src = MVN_SOURCES.matcher(line);
             if (src.matches()) {
                 block = new MavenBlock();
                 block.sourceDirs = splitCommaList(src.group(1));
-                continue;
+                return null;
             }
             if (block != null) {
                 Matcher cp = MVN_CLASSPATH.matcher(line);
@@ -134,12 +149,12 @@ public class ParseKotlincList {
                 } else if (mn.matches()) {
                     block.moduleName = mn.group(1).trim();
                     Kotlinc k = block.build(); // module-name is the last line of the block
-                    if (k != null) result.add(k);
                     block = null;
+                    return k;
                 }
             }
+            return null;
         }
-        return result;
     }
 
     private static final class MavenBlock {

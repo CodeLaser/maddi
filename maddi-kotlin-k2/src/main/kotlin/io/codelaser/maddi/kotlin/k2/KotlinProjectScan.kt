@@ -61,26 +61,38 @@ class KotlinProjectScan(
      */
     fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
               javaSourceRoots: List<Path> = emptyList(),
-              observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> {
+              observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> =
+        open(orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots).use { session ->
+            orderedSourceSets.forEach { session.convert(it) }
+            session.observe(observers)
+            session.result
+        }
+
+    /**
+     * The session [parse] runs, left open for a driver that interleaves another front end between a source set's
+     * declarations and its bodies (see [Session.declare]). Close it when done: see [parse] for why.
+     */
+    fun open(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
+             javaSourceRoots: List<Path> = emptyList()): Session {
         // The session's project lives until this disposable is disposed: IntelliJ's Disposer tree is static, so an
         // undisposed session -- every PSI file, every FIR cache -- stays reachable for the life of the JVM. A host
         // that parses more than once (the refactoring server re-parses after every write) kept one full detekt
-        // session per parse: 1,413 live KtFiles more each time. Nothing reads PSI after this returns.
+        // session per parse: 1,413 live KtFiles more each time. Nothing reads PSI after the session is closed.
         val disposable = Disposer.newDisposable("maddi KotlinProjectScan")
         try {
-            return parse(disposable, orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots, observers)
-        } finally {
+            return Session(disposable, orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots)
+        } catch (t: Throwable) {
             Disposer.dispose(disposable)
+            throw t
         }
     }
 
-    private fun parse(disposable: Disposable, orderedSourceSets: List<SourceSet>,
-                      libraryRoots: List<Path>, jdkHome: Path, javaSourceRoots: List<Path>,
-                      observers: List<KotlinParseObserver>): Map<SourceSet, List<TypeInfo>> {
-        val jvm = JvmPlatforms.defaultJvmPlatform
-        val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
-
-        val session = buildStandaloneAnalysisAPISession(disposable) {
+    inner class Session internal constructor(private val disposable: Disposable, orderedSourceSets: List<SourceSet>,
+                                             libraryRoots: List<Path>, jdkHome: Path,
+                                             javaSourceRoots: List<Path>) : AutoCloseable {
+        private val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
+        private val session = buildStandaloneAnalysisAPISession(disposable) {
+            val jvm = JvmPlatforms.defaultJvmPlatform
             buildKtModuleProvider {
                 platform = jvm
                 val jdk = buildKtSdkModule {
@@ -121,23 +133,73 @@ class KotlinProjectScan(
                     moduleBySourceSet[ss] = module
                 }
             }
-        }
-        session.registerKDocResolution()
+        }.also { it.registerKDocResolution() }
 
-        val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
-        val sourceSetOf = LinkedHashMap<KtFile, String>()
         // one registry for the project: a set's members name the members of the sets upstream of it
-        val references = KotlinReferenceRegistry()
-        orderedSourceSets.forEach { ss ->
-            val module = moduleBySourceSet[ss]!!
-            val ktFiles = (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
-            result[ss] = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager)
-                .also { it.references = references }.convert(ktFiles)
-            ktFiles.forEach { sourceSetOf[it] = ss.name() }
+        private val references = KotlinReferenceRegistry()
+        private val scans = LinkedHashMap<SourceSet, KotlinScan>()
+        private val sourceSetOf = LinkedHashMap<KtFile, String>()
+        private val declaredTypes = LinkedHashMap<SourceSet, List<TypeInfo>>()
+
+        /** The converted types per source set, in the order the sets completed. */
+        val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
+
+        private fun ktFiles(ss: SourceSet): List<KtFile> {
+            val module = checkNotNull(moduleBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }
+            return (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
         }
-        // after every set is converted, so a reference into an upstream set finds its CST; the session is still alive
-        val allTypes = result.values.flatten()
-        observers.forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
-        return result
+
+        /**
+         * Declarations of [ss] (types, hierarchy, signatures), no bodies: see [KotlinScan.declare]. Dependency order.
+         * [javaSourceTypes]: see [KotlinTypeMapper.javaSourceTypes], for a set whose Java sources are not parsed yet.
+         */
+        fun declare(ss: SourceSet, javaSourceTypes: ((String) -> TypeInfo?)? = null): List<TypeInfo> {
+            check(ss !in scans) { "source set ${ss.name()} declared twice" }
+            val scan = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager).also {
+                it.references = references
+                it.javaSourceTypes = javaSourceTypes
+            }
+            scans[ss] = scan
+            val files = ktFiles(ss)
+            files.forEach { sourceSetOf[it] = ss.name() }
+            return scan.declare(files).also { declaredTypes[ss] = it }
+        }
+
+        /** The bodies and commits of [ss], after [declare]: see [KotlinScan.complete]. */
+        fun complete(ss: SourceSet): List<TypeInfo> {
+            val scan = checkNotNull(scans[ss]) { "source set ${ss.name()} completed before it was declared" }
+            scan.javaSourceTypes = null // the Java types are registered by now; nothing more is made on request
+            return scan.complete().also { result[ss] = it }
+        }
+
+        fun isDeclared(ss: SourceSet): Boolean = ss in scans
+
+        /** Every type declared so far, in every set: the completed ones, and those between declare and complete. */
+        fun declaredTypes(): List<TypeInfo> = declaredTypes.values.flatten()
+
+        fun isCompleted(ss: SourceSet): Boolean = ss in result
+
+        fun convert(ss: SourceSet): List<TypeInfo> {
+            declare(ss)
+            return complete(ss)
+        }
+
+
+        /** See [KotlinScan.delegationOf]; [constructor] may belong to any set of this session. */
+        fun delegationOf(constructor: io.codelaser.maddi.cst.api.info.MethodInfo): KotlinScan.ConstructorDelegation? =
+            scans.values.firstNotNullOfOrNull { it.delegationOf(constructor) }
+
+
+        /** See [KotlinScan.hasOrAwaitsBody]; [method] may belong to any set of this session. */
+        fun hasOrAwaitsBody(method: io.codelaser.maddi.cst.api.info.MethodInfo): Boolean =
+            scans.values.any { it.hasOrAwaitsBody(method) }
+
+        /** After every set is completed, so a reference into an upstream set finds its CST; the session is still alive. */
+        fun observe(observers: List<KotlinParseObserver>) {
+            val allTypes = result.values.flatten()
+            observers.forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
+        }
+
+        override fun close() = Disposer.dispose(disposable)
     }
 }

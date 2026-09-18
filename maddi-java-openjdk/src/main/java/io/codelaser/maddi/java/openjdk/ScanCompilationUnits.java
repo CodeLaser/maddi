@@ -63,6 +63,7 @@ public class ScanCompilationUnits {
     private final ResolveJavaDoc resolveJavaDoc;
     private final List<String> packagesToPreload;
     private final boolean computeFingerPrints;
+    private SourceSetInterleave interleave;
 
     public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads,
                          List<CompilationUnitFailure> failures) {
@@ -111,6 +112,54 @@ public class ScanCompilationUnits {
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
 
+    /** A second front end sharing this source set; see {@link SourceSetInterleave}. Before {@link #scan}. */
+    public void setInterleave(SourceSetInterleave interleave) {
+        this.interleave = interleave;
+    }
+
+    /**
+     * This set's Java source types by fully qualified name, registered on first request: see
+     * {@link SourceSetInterleave#beforeAttribution}. A nested type is found under its primary type, which is
+     * declared whole.
+     */
+    private final class SourceTypes {
+        private final Map<String, ScanCompilationUnit> scannerByPrimaryType = new HashMap<>();
+        private final Map<String, JCTree.JCClassDecl> declarationByPrimaryType = new HashMap<>();
+
+        SourceTypes(List<ScanCompilationUnit> scanners) {
+            for (ScanCompilationUnit scanner : scanners) {
+                String packageName = scanner.currentCompilationUnit().packageName();
+                scanner.topLevelDeclarations().forEach((simpleName, declaration) -> {
+                    String fqn = packageName == null || packageName.isEmpty() ? simpleName
+                            : packageName + "." + simpleName;
+                    scannerByPrimaryType.put(fqn, scanner);
+                    declarationByPrimaryType.put(fqn, declaration);
+                });
+            }
+        }
+
+        TypeInfo declare(String fullyQualifiedName) {
+            String primary = fullyQualifiedName;
+            while (!scannerByPrimaryType.containsKey(primary)) {
+                int dot = primary.lastIndexOf('.');
+                if (dot < 0) return null;
+                primary = primary.substring(0, dot);
+            }
+            TypeInfo primaryType = classSymbolScanner.getType(primary);
+            if (primaryType == null || primaryType.compilationUnit() != scannerByPrimaryType.get(primary)
+                    .currentCompilationUnit()) {
+                primaryType = scannerByPrimaryType.get(primary).declareFromTree(declarationByPrimaryType.get(primary), null);
+            }
+            TypeInfo typeInfo = primaryType;
+            for (String simpleName : fullyQualifiedName.substring(primary.length()).split("\\.")) {
+                if (simpleName.isEmpty()) continue;
+                typeInfo = typeInfo.findSubType(simpleName, false);
+                if (typeInfo == null) return null;
+            }
+            return typeInfo;
+        }
+    }
+
     // -XDuseUnsharedTable=true must be HONORED, not merely passed (task #40 lead): with the shared table,
     // name bytes come from a process-wide freelist and repeated parsing intermittently corrupts. Assert-only
     // diagnostic; tolerant of future javac internals changes.
@@ -157,6 +206,20 @@ public class ScanCompilationUnits {
 
     public Result scan() throws IOException {
         Iterable<? extends CompilationUnitTree> units = task.parse();
+        // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
+        List<CompilationUnitFailure> failures = new ArrayList<>();
+        // filled after analyze(), the first moment a symbol exists; one instance, because a scanner built before
+        // attribution (below) holds it
+        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols = new IdentityHashMap<>();
+        BuiltUnits built = null;
+        if (interleave != null) {
+            // ⛔ BEFORE ATTRIBUTION, AND ONLY WITH A SECOND FRONT END. See SourceSetInterleave: it declares its types
+            // against this set's Java types, and writes the stubs analyze() is about to read. Building a compilation
+            // unit reads the trees and nothing javac attributes. (A pre-scan failure is told apart from a grammar
+            // gap by the errors javac has reported, which before attribution are the syntax errors.)
+            built = buildCompilationUnits(units, preScan(units, failures), topLevelClassSymbols, failures);
+            interleave.beforeAttribution(sourceSet, new SourceTypes(built.scanners())::declare);
+        }
         task.analyze();
 
         for (MaddiDiagnosticCollector.MaddiDiagnostic md : diagnosticCollector.diagnostics()) {
@@ -172,8 +235,6 @@ public class ScanCompilationUnits {
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
-        // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
-        List<CompilationUnitFailure> failures = new ArrayList<>();
 
         // ⛔ BEFORE ANY TYPE IS LOADED, INCLUDING THE PRELOAD. This map is the scanner's only way to tell a
         // symbol javac entered FROM THIS TASK'S SOURCES from one it read out of a class file, and
@@ -187,8 +248,7 @@ public class ScanCompilationUnits {
         // died on "Extending multiple identical interfaces". Five of maddi-annotation's twenty-seven types, in
         // the FIRST source set of the whole-CodeLaser-tree parse, because the preload runs only there.
         // See TestPreloadBeforeSourceSymbols and docs/handoff-source-and-jar-duplicate-interfaces.md.
-        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols
-                = StreamSupport.stream(units.spliterator(), false)
+        IdentityHashMap<Symbol.ClassSymbol, Boolean> symbols = StreamSupport.stream(units.spliterator(), false)
                 .flatMap(unit -> unit.getTypeDecls().stream()
                         .filter(td -> td instanceof JCTree.JCClassDecl)
                         .map(td -> ((JCTree.JCClassDecl) td).sym))
@@ -196,6 +256,7 @@ public class ScanCompilationUnits {
                             throw new RuntimeException();
                         },
                         IdentityHashMap::new));
+        topLevelClassSymbols.putAll(symbols);
         classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
 
         // only index in the first pass; in the second pass, all predefined objects will be present
@@ -219,81 +280,11 @@ public class ScanCompilationUnits {
         // ClassSymbolScanner#startOfNewSourceSet for what moving it ahead of the preload changes.
         classSymbolScanner.startOfNewSourceSet();
 
-        // Task 1 (detailed sources only): compute each unit's congocc scan result. It is javac-free, hence safe to
-        // run in parallel; we barrier on all results before touching javac again. Source content is extracted on
-        // THIS (main) thread first -- javac's file manager is not thread-safe.
-        Map<CompilationUnitTree, SourceCodeScan.Result> scanResults = new IdentityHashMap<>();
-        if (detailedSources) {
-            LOGGER.info("Collected {} class symbols for source set {}", topLevelClassSymbols.size(), sourceSet.name());
-            Map<CompilationUnitTree, CharSequence> contentByUnit = new IdentityHashMap<>();
-            for (CompilationUnitTree unit : units) {
-                contentByUnit.put(unit, unit.getSourceFile().getCharContent(false));
-            }
-            int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
-            try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads)) {
-                Map<CompilationUnitTree, Future<SourceCodeScan.Result>> futures = new IdentityHashMap<>();
-                for (CompilationUnitTree unit : units) {
-                    boolean isModule = unit.getModule() != null;
-                    CharSequence content = contentByUnit.get(unit);
-                    futures.put(unit, task1Executor.submit(() -> new SourceCodeScan(runtime).go(content, isModule)));
-                }
-                for (Map.Entry<CompilationUnitTree, Future<SourceCodeScan.Result>> e : futures.entrySet()) {
-                    try {
-                        scanResults.put(e.getKey(), e.getValue().get());
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(ie);
-                    } catch (ExecutionException ee) {
-                        Throwable cause = ee.getCause() == null ? ee : ee.getCause();
-                        // the congocc pre-scan failed for this unit (e.g. a grammar gap on a construct javac
-                        // accepts, such as 'super(new X(){...})'). It is auxiliary -- it only supplies source
-                        // positions for detailed sources. fail-fast: rethrow. accumulate: keep the unit with no
-                        // scan result (all scanResult reads are null-guarded, so detailed sources simply degrade
-                        // for this one file) rather than dropping a file javac parsed successfully.
-                        if (!diagnosticCollector.ignoreErrors()) {
-                            throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
-                        }
-                        CompilationUnitTree failedUnit = e.getKey();
-                        URI failedUri = failedUnit.getSourceFile() == null ? null : failedUnit.getSourceFile().toUri();
-                        // The pre-scan fails both on constructs javac accepts but congocc's grammar chokes on (a
-                        // grammar gap -- keep the unit, detailed sources degrade) AND on genuinely unparseable source.
-                        // Tell them apart by javac: if javac ALSO reported an error for this file, the source is really
-                        // broken -- record it so the run exits non-zero (TestErrorReporting); otherwise it is a grammar
-                        // gap on valid code -- keep the unit with no scan result (TestDetailedSourcePreScanFailureDegrades).
-                        if (javacReportedErrorFor(failedUri)) {
-                            recordFailure(failures, failedUnit, cause);
-                        } else {
-                            LOGGER.warn("Detailed-source pre-scan failed for {}; continuing without detailed sources: {}",
-                                    failedUri == null ? "?" : failedUri, cause.toString());
-                        }
-                    }
-                }
-            }
+        if (built == null) {
+            built = buildCompilationUnits(units, preScan(units, failures), topLevelClassSymbols, failures);
         }
-
-        // Phase 1: build every unit's CompilationUnit and register it with the class-symbol scanner, BEFORE any
-        // body is scanned. This is the fix for the intermittent null-source CompilationUnit: a cross-file reference
-        // (e.g. a.A naming b.B before b.B's own source is scanned) now lazily loads b.B onto its real source CU,
-        // instead of the class-symbol scanner minting a source-less twin that the later source scan would reuse.
-        List<ScanCompilationUnit> scanners = new ArrayList<>();
-        List<CompilationUnitTree> unitList = new ArrayList<>();
-        for (CompilationUnitTree unit : units) {
-            try {
-                ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
-                scu.buildCompilationUnit(unit);
-                classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
-                scanners.add(scu);
-                unitList.add(unit);
-            } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                // fail-fast: preserve the historical abort. accumulate: drop this unit and keep going, so one
-                // unresolved reference (partial classpath) no longer kills the whole source set.
-                if (!diagnosticCollector.ignoreErrors()) {
-                    LOGGER.error("Caught exception (compilation-unit build) in source set {}", sourceSet.name());
-                    throw e;
-                }
-                recordFailure(failures, unit, e);
-            }
-        }
+        List<ScanCompilationUnit> scanners = built.scanners();
+        List<CompilationUnitTree> unitList = built.units();
 
         // Phase 2: scan the bodies. Serial -- it touches shared javac state (symbol resolution, trees).
         int done = 0;
@@ -390,6 +381,97 @@ public class ScanCompilationUnits {
             LOGGER.warn("Cannot compute fingerprint of {}: {}", unit.getSourceFile().toUri(), e.toString());
             return MD5FingerPrint.NO_FINGERPRINT;
         }
+    }
+
+    /** The units Phase 1 built a compilation unit for, and their scanners; a unit it dropped is in neither. */
+    private record BuiltUnits(List<ScanCompilationUnit> scanners, List<CompilationUnitTree> units) {
+    }
+
+    private Map<CompilationUnitTree, SourceCodeScan.Result> preScan(Iterable<? extends CompilationUnitTree> units,
+                                                                  List<CompilationUnitFailure> failures)
+            throws IOException {
+        // Task 1 (detailed sources only): compute each unit's congocc scan result. It is javac-free, hence safe to
+        // run in parallel; we barrier on all results before touching javac again. Source content is extracted on
+        // THIS (main) thread first -- javac's file manager is not thread-safe.
+        Map<CompilationUnitTree, SourceCodeScan.Result> scanResults = new IdentityHashMap<>();
+        if (detailedSources) {
+            LOGGER.info("Pre-scanning compilation units of source set {}", sourceSet.name());
+            Map<CompilationUnitTree, CharSequence> contentByUnit = new IdentityHashMap<>();
+            for (CompilationUnitTree unit : units) {
+                contentByUnit.put(unit, unit.getSourceFile().getCharContent(false));
+            }
+            int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
+            try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads)) {
+                Map<CompilationUnitTree, Future<SourceCodeScan.Result>> futures = new IdentityHashMap<>();
+                for (CompilationUnitTree unit : units) {
+                    boolean isModule = unit.getModule() != null;
+                    CharSequence content = contentByUnit.get(unit);
+                    futures.put(unit, task1Executor.submit(() -> new SourceCodeScan(runtime).go(content, isModule)));
+                }
+                for (Map.Entry<CompilationUnitTree, Future<SourceCodeScan.Result>> e : futures.entrySet()) {
+                    try {
+                        scanResults.put(e.getKey(), e.getValue().get());
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(ie);
+                    } catch (ExecutionException ee) {
+                        Throwable cause = ee.getCause() == null ? ee : ee.getCause();
+                        // the congocc pre-scan failed for this unit (e.g. a grammar gap on a construct javac
+                        // accepts, such as 'super(new X(){...})'). It is auxiliary -- it only supplies source
+                        // positions for detailed sources. fail-fast: rethrow. accumulate: keep the unit with no
+                        // scan result (all scanResult reads are null-guarded, so detailed sources simply degrade
+                        // for this one file) rather than dropping a file javac parsed successfully.
+                        if (!diagnosticCollector.ignoreErrors()) {
+                            throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
+                        }
+                        CompilationUnitTree failedUnit = e.getKey();
+                        URI failedUri = failedUnit.getSourceFile() == null ? null : failedUnit.getSourceFile().toUri();
+                        // The pre-scan fails both on constructs javac accepts but congocc's grammar chokes on (a
+                        // grammar gap -- keep the unit, detailed sources degrade) AND on genuinely unparseable source.
+                        // Tell them apart by javac: if javac ALSO reported an error for this file, the source is really
+                        // broken -- record it so the run exits non-zero (TestErrorReporting); otherwise it is a grammar
+                        // gap on valid code -- keep the unit with no scan result (TestDetailedSourcePreScanFailureDegrades).
+                        if (javacReportedErrorFor(failedUri)) {
+                            recordFailure(failures, failedUnit, cause);
+                        } else {
+                            LOGGER.warn("Detailed-source pre-scan failed for {}; continuing without detailed sources: {}",
+                                    failedUri == null ? "?" : failedUri, cause.toString());
+                        }
+                    }
+                }
+            }
+        }
+        return scanResults;
+    }
+
+    private BuiltUnits buildCompilationUnits(Iterable<? extends CompilationUnitTree> units,
+                                             Map<CompilationUnitTree, SourceCodeScan.Result> scanResults,
+                                             IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols,
+                                             List<CompilationUnitFailure> failures) {
+        // Phase 1: build every unit's CompilationUnit and register it with the class-symbol scanner, BEFORE any
+        // body is scanned. This is the fix for the intermittent null-source CompilationUnit: a cross-file reference
+        // (e.g. a.A naming b.B before b.B's own source is scanned) now lazily loads b.B onto its real source CU,
+        // instead of the class-symbol scanner minting a source-less twin that the later source scan would reuse.
+        List<ScanCompilationUnit> scanners = new ArrayList<>();
+        List<CompilationUnitTree> unitList = new ArrayList<>();
+        for (CompilationUnitTree unit : units) {
+            try {
+                ScanCompilationUnit scu = createScanner(unit, scanResults.get(unit), topLevelClassSymbols);
+                scu.buildCompilationUnit(unit);
+                classSymbolScanner.registerSourceCompilationUnit(scu.currentCompilationUnit());
+                scanners.add(scu);
+                unitList.add(unit);
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
+                // fail-fast: preserve the historical abort. accumulate: drop this unit and keep going, so one
+                // unresolved reference (partial classpath) no longer kills the whole source set.
+                if (!diagnosticCollector.ignoreErrors()) {
+                    LOGGER.error("Caught exception (compilation-unit build) in source set {}", sourceSet.name());
+                    throw e;
+                }
+                recordFailure(failures, unit, e);
+            }
+        }
+        return new BuiltUnits(scanners, unitList);
     }
 
     /** True when javac itself reported an error for this file: the source is genuinely broken, not merely beyond

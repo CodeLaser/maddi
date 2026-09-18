@@ -57,6 +57,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
@@ -444,8 +445,9 @@ internal class KotlinBodyConverter(
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
             val stmt = convertStatement(s, method, childLocals, childIndex)
+            // the `return` takes the index of the statement it replaces: the analyzer requires one on every statement
             block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
-                runtime.newReturnStatement(stmt.expression()) else stmt)
+                indexed(runtime.newReturnStatement(stmt.expression()), childIndex) else stmt)
         }
         return block.build()
     }
@@ -651,8 +653,7 @@ internal class KotlinBodyConverter(
         }
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
-            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) }
-                ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) } ?: self(method)
             // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
@@ -705,6 +706,11 @@ internal class KotlinBodyConverter(
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
         staticMemberAccess(expression, method)?.let { return it }
+        // `Type.method(args)` where the receiver is a TYPE: a Java static (javalin's `TestUtil.test(app) { … }`).
+        // The receiver is no value, so it converted to a placeholder and the call to another, which swallowed the
+        // arguments -- including a lambda declaring an `object :` the rename censuses then never saw.
+        (expression.selectorExpression as? KtCallExpression)
+            ?.let { staticCall(expression.receiverExpression, it, method, locals) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
@@ -731,6 +737,24 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
             .build(runtime)
         else selectorResult
+    }
+
+    /**
+     * A call on a type rather than a value, `Type.method(args)`, when the method is static on the JVM: the object is
+     * a type expression, as the Java front end builds it. Null when the receiver is not a type, the type is not
+     * known, or the callee is an instance method (a Kotlin `object`'s or companion's member, which
+     * [KotlinBodyConverter.convertCall] routes through its singleton).
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.staticCall(receiverExpression: KtExpression, call: KtCallExpression, method: MethodInfo,
+                                     locals: Map<String, Variable>): Expression? {
+        val receiverClass = (receiverExpression as? KtNameReferenceExpression)
+            ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        if ((call.resolveSymbol() as? KaNamedFunctionSymbol)?.isStatic != true) return null
+        val fqn = receiverClass.classId?.asFqNameString() ?: return null
+        val type = infoByFqn.getType(fqn, sourceSet) ?: with(typeMapper) { loadLibraryClass(receiverClass) } ?: return null
+        val scope = runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo())
+        return convertCall(call, scope to type, false, method, locals)
     }
 
     /**
@@ -871,7 +895,7 @@ internal class KotlinBodyConverter(
      * not yet resolved). Implicit `it` is materialised when the function type has one parameter.
      */
     private fun KaSession.convertLambda(lambda: KtLambdaExpression, method: MethodInfo,
-                                        locals: Map<String, Variable>): Expression {
+                                        locals: Map<String, Variable>, samType: ParameterizedType? = null): Expression {
         val enclosingType = method.typeInfo()
         val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
         anonymousType.builder()
@@ -880,8 +904,13 @@ internal class KotlinBodyConverter(
             .setParentClass(runtime.objectParameterizedType())
 
         val functionType = lambda.expressionType as? KaFunctionType
-        val functionalType = lambda.expressionType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
-        val sam = runtime.newMethod(anonymousType, "invoke", runtime.methodTypeMethod())
+        // [samType] is the interface a SAM constructor names; otherwise the lambda's own Kotlin function type
+        val functionalType = samType ?: lambda.expressionType?.let { mapType(it, enclosingType) }
+            ?: runtime.objectParameterizedType()
+        val samName = samType?.typeInfo()
+            ?.let { t -> runCatching { t.methods().singleOrNull { m -> m.isAbstract }?.name() }.getOrNull() }
+            ?: "invoke"
+        val sam = runtime.newMethod(anonymousType, samName, runtime.methodTypeMethod())
         val samBuilder = sam.builder()
         val outputVariants = mutableListOf<Lambda.OutputVariant>()
 
@@ -958,6 +987,10 @@ internal class KotlinBodyConverter(
         val all = mutableListOf<MethodInfo>()
         collectMethods(type, name, arguments.size, mutableSetOf(), all)
         if (all.size <= 1) return all.firstOrNull()
+        // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
+        // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
+        all.removeIf { m -> m.isSynthetic && all.any { !it.isSynthetic && it.typeInfo() === m.typeInfo() } }
+        if (all.size == 1) return all.first()
         // overloads that share erased params but differ by return type (Kotlin inline numeric specializations,
         // e.g. maxOf((T)->Double):Double vs :Float vs :R): pick the one whose erased return type matches the
         // resolved call. Then disambiguate any remainder by argument type, as before.
@@ -1137,6 +1170,16 @@ internal class KotlinBodyConverter(
         val arguments = ordered?.expressions ?: valueArgs
         val defaults = ordered?.defaults
 
+        // a SAM constructor, `Runnable { … }`: what it makes IS the lambda, whose anonymous type implements the
+        // interface -- so the lambda is the expression, carrying that interface rather than its Kotlin function type.
+        // Unhandled, the call fell through to an unresolved placeholder that swallowed the lambda and every
+        // declaration inside it (javalin's censuses lost the overrides declared in one).
+        if (resolved is KaSamConstructorSymbol) {
+            val lambda = call.valueArguments.singleOrNull()?.getArgumentExpression() as? KtLambdaExpression
+            if (lambda != null) {
+                return convertLambda(lambda, method, locals, call.expressionType?.let { mapType(it, method.typeInfo()) })
+            }
+        }
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
         if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method, defaults)
 
@@ -1165,7 +1208,9 @@ internal class KotlinBodyConverter(
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
-        val obj = receiver?.first ?: variableExpression(runtime.newThis(method.typeInfo().asParameterizedType()))
+        val obj = receiver?.first
+            ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+            else self(method)
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         // DetailedSources (layer 2), mirroring exactly what the Java parser records for a method call: the
         // closing parenthesis (END_OF_ARGUMENT_LIST) and the argument commas (ARGUMENT_COMMAS) -- both shared
@@ -1252,8 +1297,11 @@ internal class KotlinBodyConverter(
     private fun KaSession.singletonMemberCall(holder: TypeInfo, singletonField: FieldInfo, callee: MethodInfo,
                                               arguments: List<Expression>, call: KtCallExpression, method: MethodInfo): Expression {
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        // an object's `@JvmStatic` function is static (KotlinScan.isJvmStatic): called on the type, not the instance
+        val scope = if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+                    else singletonAccess(holder, singletonField)
         return runtime.newMethodCallBuilder()
-            .setObject(singletonAccess(holder, singletonField)).setObjectIsImplicit(false).setMethodInfo(callee)
+            .setObject(scope).setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(arguments).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -1475,8 +1523,10 @@ internal class KotlinBodyConverter(
     private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }
-        method.typeInfo().fields().firstOrNull { it.name() == name }
-            ?.let { return variableExpression(runtime.newFieldReference(it)) }
+        method.typeInfo().fields().firstOrNull { it.name() == name }?.let { field ->
+            return variableExpression(if (field.isStatic || !method.isStatic) runtime.newFieldReference(field)
+                                      else runtime.newFieldReference(field, self(method), field.type()))
+        }
         // unqualified access to a member of the extension receiver: `name` means `$receiver.name`
         receiverParam(method)?.let { receiver ->
             receiver.parameterizedType().typeInfo()?.fields()?.firstOrNull { it.name() == name }?.let { field ->
@@ -1497,11 +1547,24 @@ internal class KotlinBodyConverter(
         }
         // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
-        if (!method.isStatic) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
-            return accessorCall(variableExpression(runtime.newThis(method.typeInfo().asParameterizedType())), accessor)
+        if (!method.isStatic || singleton(method.typeInfo()) != null) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
+            return accessorCall(self(method), accessor)
         }
         return null
     }
+
+    /**
+     * What `this` is in [method]: `this`, but in a static function of an `object` (`@JvmStatic`, see
+     * KotlinScan.isJvmStatic) the object's `INSTANCE`, which is how kotlinc compiles it.
+     */
+    private fun self(method: MethodInfo): Expression {
+        val type = method.typeInfo()
+        if (method.isStatic) singleton(type)?.let { return singletonAccess(type, it) }
+        return variableExpression(runtime.newThis(type.asParameterizedType()))
+    }
+
+    /** An `object`'s `INSTANCE` field, or null. */
+    private fun singleton(type: TypeInfo): FieldInfo? = type.fields().firstOrNull { it.name() == "INSTANCE" && it.isStatic }
 
     internal fun variableExpression(variable: Variable): Expression =
         runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()

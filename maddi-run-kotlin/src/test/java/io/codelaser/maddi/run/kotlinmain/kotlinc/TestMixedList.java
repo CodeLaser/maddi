@@ -62,4 +62,51 @@ public class TestMixedList {
         assertEquals(List.of(tmp.resolve("proj/src/main/kotlin")), kotlinSet.sourceDirectories());
         assertEquals(List.of(tmp.resolve("proj/src/main/java")), javaSet.sourceDirectories());
     }
+
+    /**
+     * A mixed Maven module: kotlin-maven-plugin's labelled block, then maven-compiler-plugin's javac line, both
+     * writing {@code target/classes} (javalin's layout: {@code .kt} and {@code .java} side by side). One output
+     * directory is one source set holding both languages -- not a source set plus its own classes as a library.
+     */
+    @Test
+    public void mavenKotlinAndJavaIntoOneDirectoryAreOneSourceSet() throws IOException {
+        Path tmp = Files.createTempDirectory(tempRoot, "mixed-mvn");
+        Path main = tmp.resolve("proj/src/main/java");
+        Path testKotlin = tmp.resolve("proj/src/test/kotlin");
+        Path testJava = tmp.resolve("proj/src/test/java");
+        for (Path dir : List.of(main, testKotlin, testJava)) Files.createDirectories(dir);
+        String classes = tmp.resolve("proj/target/classes").toString();
+        String testClasses = tmp.resolve("proj/target/test-classes").toString();
+        String jar = tmp.resolve("lib.jar").toString();
+
+        String log = "[DEBUG] Compiling Kotlin sources from [" + main + "]\n" +
+                "[DEBUG] some unrelated plugin line\n" +
+                "[DEBUG] Classpath: " + classes + ":" + jar + "\n" +
+                "[DEBUG] Classes directory is " + classes + "\n" +
+                "[DEBUG] Module name is proj\n" +
+                "[DEBUG] -d " + classes + " -classpath " + classes + ":" + jar + " -sourcepath " + main
+                + ": --release 17 -encoding UTF-8\n" +
+                "[DEBUG] Compiling Kotlin sources from [" + testKotlin + ", " + testJava + "]\n" +
+                "[DEBUG] Classpath: " + testClasses + ":" + classes + ":" + jar + "\n" +
+                "[DEBUG] Classes directory is " + testClasses + "\n" +
+                "[DEBUG] Module name is proj\n" +
+                "[DEBUG] -d " + testClasses + " -classpath " + testClasses + ":" + classes + ":" + jar
+                + " -sourcepath " + testJava + ": --release 17 -encoding UTF-8\n";
+        Path logFile = Files.createTempFile(tempRoot, "mixed-mvn", ".txt");
+        Files.writeString(logFile, log);
+
+        assertEquals(4, new ParseMixedList().invocations(logFile).size(), "two Maven blocks, two javac lines");
+
+        InputConfiguration config = new ParseMixedList().parse(logFile);
+        List<SourceSet> sets = config.sourceSets().stream().filter(s -> !s.externalLibrary()).toList();
+        assertEquals(2, sets.size(), () -> "one source set per output directory: " + sets);
+        SourceSet mainSet = sets.stream().filter(s -> !s.test()).findFirst().orElseThrow();
+        SourceSet testSet = sets.stream().filter(SourceSet::test).findFirst().orElseThrow();
+        assertEquals(List.of(main), mainSet.sourceDirectories());
+        assertEquals(List.of(testKotlin, testJava), testSet.sourceDirectories());
+        assertEquals(17, mainSet.sourceRelease(), "javac's options survive the merge");
+        assertTrue(testSet.dependencies().contains(mainSet));
+        assertTrue(config.classPathParts().stream().noneMatch(p -> p.uri().toString().endsWith("target/classes")),
+                "the module's own output is not also a library");
+    }
 }

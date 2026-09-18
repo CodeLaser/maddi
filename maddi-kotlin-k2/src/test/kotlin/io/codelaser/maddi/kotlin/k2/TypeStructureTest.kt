@@ -335,6 +335,64 @@ class TypeStructureTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun aWrittenAccessorSignatureIsNotSynthesizedTwice() {
+        // kotlinc gives a private property no accessors, so the written function is the only `setRouteRoles` on the
+        // JVM (javalin's JavalinServletContext). Two CST methods of one signature trip MethodMapImpl's assertion.
+        val c = KotlinScan(runtime, sourceSet).parse(
+            "R.kt",
+            "class R(private var roles: Set<String> = emptySet()) {\n" +
+                "    fun roles() = roles\n" +
+                "    fun setRoles(roles: Set<String>) { this.roles = roles }\n" +
+                "    fun setRoles(role: String) { this.roles = setOf(role) }\n" +
+                "}\n"
+        ).first()
+        // the written ones only: one taking a Set (the synthesized setter's signature), one taking a String
+        assertEquals(listOf("java.util.Set", "java.lang.String"),
+            c.methods().filter { it.name() == "setRoles" }
+                .map { it.parameters().single().parameterizedType().typeInfo()!!.fullyQualifiedName() })
+        assertTrue(c.fields().any { it.name() == "roles" }, "the backing field stays")
+    }
+
+    @Test
+    fun objectJvmStaticsAreStatic() {
+        // on the JVM an object's const val, @JvmField and @JvmStatic members are static: Java names them on the type
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Log.kt",
+            "object Log {\n" +
+                "    const val PREFIX = \"p\"\n" +
+                "    @JvmField val sink = StringBuilder()\n" +
+                "    var count = 0\n" +
+                "    @JvmStatic fun log(message: String): Int { count++; return size() + this.count }\n" +
+                "    fun size(): Int = sink.length\n" +
+                "}\n" +
+                "class User { fun use(): Int = Log.log(\"x\") + Log.size() }\n"
+        ).associateBy { it.simpleName() }
+        val log = types.getValue("Log")
+        assertTrue(log.fields().single { it.name() == "PREFIX" }.isStatic)
+        assertTrue(log.fields().single { it.name() == "sink" }.isStatic)
+        assertFalse(log.fields().single { it.name() == "count" }.isStatic)
+        val logMethod = log.findUniqueMethod("log", 1)
+        assertTrue(logMethod.isStatic)
+        assertFalse(log.findUniqueMethod("size", 0).isStatic)
+
+        // Kotlin calls it on the type, and the instance's members through INSTANCE
+        val calls = mutableListOf<MethodCall>()
+        types.getValue("User").findUniqueMethod("use", 0).methodBody().visit { e: io.codelaser.maddi.cst.api.element.Element ->
+            if (e is MethodCall) calls += e
+            true
+        }
+        val byName = calls.associateBy { it.methodInfo().name() }
+        assertTrue(byName.getValue("log").`object`() is io.codelaser.maddi.cst.api.expression.TypeExpression)
+        assertEquals("INSTANCE", ((byName.getValue("size").`object`() as VariableExpression).variable() as FieldReference)
+            .fieldInfo().name())
+        // inside the static function, `size()` and `this.count` are the INSTANCE's
+        val inner = mutableListOf<io.codelaser.maddi.cst.api.element.Element>()
+        logMethod.methodBody().visit { e: io.codelaser.maddi.cst.api.element.Element -> inner += e; true }
+        assertFalse(inner.any { it is VariableExpression && it.variable() is This }, "no `this` in a static method")
+        assertTrue(inner.any { it is MethodCall && it.methodInfo().name() == "size" })
+    }
+
+    @Test
     fun declarationNameDetailedSources() {
         val scan = KotlinScan(runtime, sourceSet)
         val widget = scan.parse(

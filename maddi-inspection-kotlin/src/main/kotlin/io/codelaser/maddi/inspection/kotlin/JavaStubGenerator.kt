@@ -15,6 +15,7 @@
 package io.codelaser.maddi.inspection.kotlin
 
 import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.kotlin.k2.KotlinScan
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.info.TypeParameter
 import io.codelaser.maddi.cst.api.type.ParameterizedType
@@ -38,6 +39,21 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType
 object JavaStubGenerator {
 
     /**
+     * What a stub needs to know that the CST does not say, or does not say yet. The defaults read the CST, which is
+     * enough for a stub of a fully converted type; a mixed source set's stubs are made from a Kotlin scan's
+     * declarations, before any body (see `KotlinScan.declare`), and ask the scan.
+     */
+    interface StubHints {
+        /** An implementation rather than an abstract declaration: a Kotlin interface's `default` method. */
+        fun hasBody(method: MethodInfo): Boolean = runCatching { method.methodBody() }.getOrNull() != null
+
+        /** The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. */
+        fun delegation(constructor: MethodInfo): KotlinScan.ConstructorDelegation? = null
+    }
+
+    private val DEFAULT_HINTS = object : StubHints {}
+
+    /**
      * Java's reserved words (plus the literals `true`/`false`/`null`, which are equally unusable as
      * identifiers). Kotlin reserves a different set, so any of these can legitimately name a Kotlin member.
      */
@@ -55,7 +71,11 @@ object JavaStubGenerator {
 
     /** Positional parameter names: javac resolves a call by argument types, never by parameter name. */
     private fun parameterList(m: MethodInfo): String =
-        m.parameters().withIndex().joinToString(", ") { (i, p) -> javaType(p.parameterizedType()) + " p$i" }
+        m.parameters().withIndex().joinToString(", ") { (i, p) ->
+            val type = javaType(p.parameterizedType())
+            // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve
+            (if (p.isVarArgs && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
+        }
 
     /**
      * An interface field is implicitly `static final`, so javac demands an initializer ("= expected").
@@ -69,17 +89,17 @@ object JavaStubGenerator {
         else -> " = null"
     }
 
-    fun stub(typeInfo: TypeInfo): String {
+    fun stub(typeInfo: TypeInfo, hints: StubHints = DEFAULT_HINTS): String {
         val sb = StringBuilder()
         val pkg = typeInfo.packageName()
         if (pkg.isNotEmpty()) sb.append("package ").append(pkg).append(";\n\n")
-        appendType(sb, typeInfo, "")
+        appendType(sb, typeInfo, "", hints)
         return sb.toString()
     }
 
-    private fun appendType(sb: StringBuilder, typeInfo: TypeInfo, indent: String) {
+    private fun appendType(sb: StringBuilder, typeInfo: TypeInfo, indent: String, hints: StubHints) {
         if (typeInfo.typeNature().isEnum) {
-            appendEnum(sb, typeInfo, indent)
+            appendEnum(sb, typeInfo, indent, hints)
             return
         }
         if (typeInfo.typeNature().isAnnotation) {
@@ -88,7 +108,15 @@ object JavaStubGenerator {
         }
         val isInterface = typeInfo.typeNature().isInterface
         sb.append(indent).append("public ")
-        if (!isInterface && typeInfo.methods().any { it.isAbstract }) sb.append("abstract ")
+        // a Kotlin class nested in another is static unless it is `inner`; an inner stub cannot even be constructed
+        // without an enclosing instance
+        // (only inside its enclosing stub: a driver may stub a nested type on its own, at top level)
+        if (indent.isNotEmpty() && typeInfo.isStatic) sb.append("static ")
+        // a `sealed` class is abstract on the JVM, and its subclasses need not implement what it leaves abstract
+        // (javalin's `PathSegment.Normal`, between `PathSegment` and the two classes that do)
+        if (!isInterface && (typeInfo.isAbstract || typeInfo.isSealed || typeInfo.methods().any { it.isAbstract })) {
+            sb.append("abstract ")
+        }
         sb.append(if (isInterface) "interface " else "class ").append(typeInfo.simpleName())
         sb.append(typeParameters(typeInfo.typeParameters()))
         if (isInterface) {
@@ -107,10 +135,14 @@ object JavaStubGenerator {
                 .append(javaFieldType(f.type())).append(" ").append(f.name())
                 .append(if (isInterface) initializer(f.type()) else "").append(";\n")
         }
-        typeInfo.constructors().forEach { appendMethod(sb, typeInfo, it, isInterface, inner) }
+        // one member per Java signature: a private `var`'s synthesized setter and a written `fun setX(x)` are two CST
+        // methods and one JVM method (javalin's JavalinServletContext.setRouteRoles); so are an overload kotlinc adds
+        // and one written by hand
+        val emitted = HashSet<String>()
+        typeInfo.constructors().forEach { appendMethod(sb, typeInfo, it, isInterface, inner, hints, emitted) }
         typeInfo.methods().filter { isJavaName(it.name()) }
-            .forEach { appendMethod(sb, typeInfo, it, isInterface, inner) }
-        typeInfo.subTypes().forEach { appendType(sb, it, inner) } // nested types are static-nested in the stub
+            .forEach { appendMethod(sb, typeInfo, it, isInterface, inner, hints, emitted) }
+        typeInfo.subTypes().forEach { appendType(sb, it, inner, hints) } // nested types are static-nested in the stub
         sb.append(indent).append("}\n")
     }
 
@@ -120,7 +152,7 @@ object JavaStubGenerator {
      * generates them for any `enum` declaration. Constructors are dropped (enum ctors are implicitly private);
      * remaining methods are emitted with a body and never `abstract` (a simple enum stub has no constant bodies).
      */
-    private fun appendEnum(sb: StringBuilder, typeInfo: TypeInfo, indent: String) {
+    private fun appendEnum(sb: StringBuilder, typeInfo: TypeInfo, indent: String, hints: StubHints) {
         sb.append(indent).append("public enum ").append(typeInfo.simpleName())
         typeInfo.interfacesImplemented().takeIf { it.isNotEmpty() }
             ?.let { sb.append(" implements ").append(it.joinToString(", ", transform = ::javaType)) }
@@ -140,7 +172,7 @@ object JavaStubGenerator {
             sb.append("(").append(parameterList(m)).append(")")
             sb.append(" { throw new RuntimeException(\"stub\"); }\n")
         }
-        typeInfo.subTypes().forEach { appendType(sb, it, inner) }
+        typeInfo.subTypes().forEach { appendType(sb, it, inner, hints) }
         sb.append(indent).append("}\n")
     }
 
@@ -148,29 +180,51 @@ object JavaStubGenerator {
     private fun isEnumConstant(f: io.codelaser.maddi.cst.api.info.FieldInfo, enumType: TypeInfo): Boolean =
         f.isStatic && f.type().typeInfo() === enumType
 
-    private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String) {
-        // isAbstract() is unreliable for a Kotlin front-end (every method carries the plain method type, never
-        // the abstract one), so key off body presence: a committed, non-empty body means an implementation.
-        // An EMPTY body still counts: `fun complete() {}` on a Kotlin interface is a default method, and
-        // treating it as abstract forced every Java implementor to provide it (coil's `RequestDelegate`
-        // declares four such no-op defaults, and `BaseRequestDelegate` overrides only one). Presence of the
-        // body object — not its contents — is what separates an implementation from an abstract declaration.
-        val body = runCatching { m.methodBody() }.getOrNull()
-        val hasBody = body != null
+    private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String,
+                             hints: StubHints, emitted: MutableSet<String> = HashSet()) {
+        // a `$default` constructor (the trailing `int` mask and DefaultConstructorMarker) is kotlinc's, called by
+        // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
+        // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
+        if (m.isConstructor && m.isSynthetic && (m.methodModifiers().any { it.isPrivate } || m.parameters().lastOrNull()?.name() == "\$marker")) return
+        val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
-        val interfaceDefault = ownerIsInterface && !m.isStatic && hasBody
-        sb.append(indent).append("public ")
-        if (m.isStatic) sb.append("static ")
-        if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
-        if (interfaceDefault) sb.append("default ")
-        sb.append(typeParameters(m.typeParameters()))
-        if (!m.isConstructor) sb.append(javaType(m.returnType())).append(" ")
-        sb.append(if (m.isConstructor) owner.simpleName() else m.name())
-        sb.append("(").append(parameterList(m)).append(")")
-        val emitBody = m.isConstructor || m.isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)
-        sb.append(if (emitBody) " { throw new RuntimeException(\"stub\"); }\n" else ";\n")
+        val interfaceDefault = ownerIsInterface && !isStatic && hints.hasBody(m)
+        val delegated = if (m.isConstructor) hints.delegation(m) else null
+        run {
+            val signature = (if (m.isConstructor) "<init>" else m.name()) +
+                    m.parameters().joinToString(",", "(", ")") { rawType(it.parameterizedType()) }
+            if (!emitted.add(signature)) return@run
+            sb.append(indent).append("public ")
+            if (isStatic) sb.append("static ")
+            if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
+            if (interfaceDefault) sb.append("default ")
+            sb.append(typeParameters(m.typeParameters()))
+            if (!m.isConstructor) sb.append(javaType(m.returnType())).append(" ")
+            sb.append(if (m.isConstructor) owner.simpleName() else m.name())
+            sb.append("(").append(parameterList(m)).append(")")
+            val emitBody = m.isConstructor || isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)
+            delegated?.thrown?.takeIf { it.isNotEmpty() }
+                ?.let { thrown -> sb.append(" throws ").append(thrown.joinToString(", ", transform = ::rawType)) }
+            val delegation = delegated?.let { explicitInvocation(it) + " " } ?: ""
+            sb.append(if (emitBody) " { ${delegation}throw new RuntimeException(\"stub\"); }\n" else ";\n")
+        }
     }
+
+    /**
+     * `super(...)`/`this(...)` with one typed dummy per parameter: the cast is what picks the overload, since the
+     * values are never evaluated. A parameter typed by a type parameter gets a bare `null` (see
+     * [KotlinScan.ConstructorDelegation]).
+     */
+    private fun explicitInvocation(delegation: KotlinScan.ConstructorDelegation): String =
+        (if (delegation.isSuper) "super(" else "this(") + delegation.parameterTypes.joinToString(", ") { pt ->
+            when {
+                pt == null -> "null"
+                pt.arrays() == 0 && pt.isBoolean -> "false"
+                pt.arrays() == 0 && pt.isPrimitiveExcludingVoid -> "(" + rawType(pt) + ") 0"
+                else -> "(" + rawType(pt) + ") null"
+            }
+        } + ");"
 
     private fun typeParameters(tps: List<TypeParameter>): String =
         if (tps.isEmpty()) "" else "<" + tps.joinToString(", ") { tp ->
@@ -178,33 +232,49 @@ object JavaStubGenerator {
             tp.simpleName() + if (bounds.isEmpty()) "" else " extends " + bounds.joinToString(" & ", transform = ::javaType)
         } + "> "
 
-    /**
-     * Kotlin's primitive array classes, which compile to the unboxed JVM arrays (unlike `Array<T>`, which
-     * boxes). The CST does not yet model them that way — a `ByteArray` currently arrives as a shell `TypeInfo`
-     * literally named `kotlin.ByteArray` — so the name is translated here, where it is purely a matter of
-     * emitting valid Java.
-     *
-     * This belongs in `KotlinTypeMapper.mapClassType` alongside the other builtin mappings, and was tried
-     * there: it is correct, but it perturbs the order in which library types are first reached, and that
-     * order decides whether a type keeps its members (`maxMemberDepth`, first-visit-wins). It stranded
-     * `java.util.Iterator` as a members-less shell — reached at depth 2 while loading `java.lang.String` —
-     * and broke `TypeResolutionTest.chainedLibraryCallResolves` (`list.iterator().next()`). Raising the depth
-     * to 3 traded that for four other failures. Fixing it properly means making the loader deepen a shell on a
-     * later, shallower visit instead of letting the first visit decide; until then the translation stays here,
-     * where it cannot affect resolution.
-     */
-    private val KOTLIN_PRIMITIVE_ARRAYS = mapOf(
-        "kotlin.ByteArray" to "byte", "kotlin.ShortArray" to "short", "kotlin.IntArray" to "int",
-        "kotlin.LongArray" to "long", "kotlin.CharArray" to "char", "kotlin.FloatArray" to "float",
-        "kotlin.DoubleArray" to "double", "kotlin.BooleanArray" to "boolean")
-
-    /** A Java type reference (erased: no generic arguments), or a type-parameter name, with array brackets. */
-    private fun javaType(pt: ParameterizedType): String {
+    /** A Java type reference without generic arguments, or a type-parameter name, with array brackets. */
+    private fun rawType(pt: ParameterizedType): String {
         val typeInfo = pt.typeInfo()
-        KOTLIN_PRIMITIVE_ARRAYS[typeInfo?.fullyQualifiedName()]?.let { return it + "[]".repeat(pt.arrays() + 1) }
         val base = pt.typeParameter()?.simpleName() ?: typeInfo?.fullyQualifiedName() ?: "java.lang.Object"
         return base + "[]".repeat(pt.arrays())
     }
+
+    /**
+     * A Java type reference WITH its generic arguments.
+     *
+     * ⛔ Erased, as stubs were until javalin, every generic Kotlin member reached Java as `Object`: its
+     * `state.servlet.getValue().getServlet()` became "cannot find symbol: getServlet() in Object", a Kotlin
+     * `List<WsHandlerEntry>` gave its elements no `getType()`, and a `Validator<Instant>` returned an `Object` that
+     * cannot be an `Instant` -- 60 of the 101 javac errors on the first parse. Erasure only ever made sense while a
+     * stub was compiled alone; the stubs of a source set are compiled together, against the set's Java sources.
+     */
+    private fun javaType(pt: ParameterizedType): String {
+        if (pt.isUnboundWildcard) return "?"
+        val typeInfo = pt.typeInfo()
+        val typeParameter = pt.typeParameter()
+        val base = typeParameter?.simpleName() ?: typeInfo?.fullyQualifiedName() ?: "java.lang.Object"
+        val arguments = if (typeParameter != null) emptyList() else pt.parameters()
+        val rendered = (if (arguments.isEmpty()) base else base + arguments.joinToString(", ", "<", ">", transform = ::typeArgument)) +
+                "[]".repeat(pt.arrays())
+        val wildcard = pt.wildcard()
+        return when {
+            wildcard == null || wildcard.isUnbound -> rendered
+            wildcard.isSuper -> "? super $rendered"
+            else -> "? extends $rendered"
+        }
+    }
+
+    // a type argument cannot be primitive, and Kotlin's `Unit` (CST `void`) is `kotlin.Unit` there
+    private fun typeArgument(pt: ParameterizedType): String = when {
+        pt.arrays() > 0 || pt.typeParameter() != null -> javaType(pt)
+        pt.isVoid -> "kotlin.Unit"
+        pt.isPrimitiveExcludingVoid -> BOXED[pt.typeInfo()?.fullyQualifiedName()] ?: javaType(pt)
+        else -> javaType(pt)
+    }
+
+    private val BOXED = mapOf("int" to "java.lang.Integer", "long" to "java.lang.Long", "short" to "java.lang.Short",
+        "byte" to "java.lang.Byte", "char" to "java.lang.Character", "boolean" to "java.lang.Boolean",
+        "float" to "java.lang.Float", "double" to "java.lang.Double")
 
     /**
      * A field's type. Identical to [javaType] except that `void` — which Java allows only as a return type —
@@ -234,13 +304,7 @@ object JavaStubGenerator {
      * it happens the raw type is emitted instead — a raw supertype is at worst a warning, an illegal one is an
      * error.
      */
-    private fun javaSupertype(pt: ParameterizedType): String {
-        val base = pt.typeParameter()?.simpleName() ?: pt.typeInfo()?.fullyQualifiedName() ?: "java.lang.Object"
-        val arguments = pt.parameters()
-        val rendered = if (arguments.isEmpty() || arguments.any { it.isPrimitiveExcludingVoid }) base
-        else base + arguments.joinToString(", ", "<", ">", transform = ::javaType)
-        return rendered + "[]".repeat(pt.arrays())
-    }
+    private fun javaSupertype(pt: ParameterizedType): String = javaType(pt)
 
     /**
      * A Kotlin `annotation class` is a Java `@interface`, not a class implementing `java.lang.annotation.

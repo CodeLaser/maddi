@@ -248,6 +248,9 @@ class ControlFlowTest : KotlinScanTestBase() {
         // the catch block's tail likewise
         assertEquals(1, tryStmt.catchClauses().size)
         assertTrue(tryStmt.catchClauses().first().block().statements().last() is ReturnStatement)
+        // each `return` keeps its statement's index: prep requires one, and isolated javalin's `return try` methods
+        assertEquals("0.0.0", tryStmt.block().statements().last().source().index())
+        assertEquals("0.1.0", tryStmt.catchClauses().first().block().statements().last().source().index())
         // no source finally -> an (empty) finally block is still present
         assertNotNull(tryStmt.finallyBlock())
         assertTrue(tryStmt.finallyBlock().statements().isEmpty())
