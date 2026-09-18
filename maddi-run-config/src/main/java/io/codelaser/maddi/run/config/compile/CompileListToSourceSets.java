@@ -134,6 +134,8 @@ public class CompileListToSourceSets {
         // jars, the jenkins fix), that answer stands; gradle's build/libs jars are the gap it fills.
         computeModuleJars(buildRoot, buildUnitByDestination, list, CompileInvocation::classpath)
                 .forEach(jarFileToDestination::putIfAbsent);
+        // ...and where the jars and class directories exist on disk, their CONTENTS have the last word
+        correctByContent(buildRoot, list, jarFileToDestination);
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
         Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestination);
@@ -219,7 +221,7 @@ public class CompileListToSourceSets {
             int lastSeparator = destination.lastIndexOf(SEPARATOR);
             if (lastSeparator < 0) continue;
             String outputRoot = destination.substring(0, lastSeparator);
-            if (testSourceSetName(lastPart(destination)) != null) {
+            if (testSourceSetName(leafKind(destination)) != null) {
                 testDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
             } else {
                 mainDestinationByOutputRoot.putIfAbsent(outputRoot, destination);
@@ -254,6 +256,43 @@ public class CompileListToSourceSets {
                     jarToDestination.keySet().stream().map(CompileListToSourceSets::lastPart).sorted().toList());
         }
         return jarToDestination;
+    }
+
+    /**
+     * The rules above guess from a jar's path and name; {@link JarContentOwner} checks what it holds. Where the
+     * contents can decide, they win in both directions: a claim whose jar holds none of the claimed destination's
+     * classes is withdrawn (the jar becomes a library again), and an unclaimed jar inside the build root that
+     * holds a destination's classes is claimed for it. Where they cannot decide, nothing changes.
+     */
+    private static void correctByContent(String buildRoot, List<? extends CompileInvocation> list,
+                                         Map<String, String> jarFileToDestination) {
+        JarContentOwner owner = new JarContentOwner(list.stream().map(CompileInvocation::destination).toList());
+        Set<String> jarsInBuildRoot = new TreeSet<>();
+        for (CompileInvocation inv : list) {
+            for (List<String> paths : Arrays.asList(inv.classpath(), inv.modulePath())) {
+                if (paths == null) continue;
+                for (String part : paths) {
+                    if (SourceSetImpl.isArchive(part) && couldBeReactorOutput(buildRoot, part)) {
+                        jarsInBuildRoot.add(part);
+                    }
+                }
+            }
+        }
+        for (String jar : jarsInBuildRoot) {
+            Optional<JarContentOwner.Owner> decided = owner.ownerOf(jar);
+            if (decided.isEmpty()) continue;
+            String byContent = decided.get().destination();
+            String byName = jarFileToDestination.get(jar);
+            if (Objects.equals(byContent, byName)) continue;
+            if (byContent == null) {
+                LOGGER.warn("Withdrawing the claim of {} on {}: the jar holds none of its classes, it is a library",
+                        byName, jar);
+                jarFileToDestination.remove(jar);
+            } else {
+                LOGGER.info("{} holds the classes of {} (by name/path: {})", lastPart(jar), byContent, byName);
+                jarFileToDestination.put(jar, byContent);
+            }
+        }
     }
 
     /**
@@ -524,6 +563,27 @@ public class CompileListToSourceSets {
      * <p>Maven is the only translation: it writes production classes to {@code target/classes}, which is
      * {@code main} everywhere else in this system. {@code target/test-classes} keeps its own name, as it did.
      */
+    /**
+     * The path component that names the source set: the output directory, except in Ant's layout.
+     *
+     * <p>⚠ ANT PUTS TESTS UNDER {@code <output>/test/}, and its leaf then names nothing: cassandra compiles its unit
+     * tests to {@code build/test/classes} (which the Maven translation below turned into {@code main}, colliding
+     * with {@code build/classes/main} as {@code main2}/{@code main3} and marking 3,011 test files as production)
+     * and a tool's tests to {@code build/test/stress-classes}. So directly below a build output directory, a
+     * {@code test} directory marks the set: {@code classes} becomes {@code test}, {@code stress-classes} becomes
+     * {@code stress-test}. Maven ({@code target/test-classes}) and Gradle ({@code build/classes/java/test}) never
+     * have {@code test} in that position, so this reads no further up than the one parent it needs.
+     */
+    private static String leafKind(String destination) {
+        String[] split = destination.split(SEPARATOR);
+        String leaf = split[split.length - 1];
+        if (split.length >= 3 && "test".equals(split[split.length - 2])
+            && BUILD_OUTPUT_NAMES.contains(split[split.length - 3])) {
+            return "classes".equals(leaf) ? "test" : leaf.replaceFirst("-classes$", "") + "-test";
+        }
+        return leaf;
+    }
+
     private static String sourceSetKind(String outputDirectory) {
         return "classes".equals(outputDirectory) ? "main" : outputDirectory;
     }
@@ -711,7 +771,7 @@ public class CompileListToSourceSets {
     private static ComputeNameResult computeName(String buildRoot, Map<String, String> buildUnitByDestination,
                                                  String destination) {
         String[] split = destination.split(SEPARATOR);
-        String leaf = split[split.length - 1];
+        String leaf = leafKind(destination);
         String testName = testSourceSetName(leaf);
         String language = language(split);
         String name = module(buildRoot, buildUnitByDestination.get(destination), split)
