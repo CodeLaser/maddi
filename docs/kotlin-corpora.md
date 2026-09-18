@@ -309,6 +309,54 @@ That gives two shapes to recognise, and the FPDUMP classification tells them apa
 written: a **field's type** is uncontracted (contract the type), or a **field flows into a callee's `@Modified`
 parameter** (contract that callee — the `forEach`/`filter` case above).
 
+#### A null result: the read-only collection factories, and the ceiling behind them
+
+Restricted to the **1271 source primary types** (not the 2982 elements the dump holds — the classification
+must be run on the population that matters, or lambda and library types swamp it), 176 are still
+`@FinalFields` after the above, and the largest bucket is a `@Dependent` field, not a supertype cap.
+
+`listOf`, `setOf`, `emptyList`, `emptySet`, `emptyMap` are contracted now — the single-element overloads live
+in the JVM part class (`CollectionsKt__CollectionsJVMKt`, `SetsKt__SetsJVMKt`), not the common one. They move
+**zero** verdicts, and the null result is the useful part: it rules the factories out as a suspect, and points
+at what actually caps this bucket.
+
+`private object TestExclusions : Exclusions() { override val rules = setOf(…) }` keeps `rules` at `@Dependent`
+however independent `setOf` is declared to be, because the field's declared type is `java.util.Set`. Kotlin's
+read-only `Set`/`List`/`Map` and their `Mutable*` counterparts **both** map to the JDK interface —
+`KotlinTypeMapper` does this deliberately, so the shared `java.*` type carries its real JVM surface and matches
+the Java front end and the annotated APIs. A publicly exposed `val x: Set<String>` is therefore
+indistinguishable from a `MutableSet`, and no archive entry can change that.
+
+So detekt is no longer **stdlib-limited**: what remains is honest (visitors mutating their accumulators;
+collection fields genuinely handed in and stored), third-party (IntelliJ `Key` and PSI, JCommander converters —
+a different archive, and detekt-specific rather than universal), or this type-mapping ceiling. The ceiling is a
+front-end design question with a real trade-off on the other side, not an archive gap.
+
+#### ⛔ Measured and NOT done: distinguishing the read-only collection types
+
+The obvious next move is to make `kotlin.collections.List` a different type from `MutableList` so a read-only
+field stops looking mutable. It was measured before being attempted, and **the prize does not pay for it**.
+
+Of the 1271 source primary types, 44 `@Dependent` fields on not-yet-`@Immutable` types are declared with a
+read-only collection type. That number oversells it, because of what Kotlin's `List` actually is:
+
+> **A Kotlin read-only collection is a VIEW, not an immutable copy.** `class C(private val xs: List<X>)` can be
+> handed a `MutableList` upcast at the call site, and the caller may go on mutating it. `@Dependent` on such a
+> field is *correct*, and no amount of type information makes it independent.
+
+That is 37 of the 44 — constructor properties. The genuinely helpable set, where the value is built internally
+(`setOf(…)`, `emptySet()`, `listOf(…)`) and only *exposed* through a read-only-typed getter, is **5 types and
+7 fields: 0.4% of the corpus**, for a change that moves every type mapping in every corpus.
+
+And the rule it would need — "a read-only-typed reference cannot be modified through" — is idiomatically sound
+but **not JVM-sound**: Java code, or an unchecked Kotlin cast, turns a `Set` back into a `MutableSet`. That
+lands precisely on the mixed corpus (§javalin), where Java freely mutates a collection a Kotlin signature calls
+read-only. The one corpus where the change is safe is the one where it is worth least.
+
+Separately, 8 fields are declared read-only yet reported `unmodified=false`. At least one is maddi being
+*right* about the concrete type rather than the declared one (`val types: Set<String> = hashSetOf(…)`), so that
+population is not a defect list; it would need its own pass.
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:

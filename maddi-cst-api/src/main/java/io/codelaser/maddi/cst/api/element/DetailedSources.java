@@ -40,7 +40,11 @@ import java.util.function.BiConsumer;
  * Reading the constant list alone therefore <em>understates</em> what is recorded; before concluding that a
  * position is unavailable, check whether it is keyed by the object that owns it.
  * <p>
- * Lookup is by object identity (or equality, for the {@code String} keys).
+ * ⛔ Lookup is by object <b>IDENTITY</b>, for every key including the {@code String} ones: the implementation is
+ * an {@code IdentityHashMap}. A {@code String} key therefore works only when the caller holds the very instance
+ * that was stored -- {@code detail(field.name())} hits where {@code detail("x")} misses, and two interned literals
+ * happen to match only because the JVM interns them. Retrieving a position keyed by a name computed at runtime is
+ * impossible, which is why {@link #PROPERTY_NAME} is a sentinel rather than the property's name.
  * <p>
  * {@code DetailedSources} is used during source-accurate pretty-printing and when
  * computing the {@link Element.TypeReference} import information for parameterised types,
@@ -126,6 +130,21 @@ public interface DetailedSources {
      * that. On the declaration, this position tells a caller how few arguments the parameter list accepts.
      */
     Object DEFAULT_VALUE = new Object();
+
+    /**
+     * Position of the name of the PROPERTY an accessor belongs to, on that accessor's own source, for a property
+     * that has NO backing field: an interface's {@code val x: T}, an abstract one, or a computed one.
+     * <p>
+     * A backed property is a {@code FieldInfo} and carries its name position under its own name. An unbacked one
+     * has no field at all, so the accessor is the only {@code Info} that a rename of the property can edit -- and
+     * it is named {@code getX}, not {@code x}. Hence a sentinel rather than the name: lookup here is by object
+     * IDENTITY, and the property's name is a runtime String no caller could hold the same instance of, where a
+     * {@code FieldInfo}'s {@code name()} returns the very instance that was stored.
+     * <p>
+     * ⛔ The accessor's JVM name is deliberately NOT recorded: {@code getX} is spelled nowhere in Kotlin source,
+     * and a rename decides whether a method is an overload from exactly that absence.
+     */
+    Object PROPERTY_NAME = new Object();
 
     /**
      * Source-form markers. A surface construct that desugars to a more general CST node carries one of these
