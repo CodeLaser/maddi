@@ -40,7 +40,11 @@ import java.util.function.BiConsumer;
  * Reading the constant list alone therefore <em>understates</em> what is recorded; before concluding that a
  * position is unavailable, check whether it is keyed by the object that owns it.
  * <p>
- * Lookup is by object identity (or equality, for the {@code String} keys).
+ * ⛔ Lookup is by object <b>IDENTITY</b>, for every key including the {@code String} ones: the implementation is
+ * an {@code IdentityHashMap}. A {@code String} key therefore works only when the caller holds the very instance
+ * that was stored -- {@code detail(field.name())} hits where {@code detail("x")} misses, and two interned literals
+ * happen to match only because the JVM interns them. Retrieving a position keyed by a name computed at runtime is
+ * impossible, which is why {@link #PROPERTY_NAME} is a sentinel rather than the property's name.
  * <p>
  * {@code DetailedSources} is used during source-accurate pretty-printing and when
  * computing the {@link Element.TypeReference} import information for parameterised types,
