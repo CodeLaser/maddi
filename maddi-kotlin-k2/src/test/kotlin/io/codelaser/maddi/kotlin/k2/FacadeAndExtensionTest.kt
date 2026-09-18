@@ -182,4 +182,20 @@ class FacadeAndExtensionTest : KotlinScanTestBase() {
         assertEquals("c", arg.variable().simpleName())
     }
 
+    @Test
+    fun aMultifileFacadeCallNamesTheClassThatDeclaresIt() {
+        val scan = KotlinScan(runtime, sourceSet)
+        // ⚠ THE PART CLASS, NOT THE FACADE, and an annotated API depends on it. `kotlin.collections.CollectionsKt`
+        // is a MULTIFILE class facade: it declares nothing at all and inherits every method from a part class, so a
+        // contract written against it is ignored ("not found in target type"). `jvmFacadeClassId` reads the symbol's
+        // FIR containerSource, and for a multifile part that ClassId is the PART -- which is what declares `map`,
+        // and what a hints file must name.
+        val x = scan.parse("X.kt", "package a.b\nclass X {\n" +
+                "  fun m(items: List<Int>): List<Int> = items.map { it + 1 }\n}\n").first()
+        val body = x.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement
+        val call = body.expression() as MethodCall
+        assertEquals("map", call.methodInfo().name())
+        assertEquals("kotlin.collections.CollectionsKt___CollectionsKt",
+            call.methodInfo().typeInfo().fullyQualifiedName())
+    }
 }

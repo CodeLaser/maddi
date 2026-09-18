@@ -547,7 +547,14 @@ internal class KotlinTypeMapper(
         val builder = method.builder()
         // an extension's receiver is its first JVM parameter, named as KotlinScan names a source extension's
         function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
-        function.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
+        function.valueParameters.forEach { p ->
+            // ⛔ A VARARG'S K2 returnType IS THE ELEMENT TYPE; the JVM parameter is an array of it. Without this
+            // `mapOf(vararg Pair)` is modelled as `mapOf(Pair)` -- the signature of the OTHER, single-pair overload,
+            // so the two collide and `seen` drops one of them (KotlinScan.convertMethodSignature does the same).
+            val elementType = mapType(p.returnType, owner)
+            val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
+            builder.addParameter(p.name.asString(), parameterType).builder().setVarArgs(p.isVararg)
+        }
         builder
             .setReturnType(mapType(function.returnType, owner))
             .setMethodBody(runtime.emptyBlock())

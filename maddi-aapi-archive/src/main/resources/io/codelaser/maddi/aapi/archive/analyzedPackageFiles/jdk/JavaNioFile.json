@@ -1,238 +1,238 @@
 [
 {"name": "Tjava.nio.file.Files", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Mcopy(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
+ {"name": "Mcopy(0,java.io.InputStream,java.nio.file.Path,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mcopy(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
+ {"name": "Mcopy(1,java.nio.file.Path,java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mcopy(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "Mcopy(2,java.nio.file.Path,java.nio.file.Path,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateDirectories(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateDirectories(3,java.nio.file.Path,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateDirectory(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateDirectory(4,java.nio.file.Path,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateFile(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateFile(5,java.nio.file.Path,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateLink(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateLink(6,java.nio.file.Path,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "McreateSymbolicLink(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateSymbolicLink(7,java.nio.file.Path,java.nio.file.Path,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateTempDirectory(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateTempDirectory(8,java.lang.String,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateTempDirectory(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateTempDirectory(9,java.nio.file.Path,java.lang.String,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateTempFile(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateTempFile(10,java.lang.String,java.lang.String,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "McreateTempFile(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "McreateTempFile(11,java.nio.file.Path,java.lang.String,java.lang.String,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mdelete(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
+ {"name": "Mdelete(12,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MdeleteIfExists(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
+ {"name": "MdeleteIfExists(13,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mexists(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mexists(14,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mfind(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mfind(15,java.nio.file.Path,int,java.util.function.BiPredicate,java.nio.file.FileVisitOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MgetAttribute(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetAttribute(16,java.nio.file.Path,java.lang.String,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MgetFileAttributeView(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetFileAttributeView(17,java.nio.file.Path,java.lang.Class,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MgetFileStore(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetFileStore(18,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MgetLastModifiedTime(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetLastModifiedTime(19,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MgetOwner(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetOwner(20,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MgetPosixFilePermissions(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetPosixFilePermissions(21,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MisDirectory(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MisDirectory(22,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MisExecutable(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisExecutable(23,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisHidden(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisHidden(24,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisReadable(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisReadable(25,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisRegularFile(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MisRegularFile(26,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MisSameFile(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MisSameFile(27,java.nio.file.Path,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisSymbolicLink(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisSymbolicLink(28,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisWritable(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisWritable(29,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mlines(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mlines(30,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mlines(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mlines(31,java.nio.file.Path,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mlist(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mlist(32,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mmismatch(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mmismatch(33,java.nio.file.Path,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mmove(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "Mmove(34,java.nio.file.Path,java.nio.file.Path,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnewBufferedReader(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MnewBufferedReader(35,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MnewBufferedReader(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MnewBufferedReader(36,java.nio.file.Path,java.nio.charset.Charset)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MnewBufferedWriter(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MnewBufferedWriter(37,java.nio.file.Path,java.nio.charset.Charset,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnewBufferedWriter(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MnewBufferedWriter(38,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnewByteChannel(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MnewByteChannel(39,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnewByteChannel(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MnewByteChannel(40,java.nio.file.Path,java.util.Set,java.nio.file.attribute.FileAttribute[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnewDirectoryStream(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MnewDirectoryStream(41,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MnewDirectoryStream(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MnewDirectoryStream(42,java.nio.file.Path,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MnewDirectoryStream(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MnewDirectoryStream(43,java.nio.file.Path,java.nio.file.DirectoryStream.Filter)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2}}]},
- {"name": "MnewInputStream(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MnewInputStream(44,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MnewOutputStream(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MnewOutputStream(45,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MnotExists(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MnotExists(46,java.nio.file.Path,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MprobeContentType(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MprobeContentType(47,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MreadAllBytes(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MreadAllBytes(48,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MreadAllLines(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MreadAllLines(49,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MreadAllLines(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreadAllLines(50,java.nio.file.Path,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MreadAttributes(51)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreadAttributes(51,java.nio.file.Path,java.lang.Class,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MreadAttributes(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreadAttributes(52,java.nio.file.Path,java.lang.String,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MreadString(53)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MreadString(53,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MreadString(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreadString(54,java.nio.file.Path,java.nio.charset.Charset)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MreadSymbolicLink(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MreadSymbolicLink(55,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MsetAttribute(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MsetAttribute(56,java.nio.file.Path,java.lang.String,java.lang.Object,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MsetLastModifiedTime(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MsetLastModifiedTime(57,java.nio.file.Path,java.nio.file.attribute.FileTime)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "MsetOwner(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MsetOwner(58,java.nio.file.Path,java.nio.file.attribute.UserPrincipal)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "MsetPosixFilePermissions(59)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MsetPosixFilePermissions(59,java.nio.file.Path,java.util.Set)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
- {"name": "Msize(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Msize(60,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mwalk(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mwalk(61,java.nio.file.Path,int,java.nio.file.FileVisitOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mwalk(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mwalk(62,java.nio.file.Path,java.nio.file.FileVisitOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MwalkFileTree(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MwalkFileTree(63,java.nio.file.Path,java.nio.file.FileVisitor)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2}}]},
- {"name": "MwalkFileTree(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MwalkFileTree(64,java.nio.file.Path,java.util.Set,int,java.nio.file.FileVisitor)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2}}]},
- {"name": "Mwrite(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "Mwrite(65,java.nio.file.Path,java.lang.Iterable,java.nio.charset.Charset,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mwrite(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "Mwrite(66,java.nio.file.Path,java.lang.Iterable,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mwrite(67)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "Mwrite(67,java.nio.file.Path,byte[],java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MwriteString(68)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MwriteString(68,java.nio.file.Path,java.lang.CharSequence,java.nio.charset.Charset,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MwriteString(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+ {"name": "MwriteString(69,java.nio.file.Path,java.lang.CharSequence,java.nio.file.OpenOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]}]},
 
 {"name": "Tjava.nio.file.Path", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
- {"name": "McompareTo(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "McompareTo(0,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MendsWith(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MendsWith(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MendsWith(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MendsWith(2,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mequals(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Mequals(3,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetFileName(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MgetFileSystem(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MgetName(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetName(6,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "MgetNameCount(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MgetParent(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
@@ -241,53 +241,53 @@
  {"name": "MisAbsolute(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Miterator(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Mnormalize(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mof(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mof(14,java.lang.String,java.lang.String[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mof(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mof(15,java.net.URI)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mregister(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mregister(16,java.nio.file.WatchService,java.nio.file.WatchEvent.Kind[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mregister(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mregister(17,java.nio.file.WatchService,java.nio.file.WatchEvent.Kind[],java.nio.file.WatchEvent.Modifier[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mrelativize(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mrelativize(18,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mresolve(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mresolve(19,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mresolve(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mresolve(20,java.lang.String,java.lang.String[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mresolve(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mresolve(21,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mresolve(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mresolve(22,java.nio.file.Path,java.nio.file.Path[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "MresolveSibling(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MresolveSibling(23,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MresolveSibling(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MresolveSibling(24,java.nio.file.Path)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MstartsWith(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MstartsWith(25,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MstartsWith(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MstartsWith(26,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Msubpath(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msubpath(27,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MtoAbsolutePath(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoFile(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoRealPath(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MtoRealPath(30,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
  {"name": "MtoString(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MtoUri(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.nio.file.Watchable", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Mregister(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mregister(0,java.nio.file.WatchService,java.nio.file.WatchEvent.Kind[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mregister(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mregister(1,java.nio.file.WatchService,java.nio.file.WatchEvent.Kind[],java.nio.file.WatchEvent.Modifier[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]}]}

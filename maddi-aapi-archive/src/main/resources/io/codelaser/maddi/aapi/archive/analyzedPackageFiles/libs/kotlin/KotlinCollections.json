@@ -1,0 +1,10 @@
+[
+{"name": "Tkotlin.collections.CollectionsKt___CollectionsKt", "data":{"annotatedApi":1}, "subs":[
+ {"name": "Mmap(86,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1}, "subs":[
+  {"name": "P$this$map(0)", "data":{"annotatedApi":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1}}]}]},
+
+{"name": "Tkotlin.collections.MapsKt__MapsKt", "data":{"annotatedApi":1}, "subs":[
+ {"name": "MmapOf(15,kotlin.Pair[])", "data":{"annotatedApi":1}, "sub":
+  {"name": "Ppairs(0)", "data":{"annotatedApi":1}}}]}
+]

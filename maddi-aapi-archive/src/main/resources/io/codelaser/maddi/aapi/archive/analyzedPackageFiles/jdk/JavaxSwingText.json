@@ -2,82 +2,82 @@
 {"name": "Tjavax.swing.text.JTextComponent", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SAccessibleJTextComponent(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
-  {"name": "McaretUpdate(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "McaretUpdate(0,javax.swing.event.CaretEvent)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
-  {"name": "MchangedUpdate(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "MchangedUpdate(1,javax.swing.event.DocumentEvent)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
-  {"name": "Mcut(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Mcut(2,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "Mdelete(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Mdelete(3,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MdoAccessibleAction(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "MdoAccessibleAction(4,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
   {"name": "MgetAccessibleAction(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgetAccessibleActionCount(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
-  {"name": "MgetAccessibleActionDescription(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "MgetAccessibleActionDescription(7,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
   {"name": "MgetAccessibleEditableText(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgetAccessibleRole(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgetAccessibleStateSet(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
   {"name": "MgetAccessibleText(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
-  {"name": "MgetAfterIndex(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetAfterIndex(12,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetAtIndex(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetAtIndex(13,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetBeforeIndex(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetBeforeIndex(14,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
   {"name": "MgetCaretPosition(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
   {"name": "MgetCharCount(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
-  {"name": "MgetCharacterAttribute(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "MgetCharacterAttribute(17,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MgetCharacterBounds(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "MgetCharacterBounds(18,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MgetIndexAtPoint(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MgetIndexAtPoint(19,java.awt.Point)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
   {"name": "MgetSelectedText(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
   {"name": "MgetSelectionEnd(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
   {"name": "MgetSelectionStart(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
-  {"name": "MgetTextBounds(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetTextBounds(23,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetTextRange(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetTextRange(24,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetTextSequenceAfter(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetTextSequenceAfter(25,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetTextSequenceAt(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetTextSequenceAt(26,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MgetTextSequenceBefore(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "MgetTextSequenceBefore(27,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MinsertTextAtIndex(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "MinsertTextAtIndex(28,int,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "MinsertUpdate(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "MinsertUpdate(29,javax.swing.event.DocumentEvent)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
-  {"name": "Mpaste(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Mpaste(30,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MremoveUpdate(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "MremoveUpdate(31,javax.swing.event.DocumentEvent)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
-  {"name": "MreplaceText(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "MreplaceText(32,int,int,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "MselectText(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "MselectText(33,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MsetAttributes(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "MsetAttributes(34,int,int,javax.swing.text.AttributeSet)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1}}]},
-  {"name": "MsetTextContents(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "MsetTextContents(35,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
  {"name": "SDropLocation(1)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "MgetBias(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
@@ -86,17 +86,17 @@
  {"name": "SKeyBinding(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "FactionName(0)", "data":{"annotatedApi":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
   {"name": "Fkey(1)", "data":{"annotatedApi":1}},
-  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "C<init>(0,javax.swing.KeyStroke,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
  {"name": "FDEFAULT_KEYMAP(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "FFOCUS_ACCELERATOR_KEY(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
- {"name": "MaddCaretListener(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MaddCaretListener(0,javax.swing.event.CaretListener)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MaddInputMethodListener(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MaddInputMethodListener(1,java.awt.event.InputMethodListener)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MaddKeymap(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+ {"name": "MaddKeymap(2,java.lang.String,javax.swing.text.Keymap)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
  {"name": "Mcopy(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
@@ -116,21 +116,21 @@
  {"name": "MgetHighlighter(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MgetInputMethodRequests(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MgetKeymap(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MgetKeymap(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetKeymap(21,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetMargin(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MgetNavigationFilter(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MgetPreferredScrollableViewportSize(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MgetPrintable(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetPrintable(25,java.text.MessageFormat,java.text.MessageFormat)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2}}]},
- {"name": "MgetScrollableBlockIncrement(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MgetScrollableBlockIncrement(26,java.awt.Rectangle,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MgetScrollableTracksViewportHeight(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MgetScrollableTracksViewportWidth(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MgetScrollableUnitIncrement(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MgetScrollableUnitIncrement(29,java.awt.Rectangle,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
@@ -140,94 +140,94 @@
  {"name": "MgetSelectionEnd(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MgetSelectionStart(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MgetText(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MgetText(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetText(36,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MgetToolTipText(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetToolTipText(37,java.awt.event.MouseEvent)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
  {"name": "MgetUI(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MisEditable(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MloadKeymap(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "MloadKeymap(40,javax.swing.text.Keymap,javax.swing.text.JTextComponent.KeyBinding[],javax.swing.Action[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MmodelToView(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MmodelToView(41,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MmodelToView2D(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MmodelToView2D(42,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MmoveCaretPosition(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MmoveCaretPosition(43,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mpaste(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mprint(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mprint(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "Mprint(47,java.text.MessageFormat,java.text.MessageFormat)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mprint(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "Mprint(48,java.text.MessageFormat,java.text.MessageFormat,boolean,javax.print.PrintService,javax.print.attribute.PrintRequestAttributeSet,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1}},
   {"name": "Parg4(4)", "data":{"annotatedApi":1}},
   {"name": "Parg5(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "Mread(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "Mread(50,java.io.Reader,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MremoveCaretListener(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MremoveCaretListener(51,javax.swing.event.CaretListener)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MremoveKeymap(52)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "MremoveKeymap(52,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MremoveNotify(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
- {"name": "MreplaceSelection(54)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MreplaceSelection(54,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mselect(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "Mselect(57,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MselectAll(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
- {"name": "MsetCaret(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetCaret(59,javax.swing.text.Caret)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetCaretColor(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetCaretColor(60,java.awt.Color)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetCaretPosition(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetCaretPosition(61,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetComponentOrientation(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetComponentOrientation(62,java.awt.ComponentOrientation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetDisabledTextColor(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetDisabledTextColor(63,java.awt.Color)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetDocument(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetDocument(64,javax.swing.text.Document)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetDragEnabled(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetDragEnabled(65,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetDropMode(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetDropMode(66,javax.swing.DropMode)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetEditable(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetEditable(67,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetFocusAccelerator(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetFocusAccelerator(68,char)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetHighlighter(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetHighlighter(69,javax.swing.text.Highlighter)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetKeymap(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetKeymap(70,javax.swing.text.Keymap)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetMargin(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetMargin(71,java.awt.Insets)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetNavigationFilter(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetNavigationFilter(72,javax.swing.text.NavigationFilter)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MsetSelectedTextColor(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetSelectedTextColor(73,java.awt.Color)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetSelectionColor(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetSelectionColor(74,java.awt.Color)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetSelectionEnd(75)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetSelectionEnd(75,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetSelectionStart(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetSelectionStart(76,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetText(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetText(77,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MsetUI(78)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MsetUI(78,javax.swing.plaf.TextUI)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
  {"name": "MupdateUI(79)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
- {"name": "MviewToModel(80)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MviewToModel(80,java.awt.Point)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MviewToModel2D(81)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MviewToModel2D(81,java.awt.geom.Point2D)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mwrite(82)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "Mwrite(82,java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}}]}
 ]
