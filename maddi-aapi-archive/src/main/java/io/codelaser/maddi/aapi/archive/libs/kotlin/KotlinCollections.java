@@ -18,6 +18,7 @@ import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import kotlin.Pair;
+import kotlin.Unit;
 import kotlin.jvm.functions.Function1;
 
 import java.util.List;
@@ -50,6 +51,29 @@ public class KotlinCollections {
         @NotNull
         static <T, R> List<R> map(@NotModified Iterable<? extends T> receiver,
                                   Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        /*
+        public inline fun <T> Iterable<T>.forEach(action: (T) -> Unit): Unit
+
+        Reads the receiver and hands each element to `action`. It writes nothing itself; whether `action`
+        modifies what it is given is `action`'s contract, not this one's.
+        */
+        static <T> void forEach(@NotModified Iterable<? extends T> receiver,
+                                Function1<? super T, Unit> action) {
+        }
+
+        /*
+        public inline fun <T> Iterable<T>.filter(predicate: (T) -> Boolean): List<T>
+
+        A fresh list holding the elements that passed; the receiver is read, never written. The result shares
+        the receiver's ELEMENTS, which is exactly what @Independent(hc=true) says.
+        */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filter(@NotModified Iterable<? extends T> receiver,
+                                  Function1<? super T, Boolean> predicate) {
             return null;
         }
     }

@@ -260,9 +260,33 @@ Across the 27-file JDK archive plus `libs/`, exactly two `.json` files move: `Ko
 One level up, `CompileAnalysisHints.compile` was discarding the `List<Message>` that `AnalysisHintsCompiler.go`
 returns — the analyzer's complaints about the shadows, thrown away exactly where the archive is regenerated.
 
-`map` and `mapOf` are applied now, and `DefaultValue` is still held down by the rest of its call set
-(`error`, and detekt's own `YamlNode` builders). Which is the §5.5 rule again: a whole type's calls, or
-nothing.
+#### `DefaultValue` green: six types, and the cause was neither `error` nor a `YamlNode` builder
+
+With `map`, `mapOf` and `to` applied, the family had **still** not moved — and the reason was worth the
+instrument. `FPDUMP`/`FPDUMP_PARAMS` (both write a file; a test worker's stdout is swallowed, so
+`EC_TYPE_DEBUG` and `MODREACH_EXPLAIN` print nothing from a gradle test task) say:
+
+- `DefaultValue.printAsYaml` is `nonModifying=false`. An interface has no fields, so a modifying abstract
+  method is what caps it at `@FinalFields` — and a `@FinalFields` supertype then caps every subtype
+  (`TypeImmutableAnalyzerImpl`, the #34 fix). One method pinned six types.
+- of the five implementations only `StringListDefault.printAsYaml` is modifying, and it is the only one
+  that passes **its own field** to a callee: `yaml.list(name, defaultValue)`.
+- `YamlKt.list(…):2:list` and `listOfMaps(…):2:maps` are `unmodified=false`. Their bodies only read —
+  `list.forEach { … }`, `maps.filter { … }`.
+
+So the whole family hung on `Iterable.forEach` and `Iterable.filter` being uncontracted. Both are now in
+`CollectionsKt___CollectionsKt$` with a `@NotModified` receiver, and the six types move to
+`@Immutable` / `@Immutable(hc=true)` — exactly six, nothing else in the 1271 changes.
+
+Two lessons for the next contract. **The blocker is rarely the call you notice.** `error` is the eye-catching
+unresolved name in `DefaultValue.kt` and it was never the cause; a field reaching a `@Modified` parameter
+three frames away was. **Work from the dump, not the source.** The chain to walk is
+`type → its abstract/implementing method → that method's callees' PARAMETERS`, and `FPDUMP_PARAMS` prints
+all three.
+
+An aside for the `error` case whenever it does matter: every function in `kotlin.PreconditionsKt__PreconditionsKt`
+is `private static final` in bytecode, because they are all `inline`. That is no obstacle — maddi models a
+library type through the K2 front end, where they are public, and `forEach`/`filter` are `inline` too.
 
 ### 5.6 `JavaStubGenerator` fidelity
 
