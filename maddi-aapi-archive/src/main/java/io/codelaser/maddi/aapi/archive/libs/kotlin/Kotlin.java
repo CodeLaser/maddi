@@ -17,9 +17,11 @@ package io.codelaser.maddi.aapi.archive.libs.kotlin;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import kotlin.Pair;
 
 /**
- * The first annotated API for a Kotlin package. It exists for one type: every {@code val x by lazy { … }} in
+ * The annotated API for the {@code kotlin} package. It began with one type: every {@code val x by lazy { … }} in
  * every Kotlin corpus compiles to a private final {@code x$delegate} field of type {@code kotlin.Lazy}, so this
  * one contract governs the idiom wherever it appears.
  */
@@ -82,5 +84,42 @@ public class Kotlin {
         //public fun isInitialized(): Boolean
         @NotModified
         boolean isInitialized();
+    }
+
+    /*
+    public data class Pair<out A, out B>(public val first: A, public val second: B)
+
+    Two `val`s of hidden-content type and nothing that writes them: a fixed holder of two values, which is what
+    @ImmutableContainer(hc=true) says. The components are `getFirst()`/`getSecond()` in the Java view (see the
+    note on Lazy: an annotated API is compiled through the Java inspector, so a property is a method here).
+    */
+    @ImmutableContainer(hc = true)
+    class Pair$<A, B> {
+        Pair$(A first, B second) { }
+
+        @Independent(hc = true)
+        @NotModified
+        A getFirst() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        B getSecond() { return null; }
+    }
+
+    /*
+    public infix fun <A, B> A.to(that: B): Pair<A, B> = Pair(this, that)
+
+    ⚠ THE FILE FACADE OF AN EXTENSION, whose receiver is the first JVM parameter -- which is how kotlinc emits it
+    and, since maddi#43, how maddi models it, so the two agree and a Kotlin `a to b` reaches this contract.
+
+    `a to b` is the reason this file grew past kotlin.Lazy. Once library extension calls resolved (maddi#43),
+    every one of them became a call to a method with no annotated API, i.e. a method that may modify what it is
+    given -- and 16 detekt verdicts fell, every `DefaultValue` subclass in detekt-generator among them, whose
+    `printAsYaml` writes `name to quoted`. The pair holds its two arguments and modifies neither.
+    */
+    class TuplesKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <A, B> Pair<A, B> to(@NotModified A receiver, @NotModified B that) { return null; }
     }
 }
