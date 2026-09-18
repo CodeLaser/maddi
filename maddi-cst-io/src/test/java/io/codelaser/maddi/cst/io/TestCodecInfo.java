@@ -34,7 +34,7 @@ public class TestCodecInfo extends CommonTest {
     @DisplayName("method in subtype")
     @Test
     public void test2() {
-        String encoded = "[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0)\"]";
+        String encoded = "[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0,int,int)\"]";
         assertEquals(encoded, codec.encodeInfoOutOfContext(context, max).toString());
         CodecImpl.D d = makeD(encoded);
         assertEquals(max, codec.decodeInfoOutOfContext(context, d));
@@ -43,7 +43,7 @@ public class TestCodecInfo extends CommonTest {
     @DisplayName("method parameter")
     @Test
     public void test3() {
-        String encoded = "[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0)\",\"Pp1(1)\"]";
+        String encoded = "[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0,int,int)\",\"Pp1(1)\"]";
         assertEquals(encoded, codec.encodeInfoOutOfContext(context, max1).toString());
         CodecImpl.D d = makeD(encoded);
         assertEquals(max1, codec.decodeInfoOutOfContext(context, d));
