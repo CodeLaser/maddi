@@ -171,7 +171,22 @@ order-dependent precisely because both Kotlin types map to one JVM type. Improvi
 put the distinction other than the shared `TypeInfo` — a Kotlin-side property, or a hidden-content
 treatment. Design question, not a fix.
 
-### 5.5 `JavaStubGenerator` fidelity
+### 5.5 The Kotlin stdlib has no annotated APIs
+
+§3 is about the JDK archive: without it, no detekt type could be concluded immutable. The same hole is one
+level out, and became visible only once library **extension** calls resolved (maddi#43). `x.map { … }`,
+`a to b`, `s.trimIndent()` are now real calls to `CollectionsKt`, `TuplesKt`, `StringsKt` — and the analyzer
+knows nothing about any of them, so a field passed to one is a field handed to a method that may modify it.
+
+Measured on detekt, the day extension calls started resolving: analysis order 12,543 → 14,697 (17% more
+elements analysed), and 19 verdicts moved — 16 down (`@Immutable`/`@Immutable(hc=true)` → `@FinalFields`,
+e.g. every `DefaultValue` subclass in `detekt-generator`, whose `printAsYaml` writes `name to quoted`),
+3 up. The drop is honest: the analyzer used to see a placeholder where it now sees a call it cannot judge.
+
+The fix is an annotated-API archive for `kotlin-stdlib`, the way the JDK has one. Until then, expect a
+Kotlin corpus to under-report immutability wherever the stdlib's extension functions touch a field.
+
+### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
 
@@ -196,3 +211,4 @@ For the record, since each was invisible to the unit suite:
 | `KotlinScan` | Kotlin **interface delegation** (`: Sink by delegate`) produced a type with *no members at all* |
 | `JavaStubGenerator` | Java keywords as identifiers; interface fields without initializers; annotation classes emitted as classes; erased generic supertypes; empty-body interface defaults treated as abstract; `void`-typed fields (Kotlin `Unit`) |
 | `MixedProjectInspector` | nested types stubbed twice; no classpath for the stub compiler |
+| `KotlinTypeMapper`, `KotlinBodyConverter` | a call to a library **extension** function resolved to nothing, and the placeholder swallowed its arguments — a lambda, and every declaration written in it (maddi#43). The facade now holds extensions as statics whose first parameter is the receiver, the receiver may be implicit (`run { … }` in a member), and a receiver lambda carries its receiver as `$receiver` so `sb.apply { append(…) }` resolves |

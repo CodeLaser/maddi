@@ -386,6 +386,11 @@ internal class KotlinTypeMapper(
      * `findClass` cannot see it); we derive its [ClassId] from the FIR container source, then build it from the
      * package's top-level functions that belong to the same facade — all as `public static` library methods, so
      * calls resolve and their arguments (their reads) are tracked. Null when not derivable/loadable.
+     *
+     * ⛔ EXTENSIONS INCLUDED, and while they were not, `x.let { … }`, `x.first()` and `run { … }` in a member were
+     * all `k2-unresolved-call` placeholders — which swallow their arguments, a lambda and every declaration in it
+     * among them (maddi#43). An extension is a static of the facade whose first parameter is the receiver, which
+     * is exactly what kotlinc compiles it to, so nothing else here has to know the difference.
      */
     internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? {
         val classId = jvmFacadeClassId(function) ?: return null
@@ -394,7 +399,7 @@ internal class KotlinTypeMapper(
         val pkg = findPackage(classId.packageFqName) ?: return null
         val functions = pkg.packageScope.callables
             .filterIsInstance<KaNamedFunctionSymbol>()
-            .filter { it.receiverParameter == null && jvmFacadeClassId(it) == classId }
+            .filter { jvmFacadeClassId(it) == classId }
             .toList()
         if (functions.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
@@ -540,6 +545,8 @@ internal class KotlinTypeMapper(
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
+        // an extension's receiver is its first JVM parameter, named as KotlinScan names a source extension's
+        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         function.valueParameters.forEach { p -> builder.addParameter(p.name.asString(), mapType(p.returnType, owner)) }
         builder
             .setReturnType(mapType(function.returnType, owner))
