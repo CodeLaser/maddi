@@ -123,6 +123,33 @@ class RecordedReferencesTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun aLambdaLabelIsRecordedAsANameOfTheFunctionItBorrowsItFrom() {
+        // `before { return@before }`: the label is the called function's name, so renaming the function must rename
+        // it -- and K2 resolves the label to the LAMBDA, so only the call around it says which function that is.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            mapOf(
+                "a/Api.kt" to "package a\n\nfun before(action: () -> Unit) { action() }\n"
+                        + "fun after(action: () -> Unit) { action() }\n",
+                "b/Use.kt" to "package b\n\nimport a.before\nimport a.after\n\n"
+                        + "fun use() {\n"
+                        + "    before { return@before }\n"
+                        + "    before { after { return@before } }\n"
+                        + "    after(fun() { })\n"
+                        + "    before outer@{ return@outer }\n"
+                        + "}\n"
+            ), emptyMap()
+        )
+        fun type(name: String) = types.flatMap { it.recursiveSubTypeStream().toList() }.first { it.simpleName() == name }
+        val before = type("ApiKt").methods().first { it.name() == "before" }
+        val use = type("UseKt").methods().first { it.name() == "use" }
+        val at = use.source().detailedSources().references(before)
+            .map { "${it.beginLine()}:${it.beginPos()}" }.sorted()
+        // three calls spell `before`, and two of them are labelled; the `return@outer` is the author's own label,
+        // and `before outer@{ … }` no longer labels anything
+        assertEquals(listOf("10:5", "7:21", "7:5", "8:29", "8:5"), at)
+    }
+
+    @Test
     fun aSuperCallIsRecordedOnTheOverride() {
         parse()
         assertEquals(listOf("7:48"), names(method("Sub", "greet"), method("Base", "greet")))

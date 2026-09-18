@@ -28,8 +28,14 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
+import org.jetbrains.kotlin.analysis.api.resolution.symbol
+import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtLabelReferenceExpression
+import org.jetbrains.kotlin.psi.KtLabeledExpression
+import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtPackageDirective
@@ -83,6 +89,43 @@ internal class KotlinReferenceWalker(private val projectFiles: Set<String>) {
                 consumer(reference, project)
             }
         })
+    }
+
+    /**
+     * Every **implicit lambda label** of a Kotlin file: the `before` of `routes.before { … return@before … }`. It is
+     * spelled with the CALLED FUNCTION'S NAME, so renaming the function must rename it -- kotlinc says
+     * `unresolved label` otherwise -- but it is not a name reference, and [walk] rightly does not see it: K2 resolves
+     * a label to the lambda, not to the function whose name it borrows. The desugared CST is no help either, giving a
+     * lambda no source range to search. So the binding is made here, syntactically, where the call is still written.
+     *
+     * A label belongs to the INNERMOST enclosing lambda argument whose call bears its name, so the inner `it` of
+     * `first { … first { return@first x } … }` wins, as Kotlin's own scoping gives it. Two labels are not the
+     * function's and are skipped: one on an explicitly labelled lambda (`before label@{ … }` -- `label` is the
+     * author's word and `before` no longer labels anything), and one naming a function in no call around it (a
+     * `this@name` inside the declaration NAMES ITS OWN receiver, which is not this).
+     */
+    fun KaSession.walkLabels(ktFile: KtFile, consumer: KaSession.(KtLabelReferenceExpression, KaSymbol) -> Unit) {
+        for (label in PsiTreeUtil.findChildrenOfType(ktFile, KtLabelReferenceExpression::class.java)) {
+            val name = label.getReferencedName()
+            var p: PsiElement? = label.parent
+            while (p != null) {
+                // the author's own label of an enclosing expression: it, not a function, is what `@name` names
+                if (p is KtLabeledExpression && p.getLabelName() == name) break
+                val call = (p as? KtLambdaArgument)?.takeIf { it.getLambdaExpression()?.parent !is KtLabeledExpression }
+                    ?.let { it.parent as? KtCallExpression }
+                if (call != null && (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName() == name) {
+                    val symbol = try {
+                        call.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+                    } catch (e: RuntimeException) {
+                        failedReferences++
+                        null
+                    }
+                    if (symbol != null && isProjectDeclaration(symbol)) consumer(label, symbol)
+                    break
+                }
+                p = p.parent
+            }
+        }
     }
 
     /**
