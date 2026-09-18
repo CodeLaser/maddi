@@ -97,6 +97,16 @@ internal class KotlinReferenceRegistry {
                 }.distinct()
                 targets.forEach { target -> recorded.getOrPut(host) { ArrayList() } += target to identifier }
             }
+            // a lambda's implicit label spells the called function's name, and is recorded on the same host as the
+            // call: `before { return@before }` is one more place `before` is written (KotlinReferenceWalker.walkLabels)
+            walkLabels(ktFile) { label, symbol ->
+                val host = hostFor(label) ?: return@walkLabels
+                val target = declarationPsi(symbol)?.let { targetOf[it] } ?: javaTarget(symbol) ?: return@walkLabels
+                // the identifier, not the label expression: its own range covers the `@` too, and a rename that
+                // replaced it would write `returnnewName`
+                recorded.getOrPut(host) { ArrayList() } +=
+                    target to sourceOf(runtime, label.getReferencedNameElement(), "-")
+            }
             for (kdoc in PsiTreeUtil.findChildrenOfType(ktFile, KDoc::class.java)) {
                 kdoc.getOwner()?.let { documented(it) }?.let { kdocOf[it] = kdoc }
             }
