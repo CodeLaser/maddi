@@ -2,31 +2,31 @@
 {"name": "Tjava.net.http.HttpClient", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "SBuilder(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "FNO_PROXY(0)", "data":{"finalField":1}},
-  {"name": "Mauthenticator(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Mauthenticator(0,java.net.Authenticator)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
   {"name": "Mbuild(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
-  {"name": "MconnectTimeout(2)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MconnectTimeout(2,java.time.Duration)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "McookieHandler(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "McookieHandler(3,java.net.CookieHandler)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
-  {"name": "Mexecutor(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Mexecutor(4,java.util.concurrent.Executor)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MfollowRedirects(5)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MfollowRedirects(5,java.net.http.HttpClient.Redirect)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
-  {"name": "MlocalAddress(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "MlocalAddress(6,java.net.InetAddress)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Mpriority(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Mpriority(7,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
-  {"name": "Mproxy(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Mproxy(8,java.net.ProxySelector)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
-  {"name": "MsslContext(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "MsslContext(9,javax.net.ssl.SSLContext)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
-  {"name": "MsslParameters(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "MsslParameters(10,javax.net.ssl.SSLParameters)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "sub":
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}}},
-  {"name": "Mversion(11)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Mversion(11,java.net.http.HttpClient.Version)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}]},
  {"name": "Mauthenticator(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MawaitTermination(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MawaitTermination(1,java.time.Duration)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mclose(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MconnectTimeout(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
@@ -38,13 +38,13 @@
  {"name": "MnewHttpClient(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MnewWebSocketBuilder(10)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mproxy(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Msend(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msend(12,java.net.http.HttpRequest,java.net.http.HttpResponse.BodyHandler)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MsendAsync(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsendAsync(13,java.net.http.HttpRequest,java.net.http.HttpResponse.BodyHandler)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MsendAsync(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsendAsync(14,java.net.http.HttpRequest,java.net.http.HttpResponse.BodyHandler,java.net.http.HttpResponse.PushPromiseHandler)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -58,80 +58,80 @@
  {"name": "SBodyPublisher(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "sub":
   {"name": "McontentLength(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}},
  {"name": "SBodyPublishers(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
-  {"name": "Mconcat(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Mconcat(0,java.net.http.HttpRequest.BodyPublisher[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
-  {"name": "MfromPublisher(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MfromPublisher(1,java.util.concurrent.Flow.Publisher)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
-  {"name": "MfromPublisher(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MfromPublisher(2,java.util.concurrent.Flow.Publisher,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
   {"name": "MnoBody(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofByteArray(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofByteArray(4,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
-  {"name": "MofByteArray(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofByteArray(5,byte[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MofByteArrays(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofByteArrays(6,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2}}},
-  {"name": "MofFile(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofFile(7,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MofFileChannel(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofFileChannel(8,java.nio.channels.FileChannel,long,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MofInputStream(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofInputStream(9,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}}},
-  {"name": "MofString(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofString(10,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MofString(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofString(11,java.lang.String,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]}]},
  {"name": "SBuilder(2)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "MDELETE(0)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}},
   {"name": "MGET(1)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}},
   {"name": "MHEAD(2)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}},
-  {"name": "MPOST(3)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MPOST(3,java.net.http.HttpRequest.BodyPublisher)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MPUT(4)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MPUT(4,java.net.http.HttpRequest.BodyPublisher)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
   {"name": "Mbuild(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
   {"name": "Mcopy(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
-  {"name": "MexpectContinue(7)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "MexpectContinue(7,boolean)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
-  {"name": "Mheader(8)", "data":{"annotatedApi":1,"commutableMethods":["header,0","","headers"],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Mheader(8,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"commutableMethods":["header,0","","headers"],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "Mheaders(9)", "data":{"annotatedApi":1,"commutableMethods":["header","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Mheaders(9,java.lang.String[])", "data":{"annotatedApi":1,"commutableMethods":["header","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
-  {"name": "Mmethod(10)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Mmethod(10,java.lang.String,java.net.http.HttpRequest.BodyPublisher)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MsetHeader(11)", "data":{"annotatedApi":1,"commutableMethods":["header,0","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "MsetHeader(11,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"commutableMethods":["header,0","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "MsetOption(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "MsetOption(12,java.net.http.HttpOption,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
    {"name": "Parg0(0)", "data":{"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "Mtimeout(13)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Mtimeout(13,java.time.Duration)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Muri(14)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Muri(14,java.net.URI)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Mversion(15)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Mversion(15,java.net.http.HttpClient.Version)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"notNullMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}]},
  {"name": "MbodyPublisher(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mequals(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Mequals(1,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MexpectContinue(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MgetOption(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetOption(3,java.net.http.HttpOption)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhashCode(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "Mheaders(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mmethod(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MnewBuilder(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MnewBuilder(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"getSetEquivalent":[[["P",["Tjava.net.http.HttpRequest","MnewBuilder(8)","Parg0(0)"]]],["Tjava.net.http.HttpRequest","MnewBuilder(7)"]],"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MnewBuilder(8,java.net.URI)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"getSetEquivalent":[[["P",["Tjava.net.http.HttpRequest","MnewBuilder(8,java.net.URI)","Parg0(0)"]]],["Tjava.net.http.HttpRequest","MnewBuilder(7)"]],"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MnewBuilder(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MnewBuilder(9,java.net.http.HttpRequest,java.util.function.BiPredicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
  {"name": "Mtimeout(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
@@ -140,81 +140,81 @@
 
 {"name": "Tjava.net.http.HttpResponse", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "SBodyHandlers(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
-  {"name": "Mbuffering(0)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Mbuffering(0,java.net.http.HttpResponse.BodyHandler,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
   {"name": "Mdiscarding(1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MfromLineSubscriber(2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MfromLineSubscriber(2,java.util.concurrent.Flow.Subscriber)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"independentParameter":2}}},
-  {"name": "MfromLineSubscriber(3)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MfromLineSubscriber(3,S,java.util.function.Function,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}},
    {"name": "Parg2(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "MfromSubscriber(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MfromSubscriber(4,java.util.concurrent.Flow.Subscriber)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
-  {"name": "MfromSubscriber(5)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MfromSubscriber(5,S,java.util.function.Function)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}}]},
-  {"name": "Mlimiting(6)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Mlimiting(6,java.net.http.HttpResponse.BodyHandler,long)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
   {"name": "MofByteArray(7)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofByteArrayConsumer(8)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofByteArrayConsumer(8,java.util.function.Consumer)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"ignoreModsParameter":1,"independentParameter":2}}},
-  {"name": "MofFile(9)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofFile(9,java.nio.file.Path)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MofFile(10)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofFile(10,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
-  {"name": "MofFileDownload(11)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofFileDownload(11,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
   {"name": "MofInputStream(12)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofLines(13)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofPublisher(14)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
   {"name": "MofString(15)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofString(16)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofString(16,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Mreplacing(17)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Mreplacing(17,U)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
  {"name": "SBodySubscribers(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
-  {"name": "Mbuffering(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Mbuffering(0,java.net.http.HttpResponse.BodySubscriber,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"containerParameter":1,"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
   {"name": "Mdiscarding(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MfromLineSubscriber(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MfromLineSubscriber(2,java.util.concurrent.Flow.Subscriber)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"independentParameter":2}}},
-  {"name": "MfromLineSubscriber(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MfromLineSubscriber(3,S,java.util.function.Function,java.nio.charset.Charset,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}},
    {"name": "Parg2(2)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg3(3)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
-  {"name": "MfromSubscriber(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MfromSubscriber(4,java.util.concurrent.Flow.Subscriber)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
-  {"name": "MfromSubscriber(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MfromSubscriber(5,S,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}}]},
-  {"name": "Mlimiting(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Mlimiting(6,java.net.http.HttpResponse.BodySubscriber,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"containerParameter":1,"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "Mmapping(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Mmapping(7,java.net.http.HttpResponse.BodySubscriber,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"containerParameter":1,"independentParameter":2}},
    {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}}]},
   {"name": "MofByteArray(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofByteArrayConsumer(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofByteArrayConsumer(9,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"ignoreModsParameter":1,"independentParameter":2}}},
-  {"name": "MofFile(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofFile(10,java.nio.file.Path)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MofFile(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "MofFile(11,java.nio.file.Path,java.nio.file.OpenOption[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
   {"name": "MofInputStream(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofLines(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofLines(13,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MofPublisher(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
-  {"name": "MofString(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "MofString(15,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "Mreplacing(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Mreplacing(16,U)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
  {"name": "Mbody(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MconnectionLabel(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},

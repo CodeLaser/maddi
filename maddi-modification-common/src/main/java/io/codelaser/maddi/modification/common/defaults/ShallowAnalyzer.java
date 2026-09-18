@@ -81,12 +81,28 @@ public class ShallowAnalyzer {
         return !onlyPublic || info.access().isPublic();
     }
 
+    /**
+     * A type the caller NAMED is in scope whatever its access; [onlyPublic] prunes the closure this walks into
+     * (sub- and supertypes), not what it was asked to analyse.
+     * <p>
+     * ⛔ Without this an annotated API for a package-private type yields NO properties, only the ANNOTATED_API
+     * marker, and says nothing about it. Every multifile facade's part class is package-private by construction --
+     * `kotlin.collections.CollectionsKt___CollectionsKt` is where `map` is declared, and the facade that IS public
+     * declares nothing at all -- so a contract for the Kotlin stdlib could be written, resolved, and quietly do
+     * nothing.
+     */
+    private boolean inScope(TypeInfo typeInfo, Set<TypeInfo> requested) {
+        return requested.contains(typeInfo) || acceptAccess(typeInfo);
+    }
+
     public Result go(List<TypeInfo> types) {
+        Set<TypeInfo> requested = Collections.newSetFromMap(new IdentityHashMap<>());
+        requested.addAll(types);
         Set<SourceSet> stayWithinSourceSets = types.stream()
                 .map(typeInfo -> typeInfo.compilationUnit().sourceSet()).collect(Collectors.toUnmodifiableSet());
         if(debugVisitor != null) debugVisitor.inputTypes(types);
         List<TypeInfo> allTypes = types.stream().flatMap(TypeInfo::recursiveSubTypeStream)
-                .filter(this::acceptAccess)
+                .filter(t -> inScope(t, requested))
                 .flatMap(t -> Stream.concat(Stream.of(t), t.recursiveSuperTypeStream()))
                 .distinct()
                 .filter(t -> stayWithinSourceSets.contains(t.compilationUnit().sourceSet()))
@@ -123,7 +139,7 @@ public class ShallowAnalyzer {
         }
         if (debugVisitor != null) debugVisitor.dataMapAfterFieldMethodAnalyzer(dataMap);
         for (TypeInfo typeInfo : sorted) {
-            if (acceptAccess(typeInfo)) {
+            if (inScope(typeInfo, requested)) {
                 shallowTypeAnalyzer.check(typeInfo);
                 typeInfo.analysis().set(DEFAULTS_ANALYZER, TRUE);
             }

@@ -1,0 +1,51 @@
+[
+{"name": "Tkotlin.text.Regex", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
+ {"name": "FCompanion(0)", "data":{"finalField":1,"immutableField":3,"unmodifiedField":1}},
+ {"name": "C<init>(0,java.lang.String)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppattern(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "C<init>(1,java.lang.String,java.util.Set)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ppattern(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(2,java.lang.String,kotlin.text.RegexOption)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ppattern(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poption(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(3,java.util.regex.Pattern)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PnativePattern(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "McontainsMatchIn(1,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mfind(2,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MfindAll(3,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetOptions(4)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetPattern(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MmatchAt(6,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MmatchEntire(7,java.lang.CharSequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mmatches(8,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MmatchesAt(9,java.lang.CharSequence,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mreplace(10,java.lang.CharSequence,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Preplacement(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mreplace(11,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MreplaceFirst(12,java.lang.CharSequence,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Preplacement(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Msplit(13,java.lang.CharSequence,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plimit(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsplitToSequence(14,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pinput(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plimit(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoPattern(15)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoString(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]}
+]

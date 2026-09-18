@@ -48,7 +48,12 @@ public class CodecImpl implements Codec {
     private static final Logger LOGGER = LoggerFactory.getLogger(CodecImpl.class);
 
     private static final Pattern FIELD_NAME_PATTERN = Pattern.compile("(.+)\\.([^.]+)");
-    private static final Pattern NAME_INDEX_PATTERN = Pattern.compile("(.+)\\((\\d+)\\)");
+    /**
+     * {@code name(index)}, and for a method or constructor optionally {@code name(index,p1,p2)} — the erased
+     * parameter types, which is the only thing that tells two overloads apart when the index is stale. Optional, so
+     * every token written before it existed still decodes; see {@link #decodeMethodInfo}.
+     */
+    private static final Pattern NAME_INDEX_PATTERN = Pattern.compile("(.+)\\((\\d+)(?:,([^)]*))?\\)");
     private static final Pattern NUM_PATTERN = Pattern.compile("-?\\.?[0-9]+");
     private final DecoderProvider decoderProvider;
     private final TypeProvider typeProvider;
@@ -373,10 +378,20 @@ public class CodecImpl implements Codec {
             }
             // Index stale: the loaded method set differs from the encoder's -- e.g. a synthetic <clinit> or private
             // methods present on the bytecode side but not the source side. Resolve by name; a unique simple name
-            // (the common case) resolves directly. For overloads the index cannot be trusted and the token carries
-            // no descriptor, so report a clear DecoderException rather than silently pick the wrong overload.
+            // (the common case) resolves directly.
             List<MethodInfo> byName = sorted.stream().filter(mi -> mi.name().equals(name)).toList();
             if (byName.size() == 1) return byName.getFirst();
+            // Overloaded: only the erased parameter types tell them apart. A token written before they were carried
+            // has none, and there is nothing to do but report it -- which is what a Kotlin stdlib contract for
+            // `mapOf` hit, two overloads deep in a multifile part class.
+            String parameters = m.group(3);
+            if (parameters != null) {
+                for (MethodInfo mi : byName) {
+                    if (parameterTypes(mi).equals(parameters)) return mi;
+                }
+                throw new DecoderException("method '" + name + "(" + parameters + ")' not found in "
+                                           + typeAndSorted.typeInfo() + "; " + byName.size() + " other overload(s)");
+            }
             if (byName.isEmpty()) {
                 throw new DecoderException("method '" + name + "' (index " + index + ") not found in "
                                            + typeAndSorted.typeInfo() + "; has " + sorted.size() + " method(s)");
@@ -385,6 +400,33 @@ public class CodecImpl implements Codec {
                                        + " overloads) with a stale index " + index + " in "
                                        + typeAndSorted.typeInfo() + "; name+descriptor needed to disambiguate");
         } else throw new UnsupportedOperationException();
+    }
+
+    /**
+     * A method's erased parameter types, as its token carries them: {@code java.lang.Iterable,kotlin.Pair[]}.
+     * Erased, because that is all both sides are sure to agree on -- a type parameter is written by its simple
+     * name, and neither side sees the other's type arguments.
+     */
+    static String parameterTypes(MethodInfo methodInfo) {
+        return methodInfo.parameters().stream().map(p -> {
+            ParameterizedType pt = p.parameterizedType();
+            String name = pt.typeInfo() != null ? pt.typeInfo().fullyQualifiedName()
+                    : pt.typeParameter() != null ? pt.typeParameter().simpleName() : "?";
+            return name + "[]".repeat(pt.arrays());
+        }).collect(Collectors.joining(","));
+    }
+
+    /**
+     * The inside of a method or constructor token: its index, and the erased parameter types.
+     * <p>
+     * ⛔ ALWAYS, NOT JUST FOR A NAME THE ENCODER SEES OVERLOADED. Whether two methods share a name is a property of
+     * the DECODER's view, and the encoder cannot know it: `kotlin.collections.MapsKt__MapsKt.mapOf` is one method
+     * in the bytecode the archive is built from, and two in the Kotlin front end's model of the same class. Writing
+     * the types only when the encoder sees an overload is therefore exactly wrong for the case that needs them.
+     */
+    private static String methodToken(String index, MethodInfo methodInfo) {
+        String parameters = parameterTypes(methodInfo);
+        return parameters.isEmpty() ? index : index + "," + parameters;
     }
 
     private ParameterInfo decodeParameterInfo(MethodInfo methodInfo, String nameIndex) {
@@ -648,10 +690,15 @@ public class CodecImpl implements Codec {
         assert index != null && !index.isBlank();
         if (info instanceof MethodInfo methodInfo) {
             assert methodInfo.typeInfo() == context.currentType().typeInfo();
+            // the caller's index, plus the parameter types when the name is overloaded: this is the site the
+            // ARCHIVE goes through (WriteAnalysisResults.writeMethod), and an overload cannot survive a stale
+            // index without them
             if (methodInfo.isConstructor()) {
-                return "C" + MethodInfo.CONSTRUCTOR_NAME + "(" + index + ")";
+                return "C" + MethodInfo.CONSTRUCTOR_NAME + "("
+                       + methodToken(index, methodInfo) + ")";
             }
-            return "M" + methodInfo.name() + "(" + index + ")";
+            return "M" + methodInfo.name() + "("
+                   + methodToken(index, methodInfo) + ")";
         }
         if (info instanceof FieldInfo fieldInfo) {
             if (context.currentType().typeInfo() == fieldInfo.owner()) {
@@ -695,9 +742,11 @@ public class CodecImpl implements Codec {
             case MethodInfo methodInfo -> {
                 prev = encodeInfoOutOfContextStream(context, typeAndSorted, methodInfo.typeInfo());
                 if (methodInfo.isConstructor()) {
-                    s = "C" + MethodInfo.CONSTRUCTOR_NAME + "(" + typeAndSorted.constructorIndex(methodInfo) + ")";
+                    s = "C" + MethodInfo.CONSTRUCTOR_NAME + "("
+                        + methodToken("" + typeAndSorted.constructorIndex(methodInfo), methodInfo) + ")";
                 } else {
-                    s = "M" + methodInfo.name() + "(" + typeAndSorted.methodIndex(methodInfo) + ")";
+                    s = "M" + methodInfo.name() + "("
+                        + methodToken("" + typeAndSorted.methodIndex(methodInfo), methodInfo) + ")";
                 }
             }
             case FieldInfo fieldInfo -> {

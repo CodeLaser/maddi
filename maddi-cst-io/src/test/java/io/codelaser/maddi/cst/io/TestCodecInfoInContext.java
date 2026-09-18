@@ -60,9 +60,12 @@ public class TestCodecInfoInContext extends CommonTest {
     @Test
     public void testMethod() {
         context.push(sub); // current type = Sub (owner of max)
-        String encoded = "\"Mmax(0)\"";
+        // the token carries the erased parameter types; see TestCodecMethodByDescriptor for why always, and why
+        // a token written before they existed still decodes
+        String encoded = "\"Mmax(0,int,int)\"";
         assertEquals(encoded, codec.encodeInfoInContext(context, max, "0").toString());
         assertSame(max, codec.decodeInfoInContext(context, makeD(encoded)));
+        assertSame(max, codec.decodeInfoInContext(context, makeD("\"Mmax(0)\"")));
     }
 
     @DisplayName("constructor (C) round-trip in the current type")

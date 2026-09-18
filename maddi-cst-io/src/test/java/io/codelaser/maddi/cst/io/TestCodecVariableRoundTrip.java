@@ -34,7 +34,7 @@ public class TestCodecVariableRoundTrip extends CommonTest {
     @Test
     public void testParameter() {
         context.push(typeInfo);
-        String encoded = "[\"P\",[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0)\",\"Pp1(1)\"]]";
+        String encoded = "[\"P\",[\"Ta.b.C\",\"SSub(0)\",\"Mmax(0,int,int)\",\"Pp1(1)\"]]";
         assertEquals(encoded, codec.encodeVariable(context, max1).toString());
         assertEquals(max1, codec.decodeVariable(context, makeD(encoded)));
     }

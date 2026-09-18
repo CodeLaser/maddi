@@ -201,39 +201,113 @@ reads, the previous `.json` left in place; check the file changed. And naming a 
 `kotlin-stdlib` on `maddi-aapi-archive`'s own compile path (`compileOnly` + `requires static`), which
 nothing needed before: the Lazy contract names only its own shadow.
 
-#### ⛔ And then it stops: a multifile facade cannot be contracted at all
+#### ⚠ A contract must name the PART class, and a method token must carry its parameter types
 
-`TuplesKt` could be written because it is a **single-file** facade that declares `to` itself. Every facade
-that matters — `CollectionsKt`, `MapsKt`, `StringsKt`, `SetsKt`, `SequencesKt` — is a **multifile class
-facade**: `kotlin.collections.CollectionsKt` declares *nothing at all* but a private constructor, and
-`extends CollectionsKt___CollectionsKt`, from which it inherits every method. Writing the contract yields
+`TuplesKt` could be written straight off because it is a **single-file** facade that declares `to` itself.
+Every facade that matters — `CollectionsKt`, `MapsKt`, `StringsKt`, `SetsKt`, `SequencesKt` — is a
+**multifile class facade**: `kotlin.collections.CollectionsKt` declares *nothing at all* but a private
+constructor, and `extends CollectionsKt___CollectionsKt`, from which it inherits every method. A contract
+written against the facade is ignored method by method —
 
 ```
 Ignoring method 'CollectionsKt$.map(Iterable,Function1)', not found in target type 'kotlin.collections.CollectionsKt'
 ```
 
-and a `.json` holding the type with **no method contracts** — inert, and green. So `map`, `filter`,
-`joinToString`, `mapOf`, `trimIndent` are all currently unreachable, which is most of what a Kotlin corpus
-calls. Two layers have to change, and neither is a hints file:
+— leaving a `.json` that holds the type with **no method contracts**, and a green build. Name the **part
+class** instead: that is also what a CALL names, since `jvmFacadeClassId` reads the symbol's FIR
+containerSource, whose ClassId for a multifile part is the part
+(`FacadeAndExtensionTest.aMultifileFacadeCallNamesTheClassThatDeclaresIt` pins it).
 
-1. **`AnalysisHintsParser` matches declared methods only.** It would have to resolve through the target
-   type's hierarchy, and still record the contract under the facade — because that is where the *call*
-   points: the Kotlin front end synthesises the facade's methods from K2 symbols onto `CollectionsKt`
-   (`KotlinTypeMapper.loadLibraryFacadeFor`), while the bytecode loader puts them on the part class. The
-   two front ends model one method on two different types.
-2. **The codec addresses a method by POSITIONAL INDEX** into the type's sorted method list (`Mmap(3)`),
-   falling back to a unique simple name. A facade's index is computed from the bytecode view (no methods)
-   and resolved against the Kotlin view (as many overloads as the corpus calls), so it is stale by
-   construction and `map` is never unique. `CodecImpl` already says what is needed when it throws:
-   "name+descriptor needed to disambiguate".
+That was enough for `map`. `mapOf` still fell out at load, and for an unrelated reason worth knowing:
 
-Until a method token carries a descriptor, the Kotlin archive can hold **types** (`Lazy`, `Pair`) and
-single-file facades, and nothing else.
+```
+Skipping analysis hint for unresolvable element 'mapOf(15)': ambiguous method 'mapOf' (2 overloads) with a stale index
+```
 
-The token change looks additive rather than breaking: a method is encoded `M<name>(<index>)`, and the
-decoder already tolerates a stale index by falling back to a unique simple name. Carrying the erased
-parameter types alongside the index would let a new archive disambiguate while every existing one — the 27
-JDK files included — decodes exactly as it does today.
+A method was addressed by a positional **index** into the type's sorted method list, with a fallback to a
+unique simple name. An overload has neither: the index is computed from the bytecode the archive is built
+from and resolved against the Kotlin front end's model of the same class, which is a different list. The
+token carries the erased parameter types now — always, because whether a name is overloaded is a property
+of the *decoder's* view and the encoder cannot know it (`mapOf` is one method in bytecode and two in the
+Kotlin model). They are optional in the grammar, so every archive written before them still decodes.
+
+Two defects surfaced on the way: a library `vararg` was modelled as its ELEMENT type, so `mapOf(vararg
+Pair)` collided with the single-pair overload and one of them was dropped; and
+`TestParseAnalyzeWrite` parses the whole archive with the shared inspector factory, which deliberately
+carries no kotlin-stdlib — so both Kotlin hints files are dropped whole there, and the count says so.
+
+detekt then skipped **no hint at all** — and `map` and `mapOf` still carried nothing but
+`{"annotatedApi":1}`. A third silent failure, below the two above:
+
+#### ⚠ A resolved contract for a package-private type says nothing
+
+`ShallowAnalyzer.go` filtered *every* type through `acceptAccess(info) = !onlyPublic ||
+info.access().isPublic()`, and `AnalysisHintsCompiler` passes `onlyPublic = true`. A package-private type
+handed to it was dropped from `allTypes` and never reached `DEFAULTS_ANALYZER` — so the contract parsed,
+resolved, wrote its `.json`, and exited 0 carrying only the `ANNOTATED_API` marker and no computed
+property. Nothing in the pipeline says so.
+
+That is not an edge case for the Kotlin stdlib, it is the whole of it: a multifile facade's part class is
+package-private **by construction**, and the public facade declares nothing. `onlyPublic` is meant to prune
+the closure the analyzer walks into — sub- and supertypes it reaches on its own — not the list it was
+handed, so `inScope(t, requested)` now exempts the types the caller NAMED (`AnalysisHintsParser.types()`,
+which is exactly what a hand-written shadow writes down, nested types included).
+
+Across the 27-file JDK archive plus `libs/`, exactly two `.json` files move: `KotlinCollections.json`, and
+`JavaAwt.json` — whose hand-written contracts for `java.awt.Component`'s two **protected** nested classes,
+`BltBufferStrategy` and `FlipBufferStrategy`, had been writing marker-only shells all along.
+
+One level up, `CompileAnalysisHints.compile` was discarding the `List<Message>` that `AnalysisHintsCompiler.go`
+returns — the analyzer's complaints about the shadows, thrown away exactly where the archive is regenerated.
+
+#### `DefaultValue` green: six types, and the cause was neither `error` nor a `YamlNode` builder
+
+With `map`, `mapOf` and `to` applied, the family had **still** not moved — and the reason was worth the
+instrument. `FPDUMP`/`FPDUMP_PARAMS` (both write a file; a test worker's stdout is swallowed, so
+`EC_TYPE_DEBUG` and `MODREACH_EXPLAIN` print nothing from a gradle test task) say:
+
+- `DefaultValue.printAsYaml` is `nonModifying=false`. An interface has no fields, so a modifying abstract
+  method is what caps it at `@FinalFields` — and a `@FinalFields` supertype then caps every subtype
+  (`TypeImmutableAnalyzerImpl`, the #34 fix). One method pinned six types.
+- of the five implementations only `StringListDefault.printAsYaml` is modifying, and it is the only one
+  that passes **its own field** to a callee: `yaml.list(name, defaultValue)`.
+- `YamlKt.list(…):2:list` and `listOfMaps(…):2:maps` are `unmodified=false`. Their bodies only read —
+  `list.forEach { … }`, `maps.filter { … }`.
+
+So the whole family hung on `Iterable.forEach` and `Iterable.filter` being uncontracted. Both are now in
+`CollectionsKt___CollectionsKt$` with a `@NotModified` receiver, and the six types move to
+`@Immutable` / `@Immutable(hc=true)` — exactly six, nothing else in the 1271 changes.
+
+Two lessons for the next contract. **The blocker is rarely the call you notice.** `error` is the eye-catching
+unresolved name in `DefaultValue.kt` and it was never the cause; a field reaching a `@Modified` parameter
+three frames away was. **Work from the dump, not the source.** The chain to walk is
+`type → its abstract/implementing method → that method's callees' PARAMETERS`, and `FPDUMP_PARAMS` prints
+all three.
+
+An aside for the `error` case whenever it does matter: every function in `kotlin.PreconditionsKt__PreconditionsKt`
+is `private static final` in bytecode, because they are all `inline`. That is no obstacle — maddi models a
+library type through the K2 front end, where they are public, and `forEach`/`filter` are `inline` too.
+
+#### `kotlin.text.Regex`: contract the TYPE, not the methods that take it
+
+The same classification, run over the whole dump rather than one type, names the next target on its own: seven
+types capped by a field of type `Regex` (`multipleWhitespaces`, `identifierRegex`, `escapeSequenceRegex`,
+`messageReplacementRegex`, `detektSuppressionPrefixRegex`, `STRING_CONCAT_REGEX`, `javaAutolinkRegex`). A
+file-level `private val x = Regex(…)` is an everyday Kotlin shape.
+
+`kotlin.text.Regex` is the exact analogue of `java.util.regex.Pattern`, which `jdk/JavaUtilRegex` already
+contracts as `@ImmutableContainer` — it wraps one. `libs/kotlin/KotlinText` now says the same.
+
+**What is worth keeping is what was NOT needed.** Five of the seven reach `Regex` as a *parameter* of a stdlib
+extension (`replace(CharSequence, Regex, String)` and `matches(CharSequence, Regex)`, both in
+`StringsKt__StringsKt`); none of those was contracted. The type-level `@ImmutableContainer` propagates to every
+parameter of that type on its own. So when a field's type is the blocker, contract the **type** — one shadow
+instead of a method-by-method chase through every facade that accepts it. Nine verdicts move: the seven, plus
+`rules.style.Forbidden` → `@Immutable` and `ForbiddenComment.Comment` `@Immutable(hc=true)` → `@Immutable`.
+
+That gives two shapes to recognise, and the FPDUMP classification tells them apart before any contract is
+written: a **field's type** is uncontracted (contract the type), or a **field flows into a callee's `@Modified`
+parameter** (contract that callee — the `forEach`/`filter` case above).
 
 ### 5.6 `JavaStubGenerator` fidelity
 

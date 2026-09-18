@@ -16,6 +16,7 @@ package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
@@ -129,7 +130,10 @@ public class CompileAnalysisHints {
                 .setPackagePrefix("io.codelaser.maddi.aapi.archive." + library.replace("/", "."))
                 .build();
         LOGGER.info("Compiling analysis hints for library '{}'", library);
-        compiler.go(analysisHints);
+        // ⛔ do not drop these: they are the shallow analyzer's complaints about the hand-written shadows, and
+        // they are the only signal that a contract was parsed but said nothing. The task stays exit 0 either way.
+        List<Message> messages = compiler.go(analysisHints);
+        messages.forEach(m -> LOGGER.warn("Message while compiling '{}': {}", library, m));
     }
 
     /**
