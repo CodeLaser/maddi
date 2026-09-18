@@ -201,6 +201,40 @@ reads, the previous `.json` left in place; check the file changed. And naming a 
 `kotlin-stdlib` on `maddi-aapi-archive`'s own compile path (`compileOnly` + `requires static`), which
 nothing needed before: the Lazy contract names only its own shadow.
 
+#### ⛔ And then it stops: a multifile facade cannot be contracted at all
+
+`TuplesKt` could be written because it is a **single-file** facade that declares `to` itself. Every facade
+that matters — `CollectionsKt`, `MapsKt`, `StringsKt`, `SetsKt`, `SequencesKt` — is a **multifile class
+facade**: `kotlin.collections.CollectionsKt` declares *nothing at all* but a private constructor, and
+`extends CollectionsKt___CollectionsKt`, from which it inherits every method. Writing the contract yields
+
+```
+Ignoring method 'CollectionsKt$.map(Iterable,Function1)', not found in target type 'kotlin.collections.CollectionsKt'
+```
+
+and a `.json` holding the type with **no method contracts** — inert, and green. So `map`, `filter`,
+`joinToString`, `mapOf`, `trimIndent` are all currently unreachable, which is most of what a Kotlin corpus
+calls. Two layers have to change, and neither is a hints file:
+
+1. **`AnalysisHintsParser` matches declared methods only.** It would have to resolve through the target
+   type's hierarchy, and still record the contract under the facade — because that is where the *call*
+   points: the Kotlin front end synthesises the facade's methods from K2 symbols onto `CollectionsKt`
+   (`KotlinTypeMapper.loadLibraryFacadeFor`), while the bytecode loader puts them on the part class. The
+   two front ends model one method on two different types.
+2. **The codec addresses a method by POSITIONAL INDEX** into the type's sorted method list (`Mmap(3)`),
+   falling back to a unique simple name. A facade's index is computed from the bytecode view (no methods)
+   and resolved against the Kotlin view (as many overloads as the corpus calls), so it is stale by
+   construction and `map` is never unique. `CodecImpl` already says what is needed when it throws:
+   "name+descriptor needed to disambiguate".
+
+Until a method token carries a descriptor, the Kotlin archive can hold **types** (`Lazy`, `Pair`) and
+single-file facades, and nothing else.
+
+The token change looks additive rather than breaking: a method is encoded `M<name>(<index>)`, and the
+decoder already tolerates a stale index by falling back to a unique simple name. Carrying the erased
+parameter types alongside the index would let a new archive disambiguate while every existing one — the 27
+JDK files included — decodes exactly as it does today.
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
