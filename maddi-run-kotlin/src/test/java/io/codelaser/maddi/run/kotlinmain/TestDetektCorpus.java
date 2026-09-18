@@ -119,7 +119,9 @@ public class TestDetektCorpus {
      * pass the same directory ({@code TestFernflower} et al.).
      */
     private static final List<String> JDK_ANNOTATED_APIS = List.of(
-            "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk");
+            "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk",
+            // and the Kotlin ones, which a Kotlin corpus needs for the same reason
+            "../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/kotlin");
 
     /**
      * Prep <b>and</b> the iterating modification/immutability analysis, over the whole project — the first time

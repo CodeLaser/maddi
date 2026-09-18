@@ -7,6 +7,8 @@ module io.codelaser.maddi.aapi.archive {
     requires io.codelaser.maddi.support;
     requires org.junit.jupiter.api;
     requires org.slf4j;
+    // the Kotlin contracts name kotlin.Pair in a signature; nothing here runs, so it is optional
+    requires static kotlin.stdlib;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;
