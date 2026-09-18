@@ -897,14 +897,18 @@ class KotlinScan(
         EnumSynthetics(runtime, typeInfo, typeInfo.builder()).create()
     }
 
-    /** A `public static final <type> <name>` singleton field (the `INSTANCE`/`Companion` handle). */
-    private fun singletonField(holder: TypeInfo, name: String, type: ParameterizedType): FieldInfo {
+    /**
+     * A `public static [final] <type> <name>` singleton field (the `INSTANCE`/`Companion` handle, and the
+     * enclosing-class surface of a companion's `const val`/`@JvmField`). A `@JvmField var` is not final.
+     */
+    private fun singletonField(holder: TypeInfo, name: String, type: ParameterizedType,
+                               final: Boolean = true): FieldInfo {
         val field = runtime.newFieldInfo(name, true, type, holder)
-        field.builder()
+        val builder = field.builder()
             .addFieldModifier(runtime.fieldModifierPublic())
             .addFieldModifier(runtime.fieldModifierStatic())
-            .addFieldModifier(runtime.fieldModifierFinal())
-            .setInitializer(runtime.newEmptyExpression())
+        if (final) builder.addFieldModifier(runtime.fieldModifierFinal())
+        builder.setInitializer(runtime.newEmptyExpression())
             .setSource(runtime.noSource()) // compiler-made: no text of its own
             .computeAccess().commit()
         return field
@@ -980,43 +984,97 @@ class KotlinScan(
     }
 
     /**
-     * Surface companion members that the JVM also emits on the enclosing class: `const val` → a
-     * `public static final` field on the enclosing class; `@JvmStatic fun` → a static forwarder method on
-     * the enclosing class delegating to `Companion.member(...)`.
+     * Surface companion members that the JVM also emits on the enclosing class, which is where Java names them
+     * (javalin's `import static io.javalin.testtools.TestTool.TestLogsKey`, a `companion object { @JvmField val }`):
+     *
+     * - `const val` and `@JvmField val/var` → a `public static` field on the enclosing class. A `@JvmField var`
+     *   is not final. The field is the JVM surface of a `@JvmField`, which has no accessors at all.
+     * - `@JvmStatic` property → its ACCESSORS, as static forwarders; the field stays on the companion.
+     * - `@JvmStatic fun` → a static forwarder method.
+     *
+     * A plain companion member gets nothing: Java must write `Outer.Companion.member`. Each member also keeps its
+     * copy on the companion, which is what Kotlin resolves `Outer.Companion.member` against.
      */
     private fun KaSession.addCompanionStatics(enclosing: TypeInfo, companion: TypeInfo, companionField: FieldInfo,
                                               companionSymbol: KaNamedClassSymbol) {
-        companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
-            .filter { (it as? KaKotlinPropertySymbol)?.isConst == true }
+        val properties = companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>().toList()
+        properties.filter { (it as? KaKotlinPropertySymbol)?.isConst == true || isJvmField(it) }
             .forEach { property ->
                 enclosing.builder().addField(
-                    singletonField(enclosing, property.name.asString(), mapType(property.returnType, enclosing)))
+                    singletonField(enclosing, property.name.asString(), mapType(property.returnType, enclosing),
+                        final = property.isVal))
+            }
+        // a @JvmField has no accessors to forward; `const` is inlined at the call site, so neither has one either
+        properties.filter { isJvmStaticProperty(it) }
+            .forEach { property ->
+                listOf(accessorName(property, false), accessorName(property, true)).forEach { name ->
+                    companion.methods().firstOrNull { it.name() == name }
+                        ?.let { staticForwarder(enclosing, companionField, it) }
+                }
             }
 
-        val jvmStatic = ClassId.fromString("kotlin/jvm/JvmStatic")
         companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
-            .filter { it.annotations.contains(jvmStatic) }
+            .filter { it.annotations.contains(JVM_STATIC) }
             .forEach { function ->
-                val target = companion.methods().firstOrNull {
-                    it.name() == function.name.asString() && it.parameters().size == function.valueParameters.size
-                } ?: return@forEach
-                val forwarder = runtime.newMethod(enclosing, function.name.asString(), runtime.methodTypeStaticMethod())
-                val builder = forwarder.builder()
-                val params = function.valueParameters.map { builder.addParameter(it.name.asString(), mapType(it.returnType, enclosing)) }
-                val returnType = mapType(function.returnType, enclosing)
-                builder.setReturnType(returnType)
-                    .addMethodModifier(runtime.methodModifierPublic())
-                    .addMethodModifier(runtime.methodModifierStatic())
-                    .commitParameters()
-                val delegate = runtime.newMethodCallBuilder()
-                    .setObject(bodyConverter.singletonAccess(enclosing, companionField)).setObjectIsImplicit(false)
-                    .setMethodInfo(target).setParameterExpressions(params.map { bodyConverter.variableExpression(it) })
-                    .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
-                val statement = if (returnType == runtime.voidParameterizedType())
-                    runtime.newExpressionAsStatement(delegate) else runtime.newReturnStatement(delegate)
-                builder.setMethodBody(runtime.newBlockBuilder().addStatement(statement).build()).computeAccess().commit()
-                enclosing.builder().addMethod(forwarder)
+                companionTarget(companion, enclosing, function)?.let { staticForwarder(enclosing, companionField, it) }
             }
+    }
+
+    /**
+     * The companion's own method that a `@JvmStatic` [function] forwards to. ⛔ MATCHED ON PARAMETER TYPES, NOT
+     * ARITY: javalin's `Validation` writes two one-argument `@JvmStatic collectErrors` overloads (a `vararg` and an
+     * `Iterable`), and an arity match hands both the same target -- two forwarders of one signature, which is an
+     * assertion in MethodMapImpl ("Two methods with the same FQN and return type?").
+     */
+    private fun KaSession.companionTarget(companion: TypeInfo, enclosing: TypeInfo,
+                                          function: KaNamedFunctionSymbol): MethodInfo? {
+        val name = (function.psi as? KtNamedFunction)?.let { jvmNameOverride(it) } ?: function.name.asString()
+        val candidates = companion.methods()
+            .filter { it.name() == name && it.parameters().size == function.valueParameters.size }
+        if (candidates.size <= 1) return candidates.firstOrNull()
+        // only to tell overloads apart: a type parameter maps by simple name, which need not agree across owners
+        val parameters = function.valueParameters.map { p ->
+            // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it
+            val elementType = mapType(p.returnType, enclosing)
+            erasedName(if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType)
+        }
+        return candidates.firstOrNull { method ->
+            method.parameters().map { erasedName(it.parameterizedType()) } == parameters
+        }
+    }
+
+    /** A `@JvmField`: the field is the JVM surface, on the enclosing class, and there are no accessors. */
+    private fun isJvmField(property: KaPropertySymbol): Boolean =
+        property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
+                || property.annotations.contains(JVM_FIELD)
+
+    /** A `@JvmStatic` property: its ACCESSORS are also emitted on the enclosing class. A `@JvmField` has none. */
+    private fun isJvmStaticProperty(property: KaPropertySymbol): Boolean =
+        !isJvmField(property) && (property as? KaKotlinPropertySymbol)?.isConst != true
+                && (property.annotations.contains(JVM_STATIC)
+                || property.getter?.annotations?.contains(JVM_STATIC) == true)
+
+    /**
+     * A `public static` method on [enclosing] with [target]'s signature, delegating to `Companion.target(...)`:
+     * what the JVM emits for a `@JvmStatic` member of a companion object.
+     */
+    private fun staticForwarder(enclosing: TypeInfo, companionField: FieldInfo, target: MethodInfo) {
+        val forwarder = runtime.newMethod(enclosing, target.name(), runtime.methodTypeStaticMethod())
+        val builder = forwarder.builder()
+        val params = target.parameters().map { builder.addParameter(it.name(), it.parameterizedType()) }
+        val returnType = target.returnType()
+        builder.setReturnType(returnType)
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+            .commitParameters()
+        val delegate = runtime.newMethodCallBuilder()
+            .setObject(bodyConverter.singletonAccess(enclosing, companionField)).setObjectIsImplicit(false)
+            .setMethodInfo(target).setParameterExpressions(params.map { bodyConverter.variableExpression(it) })
+            .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        val statement = if (returnType == runtime.voidParameterizedType())
+            runtime.newExpressionAsStatement(delegate) else runtime.newReturnStatement(delegate)
+        builder.setMethodBody(runtime.newBlockBuilder().addStatement(statement).build()).computeAccess().commit()
+        enclosing.builder().addMethod(forwarder)
     }
 
     /** Pass B1: a constructor's structure — parameters only. Body/delegation come in [finalizeType]. */

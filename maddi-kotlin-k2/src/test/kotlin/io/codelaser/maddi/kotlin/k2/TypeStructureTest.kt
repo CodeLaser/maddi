@@ -335,6 +335,57 @@ class TypeStructureTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun companionJvmFieldAndJvmStaticPropertyAreStaticOnTheEnclosingClass() {
+        // javalin's `TestTool` writes `companion object { @JvmField val TestLogsKey = ... }` and its Java test names
+        // it `import static io.javalin.testtools.TestTool.TestLogsKey`. The JVM puts a companion's @JvmField on the
+        // ENCLOSING class, as it puts a `const val` there; a @JvmStatic property's ACCESSORS go there too. A plain
+        // companion property has no surface on the enclosing class at all -- Java must go through `Companion`.
+        val tool = KotlinScan(runtime, sourceSet).parse(
+            "Tool.kt",
+            "class Tool {\n" +
+                "    companion object {\n" +
+                "        @JvmField val sink = StringBuilder()\n" +
+                "        @JvmStatic var count = 0\n" +
+                "        val plain = \"p\"\n" +
+                "    }\n" +
+                "}\n"
+        ).first { it.simpleName() == "Tool" }
+
+        assertTrue(tool.fields().single { it.name() == "sink" }.isStatic)
+        assertTrue(tool.findUniqueMethod("getCount", 0).isStatic)
+        assertTrue(tool.findUniqueMethod("setCount", 1).isStatic)
+        assertTrue(tool.fields().none { it.name() == "plain" }, "a plain companion property is not surfaced")
+        assertTrue(tool.methods().none { it.name() == "getPlain" }, "nor is its accessor")
+
+        // the companion keeps its own copy of each: that is where Kotlin resolves `Tool.Companion.sink`
+        val companion = tool.subTypes().single { it.simpleName() == "Companion" }
+        assertTrue(companion.fields().any { it.name() == "sink" })
+        assertTrue(companion.methods().any { it.name() == "getCount" })
+    }
+
+    @Test
+    fun twoJvmStaticOverloadsOfOneArityGetOneForwarderEach() {
+        // javalin's `Validation`: two one-argument @JvmStatic `collectErrors` (a vararg and an Iterable). Matching
+        // the forwarder's target on ARITY hands both the same one, and two methods of one signature are an
+        // assertion in MethodMapImpl. The parameter types are what tells them apart.
+        val v = KotlinScan(runtime, sourceSet).parse(
+            "V.kt",
+            "class V {\n" +
+                "    companion object {\n" +
+                "        @JvmStatic fun collect(vararg parts: String): Int = parts.size\n" +
+                "        @JvmStatic fun collect(parts: Iterable<String>): Int = 0\n" +
+                "    }\n" +
+                "}\n"
+        ).first { it.simpleName() == "V" }
+        assertEquals(listOf("java.lang.String[]", "java.lang.Iterable"),
+            v.methods().filter { it.name() == "collect" }
+                .map { m ->
+                    val pt = m.parameters().single().parameterizedType()
+                    pt.typeInfo()!!.fullyQualifiedName() + "[]".repeat(pt.arrays())
+                })
+    }
+
+    @Test
     fun aWrittenAccessorSignatureIsNotSynthesizedTwice() {
         // kotlinc gives a private property no accessors, so the written function is the only `setRouteRoles` on the
         // JVM (javalin's JavalinServletContext). Two CST methods of one signature trip MethodMapImpl's assertion.
