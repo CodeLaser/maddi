@@ -332,6 +332,31 @@ collection fields genuinely handed in and stored), third-party (IntelliJ `Key` a
 a different archive, and detekt-specific rather than universal), or this type-mapping ceiling. The ceiling is a
 front-end design question with a real trade-off on the other side, not an archive gap.
 
+#### ⛔ Measured and NOT done: distinguishing the read-only collection types
+
+The obvious next move is to make `kotlin.collections.List` a different type from `MutableList` so a read-only
+field stops looking mutable. It was measured before being attempted, and **the prize does not pay for it**.
+
+Of the 1271 source primary types, 44 `@Dependent` fields on not-yet-`@Immutable` types are declared with a
+read-only collection type. That number oversells it, because of what Kotlin's `List` actually is:
+
+> **A Kotlin read-only collection is a VIEW, not an immutable copy.** `class C(private val xs: List<X>)` can be
+> handed a `MutableList` upcast at the call site, and the caller may go on mutating it. `@Dependent` on such a
+> field is *correct*, and no amount of type information makes it independent.
+
+That is 37 of the 44 — constructor properties. The genuinely helpable set, where the value is built internally
+(`setOf(…)`, `emptySet()`, `listOf(…)`) and only *exposed* through a read-only-typed getter, is **5 types and
+7 fields: 0.4% of the corpus**, for a change that moves every type mapping in every corpus.
+
+And the rule it would need — "a read-only-typed reference cannot be modified through" — is idiomatically sound
+but **not JVM-sound**: Java code, or an unchecked Kotlin cast, turns a `Set` back into a `MutableSet`. That
+lands precisely on the mixed corpus (§javalin), where Java freely mutates a collection a Kotlin signature calls
+read-only. The one corpus where the change is safe is the one where it is worth least.
+
+Separately, 8 fields are declared read-only yet reported `unmodified=false`. At least one is maddi being
+*right* about the concrete type rather than the declared one (`val types: Set<String> = hashSetOf(…)`), so that
+population is not a defect list; it would need its own pass.
+
 ### 5.6 `JavaStubGenerator` fidelity
 
 Still real, but no longer blocking a Kotlin-only corpus (§4). Found on detekt, unfixed:
