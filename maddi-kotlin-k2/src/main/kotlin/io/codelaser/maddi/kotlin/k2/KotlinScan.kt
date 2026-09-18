@@ -1507,6 +1507,26 @@ class KotlinScan(
     }
 
     /**
+     * The PROPERTY's own name, at its name identifier, on an accessor of a property that has NO backing field:
+     * an interface's `val x: T`, an abstract one, or a computed one.
+     *
+     * A backed property carries this on its [FieldInfo] (see the field's `declarationSource` above). An unbacked
+     * one has no field at all, so its accessor is the only `Info` a rename of the property could edit -- and
+     * without this detail that accessor has no recorded name position whatsoever, which is why renaming such a
+     * property was refused outright ("a family mixing those with backed properties is not supported yet": 68
+     * families on detekt, 4 on javalin).
+     *
+     * ⛔ Keyed by [DetailedSources.PROPERTY_NAME], not by the name itself: lookup is by object IDENTITY, and
+     * `property.name.asString()` is a runtime String no caller could hold the same instance of -- where a
+     * `FieldInfo`'s `name()` returns the very instance that was stored. And NEVER by the accessor's JVM name:
+     * `getDisplayName` is spelled nowhere in Kotlin source, and `KotlinRenameMethod.spelledByItsName` decides
+     * what counts as an overload from exactly that absence.
+     */
+    private fun DetailedSources.Builder.putPropertyName(property: KaPropertySymbol) {
+        putPsi(runtime, DetailedSources.PROPERTY_NAME, (property.psi as? KtNamedDeclaration)?.nameIdentifier)
+    }
+
+    /**
      * A property's written getter or setter: its real body, where `field` is the backing field, and the setter's
      * parameter named as written. Not tagged as a getter/setter of the field: the analyzer's normalisation of
      * `getX() { return x; }` to a field read would hide what the body does. What its text names is recorded on it.
@@ -1530,7 +1550,9 @@ class KotlinScan(
         }
         addMethodModifiers(builder, property)
         builder.commitParameters().computeAccess()
-        builder.setSource(declarationSource(accessor) {})
+        // the whole-declaration source stays the accessor's own text; only the property's name is added, and only
+        // where there is no field to carry it
+        builder.setSource(declarationSource(accessor) { if (field == null) putPropertyName(property) })
         awaitBody(method)
         body {
             val scope = mutableMapOf<String, Variable>()
@@ -1799,6 +1821,9 @@ class KotlinScan(
         val accessor = (property.psi as? KtProperty)?.getter
         // a computed property has no field: its getter is what a reference names, and where its body's are recorded
         val propertyPsi = property.psi
+        // ... and the only place the property's own NAME position can be recorded; the whole-declaration source is
+        // the `val`/`var`, not the `get()`, since that is what the name sits in
+        getter.builder().setSource(declarationSource(propertyPsi) { putPropertyName(property) })
         references.target(propertyPsi, getter)
         awaitBody(getter)
         body {
@@ -1837,7 +1862,8 @@ class KotlinScan(
         parameter(builder.addParameter(accessor?.parameter?.name ?: "value", type), accessor?.parameter, type)
         addMethodModifiers(builder, property)
         builder.commitParameters().computeAccess()
-        builder.setSource(declarationSource(accessor) {})
+        // an abstract `var` has no accessor text at all: the `val`/`var` declaration is where its name is written
+        builder.setSource(declarationSource(accessor ?: property.psi) { putPropertyName(property) })
         builder.setMethodBody(runtime.emptyBlock())
         commitOrDefer(setter, accessor) { setter.builder().commit() }
         return setter

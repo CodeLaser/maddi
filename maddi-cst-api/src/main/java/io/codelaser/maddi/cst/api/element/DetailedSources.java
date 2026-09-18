@@ -128,6 +128,21 @@ public interface DetailedSources {
     Object DEFAULT_VALUE = new Object();
 
     /**
+     * Position of the name of the PROPERTY an accessor belongs to, on that accessor's own source, for a property
+     * that has NO backing field: an interface's {@code val x: T}, an abstract one, or a computed one.
+     * <p>
+     * A backed property is a {@code FieldInfo} and carries its name position under its own name. An unbacked one
+     * has no field at all, so the accessor is the only {@code Info} that a rename of the property can edit -- and
+     * it is named {@code getX}, not {@code x}. Hence a sentinel rather than the name: lookup here is by object
+     * IDENTITY, and the property's name is a runtime String no caller could hold the same instance of, where a
+     * {@code FieldInfo}'s {@code name()} returns the very instance that was stored.
+     * <p>
+     * ⛔ The accessor's JVM name is deliberately NOT recorded: {@code getX} is spelled nowhere in Kotlin source,
+     * and a rename decides whether a method is an overload from exactly that absence.
+     */
+    Object PROPERTY_NAME = new Object();
+
+    /**
      * Source-form markers. A surface construct that desugars to a more general CST node carries one of these
      * on that node's source, recording how it was written so a refactoring engine can reproduce the original
      * syntax rather than the expansion. The value is the position of the operator token. Cross-language sugar

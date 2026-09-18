@@ -13,10 +13,12 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.cst.api.element.DetailedSources
 import io.codelaser.maddi.cst.api.info.Info
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 /**
@@ -53,6 +55,11 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         }
         class T(val who: String) {
             fun greet() = "hello ${'$'}who and ${'$'}{who.length}"
+        }
+
+        interface I {
+            val displayName: String
+            var counter: Int
         }
         """.trimIndent() + "\n"
 
@@ -104,6 +111,39 @@ class PropertyReferenceTest : KotlinScanTestBase() {
         assertEquals(listOf("7:19"), references(method(p, "write"), b), "the assignment target `b = 2`")
         assertEquals(listOf("9:30"), references(method(facade, "use"), b), "`p.b`")
         assertEquals(listOf("10:19"), references(method(facade, "set"), b), "`p.b = 3`")
+    }
+
+    /**
+     * A property with NO backing field has no [io.codelaser.maddi.cst.api.info.FieldInfo], so its ACCESSOR is the
+     * only `Info` a rename of the property could edit -- and that accessor is called `getC`, not `c`. It records
+     * the property's own name position under [DetailedSources.PROPERTY_NAME].
+     *
+     * Before this, such an accessor had no recorded name position at all, and renaming the property was refused
+     * outright ("a family mixing those with backed properties is not supported yet"): 68 families on detekt, 4 on
+     * javalin. The sentinel rather than the name String because lookup is by IDENTITY -- see the note in
+     * [everyPlaceTheTextSpellsAPropertyNamesItsField] -- and no caller can hold the instance K2 made.
+     */
+    @Test
+    fun anUnbackedPropertysAccessorRecordsThePropertyName() {
+        parse()
+        fun method(owner: TypeInfo, name: String) = owner.constructorAndMethodStream().toList()
+                .single { it.name() == name }
+        fun nameAt(owner: TypeInfo, accessor: String) =
+            method(owner, accessor).source().detailedSources().detail(DetailedSources.PROPERTY_NAME)
+                ?.let { "${it.beginLine()}:${it.beginPos()}" }
+
+        // a computed property: the position is the `c` of `val c`, not anything in its `get()`
+        assertEquals("5:9", nameAt(type("P"), "getC"))
+        // an interface's abstract `val`, which has no accessor text whatsoever
+        assertEquals("23:9", nameAt(type("I"), "getDisplayName"))
+        // an abstract `var`: BOTH accessors point at the one declaration, and a plan that edits each of them
+        // writes the same position twice -- which is why the planner keys its edits by position
+        assertEquals("24:9", nameAt(type("I"), "getCounter"))
+        assertEquals("24:9", nameAt(type("I"), "setCounter"))
+
+        // ... and the JVM name stays unrecorded: nothing in Kotlin source spells it
+        val getC = method(type("P"), "getC")
+        assertNull(getC.source().detailedSources().detail(getC.name()), "`getC` is spelled nowhere")
     }
 
     /** Kotlin text never spells a synthesized accessor, so nothing refers to one: only a Java caller would. */
