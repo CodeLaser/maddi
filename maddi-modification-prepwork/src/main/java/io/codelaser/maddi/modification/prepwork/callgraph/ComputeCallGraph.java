@@ -39,10 +39,12 @@ import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -119,6 +121,38 @@ public class ComputeCallGraph {
     }
 
     private G<Info> graph;
+
+    // by-name recognition is OFF until a caller declares sinks: with an empty list nothing below runs, no row is
+    // produced and no bit of the BY_NAME lane is ever set, so every existing maddi user sees the graph it saw
+    private List<ByNameSink> byNameSinks = List.of();
+    private ParseResult byNameParseResult;
+    private final List<ByNameReference> byNameReferences = new ArrayList<>();
+    private int unresolvedSinkCalls;
+
+    /**
+     * Turn on by-name recognition: every call to one of {@code sinks} whose class argument reads as a binary name
+     * that {@code parseResult} resolves becomes a {@link ByNameReference} and a {@link #BY_NAME_REFERENCES} edge.
+     * Call before {@link #go()}. Both arguments are required; either absent leaves the feature off.
+     */
+    public ComputeCallGraph withByNameSinks(List<ByNameSink> sinks, ParseResult parseResult) {
+        this.byNameSinks = sinks == null || parseResult == null ? List.of() : List.copyOf(sinks);
+        this.byNameParseResult = parseResult;
+        return this;
+    }
+
+    /** Every place a string literal named a type, in source order per member. Empty unless sinks were declared. */
+    public List<ByNameReference> byNameReferences() {
+        return List.copyOf(byNameReferences);
+    }
+
+    /**
+     * How many calls to a declared sink had a class argument this could not read as a name — a concatenation, a
+     * parameter, a method call, a constant it could not follow. <b>The blind spot as a number.</b> A recogniser
+     * that cannot say how much it missed is indistinguishable from one that found everything.
+     */
+    public int unresolvedSinkCalls() {
+        return unresolvedSinkCalls;
+    }
 
     public ComputeCallGraph(Runtime runtime, TypeInfo primaryType) {
         this(runtime, Set.of(primaryType), Set.of(), t -> false);
@@ -392,6 +426,99 @@ public class ComputeCallGraph {
         }
     }
 
+    /* ---------------------------------------------------------------------------------------------------------
+    BY-NAME REFERENCES: a string literal that a declared sink turns into a type. See ByNameSink for why the sinks
+    are declared rather than inferred, and ByNameReference for what a row carries.
+
+    The edge is BY_NAME_REFERENCES, a SOFT lane below isAtLeastReference's threshold, so the type graph, the
+    cycles, the giant and the analysis order are all untouched: this is not a compile-time dependency, and a
+    campaign that priced one would be pricing something javac cannot see. A consumer that wants these -- a dead-code
+    pass that must not delete a type only a string reaches, a rename that must edit the literal -- asks for them.
+
+    ⚠ Ordering: this runs from the Visitor, i.e. BEFORE doRecordedReferences for the same member. That is safe
+    only because the type arm there now tests `< REFERENCES` rather than "any edge": with the old test, a by-name
+    edge to T would have suppressed a Kotlin front-end record of a real reference to T. The two were fixed in that
+    order for that reason.
+     --------------------------------------------------------------------------------------------------------- */
+
+    private void doByNameSinks(Info from, MethodInfo called, List<Expression> arguments) {
+        if (byNameSinks.isEmpty() || called == null) return;
+        TypeInfo declaring = called.typeInfo();
+        if (declaring == null) return;
+        String declaringFqn = declaring.fullyQualifiedName();
+        for (ByNameSink sink : byNameSinks) {
+            if (!sink.matches(declaringFqn, called.name(), called.parameters().size())) continue;
+            if (sink.classArgument() >= arguments.size()) continue; // a varargs call with fewer arguments written
+            Literal name = literalOf(arguments.get(sink.classArgument()));
+            if (name == null) {
+                // the sink WAS called; we simply cannot read the name. Counted, never guessed at.
+                ++unresolvedSinkCalls;
+                continue;
+            }
+            List<TypeInfo> targets = byNameParseResult.typeByBinaryName(name.value);
+            if (targets.isEmpty()) {
+                // the name is readable but names nothing in the parse: a JDK class, a type in another project, a
+                // typo. Not a blind spot -- we read it and it is simply not ours -- so it is not counted as one.
+                continue;
+            }
+            Literal member = sink.memberArgument() >= 0 && sink.memberArgument() < arguments.size()
+                    ? literalOf(arguments.get(sink.memberArgument())) : null;
+            for (TypeInfo target : targets) {
+                Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value);
+                byNameReferences.add(new ByNameReference(from, sink, target, name.value, name.source,
+                        name.viaConstant, member == null ? null : member.value,
+                        member == null ? null : member.source, targetMember));
+                // the ROW is recorded whatever accept() says -- it is a fact about the source text -- but the EDGE
+                // obeys the same filter as every other producer, and the same self-link rule
+                if (accept(target) && target != from && !from.typeInfo().isEnclosedIn(target)) {
+                    builder.mergeEdge(from, target, BY_NAME_REFERENCES);
+                }
+            }
+        }
+    }
+
+    /** A string literal read from an argument, and where it is actually written. */
+    private record Literal(String value, Source source, boolean viaConstant) {
+    }
+
+    /**
+     * The literal behind an argument: written there, or held by a {@code static final} field it names.
+     * <p>
+     * ⛔ <b>Exactly one hop, and no further.</b> maddi has no constant evaluation (there is no {@code constantValue}
+     * or {@code isCompileTimeConstant} anywhere), so this is the hand-rolled pattern half a dozen callers already
+     * use — {@code fieldInfo.initializer() instanceof StringConstant}. One hop covers the shape that matters, a
+     * {@code private static final String TARGET = "a.b.X"} beside the call; anything deeper is flow analysis, and
+     * a sink whose name travels that far should be DECLARED at the point where the string is written instead.
+     */
+    private static Literal literalOf(Expression expression) {
+        if (expression instanceof StringConstant sc) {
+            return new Literal(sc.constant(), sc.source(), false);
+        }
+        if (expression instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (fieldInfo.isStatic() && fieldInfo.isFinal()
+                && fieldInfo.initializer() instanceof StringConstant sc) {
+                return new Literal(sc.constant(), sc.source(), true);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The one member of {@code target} called {@code name}, or null when there is none or several.
+     * <p>
+     * ⚠ Deliberately crude, and the ambiguity is deliberately left unresolved. Which overload a binding picks is
+     * the SINK's rule — by arity, by an exact {@code MethodType}, "the only public static one" — and a graph
+     * producer that guessed would be writing an invariant nothing maintains. A reader that needs the answer has
+     * the row, the target and the name, and can apply the rule it actually implements.
+     */
+    private static Info uniqueMemberNamed(TypeInfo target, String name) {
+        FieldInfo field = target.getFieldByName(name, false);
+        if (field != null) return field;
+        List<MethodInfo> methods = target.methods().stream().filter(m -> m.name().equals(name)).toList();
+        return methods.size() == 1 ? methods.getFirst() : null;
+    }
+
     private boolean hasReferenceEdge(Info from, Info to) {
         Map<Info, Long> edges = builder.edges(from);
         Long weight = edges == null ? null : edges.get(to);
@@ -496,6 +623,7 @@ public class ComputeCallGraph {
             if (e instanceof MethodCall mc) {
                 handleMethodCall(info, mc.methodInfo());
                 mc.typeArguments().forEach(pt -> addType(info, pt, REFERENCES));
+                doByNameSinks(info, mc.methodInfo(), mc.parameterExpressions());
                 return true;
             }
             if (e instanceof MethodReference mr) {
@@ -550,6 +678,10 @@ public class ComputeCallGraph {
                 }
                 if (cc.constructor() != null) {
                     handleMethodCall(info, cc.constructor());
+                    // a corpus's own container is often a CONSTRUCTOR taking the name (Cassandra's
+                    // ParameterizedClass), so a sink may name one; the declaring type and arity match as they do
+                    // for a method, and a constructor's name is its simple name
+                    doByNameSinks(info, cc.constructor(), cc.parameterExpressions());
                 }
                 return true;
             }
