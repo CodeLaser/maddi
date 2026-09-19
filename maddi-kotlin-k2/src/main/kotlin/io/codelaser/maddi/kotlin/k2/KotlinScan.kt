@@ -600,6 +600,25 @@ class KotlinScan(
             builder.setSource(sourceOf(runtime, ktFile, "-").withDetailedSources(
                 runtime.newDetailedSourcesBuilder().put(packageName, sourceOf(runtime, packageExpression, "-")).build()))
         }
+        // the import directives, as the Java front end records them (ScanCompilationUnit.parseImportStatement).
+        // A reference recorded at an import's NAME is not the same thing: it gives the simple name's position, which
+        // is enough to RENAME the imported declaration and not enough to say what the line imports, where it is, or
+        // to move it to another package.
+        for (directive in ktFile.importDirectives) {
+            val fqName = directive.importedFqName ?: continue // a broken import names nothing
+            // `import a.b.*` has `a.b` as its fqName; spell the star out, as Java's importString does
+            val importString = if (directive.isAllUnder) "${fqName.asString()}.*" else fqName.asString()
+            builder.addImportStatement(
+                runtime.newImportStatementBuilder()
+                    .setSource(sourceOf(runtime, directive, "-"))
+                    .setImport(importString)
+                    // Kotlin has no `import static`: one import reaches a class, a top-level function and a
+                    // companion member alike, and nothing in the syntax distinguishes them
+                    .setIsStatic(false)
+                    .setAlias(directive.aliasName)
+                    .build()
+            )
+        }
         return builder.build()
     }
 

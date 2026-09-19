@@ -522,6 +522,33 @@ class TypeStructureTest : KotlinScanTestBase() {
     }
 
     @Test
+    fun compilationUnitRecordsItsImportDirectives() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val a = scan.parse(
+            "A.kt",
+            "package a.b\n\n"
+                    + "import java.util.List\n"
+                    + "import java.util.Map as Dict\n"
+                    + "import kotlin.collections.*\n"
+                    + "\n"
+                    + "class A\n"
+        ).first()
+        val cu = a.compilationUnit()
+        val imports = cu.importStatements()
+        assertEquals(
+            listOf("java.util.List", "java.util.Map", "kotlin.collections.*"),
+            imports.map { it.importString() })
+        // Kotlin has no `import static`
+        assertEquals(listOf(false, false, false), imports.map { it.isStatic() })
+        // ⛔ the alias, or a consumer rewriting the line drops `as Dict` and every use of Dict stops resolving
+        assertEquals(listOf(null, "Dict", null), imports.map { it.alias() })
+        assertEquals(listOf(false, false, true), imports.map { it.isStar() })
+        // each on its own line, and the source spans the directive
+        assertEquals(listOf(3, 4, 5), imports.map { it.source().beginLine() })
+        assertEquals(1, imports.first().source().beginPos())
+    }
+
+    @Test
     fun typeParameterBounds() {
         val scan = KotlinScan(runtime, sourceSet)
         val types = scan.parse(
