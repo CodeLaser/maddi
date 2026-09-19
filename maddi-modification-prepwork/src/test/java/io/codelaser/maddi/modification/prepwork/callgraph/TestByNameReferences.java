@@ -19,6 +19,8 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;

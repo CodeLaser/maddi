@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.modification.prepwork.callgraph;
+package io.codelaser.maddi.inspection.api.byname;
 
 import java.util.List;
 
@@ -29,7 +29,7 @@ import java.util.List;
  * that resolver, so it knows; it says so here instead of guessing later.
  * <p>
  * The cost of that choice is a blind spot, and the blind spot is counted rather than hidden:
- * {@code ComputeCallGraph.unresolvedSinkCalls()} is how many calls to a declared sink had a class argument that
+ * the computation's {@code unresolvedSinkCalls()} is how many calls to a declared sink had a class argument that
  * could not be read as a name (a concatenation, a parameter, a method call).
  *
  * @param typeFqn        the declaring type of the sink method, e.g. {@code java.lang.Class}

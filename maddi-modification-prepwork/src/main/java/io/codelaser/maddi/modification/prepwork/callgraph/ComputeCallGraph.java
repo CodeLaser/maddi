@@ -35,6 +35,8 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;

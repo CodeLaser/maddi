@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.modification.prepwork.callgraph;
+package io.codelaser.maddi.inspection.api.byname;
 
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Info;
@@ -20,7 +20,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * <b>One place where a string literal names a type the compiler will never see it name.</b> Produced by
- * {@link ComputeCallGraph} for each call to a declared {@link ByNameSink} whose class argument reads as a name that
+ * the call-graph computation for each call to a declared {@link ByNameSink} whose class argument reads as a name that
  * the parse resolves.
  *
  * <h2>⭐ The row carries the SITE, which is the whole point</h2>

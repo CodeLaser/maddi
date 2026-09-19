@@ -5,6 +5,7 @@ module io.codelaser.maddi.inspection.api {
 
     requires org.slf4j;
 
+    exports io.codelaser.maddi.inspection.api.byname;
     exports io.codelaser.maddi.inspection.api.integration;
     exports io.codelaser.maddi.inspection.api.parser;
     exports io.codelaser.maddi.inspection.api.resource;

@@ -17,7 +17,7 @@ package io.codelaser.maddi.modification.prepwork;
 import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.common.getset.GetSetHelper;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
-import io.codelaser.maddi.modification.prepwork.callgraph.ByNameSink;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
