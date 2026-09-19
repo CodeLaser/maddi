@@ -22,6 +22,8 @@ import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.components.resolveToSymbol
 import org.jetbrains.kotlin.analysis.api.components.resolveToSymbols
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
+import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPackageSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
@@ -81,7 +83,8 @@ internal class KotlinReferenceWalker(private val projectFiles: Set<String>) {
                     return
                 }
                 if (symbols.all { it is KaPackageSymbol }) return
-                val project = symbols.filter { it !is KaPackageSymbol && isProjectDeclaration(it) }
+                val named = symbols.map { companionWrittenAsItsClass(reference, it) }
+                val project = named.filter { it !is KaPackageSymbol && isProjectDeclaration(it) }
                 if (project.isEmpty()) {
                     libraryReferences++
                     return
@@ -89,6 +92,26 @@ internal class KotlinReferenceWalker(private val projectFiles: Set<String>) {
                 consumer(reference, project)
             }
         })
+    }
+
+    /**
+     * The class, when [reference] is a companion object reached through its class's name: `Widget.create(1)` for a
+     * `create` on `Widget`'s companion. Otherwise [symbol] unchanged.
+     *
+     * ⛔ THE EXPRESSION DENOTES THE COMPANION, THE NAME SPELLS THE CLASS. Kotlin inserts the companion implicitly,
+     * so K2 resolves the name `Widget` to `Widget.Companion` -- but the text at that position is the CLASS's simple
+     * name, and it is the class's rename that must change it. Recording the companion there told a renamer that
+     * `Widget.create(1)` names nothing it was renaming, and it left the call spelling the old name.
+     *
+     * A companion written out (`Widget.Companion.create(1)`) is left alone: there the text really is the
+     * companion's own name, and `Widget` is a reference to the class in its own right.
+     */
+    private fun KaSession.companionWrittenAsItsClass(reference: KtNameReferenceExpression, symbol: KaSymbol): KaSymbol {
+        if (symbol !is KaNamedClassSymbol || symbol.classKind != KaClassKind.COMPANION_OBJECT) return symbol
+        val written = reference.getReferencedName()
+        if (written == symbol.name.asString()) return symbol
+        val owner = symbol.containingDeclaration as? KaNamedClassSymbol ?: return symbol
+        return if (written == owner.name.asString()) owner else symbol
     }
 
     /**

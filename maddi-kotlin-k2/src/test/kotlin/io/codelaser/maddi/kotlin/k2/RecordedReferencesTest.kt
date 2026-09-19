@@ -228,4 +228,38 @@ class RecordedReferencesTest : KotlinScanTestBase() {
         assertTrue(members.all { it.hasBeenInspected() }, "uncommitted: ${members.filterNot { it.hasBeenInspected() }}")
         assertTrue(members.filterIsInstance<MethodInfo>().isNotEmpty())
     }
+
+    @Test
+    fun aCompanionReachedThroughItsClassNameRecordsTheCLASS() {
+        // ⛔ THE EXPRESSION DENOTES THE COMPANION, THE NAME SPELLS THE CLASS. Kotlin inserts the companion
+        // implicitly, so K2 resolves the name `Widget` in `Widget.create(1)` to `Widget.Companion` -- but the text
+        // there is the class's simple name, and it is the class's rename that must change it.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            mapOf(
+                "a/Widget.kt" to "package a\n\n"
+                        + "class Widget private constructor(val size: Int) {\n"
+                        + "    companion object Factory {\n"
+                        + "        fun create(size: Int) = Widget(size)\n"
+                        + "    }\n"
+                        + "}\n",
+                "b/Use.kt" to "package b\n\nimport a.Widget\n\n"
+                        + "fun make() = Widget.create(1)\n"
+                        + "fun spelled() = Widget.Factory.create(2)\n"
+            ), emptyMap()
+        )
+        fun type(name: String) = types.flatMap { it.recursiveSubTypeStream().toList() }.first { it.simpleName() == name }
+        fun at(host: Info, target: Info) =
+            host.source().detailedSources().references(target).map { "${it.beginLine()}:${it.beginPos()}" }.sorted()
+
+        val widget = type("Widget")
+        val factory = type("Factory")
+        val make = type("UseKt").methods().first { it.name() == "make" }
+        val spelled = type("UseKt").methods().first { it.name() == "spelled" }
+
+        assertEquals(listOf("5:14"), at(make, widget), "the written name is the class's")
+        assertEquals(listOf<String>(), at(make, factory), "the companion is spelled nowhere in `Widget.create(1)`")
+        // written out, both names are real: `Widget` is the class, `Factory` the companion in its own right
+        assertEquals(listOf("6:17"), at(spelled, widget))
+        assertEquals(listOf("6:24"), at(spelled, factory))
+    }
 }
