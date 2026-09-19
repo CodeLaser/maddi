@@ -476,6 +476,14 @@ public class ComputeCallGraph {
                 if (accept(target) && target != from && !from.typeInfo().isEnclosedIn(target)) {
                     builder.mergeEdge(from, target, BY_NAME_REFERENCES);
                 }
+                // ⭐ AND AN EDGE TO THE MEMBER, when the name resolved to exactly one. The type edge alone is not
+                // enough for a reader that works member by member: a dead-code pass keeping `MutationVerbHandler`
+                // alive while deleting the `instance` field the binding reads has broken the binding just as
+                // thoroughly. Consumers that only want types filter on the vertex, which is cheap; a consumer that
+                // needed the member and did not have it has no way to recover it from the graph.
+                if (targetMember != null && targetMember != from && accept(target)) {
+                    builder.mergeEdge(from, targetMember, BY_NAME_REFERENCES);
+                }
             }
         }
     }
