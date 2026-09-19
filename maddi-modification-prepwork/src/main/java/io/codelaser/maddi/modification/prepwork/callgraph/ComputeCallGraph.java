@@ -469,7 +469,8 @@ public class ComputeCallGraph {
             for (TypeInfo target : targets) {
                 Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value);
                 byNameReferences.add(new ByNameReference(from, sink, target, name.value, name.source,
-                        name.viaConstant, member == null ? null : member.value,
+                        name.owner == null ? from : name.owner, name.viaConstant,
+                        member == null ? null : member.value,
                         member == null ? null : member.source, targetMember));
                 // the ROW is recorded whatever accept() says -- it is a fact about the source text -- but the EDGE
                 // obeys the same filter as every other producer, and the same self-link rule
@@ -489,7 +490,13 @@ public class ComputeCallGraph {
     }
 
     /** A string literal read from an argument, and where it is actually written. */
-    private record Literal(String value, Source source, boolean viaConstant) {
+    /**
+     * @param owner the member whose source text holds {@code source}: null when the literal is written at the
+     *              call (the caller substitutes {@code from}), the FIELD when it came through a constant. A
+     *              {@link Source} has a line and a position but no file, so without this a rewriting verb cannot
+     *              tell which file to open — and the constant can sit in a different TYPE from the caller.
+     */
+    private record Literal(String value, Source source, boolean viaConstant, Info owner) {
     }
 
     /**
@@ -503,13 +510,13 @@ public class ComputeCallGraph {
      */
     private static Literal literalOf(Expression expression) {
         if (expression instanceof StringConstant sc) {
-            return new Literal(sc.constant(), sc.source(), false);
+            return new Literal(sc.constant(), sc.source(), false, null);
         }
         if (expression instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
             FieldInfo fieldInfo = fr.fieldInfo();
             if (fieldInfo.isStatic() && fieldInfo.isFinal()
                 && fieldInfo.initializer() instanceof StringConstant sc) {
-                return new Literal(sc.constant(), sc.source(), true);
+                return new Literal(sc.constant(), sc.source(), true, fieldInfo);
             }
         }
         return null;

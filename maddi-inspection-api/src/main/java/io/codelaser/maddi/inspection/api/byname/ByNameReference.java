@@ -34,12 +34,21 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
  * {@code private static final String TARGET = "a.b.X"}), {@code from} is the member holding the CALL and
  * {@code siteSource} is in the FIELD's initialiser. A verb that moves or renames must follow {@code siteSource},
  * never {@code from}; {@code viaConstant} says when the two part company.
+ * <p>
+ * ⛔ <b>And a range alone cannot be edited: {@link Source} carries a line and a position, no file.</b> That is why
+ * {@code siteOwner} exists. Without it the advice above is unfollowable — a rewriting verb knows WHAT to change
+ * and not WHICH FILE to change it in, and the only recoverable answer, {@code from}'s file, is the wrong one in
+ * exactly the constant-hop case the paragraph above warns about. The constant can also live in a different TYPE
+ * from the caller, not merely a different member, so guessing from {@code from} is wrong twice over.
  *
  * @param from         the member whose code calls the sink: the vertex the graph's by-name edge starts at
  * @param sink         which declared sink matched
  * @param targetType   the type the binary name resolved to; never null
  * @param binaryName   the literal's value, as written
  * @param siteSource   the range of the literal that holds {@code binaryName} — what a rewrite edits
+ * @param siteOwner    the member whose source text CONTAINS that range, which is {@code from} when the literal is
+ *                     written at the call and the {@code static final} FIELD when it arrives through a constant.
+ *                     Never null. Its {@code primaryType()} is the file a rewrite has to open
  * @param viaConstant  the literal was reached through a {@code static final} field rather than written at the call
  * @param memberName   the member name written beside it, or null when the sink names no member
  * @param memberSource the range of that member literal, or null
@@ -49,7 +58,8 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
  *                     the SINK's, and belong to whatever verifies bindings, not to a graph producer
  */
 public record ByNameReference(Info from, ByNameSink sink, TypeInfo targetType, String binaryName, Source siteSource,
-                              boolean viaConstant, String memberName, Source memberSource, Info targetMember) {
+                              Info siteOwner, boolean viaConstant, String memberName, Source memberSource,
+                              Info targetMember) {
 
     /** {@code a.b.C.m() -> a.b.X#instance (FIELD)}, for a log line or a test's expected value. */
     @Override
