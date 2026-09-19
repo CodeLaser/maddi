@@ -231,6 +231,15 @@ public class ComputePartOfConstructionFinalField {
                 Map<V<Info>, Long> edges = callGraph.edges(v);
                 if (edges != null) {
                     for (Map.Entry<V<Info>, Long> entry : edges.entrySet()) {
+                        // ⛔ DOCUMENTING A METHOD IS NOT CALLING IT. This walked every method->method edge without
+                        // asking what kind it was, and a constructor's `{@link #helper()}` is one (weight `d`, a
+                        // doc reference). A private method named only in the constructor's comment was therefore
+                        // reported as part of construction, so its field writes counted as construction rather
+                        // than as modification.
+                        // isAtLeastReference, NOT isReference: every STRUCTURAL method->method edge (an override,
+                        // an implicit super()) goes on propagating exactly as before. Only the doc lane is dropped.
+                        // TestPartOfConstructionAndJavadoc.
+                        if (!ComputeCallGraph.isAtLeastReference(entry.getValue())) continue;
                         if (entry.getKey().t() instanceof MethodInfo toMethod) {
                             if (isCalledFromConstruction) {
                                 changes |= calledFromConstruction.add(toMethod);
