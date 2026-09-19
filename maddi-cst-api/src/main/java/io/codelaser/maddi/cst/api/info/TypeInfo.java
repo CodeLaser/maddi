@@ -106,6 +106,24 @@ public interface TypeInfo extends NamedType, Info {
     String fromPrimaryTypeDownwards();
 
     /**
+     * The <b>binary</b> name: {@code a.b.Outer$Inner}, not {@code a.b.Outer.Inner}.
+     * <p>
+     * ⭐ This is what {@code Class.forName}, {@code ClassLoader.loadClass} and every other by-name entry point take.
+     * The two forms differ only for a NESTED type, so the source form compiles perfectly, reads correctly, and
+     * fails at run time. Measured cost of getting it wrong: 8 of Elasticsearch's 166 registered exceptions are
+     * nested types.
+     * <p>
+     * ⚠ Anonymous, lambda and local types have no meaningful binary name here: the JVM numbers them per enclosing
+     * class ({@code Outer$1}) while maddi names them after their position in the source. This returns something
+     * unique, but not what the class file carries.
+     */
+    default String binaryName() {
+        String pkg = packageName();
+        String nested = fromPrimaryTypeDownwards().replace('.', '$');
+        return pkg == null || pkg.isEmpty() ? nested : pkg + "." + nested;
+    }
+
+    /**
      * Returns a left {@link CompilationUnit} for primary types, or a right {@link TypeInfo}
      * (the direct enclosing type) for nested types.
      */
