@@ -27,8 +27,22 @@ public interface ImportStatement extends Element {
      */
     String importString();
 
-    /** Returns {@code true} if this is a {@code static} import. */
+    /**
+     * Returns {@code true} if this is a {@code static} import. Always {@code false} for Kotlin, which has no
+     * such modifier: one {@code import} reaches a class, a top-level function and a companion member alike.
+     */
     boolean isStatic();
+
+    /**
+     * The name this import binds when it differs from the last segment of {@link #importString()} --
+     * Kotlin's {@code import a.b.C as D}. {@code null} when there is none, which is always the case for Java.
+     * <p>
+     * ⛔ A consumer that REWRITES an import line must carry this over, or {@code as D} is dropped and every use
+     * of {@code D} in the file stops resolving. {@link #print} is the Java printer and ignores it.
+     */
+    default String alias() {
+        return null;
+    }
 
     /** Returns {@code true} if this is a wildcard import (the import string ends with {@code .*}). */
     default boolean isStar() {
@@ -42,6 +56,10 @@ public interface ImportStatement extends Element {
 
         @Fluent
         Builder setIsStatic(boolean isStatic);
+
+        /** Kotlin's {@code as D}; leave unset for Java. */
+        @Fluent
+        Builder setAlias(String alias);
 
         ImportStatement build();
     }

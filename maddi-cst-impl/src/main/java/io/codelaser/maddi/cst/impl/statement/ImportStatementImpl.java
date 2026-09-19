@@ -37,20 +37,28 @@ import java.util.stream.Stream;
 public class ImportStatementImpl extends StatementImpl implements ImportStatement {
     private final String importString;
     private final boolean isStatic;
+    private final String alias;
 
     public ImportStatementImpl(List<Comment> comments, Source source, String importString, boolean isStatic) {
+        this(comments, source, importString, isStatic, null);
+    }
+
+    public ImportStatementImpl(List<Comment> comments, Source source, String importString, boolean isStatic,
+                               String alias) {
         super(comments, source, List.of(), 1, null);
         this.importString = importString;
         this.isStatic = isStatic;
+        this.alias = alias;
     }
 
     public static class Builder extends ElementImpl.Builder<ImportStatement.Builder> implements ImportStatement.Builder {
         private String importString;
         private boolean isStatic;
+        private String alias;
 
         @Override
         public ImportStatement build() {
-            return new ImportStatementImpl(comments, source, importString, isStatic);
+            return new ImportStatementImpl(comments, source, importString, isStatic, alias);
         }
 
         @Override
@@ -62,6 +70,12 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
         @Override
         public Builder setIsStatic(boolean isStatic) {
             this.isStatic = isStatic;
+            return this;
+        }
+
+        @Override
+        public Builder setAlias(String alias) {
+            this.alias = alias;
             return this;
         }
     }
@@ -86,6 +100,11 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
     @Override
     public boolean isStatic() {
         return isStatic;
+    }
+
+    @Override
+    public String alias() {
+        return alias;
     }
 
     @Override
@@ -131,7 +150,7 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
         if (translationMap.isClearAnalysis()) {
-            Statement is = new ImportStatementImpl(comments(), source(), importString, isStatic);
+            Statement is = new ImportStatementImpl(comments(), source(), importString, isStatic, alias);
             return translationMap.postTranslationHandler(this, List.of(is));
         }
         return List.of(this);
@@ -144,7 +163,7 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
 
     @Override
     public Statement withSource(Source newSource) {
-        return new ImportStatementImpl(comments(), newSource, importString, isStatic);
+        return new ImportStatementImpl(comments(), newSource, importString, isStatic, alias);
     }
 
     @Override
