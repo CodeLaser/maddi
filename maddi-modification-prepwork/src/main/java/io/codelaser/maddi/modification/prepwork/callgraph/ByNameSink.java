@@ -79,8 +79,16 @@ public record ByNameSink(String typeFqn, String methodName, int arity, int class
             new ByNameSink("java.lang.Class", "forName", 3, 0, -1, Kind.TYPE),
             new ByNameSink("java.lang.ClassLoader", "loadClass", 1, 0, -1, Kind.TYPE));
 
-    public boolean matches(String declaringTypeFqn, String name, int parameterCount) {
-        return typeFqn.equals(declaringTypeFqn) && methodName.equals(name)
-               && (arity < 0 || arity == parameterCount);
+    /**
+     * ⚠ {@code typeFqn} without a dot is a SIMPLE name, matched against any package. That is not a convenience:
+     * {@code registry.stringify} writes its resolver <b>once per package</b> (Cassandra carries
+     * {@code net.LazyBinding} and {@code cql3.functions.LazyBinding}, both package-private, and a third corpus
+     * will have its own), so a sink for it has no single fully-qualified name to give. A dotted name still matches
+     * exactly, which is what the JDK's sinks want.
+     */
+    public boolean matches(String declaringTypeFqn, String declaringSimpleName, String name, int parameterCount) {
+        boolean sameType = typeFqn.indexOf('.') < 0 ? typeFqn.equals(declaringSimpleName)
+                : typeFqn.equals(declaringTypeFqn);
+        return sameType && methodName.equals(name) && (arity < 0 || arity == parameterCount);
     }
 }

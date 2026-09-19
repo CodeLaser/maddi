@@ -446,8 +446,9 @@ public class ComputeCallGraph {
         TypeInfo declaring = called.typeInfo();
         if (declaring == null) return;
         String declaringFqn = declaring.fullyQualifiedName();
+        String declaringSimple = declaring.simpleName();
         for (ByNameSink sink : byNameSinks) {
-            if (!sink.matches(declaringFqn, called.name(), called.parameters().size())) continue;
+            if (!sink.matches(declaringFqn, declaringSimple, called.name(), called.parameters().size())) continue;
             if (sink.classArgument() >= arguments.size()) continue; // a varargs call with fewer arguments written
             Literal name = literalOf(arguments.get(sink.classArgument()));
             if (name == null) {

@@ -218,6 +218,29 @@ public class TestByNameReferences extends CommonTest {
     }
 
     /**
+     * ⛔ <b>A resolver written per PACKAGE has no fully-qualified name to declare.</b> {@code registry.stringify}
+     * writes {@code LazyBinding} once per package, package-private — Cassandra carries two copies, and a third
+     * corpus will have its own. A sink whose {@code typeFqn} has no dot is therefore matched by SIMPLE name, in
+     * any package; this is the shape the whole feature exists for.
+     */
+    @DisplayName("a sink named by its simple name matches the resolver in every package it was written into")
+    @Test
+    public void aSimpleNameMatchesEveryPackage() throws IOException {
+        ParseResult parseResult = parse();
+        List<ByNameSink> bySimpleName = List.of(
+                new ByNameSink("Registry", "field", 2, 0, 1, ByNameSink.Kind.FIELD),
+                new ByNameSink("Registry", "type", 1, 0, -1, ByNameSink.Kind.TYPE));
+        assertEquals(compute(parseResult, SINKS).byNameReferences().size(),
+                compute(parseResult, bySimpleName).byNameReferences().size(),
+                "a.b.Registry by simple name must find exactly what the fully-qualified sink finds");
+
+        // and a dotted name still means exactly that type: a sink for another package's Registry finds nothing
+        assertEquals(List.of(), compute(parseResult,
+                List.of(new ByNameSink("x.y.Registry", "field", 2, 0, 1, ByNameSink.Kind.FIELD)))
+                .byNameReferences());
+    }
+
+    /**
      * ⭐ <b>The off switch, which is the most important test here.</b> maddi recognises nothing until a caller
      * declares sinks, so every existing user must see the graph it has always seen — not "almost", but bit for bit.
      */

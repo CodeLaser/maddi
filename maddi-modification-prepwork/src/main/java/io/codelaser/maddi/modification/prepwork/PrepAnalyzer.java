@@ -16,6 +16,8 @@ package io.codelaser.maddi.modification.prepwork;
 
 import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.common.getset.GetSetHelper;
+import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.modification.prepwork.callgraph.ByNameSink;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
@@ -158,6 +160,24 @@ public class PrepAnalyzer {
                                                                  Collection<ModuleInfo> moduleInfos,
                                                                  Predicate<TypeInfo> externalsToAccept,
                                                                  boolean parallel) {
+        return doPrimaryTypesReturnComputeCallGraph(primaryTypes, moduleInfos, externalsToAccept, parallel,
+                List.of(), null);
+    }
+
+    /**
+     * @param byNameSinks where a string literal becomes a type ({@code Class.forName}, a resolver a refactoring
+     *                    wrote). Empty — the default for every other caller — is OFF: nothing is recognised, no
+     *                    row is produced, and no bit of the graph's by-name lane is ever set. See
+     *                    {@link io.codelaser.maddi.modification.prepwork.callgraph.ByNameSink} for why the sinks
+     *                    are declared rather than inferred.
+     * @param parseResult resolves a binary name to a type; the feature stays off without one
+     */
+    public ComputeCallGraph doPrimaryTypesReturnComputeCallGraph(Set<TypeInfo> primaryTypes,
+                                                                 Collection<ModuleInfo> moduleInfos,
+                                                                 Predicate<TypeInfo> externalsToAccept,
+                                                                 boolean parallel,
+                                                                 List<ByNameSink> byNameSinks,
+                                                                 ParseResult parseResult) {
         AtomicInteger count = new AtomicInteger();
         int total = primaryTypes.size();
         Stream<TypeInfo> stream = parallel ? primaryTypes.parallelStream() : primaryTypes.stream();
@@ -169,8 +189,16 @@ public class PrepAnalyzer {
         });
 
         LOGGER.info("Start compute call graph");
-        ComputeCallGraph ccg = new ComputeCallGraph(runtime, primaryTypes, moduleInfos, externalsToAccept);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, primaryTypes, moduleInfos, externalsToAccept)
+                .withByNameSinks(byNameSinks, parseResult);
         G<Info> cg = ccg.go().graph();
+        if (!ccg.byNameReferences().isEmpty() || ccg.unresolvedSinkCalls() > 0) {
+            // ⚠ the unresolved count is half the message: a recogniser that cannot say how much it missed is
+            // indistinguishable from one that found everything, and the sink list can be silently dropped by a
+            // regenerated configuration
+            LOGGER.info("By-name references: {} resolved over {} sink(s); {} call(s) whose name could not be read",
+                    ccg.byNameReferences().size(), byNameSinks.size(), ccg.unresolvedSinkCalls());
+        }
         LOGGER.info("Set recursive methods");
         ccg.setRecursiveMethods();
         LOGGER.info("Start compute part of construction, final field");
