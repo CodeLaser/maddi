@@ -357,10 +357,29 @@ public class ComputeCallGraph {
         }
     }
 
+    /*
+    ⛔ A LINK IS AN EDGE, SO IT OBEYS THE SAME TWO RULES AS EVERY OTHER EDGE PRODUCER. It used to merge an edge for
+    any resolved tag whatsoever, which is neither of them:
+
+    - accept(): `{@link java.util.List}` in a comment put a VERTEX for an out-of-parse type into a graph every
+      other producer keeps closed (addType, doAnnotations, handleMethodCall all filter). The doc edge itself is
+      below every consumer's threshold, but the vertex is not -- a walk over vertices() saw a type nothing in the
+      parse declares. Measured: one class comment, one java.util.List vertex.
+    - the self-link: `{@link X}` inside X. addType refuses a member naming its own type, and states why ("says
+      nothing about what must exist first"); a comment saying it is no different.
+
+    A tag resolving to a MEMBER is filtered by its owner, for the same reason handleMethodCall filters by
+    to.typeInfo(): the member of an accepted type is accepted.
+     */
     private void doJavadoc(Info from) {
         if (from.javaDoc() != null) {
             for (JavaDoc.Tag tag : from.javaDoc().tags()) {
                 if (tag.resolvedReference() instanceof Info to) {
+                    TypeInfo owner = to instanceof TypeInfo ti ? ti : to.typeInfo();
+                    if (owner == null || !accept(owner)) continue;
+                    if (to == from || from.typeInfo() != null && from.typeInfo().isEnclosedIn(owner) && to == owner) {
+                        continue; // a self-link
+                    }
                     builder.mergeEdge(from, to, DOC_REFERENCES);
                 }
             }
