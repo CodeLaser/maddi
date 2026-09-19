@@ -17,6 +17,7 @@ package io.codelaser.maddi.modification.prepwork;
 import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.common.getset.GetSetHelper;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
@@ -40,9 +41,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /*
@@ -198,6 +201,19 @@ public class PrepAnalyzer {
             // regenerated configuration
             LOGGER.info("By-name references: {} resolved over {} sink(s); {} call(s) whose name could not be read",
                     ccg.byNameReferences().size(), byNameSinks.size(), ccg.unresolvedSinkCalls());
+            // ⭐ AND THE BREAKDOWN PER SINK, because the TOTAL cannot be reconciled against anything. The JDK
+            // sinks are on by default, so a corpus's own `Class.forName` roots are summed together with the
+            // bindings a toolkit verb wrote; "236 rows" is only checkable when the LazyBinding sinks can be
+            // read off on their own. This is also the only place a sink that matched NOTHING becomes visible --
+            // a silently-empty sink list and a sink list that is present but never fires look identical in the
+            // total, and the second is what a renamed resolver produces.
+            // (a plain map: ByNameSink is a record, so it has equals/hashCode, but it is not Comparable)
+            Map<ByNameSink, Long> perSink = ccg.byNameReferences().stream()
+                    .collect(Collectors.groupingBy(ByNameReference::sink, Collectors.counting()));
+            for (ByNameSink sink : byNameSinks) {
+                LOGGER.info("  by-name sink {}.{}/{} [{}]: {} row(s)", sink.typeFqn(), sink.methodName(),
+                        sink.arity(), sink.kind(), perSink.getOrDefault(sink, 0L));
+            }
         }
         LOGGER.info("Set recursive methods");
         ccg.setRecursiveMethods();
