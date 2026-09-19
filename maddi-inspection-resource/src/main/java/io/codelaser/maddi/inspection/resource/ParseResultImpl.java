@@ -32,6 +32,7 @@ public class ParseResultImpl implements ParseResult {
     private static final Set<TypeInfo> NO_CHILDREN = Set.of();
     private final Set<TypeInfo> types;
     private final Map<String, List<TypeInfo>> typesByFQN;
+    private final Map<String, List<TypeInfo>> typesByBinaryName;
     private final Map<String, Set<TypeInfo>> primaryTypesOfPackage;
     private final Map<TypeInfo, Set<TypeInfo>> children;
     private final Map<String, List<TypeInfo>> typesBySimpleName;
@@ -46,6 +47,11 @@ public class ParseResultImpl implements ParseResult {
         typesByFQN = types.stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .collect(Collectors.groupingBy(Info::fullyQualifiedName, Collectors.toList()));
+        // keyed by the binary name a string literal holds, so that resolving one is a lookup rather than a parse:
+        // a simple name containing a '$' is legal, which makes splitting the string on '$' wrong
+        typesByBinaryName = types.stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream)
+                .collect(Collectors.groupingBy(TypeInfo::binaryName, Collectors.toList()));
         Map<String, Set<TypeInfo>> mutableTypesOfPackage = new HashMap<>();
         types.forEach(ti -> mutableTypesOfPackage.computeIfAbsent(ti.packageName(),
                 t -> new HashSet<>()).add(ti));
@@ -150,6 +156,13 @@ public class ParseResultImpl implements ParseResult {
     @Override
     public List<TypeInfo> typeByFullyQualifiedName(String fqn) {
         return typesByFQN.get(fqn);
+    }
+
+    @Override
+    public List<TypeInfo> typeByBinaryName(String binaryName) {
+        // empty rather than null, unlike typeByFullyQualifiedName above: every caller of this one is resolving an
+        // arbitrary string that may name nothing at all, and "nothing matched" is its ordinary answer
+        return typesByBinaryName.getOrDefault(binaryName, List.of());
     }
 
     @Override

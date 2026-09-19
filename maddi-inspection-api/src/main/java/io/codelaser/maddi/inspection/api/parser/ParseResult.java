@@ -65,6 +65,22 @@ public interface ParseResult {
 
     List<TypeInfo> typeByFullyQualifiedName(String fqn);
 
+    /**
+     * The types whose {@link TypeInfo#binaryName()} is exactly {@code binaryName} — {@code a.b.Outer$Inner}, the
+     * form a string literal holds. <b>Never null</b>; empty when nothing matches.
+     * <p>
+     * ⭐ The inverse of {@link TypeInfo#binaryName()}, and the resolution step of every by-name reference: a name
+     * that reaches the parse this way is an edge, one that does not is a blind spot to be counted rather than
+     * guessed at. It is a lookup, not a parse of the string — so a simple name that itself contains a {@code $}
+     * (legal, and the reason splitting on the first {@code $} is wrong) resolves like any other, and an anonymous
+     * or local type's JVM name ({@code Outer$1}) resolves to nothing, because maddi does not number those the way
+     * the class file does.
+     * <p>
+     * ⚠ A list, for the same reason {@link #typeByFullyQualifiedName} returns one: the same name can be declared
+     * in two source sets.
+     */
+    List<TypeInfo> typeByBinaryName(String binaryName);
+
     Set<TypeInfo> primaryTypesOfPackage(String packageName);
 
     /**

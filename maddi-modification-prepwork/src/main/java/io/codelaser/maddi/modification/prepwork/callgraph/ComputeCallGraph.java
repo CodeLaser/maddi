@@ -35,14 +35,18 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.byname.ByNameReference;
+import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -59,10 +63,31 @@ public class ComputeCallGraph {
     private final Runtime runtime;
     private final Set<TypeInfo> primaryTypes;
     private final Set<MethodInfo> recursive = new HashSet<>();
-    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
+    // ⛔ mergeWeights, NOT Long::sum: the weight is six packed counters, and a carry out of one is a different KIND
+    // of edge rather than a bigger count. See the lane layout above.
+    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
     private final Predicate<TypeInfo> externalsToAccept;
     private final Collection<ModuleInfo> moduleInfos;
 
+    /*
+    THE EDGE WEIGHT IS SIX COUNTERS PACKED INTO ONE long, in ascending order of strength:
+
+        bits 48-63  CODE_STRUCTURE        S
+        bits 40-47  TYPE_HIERARCHY        H
+        bits 32-39  TYPES_IN_DECLARATION  D
+        bits 16-31  REFERENCES            R   <- isAtLeastReference()'s threshold
+        bits  8-15  BY_NAME_REFERENCES    n   } SOFT: below the threshold, so invisible to every consumer
+        bits  0- 7  DOC_REFERENCES        d   } that filters with isAtLeastReference / isReference
+
+    ⭐ The two soft lanes are references the COMPILER does not see and an EDITOR must still update: a javadoc link,
+    and a type or member named by a string literal that a by-name sink resolves (Class.forName and friends). They
+    sit below the threshold on purpose -- adding them to the type graph would put arcs into every cycle, giant and
+    layering the campaign measures -- and a consumer that wants them asks for them by name.
+
+    ⛔ THE LANES ARE 8 BITS EACH, SO THEY SATURATE RATHER THAN CARRY; see mergeWeights. They used to be one 16-bit
+    doc lane, and the merge was Long::sum, which meant a 65,536th doc reference would have become one phantom
+    REFERENCE. Nothing has ever come close, but the failure mode is silent and the fix is one operator.
+     */
     private static final long CODE_STRUCTURE_BITS = 48;
     public static final long CODE_STRUCTURE = 1L << CODE_STRUCTURE_BITS;
     private static final long TYPE_HIERARCHY_BITS = 40;
@@ -71,9 +96,65 @@ public class ComputeCallGraph {
     public static final long TYPES_IN_DECLARATION = 1L << TYPES_IN_DECLARATION_BITS;
     private static final long REFERENCES_BITS = 16;
     public static final long REFERENCES = 1L << REFERENCES_BITS;
+    private static final long BY_NAME_REFERENCES_BITS = 8;
+    public static final long BY_NAME_REFERENCES = 1L << BY_NAME_REFERENCES_BITS;
     public static final long DOC_REFERENCES = 1;
 
+    /**
+     * The first value of each lane, lowest first, terminated by 0 — which is the next power of two after
+     * {@code CODE_STRUCTURE}'s lane, modulo 2^64, so the top lane's mask needs no special case.
+     */
+    private static final long[] LANES = {DOC_REFERENCES, BY_NAME_REFERENCES, REFERENCES, TYPES_IN_DECLARATION,
+            TYPE_HIERARCHY, CODE_STRUCTURE, 0};
+
+    /**
+     * Add {@code a} and {@code b} lane by lane, each lane saturating at its own maximum instead of carrying into
+     * the lane above. <b>This is the graph builder's merge operator</b>, in place of {@code Long::sum}: a carry out
+     * of a counter is not a bigger count, it is a different KIND of edge, and every consumer reads the kind.
+     */
+    public static long mergeWeights(long a, long b) {
+        long result = 0;
+        for (int i = 0; i + 1 < LANES.length; i++) {
+            long mask = LANES[i + 1] - LANES[i]; // 0 - CODE_STRUCTURE is the top lane's mask, unsigned
+            long sum = (a & mask) + (b & mask);
+            result |= Long.compareUnsigned(sum, mask) > 0 ? mask : sum;
+        }
+        return result;
+    }
+
     private G<Info> graph;
+
+    // by-name recognition is OFF until a caller declares sinks: with an empty list nothing below runs, no row is
+    // produced and no bit of the BY_NAME lane is ever set, so every existing maddi user sees the graph it saw
+    private List<ByNameSink> byNameSinks = List.of();
+    private ParseResult byNameParseResult;
+    private final List<ByNameReference> byNameReferences = new ArrayList<>();
+    private int unresolvedSinkCalls;
+
+    /**
+     * Turn on by-name recognition: every call to one of {@code sinks} whose class argument reads as a binary name
+     * that {@code parseResult} resolves becomes a {@link ByNameReference} and a {@link #BY_NAME_REFERENCES} edge.
+     * Call before {@link #go()}. Both arguments are required; either absent leaves the feature off.
+     */
+    public ComputeCallGraph withByNameSinks(List<ByNameSink> sinks, ParseResult parseResult) {
+        this.byNameSinks = sinks == null || parseResult == null ? List.of() : List.copyOf(sinks);
+        this.byNameParseResult = parseResult;
+        return this;
+    }
+
+    /** Every place a string literal named a type, in source order per member. Empty unless sinks were declared. */
+    public List<ByNameReference> byNameReferences() {
+        return List.copyOf(byNameReferences);
+    }
+
+    /**
+     * How many calls to a declared sink had a class argument this could not read as a name — a concatenation, a
+     * parameter, a method call, a constant it could not follow. <b>The blind spot as a number.</b> A recogniser
+     * that cannot say how much it missed is indistinguishable from one that found everything.
+     */
+    public int unresolvedSinkCalls() {
+        return unresolvedSinkCalls;
+    }
 
     public ComputeCallGraph(Runtime runtime, TypeInfo primaryType) {
         this(runtime, Set.of(primaryType), Set.of(), t -> false);
@@ -111,7 +192,17 @@ public class ComputeCallGraph {
     }
 
     public static int docReferenceCount(long value) {
-        return (int) (value & (REFERENCES - 1));
+        return (int) (value & (BY_NAME_REFERENCES - 1));
+    }
+
+    /** How many times this edge's {@code from} names its {@code to} by NAME — in a string literal a by-name sink
+     * resolves. Soft, like the doc count: below {@link #isAtLeastReference}'s threshold. */
+    public static int byNameReferenceCount(long value) {
+        return (int) ((value & (REFERENCES - 1)) >> BY_NAME_REFERENCES_BITS);
+    }
+
+    public static boolean isByName(long value) {
+        return byNameReferenceCount(value) > 0;
     }
 
     public static int declarationCount(long value) {
@@ -136,13 +227,20 @@ public class ComputeCallGraph {
         if ((value & (CODE_STRUCTURE - 1)) >= TYPE_HIERARCHY) sb.append("H");
         if ((value & (TYPE_HIERARCHY - 1)) >= TYPES_IN_DECLARATION) sb.append("D");
         if ((value & (TYPES_IN_DECLARATION - 1)) >= REFERENCES) sb.append("R");
-        if ((value & (REFERENCES - 1)) >= 1) sb.append("d");
+        if (byNameReferenceCount(value) > 0) sb.append("n");
+        if (docReferenceCount(value) > 0) sb.append("d");
         return sb.toString();
     }
 
+    /**
+     * ⚠ <b>The BY_NAME count is deliberately absent, and not by oversight.</b> This is the clustering weight — how
+     * strongly two vertices belong together — and a by-name reference is a compile-time NON-dependency: joining it
+     * silently to the sum would move types across a partition on the strength of a string. A caller that wants it
+     * adds {@link #byNameReferenceCount} itself, where the choice is visible.
+     */
     public static int weightedSumInteractions(long l, int docsWeight, int refsWeight, int declarationWeight,
                                               int hierarchyWeight, int codeStructureWeight) {
-        // the doc count is the low 16 bits; this read `l & REFERENCES`, the lowest bit of the REFERENCE count, so an
+        // the doc count is the lowest lane; this read `l & REFERENCES`, the lowest bit of the REFERENCE count, so an
         // odd number of references weighed 65536 docs. Every production caller passed docsWeight 0.
         return docReferenceCount(l) * docsWeight + referenceCount(l) * refsWeight
                + declarationCount(l) * declarationWeight + hierarchyCount(l) * hierarchyWeight
@@ -314,13 +412,114 @@ public class ComputeCallGraph {
                     if (!hasReferenceEdge(edgeFrom, edgeTo)) builder.mergeEdge(edgeFrom, edgeTo, REFERENCES);
                 }
                 case TypeInfo ti -> {
+                    // ⛔ "already has an edge" means a DECLARATION or HIERARCHY edge, NOT a doc edge. doJavadoc runs
+                    // before this, so a member that DOCUMENTS [T] -- `{@link T}`, `[T]` -- and then uses T where the
+                    // desugared CST keeps no element (inside a lambda passed to a library function) had its doc edge
+                    // read as "already there" and lost its reference edge entirely: it named T, and "who refers to T"
+                    // could not say so. The threshold is what the comment above always meant.
+                    // TestDocLinkDoesNotSuppressARecordedReference (maddi-run-kotlin).
                     Map<Info, Long> edges = builder.edges(from);
-                    if (edges == null || !edges.containsKey(ti)) addType(from, ti.asSimpleParameterizedType(), REFERENCES);
+                    Long weight = edges == null ? null : edges.get(ti);
+                    if (weight == null || weight < REFERENCES) addType(from, ti.asSimpleParameterizedType(), REFERENCES);
                 }
                 default -> {
                 }
             }
         }
+    }
+
+    /* ---------------------------------------------------------------------------------------------------------
+    BY-NAME REFERENCES: a string literal that a declared sink turns into a type. See ByNameSink for why the sinks
+    are declared rather than inferred, and ByNameReference for what a row carries.
+
+    The edge is BY_NAME_REFERENCES, a SOFT lane below isAtLeastReference's threshold, so the type graph, the
+    cycles, the giant and the analysis order are all untouched: this is not a compile-time dependency, and a
+    campaign that priced one would be pricing something javac cannot see. A consumer that wants these -- a dead-code
+    pass that must not delete a type only a string reaches, a rename that must edit the literal -- asks for them.
+
+    ⚠ Ordering: this runs from the Visitor, i.e. BEFORE doRecordedReferences for the same member. That is safe
+    only because the type arm there now tests `< REFERENCES` rather than "any edge": with the old test, a by-name
+    edge to T would have suppressed a Kotlin front-end record of a real reference to T. The two were fixed in that
+    order for that reason.
+     --------------------------------------------------------------------------------------------------------- */
+
+    private void doByNameSinks(Info from, MethodInfo called, List<Expression> arguments) {
+        if (byNameSinks.isEmpty() || called == null) return;
+        TypeInfo declaring = called.typeInfo();
+        if (declaring == null) return;
+        String declaringFqn = declaring.fullyQualifiedName();
+        String declaringSimple = declaring.simpleName();
+        for (ByNameSink sink : byNameSinks) {
+            if (!sink.matches(declaringFqn, declaringSimple, called.name(), called.parameters().size())) continue;
+            if (sink.classArgument() >= arguments.size()) continue; // a varargs call with fewer arguments written
+            Literal name = literalOf(arguments.get(sink.classArgument()));
+            if (name == null) {
+                // the sink WAS called; we simply cannot read the name. Counted, never guessed at.
+                ++unresolvedSinkCalls;
+                continue;
+            }
+            List<TypeInfo> targets = byNameParseResult.typeByBinaryName(name.value);
+            if (targets.isEmpty()) {
+                // the name is readable but names nothing in the parse: a JDK class, a type in another project, a
+                // typo. Not a blind spot -- we read it and it is simply not ours -- so it is not counted as one.
+                continue;
+            }
+            Literal member = sink.memberArgument() >= 0 && sink.memberArgument() < arguments.size()
+                    ? literalOf(arguments.get(sink.memberArgument())) : null;
+            for (TypeInfo target : targets) {
+                Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value);
+                byNameReferences.add(new ByNameReference(from, sink, target, name.value, name.source,
+                        name.viaConstant, member == null ? null : member.value,
+                        member == null ? null : member.source, targetMember));
+                // the ROW is recorded whatever accept() says -- it is a fact about the source text -- but the EDGE
+                // obeys the same filter as every other producer, and the same self-link rule
+                if (accept(target) && target != from && !from.typeInfo().isEnclosedIn(target)) {
+                    builder.mergeEdge(from, target, BY_NAME_REFERENCES);
+                }
+            }
+        }
+    }
+
+    /** A string literal read from an argument, and where it is actually written. */
+    private record Literal(String value, Source source, boolean viaConstant) {
+    }
+
+    /**
+     * The literal behind an argument: written there, or held by a {@code static final} field it names.
+     * <p>
+     * ⛔ <b>Exactly one hop, and no further.</b> maddi has no constant evaluation (there is no {@code constantValue}
+     * or {@code isCompileTimeConstant} anywhere), so this is the hand-rolled pattern half a dozen callers already
+     * use — {@code fieldInfo.initializer() instanceof StringConstant}. One hop covers the shape that matters, a
+     * {@code private static final String TARGET = "a.b.X"} beside the call; anything deeper is flow analysis, and
+     * a sink whose name travels that far should be DECLARED at the point where the string is written instead.
+     */
+    private static Literal literalOf(Expression expression) {
+        if (expression instanceof StringConstant sc) {
+            return new Literal(sc.constant(), sc.source(), false);
+        }
+        if (expression instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            FieldInfo fieldInfo = fr.fieldInfo();
+            if (fieldInfo.isStatic() && fieldInfo.isFinal()
+                && fieldInfo.initializer() instanceof StringConstant sc) {
+                return new Literal(sc.constant(), sc.source(), true);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The one member of {@code target} called {@code name}, or null when there is none or several.
+     * <p>
+     * ⚠ Deliberately crude, and the ambiguity is deliberately left unresolved. Which overload a binding picks is
+     * the SINK's rule — by arity, by an exact {@code MethodType}, "the only public static one" — and a graph
+     * producer that guessed would be writing an invariant nothing maintains. A reader that needs the answer has
+     * the row, the target and the name, and can apply the rule it actually implements.
+     */
+    private static Info uniqueMemberNamed(TypeInfo target, String name) {
+        FieldInfo field = target.getFieldByName(name, false);
+        if (field != null) return field;
+        List<MethodInfo> methods = target.methods().stream().filter(m -> m.name().equals(name)).toList();
+        return methods.size() == 1 ? methods.getFirst() : null;
     }
 
     private boolean hasReferenceEdge(Info from, Info to) {
@@ -350,10 +549,29 @@ public class ComputeCallGraph {
         }
     }
 
+    /*
+    ⛔ A LINK IS AN EDGE, SO IT OBEYS THE SAME TWO RULES AS EVERY OTHER EDGE PRODUCER. It used to merge an edge for
+    any resolved tag whatsoever, which is neither of them:
+
+    - accept(): `{@link java.util.List}` in a comment put a VERTEX for an out-of-parse type into a graph every
+      other producer keeps closed (addType, doAnnotations, handleMethodCall all filter). The doc edge itself is
+      below every consumer's threshold, but the vertex is not -- a walk over vertices() saw a type nothing in the
+      parse declares. Measured: one class comment, one java.util.List vertex.
+    - the self-link: `{@link X}` inside X. addType refuses a member naming its own type, and states why ("says
+      nothing about what must exist first"); a comment saying it is no different.
+
+    A tag resolving to a MEMBER is filtered by its owner, for the same reason handleMethodCall filters by
+    to.typeInfo(): the member of an accepted type is accepted.
+     */
     private void doJavadoc(Info from) {
         if (from.javaDoc() != null) {
             for (JavaDoc.Tag tag : from.javaDoc().tags()) {
                 if (tag.resolvedReference() instanceof Info to) {
+                    TypeInfo owner = to instanceof TypeInfo ti ? ti : to.typeInfo();
+                    if (owner == null || !accept(owner)) continue;
+                    if (to == from || from.typeInfo() != null && from.typeInfo().isEnclosedIn(owner) && to == owner) {
+                        continue; // a self-link
+                    }
                     builder.mergeEdge(from, to, DOC_REFERENCES);
                 }
             }
@@ -408,6 +626,7 @@ public class ComputeCallGraph {
             if (e instanceof MethodCall mc) {
                 handleMethodCall(info, mc.methodInfo());
                 mc.typeArguments().forEach(pt -> addType(info, pt, REFERENCES));
+                doByNameSinks(info, mc.methodInfo(), mc.parameterExpressions());
                 return true;
             }
             if (e instanceof MethodReference mr) {
@@ -462,6 +681,10 @@ public class ComputeCallGraph {
                 }
                 if (cc.constructor() != null) {
                     handleMethodCall(info, cc.constructor());
+                    // a corpus's own container is often a CONSTRUCTOR taking the name (Cassandra's
+                    // ParameterizedClass), so a sink may name one; the declaring type and arity match as they do
+                    // for a method, and a constructor's name is its simple name
+                    doByNameSinks(info, cc.constructor(), cc.parameterExpressions());
                 }
                 return true;
             }
