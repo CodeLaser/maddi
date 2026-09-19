@@ -314,8 +314,15 @@ public class ComputeCallGraph {
                     if (!hasReferenceEdge(edgeFrom, edgeTo)) builder.mergeEdge(edgeFrom, edgeTo, REFERENCES);
                 }
                 case TypeInfo ti -> {
+                    // ⛔ "already has an edge" means a DECLARATION or HIERARCHY edge, NOT a doc edge. doJavadoc runs
+                    // before this, so a member that DOCUMENTS [T] -- `{@link T}`, `[T]` -- and then uses T where the
+                    // desugared CST keeps no element (inside a lambda passed to a library function) had its doc edge
+                    // read as "already there" and lost its reference edge entirely: it named T, and "who refers to T"
+                    // could not say so. The threshold is what the comment above always meant.
+                    // TestDocLinkDoesNotSuppressARecordedReference (maddi-run-kotlin).
                     Map<Info, Long> edges = builder.edges(from);
-                    if (edges == null || !edges.containsKey(ti)) addType(from, ti.asSimpleParameterizedType(), REFERENCES);
+                    Long weight = edges == null ? null : edges.get(ti);
+                    if (weight == null || weight < REFERENCES) addType(from, ti.asSimpleParameterizedType(), REFERENCES);
                 }
                 default -> {
                 }
