@@ -53,6 +53,12 @@ public class PrimaryTypeUseGraph {
             // ModuleInfo.typeInfo() throws; module vertices carry no primary type to project onto. ComputeAnalysisOrder
             // filters them the same way. They only appear when the parse does not ignore modules.
             if (from instanceof ModuleInfo || to instanceof ModuleInfo) return;
+            // ⭐ EVERY edge, the two SOFT lanes included (a javadoc link, a by-name string reference) -- deliberately,
+            // and the opposite choice from ComputeAnalysisOrder's, which filters to >= REFERENCES. Analysis ORDER
+            // asks "what must exist first", where a link is nothing. This graph asks "who holds a pointer into the
+            // type I am about to re-parse", and a resolved javadoc tag holds an Info exactly as a call does. A
+            // dependent missed here keeps a stale pointer -- the defect class rewiring exists to prevent -- so the
+            // conservative direction is to keep them, and a new soft lane belongs here by default.
             TypeInfo ptFrom = from.typeInfo().primaryType();
             TypeInfo ptTo = to.typeInfo().primaryType();
             if (ptFrom != ptTo) builder.mergeEdge(ptTo, ptFrom, 1L);

@@ -59,10 +59,31 @@ public class ComputeCallGraph {
     private final Runtime runtime;
     private final Set<TypeInfo> primaryTypes;
     private final Set<MethodInfo> recursive = new HashSet<>();
-    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
+    // ⛔ mergeWeights, NOT Long::sum: the weight is six packed counters, and a carry out of one is a different KIND
+    // of edge rather than a bigger count. See the lane layout above.
+    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(ComputeCallGraph::mergeWeights);
     private final Predicate<TypeInfo> externalsToAccept;
     private final Collection<ModuleInfo> moduleInfos;
 
+    /*
+    THE EDGE WEIGHT IS SIX COUNTERS PACKED INTO ONE long, in ascending order of strength:
+
+        bits 48-63  CODE_STRUCTURE        S
+        bits 40-47  TYPE_HIERARCHY        H
+        bits 32-39  TYPES_IN_DECLARATION  D
+        bits 16-31  REFERENCES            R   <- isAtLeastReference()'s threshold
+        bits  8-15  BY_NAME_REFERENCES    n   } SOFT: below the threshold, so invisible to every consumer
+        bits  0- 7  DOC_REFERENCES        d   } that filters with isAtLeastReference / isReference
+
+    ⭐ The two soft lanes are references the COMPILER does not see and an EDITOR must still update: a javadoc link,
+    and a type or member named by a string literal that a by-name sink resolves (Class.forName and friends). They
+    sit below the threshold on purpose -- adding them to the type graph would put arcs into every cycle, giant and
+    layering the campaign measures -- and a consumer that wants them asks for them by name.
+
+    ⛔ THE LANES ARE 8 BITS EACH, SO THEY SATURATE RATHER THAN CARRY; see mergeWeights. They used to be one 16-bit
+    doc lane, and the merge was Long::sum, which meant a 65,536th doc reference would have become one phantom
+    REFERENCE. Nothing has ever come close, but the failure mode is silent and the fix is one operator.
+     */
     private static final long CODE_STRUCTURE_BITS = 48;
     public static final long CODE_STRUCTURE = 1L << CODE_STRUCTURE_BITS;
     private static final long TYPE_HIERARCHY_BITS = 40;
@@ -71,7 +92,31 @@ public class ComputeCallGraph {
     public static final long TYPES_IN_DECLARATION = 1L << TYPES_IN_DECLARATION_BITS;
     private static final long REFERENCES_BITS = 16;
     public static final long REFERENCES = 1L << REFERENCES_BITS;
+    private static final long BY_NAME_REFERENCES_BITS = 8;
+    public static final long BY_NAME_REFERENCES = 1L << BY_NAME_REFERENCES_BITS;
     public static final long DOC_REFERENCES = 1;
+
+    /**
+     * The first value of each lane, lowest first, terminated by 0 — which is the next power of two after
+     * {@code CODE_STRUCTURE}'s lane, modulo 2^64, so the top lane's mask needs no special case.
+     */
+    private static final long[] LANES = {DOC_REFERENCES, BY_NAME_REFERENCES, REFERENCES, TYPES_IN_DECLARATION,
+            TYPE_HIERARCHY, CODE_STRUCTURE, 0};
+
+    /**
+     * Add {@code a} and {@code b} lane by lane, each lane saturating at its own maximum instead of carrying into
+     * the lane above. <b>This is the graph builder's merge operator</b>, in place of {@code Long::sum}: a carry out
+     * of a counter is not a bigger count, it is a different KIND of edge, and every consumer reads the kind.
+     */
+    public static long mergeWeights(long a, long b) {
+        long result = 0;
+        for (int i = 0; i + 1 < LANES.length; i++) {
+            long mask = LANES[i + 1] - LANES[i]; // 0 - CODE_STRUCTURE is the top lane's mask, unsigned
+            long sum = (a & mask) + (b & mask);
+            result |= Long.compareUnsigned(sum, mask) > 0 ? mask : sum;
+        }
+        return result;
+    }
 
     private G<Info> graph;
 
@@ -111,7 +156,17 @@ public class ComputeCallGraph {
     }
 
     public static int docReferenceCount(long value) {
-        return (int) (value & (REFERENCES - 1));
+        return (int) (value & (BY_NAME_REFERENCES - 1));
+    }
+
+    /** How many times this edge's {@code from} names its {@code to} by NAME — in a string literal a by-name sink
+     * resolves. Soft, like the doc count: below {@link #isAtLeastReference}'s threshold. */
+    public static int byNameReferenceCount(long value) {
+        return (int) ((value & (REFERENCES - 1)) >> BY_NAME_REFERENCES_BITS);
+    }
+
+    public static boolean isByName(long value) {
+        return byNameReferenceCount(value) > 0;
     }
 
     public static int declarationCount(long value) {
@@ -136,13 +191,20 @@ public class ComputeCallGraph {
         if ((value & (CODE_STRUCTURE - 1)) >= TYPE_HIERARCHY) sb.append("H");
         if ((value & (TYPE_HIERARCHY - 1)) >= TYPES_IN_DECLARATION) sb.append("D");
         if ((value & (TYPES_IN_DECLARATION - 1)) >= REFERENCES) sb.append("R");
-        if ((value & (REFERENCES - 1)) >= 1) sb.append("d");
+        if (byNameReferenceCount(value) > 0) sb.append("n");
+        if (docReferenceCount(value) > 0) sb.append("d");
         return sb.toString();
     }
 
+    /**
+     * ⚠ <b>The BY_NAME count is deliberately absent, and not by oversight.</b> This is the clustering weight — how
+     * strongly two vertices belong together — and a by-name reference is a compile-time NON-dependency: joining it
+     * silently to the sum would move types across a partition on the strength of a string. A caller that wants it
+     * adds {@link #byNameReferenceCount} itself, where the choice is visible.
+     */
     public static int weightedSumInteractions(long l, int docsWeight, int refsWeight, int declarationWeight,
                                               int hierarchyWeight, int codeStructureWeight) {
-        // the doc count is the low 16 bits; this read `l & REFERENCES`, the lowest bit of the REFERENCE count, so an
+        // the doc count is the lowest lane; this read `l & REFERENCES`, the lowest bit of the REFERENCE count, so an
         // odd number of references weighed 65536 docs. Every production caller passed docsWeight 0.
         return docReferenceCount(l) * docsWeight + referenceCount(l) * refsWeight
                + declarationCount(l) * declarationWeight + hierarchyCount(l) * hierarchyWeight
