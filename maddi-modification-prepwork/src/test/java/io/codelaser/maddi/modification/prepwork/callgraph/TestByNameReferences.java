@@ -14,7 +14,9 @@
 
 package io.codelaser.maddi.modification.prepwork.callgraph;
 
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
@@ -41,6 +43,7 @@ import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.JAR_WI
 import static io.codelaser.maddi.inspection.integration.JavaInspectorImpl.TEST_PROTOCOL_PREFIX;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -63,6 +66,32 @@ public class TestByNameReferences extends CommonTest {
             public class Registry {
                 public static Object field(String className, String member) { return null; }
                 public static Object type(String className) { return null; }
+                public static Object call(String className, String member) { return null; }
+            }
+            """;
+
+    /**
+     * ⭐ A type with a private instance FIELD and a public static METHOD <b>of the same name</b>. This is not a
+     * contrived shape: {@code org.apache.cassandra.tcm.ClusterMetadataService} has exactly it, three times over
+     * ({@code commitRequestHandler}, {@code replicationHandler}, {@code logNotifyHandler}), which is how the
+     * defect this fixture pins was found — on a corpus, by the check reporting four healthy bindings as broken.
+     */
+    @Language("java")
+    private static final String BOTH = """
+            package a.b;
+            public class Both {
+                private final Object handler = new Object();
+                public static Object handler() { return null; }
+            }
+            """;
+
+    @Language("java")
+    private static final String CALLS_BOTH = """
+            package a.b;
+            public class CallsBoth {
+                public Object viaCall() {
+                    return Registry.call("a.b.Both", "handler");
+                }
             }
             """;
 
@@ -122,8 +151,11 @@ public class TestByNameReferences extends CommonTest {
             new ByNameSink("a.b.Registry", "type", 1, 0, -1, ByNameSink.Kind.TYPE));
 
     private ParseResult parse() throws IOException {
-        Map<String, String> sourcesByURIString = Map.of("a.b.Registry", REGISTRY, "a.b.Target", TARGET,
-                        "a.b.Holder", HOLDER).entrySet().stream()
+        return parse(Map.of("a.b.Registry", REGISTRY, "a.b.Target", TARGET, "a.b.Holder", HOLDER));
+    }
+
+    private ParseResult parse(Map<String, String> sources) throws IOException {
+        Map<String, String> sourcesByURIString = sources.entrySet().stream()
                 .collect(Collectors.toUnmodifiableMap(e -> TEST_PROTOCOL_PREFIX + e.getKey(), Map.Entry::getValue));
         javaInspector = new JavaInspectorImpl();
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
@@ -314,5 +346,59 @@ public class TestByNameReferences extends CommonTest {
             }
         }
         assertTrue(compared > 20, "expected a graph worth comparing, compared " + compared + " edges");
+    }
+
+    @DisplayName("⭐ a CALL sink resolves a METHOD, even when a field of that name shadows it")
+    @Test
+    public void theSinkKindPicksTheMember() throws IOException {
+        // ⛔ MEASURED RED BEFORE THE FIX (2026-09-20, cassandra-byname run 002): uniqueMemberNamed read
+        // `getFieldByName` first and returned unconditionally, so a CALL binding onto a type with a same-named
+        // private field resolved to the FIELD. Three consequences, none of them visible in a fixture that had
+        // only one member per name:
+        //   1 the soft member EDGE lands on the field, leaving the METHOD the binding actually resolves
+        //     unprotected -- remove.method would have deleted it seeing no by-name reference;
+        //   2 Rename.addByNameMemberLiterals keys on targetMember, so renaming the FIELD rewrote a literal
+        //     pointing at the method, and renaming the METHOD left it stale. Wrong in both directions;
+        //   3 ByNameBindingCheck judged the field's access and reported MEMBER_NOT_PUBLIC/MEMBER_NOT_STATIC
+        //     for four perfectly healthy Cassandra bindings.
+        ParseResult parseResult = parse(Map.of("a.b.Registry", REGISTRY, "a.b.Both", BOTH,
+                "a.b.CallsBoth", CALLS_BOTH));
+        List<ByNameSink> sinks = List.of(
+                new ByNameSink("a.b.Registry", "call", 2, 0, 1, ByNameSink.Kind.CALL),
+                new ByNameSink("a.b.Registry", "field", 2, 0, 1, ByNameSink.Kind.FIELD));
+        List<ByNameReference> rows = compute(parseResult, sinks).byNameReferences();
+        assertEquals(1, rows.size(), () -> "expected the one CALL row: " + rows);
+        ByNameReference row = rows.getFirst();
+        assertEquals("handler", row.memberName());
+        assertNotNull(row.targetMember(), "the name resolves to exactly one METHOD, so it must not be null");
+        assertInstanceOf(MethodInfo.class, row.targetMember(),
+                () -> "a CALL sink calls getMethod(name).invoke(null); a FIELD of that name is not a candidate,"
+                      + " and taking it points the edge and every rename at the wrong member. Got: "
+                      + row.targetMember().getClass().getSimpleName() + " " + row.targetMember());
+        assertTrue(((MethodInfo) row.targetMember()).isStatic(), "and it is the public static one");
+    }
+
+    @DisplayName("a FIELD sink still resolves the FIELD, with the same two members in scope")
+    @Test
+    public void theSinkKindPicksTheMemberFieldArm() throws IOException {
+        // ⭐ THE VETO on the test above: if the fix simply preferred methods, this would break. The fixture is
+        // identical; only the sink kind differs, so the sink kind is provably what decides.
+        ParseResult parseResult = parse(Map.of("a.b.Registry", REGISTRY, "a.b.Both", BOTH,
+                "a.b.FieldsBoth", """
+                        package a.b;
+                        public class FieldsBoth {
+                            public Object viaField() {
+                                return Registry.field("a.b.Both", "handler");
+                            }
+                        }
+                        """));
+        List<ByNameSink> sinks = List.of(
+                new ByNameSink("a.b.Registry", "call", 2, 0, 1, ByNameSink.Kind.CALL),
+                new ByNameSink("a.b.Registry", "field", 2, 0, 1, ByNameSink.Kind.FIELD));
+        List<ByNameReference> rows = compute(parseResult, sinks).byNameReferences();
+        assertEquals(1, rows.size(), () -> "expected the one FIELD row: " + rows);
+        assertInstanceOf(FieldInfo.class, rows.getFirst().targetMember(),
+                () -> "a FIELD sink calls getField(name).get(null): the METHOD is not a candidate. Got: "
+                      + rows.getFirst().targetMember());
     }
 }
