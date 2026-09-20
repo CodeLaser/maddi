@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
 import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
@@ -129,6 +130,7 @@ public class ComputeCallGraph {
     private List<ByNameSink> byNameSinks = List.of();
     private ParseResult byNameParseResult;
     private final List<ByNameReference> byNameReferences = new ArrayList<>();
+    private final List<ByNameDangling> byNameDanglings = new ArrayList<>();
     private int unresolvedSinkCalls;
 
     /**
@@ -143,6 +145,15 @@ public class ComputeCallGraph {
     }
 
     /** Every place a string literal named a type, in source order per member. Empty unless sinks were declared. */
+    /**
+     * Literals that read perfectly and resolve to nothing in this parse. Most are healthy (a JDK class, another
+     * project); a gate judges which are not. See {@link ByNameDangling} for why an absence had to be turned into
+     * a positive record.
+     */
+    public List<ByNameDangling> byNameDanglings() {
+        return List.copyOf(byNameDanglings);
+    }
+
     public List<ByNameReference> byNameReferences() {
         return List.copyOf(byNameReferences);
     }
@@ -458,18 +469,25 @@ public class ComputeCallGraph {
                 ++unresolvedSinkCalls;
                 continue;
             }
-            List<TypeInfo> targets = byNameParseResult.typeByBinaryName(name.value);
-            if (targets.isEmpty()) {
-                // the name is readable but names nothing in the parse: a JDK class, a type in another project, a
-                // typo. Not a blind spot -- we read it and it is simply not ours -- so it is not counted as one.
-                continue;
-            }
             Literal member = sink.memberArgument() >= 0 && sink.memberArgument() < arguments.size()
                     ? literalOf(arguments.get(sink.memberArgument())) : null;
+            List<TypeInfo> targets = byNameParseResult.typeByBinaryName(name.value);
+            if (targets.isEmpty()) {
+                // The name is readable and names nothing here: a JDK class, a type in another project, a typo --
+                // or a binding whose target was just deleted or renamed. RECORDED, not skipped: a broken binding
+                // does not produce an invalid row, it produces NO row, and nothing downstream can detect an
+                // absence. This is that absence made positive. Judging which of these are defects is the
+                // reader's job, not this producer's.
+                byNameDanglings.add(new ByNameDangling(from, sink, name.value, name.source,
+                        name.owner == null ? from : name.owner, name.viaConstant,
+                        member == null ? null : member.value));
+                continue;
+            }
             for (TypeInfo target : targets) {
                 Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value);
                 byNameReferences.add(new ByNameReference(from, sink, target, name.value, name.source,
-                        name.viaConstant, member == null ? null : member.value,
+                        name.owner == null ? from : name.owner, name.viaConstant,
+                        member == null ? null : member.value,
                         member == null ? null : member.source, targetMember));
                 // the ROW is recorded whatever accept() says -- it is a fact about the source text -- but the EDGE
                 // obeys the same filter as every other producer, and the same self-link rule
@@ -489,7 +507,13 @@ public class ComputeCallGraph {
     }
 
     /** A string literal read from an argument, and where it is actually written. */
-    private record Literal(String value, Source source, boolean viaConstant) {
+    /**
+     * @param owner the member whose source text holds {@code source}: null when the literal is written at the
+     *              call (the caller substitutes {@code from}), the FIELD when it came through a constant. A
+     *              {@link Source} has a line and a position but no file, so without this a rewriting verb cannot
+     *              tell which file to open — and the constant can sit in a different TYPE from the caller.
+     */
+    private record Literal(String value, Source source, boolean viaConstant, Info owner) {
     }
 
     /**
@@ -503,13 +527,13 @@ public class ComputeCallGraph {
      */
     private static Literal literalOf(Expression expression) {
         if (expression instanceof StringConstant sc) {
-            return new Literal(sc.constant(), sc.source(), false);
+            return new Literal(sc.constant(), sc.source(), false, null);
         }
         if (expression instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
             FieldInfo fieldInfo = fr.fieldInfo();
             if (fieldInfo.isStatic() && fieldInfo.isFinal()
                 && fieldInfo.initializer() instanceof StringConstant sc) {
-                return new Literal(sc.constant(), sc.source(), true);
+                return new Literal(sc.constant(), sc.source(), true, fieldInfo);
             }
         }
         return null;
