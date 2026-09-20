@@ -55,6 +55,8 @@ public class CompileAnalysisHints {
     // nothing regenerates and nothing loads (it is not in LoadAnalysisResults.ANALYZED_RESULTS either). The
     // pre-rename file name is the giveaway.
     static final List<String> LIBRARIES = List.of("jdk", "libs/test", "libs/log", "libs/kotlin");
+    /** {@link #RESULTS_BASE} as a path; the directory the committed results live in. */
+    static final Path RESULTS_BASE_DIR = Path.of(RESULTS_BASE);
     static final String KOTLIN_LIBRARY = "libs/kotlin";
     // fixed entry timestamp (2020-01-01T00:00:00Z) so a regenerated jar only differs when its content does
     private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
@@ -66,8 +68,18 @@ public class CompileAnalysisHints {
         packageJars();
     }
 
-    /** Compile every configured library; reused by {@link TestAnalysisHintsCompiler}. */
+    /** Compile every configured library into the committed location. */
     public static void compileAll() throws IOException {
+        compileAll(RESULTS_BASE_DIR);
+    }
+
+    /**
+     * Compile every configured library into {@code resultsBase}, laid out as {@code <resultsBase>/<library>}.
+     * <p>
+     * The directory is a parameter so that {@link TestAnalysisHintsCompiler} can compile into a temporary one and
+     * compare: a test must not write into the working tree. Only {@link #main} passes the committed location.
+     */
+    public static void compileAll(Path resultsBase) throws IOException {
         // the archive covers java.desktop (swing/awt) and java.net.http, which the lean default omits
         AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(
                 javaInspectorFactory("java.desktop", "java.net.http"));
@@ -81,9 +93,9 @@ public class CompileAnalysisHints {
                 // modification-* test, and a jar that merely makes more types resolvable can move verdicts. The
                 // javadoc of materializeIgnoreModificationsFromFieldType records exactly that happening on
                 // fernflower, where an "inert" change moved ConstantPool.pool from @Independent to @Dependent.
-                compile(new AnalysisHintsCompiler(kotlinJavaInspectorFactory()), library);
+                compile(new AnalysisHintsCompiler(kotlinJavaInspectorFactory()), library, resultsBase);
             } else {
-                compile(compiler, library);
+                compile(compiler, library, resultsBase);
             }
         }
     }
@@ -122,10 +134,10 @@ public class CompileAnalysisHints {
         };
     }
 
-    private static void compile(AnalysisHintsCompiler compiler, String library) throws IOException {
+    private static void compile(AnalysisHintsCompiler compiler, String library, Path resultsBase) throws IOException {
         AnalysisHints analysisHints = new AnalysisHints.Builder()
                 .setLibraryName(library)
-                .setAnalysisResultsDir(Path.of(RESULTS_BASE + library))
+                .setAnalysisResultsDir(resultsBase.resolve(library))
                 .setHintsPath(Path.of(HINTS_PATH))
                 .setPackagePrefix("io.codelaser.maddi.aapi.archive." + library.replace("/", "."))
                 .build();
@@ -142,7 +154,11 @@ public class CompileAnalysisHints {
      * keeping the {@code <lib>/} directory. They are loaded from the classpath as {@code resource:.../*.jar}.
      */
     static void packageJars() throws IOException {
-        Path base = Path.of(RESULTS_BASE);
+        packageJars(RESULTS_BASE_DIR);
+    }
+
+    /** As {@link #packageJars()}, but over an arbitrary results directory (the tests pack a temporary one). */
+    static void packageJars(Path base) throws IOException {
         Path jdk = base.resolve("jdk");
         try (var stream = Files.list(jdk)) {
             writeJar(base.resolve("openjdk.jar"), jdk, stream.filter(CompileAnalysisHints::isJson).sorted().toList());
