@@ -484,7 +484,7 @@ public class ComputeCallGraph {
                 continue;
             }
             for (TypeInfo target : targets) {
-                Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value);
+                Info targetMember = member == null ? null : uniqueMemberNamed(target, member.value, sink.kind());
                 byNameReferences.add(new ByNameReference(from, sink, target, name.value, name.source,
                         name.owner == null ? from : name.owner, name.viaConstant,
                         member == null ? null : member.value,
@@ -540,16 +540,33 @@ public class ComputeCallGraph {
     }
 
     /**
-     * The one member of {@code target} called {@code name}, or null when there is none or several.
+     * The one member of {@code target} called {@code name} <b>that the sink's KIND can actually resolve</b>, or
+     * null when there is none or several.
      * <p>
-     * ⚠ Deliberately crude, and the ambiguity is deliberately left unresolved. Which overload a binding picks is
-     * the SINK's rule — by arity, by an exact {@code MethodType}, "the only public static one" — and a graph
-     * producer that guessed would be writing an invariant nothing maintains. A reader that needs the answer has
-     * the row, the target and the name, and can apply the rule it actually implements.
+     * ⛔ <b>The kind is not a refinement, it decides which namespace is searched.</b> Java lets a type hold a
+     * field and a method of the same name, and the two resolvers look in different places:
+     * {@code FIELD} is {@code getField(name).get(null)} and {@code CALL}/{@code RUN}/{@code HANDLE} are
+     * {@code getMethod(name)...}. A field is not a candidate for a CALL, and taking it is not a near-miss —
+     * it names a different member.
+     * <p>
+     * This read {@code getFieldByName} first and returned unconditionally, and the damage was silent and
+     * three-fold: the soft member edge landed on the field, leaving the METHOD a CALL binding resolves
+     * unprotected against {@code remove.method}; {@code Rename.addByNameMemberLiterals} keys on
+     * {@code targetMember}, so renaming the field rewrote a literal pointing at the method while renaming the
+     * method left it stale; and {@code ByNameBindingCheck} judged the field's access. Found 2026-09-20 on
+     * Cassandra, where {@code tcm.ClusterMetadataService} carries a private instance field AND a public static
+     * method for each of {@code commitRequestHandler}, {@code replicationHandler}, {@code logNotifyHandler} —
+     * four healthy bindings reported as broken. Every fixture until then had one member per name.
+     * <p>
+     * ⚠ Ambiguity among METHODS is still deliberately left unresolved. Which overload a binding picks is the
+     * SINK's own rule — by arity, by an exact {@code MethodType}, "the only public static one" — and a producer
+     * that guessed would be writing an invariant nothing maintains. A reader that needs the answer has the row,
+     * the target and the name, and can apply the rule it actually implements.
      */
-    private static Info uniqueMemberNamed(TypeInfo target, String name) {
-        FieldInfo field = target.getFieldByName(name, false);
-        if (field != null) return field;
+    private static Info uniqueMemberNamed(TypeInfo target, String name, ByNameSink.Kind kind) {
+        if (kind == ByNameSink.Kind.FIELD) {
+            return target.getFieldByName(name, false);
+        }
         List<MethodInfo> methods = target.methods().stream().filter(m -> m.name().equals(name)).toList();
         return methods.size() == 1 ? methods.getFirst() : null;
     }
