@@ -99,4 +99,17 @@ tasks.withType<Test> {
 
     // Visual logging to your terminal so you always know which version is active
     logger.lifecycle("Project [${project.name}] executing test suite targeting: $impl")
+
+    // TestAnalysisHintsCompiler reads the hand-written hints and the committed analysis results through
+    // RELATIVE PATHS rather than the class path, so Gradle cannot infer them. Without these declarations the
+    // test task reports UP-TO-DATE after exactly the change the test exists to catch: measured 2026-09-20,
+    // perturbing a committed .json left `gradle test` green, and only --rerun-tasks turned it red. A staleness
+    // gate that does not run is worse than none, because it reads as a passing check.
+    inputs.dir(layout.projectDirectory.dir("../maddi-aapi-archive/src/main/java"))
+        .withPropertyName("analysisHints")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(layout.projectDirectory
+        .dir("../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles"))
+        .withPropertyName("committedAnalysisResults")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

@@ -43,6 +43,28 @@ check all four:
    `maxHeapSize`; anything that copies `jvmArgs` between test tasks silently drops it. `slowTest`
    ran on the 512m default for exactly this reason (fixed 2026-07).
 
+### Regenerating the analysis hints is a build action, never a test
+
+```bash
+./gradlew :maddi-aapi-parser:compileAnalysisHints
+```
+
+It compiles the hand-written shadows in `maddi-aapi-archive/src/main/java` into the committed `.json` under
+that module's `src/main/resources`, and packs `openjdk.jar` + `libs.jar` from them. Run it deliberately,
+review the diff, commit it. `TestAnalysisHintsCompiler` compiles into a **temp directory and compares**, so
+staleness shows up as a red test instead of a dirty tree. Until 2026-09-20 that test called `compileAll()`
+directly: every `gradle test` rewrote 33 tracked files, and whenever the output genuinely changed it left the
+repository dirty for whoever ran next.
+
+Two traps it now covers, both of which have cost verdicts before:
+
+- `compileAll()` and `packageJars()` are separate steps and only `main()` runs both, so the committed jars can
+  drift from the committed JSON beside them — and the **jars** are what `maddi-ide-daemon` and the runners
+  load (see the ⛔ note in `CompileAnalysisHints.packageJars`). The test compares both.
+- The test reads the archive through **relative paths**, not the class path, so Gradle cannot infer them. Its
+  test task declares them with `inputs.dir`; without that the task reports UP-TO-DATE after exactly the change
+  the test exists to catch — measured, and it is §Commands point 1 wearing a different hat.
+
 ## Facts not to re-derive (wrongly)
 
 - `TypeInfo`/`MethodInfo`/`FieldInfo` are single-instance per (FQN, source set) — compare with
