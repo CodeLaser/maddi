@@ -195,12 +195,19 @@ public class PrepAnalyzer {
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, primaryTypes, moduleInfos, externalsToAccept)
                 .withByNameSinks(byNameSinks, parseResult);
         G<Info> cg = ccg.go().graph();
-        if (!ccg.byNameReferences().isEmpty() || ccg.unresolvedSinkCalls() > 0) {
+        if (!ccg.byNameReferences().isEmpty() || ccg.unresolvedSinkCalls() > 0
+            || !ccg.byNameDanglings().isEmpty()) {
             // ⚠ the unresolved count is half the message: a recogniser that cannot say how much it missed is
             // indistinguishable from one that found everything, and the sink list can be silently dropped by a
             // regenerated configuration
             LOGGER.info("By-name references: {} resolved over {} sink(s); {} call(s) whose name could not be read",
                     ccg.byNameReferences().size(), byNameSinks.size(), ccg.unresolvedSinkCalls());
+            if (!ccg.byNameDanglings().isEmpty()) {
+                // read perfectly, resolves to nothing here. Most are healthy (a JDK class, another project);
+                // a gate decides which are not, because only it knows which packages are the project's own.
+                LOGGER.info("  {} literal(s) that read fine but name nothing in this parse",
+                        ccg.byNameDanglings().size());
+            }
             // ⭐ AND THE BREAKDOWN PER SINK, because the TOTAL cannot be reconciled against anything. The JDK
             // sinks are on by default, so a corpus's own `Class.forName` roots are summed together with the
             // bindings a toolkit verb wrote; "236 rows" is only checkable when the LazyBinding sinks can be

@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.V;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
 import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
@@ -110,6 +111,9 @@ public class TestByNameReferences extends CommonTest {
                 public Object notInTheParse() {
                     return Registry.type("com.elsewhere.Absent");
                 }
+                public Object memberOfSomethingGone() {
+                    return Registry.field("a.b.Gone", "instance");
+                }
             }
             """;
 
@@ -163,6 +167,40 @@ public class TestByNameReferences extends CommonTest {
         // this cannot read. "com.elsewhere.Absent" is NOT among them -- it was read perfectly and simply is not
         // ours, which is a different thing and must not inflate the count.
         assertEquals(2, ccg.unresolvedSinkCalls());
+    }
+
+    /**
+     * ⭐ <b>A literal that reads perfectly and names nothing is RECORDED, not skipped.</b>
+     * <p>
+     * It used to be dropped as "not ours". That is right for a census and wrong for a gate: a binding broken by
+     * a delete or a rename does not produce an invalid row, it produces <b>no row</b>, and nothing downstream
+     * can detect an absence. These records are that absence made positive.
+     * <p>
+     * ⛔ And they are NOT the same thing as {@code unresolvedSinkCalls}, which stays at 2. That counter is
+     * "the sink was called and I could not READ the name" — a concatenation, a parameter. These two were read
+     * perfectly. Conflating them would make the blind-spot number meaningless in both directions.
+     */
+    @DisplayName("⭐ readable literals that resolve to nothing are recorded, and are not the unreadable ones")
+    @Test
+    public void danglingLiteralsAreRecorded() throws IOException {
+        ParseResult parseResult = parse();
+        ComputeCallGraph ccg = compute(parseResult, SINKS);
+
+        assertEquals("""
+                a.b.Holder.notInTheParse() -> com.elsewhere.Absent (TYPE, unresolved)
+                a.b.Holder.memberOfSomethingGone() -> a.b.Gone#instance (FIELD, unresolved)""",
+                ccg.byNameDanglings().stream().map(Object::toString)
+                        .reduce((a, b) -> a + "\n" + b).orElse(""));
+
+        assertEquals(2, ccg.unresolvedSinkCalls(),
+                "unchanged: a dangling literal was READ, so it is not a blind spot");
+
+        ByNameDangling withMember = ccg.byNameDanglings().stream()
+                .filter(d -> "memberOfSomethingGone".equals(d.from().simpleName())).findFirst().orElseThrow();
+        assertEquals("instance", withMember.memberName(), "the member name survives even with no type to hang it on");
+        assertNotNull(withMember.siteSource(), "a repair has to know where to write");
+        assertSame(withMember.from(), withMember.siteOwner(), "written at the call, so the owner IS the caller");
+        assertEquals(false, withMember.viaConstant());
     }
 
     @DisplayName("the resolved member, where it is unambiguous; null where the sink's own rule would decide")
