@@ -632,4 +632,36 @@ class TypeStructureTest : KotlinScanTestBase() {
         // the parameters are typed by that same type parameter (not erased to Object)
         assertEquals(maxOf2.typeParameters().first(), maxOf2.parameters().first().parameterizedType().typeParameter())
     }
+
+    @Test
+    fun aTopLevelTypeSourceSpansItsKDocAndAnnotations() {
+        // What a MOVE of one type out of a shared file has to cut: the span must begin at the KDoc, not at the
+        // `class` keyword, or the comment and the annotation are left behind in the file the type leaves.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "m/M.kt",
+            "package m\n" +                 // 1
+                    "\n" +                  // 2
+                    "annotation class Marker\n" + // 3
+                    "\n" +                  // 4
+                    "class First\n" +       // 5
+                    "\n" +                  // 6
+                    "/**\n" +               // 7
+                    " * The second.\n" +    // 8
+                    " */\n" +               // 9
+                    "@Marker\n" +           // 10
+                    "class Second {\n" +    // 11
+                    "    fun f() {}\n" +    // 12
+                    "}\n"                   // 13
+        )
+        val second = types.first { it.simpleName() == "Second" }
+        assertEquals(7, second.source().beginLine())
+        assertEquals(1, second.source().beginPos())
+        assertEquals(13, second.source().endLine())
+        assertEquals(1, second.source().endPos()) // the closing brace, inclusive
+
+        // and the neighbour it shares the file with stops before that comment
+        val first = types.first { it.simpleName() == "First" }
+        assertEquals(5, first.source().beginLine())
+        assertEquals(5, first.source().endLine())
+    }
 }
