@@ -96,4 +96,53 @@ class KDocLinkTest : KotlinScanTestBase() {
         assertEquals(listOf<Any>(), type("User").source().detailedSources().references(greet))
         assertEquals(listOf<Any>(), greet.source().detailedSources().references(greet))
     }
+
+    @Test
+    fun aTypeLinkInAMultiLineKDoc() {
+        // A one-line KDoc and a multi-line one, in the same file, linking the same type. Filed as #46 ("only the
+        // one-liner is recorded"); it is not true here and never was -- the consumer read an even doc COUNT as none.
+        val t = KotlinScan(runtime, sourceSet).parse(
+            "m/M.kt",
+            "package m\n\n"
+                    + "class Widget\n\n"
+                    + "/** Built on top of [Widget]. */\n"
+                    + "class A\n\n"
+                    + "/**\n"
+                    + " * Interface to let the core know that this [Widget] is used.\n"
+                    + " *\n"
+                    + " * The core only runs it when [Widget] says so.\n"
+                    + " */\n"
+                    + "class B\n"
+        )
+        fun type(name: String) = t.flatMap { it.recursiveSubTypeStream().toList() }.first { it.simpleName() == name }
+        val widget = type("Widget")
+        fun links(of: Info) = (of.javaDoc()?.tags() ?: listOf()).filter { it.resolvedReference() == widget }
+            .map { "${it.sourceOfReference()?.beginLine()}:${it.sourceOfReference()?.beginPos()}" }.sorted()
+        assertEquals(listOf("5:22"), links(type("A")))
+        assertEquals(listOf("11:32", "9:46"), links(type("B")))
+    }
+
+    @Test
+    fun aTypeLinkInAMultiLineKDocInANOTHERFile() {
+        // the same, with the linked type in a DIFFERENT file: the KDoc of a type is resolved against the whole
+        // source set, not just its own file
+        val t = KotlinScan(runtime, sourceSet).parse(
+            mapOf(
+                "m/Types.kt" to "package m\n\nclass Widget(val size: Int)\n",
+                "m/Doc.kt" to "package m\n\n"
+                        + "/**\n"
+                        + " * Interface to let the core know that this [Widget] is used.\n"
+                        + " *\n"
+                        + " * The core only runs it when [Widget] says so.\n"
+                        + " */\n"
+                        + "class Doc\n"
+            ), emptyMap()
+        )
+        fun type(name: String) = t.flatMap { it.recursiveSubTypeStream().toList() }.first { it.simpleName() == name }
+        val widget = type("Widget")
+        val tags = type("Doc").javaDoc()?.tags() ?: listOf()
+        val links = tags.filter { it.resolvedReference() == widget }
+            .map { "${it.sourceOfReference()?.beginLine()}:${it.sourceOfReference()?.beginPos()}" }.sorted()
+        assertEquals(listOf("4:46", "6:32"), links)
+    }
 }
