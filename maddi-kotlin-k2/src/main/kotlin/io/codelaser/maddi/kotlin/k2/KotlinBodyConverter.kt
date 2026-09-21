@@ -51,6 +51,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.resolution.KaImplicitReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.KaSmartCastedReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
+import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
@@ -1076,8 +1077,10 @@ internal class KotlinBodyConverter(
             ?: all
         if (candidates.size == 1) return candidates.first()
         val argTypes = arguments.map { it.parameterizedType() }
+        // indexed by ARGUMENT, not by parameter: a varargs candidate has fewer parameters than the call has
+        // arguments, and `typeOfParameterHandleVarargs` is what answers "what type does argument i go to".
         fun matches(predicate: (ParameterizedType, ParameterizedType) -> Boolean) = candidates.firstOrNull { c ->
-            c.parameters().withIndex().all { (i, p) -> predicate(p.parameterizedType(), argTypes[i]) }
+            argTypes.withIndex().all { (i, a) -> predicate(c.typeOfParameterHandleVarargs(i), a) }
         }
         return matches { p, a -> p == a }
             ?: matches { p, a -> p.typeInfo() != null && p.typeInfo() == a.typeInfo() }
@@ -1159,13 +1162,24 @@ internal class KotlinBodyConverter(
             if (argument != null) {
                 argument.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null
             } else {
-                if ((declaring?.valueParameters?.get(i)?.psi as? KtParameter)?.defaultValue == null) return null
+                // ⛔ The test used to be "the DECLARATION's PSI has a default", which is null for every
+                // library function — so `x.joinToString(",")` (7 JVM parameters, 1 written) found no
+                // 2-parameter method and became a placeholder. K2 knows a library parameter is optional
+                // without any PSI, and that is the question being asked here.
+                if (!p.hasDefaultValue
+                    && (declaring?.valueParameters?.get(i)?.psi as? KtParameter)?.defaultValue == null) return null
                 masks[i / 32] = masks[i / 32] or (1 shl (i % 32))
                 runtime.nullValue(mapType(p.returnType, method.typeInfo(), method))
             }
         }
         if (masks.all { it == 0 }) return Arguments(expressions, null)
-        val defaults = defaultsOf(declaring?.psi) ?: return null
+        val defaults = defaultsOf(declaring?.psi)
+            // ⭐ A LIBRARY callee has no `$default` in this parse, and synthesizing one would be the wrong
+            // trade: the AAPI's annotations are keyed to the REAL signature (`joinToString(Iterable,
+            // CharSequence, …)`), so binding that method with the omitted parameters filled by their zero
+            // value keeps every contract reachable. The mask is dropped with it — it is an argument of
+            // `$default`, and there is no `$default` here.
+            ?: return Arguments(expressions, null)
         val marker = if (callee is KaConstructorSymbol) listOf(runtime.nullConstant()) else listOf()
         return Arguments(expressions + masks.map { runtime.newInt(it) } + marker, defaults)
     }
@@ -1182,7 +1196,14 @@ internal class KotlinBodyConverter(
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
                                acc: MutableList<MethodInfo>) {
         if (!visited.add(type)) return
-        type.methods().filterTo(acc) { it.name() == name && it.parameters().size == arity }
+        // ⚠ A varargs callee is matched the way the Java front end represents one: the arguments stay
+        // WRITTEN OUT, so a call carries more expressions than the method has parameters (hence
+        // MethodInfo.typeOfParameterHandleVarargs). Without this, `listOf("a", "b")` — 2 written against 1
+        // array parameter — found nothing and became a placeholder.
+        type.methods().filterTo(acc) {
+            it.name() == name
+            && (it.parameters().size == arity || (it.isVarargs && arity >= it.parameters().size - 1))
+        }
         type.parentClass()?.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
         type.interfacesImplemented().forEach { iface ->
             iface.typeInfo()?.let { collectMethods(it, name, arity, visited, acc) }
@@ -1655,12 +1676,44 @@ internal class KotlinBodyConverter(
             KtTokens.IDENTIFIER -> expression.operationReference.getReferencedName() // infix function
             else -> null
         } ?: return runtime.newEmptyExpression("k2-unsupported-operator:${expression.operationToken}")
-        val callee = left.parameterizedType().typeInfo()?.let { resolveCallee(it, functionName, listOf(right)) }
-            ?: return runtime.newEmptyExpression("k2-unresolved-operator:$functionName")
+        val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+        left.parameterizedType().typeInfo()?.let { resolveCallee(it, functionName, listOf(right)) }?.let { callee ->
+            return runtime.newMethodCallBuilder()
+                .setObject(left).setObjectIsImplicit(false).setMethodInfo(callee)
+                .setParameterExpressions(listOf(right))
+                .setConcreteReturnType(returnType ?: callee.returnType())
+                .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        }
+        // ⛔ An operator or infix function declared as an EXTENSION is not a member of the left operand's
+        // type, so the lookup above can never find it: `"a" to 1` failed while `"a".to(1)` resolved, the
+        // same call written two ways. It routes to the facade exactly as `extensionCall` routes a written
+        // call, with the left operand as argument 0.
+        // ⚠ Measured on detekt: `to` was the single biggest placeholder kind (347) once `mapOf(…)` started
+        // resolving and stopped swallowing its arguments.
+        extensionOperatorCall(expression, functionName, left, right, returnType)?.let { return it }
+        return runtime.newEmptyExpression("k2-unresolved-operator:$functionName")
+    }
+
+    /**
+     * `a <op> b` where the operator/infix function is a library EXTENSION: `Facade.op(a, b)`.
+     * ⚠ The symbol comes from `resolveToCall` on the binary expression — an operator IS a call — rather
+     * than from `resolveSymbol` on the operation reference, which is a different experimental overload that
+     * this module's opt-in does not cover.
+     */
+    private fun KaSession.extensionOperatorCall(expression: KtBinaryExpression, functionName: String,
+                                                left: Expression, right: Expression,
+                                                returnType: ParameterizedType?): Expression? {
+        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+            as? KaNamedFunctionSymbol ?: return null
+        if (symbol.receiverParameter == null) return null
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val facadeArgs = listOf(left, right)
+        val callee = resolveCallee(facade, functionName, facadeArgs) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(left).setObjectIsImplicit(false).setMethodInfo(callee)
-            .setParameterExpressions(listOf(right))
-            .setConcreteReturnType(expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee)
+            .setParameterExpressions(facadeArgs)
+            .setConcreteReturnType(returnType ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
