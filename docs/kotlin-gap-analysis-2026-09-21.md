@@ -52,8 +52,9 @@ Figures quoted from commit bodies are labelled; they were not re-measured for th
 |---|---|---|
 | 1.1 | **The Gradle plugin dropped Kotlin without a word.** It collects `src/main/kotlin` (`AnalyzerPlugin.java:140-142`) and `dependsOn(compileKotlin)`, then forks an analyzer whose walk is `filter(p -> p.endsWith(".java"))` (`JavaInspectorImpl.java:1637`). Green build, partial analysis, no diagnostic. The Maven plugin has zero Kotlin code; `maddi-run-main` has zero hits for "kotlin". | ✅ **closed** — §7 |
 | 1.2 | **Placeholders were analysis holes with no signal.** 36 emission sites produce `EmptyExpression("k2-…")`; `ExpressionVisitor.java:86` maps it to `EMPTY` — no links, no reads, no modifications. No run reported how many. | ✅ **closed** — §7 |
-| 1.3 | **Two constructs vanish with no placeholder at all.** A `when` arm `!is T` loses both condition and pattern (`KotlinBodyConverter.kt:517,528`); a *local* `val x by lazy {}` disappears entirely, pinned known-wrong in `DelegatedPropertyTest.kt:161-180`. | open |
-| 1.4 | **Unmarked `newEmptyExpression()`.** Besides the 36 marked sites, the converter emits bare empties for a missing operand (e.g. `KotlinBodyConverter.kt:276,305`). These are invisible to the new census by construction. Audit which are legitimately empty and mark the rest. | open (found writing this) |
+| 1.3 | **Two constructs vanished with no placeholder at all.** A `when` arm `!is T` lost both condition and pattern; a *local* `val x by lazy {}` disappears entirely, pinned known-wrong in `DelegatedPropertyTest.kt:161-180`. | ⬤ **half closed** — the `!is` arm is now a negated `InstanceOf` (§7.3); the local delegated property is still dropped |
+| 1.4 | **Unmarked `newEmptyExpression()`.** Besides the 36 marked sites, the converter emitted bare empties where a REQUIRED child was missing — invisible to the census by construction. | ✅ **closed** — §7.3, and the distinction is now written down where it can be read |
+| 1.5 | **The IDE daemon was the fourth Java-only entry point**, skipping `.kt` exactly as the plugins did (`WarmAnalysisService.java:57`). | ✅ **closed** — §7.4, as a reported problem rather than a refusal |
 
 ## 4. Tier 2 — CST model holes a real project hits on day one
 
@@ -132,8 +133,7 @@ in two runners is the drift `PluginOptions`' header was written about. Opt-out a
 so it reaches the forked Gradle worker; with it the run continues and says the analysis is INCOMPLETE,
 without it exit `6` (`EXIT_KOTLIN_SOURCES`, pinned in both `Main` copies with its message).
 
-**Not covered:** the IDE daemon, which constructs `JavaInspectorImpl` directly (`WarmAnalysisService.java:57`)
-and is a fourth entry point.
+(The IDE daemon, the fourth entry point, is §7.4.)
 
 ### 7.2 Every Kotlin run says how much it could not read — `a19bf6fd2`
 
@@ -150,16 +150,43 @@ census that walked nothing reports. `K2_PLACEHOLDER_PREFIX` replaces the three h
 figure is **not** measured — detekt and coil are `@Tag("slow")` and their configurations are generated
 locally (§6). Producing that number is the obvious next run, and it is the one number that sizes Tier 2.
 
+### 7.3 A `!is` arm is a condition, and a missing required child is marked — `e3dbd7b71`
+
+Both were found by *writing* §3, not by a failing test. A `when` arm `!is T` is the switch-entry spelling of
+`o !is T`, which the expression path already converted, so it now becomes the same negated `InstanceOf` over
+the already-converted subject. Red first, quoted from the run with the drop restored:
+`the arm must carry a condition, not nothing ==> expected: <1> but was: <0>`. The positive arm is pinned
+unchanged in the same test.
+
+Nine positions where a **required** child was absent (an assignment's value, if/while/do conditions, a loop
+range, a throw, a destructuring initializer, a `when` subject's initializer, and a value `if`'s condition and
+both branches) now emit a marked `k2-absent-…` with the enclosing node's range.
+
+⚠ The bare empties that remain are deliberate, and the converter now says so: *"there is no expression here"*
+is a fact about well-formed Kotlin — `val x: Int` with no initializer, a `for` variable, a `when` with no
+guard, an `else` arm, `return` from a Unit function — spelled exactly as the Java front end spells it. A
+missing required child is a different claim: it happens only on source that does not parse.
+
+**Measured:** maddi-kotlin-k2 212 tests / 0 failures. No existing fixture produced a `k2-absent-…`, which is
+the expected result — those paths fire on broken source, not on unsupported constructs.
+
+### 7.4 The IDE daemon reports the Kotlin it does not read — `1aec31843`
+
+It assembles an `InputConfiguration` from the editor's source directories and hands it to `JavaInspectorImpl`.
+It does **not** refuse the way the CLI does, deliberately: an editor asking about a mixed project is better
+served by the Java half plus a visible problem than by nothing. `initProblems` already carries "your analysis
+is not what you think it is" to the editor, so the count and the source sets go there, and to the log at ERROR.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
-2. ✅ Count the holes (§7.2) — "maddi analyzes Kotlin *and tells you what it could not read*" is defensible
+2. ✅ Count the holes (§7.2), and close the two silent drops the count could not see (§7.3, §7.4) — "maddi analyzes Kotlin *and tells you what it could not read*" is defensible
    at today's coverage; the unqualified claim is not.
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model, in this order**: annotations → `suspend` → `::`/`::class`/parens/local funs → §3's 1.3
-   and 1.4. The first two are what a real codebase trips over immediately.
+4. **Close the model, in this order**: annotations → `suspend` → `::`/`::class`/parens/local funs → the
+   local delegated property (§3, 1.3). The first two are what a real codebase trips over immediately.
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
