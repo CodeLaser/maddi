@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.K2_PLACEHOLDER_PREFIX
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import io.codelaser.maddi.cst.api.element.Element

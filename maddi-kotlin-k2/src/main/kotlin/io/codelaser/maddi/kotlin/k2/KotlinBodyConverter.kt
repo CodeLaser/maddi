@@ -13,6 +13,7 @@
  */
 
 package io.codelaser.maddi.kotlin.k2
+import io.codelaser.maddi.kotlin.api.K2_PLACEHOLDER_PREFIX
 import io.codelaser.maddi.cst.api.element.CompilationUnit
 import io.codelaser.maddi.cst.api.element.DetailedSources
 import io.codelaser.maddi.cst.api.element.RecordPattern

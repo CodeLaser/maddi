@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.kotlin.k2
+package io.codelaser.maddi.kotlin.api
 
 import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.cst.api.expression.EmptyExpression

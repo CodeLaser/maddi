@@ -28,7 +28,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.kotlin.k2.PlaceholderCensus;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.graph.G;
 import org.slf4j.Logger;
