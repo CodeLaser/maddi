@@ -70,6 +70,19 @@ public class RunMixedPrepAnalyzer {
                           int prepErrors, int immutableTypes, int placeholders) {
     }
 
+    /**
+     * What the CLI can vary, beyond the input configuration. A record rather than more {@code go} overloads:
+     * the mixed runner now serves a command line with the SAME flags as the Java one (see
+     * {@code kotlinmain.Main}), so this list grows with the options the mixed pipeline learns to honour —
+     * and an option it does NOT honour is refused there by name, never quietly dropped.
+     */
+    public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                          boolean warnNearMisses) {
+        public Options(boolean modification, List<String> analysisResultsDirs) {
+            this(modification, analysisResultsDirs, false, false);
+        }
+    }
+
     public Summary go(InputConfiguration inputConfiguration) throws IOException {
         return go(inputConfiguration, false, List.of());
     }
@@ -90,6 +103,12 @@ public class RunMixedPrepAnalyzer {
      */
     public Summary go(InputConfiguration inputConfiguration, boolean modification,
                       List<String> analysisResultsDirs) throws IOException {
+        return go(inputConfiguration, new Options(modification, analysisResultsDirs));
+    }
+
+    public Summary go(InputConfiguration inputConfiguration, Options options) throws IOException {
+        boolean modification = options.modification();
+        List<String> analysisResultsDirs = options.analysisResultsDirs();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);
         Runtime runtime = parsed.getRuntime();
 
@@ -127,7 +146,8 @@ public class RunMixedPrepAnalyzer {
         // less — prep aborted detekt outright at 652 of 1,202 types before this.
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime,
                 new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-        G<Info> callGraph = prepAnalyzer.doPrimaryTypesReturnGraph(primaryTypes);
+        G<Info> callGraph = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(primaryTypes, List.of(),
+                _ -> false, options.parallel()).graph();
         int prepErrors = report("Prep", prepAnalyzer.exceptions());
         List<Info> order = new ComputeAnalysisOrder().go(callGraph);
         LOGGER.info("Prep analysis order has size {}", order.size());
@@ -139,6 +159,7 @@ public class RunMixedPrepAnalyzer {
                     .setMaxIterations(30) // safety net; the loop exits on convergence/certification/plateau
                     .setStopWhenCycleDetectedAndNoImprovements(true)
                     .setFaultTolerant(true) // isolate a crash on one element rather than abort the run
+                    .setWarnNearMisses(options.warnNearMisses())
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(parsed.getJavaInspector(), configuration);
             analyzer.analyze(order, callGraph); // the graph enables worklist narrowing

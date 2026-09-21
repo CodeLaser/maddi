@@ -436,14 +436,72 @@ sites, all in a member that already held one, and **no member newly dirty**. ⭐
 prep** on both corpora — which retires `docs/kotlin-corpora.md` §5.1 (the `variableData` overwrite, 8
 elements on detekt) as well as §5.2, its cause.
 
+### 7.13 One entry point — `maddi-kotlin` is now a superset of `maddi`, not a second tool
+
+§8.3 posed this as an either/or: the Java CLI gains the mixed inspector, or the Kotlin CLI gains the flags it
+lacks. Two measurements decided it.
+
+⚠ **First, the premise was wrong.** §8.3 named `maddi-run-main`. The shipped Java CLI is
+`maddi-run-openjdk` (`applicationName = "maddi"`, `bin/maddi`, `maddi-<version>.zip`); `maddi-run-main`'s
+distribution is not published at all. And that CLI already had `--compile-log`, `--help`, incremental, the
+hints composer and the explicit `--source`/`--classpath` route — the whole list §8.3 said was missing was
+missing from the *Kotlin* side only.
+
+⭐ **Second, the distributions:** `maddi-kotlin-0.9.1.zip` is **85 MB** against `maddi-0.9.1.zip`'s **11 MB**,
+because the K2 "for-ide" jars ride along. Folding Kotlin into `maddi` would make every Java-only user carry
+an 8× bundle to buy a property they do not need. So: **one command line, two bundles.**
+
+`kotlinmain.Main` now builds its command line from `openjdkmain.Main.createOptions()` — the same object, not
+a second list that agrees today — and routes on `DetectKotlinSources`:
+
+- **no `.kt` file** → the same `RunAnalyzer`, so the run *is* `maddi`. Asserted both ways in
+  `TestOneEntryPoint`: same exit code on a clean project **and** on a parse error (agreeing only on success
+  would be agreeing about very little).
+- **Kotlin present** → the mixed pipeline, now also honouring `--parallel` and `--warn-near-misses`.
+
+⛔ An option the mixed pipeline cannot honour is **refused by name** (new exit code 7), never run as a no-op:
+`--analysis-results-dir`, `--incremental-analysis`, `--analysis-steps rewire-tests`, and the hints-compiler
+modes. They all end at the same place — an analysis result that can be written and read back — which is
+§8.6, and a run that wrote an empty result directory would look exactly like one that worked.
+
+⛔⛔ **What `--help` revealed the moment there was one.** Two options shared the short form `-s`
+(`--source` and `--preload-analysis-results-dirs`); commons-cli keys its short map by the letter, so the
+later registration won. Measured: `maddi -s src --analysis-steps prep` → **"Running prep analyzer on 0
+types", exit 0**. A run that analyzed nothing and reported success, on the shipping Java CLI, and `--source`
+was not even listed in the help. Fixed (the hints option loses its short form), with
+`noTwoOptionsShareAShortForm` over the whole assembled option set so the next one cannot repeat it. ⚠ The
+deeper half is still open: **zero source sets is still exit 0 with a WARN.** Refusing it would be right, but
+the build plugins run per module and an aggregator module legitimately has no sources, so that is a separate
+change with its own evidence — filed, not smuggled in here.
+
+⚠ A second family the same look revealed, **not** fixed here: the explicit `--source`/`--classpath`/`--jmod`/
+`--source-packages`/`--source-encoding` options are read on one route only, so given alongside
+`--input-configuration` or `--compile-log` they are accepted and dropped — the shape of bug `--jre` had and
+that cost an Ignite corpus run. They are now **named in a warning** on those two routes; making them apply
+is a separate change.
+
+Also unified: `exitMessage` was a private `switch` in each runner's `Main` that **threw** on a code it did
+not know, so a code added in one runner became an `UnsupportedOperationException` in another at the moment
+it was reporting a failure. Both now delegate to the shared `ExitCode.message`, and each runner's `EXIT_*`
+constants are aliases of it rather than a second copy of the numbers.
+
+⭐ **Measured with the shipped launchers, not the test harness:**
+
+| | `bin/maddi` | `bin/maddi-kotlin` |
+|---|---|---|
+| `--help` | full surface, exit 0 | **same** surface, exit 0 |
+| fernflower (Java only) | `Running prep analyzer on 225 types`, exit 0 | "No Kotlin source file in 2 source set(s); running the Java analyzer" → **byte-identical**, exit 0 |
+| detekt (Kotlin) | refuses (exit 6) | 1,271 Kotlin types, analysis order 15,118, 5,525 unreadable constructs, exit 0 |
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
 2. ✅ Count the holes (§7.2), and close the two silent drops the count could not see (§7.3, §7.4) — "maddi analyzes Kotlin *and tells you what it could not read*" is defensible
    at today's coverage; the unqualified claim is not.
-3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
-   CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
-   no hints composer, no `--help`). Until then the claim is about a second tool.
+3. ✅ **One entry point** (§7.13). `bin/maddi-kotlin` takes the Java CLI's own option surface and routes on
+   whether the project holds a `.kt` file, so it is a strict superset of `bin/maddi` rather than a second
+   tool. Two bundles stay (85 MB vs 11 MB), one command line. What the mixed pipeline cannot honour is
+   refused by name, which points at step 6.
 4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
    (§7.10), extension properties (§7.11), blocks in expression position and `x ?: return` (§7.12). What
    remains, in order: **`try` as a value (stage 2)**

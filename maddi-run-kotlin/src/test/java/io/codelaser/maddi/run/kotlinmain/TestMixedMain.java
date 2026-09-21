@@ -56,7 +56,7 @@ public class TestMixedMain {
         File configFile = tmp.resolve("input-configuration.json").toFile();
         JsonStreaming.objectMapper().writerFor(InputConfigurationImpl.class).writeValue(configFile, config);
 
-        int exit = Main.execute(new String[]{Main.INPUT_CONFIGURATION, configFile.getAbsolutePath()});
+        int exit = Main.execute(new String[]{"--input-configuration", configFile.getAbsolutePath()});
 
         assertEquals(Main.EXIT_OK, exit);
     }

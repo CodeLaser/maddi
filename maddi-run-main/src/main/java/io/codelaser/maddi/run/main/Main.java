@@ -19,6 +19,7 @@ import org.apache.commons.cli.*;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
@@ -36,15 +37,15 @@ import java.util.function.Consumer;
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
-    public static final int EXIT_OK = 0;
-    public static final int EXIT_INTERNAL_EXCEPTION = 1;
-    public static final int EXIT_PARSER_ERROR = 2;
-    public static final int EXIT_INSPECTION_ERROR = 3;
-    public static final int EXIT_IO_EXCEPTION = 4;
-    public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
+    public static final int EXIT_OK = ExitCode.OK;
+    public static final int EXIT_INTERNAL_EXCEPTION = ExitCode.INTERNAL_EXCEPTION;
+    public static final int EXIT_PARSER_ERROR = ExitCode.PARSER_ERROR;
+    public static final int EXIT_INSPECTION_ERROR = ExitCode.INSPECTION_ERROR;
+    public static final int EXIT_IO_EXCEPTION = ExitCode.IO_EXCEPTION;
+    public static final int EXIT_ANALYZER_ERROR = ExitCode.ANALYZER_ERROR; // analyzer found errors
     // the run was handed Kotlin sources, which this analyzer reads as nothing at all; refusing beats reporting
     // success over a tree it only partly read (DetectKotlinSources)
-    public static final int EXIT_KOTLIN_SOURCES = 6;
+    public static final int EXIT_KOTLIN_SOURCES = ExitCode.KOTLIN_SOURCES;
 
     public static final String HELP = "help";
 
@@ -91,17 +92,9 @@ public class Main {
 
     public static final String COMMA = ",";
 
+    /** ⚠ One table, in {@link ExitCode}; see {@code openjdkmain.Main#exitMessage} for why it is not a copy. */
     public static String exitMessage(int exitValue) {
-        return switch (exitValue) {
-            case EXIT_OK -> "OK";
-            case EXIT_INTERNAL_EXCEPTION -> "Internal exception";
-            case EXIT_PARSER_ERROR -> "Parser error(s)";
-            case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
-            case EXIT_IO_EXCEPTION -> "IO exception";
-            case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
-            case EXIT_KOTLIN_SOURCES -> "Kotlin source files present, which this analyzer cannot read";
-            default -> throw new UnsupportedOperationException("don't know value " + exitValue);
-        };
+        return ExitCode.message(exitValue);
     }
 
     public static void main(String[] args) {

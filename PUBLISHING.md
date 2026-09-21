@@ -123,11 +123,15 @@ launcher). Publish these as **GitHub Release** assets:
 * `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-run-kotlin:distZip` →
   `maddi-kotlin-<version>.zip`, launcher `bin/maddi-kotlin`. **This is how Kotlin support ships**: the K2
   "for-ide" jars ride along in `lib/` (verified: the 7 `*-for-ide` jars + `kotlin-compiler` are bundled).
+  Since 2026-09-21 it takes the **same option surface** as `maddi` — literally
+  `openjdkmain.Main.createOptions()`, asserted by `TestOneEntryPoint` — and routes on whether the project
+  holds a `.kt` file, so it is a strict superset of `maddi` rather than a second tool. The two zips stay
+  separate because the Kotlin one is 85 MB against 11 MB, which is a bad default for a Java-only user.
 
 **DONE**: both runners set `applicationName` so the launcher/archive names are `maddi` / `maddi-kotlin`
 (not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds both `distZip`s and
 `gh release create`/`upload`s the two zips). Both launchers are smoke-tested self-contained (`maddi
---help` exits 0; `maddi-kotlin` loads and reports usage). *Remaining:* run `release-cli.sh` for a tag —
+--help` and `maddi-kotlin --help` both exit 0 and print the full option surface). *Remaining:* run `release-cli.sh` for a tag —
 needs an authenticated `gh` and is an outward-facing publish, so run it deliberately.
 
 Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-inspection-*`,
