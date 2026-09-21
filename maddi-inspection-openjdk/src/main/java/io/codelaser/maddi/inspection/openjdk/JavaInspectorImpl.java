@@ -1909,7 +1909,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     /** The URI {@link InMemoryJavaFileObject} gives an in-memory source, so the keys match what a scan recorded. */
     private static URI inMemoryUri(SourceSet sourceSet, String fqn) {
-        return URI.create("mem:///" + sourceSet.name() + "/" + fqn.replace('.', '/') + ".java");
+        return InMemoryJavaFileObject.uri(sourceSet.name(), fqn);
     }
 
     /** The current text of a source file: from the supplied map for in-memory sources, from disk otherwise. */
