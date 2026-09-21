@@ -226,12 +226,24 @@ public class ParameterizedTypePrinter {
                     .add(parameterizedType.typeParameter().print(qualification, printTypeBounds))
                     .add(SpaceEnum.ONE);
         }
-        if (parameterizedType.wildcard() != null) {
-            assert parameterizedType.wildcard().isExtendsIntersection();
+        Wildcard wildcard = parameterizedType.wildcard();
+        if (wildcard != null && !wildcard.isUnbound()) {
+            /*
+            ⛔⛔ THIS USED TO BE `assert wildcard.isExtendsIntersection();`, AND IT TOOK A WHOLE REFACTORING
+            DOWN. Cassandra design G1, 2026-09-21: a read-only extractInterfaceSuggestion on db.Keyspace died
+            with "AssertionError with no message". The caller is not a rendering at all -- CommonAnalyze's
+            getOrCreateReplaceCandidate uses a type's toString() AS A MAP KEY -- and an Error walks past every
+            catch(RuntimeException) between here and the response, so the run reports nothing actionable.
+            ⭐ THE SHAPE IS ONE THIS MODEL ITSELF CREATES: ParameterizedTypeImpl puts a plain EXTENDS wildcard
+            on a bound that is a type parameter (documented there); when that bound is an INTERSECTION the
+            result is exactly the state the assert denied. EXTENDS_INTERSECTION describes what JAVA can write;
+            it is not an invariant of what the model can hold.
+            ⇒ Print what we are given, for every wildcard kind. A printer's job is to have an answer.
+             */
             outputBuilder
                     .add(new TextImpl("?"))
                     .add(SpaceEnum.ONE)
-                    .add(KeywordImpl.EXTENDS)
+                    .add(wildcard.isSuper() ? KeywordImpl.SUPER : KeywordImpl.EXTENDS)
                     .add(SpaceEnum.ONE);
         }
         outputBuilder.add(parameterizedType.parameters().stream()
