@@ -376,7 +376,7 @@ from reading a name rather than running it — the third this campaign, and the 
 Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2,222 → **2,203**; coil 411 →
 **395**. All 69 new sites are in a member that already held one.
 
-### 7.12 Statements in expression position — half of it — `1d13fa423`
+### 7.12 Statements in expression position — `1d13fa423`, `b447bdddf`, this commit
 
 The family §7.5b named as one item (`KtBlockExpression` 287 + `KtReturnExpression` 270 + throw/try/continue)
 splits on measurement into two problems with very different prices.
@@ -409,10 +409,32 @@ detekt `KtReturnExpression` **269 → 64** (−76%), `KtThrowExpression` 10 → 
 1,271 types — the index scheme confirmed by a run, not by reasoning, plus a prepwork-level unit test that
 asserts prep executes over a lowered method.
 
-**`try` as a value — stage 2, not done.** `val v = try { … } catch { … }` needs the declaration split from
-the assignment (`T v; try { v = X } catch { v = Y }`), which generalises the existing
-`convertReturningBlock` into an assigning one and also retires the 17 multi-statement blocks and
-`docs/kotlin-corpora.md` §5.2. Six sites on detekt: worth doing for the open item, not for the count.
+**`try` as a value — done, stage 2.** A `try` in a value position becomes a `try` STATEMENT whose branches
+carry the value out: `return` it where the try is returned or is the expression body of a function, assign
+it to the declared local where it is an initializer —
+
+    val v = try { X } catch (e: E) { Y }    ->    T v;
+                                                   try { v = X } catch (e: E) { v = Y }
+
+the declaration split off ahead of the statement and indexed `n.0`/`n.1` as in stage 1. The same lowering
+serves an `if` whose branch is a block of several statements, which is what the other half of §7.12 left
+behind. A `finally` is never assigned: it does not yield the try's value.
+
+⛔⛔ **The measurement that mattered, and the shape of the mistake.** Written this way — a lowering applied
+where statements are converted — it removed **zero** of detekt's four remaining try sites. A statement list
+lives in **four** places in the converter (a block body, a lambda body, and the branch blocks of a
+value-yielding `try`/`if`), and the first cut reached only the first: three of the four sites are
+expression-bodied functions (`fun f(): T = try { … } catch { … }`, by far the commonest shape) and the
+fourth is a `val` inside a lambda. The unit tests were green, the total moved by +1, and only the per-kind
+diff of the dump said so. The reach is now shared (`loweredStatements`), which is also what moved the STAGE
+ONE numbers: `KtReturnExpression` **64 → 17**, because 47 of the elvis sites "refused" in stage 1 were not
+refused at all — they were in a list the lowering never visited.
+
+detekt `k2-unsupported-expr:KtTryExpression` **4 → 0**, `k2-block-not-a-single-expression` 17 → 11, total
+5,565 → **5,525**, types holding one 791 (unchanged), members 2,163 → **2,160**; coil 381 → **379**. 17 new
+sites, all in a member that already held one, and **no member newly dirty**. ⭐ **0 elements isolated by
+prep** on both corpora — which retires `docs/kotlin-corpora.md` §5.1 (the `variableData` overwrite, 8
+elements on detekt) as well as §5.2, its cause.
 
 ## 8. The ordered path to the claim
 

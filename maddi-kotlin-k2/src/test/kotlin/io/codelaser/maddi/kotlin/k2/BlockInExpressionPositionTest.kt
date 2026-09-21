@@ -24,9 +24,9 @@ import org.junit.jupiter.api.Test
  * converter's expression dispatch had no arm for a block — so it produced two placeholders per if. At 287
  * sites it was the biggest construct kind on detekt.
  *
- * ⚠ A block of SEVERAL statements is a different problem and still keeps a placeholder: representing it as
- * an expression needs a temporary and a statement context — the lowering `convertTry(returning = true)`
- * performs — which the expression path does not have. The placeholder now says which case it is.
+ * ⚠ A block of SEVERAL statements is a different problem: representing it as an expression needs a
+ * temporary and a statement context. Where the statement supplies both — a local declaration — it is now
+ * lowered (see `StatementAsValueTest`); anywhere else it still keeps a placeholder that NAMES the shape.
  */
 class BlockInExpressionPositionTest : KotlinScanTestBase() {
 
@@ -43,12 +43,17 @@ class BlockInExpressionPositionTest : KotlinScanTestBase() {
         assertTrue(initializer is InlineConditional, "expected `c ? 1 : 2`, got ${initializer.javaClass}")
     }
 
-    /** ⭐ The control: a block that is not one expression keeps a placeholder, and one that NAMES the shape. */
+    /**
+     * ⭐ The control: a multi-statement block that is NOT a local's initializer — here an argument — has no
+     * statement context to hoist a temporary into, so it keeps a placeholder, and one that names the shape.
+     * (As the initializer of a `val` it is lowered instead: `StatementAsValueTest`.)
+     */
     @Test
-    fun aMultiStatementBlockKeepsANamedPlaceholder() {
+    fun aMultiStatementBlockOutsideADeclarationKeepsANamedPlaceholder() {
         val types = KotlinScan(runtime, sourceSet).parse("P.kt", """
             class P {
-                fun f(c: Boolean): Int { val v = if (c) { val a = 1; a + 1 } else { 2 }; return v }
+                fun g(i: Int): Int = i
+                fun f(c: Boolean): Int = g(if (c) { val a = 1; a + 1 } else { 2 })
             }
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)
