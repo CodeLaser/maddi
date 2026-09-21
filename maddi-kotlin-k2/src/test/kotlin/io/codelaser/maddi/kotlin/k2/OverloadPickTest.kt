@@ -15,6 +15,7 @@ package io.codelaser.maddi.kotlin.k2
 
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -45,8 +46,13 @@ class OverloadPickTest : KotlinScanTestBase() {
             }
             """, "f", 1)
         assertEquals(1, callees.size, callees.toString())
-        assertTrue(callees.single().contains("CharSequence"),
-            "a String argument cannot be a char; got ${callees.single()}")
+        // ⚠ The pinned property is that a String argument never reaches a `char` parameter — NOT which of
+        // the acceptable overloads wins. This asserted `CharSequence` until the library-arity fix landed,
+        // after which Kotlin's own `StringsKt.replace(String, String, String, ignoreCase)` extension
+        // resolves, which is what kotlinc binds. Both are right; `replace(char, char)` is the defect.
+        assertFalse(callees.single().contains("char,char"), callees.single())
+        assertTrue(callees.single().contains("CharSequence") || callees.single().contains("StringsKt"),
+            "expected an overload a String can be passed to; got ${callees.single()}")
     }
 
     /** The exact-match tiers still win: an argument of the parameter's own type picks that overload. */

@@ -28,9 +28,11 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
 
     @Test
     fun anUnreadConstructIsCounted() {
+        // ⚠ `String::class` rather than `s.length`: the latter stopped being a hole when `bootstrapString`
+        // learned to load String's properties. A census test needs a construct that is actually missing.
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(s: String) = s.length + 1
+            fun use(s: String) = String::class.hashCode() + 1
             """.trimIndent() + "\n")
         val census = PlaceholderCensus.of(types)
         assertEquals(1, census.total, census.byKind.toString())

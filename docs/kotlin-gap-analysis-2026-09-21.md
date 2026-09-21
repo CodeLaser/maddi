@@ -270,21 +270,17 @@ identity are exactly the failing set:
 | **omitted defaulted parameters** | `joinToString(",")` is `joinToString/7` on the JVM | writing every defaulted argument makes the identical call resolve — proven A/B |
 | **`vararg`** | `listOf("a","b")`, `split(",",";")` | N written arguments against 1 array parameter. `listOf("a")` "works" only because it binds the stdlib's single-element overload |
 | **infix/operator library extensions** | `"a" to 1` fails, `"a".to(1)` resolves | `operatorFunctionCall` (`:1623`) looks only at members of the left operand's type and never takes the extension-facade route |
-| **the predefined `String`** | `s.length` | `bootstrapString` (`KotlinTypeMapper.kt:597`) loads named functions only — 83 methods, **0 fields** — so Kotlin's `length` PROPERTY is dropped. `java.util.List` goes through `loadLibraryMembers`, which does convert properties, which is why `x.size` works |
-| **extension properties** | `s.lastIndex` | `convertQualified`'s name-reference branch has no facade route at all |
+| **the predefined `String`** | `s.length` | ⚠ **a FIXTURE artefact, not a corpus gap — §7.10.** `bootstrapString` runs only when nothing has inspected `java.lang.String`, i.e. a Kotlin-only parse with no JDK; both corpora show ZERO `k2-unresolved-access:length` |
+| **extension properties** | `s.lastIndex`, `c.java`, `d.symbol` | ✅ fixed, §7.11 — and it was the biggest access family, not the footnote this row implies |
 
 ⚠ **The facade/part-class lead was a red herring** — `filter` and `joinToString` live in the SAME part class
 (`CollectionsKt___CollectionsKt`) and it is found correctly. So is `deepen`. The two documents that would
 have sent someone there (`kotlin-stdlib-extension-facades.md`, and this section's own first draft) are wrong
 about it.
 
-**What a fix has to do**, and it is not small: for a library callee, stop keying on written arity and use the
-K2 symbol's arity, with the symbol saying which parameters were defaulted and which is the vararg, then
-synthesize the missing arguments — zero-values plus the `$default` mask, as `callArguments` already does for
-SOURCE callees (`:1127` currently bails when the declaration has no PSI, which is every library). ⚠ Two
-risks worth stating before anyone starts: a `$default`-shaped callee is a different `MethodInfo` from the one
-the AAPI's annotations are keyed to, and a synthesized vararg array is an allocation the source never wrote,
-which the link engine will treat as a real object.
+**Fixed — §7.9.** The two risks named here when it was still a plan were both avoidable: binding the REAL
+method rather than a synthesized `$default` keeps the AAPI's contracts reachable, and a varargs call needs no
+synthesized array because maddi already represents one with the arguments written out.
 
 ### 7.8 ⛔ The failure the census cannot count — `2ebee1eb7`
 
@@ -305,6 +301,98 @@ predefined `String` is bootstrapped without its hierarchy (the same defect as th
 an assignability tier leaves `replace(char,char)` in place. What is still guessed is now counted
 (`KotlinScan.ambiguousBindings`) — the blind spot beside the census.
 
+### 7.9 ⭐ The arity fix — `0489230af`
+
+`collectMethods` keyed on `parameters().size == <arguments written>`, so the two Kotlin features that break
+that identity were exactly the failing set. Four changes:
+
+1. `callArguments` asks the **K2 symbol** whether a parameter is optional (`hasDefaultValue`) rather than
+   asking its PSI for a default value — a library declaration has no PSI, which is why every library call
+   with an omitted default bailed out.
+2. A library callee binds the **real** method with omitted parameters filled by their zero value, not a
+   synthesized `$default`: the AAPI's contracts are keyed to the real signature. A source callee is
+   unchanged.
+3. A varargs candidate is matched as the Java front end represents one — arguments written out — and the
+   overload tiers index by ARGUMENT through `typeOfParameterHandleVarargs`.
+4. An operator/infix **extension** now routes through its facade. `"a" to 1` failed while `"a".to(1)`
+   resolved — the same call written two ways — and it was worth 347 sites once `mapOf(…)` stopped
+   swallowing its own arguments.
+
+⚠ **The total barely moves, and the accounting is the result.** detekt 5,913 → 5,945; coil 429 → 411.
+
+| family (detekt) | before | after | |
+|---|---|---|---|
+| `k2-unresolved-call` | 2,793 | 2,620 | **−173** |
+| `k2-unresolved-operator` | 106 | 10 | **−96** |
+| `k2-unresolved-ref` | 818 | 961 | +143 *surfaced* |
+| `k2-ctor-unresolved` | 74 | 142 | +68 *surfaced* |
+| `k2-unresolved-access` | 1,315 | 1,373 | +58 *surfaced* |
+
+⭐ **"Surfaced" is measured, not asserted**: of the 366 new placeholder sites, **366 are in a member that
+already held one, and zero in a member that was clean before.** No member that converted fully before
+converts worse now. The metric that moves is coverage: types holding a hole 846 → **809**, members 2,341 →
+**2,222** (detekt); members 211 → **203** (coil).
+
+⚠ Still open and now visible: `s.split(",")` binds `java.lang.String.split(String)` (returning `String[]`)
+while the expression type is `List<String>` — Kotlin's extension puts its vararg in the MIDDLE with
+defaults after it, which this change does not synthesize.
+
+### 7.10 ⚠ `bootstrapString`: statics yes, properties no — `e1eae5862`
+
+`String.format`/`valueOf`/`join` were genuinely missing (static members live in their own scope, which the
+hand-written bootstrap never read). But turning String's PROPERTIES into fields — which `loadLibraryMembers`
+does for every other library type — was **wrong, and two measurements said so within the minute**: the
+corpora show zero `k2-unresolved-access:length`, because every real run loads the JDK where `length` is a
+METHOD; and a ported prepwork test went red with `java.lang.String.length#s` in a `VariableData` its Java
+original does not have. The change would have forced a ported test's oracle apart from Java's for no gain on
+any real run.
+
+⚠ Two placeholder tests had used `s.length` as their "construct the front end cannot read" and were
+re-fixtured on `String::class`. A test that pins a mechanism must not depend on a hole that only a
+fixture-only path has.
+
+### 7.11 ⭐ Extension properties — `b1b58d9ea`, and the access family drops 23%
+
+An extension property is not a member of the receiver's type, so neither the field lookup nor the accessor
+lookup could find one — `o.doubled` failed for a property declared in the same file. It compiles to a static
+getter on a facade, like an extension function, and now resolves the same way; the library facade loader,
+which was built from a package's FUNCTIONS, now carries property getters too.
+
+detekt's `k2-unresolved-access` family: **1,373 → 1,054**.
+
+| kind | before | after |
+|---|---|---|
+| `symbol` | 210 | **38** |
+| `java` | 58 | **0** |
+| `mainReference` | 19 | **0** |
+| `containingClassOrObject` | 14 | **0** |
+| `javaClass` | 9 | **0** |
+
+⛔ **`symbol` at 210 was the corpus's biggest access kind, and §7.7 filed it as a KaSession MEMBER extension
+needing an implicit-receiver route.** It is a plain top-level extension property. Another conclusion drawn
+from reading a name rather than running it — the third this campaign, and the pattern is now unmistakable:
+**every time the evidence was a name, it was wrong; every time it was a run, it held.**
+
+Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2,222 → **2,203**; coil 411 →
+**395**. All 69 new sites are in a member that already held one.
+
+### 7.12 Statements in expression position — half of it — `1d13fa423`
+
+The family §7.5b named as one item (`KtBlockExpression` 287 + `KtReturnExpression` 270 + throw/try/continue)
+splits on measurement into two problems with very different prices.
+
+**Blocks — done.** `val v = if (c) { a() } else { b() }` is one expression to Kotlin and two blocks to the
+PSI, so every such `if` produced two placeholders. A block whose single statement is an expression IS that
+expression. detekt `KtBlockExpression` **306 → 0**, with 17 left in a newly named
+`k2-block-not-a-single-expression` — **94% of them were a single-expression branch.** Totals 5,914 → 5,769;
+coil 395 → 383.
+
+**`return`/`throw`/`try` in expression position — not done, and the reason is structural.** `s ?: return 0`
+and `val v = try { … } catch { … }` need a temporary and a statement context: the value has to be assigned
+in a lowered if/try statement, which is what `convertTry(returning = true)` already does one level up. The
+expression path cannot do it, so this needs the statement converter to recognise the idiom — roughly 280
+sites on detekt, and the last large construct family.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -313,11 +401,9 @@ an assignability tier leaves `replace(char,char)` in place. What is still guesse
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model — reordered twice, and §7.7 says exactly where to start.** 81% (detekt) / 74% (coil)
-   of holes are a symbol K2 resolved that the CST could not, and the cause is arity: **library callees are
-   matched on the number of arguments the source writes**, so every call omitting a default and every
-   vararg call misses. Fix that first (§7.7 names the mechanism and the two risks); then the infix/operator
-   extension route, then `bootstrapString`'s missing properties, then **statements in expression position**
+4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
+   (§7.10), extension properties (§7.11), blocks in expression position (§7.12). What remains, in order:
+   **`return`/`throw`/`try` in expression position**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
