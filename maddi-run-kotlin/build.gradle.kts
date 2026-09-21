@@ -66,6 +66,10 @@ tasks.withType<Test> {
     // RunMixedPrepAnalyzer.writeVerdicts. Unset -> nothing is written.
     System.getProperty("maddi.verdictDump")?.let { systemProperty("maddi.verdictDump", it) }
     System.getenv("MADDI_VERDICT_DUMP")?.let { systemProperty("maddi.verdictDump", it) }
+    // the placeholder worklist: same forwarding, and for the same reason -- a -D on the Gradle JVM reaches
+    // the test fork only if it is named here, and a dump that silently writes nothing looks like a clean run
+    System.getProperty("maddi.placeholderDump")?.let { systemProperty("maddi.placeholderDump", it) }
+    System.getenv("MADDI_PLACEHOLDER_DUMP")?.let { systemProperty("maddi.placeholderDump", it) }
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
 

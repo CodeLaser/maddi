@@ -51,6 +51,9 @@ const val K2_PLACEHOLDER_PREFIX: String = "k2-"
  * @param members        methods, constructors and field initialisers holding at least one
  * @param typesVisited   types walked, nested types included
  * @param membersVisited methods, constructors and fields walked
+ * @param sites          one entry per placeholder: its kind, the member holding it, and where. A count
+ *                       names a problem; only a site makes it a worklist -- the corpus's biggest kind was
+ *                       one nobody guessed from the name alone
  */
 data class PlaceholderCensus(
     val total: Int,
@@ -58,8 +61,22 @@ data class PlaceholderCensus(
     val types: Int,
     val members: Int,
     val typesVisited: Int,
-    val membersVisited: Int
+    val membersVisited: Int,
+    val sites: List<Site> = listOf()
 ) {
+    /**
+     * Where one placeholder is. [owner] is the member whose body holds it. Line and position are the range
+     * of the code it stands for; 0 when the front end had no range to give.
+     */
+    data class Site(val kind: String, val owner: String, val line: Int, val pos: Int) {
+        override fun toString(): String = kind + "\t" + owner + "\t" + line + ":" + pos
+    }
+
+    /** The sites as text, kind-major then owner, for `-Dmaddi.placeholderDump`. */
+    fun dumpLines(): List<String> = sites
+        .sortedWith(compareBy({ it.kind }, { it.owner }, { it.line }))
+        .map { it.toString() }
+
     /** One log line: the count, its denominators, and the markers that dominate it. */
     @JvmOverloads
     fun report(topKinds: Int = 8): String {
@@ -84,6 +101,8 @@ data class PlaceholderCensus(
         private class Walk {
             private val seen = IdentityHashMap<Any, Boolean>()
             private val byKind = HashMap<String, Int>()
+            private val sites = ArrayList<Site>()
+            private var owner: String = "?"
             private var total = 0
             private var typesWith = 0
             private var membersWith = 0
@@ -91,7 +110,7 @@ data class PlaceholderCensus(
             private var membersVisited = 0
 
             fun result() = PlaceholderCensus(total, byKind.toMap(), typesWith, membersWith,
-                typesVisited, membersVisited)
+                typesVisited, membersVisited, sites.toList())
 
             fun walkType(typeInfo: TypeInfo) {
                 if (seen.put(typeInfo, true) != null) return
@@ -107,6 +126,7 @@ data class PlaceholderCensus(
                 if (seen.put(methodInfo, true) != null) return
                 ++membersVisited
                 val before = total
+                owner = methodInfo.fullyQualifiedName()
                 methodInfo.methodBody()?.visit { count(it) }
                 if (total > before) ++membersWith
             }
@@ -115,6 +135,7 @@ data class PlaceholderCensus(
                 if (seen.put(fieldInfo, true) != null) return
                 ++membersVisited
                 val before = total
+                owner = fieldInfo.fullyQualifiedName()
                 fieldInfo.initializer()?.visit { count(it) }
                 if (total > before) ++membersWith
             }
@@ -126,6 +147,8 @@ data class PlaceholderCensus(
                     if (msg != null && msg.startsWith(K2_PLACEHOLDER_PREFIX)) {
                         ++total
                         byKind.merge(msg, 1) { a, b -> a + b }
+                        val source = element.source()
+                        sites.add(Site(msg, owner, source?.beginLine() ?: 0, source?.beginPos() ?: 0))
                     }
                 }
                 return true

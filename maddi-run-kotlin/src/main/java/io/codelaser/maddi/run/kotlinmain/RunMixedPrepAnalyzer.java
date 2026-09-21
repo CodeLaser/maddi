@@ -108,6 +108,7 @@ public class RunMixedPrepAnalyzer {
         } else {
             LOGGER.info("{}", placeholderCensus.report());
         }
+        writePlaceholderDump(placeholderCensus);
 
         // AFTER the parse, as in run-openjdk's RunAnalyzer: only by now is the compiled-types manager
         // populated, and loading earlier resolves none of the hint types. The source set of request is a
@@ -149,6 +150,22 @@ public class RunMixedPrepAnalyzer {
         }
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
                 primaryTypes.size(), order.size(), prepErrors, immutableTypes, placeholderCensus.getTotal());
+    }
+
+    /**
+     * Every placeholder as {@code <kind> <owner> <line>:<pos>}, to the file named by
+     * {@code -Dmaddi.placeholderDump} (absent: no file, no cost). ⭐ The count says how big the front end's
+     * blind spot is; only this says WHERE, and the two questions have different answers — detekt's biggest
+     * kind is {@code k2-unresolved-call:add}, which a four-line fixture of `mutableListOf().add(...)`
+     * converts perfectly. A worklist needs the sites.
+     */
+    private static void writePlaceholderDump(PlaceholderCensus census) throws IOException {
+        String target = System.getProperty("maddi.placeholderDump");
+        if (target == null || target.isBlank()) return;
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, census.dumpLines());
+        LOGGER.info("Wrote {} placeholder site(s) to {}", census.getSites().size(), path);
     }
 
     /**
