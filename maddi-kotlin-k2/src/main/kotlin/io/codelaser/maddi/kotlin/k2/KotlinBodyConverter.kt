@@ -91,6 +91,7 @@ import org.jetbrains.kotlin.psi.KtContinueExpression
 import org.jetbrains.kotlin.psi.KtDoWhileExpression
 import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
@@ -723,6 +724,16 @@ internal class KotlinBodyConverter(
             // the same thing javac's parser does with a JCParens.
             is KtParenthesizedExpression -> expression.expression?.let { convertExpression(it, method, locals) }
                 ?: placeholder("k2-absent-parenthesized", expression)
+            // ⛔ A BLOCK IN EXPRESSION POSITION. `val v = if (c) { a() } else { b() }` is one expression to
+            // Kotlin and two blocks to the PSI, so it produced TWO placeholders — 287 of detekt's, the
+            // biggest construct kind, for branches that are a single expression each.
+            // ⚠ A block of several statements is a different problem and keeps a placeholder, now named for
+            // what it is: representing it needs a temporary and a statement context, which is the same
+            // lowering `convertTry(returning = true)` does and is not available here.
+            is KtBlockExpression -> expression.statements.singleOrNull()
+                ?.let { single -> (single as? KtExpression)?.takeIf { single !is KtDeclaration } }
+                ?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-block-not-a-single-expression", expression)
             is KtBinaryExpression -> convertBinary(expression, method, locals)
             is KtPostfixExpression -> convertUnary(expression.baseExpression, expression.operationToken, false, method, locals)
             is KtPrefixExpression -> convertUnary(expression.baseExpression, expression.operationToken, true, method, locals)
