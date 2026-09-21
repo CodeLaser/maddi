@@ -187,19 +187,48 @@ is not what you think it is" to the editor, so the count and the source sets go 
 honest size of the front end's coverage gap, and it is the first time it has been a number rather than an
 impression. (Both figures are AFTER §7.6; before it, detekt was 6,057 and coil 437.)
 
-What the top kinds say, and it is not what §4 predicted:
+The kinds it reports, detekt, largest first: `k2-unresolved-call:add` 546, `KtParenthesizedExpression` 349
+(now fixed, §7.6), `k2-unresolved-call:resolveToCall` 289, `KtBlockExpression` 270, `KtReturnExpression` 266,
+`k2-unresolved-access:symbol` 176, `k2-unresolved-call:configure` 107, `:getByName` 107 — and ~1,050 more
+kinds behind them.
 
-| kind | detekt | reading |
-|---|---|---|
-| `k2-unresolved-call:add` | 546 | ⛔ **the biggest single kind is collection mutation.** §5's line that read-only-vs-mutable collections are "measured small" was measured on IMMUTABILITY VERDICTS (0.4%); on BODY CONVERSION the same collapse is the number-one hole. Two different questions, and the doc had only the first. |
-| `KtParenthesizedExpression` | 349 | not a language feature at all — §7.6 |
-| `k2-unresolved-call:resolveToCall`, `:configure`, `:getByName` | 289 / 107 / 107 | calls into libraries (the Analysis API, the Gradle DSL) that resolve in K2 but not in the CST |
-| `KtBlockExpression`, `KtReturnExpression` | 270 / 266 | a block or a `return` in *expression* position |
+⛔ **My first reading of that kind table was WRONG, and the correction is the more useful half.** The biggest
+kind, `k2-unresolved-call:add` at 546, was read here as collection mutation, and §5's "read-only collections
+are measured small" was retracted on that basis. It is not collection mutation. **759 of detekt's 5,913
+placeholders (13%) are in GENERATED Gradle Kotlin-DSL accessors** — `gradle.kotlin.dsl.accessors._<hash>.…`,
+which the compile-log route picks up as source — and their `add` is `DependencyHandler.add`, a library
+member. §5's original 0.4% figure stands; this document's retraction of it does not. The warning sign was
+there before the sites were: a four-line fixture of `mutableListOf().add(...)` converts perfectly, so the
+name could not have meant what it seemed to.
 
-⚠ None of the constructs §4 names from reading — `suspend`, `::foo`, `Foo::class` — is anywhere near the
-top. `KtClassLiteralExpression` is 9 on coil and does not make detekt's list. **The model holes found by
-reading the converter are real but rare; the holes that dominate a real corpus are unresolved CALLS.** Any
-plan that spends its first week on `suspend` is optimising the wrong number.
+### 7.5b What the sites actually say
+
+detekt's own code, generated accessors excluded — **5,154 placeholders**, by family:
+
+| family | count | share | what it is |
+|---|---|---|---|
+| `k2-unresolved-call` | 2,034 | | a call K2 resolved that the CST could not |
+| `k2-unresolved-access` | 1,315 | | same, for a property/field access |
+| `k2-unresolved-ref` | 818 | | same, for a bare name |
+| **— those three together** | **4,167** | **81%** | **a symbol K2 knows and the CST does not** |
+| `k2-unsupported-expr` | 701 | 14% | a construct the converter does not handle |
+| everything else | 286 | 5% | operators, constructors, destructuring, delegates |
+
+⭐ **Four in five holes are symbol resolution, not language coverage** — and the names say where:
+`resolveToCall` (289), `symbol` (207), `classId` (79), `getArgumentExpression` (77), `docComment` (62),
+`expressionType` (49), `asString` (44), `listOf` (52). Those are the Kotlin Analysis API, PSI and the
+stdlib: **members of LIBRARY types**. That is the M5c remainder `kotlin-parser-plan.md` names — "a type
+loaded hierarchy-only won't gain members if later referenced directly" — and nothing in §4, which was
+assembled by reading the converter, ranked it at all.
+
+The genuine construct gaps are the 701, and they are led by `KtBlockExpression` (270) and
+`KtReturnExpression` (266) — a block or a `return` in *expression* position — with
+`KtCallableReferenceExpression` (`::foo`) third at 88. `suspend`, `Foo::class` and the missing annotations
+do not register on this corpus at all.
+
+⚠ detekt is a static analyzer built on the Kotlin compiler, so its library-call profile is not every
+project's. coil's 429 would have to be split the same way before either is called typical — and the
+generated-accessor share is a property of the compile-log route, not of the project.
 
 ### 7.6 The census pays for itself on day one — `176d67d48`, `edde9dc63`
 
@@ -225,12 +254,14 @@ way out, so it bounds the stack and not the traversal).
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model — and §7.5 REORDERS this rung.** The corpus says the dominant hole is unresolved
-   CALLS (`add` 546, `resolveToCall` 289, `configure`/`getByName` 107 each), not the constructs found by
-   reading. So: collection-call resolution (the read-only/mutable collapse, which §5 under-rated because it
-   was measured on verdicts rather than on bodies) → block/`return` in expression position → library-call
-   resolution → then annotations and `suspend`, which a real corpus meets far less often than the
-   converter's source suggests → `::`/`::class` → the local delegated property (§3, 1.3).
+4. **Close the model — and §7.5b REORDERS this rung, twice.** 81% of the holes in detekt's own code are a
+   symbol K2 resolved that the CST could not, overwhelmingly a member of a LIBRARY type: that is the M5c
+   remainder, and it is worth more than every construct in §4 put together. So: **library member resolution
+   (deepen a type when it is referenced directly, not only when it is first met)** → block/`return` in
+   expression position (536) → callable references (88) → then annotations and `suspend`, which this corpus
+   never reaches → the local delegated property (§3, 1.3).
+   ⚠ Before acting on this order, split coil's 429 the same way: one corpus that is itself built on the
+   Kotlin compiler is not a sample.
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
