@@ -278,13 +278,9 @@ identity are exactly the failing set:
 have sent someone there (`kotlin-stdlib-extension-facades.md`, and this section's own first draft) are wrong
 about it.
 
-**What a fix has to do**, and it is not small: for a library callee, stop keying on written arity and use the
-K2 symbol's arity, with the symbol saying which parameters were defaulted and which is the vararg, then
-synthesize the missing arguments — zero-values plus the `$default` mask, as `callArguments` already does for
-SOURCE callees (`:1127` currently bails when the declaration has no PSI, which is every library). ⚠ Two
-risks worth stating before anyone starts: a `$default`-shaped callee is a different `MethodInfo` from the one
-the AAPI's annotations are keyed to, and a synthesized vararg array is an allocation the source never wrote,
-which the link engine will treat as a real object.
+**Fixed — §7.9.** The two risks named here when it was still a plan were both avoidable: binding the REAL
+method rather than a synthesized `$default` keeps the AAPI's contracts reachable, and a varargs call needs no
+synthesized array because maddi already represents one with the arguments written out.
 
 ### 7.8 ⛔ The failure the census cannot count — `2ebee1eb7`
 
@@ -305,6 +301,42 @@ predefined `String` is bootstrapped without its hierarchy (the same defect as th
 an assignability tier leaves `replace(char,char)` in place. What is still guessed is now counted
 (`KotlinScan.ambiguousBindings`) — the blind spot beside the census.
 
+### 7.9 ⭐ The arity fix — `0489230af`
+
+`collectMethods` keyed on `parameters().size == <arguments written>`, so the two Kotlin features that break
+that identity were exactly the failing set. Four changes:
+
+1. `callArguments` asks the **K2 symbol** whether a parameter is optional (`hasDefaultValue`) rather than
+   asking its PSI for a default value — a library declaration has no PSI, which is why every library call
+   with an omitted default bailed out.
+2. A library callee binds the **real** method with omitted parameters filled by their zero value, not a
+   synthesized `$default`: the AAPI's contracts are keyed to the real signature. A source callee is
+   unchanged.
+3. A varargs candidate is matched as the Java front end represents one — arguments written out — and the
+   overload tiers index by ARGUMENT through `typeOfParameterHandleVarargs`.
+4. An operator/infix **extension** now routes through its facade. `"a" to 1` failed while `"a".to(1)`
+   resolved — the same call written two ways — and it was worth 347 sites once `mapOf(…)` stopped
+   swallowing its own arguments.
+
+⚠ **The total barely moves, and the accounting is the result.** detekt 5,913 → 5,945; coil 429 → 411.
+
+| family (detekt) | before | after | |
+|---|---|---|---|
+| `k2-unresolved-call` | 2,793 | 2,620 | **−173** |
+| `k2-unresolved-operator` | 106 | 10 | **−96** |
+| `k2-unresolved-ref` | 818 | 961 | +143 *surfaced* |
+| `k2-ctor-unresolved` | 74 | 142 | +68 *surfaced* |
+| `k2-unresolved-access` | 1,315 | 1,373 | +58 *surfaced* |
+
+⭐ **"Surfaced" is measured, not asserted**: of the 366 new placeholder sites, **366 are in a member that
+already held one, and zero in a member that was clean before.** No member that converted fully before
+converts worse now. The metric that moves is coverage: types holding a hole 846 → **809**, members 2,341 →
+**2,222** (detekt); members 211 → **203** (coil).
+
+⚠ Still open and now visible: `s.split(",")` binds `java.lang.String.split(String)` (returning `String[]`)
+while the expression type is `List<String>` — Kotlin's extension puts its vararg in the MIDDLE with
+defaults after it, which this change does not synthesize.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -313,11 +345,10 @@ an assignability tier leaves `replace(char,char)` in place. What is still guesse
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model — reordered twice, and §7.7 says exactly where to start.** 81% (detekt) / 74% (coil)
-   of holes are a symbol K2 resolved that the CST could not, and the cause is arity: **library callees are
-   matched on the number of arguments the source writes**, so every call omitting a default and every
-   vararg call misses. Fix that first (§7.7 names the mechanism and the two risks); then the infix/operator
-   extension route, then `bootstrapString`'s missing properties, then **statements in expression position**
+4. **Close the model.** ✅ The arity rule and the operator-extension route are done (§7.9). What remains,
+   in order: `bootstrapString`'s missing properties (`s.length`, and it is also why assignability cannot be
+   used in overload resolution, §7.8), extension **properties** (no facade route at all), a vararg in a
+   middle position with defaults after it (`s.split(",")`), then **statements in expression position**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
