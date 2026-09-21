@@ -728,7 +728,19 @@ public class ComputeCallGraph {
                     cc.parameterExpressions().forEach(arg -> arg.visit(this));
                     return false;
                 }
-                if (cc.constructor() != null) {
+                // ⛔⛔ AN ARRAY CREATION IS NOT A CALL TO A CONSTRUCTOR OF THE ELEMENT TYPE. 'new X[n]' carries
+                // the constructor Factory.newArrayCreationConstructor invents for it -- owned by X, one int
+                // parameter per dimension -- which X does not declare and X.constructors() does not contain.
+                // Its fully qualified name is computed from owner + <init> + erased parameters, so it is the
+                // SAME STRING as a declared X(int), while being a different object with the same hashCode.
+                // A consumer keying the graph on that name then holds two entries it cannot tell apart:
+                // GraphService.classLevelDepths died on closed-core with "Duplicate key
+                // com.example.parameter.util.LinkMap.<init>(int)", one entry standing for
+                // 'new LinkMap[linkInfos.length]' and the other for the declared LinkMap(int).
+                // ⇒ leave it out, exactly as IsolationCore already does for the same object. Nothing is lost:
+                // the dependency on X is the addType(cc.parameterizedType()) five lines up, which is what the
+                // array creation actually means.
+                if (cc.constructor() != null && !cc.constructor().isSyntheticArrayConstructor()) {
                     handleMethodCall(info, cc.constructor());
                     // a corpus's own container is often a CONSTRUCTOR taking the name (Cassandra's
                     // ParameterizedClass), so a sink may name one; the declaring type and arity match as they do
