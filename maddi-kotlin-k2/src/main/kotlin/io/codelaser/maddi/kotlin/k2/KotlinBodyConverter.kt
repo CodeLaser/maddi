@@ -229,6 +229,16 @@ internal class KotlinBodyConverter(
 
     private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
 
+    /**
+     * ⚠ A BARE [Runtime.newEmptyExpression] and a `k2-…` placeholder are different claims, and the remaining
+     * bare ones in this file are deliberate. "There is no expression here" is a fact about well-formed Kotlin
+     * — `val x: Int` with no initializer, a `for` loop's variable, a `when` with no guard, an `else` arm,
+     * `return` from a Unit function — and the CST spells that as an empty expression, exactly as the Java
+     * front end does. A REQUIRED child that is missing is a different thing: it happens only on source that
+     * does not parse, and an unmarked empty then hides the hole from the census, from the refactoring
+     * engine's range scan, and from the reader. Those are `k2-absent-…`.
+     */
+
     /** One of this front end's placeholders (`k2-…`) without a range yet. */
     private fun isPlaceholder(e: Expression): Boolean =
         e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true && e.source() == null
@@ -273,7 +283,8 @@ internal class KotlinBodyConverter(
         }
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val left = statement.left
-            val value = statement.right?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+            val value = statement.right?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-assignment-value", statement)
             if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
                 runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
             } else if (left is KtArrayAccessExpression) {
@@ -305,12 +316,14 @@ internal class KotlinBodyConverter(
             statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
         )
         statement is KtIfExpression -> runtime.newIfElseBuilder()
-            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-condition", statement))
             .setIfBlock(convertBlock(statement.then, method, locals, "$index.0"))
             .setElseBlock(convertBlock(statement.`else`, method, locals, "$index.1"))
             .setSource(runtime.noSource()).build()
         statement is KtWhileExpression -> runtime.newWhileBuilder()
-            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-condition", statement))
             .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
             .also { b -> label?.let { b.setLabel(it) } }
             .setSource(runtime.noSource()).build()
@@ -323,14 +336,16 @@ internal class KotlinBodyConverter(
             val loopVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
             runtime.newForEachBuilder()
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
-                .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) }
+                    ?: placeholder("k2-absent-loop-range", statement))
                 .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0"))
                 .also { b -> label?.let { b.setLabel(it) } }
                 .setSource(runtime.noSource()).build()
         }
         statement is KtWhenExpression -> convertWhen(statement, method, locals, index)
         statement is KtDoWhileExpression -> runtime.newDoBuilder()
-            .setExpression(statement.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-condition", statement))
             .setBlock(convertBlock(statement.body, method, locals, "$index.0"))
             .also { b -> label?.let { b.setLabel(it) } }
             .setSource(runtime.noSource()).build()
@@ -341,7 +356,8 @@ internal class KotlinBodyConverter(
             .also { b -> statement.getLabelName()?.let { b.setGoToLabel(it) } } // continue@label
             .setSource(runtime.noSource()).build()
         statement is KtThrowExpression -> runtime.newThrowBuilder()
-            .setExpression(statement.thrownExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+            .setExpression(statement.thrownExpression?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-thrown", statement))
             .setSource(runtime.noSource()).build()
         statement is KtTryExpression -> convertTry(statement, method, locals, index)
         statement is KtDestructuringDeclaration -> convertDestructuring(statement, method, locals)
@@ -371,7 +387,8 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.convertDestructuring(statement: KtDestructuringDeclaration, method: MethodInfo,
                                                locals: MutableMap<String, Variable>): Statement {
-        val initializer = statement.initializer?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+        val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
+            ?: placeholder("k2-absent-destructuring-value", statement)
         val sourceType = initializer.parameterizedType().typeInfo()
         val variables = statement.entries.mapIndexed { i, entry ->
             val name = entry.name ?: "_"
@@ -482,7 +499,8 @@ internal class KotlinBodyConverter(
             val name = subjectVar.name ?: "\$subject"
             val type = (subjectVar.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
                 ?: runtime.objectParameterizedType()
-            val init = subjectVar.initializer?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
+            val init = subjectVar.initializer?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-when-subject", subjectVar)
             val local = runtime.newLocalVariable(name, type, init)
             return variableExpression(local) to (locals + (name to local))
         }
@@ -512,8 +530,9 @@ internal class KotlinBodyConverter(
                     when (condition) {
                         is KtWhenConditionWithExpression ->
                             condition.expression?.let { conditions.add(convertExpression(it, method, locals)) }
-                        is KtWhenConditionIsPattern -> // `is T` -> a type pattern on patternVariable
-                            if (!condition.isNegated) typePattern(condition, method)?.let { builder.setPatternVariable(it) }
+                        is KtWhenConditionIsPattern -> // `is T` -> a type pattern; `!is T` -> a negated InstanceOf
+                            if (condition.isNegated) conditions.add(negatedIsCondition(condition, method, subject))
+                            else typePattern(condition, method)?.let { builder.setPatternVariable(it) }
                         is KtWhenConditionInRange -> condition.rangeExpression
                             ?.let { convertExpression(it, method, locals) }
                             ?.let { range -> containsCall(range, subject)?.let { conditions.add(maybeNegate(it, condition.isNegated)) } }
@@ -525,8 +544,31 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /**
+     * A `!is T` arm as `!(subject instanceof T)` — the same node [convertIsExpression] builds for the
+     * expression form of `x !is T`, which this arm is the switch-entry spelling of.
+     *
+     * <h2>⛔ It used to be DROPPED, and silently</h2>
+     * A negated `is` is not representable as a type pattern, so the arm was left with no pattern AND no
+     * condition — a switch entry indistinguishable from one whose condition is trivially true. Unlike a
+     * `k2-…` placeholder this left no trace at all: not in the tree, not in the placeholder census, not in
+     * a range a consumer could re-read. The subject is already converted for the `in range` arms beside it,
+     * so the node costs nothing extra.
+     *
+     * ⚠ Falls back to a MARKED placeholder when the type does not map, rather than to silence again.
+     */
+    private fun KaSession.negatedIsCondition(condition: KtWhenConditionIsPattern, method: MethodInfo,
+                                             subject: Expression): Expression {
+        val testType = condition.typeReference?.type?.let { mapType(it, method.typeInfo()) }
+            ?: return placeholder("k2-when-is-unresolved", condition)
+        val instanceOf = runtime.newInstanceOfBuilder().setExpression(subject).setTestType(testType)
+            .setSource(runtime.noSource()).build()
+        return runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+            instanceOf, runtime.precedenceUnary())
+    }
+
     /** A Kotlin `is T` arm as a type-pattern [RecordPattern] (Kotlin smartcasts the subject, so the bound
-     * variable is synthetic). Negated `!is` is not representable as a pattern and is dropped. */
+     * variable is synthetic). */
     private fun KaSession.typePattern(condition: KtWhenConditionIsPattern, method: MethodInfo): RecordPattern? {
         val type = condition.typeReference?.type?.let { mapType(it, method.typeInfo()) } ?: return null
         return runtime.newRecordPatternBuilder()
@@ -674,9 +716,12 @@ internal class KotlinBodyConverter(
             is KtLambdaExpression -> convertLambda(expression, method, locals)
             is KtObjectLiteralExpression -> convertObjectLiteral(expression, method, locals)
             is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
-                .setCondition(expression.condition?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-                .setIfTrue(expression.then?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
-                .setIfFalse(expression.`else`?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
+                .setCondition(expression.condition?.let { convertExpression(it, method, locals) }
+                    ?: placeholder("k2-absent-condition", expression))
+                .setIfTrue(expression.then?.let { convertExpression(it, method, locals) }
+                    ?: placeholder("k2-absent-branch", expression))
+                .setIfFalse(expression.`else`?.let { convertExpression(it, method, locals) }
+                    ?: placeholder("k2-absent-branch", expression))
                 .setSource(runtime.noSource()).build(runtime)
             is KtStringTemplateExpression -> { // "$x ${e} literal" -> folded StringConcat of the parts
                 val parts = expression.entries.map { entry ->
