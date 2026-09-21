@@ -34,6 +34,7 @@ import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
@@ -101,6 +102,14 @@ public class RunAnalyzer implements Runnable {
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
+        // BEFORE the parse: the front end walks for ".java" alone, so a .kt file here is read as nothing and
+        // the run would report success over a tree it only partly read
+        if (DetectKotlinSources.refuse(inputConfiguration,
+                configuration.generalConfiguration().skipKotlinSources(),
+                DetectKotlinSources.SKIP_OPTION, LOGGER)) {
+            exitValue = Main.EXIT_KOTLIN_SOURCES;
+            return;
+        }
         javaInspector.initialize(inputConfiguration);
         AnalysisHintsConfiguration ac = configuration.analysisHintsConfiguration();
 

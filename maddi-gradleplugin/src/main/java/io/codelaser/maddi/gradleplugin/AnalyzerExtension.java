@@ -65,6 +65,12 @@ public class AnalyzerExtension {
     public String analysisSteps;
     public boolean quiet;
     public boolean warnNearMisses;
+    /**
+     * Analyze the Java sources of a project that also holds Kotlin, accepting that the Kotlin is not read.
+     * Unset (the default) the analyzer task FAILS on a {@code .kt} file rather than skipping it silently: this
+     * plugin collects the Kotlin source directories but forks a Java-only analyzer.
+     */
+    public boolean skipKotlinSources;
     public String debugTargets;
 
     /* InputConfiguration */
