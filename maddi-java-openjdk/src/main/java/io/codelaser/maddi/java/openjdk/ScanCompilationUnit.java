@@ -544,8 +544,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
                     : explicitParentClass;
             if (scanResult != null && jcClassDecl.extending != null) {
-                Source source = scanResult.find("extends", sourceForNode(jcClassDecl.extending));
-                dsb.put(DetailedSources.EXTENDS, source);
+                // null: a generated class (Lombok's @SuperBuilder) extends without a keyword in the text
+                Source source = scanResult.findWithin("extends", sourceForNode(jcClassDecl),
+                        sourceForNode(jcClassDecl.extending));
+                if (source != null) dsb.put(DetailedSources.EXTENDS, source);
             }
         }
         assert parentClass != null;
@@ -554,10 +556,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (scanResult != null) {
                 boolean isExtends = typeInfo.isInterface();
                 String keyword = isExtends ? "extends" : "implements";
-                Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
-                dsb.put(isExtends ? DetailedSources.EXTENDS : DetailedSources.IMPLEMENTS, source);
-                Object commaKey = isExtends ? DetailedSources.EXTENDS_COMMAS : DetailedSources.IMPLEMENTS_COMMAS;
-                dsb.putListIfNotNull(commaKey, scanResult.findCommaList(source, commaKey));
+                Source source = scanResult.findWithin(keyword, sourceForNode(jcClassDecl),
+                        sourceForNode(jcClassDecl.implementing.getFirst()));
+                if (source != null) {
+                    dsb.put(isExtends ? DetailedSources.EXTENDS : DetailedSources.IMPLEMENTS, source);
+                    Object commaKey = isExtends ? DetailedSources.EXTENDS_COMMAS : DetailedSources.IMPLEMENTS_COMMAS;
+                    dsb.putListIfNotNull(commaKey, scanResult.findCommaList(source, commaKey));
+                }
             }
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 builder.addInterfaceImplemented(convertType.convertTree(i, dsb));

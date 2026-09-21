@@ -69,6 +69,29 @@ public final class SourceCodeScan {
             throw new UnsupportedOperationException("Cannot find keyword " + keyword);
         }
 
+        /**
+         * The keyword before {@code source} that belongs to the declaration starting at {@code declaration}, or
+         * null when that declaration holds none.
+         *
+         * <p>⛔ <b>A CLAUSE NEED NOT HAVE A KEYWORD IN THE TEXT.</b> An annotation processor that writes into the
+         * tree gives a generated class an {@code extends} clause nobody typed: Lombok's {@code @SuperBuilder}
+         * declares {@code XBuilderImpl extends XBuilder<..>} and positions both at the annotation. {@link #find}
+         * walks backwards with no lower bound, so it either threw "Cannot find keyword extends" -- 41 parse
+         * errors in 30 compilation units of one project (2026-09-21), every {@code @SuperBuilder} class -- or,
+         * where an EARLIER type in the file has the keyword, answered that one, a position belonging to another
+         * declaration. The keyword of a declaration lies inside it.
+         */
+        public Source findWithin(String keyword, Source declaration, Source source) {
+            Map.Entry<Source, String> entry = keywords.floorEntry(source);
+            while (entry != null && (declaration == null || entry.getKey().compareTo(declaration) >= 0)) {
+                if (keyword.equals(entry.getValue())) {
+                    return entry.getKey();
+                }
+                entry = keywords.lowerEntry(entry.getKey());
+            }
+            return null;
+        }
+
         public List<Comment> findComments(Source source) {
             return findComments(source, comments);
         }
