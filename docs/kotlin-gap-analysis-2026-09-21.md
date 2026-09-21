@@ -226,9 +226,15 @@ The genuine construct gaps are the 701, and they are led by `KtBlockExpression` 
 `KtCallableReferenceExpression` (`::foo`) third at 88. `suspend`, `Foo::class` and the missing annotations
 do not register on this corpus at all.
 
-⚠ detekt is a static analyzer built on the Kotlin compiler, so its library-call profile is not every
-project's. coil's 429 would have to be split the same way before either is called typical — and the
-generated-accessor share is a property of the compile-log route, not of the project.
+⚠ detekt is a static analyzer built on the Kotlin compiler, so its library profile is not every project's.
+**So coil was split the same way, and it agrees**: 429 placeholders, no generated code at all (every owner is
+`coil3.*`), and unresolved call 199 + access 68 + ref 52 = **319, 74%** — against 36 (8%) genuine construct
+gaps. Its unresolved names are okio's `FileSystem` (`exists`, `delete`, `atomicMove`, `close`) and the
+stdlib's scope functions (`apply`, `let`), not the Kotlin compiler API. **Two corpora with nothing in common
+but the language, 81% and 74%, and the same cause: members of library types.**
+
+⚠ The generated-accessor share is a property of the compile-log route, not of the project: coil, configured
+by hand, has none.
 
 ### 7.6 The census pays for itself on day one — `176d67d48`, `edde9dc63`
 
@@ -260,8 +266,8 @@ way out, so it bounds the stack and not the traversal).
    (deepen a type when it is referenced directly, not only when it is first met)** → block/`return` in
    expression position (536) → callable references (88) → then annotations and `suspend`, which this corpus
    never reaches → the local delegated property (§3, 1.3).
-   ⚠ Before acting on this order, split coil's 429 the same way: one corpus that is itself built on the
-   Kotlin compiler is not a sample.
+   ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
+   two projects get.
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
