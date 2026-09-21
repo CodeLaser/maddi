@@ -295,7 +295,8 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
             addDetails(element)
             val source = element.source()
             // a placeholder keeps the range of the code it stands for, which the CST does not hold: not coverage
-            val placeholder = element is EmptyExpression && element.msg()?.startsWith("k2-") == true
+            val placeholder = element is EmptyExpression
+                    && element.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true
             if (source != null && source.beginLine() > 0 && element is Expression && !placeholder) {
                 expressionRanges += rangeKey(source)
                 referenceName(element)?.let { name ->

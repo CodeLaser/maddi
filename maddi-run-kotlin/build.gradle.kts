@@ -31,6 +31,7 @@ dependencies {
 
     // the prep-only mixed runner (RunMixedPrepAnalyzer)
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
+    implementation(project(":maddi-kotlin-k2"))             // PlaceholderCensus: what the front end could not read
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
     implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)

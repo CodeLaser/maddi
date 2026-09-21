@@ -116,9 +116,12 @@ public class Main {
             boolean modification = AS_MODIFICATION.equals(analysisSteps);
             RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
                     .go(inputConfiguration, modification, analysisResultsDirs);
-            LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
+            // the placeholder count belongs on the SAME line as the type counts: a run that reports what it
+            // parsed without reporting what it could not read invites the reader to take the first for the whole
+            LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {};"
+                        + " {} unreadable Kotlin construct(s)",
                     analysisSteps, summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(),
-                    summary.analysisOrderSize());
+                    summary.analysisOrderSize(), summary.placeholders());
             // isolated elements are reported in full by the runner; the exit code must not call them a success
             if (summary.prepErrors() > 0) {
                 LOGGER.error("{} element(s) were isolated by prep and not analyzed", summary.prepErrors());

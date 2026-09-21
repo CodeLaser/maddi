@@ -231,7 +231,7 @@ internal class KotlinBodyConverter(
 
     /** One of this front end's placeholders (`k2-…`) without a range yet. */
     private fun isPlaceholder(e: Expression): Boolean =
-        e is EmptyExpression && e.msg()?.startsWith("k2-") == true && e.source() == null
+        e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true && e.source() == null
 
     /** A placeholder standing for all of [statement], which was not converted. */
     private fun placeholder(msg: String, statement: PsiElement): Expression =
