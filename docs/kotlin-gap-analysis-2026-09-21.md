@@ -376,6 +376,23 @@ from reading a name rather than running it — the third this campaign, and the 
 Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2,222 → **2,203**; coil 411 →
 **395**. All 69 new sites are in a member that already held one.
 
+### 7.12 Statements in expression position — half of it — `1d13fa423`
+
+The family §7.5b named as one item (`KtBlockExpression` 287 + `KtReturnExpression` 270 + throw/try/continue)
+splits on measurement into two problems with very different prices.
+
+**Blocks — done.** `val v = if (c) { a() } else { b() }` is one expression to Kotlin and two blocks to the
+PSI, so every such `if` produced two placeholders. A block whose single statement is an expression IS that
+expression. detekt `KtBlockExpression` **306 → 0**, with 17 left in a newly named
+`k2-block-not-a-single-expression` — **94% of them were a single-expression branch.** Totals 5,914 → 5,769;
+coil 395 → 383.
+
+**`return`/`throw`/`try` in expression position — not done, and the reason is structural.** `s ?: return 0`
+and `val v = try { … } catch { … }` need a temporary and a statement context: the value has to be assigned
+in a lowered if/try statement, which is what `convertTry(returning = true)` already does one level up. The
+expression path cannot do it, so this needs the statement converter to recognise the idiom — roughly 280
+sites on detekt, and the last large construct family.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -385,7 +402,8 @@ Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
 4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
-   (§7.10), extension properties (§7.11). What remains, in order: **statements in expression position**
+   (§7.10), extension properties (§7.11), blocks in expression position (§7.12). What remains, in order:
+   **`return`/`throw`/`try` in expression position**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
