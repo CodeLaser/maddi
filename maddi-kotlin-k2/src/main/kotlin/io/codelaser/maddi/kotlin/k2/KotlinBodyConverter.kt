@@ -223,12 +223,111 @@ internal class KotlinBodyConverter(
         if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
-            block.addStatement(convertStatement(s, method, locals, childIndex))
+            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
+            // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
+            // (prepwork compares them as strings), and renumbering would shift every statement after them.
+            val lowered = controlFlowElvisLowering(s, method, locals, childIndex)
+            if (lowered != null) lowered.forEach { block.addStatement(it) }
+            else block.addStatement(convertStatement(s, method, locals, childIndex))
         }
         return block.build()
     }
 
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
+    /**
+     * `val x = <init>` as a [Statement]. [initializerOverride] replaces the written initializer, which is how
+     * the control-flow-elvis lowering keeps the declaration while its guard takes the `?: return` half.
+     */
+    private fun KaSession.localVariableCreation(statement: KtProperty, method: MethodInfo,
+                                                locals: MutableMap<String, Variable>,
+                                                initializerOverride: Expression?): Statement {
+        val name = statement.name ?: "_"
+        val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+            ?: runtime.objectParameterizedType()
+        val initializer = initializerOverride
+            ?: statement.initializer?.let { convertExpression(it, method, locals) }
+            ?: runtime.newEmptyExpression()
+        val local = runtime.newLocalVariable(name, type, initializer)
+        locals[name] = local
+        // detail: name keyed by both the name String and the LocalVariable, plus the type reference
+        val dsb = runtime.newDetailedSourcesBuilder()
+        statement.nameIdentifier?.let { nameId ->
+            val nameSource = source(nameId, "-")
+            dsb.put(local.simpleName(), nameSource).put(local, nameSource)
+        }
+        dsb.putTypeReference(runtime, type, statement.typeReference)
+        return runtime.newLocalVariableCreation(local)
+            .withSource(runtime.noSource().withDetailedSources(dsb.build()))
+    }
+
+    /**
+     * <b>`x ?: return v` and `x ?: throw E()` — an elvis whose right-hand side transfers control.</b> Kotlin
+     * writes it as an expression; the CST has no expression that leaves the method, which is why these were
+     * `k2-unsupported-expr:KtReturnExpression` (270 on detekt, the largest construct kind after blocks).
+     *
+     * <h2>The lowering</h2>
+     * <pre>
+     *   val t = s ?: return 0      ->   if (s == null) return 0;
+     *                                   val t = s;
+     * </pre>
+     * No temporary is needed in these positions: the guard tests the value and the declaration names it, as
+     * kotlinc's own lowering does. ⚠ The left operand is converted TWICE, deliberately — the CST is a tree
+     * and sharing a node makes every walker visit its statements twice (#32), which is the rule the elvis
+     * expression conversion already follows.
+     *
+     * <h2>⛔ Only where the lowering cannot move an evaluation</h2>
+     * The elvis must BE the statement, the whole initializer, or the whole returned value. `f(a(), x ?: return)`
+     * is excluded: hoisting the guard would run the check before `a()`, which the source runs after. Those keep
+     * their placeholder and stay counted, exactly as {@code cannotBePassed} leaves what it cannot prove.
+     *
+     * <h2>⛔ A labelled return is not this function's return</h2>
+     * `?: return@mapNotNull null` leaves a LAMBDA, and lowering it to a plain `return` would emit a return
+     * from the wrong method — silently, which is the one outcome worth avoiding. Refused, and counted.
+     */
+    private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
+                                                   locals: MutableMap<String, Variable>,
+                                                   index: String): List<Statement>? {
+        val elvis = when {
+            isControlFlowElvis(statement) -> statement as KtBinaryExpression
+            statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer) ->
+                statement.initializer as KtBinaryExpression
+            statement is KtReturnExpression && isControlFlowElvis(statement.returnedExpression) ->
+                statement.returnedExpression as KtBinaryExpression
+            else -> return null
+        }
+        val left = elvis.left ?: return null
+        val control = elvis.right ?: return null
+        val isWholeStatement = statement === elvis
+        val guardIndex = if (isWholeStatement) index else "$index.0"
+        val guard = runtime.newIfElseBuilder()
+            .setExpression(runtime.newEquals(convertExpression(left, method, locals), runtime.nullConstant()))
+            .setIfBlock(statementsToBlock(listOf(control), method, locals, "$guardIndex.0"))
+            .setElseBlock(runtime.newBlockBuilder()
+                .setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+            .setSource(source(elvis, guardIndex))
+            .build()
+        if (isWholeStatement) return listOf(guard)
+        val value = convertExpression(left, method, locals) // converted a second time: see #32 above
+        val raw = when (statement) {
+            is KtProperty -> localVariableCreation(statement, method, locals, value)
+            is KtReturnExpression -> runtime.newReturnStatement(value)
+            else -> return null
+        }
+        val whole = source(statement, "$index.1")
+        val detailed = raw.source()?.detailedSources()
+        return listOf(guard, raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)))
+    }
+
+    /** An elvis whose right-hand side leaves the method: `?: return v` (unlabelled) or `?: throw E()`. */
+    private fun isControlFlowElvis(expression: KtExpression?): Boolean {
+        if (expression !is KtBinaryExpression || expression.operationToken != KtTokens.ELVIS) return false
+        return when (val right = expression.right) {
+            is KtThrowExpression -> true
+            is KtReturnExpression -> right.getTargetLabel() == null
+            else -> false
+        }
+    }
+
     internal fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String): Statement {
         val raw = rawStatement(statement, method, locals, index)
@@ -275,24 +374,7 @@ internal class KotlinBodyConverter(
         statement is KtLabeledExpression -> rawStatement(
             statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
             method, locals, index, statement.getLabelName())
-        statement is KtProperty && statement.isLocal -> {
-            val name = statement.name ?: "_"
-            val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
-                ?: runtime.objectParameterizedType()
-            val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
-                ?: runtime.newEmptyExpression()
-            val local = runtime.newLocalVariable(name, type, initializer)
-            locals[name] = local
-            // detail: name keyed by both the name String and the LocalVariable, plus the type reference
-            val dsb = runtime.newDetailedSourcesBuilder()
-            statement.nameIdentifier?.let { nameId ->
-                val nameSource = source(nameId, "-")
-                dsb.put(local.simpleName(), nameSource).put(local, nameSource)
-            }
-            dsb.putTypeReference(runtime, type, statement.typeReference)
-            runtime.newLocalVariableCreation(local)
-                .withSource(runtime.noSource().withDetailedSources(dsb.build()))
-        }
+        statement is KtProperty && statement.isLocal -> localVariableCreation(statement, method, locals, null)
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val left = statement.left
             val value = statement.right?.let { convertExpression(it, method, locals) }
