@@ -14,6 +14,9 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.ConstructorDelegation
+import io.codelaser.maddi.kotlin.api.KotlinSourceScan
+import io.codelaser.maddi.kotlin.api.KotlinParseObserver
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
@@ -145,7 +148,7 @@ class KotlinScan(
     // java.* / classpath types resolve to ONE bytecode-authoritative TypeInfo instance shared with the Java
     // parser. Null = standalone (K2 loads library types itself).
     private val compiledTypesManager: CompiledTypesManager? = null,
-) : MemberConverter {
+) : MemberConverter, KotlinSourceScan {
     // Type mapping (KaType -> ParameterizedType) + lazy library-type loading: the bottom layer.
     // Delegated via thin forwarders at the end of this class (KaSession member extensions -> with(…)).
     // external-library (JDK/classpath) types get their own external-library source set, so the analyzer
@@ -320,7 +323,10 @@ class KotlinScan(
     fun parse(fileName: String, content: String): List<TypeInfo> = parse(mapOf(fileName to content))
 
     /** Parse a set of in-memory Kotlin files (name -> content) in one shared session. */
-    fun parse(filesByName: Map<String, String>): List<TypeInfo> = parse(filesByName, emptyMap())
+    override fun parse(filesByName: Map<String, String>): List<TypeInfo> = parse(filesByName, emptyMap(), emptyList())
+
+    override fun parse(filesByName: Map<String, String>, javaFilesByName: Map<String, String>): List<TypeInfo> =
+        parse(filesByName, javaFilesByName, emptyList())
 
     /**
      * Parse Kotlin files, with optional accompanying Java SOURCE files ([javaFilesByName], path -> content,
@@ -347,7 +353,7 @@ class KotlinScan(
             val session = buildSession(disposable, srcRoot).also { it.registerKDocResolution() }
             val ktFiles = session.modulesWithFiles.values.flatten().filterIsInstance<KtFile>()
             val types = convert(ktFiles)
-            observers.forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
+            observers.filterIsInstance<K2ParseObserver>().forEach { it.observe(runtime, ktFiles, types) { sourceSet.name() } }
             return types
         } finally {
             Disposer.dispose(disposable)
@@ -1244,8 +1250,6 @@ class KotlinScan(
      * has to declare and javac does (javalin's `LeveledBrotli4jStream` calls `BrotliOutputStream`'s, which throws
      * `IOException`).
      */
-    class ConstructorDelegation(val isSuper: Boolean, val parameterTypes: List<ParameterizedType?>,
-                                val thrown: List<ParameterizedType>)
 
     private val delegationOf = java.util.IdentityHashMap<MethodInfo, ConstructorDelegation>()
 

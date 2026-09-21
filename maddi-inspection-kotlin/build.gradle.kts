@@ -32,7 +32,14 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-kotlin-k2"))
+    // ⭐ the CONTRACT is compiled against; the implementation is only ever present at RUN time, so a
+    // reference to a K2 type from here is a compile error rather than a design note. That is what makes
+    // the realm possible: nothing in this module can name a class the realm owns.
+    implementation(project(":maddi-kotlin-api"))
+    runtimeOnly(project(":maddi-kotlin-k2"))
+    // ⚠ tests MAY name the implementation (they exercise it); main code may not — that asymmetry is the
+    // boundary, and it is enforced by these two lines rather than by anyone remembering it.
+    testImplementation(project(":maddi-kotlin-k2"))
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-cst-analysis")) // PropertyImpl.FINAL_FIELD / ValueImpl for final-field port

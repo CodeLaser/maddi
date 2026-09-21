@@ -13,6 +13,8 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex.DeclarationKey
+import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex.Occurrence
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -52,8 +54,8 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
 
     private lateinit var types: List<TypeInfo>
 
-    private fun index(): KotlinReferenceIndex {
-        val index = KotlinReferenceIndex()
+    private fun index(): K2ReferenceIndex {
+        val index = K2ReferenceIndex()
         types = KotlinScan(runtime, sourceSet).parse(mapOf("a/Base.kt" to base, "b/User.kt" to user), emptyMap(),
             listOf(index))
         assertEquals(0, index.unresolvedReferences)
@@ -63,7 +65,7 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
     private fun method(type: String, name: String) =
         types.first { it.simpleName() == type }.methods().first { it.name() == name }
 
-    private fun where(o: KotlinReferenceIndex.Occurrence) = "${o.uri.substringAfterLast('/')}:${o.beginLine}:${o.beginPos}"
+    private fun where(o: Occurrence) = "${o.uri.substringAfterLast('/')}:${o.beginLine}:${o.beginPos}"
 
     @Test
     fun aCstMethodFindsItsDeclarationThroughItsOwnNamePosition() {
@@ -98,8 +100,8 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
         // which K2 refuses to create a symbol
         val index = index()
         val uri = index.keyOf(method("Base", "greet"))!!.uri
-        val inInterface = KotlinReferenceIndex.DeclarationKey(uri, 15, 25)
-        val inConstructor = KotlinReferenceIndex.DeclarationKey(uri, 16, 26)
+        val inInterface = DeclarationKey(uri, 15, 25)
+        val inConstructor = DeclarationKey(uri, 16, 26)
         assertEquals("name", index.declaration(inInterface)?.name)
         assertEquals("name", index.declaration(inConstructor)?.name)
         assertEquals(setOf(inInterface, inConstructor), index.family(inConstructor))
@@ -114,7 +116,7 @@ class KotlinReferenceIndexTest : KotlinScanTestBase() {
             .let { it.first.single() to it.second.single() }
         val stringKey = index.keyOf(stringPath)!!
         val intKey = index.keyOf(intPath)!!
-        fun calls(key: KotlinReferenceIndex.DeclarationKey) = index.references(key).filter { it.beginLine == 7 }.map { where(it) }
+        fun calls(key: DeclarationKey) = index.references(key).filter { it.beginLine == 7 }.map { where(it) }
         assertEquals(listOf("User.kt:7:64"), calls(stringKey))
         assertEquals(listOf("User.kt:7:75"), calls(intKey))
         // `import a.path` names both overloads: it is recorded for each, and says it is shared with the other

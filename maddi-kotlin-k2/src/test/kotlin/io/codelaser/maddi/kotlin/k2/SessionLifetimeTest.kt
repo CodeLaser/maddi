@@ -48,7 +48,7 @@ class SessionLifetimeTest : KotlinScanTestBase() {
         """.trimIndent()
 
     /** Holds the first file of the parse, weakly. */
-    private class Witness : KotlinParseObserver() {
+    private class Witness : K2ParseObserver() {
         var file: WeakReference<KtFile>? = null
 
         override fun observe(runtime: Runtime, ktFiles: List<KtFile>, types: List<TypeInfo>,
@@ -87,7 +87,7 @@ class SessionLifetimeTest : KotlinScanTestBase() {
             .setSourceDirectories(listOf(root.resolve("src/main/kotlin"))).build()
         val witness = Witness()
         val types = KotlinProjectScan(runtime, InfoByFqn())
-            .parse(listOf(main), emptyList(), Paths.get(System.getProperty("java.home")), observers = listOf(witness))
+            .parse(listOf(main), emptyList(), Paths.get(System.getProperty("java.home")), emptyList(), listOf(witness))
             .getValue(main)
         assertTheCstOutlivesTheSession(types)
         assertTrue(cleared(witness.file!!), "the parse's KtFile is still reachable after the parse returned")

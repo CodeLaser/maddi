@@ -99,7 +99,7 @@ import java.util.IdentityHashMap
  * becomes an accessor call in the CST. Positions use [sourceOf], the computation the CST itself uses, so equal
  * means equal. Nothing is asserted here: a caller reads [report] or [rows].
  */
-class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver() {
+class ReferenceRecall(private val samplesPerCell: Int = 6) : K2ParseObserver() {
 
     enum class Tier { EXACT, CONTAINED, COVERED, DROPPED }
 

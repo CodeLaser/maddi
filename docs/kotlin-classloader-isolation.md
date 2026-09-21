@@ -73,7 +73,7 @@ Measured surface, across the three consuming modules in this repo:
 
 | | used as |
 |---|---|
-| `KotlinScan(runtime, sourceSet, infoByFqn).parse(filesByName)` | one call site |
+| `KotlinScan(runtime, sourceSet, infoByFqn).parse(filesByName)` | two call sites |
 | `KotlinProjectScan(runtime, infoByFqn, ctm).parse(...)` / `.open(...)` | four construction sites |
 | `Session`: `convert`, `declare`, `complete`, `isDeclared`, `isCompleted`, `declaredTypes`, `delegationOf`, `hasOrAwaitsBody`, `observe`, `result`, `close` | the interleaved mixed parse |
 | `KotlinParseObserver` | passed through opaquely; its `observe` is `internal` and consumers never call it |
@@ -92,8 +92,14 @@ a *single* `TypeInfo`; two copies of the CST classes and that silently stops bei
 1. ✅ `maddi-kotlin-api` exists; `PlaceholderCensus` (which never needed K2) moved into it, with
    `NoCompilerOnTheApiClasspathTest` asserting the compiler, the IntelliJ platform, ANTLR, guava and JNA are
    all *unloadable* from it — the check a consumer actually experiences.
-2. The front-end contracts as interfaces in `maddi-kotlin-api`; `maddi-kotlin-k2` implements them; consumers
-   go through them. Still one classpath, so a regression here is a compile error, not a runtime one.
+2. ✅ The front-end contracts as interfaces in `maddi-kotlin-api` (`KotlinFrontEnd` + `KotlinSourceScan`,
+   `KotlinProjectScanner`, `KotlinSession`, `ConstructorDelegation`, `KotlinParseObserver`,
+   `KotlinReferenceIndex`); `maddi-kotlin-k2` implements them and registers `K2FrontEnd` as a
+   `ServiceLoader` service. ⭐ The boundary is enforced by the build, not by discipline: the consumers
+   declare `implementation(maddi-kotlin-api)` + `runtimeOnly(maddi-kotlin-k2)`, so naming a K2 type from
+   their main code is a **compile error**. That check immediately found a call site (`MixedInspector.parse`)
+   that a grep over imports had missed. Tests keep `testImplementation` — they exercise the implementation,
+   so they may name it.
 3. The realm: plexus-classworlds, a bootstrap that takes the K2 jar list, and the import filter.
 4. The heavy jars leave `runtimeElements`; a resolvable configuration replaces the transitive leak.
 5. Verification: the Kotlin suites, detekt and coil, and a first-one-wins classpath census that must reach

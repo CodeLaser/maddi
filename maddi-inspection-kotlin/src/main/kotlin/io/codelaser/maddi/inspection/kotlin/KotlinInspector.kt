@@ -20,16 +20,15 @@ import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.resource.InfoByFqn
-import io.codelaser.maddi.kotlin.k2.KotlinProjectScan
-import io.codelaser.maddi.kotlin.k2.KotlinParseObserver
-import io.codelaser.maddi.kotlin.k2.KotlinScan
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds
+import io.codelaser.maddi.kotlin.api.KotlinParseObserver
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
  * Driver for the Kotlin front-end — the analogue of `maddi-inspection-openjdk`'s `JavaInspectorImpl`.
- * It owns the one shared [InfoByFqn] registry, drives [KotlinScan] over the configured sources, and
+ * It owns the one shared [InfoByFqn] registry, drives [KotlinFrontEnd] over the configured sources, and
  * exposes a [CompiledTypesManager] that is a view over that same registry. (Multi-source-set ordering,
  * the full `JavaInspector` surface, and a classpath taken from the [InputConfiguration] rather than the
  * running process are later steps; see kotlin-parser-plan.md.)
@@ -49,16 +48,19 @@ class KotlinInspector(private val runtime: Runtime) {
         compiledTypesManager = KotlinCompiledTypesManager(infoByFqn, javaBase ?: mainSourceSet, mainSourceSet)
     }
 
+    /** The Kotlin front end: the contract only. Its implementation may live in a realm of its own. */
+    private val frontEnd get() = KotlinFrontEnds.get()
+
     /** Parse a set of Kotlin source files (name -> content) into the source set, sharing the registry. */
     fun parse(sourceSet: SourceSet, filesByName: Map<String, String>): List<TypeInfo> =
-        KotlinScan(runtime, sourceSet, infoByFqn).parse(filesByName)
+        frontEnd.sourceScan(runtime, sourceSet, infoByFqn, null).parse(filesByName)
 
     fun compiledTypesManager(): CompiledTypesManager = compiledTypesManager
 
     /**
      * Phase 4 — parse the whole [InputConfiguration] from disk: build ONE standalone K2 session over the
      * configured source **directories** and library **classpath** (not the running process's), with a
-     * `KtSourceModule` per source set wired to its upstream source sets, then drive [KotlinScan] per source set
+     * `KtSourceModule` per source set wired to its upstream source sets, then drive the front end per source set
      * in dependency order (so an upstream set's types are registered before a dependent references them),
      * sharing the one [infoByFqn]. Returns the committed types per source set. The analogue of how
      * `JavaInspectorImpl` consumes an `InputConfiguration`.
@@ -67,7 +69,7 @@ class KotlinInspector(private val runtime: Runtime) {
 
     /**
      * As [parseFromConfiguration], with [observers] reading the parse through its K2 session before it closes
-     * (e.g. a [io.codelaser.maddi.kotlin.k2.KotlinReferenceIndex]).
+     * (e.g. a [io.codelaser.maddi.kotlin.api.KotlinReferenceIndex], from [KotlinFrontEnd.referenceIndex]).
      */
     fun parseFromConfiguration(observers: List<KotlinParseObserver>): Map<SourceSet, List<TypeInfo>> {
         val ordered = dependencyOrder(inputConfiguration.sourceSets().filter { !it.externalLibrary() })
@@ -77,7 +79,8 @@ class KotlinInspector(private val runtime: Runtime) {
             .mapNotNull { uriToPath(it.uri()) }
             .filter { Files.exists(it) }
         val jdkHome = Paths.get(System.getProperty("java.home"))
-        return KotlinProjectScan(runtime, infoByFqn).parse(ordered, libraryRoots, jdkHome, observers = observers)
+        return frontEnd.projectScan(runtime, infoByFqn, null)
+            .parse(ordered, libraryRoots, jdkHome, emptyList(), observers)
     }
 
     /** Topological order (dependencies before dependents) over the given source sets; ignores library deps. */
