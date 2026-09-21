@@ -200,9 +200,19 @@ internal class KotlinBodyConverter(
         }
         val block = runtime.newBlockBuilder()
         psi.bodyExpression?.let { body ->
-            val expr = convertExpression(body, method, locals)
-            val statement = if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(expr)
-            else runtime.newReturnStatement(expr)
+            val returning = returnType != runtime.voidParameterizedType()
+            // `fun f(): T = try { … } catch { … }` is the commonest try-as-a-value shape there is — three of
+            // detekt's four. The expression body IS the returned value, so the whole statement context the
+            // lowering needs is right here: no temporary, the branches just return.
+            val statement = when {
+                body is KtTryExpression -> convertTry(body, method, locals, "0", returning = returning)
+                body is KtIfExpression && body.hasAMultiStatementBranch() ->
+                    convertValueIf(body, method, locals, "0", returning, assignTo = null)
+                else -> {
+                    val expr = convertExpression(body, method, locals)
+                    if (returning) runtime.newReturnStatement(expr) else runtime.newExpressionAsStatement(expr)
+                }
+            }
             block.addStatement(indexed(statement, "0"))
         }
         return block.build()
@@ -223,12 +233,191 @@ internal class KotlinBodyConverter(
         if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
-            block.addStatement(convertStatement(s, method, locals, childIndex))
+            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
+            // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
+            // (prepwork compares them as strings), and renumbering would shift every statement after them.
+            val lowered = loweredStatements(s, method, locals, childIndex)
+            if (lowered != null) lowered.forEach { block.addStatement(it) }
+            else block.addStatement(convertStatement(s, method, locals, childIndex))
         }
         return block.build()
     }
 
     /** Convert one statement: a local `val`/`var`, an assignment, a `return`, or an expression statement. */
+    /**
+     * `val x = <init>` as a [Statement]. [initializerOverride] replaces the written initializer, which is how
+     * the control-flow-elvis lowering keeps the declaration while its guard takes the `?: return` half.
+     */
+    private fun KaSession.localVariableCreation(statement: KtProperty, method: MethodInfo,
+                                                locals: MutableMap<String, Variable>,
+                                                initializerOverride: Expression?): Statement {
+        val name = statement.name ?: "_"
+        val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+            ?: runtime.objectParameterizedType()
+        val initializer = initializerOverride
+            ?: statement.initializer?.let { convertExpression(it, method, locals) }
+            ?: runtime.newEmptyExpression()
+        val local = runtime.newLocalVariable(name, type, initializer)
+        locals[name] = local
+        // detail: name keyed by both the name String and the LocalVariable, plus the type reference
+        val dsb = runtime.newDetailedSourcesBuilder()
+        statement.nameIdentifier?.let { nameId ->
+            val nameSource = source(nameId, "-")
+            dsb.put(local.simpleName(), nameSource).put(local, nameSource)
+        }
+        dsb.putTypeReference(runtime, type, statement.typeReference)
+        return runtime.newLocalVariableCreation(local)
+            .withSource(runtime.noSource().withDetailedSources(dsb.build()))
+    }
+
+    /**
+     * The two statement-level lowerings, in one place. ⚠ A statement list lives in FOUR places — a block
+     * body, a lambda body, and the branch blocks of a value-yielding `try`/`if` — and a lowering that
+     * reaches only the first sees a fraction of the sites: measured on detekt, all four remaining
+     * `try`-as-a-value sites were outside {@code statementsToBlock} (three expression bodies, one inside a
+     * lambda), so the first cut of this removed <b>none</b> of them.
+     */
+    private fun KaSession.loweredStatements(s: KtExpression, method: MethodInfo,
+                                            locals: MutableMap<String, Variable>,
+                                            index: String): List<Statement>? =
+        controlFlowElvisLowering(s, method, locals, index)
+            ?: statementAsValueLowering(s, method, locals, index)
+
+    /** `if (c) { … } else { … }` in the position of a VALUE: each branch returns or assigns its tail. */
+    private fun KaSession.convertValueIf(statement: KtIfExpression, method: MethodInfo,
+                                         locals: MutableMap<String, Variable>, index: String,
+                                         returning: Boolean, assignTo: Variable?): Statement =
+        runtime.newIfElseBuilder()
+            .setExpression(statement.condition?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-condition", statement))
+            .setIfBlock(convertValueBlock(statement.then, method, locals, "$index.0", returning, assignTo))
+            .setElseBlock(convertValueBlock(statement.`else`, method, locals, "$index.1", returning, assignTo))
+            .setSource(source(statement, index)).build()
+
+    /** A block in the position of a VALUE: its tail returns, assigns to [assignTo], or is plain. */
+    private fun KaSession.convertValueBlock(body: KtExpression?, method: MethodInfo,
+                                            locals: Map<String, Variable>, blockIndex: String,
+                                            returning: Boolean, assignTo: Variable?): Block = when {
+        assignTo != null -> convertAssigningBlock(assignTo, body, method, locals, blockIndex)
+        returning -> convertReturningBlock(body, method, locals, blockIndex)
+        else -> convertBlock(body, method, locals, blockIndex)
+    }
+
+    /**
+     * <b>`x ?: return v` and `x ?: throw E()` — an elvis whose right-hand side transfers control.</b> Kotlin
+     * writes it as an expression; the CST has no expression that leaves the method, which is why these were
+     * `k2-unsupported-expr:KtReturnExpression` (270 on detekt, the largest construct kind after blocks).
+     *
+     * <h2>The lowering</h2>
+     * <pre>
+     *   val t = s ?: return 0      ->   if (s == null) return 0;
+     *                                   val t = s;
+     * </pre>
+     * No temporary is needed in these positions: the guard tests the value and the declaration names it, as
+     * kotlinc's own lowering does. ⚠ The left operand is converted TWICE, deliberately — the CST is a tree
+     * and sharing a node makes every walker visit its statements twice (#32), which is the rule the elvis
+     * expression conversion already follows.
+     *
+     * <h2>⛔ Only where the lowering cannot move an evaluation</h2>
+     * The elvis must BE the statement, the whole initializer, or the whole returned value. `f(a(), x ?: return)`
+     * is excluded: hoisting the guard would run the check before `a()`, which the source runs after. Those keep
+     * their placeholder and stay counted, exactly as {@code cannotBePassed} leaves what it cannot prove.
+     *
+     * <h2>⛔ A labelled return is not this function's return</h2>
+     * `?: return@mapNotNull null` leaves a LAMBDA, and lowering it to a plain `return` would emit a return
+     * from the wrong method — silently, which is the one outcome worth avoiding. Refused, and counted.
+     */
+    private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
+                                                   locals: MutableMap<String, Variable>,
+                                                   index: String): List<Statement>? {
+        val elvis = when {
+            isControlFlowElvis(statement) -> statement as KtBinaryExpression
+            statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer) ->
+                statement.initializer as KtBinaryExpression
+            statement is KtReturnExpression && isControlFlowElvis(statement.returnedExpression) ->
+                statement.returnedExpression as KtBinaryExpression
+            else -> return null
+        }
+        val left = elvis.left ?: return null
+        val control = elvis.right ?: return null
+        val isWholeStatement = statement === elvis
+        val guardIndex = if (isWholeStatement) index else "$index.0"
+        val guard = runtime.newIfElseBuilder()
+            .setExpression(runtime.newEquals(convertExpression(left, method, locals), runtime.nullConstant()))
+            .setIfBlock(statementsToBlock(listOf(control), method, locals, "$guardIndex.0"))
+            .setElseBlock(runtime.newBlockBuilder()
+                .setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+            .setSource(source(elvis, guardIndex))
+            .build()
+        if (isWholeStatement) return listOf(guard)
+        val value = convertExpression(left, method, locals) // converted a second time: see #32 above
+        val raw = when (statement) {
+            is KtProperty -> localVariableCreation(statement, method, locals, value)
+            is KtReturnExpression -> runtime.newReturnStatement(value)
+            else -> return null
+        }
+        val whole = source(statement, "$index.1")
+        val detailed = raw.source()?.detailedSources()
+        return listOf(guard, raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)))
+    }
+
+    /**
+     * <b>`val v = try { … } catch { … }` and `val v = if (c) { …; e } else { … }` — a STATEMENT used as a
+     * value.</b> The CST has neither as an expression, so the declaration is split from the assignment and
+     * each branch assigns into it, which is the shape Java writes by hand and kotlinc compiles to:
+     * <pre>
+     *   val v = try { X } catch (e) { Y }   ->   T v;
+     *                                            try { v = X } catch (e) { v = Y }
+     * </pre>
+     * ⚠ Only for a branch the expression path cannot already handle: a single-expression `if` branch became
+     * an `InlineConditional` in §7.12 and stays one, which is the better node. This picks up what is left —
+     * a block of several statements, and every `try`.
+     */
+    private fun KaSession.statementAsValueLowering(statement: KtExpression, method: MethodInfo,
+                                                   locals: MutableMap<String, Variable>,
+                                                   index: String): List<Statement>? {
+        if (statement !is KtProperty || !statement.isLocal) return null
+        val initializer = statement.initializer
+        val needsLowering = initializer is KtTryExpression
+                || (initializer is KtIfExpression && initializer.hasAMultiStatementBranch())
+        if (!needsLowering) return null
+        // the declaration, WITHOUT an initializer: a local that is assigned in each branch, as Java writes it
+        val declaration = localVariableCreation(statement, method, locals, runtime.newEmptyExpression())
+        val target = locals[statement.name ?: "_"] ?: return null
+        val body = when (initializer) {
+            // ⚠ stamped here: `convertTry` sets no index of its own — the normal path gets one from
+            // `convertStatement` afterwards, and prepwork reads `source().index()` on every statement
+            is KtTryExpression -> convertTry(initializer, method, locals, "$index.1", assignTo = target)
+                .withSource(source(initializer, "$index.1"))
+            is KtIfExpression -> convertValueIf(initializer, method, locals, "$index.1",
+                returning = false, assignTo = target)
+            else -> return null
+        }
+        val whole = source(statement, "$index.0")
+        val detailed = declaration.source()?.detailedSources()
+        return listOf(
+            declaration.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)),
+            body)
+    }
+
+    /** A branch that is a block of anything but one expression — what §7.12's expression arm cannot take. */
+    private fun KtIfExpression.hasAMultiStatementBranch(): Boolean =
+        listOf(then, `else`).any { branch ->
+            branch is KtBlockExpression && (branch.statements.size != 1
+                    || branch.statements.single() !is KtExpression
+                    || branch.statements.single() is KtDeclaration)
+        }
+
+    /** An elvis whose right-hand side leaves the method: `?: return v` (unlabelled) or `?: throw E()`. */
+    private fun isControlFlowElvis(expression: KtExpression?): Boolean {
+        if (expression !is KtBinaryExpression || expression.operationToken != KtTokens.ELVIS) return false
+        return when (val right = expression.right) {
+            is KtThrowExpression -> true
+            is KtReturnExpression -> right.getTargetLabel() == null
+            else -> false
+        }
+    }
+
     internal fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
                                            locals: MutableMap<String, Variable>, index: String): Statement {
         val raw = rawStatement(statement, method, locals, index)
@@ -275,24 +464,7 @@ internal class KotlinBodyConverter(
         statement is KtLabeledExpression -> rawStatement(
             statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
             method, locals, index, statement.getLabelName())
-        statement is KtProperty && statement.isLocal -> {
-            val name = statement.name ?: "_"
-            val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
-                ?: runtime.objectParameterizedType()
-            val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
-                ?: runtime.newEmptyExpression()
-            val local = runtime.newLocalVariable(name, type, initializer)
-            locals[name] = local
-            // detail: name keyed by both the name String and the LocalVariable, plus the type reference
-            val dsb = runtime.newDetailedSourcesBuilder()
-            statement.nameIdentifier?.let { nameId ->
-                val nameSource = source(nameId, "-")
-                dsb.put(local.simpleName(), nameSource).put(local, nameSource)
-            }
-            dsb.putTypeReference(runtime, type, statement.typeReference)
-            runtime.newLocalVariableCreation(local)
-                .withSource(runtime.noSource().withDetailedSources(dsb.build()))
-        }
+        statement is KtProperty && statement.isLocal -> localVariableCreation(statement, method, locals, null)
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
             val left = statement.left
             val value = statement.right?.let { convertExpression(it, method, locals) }
@@ -428,11 +600,12 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.convertTry(statement: KtTryExpression, method: MethodInfo,
                                      locals: MutableMap<String, Variable>, index: String,
-                                     returning: Boolean = false): Statement {
-        // a try USED AS A VALUE (`return try { … } catch { … }`) yields the tail of the try/catch blocks;
-        // Java has no try-expression, so we lower it to a try STATEMENT whose branches `return` their tail.
+                                     returning: Boolean = false, assignTo: Variable? = null): Statement {
+        // a try USED AS A VALUE yields the tail of the try/catch blocks; Java has no try-expression, so it
+        // lowers to a try STATEMENT whose branches `return` their tail (`return try { … }`) or ASSIGN it
+        // (`val v = try { … }`, where the declaration is split off ahead of the statement).
         val convert = { body: KtExpression?, i: String ->
-            if (returning) convertReturningBlock(body, method, locals, i) else convertBlock(body, method, locals, i)
+            convertValueBlock(body, method, locals, i, returning, assignTo)
         }
         val builder = runtime.newTryBuilder().setSource(runtime.noSource())
         builder.setBlock(convert(statement.tryBlock, "$index.0"))
@@ -448,8 +621,8 @@ internal class KotlinBodyConverter(
                     .addType(type)
                     .setCatchVariable(catchVariable)
                     .setFinal(false)
-                    .setBlock(if (returning) convertReturningBlock(catch.catchBody, method, catchLocals, "$index.${i + 1}")
-                        else convertBlock(catch.catchBody, method, catchLocals, "$index.${i + 1}"))
+                    .setBlock(convertValueBlock(catch.catchBody, method, catchLocals, "$index.${i + 1}",
+                            returning, assignTo))
                     .setSource(runtime.noSource()).build()
             )
         }
@@ -477,10 +650,42 @@ internal class KotlinBodyConverter(
         if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            val lowered = if (j == statements.lastIndex) null else loweredStatements(s, method, childLocals, childIndex)
+            if (lowered != null) return@forEachIndexed lowered.forEach { block.addStatement(it) }
             val stmt = convertStatement(s, method, childLocals, childIndex)
             // the `return` takes the index of the statement it replaces: the analyzer requires one on every statement
             block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
                 indexed(runtime.newReturnStatement(stmt.expression()), childIndex) else stmt)
+        }
+        return block.build()
+    }
+
+    /**
+     * As [convertReturningBlock], but the block's value goes to [target] instead of out of the method:
+     * `{ …; e }` becomes `{ …; target = e }`. This is what lets a `try` or a multi-statement `if` be used as
+     * a VALUE — the CST has neither as an expression, so the declaration is split from the assignment and
+     * each branch assigns.
+     */
+    private fun KaSession.convertAssigningBlock(target: Variable, body: KtExpression?, method: MethodInfo,
+                                                locals: Map<String, Variable>, blockIndex: String): Block {
+        val childLocals = locals.toMutableMap()
+        val statements = when (body) {
+            null -> emptyList()
+            is KtBlockExpression -> body.statements
+            else -> listOf(body)
+        }
+        val block = runtime.newBlockBuilder()
+        if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        statements.forEachIndexed { j, s ->
+            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            val lowered = if (j == statements.lastIndex) null else loweredStatements(s, method, childLocals, childIndex)
+            if (lowered != null) return@forEachIndexed lowered.forEach { block.addStatement(it) }
+            val stmt = convertStatement(s, method, childLocals, childIndex)
+            block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
+                indexed(runtime.newExpressionAsStatement(
+                    runtime.newAssignment(runtime.newVariableExpressionBuilder().setVariable(target)
+                        .setSource(runtime.noSource()).build(), stmt.expression())), childIndex)
+            else stmt)
         }
         return block.build()
     }
@@ -1033,11 +1238,16 @@ internal class KotlinBodyConverter(
         val voidReturn = returnType == runtime.voidParameterizedType()
         statements.forEachIndexed { i, stmt ->
             val index = pad(i, statements.size)
-            block.addStatement(
-                if (i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt))
-                    indexed(runtime.newReturnStatement(convertExpression(stmt, method, bodyScope)), index)
-                else convertStatement(stmt, method, bodyScope, index)
-            )
+            val isResult = i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt)
+            // a lambda body is a statement list like any other: `val map = try { … } catch { … }` inside one
+            // is lowered here too. ⛔ never the result expression — that is the lambda's value, not a statement.
+            val lowered = if (isResult) null else loweredStatements(stmt, method, bodyScope, index)
+            when {
+                lowered != null -> lowered.forEach { block.addStatement(it) }
+                isResult -> block.addStatement(
+                    indexed(runtime.newReturnStatement(convertExpression(stmt, method, bodyScope)), index))
+                else -> block.addStatement(convertStatement(stmt, method, bodyScope, index))
+            }
         }
         samBuilder.setMethodBody(block.build()).commit()
 

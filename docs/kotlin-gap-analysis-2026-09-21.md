@@ -376,7 +376,7 @@ from reading a name rather than running it — the third this campaign, and the 
 Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2,222 → **2,203**; coil 411 →
 **395**. All 69 new sites are in a member that already held one.
 
-### 7.12 Statements in expression position — half of it — `1d13fa423`
+### 7.12 Statements in expression position — `1d13fa423`, `b447bdddf`, this commit
 
 The family §7.5b named as one item (`KtBlockExpression` 287 + `KtReturnExpression` 270 + throw/try/continue)
 splits on measurement into two problems with very different prices.
@@ -387,11 +387,54 @@ expression. detekt `KtBlockExpression` **306 → 0**, with 17 left in a newly na
 `k2-block-not-a-single-expression` — **94% of them were a single-expression branch.** Totals 5,914 → 5,769;
 coil 395 → 383.
 
-**`return`/`throw`/`try` in expression position — not done, and the reason is structural.** `s ?: return 0`
-and `val v = try { … } catch { … }` need a temporary and a statement context: the value has to be assigned
-in a lowered if/try statement, which is what `convertTry(returning = true)` already does one level up. The
-expression path cannot do it, so this needs the statement converter to recognise the idiom — roughly 280
-sites on detekt, and the last large construct family.
+**`return`/`throw` — done, stage 1 (`b447bdddf`).** Before designing it I sampled the corpus source at
+eight `KtReturnExpression` sites: **all eight were `x ?: return …`**, so the lowering targets that idiom
+rather than the general problem.
+
+    val t = s ?: return 0      ->      if (s == null) return 0;
+                                       val t = s;
+
+No temporary is needed in these positions. ⚠ Two statements from one are indexed `0.0`/`0.1` with nothing at
+`0`: `pad` zero-pads sibling indexes so they SORT, so renumbering would move every statement after them,
+while a nested pair sorts in place. A synthetic `Block` was the alternative and is wrong here — it
+introduces a scope, and the dominant case declares a variable the following statements use.
+
+⛔ Refused where the lowering would move an evaluation or leave the wrong method — a LABELLED return
+(`?: return@mapNotNull null`, one of the eight samples) belongs to a lambda, and `g(1, s ?: return 0)`
+cannot hoist its guard above an argument evaluated first. Both keep their placeholder and stay counted; the
+64 that remain on detekt are exactly those two shapes.
+
+detekt `KtReturnExpression` **269 → 64** (−76%), `KtThrowExpression` 10 → 7, total 5,769 → **5,565**; coil
+383 → 381. Five new sites, all in a member that already held one. ⭐ **0 elements isolated by prep** over
+1,271 types — the index scheme confirmed by a run, not by reasoning, plus a prepwork-level unit test that
+asserts prep executes over a lowered method.
+
+**`try` as a value — done, stage 2.** A `try` in a value position becomes a `try` STATEMENT whose branches
+carry the value out: `return` it where the try is returned or is the expression body of a function, assign
+it to the declared local where it is an initializer —
+
+    val v = try { X } catch (e: E) { Y }    ->    T v;
+                                                   try { v = X } catch (e: E) { v = Y }
+
+the declaration split off ahead of the statement and indexed `n.0`/`n.1` as in stage 1. The same lowering
+serves an `if` whose branch is a block of several statements, which is what the other half of §7.12 left
+behind. A `finally` is never assigned: it does not yield the try's value.
+
+⛔⛔ **The measurement that mattered, and the shape of the mistake.** Written this way — a lowering applied
+where statements are converted — it removed **zero** of detekt's four remaining try sites. A statement list
+lives in **four** places in the converter (a block body, a lambda body, and the branch blocks of a
+value-yielding `try`/`if`), and the first cut reached only the first: three of the four sites are
+expression-bodied functions (`fun f(): T = try { … } catch { … }`, by far the commonest shape) and the
+fourth is a `val` inside a lambda. The unit tests were green, the total moved by +1, and only the per-kind
+diff of the dump said so. The reach is now shared (`loweredStatements`), which is also what moved the STAGE
+ONE numbers: `KtReturnExpression` **64 → 17**, because 47 of the elvis sites "refused" in stage 1 were not
+refused at all — they were in a list the lowering never visited.
+
+detekt `k2-unsupported-expr:KtTryExpression` **4 → 0**, `k2-block-not-a-single-expression` 17 → 11, total
+5,565 → **5,525**, types holding one 791 (unchanged), members 2,163 → **2,160**; coil 381 → **379**. 17 new
+sites, all in a member that already held one, and **no member newly dirty**. ⭐ **0 elements isolated by
+prep** on both corpora — which retires `docs/kotlin-corpora.md` §5.1 (the `variableData` overwrite, 8
+elements on detekt) as well as §5.2, its cause.
 
 ## 8. The ordered path to the claim
 
@@ -402,8 +445,8 @@ sites on detekt, and the last large construct family.
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
 4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
-   (§7.10), extension properties (§7.11), blocks in expression position (§7.12). What remains, in order:
-   **`return`/`throw`/`try` in expression position**
+   (§7.10), extension properties (§7.11), blocks in expression position and `x ?: return` (§7.12). What
+   remains, in order: **`try` as a value (stage 2)**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).

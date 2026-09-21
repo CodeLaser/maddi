@@ -131,19 +131,30 @@ parsed, then the run aborted compiling stubs nothing would read.
 
 Roughly in the order they are likely to matter.
 
-### 5.1 Prep: `variableData` overwrite
+### 5.1 Prep: `variableData` overwrite — CLOSED
 
-The 8 elements detekt isolates are all one cause,
-`IllegalArgumentException: Trying to overwrite a value for property variableData`. coil isolates 1, for a
-different reason (§5.2). This is the largest single remaining prep tail on Kotlin.
+The 8 elements detekt isolated were all one cause,
+`IllegalArgumentException: Trying to overwrite a value for property variableData`, and coil isolated 1 for a
+different reason (§5.2). **Both corpora now isolate 0** (2026-09-21: detekt 1,202 primary types / analysis
+order 15,118, coil 131 / 2,181). The cause was a statement with no index, §5.2's.
 
-### 5.2 `try` as an expression
+### 5.2 `try` as an expression — CLOSED, by desugaring
 
-`kotlin-cst-assessment.md` lists this as open ("rare; desugar to a helper or accept a small new node if it
-actually shows up"). It has shown up: coil's `coil3.util.getCompletedOrNull` is
+`kotlin-cst-assessment.md` listed this as open ("rare; desugar to a helper or accept a small new node if it
+actually shows up"). It showed up: coil's `coil3.util.getCompletedOrNull` is
 `return try { getCompleted() } catch (_: Throwable) { null }`. No CST node yields a value from a `try`, so
-the statement is built without a `Source` and `MethodAnalyzer` NPEs on `statement.source().index()`. Prep
-isolates it and continues. Choosing between desugaring and a new node is a design decision.
+the statement was built without a `Source` and `MethodAnalyzer` NPE'd on `statement.source().index()`.
+
+**Decided: desugar, no new node.** A `try` in a value position becomes a `try` STATEMENT whose branches
+carry the value out — `return` it where the try is returned or is an expression body, assign it to the
+declared local where it is an initializer (the declaration is split off ahead of the statement). The same
+lowering serves an `if` whose branch is a block of several statements. detekt is at **0**
+`k2-unsupported-expr:KtTryExpression` sites.
+
+⚠ What made this cost two rounds instead of one: a statement list lives in **four** places — a block body, a
+lambda body, and the branch blocks of a value-yielding `try`/`if`. Lowering only in the first removed *none*
+of detekt's four remaining sites (three were expression-bodied functions, one was inside a lambda). The
+census counts what the first cut would have called success.
 
 ### 5.3 Kotlin primitive array classes — blocked on the library loader
 
