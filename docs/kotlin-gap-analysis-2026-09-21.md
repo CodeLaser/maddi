@@ -270,8 +270,8 @@ identity are exactly the failing set:
 | **omitted defaulted parameters** | `joinToString(",")` is `joinToString/7` on the JVM | writing every defaulted argument makes the identical call resolve — proven A/B |
 | **`vararg`** | `listOf("a","b")`, `split(",",";")` | N written arguments against 1 array parameter. `listOf("a")` "works" only because it binds the stdlib's single-element overload |
 | **infix/operator library extensions** | `"a" to 1` fails, `"a".to(1)` resolves | `operatorFunctionCall` (`:1623`) looks only at members of the left operand's type and never takes the extension-facade route |
-| **the predefined `String`** | `s.length` | `bootstrapString` (`KotlinTypeMapper.kt:597`) loads named functions only — 83 methods, **0 fields** — so Kotlin's `length` PROPERTY is dropped. `java.util.List` goes through `loadLibraryMembers`, which does convert properties, which is why `x.size` works |
-| **extension properties** | `s.lastIndex` | `convertQualified`'s name-reference branch has no facade route at all |
+| **the predefined `String`** | `s.length` | ⚠ **a FIXTURE artefact, not a corpus gap — §7.10.** `bootstrapString` runs only when nothing has inspected `java.lang.String`, i.e. a Kotlin-only parse with no JDK; both corpora show ZERO `k2-unresolved-access:length` |
+| **extension properties** | `s.lastIndex`, `c.java`, `d.symbol` | ✅ fixed, §7.11 — and it was the biggest access family, not the footnote this row implies |
 
 ⚠ **The facade/part-class lead was a red herring** — `filter` and `joinToString` live in the SAME part class
 (`CollectionsKt___CollectionsKt`) and it is found correctly. So is `deepen`. The two documents that would
@@ -337,6 +337,45 @@ converts worse now. The metric that moves is coverage: types holding a hole 846 
 while the expression type is `List<String>` — Kotlin's extension puts its vararg in the MIDDLE with
 defaults after it, which this change does not synthesize.
 
+### 7.10 ⚠ `bootstrapString`: statics yes, properties no — `e1eae5862`
+
+`String.format`/`valueOf`/`join` were genuinely missing (static members live in their own scope, which the
+hand-written bootstrap never read). But turning String's PROPERTIES into fields — which `loadLibraryMembers`
+does for every other library type — was **wrong, and two measurements said so within the minute**: the
+corpora show zero `k2-unresolved-access:length`, because every real run loads the JDK where `length` is a
+METHOD; and a ported prepwork test went red with `java.lang.String.length#s` in a `VariableData` its Java
+original does not have. The change would have forced a ported test's oracle apart from Java's for no gain on
+any real run.
+
+⚠ Two placeholder tests had used `s.length` as their "construct the front end cannot read" and were
+re-fixtured on `String::class`. A test that pins a mechanism must not depend on a hole that only a
+fixture-only path has.
+
+### 7.11 ⭐ Extension properties — `b1b58d9ea`, and the access family drops 23%
+
+An extension property is not a member of the receiver's type, so neither the field lookup nor the accessor
+lookup could find one — `o.doubled` failed for a property declared in the same file. It compiles to a static
+getter on a facade, like an extension function, and now resolves the same way; the library facade loader,
+which was built from a package's FUNCTIONS, now carries property getters too.
+
+detekt's `k2-unresolved-access` family: **1,373 → 1,054**.
+
+| kind | before | after |
+|---|---|---|
+| `symbol` | 210 | **38** |
+| `java` | 58 | **0** |
+| `mainReference` | 19 | **0** |
+| `containingClassOrObject` | 14 | **0** |
+| `javaClass` | 9 | **0** |
+
+⛔ **`symbol` at 210 was the corpus's biggest access kind, and §7.7 filed it as a KaSession MEMBER extension
+needing an implicit-receiver route.** It is a plain top-level extension property. Another conclusion drawn
+from reading a name rather than running it — the third this campaign, and the pattern is now unmistakable:
+**every time the evidence was a name, it was wrong; every time it was a run, it held.**
+
+Totals: detekt 5,945 → **5,914**, types holding one 809 → **804**, members 2,222 → **2,203**; coil 411 →
+**395**. All 69 new sites are in a member that already held one.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -345,10 +384,8 @@ defaults after it, which this change does not synthesize.
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model.** ✅ The arity rule and the operator-extension route are done (§7.9). What remains,
-   in order: `bootstrapString`'s missing properties (`s.length`, and it is also why assignability cannot be
-   used in overload resolution, §7.8), extension **properties** (no facade route at all), a vararg in a
-   middle position with defaults after it (`s.split(",")`), then **statements in expression position**
+4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
+   (§7.10), extension properties (§7.11). What remains, in order: **statements in expression position**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
