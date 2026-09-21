@@ -607,6 +607,25 @@ internal class KotlinTypeMapper(
         symbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { builder.addConstructor(convertLibraryConstructor(stringType, it)) }
+        // ⛔ STATIC members: `String.format(…)`, `String.valueOf(…)`, `String.join(…)` live in their own
+        // scope, which this bootstrap never read.
+        //
+        // ⚠ Its PROPERTIES are deliberately NOT turned into fields here, and the measurement is why.
+        // `loadLibraryMembers` does that for every other library type, so doing it looked like the missing
+        // half — but this bootstrap only runs when nothing has inspected `java.lang.String` yet, i.e. in a
+        // Kotlin-only parse with no JDK. Every real run loads the JDK, where `length` is a METHOD and
+        // `s.length` resolves through `resolveAccessor` as `length()` — which is why the corpora show ZERO
+        // `k2-unresolved-access:length`. Adding a field made the FIXTURE path model a property read that the
+        // real path models as a call, and a ported prepwork test caught it: `java.lang.String.length#s`
+        // appeared in a VariableData its Java original does not have.
+        val seenFields = mutableSetOf<String>()
+        symbol.staticMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { convertLibraryMethod(stringType, it, static = true) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        symbol.staticMemberScope.declarations
+            .filterIsInstance<KaJavaFieldSymbol>()
+            .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(stringType, it)) }
         builder.commit()
     }
 
