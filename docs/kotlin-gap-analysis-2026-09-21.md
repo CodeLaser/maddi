@@ -387,11 +387,32 @@ expression. detekt `KtBlockExpression` **306 → 0**, with 17 left in a newly na
 `k2-block-not-a-single-expression` — **94% of them were a single-expression branch.** Totals 5,914 → 5,769;
 coil 395 → 383.
 
-**`return`/`throw`/`try` in expression position — not done, and the reason is structural.** `s ?: return 0`
-and `val v = try { … } catch { … }` need a temporary and a statement context: the value has to be assigned
-in a lowered if/try statement, which is what `convertTry(returning = true)` already does one level up. The
-expression path cannot do it, so this needs the statement converter to recognise the idiom — roughly 280
-sites on detekt, and the last large construct family.
+**`return`/`throw` — done, stage 1 (`b447bdddf`).** Before designing it I sampled the corpus source at
+eight `KtReturnExpression` sites: **all eight were `x ?: return …`**, so the lowering targets that idiom
+rather than the general problem.
+
+    val t = s ?: return 0      ->      if (s == null) return 0;
+                                       val t = s;
+
+No temporary is needed in these positions. ⚠ Two statements from one are indexed `0.0`/`0.1` with nothing at
+`0`: `pad` zero-pads sibling indexes so they SORT, so renumbering would move every statement after them,
+while a nested pair sorts in place. A synthetic `Block` was the alternative and is wrong here — it
+introduces a scope, and the dominant case declares a variable the following statements use.
+
+⛔ Refused where the lowering would move an evaluation or leave the wrong method — a LABELLED return
+(`?: return@mapNotNull null`, one of the eight samples) belongs to a lambda, and `g(1, s ?: return 0)`
+cannot hoist its guard above an argument evaluated first. Both keep their placeholder and stay counted; the
+64 that remain on detekt are exactly those two shapes.
+
+detekt `KtReturnExpression` **269 → 64** (−76%), `KtThrowExpression` 10 → 7, total 5,769 → **5,565**; coil
+383 → 381. Five new sites, all in a member that already held one. ⭐ **0 elements isolated by prep** over
+1,271 types — the index scheme confirmed by a run, not by reasoning, plus a prepwork-level unit test that
+asserts prep executes over a lowered method.
+
+**`try` as a value — stage 2, not done.** `val v = try { … } catch { … }` needs the declaration split from
+the assignment (`T v; try { v = X } catch { v = Y }`), which generalises the existing
+`convertReturningBlock` into an assigning one and also retires the 17 multi-statement blocks and
+`docs/kotlin-corpora.md` §5.2. Six sites on detekt: worth doing for the open item, not for the count.
 
 ## 8. The ordered path to the claim
 
@@ -402,8 +423,8 @@ sites on detekt, and the last large construct family.
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
 4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
-   (§7.10), extension properties (§7.11), blocks in expression position (§7.12). What remains, in order:
-   **`return`/`throw`/`try` in expression position**
+   (§7.10), extension properties (§7.11), blocks in expression position and `x ?: return` (§7.12). What
+   remains, in order: **`try` as a value (stage 2)**
    — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
    `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
    annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
