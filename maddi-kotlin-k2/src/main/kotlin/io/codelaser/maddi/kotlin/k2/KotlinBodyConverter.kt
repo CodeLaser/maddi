@@ -165,6 +165,15 @@ internal class KotlinBodyConverter(
     // set by KotlinScan after construction (the bodies<->declarations cycle)
     lateinit var memberConverter: MemberConverter
 
+    /**
+     * Calls bound to an overload NONE of whose parameter types the arguments fit — a guess, kept because
+     * some callee is better than none, and counted because the CST cannot show it. ⚠ It is the blind spot
+     * BESIDE the placeholder census: a placeholder says "nothing was read here", and this says "something
+     * was read here and it may be the wrong thing", which no walk over the tree can detect afterwards.
+     */
+    var ambiguousBindings: Int = 0
+        private set
+
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
 
@@ -1072,7 +1081,33 @@ internal class KotlinBodyConverter(
         }
         return matches { p, a -> p == a }
             ?: matches { p, a -> p.typeInfo() != null && p.typeInfo() == a.typeInfo() }
-            ?: candidates.first()
+            // ⛔ RULE OUT THE IMPOSSIBLE, before the guess. Measured: `s.replace("a", "b")` bound to
+            // `java.lang.String.replace(char, char)` — two String literals against two chars — because the
+            // first two tiers want an exact type and the fallback took whichever overload came first.
+            // ⚠ Assignability is NOT the test here, deliberately: `isAssignableFrom(CharSequence, String)`
+            // is FALSE in this front end, because the predefined `java.lang.String` is bootstrapped without
+            // its hierarchy — so an assignability tier rejects the right overload along with the wrong one
+            // (measured: it left `replace(char,char)` in place). What can be proven without a hierarchy is
+            // the other direction: a reference argument can never reach a primitive parameter unless it is
+            // that primitive's box.
+            ?: matches { p, a -> !cannotBePassed(p, a) }
+            // ⚠ Still a guess, and now a COUNTED one. A wrong callee is worse than a placeholder: no walk
+            // over the CST can find it afterwards, because a resolved call looks the same either way.
+            ?: candidates.first().also { ++ambiguousBindings }
+    }
+
+    /**
+     * Whether argument type [a] provably cannot reach parameter type [p]. Conservative on purpose: it says
+     * true only for the case no type hierarchy is needed to decide — a reference where a primitive is
+     * required, its own box excepted (Kotlin unboxes `Int` into `int`, and never `String` into `char`).
+     * Everything else is "cannot prove", which leaves the later tiers exactly as they were.
+     */
+    private fun cannotBePassed(p: ParameterizedType, a: ParameterizedType): Boolean {
+        if (!p.isPrimitiveExcludingVoid || p.arrays() > 0) return false
+        if (a.isPrimitiveExcludingVoid && a.arrays() == 0) return false // primitive->primitive: widening, not here
+        val argumentType = a.typeInfo() ?: return false // unknown argument type proves nothing
+        val boxOfParameter = p.typeInfo()?.let { runtime.boxed(it) } ?: return false
+        return argumentType != boxOfParameter
     }
 
     /** The erased-FQN of a call's resolved result type, used to disambiguate return-type overloads. */

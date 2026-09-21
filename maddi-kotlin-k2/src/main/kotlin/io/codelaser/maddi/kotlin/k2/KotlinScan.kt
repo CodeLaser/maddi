@@ -166,6 +166,13 @@ class KotlinScan(
     // through `this` (KotlinScan is the MemberConverter), breaking the bodies<->declarations cycle.
     private val bodyConverter = KotlinBodyConverter(runtime, infoByFqn, sourceSet, typeMapper)
 
+    /**
+     * Calls this scan bound to an overload none of whose parameters the arguments fit — see
+     * [KotlinBodyConverter.ambiguousBindings]. Exposed because it is the one failure the placeholder census
+     * cannot see: a guessed callee is a RESOLVED call in the tree.
+     */
+    val ambiguousBindings: Int get() = bodyConverter.ambiguousBindings
+
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }
