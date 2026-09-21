@@ -20,6 +20,7 @@ import io.codelaser.maddi.inspection.resource.InfoByFqn
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnd
 import io.codelaser.maddi.kotlin.api.KotlinProjectScanner
 import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex
+import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall
 import io.codelaser.maddi.kotlin.api.KotlinSourceScan
 
 /**
@@ -42,4 +43,7 @@ class K2FrontEnd : KotlinFrontEnd {
         KotlinProjectScan(runtime, infoByFqn, compiledTypesManager)
 
     override fun referenceIndex(): KotlinReferenceIndex = K2ReferenceIndex()
+
+    override fun referenceRecall(samplesPerCell: Int): KotlinReferenceRecall =
+        ReferenceRecall(samplesPerCell)
 }

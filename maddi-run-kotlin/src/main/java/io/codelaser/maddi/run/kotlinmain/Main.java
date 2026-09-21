@@ -22,6 +22,7 @@ import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
 import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -125,6 +126,10 @@ public class Main {
             }
             LOGGER.info("{} Kotlin source file(s) in {}; running the mixed Java+Kotlin analysis",
                     kotlinSources.fileCount(), kotlinSources.sourceSetNames());
+            // ⭐ the Kotlin compiler is loaded HERE, in a realm of its own, and never on this JVM's classpath
+            // (G46: a 62 MB fat jar with unrelocated org.antlr/com.google/com.sun.jna shadows whatever else
+            // is on it). Installed only on the path that needs it: a Java-only run never builds a realm.
+            K2Realm.install();
             return runMixed(configuration);
         } catch (ParseException parseException) {
             LOGGER.error("Parse exception: ", parseException);

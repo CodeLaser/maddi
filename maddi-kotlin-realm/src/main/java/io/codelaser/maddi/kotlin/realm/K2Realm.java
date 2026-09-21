@@ -104,13 +104,82 @@ public final class K2Realm {
         return KotlinFrontEnd.load(realm);
     }
 
-    /** As {@link #create}, reading the jar list from a path-separated string (a resolved Gradle configuration). */
-    public static KotlinFrontEnd create(String classpath) throws IOException {
+    /**
+     * The system property a host sets to say where the realm's jars are: a path-separated list of jars, as a
+     * resolved Gradle configuration prints itself. Tests and embedders use this.
+     */
+    public static final String CLASSPATH_PROPERTY = "maddi.k2.classpath";
+
+    /** The directory of jars a distribution ships them in, beside {@code lib/} but never on the CLASSPATH. */
+    public static final String HOME_PROPERTY = "maddi.k2.home";
+
+    /** The distribution's directory name for those jars, looked for next to this module's own jar. */
+    public static final String DISTRIBUTION_DIRECTORY = "lib-k2";
+
+    /**
+     * Build the realm and make it the front end for this JVM ({@code KotlinFrontEnds.install}). Call it once,
+     * early. The jars are found, in order: {@code -Dmaddi.k2.classpath}, {@code -Dmaddi.k2.home}, then a
+     * {@code lib-k2} directory beside the jar this class was loaded from (how the CLI distribution ships).
+     *
+     * <p>⛔ Throws when it finds nothing, rather than falling back to the ordinary classpath. A silent
+     * fallback would reintroduce the leak exactly where nobody would look for it — and on a JVM where the
+     * compiler is genuinely absent it would fail later, deeper, and less legibly.
+     */
+    public static void install() throws IOException {
+        io.codelaser.maddi.kotlin.api.KotlinFrontEnds.install(create(discover()));
+    }
+
+    /** {@link #install}, unless a front end is already installed. Safe to call on every entry point. */
+    public static void installIfAbsent() throws IOException {
+        if (!io.codelaser.maddi.kotlin.api.KotlinFrontEnds.isInstalled()) install();
+    }
+
+    /** Where this JVM's K2 jars are; see {@link #install}. */
+    public static List<Path> discover() throws IOException {
+        String classpath = System.getProperty(CLASSPATH_PROPERTY);
+        if (classpath != null && !classpath.isBlank()) return split(classpath);
+        String home = System.getProperty(HOME_PROPERTY);
+        if (home != null && !home.isBlank()) return jarsIn(Path.of(home));
+        Path beside = besideOwnJar();
+        if (beside != null && Files.isDirectory(beside)) return jarsIn(beside);
+        throw new IOException("cannot find the Kotlin front end's jars. Set -D" + CLASSPATH_PROPERTY
+                              + " (a path-separated jar list) or -D" + HOME_PROPERTY + " (a directory of jars),"
+                              + " or ship them in a '" + DISTRIBUTION_DIRECTORY + "' directory beside "
+                              + K2Realm.class.getSimpleName() + "'s own jar.");
+    }
+
+    private static List<Path> jarsIn(Path directory) throws IOException {
+        if (!Files.isDirectory(directory)) throw new IOException("not a directory of K2 jars: " + directory);
+        try (var entries = Files.list(directory)) {
+            List<Path> jars = entries.filter(p -> p.getFileName().toString().endsWith(".jar")).sorted().toList();
+            if (jars.isEmpty()) throw new IOException("no jars in " + directory);
+            return jars;
+        }
+    }
+
+    private static Path besideOwnJar() {
+        try {
+            var source = K2Realm.class.getProtectionDomain().getCodeSource();
+            if (source == null) return null;
+            Path own = Path.of(source.getLocation().toURI());
+            Path parent = own.getParent();
+            return parent == null ? null : parent.resolveSibling(DISTRIBUTION_DIRECTORY);
+        } catch (Exception notAJarOnDisk) {
+            return null;
+        }
+    }
+
+    private static List<Path> split(String classpath) {
         List<Path> jars = new ArrayList<>();
         for (String entry : classpath.split(java.io.File.pathSeparator)) {
             if (!entry.isBlank()) jars.add(Path.of(entry));
         }
-        return create(jars);
+        return jars;
+    }
+
+    /** As {@link #create}, reading the jar list from a path-separated string (a resolved Gradle configuration). */
+    public static KotlinFrontEnd create(String classpath) throws IOException {
+        return create(split(classpath));
     }
 
     private static java.net.URL toUrl(Path jar) throws MalformedURLException {

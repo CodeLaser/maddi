@@ -50,6 +50,9 @@ interface KotlinFrontEnd {
     /** Where every project declaration is referenced — the oracle a rename census compares against. */
     fun referenceIndex(): KotlinReferenceIndex
 
+    /** How much of what K2 resolves the CST actually records. An instrument; [samplesPerCell] tunes its report. */
+    fun referenceRecall(samplesPerCell: Int): KotlinReferenceRecall
+
     companion object {
         /**
          * The implementation, by [ServiceLoader] against [loader]. ⭐ The loader argument is the whole point:
@@ -81,6 +84,10 @@ object KotlinFrontEnds {
     fun install(frontEnd: KotlinFrontEnd) {
         instance = frontEnd
     }
+
+    /** Whether a host has installed one. */
+    @JvmStatic
+    fun isInstalled(): Boolean = instance != null
 
     /** The installed front end, or the one on the ordinary classpath if the host installed none. */
     @JvmStatic
@@ -130,6 +137,25 @@ interface KotlinSession : AutoCloseable {
  */
 class ConstructorDelegation(val isSuper: Boolean, val parameterTypes: List<ParameterizedType?>,
                             val thrown: List<ParameterizedType>)
+
+/**
+ * <b>Reference recall: how much of what K2 resolves the CST actually records.</b> An instrument, not a gate.
+ *
+ * ⚠ Deliberately narrow: the per-reference rows are classified by vocabulary that belongs to the front end
+ * (site, region, target, tier), so the contract exposes the counts and the rendered report — everything its
+ * one consumer reads. Widen it when something needs more, not in advance.
+ */
+interface KotlinReferenceRecall : KotlinParseObserver {
+    val libraryReferences: Int
+    val unresolvedReferences: Int
+    val failedReferences: Int
+    val filesWithoutCst: Int
+
+    /** The number of project references measured. */
+    fun rowCount(): Int
+
+    fun report(): String
+}
 
 /**
  * Something that reads a parse through the K2 session that produced it, while PSI resolution is still alive.

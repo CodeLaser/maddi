@@ -109,7 +109,17 @@ a *single* `TypeInfo`; two copies of the CST classes and that silently stops bei
    boundary. The jar list reaches a test through the same resolvable-but-not-runtime configuration a
    consumer will use, so the test JVM's own classpath stays free of the compiler; `K2RealmTest` asserts that
    first, because otherwise every other assertion in it would pass with the realm doing nothing.
-4. The heavy jars leave `runtimeElements`; a resolvable configuration replaces the transitive leak.
+4. ✅ The heavy jars left `runtimeElements`. `maddi-inspection-kotlin` and `maddi-inspection-mixed` declare
+   the contract and **nothing else** — not even `runtimeOnly`, which is precisely how 62 MB of compiler
+   reached a consumer. `maddi-run-kotlin` resolves them through a `k2Runtime` configuration
+   (`isCanBeResolved = true`, `isCanBeConsumed = false`) and installs the realm at the one entry point that
+   needs it, so a Java-only run never builds one. Measured on the distribution: `lib/` **17 MB** with zero
+   compiler jars and on the CLASSPATH; `lib-k2/` **78 MB**, 31 jars, in the bundle and *not* on it. The
+   shipped launcher then parses detekt through the realm to byte-identical numbers — 1,271 Kotlin types,
+   analysis order 15,118, 5,525 unreadable constructs.
+   `ReferenceRecall` joined the contract on the way (`KotlinReferenceRecall`), which is what let the corpus
+   tests stop naming K2 classes; a `LauncherSessionListener` installs the realm once for that module, so its
+   corpus runs exercise the isolation rather than coexisting with a flat compiler.
 5. Verification: the Kotlin suites, detekt and coil, and a first-one-wins classpath census that must reach
    **0** (today: 1,098 on the consumer's classpath, 174 in our own zip).
 

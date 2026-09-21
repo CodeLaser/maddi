@@ -26,11 +26,11 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-inspection-resource"))
-    // ⭐ the CONTRACT is compiled against; the implementation is only ever present at RUN time, so a
-    // reference to a K2 type from here is a compile error rather than a design note. That is what makes
-    // the realm possible: nothing in this module can name a class the realm owns.
+    // ⭐ the CONTRACT, and ONLY the contract. A reference to a K2 type from this module's main code is a
+    // compile error, and the implementation is not a runtime dependency either -- that `runtimeOnly` is
+    // precisely how 62 MB of compiler reached a consumer's classpath (G46). The host installs a front end
+    // (KotlinFrontEnds.install), normally one loaded in a realm; see maddi-kotlin-realm.
     implementation(project(":maddi-kotlin-api"))
-    runtimeOnly(project(":maddi-kotlin-k2"))
     // ⚠ tests MAY name the implementation (they exercise it); main code may not — that asymmetry is the
     // boundary, and it is enforced by these two lines rather than by anyone remembering it.
     testImplementation(project(":maddi-kotlin-k2"))

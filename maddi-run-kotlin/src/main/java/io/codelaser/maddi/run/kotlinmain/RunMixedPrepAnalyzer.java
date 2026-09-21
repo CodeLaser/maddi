@@ -30,6 +30,7 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.graph.G;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +108,9 @@ public class RunMixedPrepAnalyzer {
     }
 
     public Summary go(InputConfiguration inputConfiguration, Options options) throws IOException {
+        // idempotent: the CLI installs the realm before it gets here; a test or embedder that calls this
+        // runner directly gets it installed on the way in, from -Dmaddi.k2.classpath / -Dmaddi.k2.home
+        K2Realm.installIfAbsent();
         boolean modification = options.modification();
         List<String> analysisResultsDirs = options.analysisResultsDirs();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);

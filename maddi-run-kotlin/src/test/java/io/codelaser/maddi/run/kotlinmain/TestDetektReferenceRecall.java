@@ -16,7 +16,9 @@ package io.codelaser.maddi.run.kotlinmain;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.inspection.kotlin.KotlinInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
-import io.codelaser.maddi.kotlin.k2.ReferenceRecall;
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
+import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
 import org.junit.jupiter.api.Assumptions;
@@ -34,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * How much of what a source editor must update is visible in detekt's Kotlin CST: every project reference K2 resolves,
- * graded against the CST by {@link ReferenceRecall}. A measurement, not a gate: it asserts only that it measured
+ * graded against the CST by {@link KotlinReferenceRecall}. A measurement, not a gate: it asserts only that it measured
  * something, and writes the full report to {@code build/reports/reference-recall/detekt.txt}.
  */
 @Tag("slow")
@@ -54,7 +56,9 @@ public class TestDetektReferenceRecall {
         KotlinInspector inspector = new KotlinInspector(new RuntimeImpl());
         inspector.initialize(JsonStreaming.objectMapper().readValue(config.toFile(), InputConfigurationImpl.class));
 
-        ReferenceRecall recall = new ReferenceRecall(6);
+        // ⭐ through the realm, like the shipped CLI: the compiler is not on this JVM's classpath
+        K2Realm.installIfAbsent();
+        KotlinReferenceRecall recall = KotlinFrontEnds.get().referenceRecall(6);
         inspector.parseFromConfiguration(List.of(recall));
 
         String report = recall.report();
@@ -62,7 +66,7 @@ public class TestDetektReferenceRecall {
         Files.createDirectories(out.getParent());
         Files.writeString(out, report);
         LOGGER.info("detekt reference recall ({}):\n{}", out.toAbsolutePath(), report);
-        assertTrue(recall.rows().size() >= REFERENCE_FLOOR,
-                "measured only " + recall.rows().size() + " project references; expected at least " + REFERENCE_FLOOR);
+        assertTrue(recall.rowCount() >= REFERENCE_FLOOR,
+                "measured only " + recall.rowCount() + " project references; expected at least " + REFERENCE_FLOOR);
     }
 }
