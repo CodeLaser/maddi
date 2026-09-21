@@ -45,6 +45,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import com.intellij.psi.PsiMethod
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
@@ -392,8 +393,20 @@ internal class KotlinTypeMapper(
      * among them (maddi#43). An extension is a static of the facade whose first parameter is the receiver, which
      * is exactly what kotlinc compiles it to, so nothing else here has to know the difference.
      */
-    internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? {
-        val classId = jvmFacadeClassId(function) ?: return null
+    internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? =
+        loadLibraryFacade(jvmFacadeClassId(function))
+
+    /**
+     * The facade holding a top-level library PROPERTY — `Class<T>.java`, `CharSequence.lastIndex`. Kotlin
+     * compiles an extension property into a static getter on the same kind of facade class its functions go
+     * to, so this is the same load; it exists as its own entry point because a property is not a
+     * [KaNamedFunctionSymbol].
+     */
+    internal fun KaSession.loadLibraryFacadeForProperty(property: KaPropertySymbol): TypeInfo? =
+        loadLibraryFacade(jvmFacadeClassId(property))
+
+    private fun KaSession.loadLibraryFacade(classId: ClassId?): TypeInfo? {
+        if (classId == null) return null
         val jvmFqn = classId.asFqNameString()
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
         val pkg = findPackage(classId.packageFqName) ?: return null
@@ -401,7 +414,13 @@ internal class KotlinTypeMapper(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .filter { jvmFacadeClassId(it) == classId }
             .toList()
-        if (functions.isEmpty()) return null
+        // ⭐ and its PROPERTIES, as static getters: an extension property compiles to `getX(receiver)` on the
+        // same facade, so a facade built from functions alone cannot resolve `x.lastIndex` or `c.java`.
+        val properties = pkg.packageScope.callables
+            .filterIsInstance<KaPropertySymbol>()
+            .filter { jvmFacadeClassId(it) == classId }
+            .toList()
+        if (functions.isEmpty() && properties.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(classId.packageFqName.asString()), classId.shortClassName.asString())
         registerLibraryType(jvmFqn, typeInfo) // register before members (param types may cycle back)
@@ -413,8 +432,31 @@ internal class KotlinTypeMapper(
         val seen = mutableSetOf<String>() // erased overloads can collide on the same signature
         functions.map { convertLibraryMethod(typeInfo, it, static = true) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         builder.computeAccess().commit()
         return typeInfo
+    }
+
+    /**
+     * A top-level extension property as the static getter kotlinc compiles it to: `val C.x: T` becomes
+     * `getX(C): T` on the file facade. Null when the property has no extension receiver — a plain top-level
+     * `val` is a field on the facade, which is a different shape and not this path's business.
+     */
+    private fun KaSession.convertLibraryPropertyGetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
+        val receiver = property.receiverParameter ?: return null
+        val name = property.name.asString()
+        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
+        val builder = method.builder()
+        builder.addParameter("\$receiver", mapType(receiver.returnType, owner))
+        builder.setReturnType(mapType(property.returnType, owner))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+        builder.commitParameters().computeAccess().commit()
+        return method
     }
 
     /**
@@ -423,7 +465,7 @@ internal class KotlinTypeMapper(
      * place the facade name lives. Reached reflectively: the Analysis API does not expose the FIR container
      * source in its stable surface, and a soft failure (null) simply skips the resolution.
      */
-    private fun jvmFacadeClassId(symbol: KaNamedFunctionSymbol): ClassId? = try {
+    private fun jvmFacadeClassId(symbol: KaCallableSymbol): ClassId? = try {
         val firSymbol = symbol.javaClass.methods.firstOrNull { it.name == "getFirSymbol" }?.invoke(symbol)
         val fir = firSymbol?.javaClass?.methods?.firstOrNull { it.name == "getFir" }?.invoke(firSymbol)
         val cs = fir?.javaClass?.methods?.firstOrNull { it.name == "getContainerSource" }?.invoke(fir)

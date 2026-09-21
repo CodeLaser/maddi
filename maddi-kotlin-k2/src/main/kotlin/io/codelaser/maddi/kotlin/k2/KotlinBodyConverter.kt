@@ -789,6 +789,11 @@ internal class KotlinBodyConverter(
                     field != null -> variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x
                     // property idiom backed by an accessor method: `list.size`->size(), `obj.name`->getName()
                     else -> receiverType?.let { resolveAccessor(it, name) }?.let { accessorCall(receiver, it) }
+                        // an EXTENSION property is not a member of the receiver's type, so neither lookup
+                        // above can find it: `o.doubled` failed for a property declared in the same file,
+                        // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
+                        // on the facade, exactly as an extension FUNCTION compiles to a static function.
+                        ?: extensionPropertyAccess(selector, name, receiver, method)
                         ?: runtime.newEmptyExpression("k2-unresolved-access:$name")
                 }
             }
@@ -1048,6 +1053,37 @@ internal class KotlinBodyConverter(
         return resolveCallee(type, propertyName, listOf())          // size(), length()
             ?: resolveCallee(type, "get$capitalized", listOf())     // getName()
             ?: resolveCallee(type, "is$capitalized", listOf())      // isEmpty() (boolean)
+    }
+
+    /**
+     * `recv.extProp` where `extProp` is an extension property: `Facade.getExtProp(recv)`. Source and library
+     * alike — a source facade is already built with the getter on it (`PKt.getDoubled/1`), and a library
+     * facade grows one in `loadLibraryFacadeForProperty`.
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.extensionPropertyAccess(selector: KtNameReferenceExpression, name: String,
+                                                  receiver: Expression, method: MethodInfo): Expression? {
+        val property = selector.resolveSymbol() as? KaPropertySymbol ?: return null
+        if (property.receiverParameter == null) return null
+        val facade = (property.psi as? KtProperty)?.containingKtFile?.let { facadeOf(it) }
+            ?: with(typeMapper) { loadLibraryFacadeForProperty(property) } ?: return null
+        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val callee = resolveCallee(facade, getterName, listOf(receiver))
+            ?: resolveCallee(facade, name, listOf(receiver)) // a @JvmName'd getter keeps the property's name
+            ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee)
+            .setParameterExpressions(listOf(receiver))
+            .setConcreteReturnType(callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /** The file facade TypeInfo for a source file, as `extensionFacade` computes it for a function. */
+    private fun facadeOf(ktFile: KtFile): TypeInfo? {
+        val pkg = ktFile.packageFqName
+        val fqn = (if (pkg.isRoot) "" else pkg.asString() + ".") + facadeSimpleName(ktFile)
+        return infoByFqn.getType(fqn, sourceSet)
     }
 
     /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
