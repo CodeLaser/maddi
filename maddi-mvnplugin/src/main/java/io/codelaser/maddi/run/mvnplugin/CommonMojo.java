@@ -87,6 +87,13 @@ public abstract class CommonMojo extends AbstractMojo {
     @Parameter(property = "warnNearMisses", defaultValue = "false")
     private boolean warnNearMisses;
 
+    /**
+     * Analyze the Java sources of a project that also holds Kotlin, accepting that the Kotlin is not read.
+     * Unset (the default) the goal FAILS on a {@code .kt} file rather than skipping it silently.
+     */
+    @Parameter(property = "skipKotlinSources", defaultValue = "false")
+    private boolean skipKotlinSources;
+
     @Parameter(property = "debug", defaultValue = "")
     private String debug;
 
@@ -130,7 +137,7 @@ public abstract class CommonMojo extends AbstractMojo {
     private Map<String, String> makeGeneralConfigMap() {
         return PluginOptions.generalConfigMap(incrementalAnalysis, analysisResultsDir,
                 new File(project.getBuild().getDirectory(), "maddi"), parallel, analysisSteps, debug, quiet,
-                warnNearMisses);
+                warnNearMisses, skipKotlinSources);
     }
 
     private Map<String, String> makeAnalysisHintsMap() {

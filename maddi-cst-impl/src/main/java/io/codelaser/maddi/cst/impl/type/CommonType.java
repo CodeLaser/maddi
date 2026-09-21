@@ -27,7 +27,29 @@ public class CommonType {
         this.runtime = runtime;
     }
 
+    /**
+     * The join of two types. Entry point; the recursion over type arguments is bounded by the set of pairs
+     * already being resolved — see {@link #commonType(ParameterizedType, ParameterizedType, Set)}.
+     */
     public ParameterizedType commonType(ParameterizedType pt1, ParameterizedType pt2) {
+        return commonType(pt1, pt2, new HashSet<>());
+    }
+
+    /**
+     * <b>⛔ A recursive generic used to recurse until the stack ran out.</b> The guard below ("common
+     * situation when the types implement Comparable") only fires when a type argument is EXACTLY the type
+     * being joined, which catches `C implements Comparable&lt;C&gt;` and nothing else: one level of nesting
+     * between the two, or a pair that alternates, walks forever. Measured on the detekt corpus, where it
+     * surfaced as a {@code StackOverflowError} in three tests the moment more expressions carried a real type
+     * (the Kotlin front end's parenthesized-expression conversion).
+     * <p>
+     * {@code seen} holds the pairs whose join is still being computed. Re-entering one means the join is
+     * defined in terms of itself, and {@code Object} is the answer that terminates — the same answer the
+     * narrow guard already gave for the case it did catch. ⚠ It changes nothing on any input that terminated
+     * before: a pair is only in the set while it is on the stack above you.
+     */
+    private ParameterizedType commonType(ParameterizedType pt1, ParameterizedType pt2,
+                                         Set<List<ParameterizedType>> seen) {
         assert pt1 != null && pt2 != null;
 
         if (pt1.equals(pt2)) return pt1;
@@ -117,11 +139,16 @@ public class CommonType {
                 for (ParameterizedType parameter : concrete.parameters()) {
                     ParameterizedType pt2Parameter = concretept2.parameters().get(i++);
                     ParameterizedType commonParameter;
-                    if (pt1.equals(parameter) && pt2.equals(pt2Parameter)) {
-                        // common situation when the types implement Comparable; must avoid infinite recursion
+                    // Arrays.asList, not List.of: it tolerates a null argument, where List.of throws --
+                    // and a guard that can throw where the old code merely recursed is not a guard
+                    List<ParameterizedType> pair = Arrays.asList(parameter, pt2Parameter);
+                    if (pt1.equals(parameter) && pt2.equals(pt2Parameter) || !seen.add(pair)) {
+                        // the join is defined in terms of itself (a recursive generic such as
+                        // `C implements Comparable<C>`, or a pair that alternates): Object terminates it
                         commonParameter = runtime.objectParameterizedType();
                     } else {
-                        commonParameter = commonType(parameter, pt2Parameter);
+                        commonParameter = commonType(parameter, pt2Parameter, seen);
+                        seen.remove(pair); // strictly "on the stack above you": a sibling may ask again
                     }
                     updatedParameters.add(commonParameter);
                 }

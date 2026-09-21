@@ -46,6 +46,9 @@ public class Main {
     public static final int EXIT_INSPECTION_ERROR = 3;
     public static final int EXIT_IO_EXCEPTION = 4;
     public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
+    // the run was handed Kotlin sources, which this analyzer reads as nothing at all; refusing beats reporting
+    // success over a tree it only partly read (DetectKotlinSources). Kept in step with run.main.Main's copy.
+    public static final int EXIT_KOTLIN_SOURCES = 6;
 
     public static final String HELP = "help";
 
@@ -56,6 +59,7 @@ public class Main {
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String JDK_INTERNALS = "jdk-internals";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
     public static final String AS_NONE = "none";
@@ -105,6 +109,7 @@ public class Main {
             case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
             case EXIT_IO_EXCEPTION -> "IO exception";
             case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
+            case EXIT_KOTLIN_SOURCES -> "Kotlin source files present, which this analyzer cannot read";
             default -> throw new UnsupportedOperationException("don't know value " + exitValue);
         };
     }
@@ -228,6 +233,9 @@ public class Main {
         options.addOption(null, JDK_INTERNALS, false, "We're working with JDK internals: load jdk.internal.*/sun.* "
                 + "types, and open the JDK modules to javac (add-exports every non-exported package, bypass ct.sym, "
                 + "avoid system-module package clashes). Needed to parse the JDK's own sources.");
+        options.addOption(null, SKIP_KOTLIN_SOURCES, false, "Analyze the Java sources of a project that also "
+                + "holds Kotlin, accepting an incomplete result. Without it, a run that meets a .kt file refuses "
+                + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
     }
@@ -239,6 +247,7 @@ public class Main {
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
@@ -253,6 +262,7 @@ public class Main {
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
         splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);

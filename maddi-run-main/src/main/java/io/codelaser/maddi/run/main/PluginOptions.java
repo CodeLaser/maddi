@@ -70,7 +70,8 @@ public class PluginOptions {
                                                        String analysisSteps,
                                                        String debugTargets,
                                                        boolean quiet,
-                                                       boolean warnNearMisses) {
+                                                       boolean warnNearMisses,
+                                                       boolean skipKotlinSources) {
         Map<String, String> map = new HashMap<>();
         map.put(Main.INCREMENTAL_ANALYSIS, "" + incrementalAnalysis);
         map.put(Main.ANALYSIS_RESULTS_DIR, analysisResultsDir == null || analysisResultsDir.isBlank()
@@ -78,6 +79,7 @@ public class PluginOptions {
         map.put(Main.PARALLEL, "" + parallel);
         map.put(Main.QUIET, "" + quiet);
         map.put(Main.WARN_NEAR_MISSES, "" + warnNearMisses);
+        map.put(Main.SKIP_KOTLIN_SOURCES, "" + skipKotlinSources);
         // ⛔ OMITTED WHEN UNSET, never present-and-null. The Gradle plugin put both of these in unconditionally,
         // so an unconfigured extension handed Main a map with null values in it.
         putIfStated(map, Main.ANALYSIS_STEPS, analysisSteps);

@@ -25,7 +25,8 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
                                    boolean quiet,
                                    boolean parallel,
                                    boolean jdkInternals,
-                                   boolean warnNearMisses) {
+                                   boolean warnNearMisses,
+                                   boolean skipKotlinSources) {
 
     public static class Builder {
         private boolean incrementalAnalysis;
@@ -35,6 +36,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
         private boolean parallel;
         private boolean jdkInternals;
         private boolean warnNearMisses;
+        private boolean skipKotlinSources;
         private String analysisResultsDir;
 
         public Builder setIncrementalAnalysis(boolean incrementalAnalysis) {
@@ -72,6 +74,16 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
             return this;
         }
 
+        /**
+         * Analyze the Java sources of a project that also holds Kotlin, accepting that the Kotlin is not read.
+         * Unset (the default) the run REFUSES rather than reporting success over a partly-read tree; see
+         * {@code DetectKotlinSources}.
+         */
+        public Builder setSkipKotlinSources(boolean skipKotlinSources) {
+            this.skipKotlinSources = skipKotlinSources;
+            return this;
+        }
+
         public Builder setAnalysisResultsDir(String analysisResultsDir) {
             this.analysisResultsDir = analysisResultsDir;
             return this;
@@ -79,7 +91,7 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
 
         public GeneralConfiguration build() {
             return new GeneralConfiguration(incrementalAnalysis, analysisResultsDir, List.copyOf(analysisSteps),
-                    List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses);
+                    List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses, skipKotlinSources);
         }
     }
 }

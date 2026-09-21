@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.kotlin.k2.PlaceholderCensus;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.graph.G;
 import org.slf4j.Logger;
@@ -66,7 +67,7 @@ public class RunMixedPrepAnalyzer {
      * did).
      */
     public record Summary(int kotlinTypes, int javaTypes, int primaryTypes, int analysisOrderSize,
-                          int prepErrors, int immutableTypes) {
+                          int prepErrors, int immutableTypes, int placeholders) {
     }
 
     public Summary go(InputConfiguration inputConfiguration) throws IOException {
@@ -97,6 +98,17 @@ public class RunMixedPrepAnalyzer {
                 .collect(Collectors.toUnmodifiableSet());
         LOGGER.info("Mixed parse produced {} Kotlin and {} Java type(s), {} primary; running prep analyzer",
                 parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(), primaryTypes.size());
+
+        // ⭐ BEFORE anything is concluded: how much of the Kotlin the front end could not read. A placeholder is
+        // EMPTY to every consumer downstream, so a hole in a body is indistinguishable from a body with nothing
+        // to say — unless a run says how many there are. Disclosed like the by-name lane's unresolvedSinkCalls.
+        PlaceholderCensus placeholderCensus = PlaceholderCensus.of(parsed.getKotlinTypes());
+        if (placeholderCensus.getTotal() > 0) {
+            LOGGER.warn("{}", placeholderCensus.report());
+        } else {
+            LOGGER.info("{}", placeholderCensus.report());
+        }
+        writePlaceholderDump(placeholderCensus);
 
         // AFTER the parse, as in run-openjdk's RunAnalyzer: only by now is the compiled-types manager
         // populated, and loading earlier resolves none of the hint types. The source set of request is a
@@ -137,7 +149,23 @@ public class RunMixedPrepAnalyzer {
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
-                primaryTypes.size(), order.size(), prepErrors, immutableTypes);
+                primaryTypes.size(), order.size(), prepErrors, immutableTypes, placeholderCensus.getTotal());
+    }
+
+    /**
+     * Every placeholder as {@code <kind> <owner> <line>:<pos>}, to the file named by
+     * {@code -Dmaddi.placeholderDump} (absent: no file, no cost). ⭐ The count says how big the front end's
+     * blind spot is; only this says WHERE, and the two questions have different answers — detekt's biggest
+     * kind is {@code k2-unresolved-call:add}, which a four-line fixture of `mutableListOf().add(...)`
+     * converts perfectly. A worklist needs the sites.
+     */
+    private static void writePlaceholderDump(PlaceholderCensus census) throws IOException {
+        String target = System.getProperty("maddi.placeholderDump");
+        if (target == null || target.isBlank()) return;
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, census.dumpLines());
+        LOGGER.info("Wrote {} placeholder site(s) to {}", census.getSites().size(), path);
     }
 
     /**
