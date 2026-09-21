@@ -217,9 +217,11 @@ detekt's own code, generated accessors excluded — **5,154 placeholders**, by f
 ⭐ **Four in five holes are symbol resolution, not language coverage** — and the names say where:
 `resolveToCall` (289), `symbol` (207), `classId` (79), `getArgumentExpression` (77), `docComment` (62),
 `expressionType` (49), `asString` (44), `listOf` (52). Those are the Kotlin Analysis API, PSI and the
-stdlib: **members of LIBRARY types**. That is the M5c remainder `kotlin-parser-plan.md` names — "a type
-loaded hierarchy-only won't gain members if later referenced directly" — and nothing in §4, which was
-assembled by reading the converter, ranked it at all.
+stdlib: **members of LIBRARY types**, which §4 — assembled by reading the converter — did not rank at all.
+
+⛔ **And the cause is NOT the M5c "hierarchy-only library type" remainder this section first blamed.** That
+was a guess from the shape of the names; §7.7 is the measurement, and it says something narrower and much
+more fixable.
 
 The genuine construct gaps are the 701, and they are led by `KtBlockExpression` (270) and
 `KtReturnExpression` (266) — a block or a `return` in *expression* position — with
@@ -252,6 +254,57 @@ the type being joined, so a recursive generic one level deeper walks forever. It
 the Kotlin corpus merely walked into. The join now carries the pairs it is still computing (removed on the
 way out, so it bounds the stack and not the traversal).
 
+### 7.7 ⭐ Why a library call does not resolve — measured, and it is not what §7.5b assumed
+
+The failing set reduces to four lines. Resolving fine: `x.map{}`, `x.filter{}`, `x.sorted()`, `mapOf(…)`,
+`s.trim()`, `s.uppercase()`, `s.let{}`, `sb.apply{}`, `File.exists()`, `mutableListOf().add(…)`. Failing:
+`x.joinToString(",")`, `listOf("a","b")`, `"a" to 1`, `s.substringAfter(".")`, `it.length`.
+
+**The rule: a library callee is looked up by name + the number of arguments the source WRITES**
+(`collectMethods`, `KotlinBodyConverter.kt:1150`: `it.parameters().size == arity`). A call resolves only
+when the written count equals the callee's JVM parameter count — so the two Kotlin features that break that
+identity are exactly the failing set:
+
+| cause | example | why |
+|---|---|---|
+| **omitted defaulted parameters** | `joinToString(",")` is `joinToString/7` on the JVM | writing every defaulted argument makes the identical call resolve — proven A/B |
+| **`vararg`** | `listOf("a","b")`, `split(",",";")` | N written arguments against 1 array parameter. `listOf("a")` "works" only because it binds the stdlib's single-element overload |
+| **infix/operator library extensions** | `"a" to 1` fails, `"a".to(1)` resolves | `operatorFunctionCall` (`:1623`) looks only at members of the left operand's type and never takes the extension-facade route |
+| **the predefined `String`** | `s.length` | `bootstrapString` (`KotlinTypeMapper.kt:597`) loads named functions only — 83 methods, **0 fields** — so Kotlin's `length` PROPERTY is dropped. `java.util.List` goes through `loadLibraryMembers`, which does convert properties, which is why `x.size` works |
+| **extension properties** | `s.lastIndex` | `convertQualified`'s name-reference branch has no facade route at all |
+
+⚠ **The facade/part-class lead was a red herring** — `filter` and `joinToString` live in the SAME part class
+(`CollectionsKt___CollectionsKt`) and it is found correctly. So is `deepen`. The two documents that would
+have sent someone there (`kotlin-stdlib-extension-facades.md`, and this section's own first draft) are wrong
+about it.
+
+**What a fix has to do**, and it is not small: for a library callee, stop keying on written arity and use the
+K2 symbol's arity, with the symbol saying which parameters were defaulted and which is the vararg, then
+synthesize the missing arguments — zero-values plus the `$default` mask, as `callArguments` already does for
+SOURCE callees (`:1127` currently bails when the declaration has no PSI, which is every library). ⚠ Two
+risks worth stating before anyone starts: a `$default`-shaped callee is a different `MethodInfo` from the one
+the AAPI's annotations are keyed to, and a synthesized vararg array is an allocation the source never wrote,
+which the link engine will treat as a real object.
+
+### 7.8 ⛔ The failure the census cannot count — `2ebee1eb7`
+
+Chasing the above turned up something worse than a hole. `resolveCallee` ended `?: candidates.first()`:
+when no overload matches the argument types, it took whichever came first. Measured, before the fix:
+
+    s.replace("a", "b")  ->  java.lang.String.replace(char, char)   // two String literals, two chars
+    s.split(",")         ->  java.lang.String.split(String)         // returns String[]; expression type List<String>
+
+A placeholder says "nothing was read here" and the census counts it; **a guessed overload is a resolved call
+in the tree, and no walk over the tree can find it afterwards**. So the 74–81% figure understates the blind
+spot rather than bounding it.
+
+The fix rules out what can be proven impossible without a type hierarchy — a reference argument can never
+reach a primitive parameter unless it is that primitive's box. ⚠ The obvious tier, assignability, does NOT
+work here and that is measured, not assumed: `isAssignableFrom(CharSequence, String)` is false, because the
+predefined `String` is bootstrapped without its hierarchy (the same defect as the `s.length` row above), so
+an assignability tier leaves `replace(char,char)` in place. What is still guessed is now counted
+(`KotlinScan.ambiguousBindings`) — the blind spot beside the census.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -260,12 +313,14 @@ way out, so it bounds the stack and not the traversal).
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model — and §7.5b REORDERS this rung, twice.** 81% of the holes in detekt's own code are a
-   symbol K2 resolved that the CST could not, overwhelmingly a member of a LIBRARY type: that is the M5c
-   remainder, and it is worth more than every construct in §4 put together. So: **library member resolution
-   (deepen a type when it is referenced directly, not only when it is first met)** → block/`return` in
-   expression position (536) → callable references (88) → then annotations and `suspend`, which this corpus
-   never reaches → the local delegated property (§3, 1.3).
+4. **Close the model — reordered twice, and §7.7 says exactly where to start.** 81% (detekt) / 74% (coil)
+   of holes are a symbol K2 resolved that the CST could not, and the cause is arity: **library callees are
+   matched on the number of arguments the source writes**, so every call omitting a default and every
+   vararg call misses. Fix that first (§7.7 names the mechanism and the two risks); then the infix/operator
+   extension route, then `bootstrapString`'s missing properties, then **statements in expression position**
+   — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
+   `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
+   annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
