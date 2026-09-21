@@ -102,6 +102,7 @@ import org.jetbrains.kotlin.psi.KtObjectLiteralExpression
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.KtEscapeStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
+import org.jetbrains.kotlin.psi.KtParenthesizedExpression
 import org.jetbrains.kotlin.psi.KtPostfixExpression
 import org.jetbrains.kotlin.psi.KtPrefixExpression
 import org.jetbrains.kotlin.psi.KtProperty
@@ -705,6 +706,13 @@ internal class KotlinBodyConverter(
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
+            // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
+            // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
+            // construct that is not a language feature at all. Kotlin's parentheses carry no semantics beyond
+            // grouping, which the CST already expresses by its shape, so the inner expression IS the result —
+            // the same thing javac's parser does with a JCParens.
+            is KtParenthesizedExpression -> expression.expression?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-absent-parenthesized", expression)
             is KtBinaryExpression -> convertBinary(expression, method, locals)
             is KtPostfixExpression -> convertUnary(expression.baseExpression, expression.operationToken, false, method, locals)
             is KtPrefixExpression -> convertUnary(expression.baseExpression, expression.operationToken, true, method, locals)
