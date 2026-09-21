@@ -100,7 +100,15 @@ a *single* `TypeInfo`; two copies of the CST classes and that silently stops bei
    their main code is a **compile error**. That check immediately found a call site (`MixedInspector.parse`)
    that a grep over imports had missed. Tests keep `testImplementation` — they exercise the implementation,
    so they may name it.
-3. The realm: plexus-classworlds, a bootstrap that takes the K2 jar list, and the import filter.
+3. ✅ The realm: `maddi-kotlin-realm`, `K2Realm.create(jars)` over plexus-classworlds 2.9.0. The realm
+   imports `io.codelaser.maddi.{kotlin.api,cst.api,inspection.api,inspection.resource}`, `kotlin` and
+   `org.slf4j` from the host and takes everything else from its own jars; the front end is then found
+   *inside* it by the same `ServiceLoader` lookup, so the host never names a class the realm owns.
+   ⚠ `kotlin` is on that list and is easy to miss: `KotlinSession.declare` takes a Kotlin lambda, which is a
+   `kotlin.jvm.functions.Function1` at run time — loaded twice, that is a `ClassCastException` at the
+   boundary. The jar list reaches a test through the same resolvable-but-not-runtime configuration a
+   consumer will use, so the test JVM's own classpath stays free of the compiler; `K2RealmTest` asserts that
+   first, because otherwise every other assertion in it would pass with the realm doing nothing.
 4. The heavy jars leave `runtimeElements`; a resolvable configuration replaces the transitive leak.
 5. Verification: the Kotlin suites, detekt and coil, and a first-one-wins classpath census that must reach
    **0** (today: 1,098 on the consumer's classpath, 174 in our own zip).
