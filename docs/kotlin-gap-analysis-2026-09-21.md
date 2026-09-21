@@ -146,9 +146,8 @@ reporting what it could not read invites the reader to take the first for the wh
 ⚠ The denominators travel with the count (`typesVisited`, `membersVisited`): `0 placeholders` is also what a
 census that walked nothing reports. `K2_PLACEHOLDER_PREFIX` replaces the three hand-written `"k2-"` literals.
 
-**Measured:** 11 new tests; the six touched modules' suites 354 tests, 0 failures. The corpus placeholder
-figure is **not** measured — detekt and coil are `@Tag("slow")` and their configurations are generated
-locally (§6). Producing that number is the obvious next run, and it is the one number that sizes Tier 2.
+**Measured:** 11 new tests; the six touched modules' suites 354 tests, 0 failures. **And then the corpus
+number, which is §7.5** — the one figure that sizes Tier 2, and it did not exist until this ran.
 
 ### 7.3 A `!is` arm is a condition, and a missing required child is marked — `e3dbd7b71`
 
@@ -177,6 +176,47 @@ It does **not** refuse the way the CLI does, deliberately: an editor asking abou
 served by the Java half plus a visible problem than by nothing. `initProblems` already carries "your analysis
 is not what you think it is" to the editor, so the count and the source sets go there, and to the log at ERROR.
 
+### 7.5 ⭐ The number that sizes Tier 2 — first corpus census
+
+| corpus | placeholders | types holding one | members holding one | distinct kinds |
+|---|---|---|---|---|
+| detekt | **5,913** | **846 of 1,384 (61%)** | 2,322 of 7,747 (30%) | ~1,060 |
+| coil (JVM slice) | **429** | 72 of 186 (39%) | 211 of 1,451 (15%) | ~190 |
+
+**Three in five detekt types hold at least one position where the analysis reads nothing.** That is the
+honest size of the front end's coverage gap, and it is the first time it has been a number rather than an
+impression. (Both figures are AFTER §7.6; before it, detekt was 6,057 and coil 437.)
+
+What the top kinds say, and it is not what §4 predicted:
+
+| kind | detekt | reading |
+|---|---|---|
+| `k2-unresolved-call:add` | 546 | ⛔ **the biggest single kind is collection mutation.** §5's line that read-only-vs-mutable collections are "measured small" was measured on IMMUTABILITY VERDICTS (0.4%); on BODY CONVERSION the same collapse is the number-one hole. Two different questions, and the doc had only the first. |
+| `KtParenthesizedExpression` | 349 | not a language feature at all — §7.6 |
+| `k2-unresolved-call:resolveToCall`, `:configure`, `:getByName` | 289 / 107 / 107 | calls into libraries (the Analysis API, the Gradle DSL) that resolve in K2 but not in the CST |
+| `KtBlockExpression`, `KtReturnExpression` | 270 / 266 | a block or a `return` in *expression* position |
+
+⚠ None of the constructs §4 names from reading — `suspend`, `::foo`, `Foo::class` — is anywhere near the
+top. `KtClassLiteralExpression` is 9 on coil and does not make detekt's list. **The model holes found by
+reading the converter are real but rare; the holes that dominate a real corpus are unresolved CALLS.** Any
+plan that spends its first week on `suspend` is optimising the wrong number.
+
+### 7.6 The census pays for itself on day one — `176d67d48`, `edde9dc63`
+
+`(a + b).f()` was a placeholder: parentheses were not in the expression dispatch, and a placeholder
+swallows everything inside it. Fixed by returning the inner expression, as javac's parser does.
+
+⚠ **The total does not fall by what the fix removes, and that is this number's honest shape**: detekt
+6,057 → 5,913 (−144, not −349), coil 437 → 429 (−8, not −20). Fixing a swallowing placeholder REVEALS the
+holes it hid — ~205 expressions inside those parentheses are themselves unconverted. A census that fell by
+exactly 349 would have meant the inner code was never counted at all.
+
+⛔ **And it exposed a defect one layer down.** Three detekt tests went to `StackOverflowError` the moment
+those expressions carried a real type: `CommonType`'s join guard fires only when a type argument is exactly
+the type being joined, so a recursive generic one level deeper walks forever. It is a **Java-side defect**
+the Kotlin corpus merely walked into. The join now carries the pairs it is still computing (removed on the
+way out, so it bounds the stack and not the traversal).
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -185,8 +225,12 @@ is not what you think it is" to the editor, so the count and the source sets go 
 3. **One entry point.** Either `maddi-run-main` gains `--compile-log` + the mixed inspector, or the Kotlin
    CLI gains the flags it lacks (no `--source`/`--classpath`, no `--analysis-results-dir`, no incremental,
    no hints composer, no `--help`). Until then the claim is about a second tool.
-4. **Close the model, in this order**: annotations → `suspend` → `::`/`::class`/parens/local funs → the
-   local delegated property (§3, 1.3). The first two are what a real codebase trips over immediately.
+4. **Close the model — and §7.5 REORDERS this rung.** The corpus says the dominant hole is unresolved
+   CALLS (`add` 546, `resolveToCall` 289, `configure`/`getByName` 107 each), not the constructs found by
+   reading. So: collection-call resolution (the read-only/mutable collapse, which §5 under-rated because it
+   was measured on verdicts rather than on bodies) → block/`return` in expression position → library-call
+   resolution → then annotations and `suspend`, which a real corpus meets far less often than the
+   converter's source suggests → `::`/`::class` → the local delegated property (§3, 1.3).
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
