@@ -27,10 +27,12 @@ import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -55,7 +57,21 @@ public class WarmAnalysisService implements AnalyzeHandler {
         emit(status, requestId, "initialize", "building inspector", null, null);
         InputConfiguration inputConfiguration = assembler.build(request.config());
         JavaInspector inspector = new JavaInspectorImpl(true, false); // openjdk inspector (run-openjdk style)
-        List<String> initProblems = inspector.initialize(inputConfiguration).stream().map(String::valueOf).toList();
+        List<String> initProblems = new ArrayList<>(inspector.initialize(inputConfiguration).stream()
+                .map(String::valueOf).toList());
+
+        // ⚠ The daemon is the fourth Java-only entry point, and it skips a .kt file exactly as the build
+        // plugins used to. It does NOT refuse the way the CLI does: an IDE asking about a mixed project is
+        // better served by the Java half plus a visible problem than by nothing at all — and initProblems is
+        // the channel that already carries "your analysis is not what you think it is" to the editor.
+        DetectKotlinSources kotlinSources = DetectKotlinSources.in(inputConfiguration);
+        if (kotlinSources.found()) {
+            String problem = kotlinSources.fileCount() + " Kotlin source file(s) in " + kotlinSources.sourceSetNames()
+                             + " are NOT analyzed: this daemon reads Java only. The findings below cover the"
+                             + " Java sources alone.";
+            LOGGER.error("{}", problem);
+            initProblems.add(problem);
+        }
 
         // Eagerly parse the JDK packages whose hints we load (after initialize, so the classpath is set), then
         // load the bundled JDK + library analysis hints so modification/immutability/independence of library
