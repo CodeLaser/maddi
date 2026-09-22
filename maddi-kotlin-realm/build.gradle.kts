@@ -55,5 +55,11 @@ tasks.withType<Test> {
     useJUnitPlatform()
     // ⭐ the same mechanism a consumer uses: resolve the K2 runtime into a path and hand it over. The test
     // JVM's OWN classpath stays free of the compiler, which is what makes the isolation testable at all.
-    systemProperty("maddi.k2.classpath", k2Runtime.asPath)
+    // ⛔ An INPUT, not a string. `systemProperty(…, k2Runtime.asPath)` handed the realm the jars' PATHS and told
+    // Gradle nothing: no task dependency on building them, no re-run when they change. A working copy that had
+    // built maddi-kotlin-k2 for other reasons passed; this one handed the realm a jar from BEFORE the realm
+    // existed (no K2FrontEnd, no service file) and 4 of K2RealmTest's 5 failed with "no KotlinFrontEnd
+    // implementation is visible"; a clean checkout hands it a path that does not exist.
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
 }

@@ -86,7 +86,9 @@ tasks.withType<Test> {
     System.getProperty("maddi.placeholderDump")?.let { systemProperty("maddi.placeholderDump", it) }
     // ⭐ the tests run against the REALM, exactly as the shipped CLI does: the compiler is never on the test
     // JVM's own classpath, so a corpus run proves the isolation rather than merely coexisting with it
-    systemProperty("maddi.k2.classpath", k2Runtime.asPath)
+    // ⛔ an INPUT, not a string: see maddi-kotlin-realm/build.gradle.kts for what the string form cost
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
     System.getenv("MADDI_PLACEHOLDER_DUMP")?.let { systemProperty("maddi.placeholderDump", it) }
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
