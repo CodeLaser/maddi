@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.*;
@@ -99,6 +100,25 @@ public interface TranslationMap {
     @NotNull
     default Variable translateVariable(Variable variable) {
         return variable;
+    }
+
+    /**
+     * What this translation already made of {@code original}, by <em>identity</em>; null when it has not met
+     * it, and always for a map that keeps no such memory.
+     * <p>
+     * A local variable carries its assignment expression, and the declaration and every reference share one
+     * object. Translated one occurrence at a time they came apart: {@code Consumer<X> c = x -> {..};} followed
+     * by two {@code c.accept(..)} gave a new variable holding the new lambda at the declaration and the old
+     * variable, holding the old lambda, at each reference -- an implementation type belonging to the type that
+     * was translated away, which a later rewire cannot complete. A translation that remembers hands every
+     * occurrence the declaration's result.
+     */
+    default LocalVariable translatedLocalVariable(LocalVariable original) {
+        return null;
+    }
+
+    /** Remember, for {@link #translatedLocalVariable}, what {@code original} became. */
+    default void rememberTranslatedLocalVariable(LocalVariable original, LocalVariable translated) {
     }
 
     /*
