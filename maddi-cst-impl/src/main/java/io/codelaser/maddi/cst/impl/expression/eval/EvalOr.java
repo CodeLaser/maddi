@@ -105,13 +105,13 @@ public class EvalOr {
 
             int complexity = concat.stream().mapToInt(Expression::complexity).sum();
             boolean tooComplex = complexity >= maxAndOrComplexity;
-            if (tooComplex) {
-                LOGGER.warn("Not analysing OR operation, complexity {}", complexity);
-                return runtime.newOrBuilder().addExpressions(concat).build();
-            }
-            if (EvalBudget.exhausted()) {
-                LOGGER.warn("Not analysing OR operation, evaluation budget exhausted");
-                return runtime.newOrBuilder().addExpressions(concat).build();
+            if (tooComplex || EvalBudget.exhausted()) {
+                // STEP 4b may have left fewer than two terms (a removed `false`, a removed duplicate); an Or of
+                // one is that one, of none is false -- as EvalAnd does, and as the exit below does. Building
+                // an Or from them asserted in OrImpl, and the encoder lost the method (2026-09-22).
+                LOGGER.warn(tooComplex ? "Not analysing OR operation, complexity {}"
+                        : "Not analysing OR operation, evaluation budget exhausted", complexity);
+                break;
             }
 
             // STEP 4d: reductions

@@ -126,4 +126,18 @@ public class TestAndOr extends CommonTest {
         Expression e = r.and(nx1, nx2, nx3, x7);
         assertEquals("'a'==x", e.toString());
     }
+
+    @DisplayName("too complex to analyse, and reduced to one term by the trivial step: that term, not an Or of one")
+    @Test
+    public void tooComplexOrOfOne() {
+        // complexity 1: every disjunction is 'too complex', and only the trivial step (4b) runs
+        io.codelaser.maddi.cst.impl.expression.eval.EvalOr evalOr = new io.codelaser.maddi.cst.impl.expression.eval.EvalOr(r,
+                new io.codelaser.maddi.cst.impl.expression.eval.EvalOptions(1));
+        Expression x1 = r.equals(r.newChar('!'), x);
+        assertEquals(x1, evalOr.eval(List.of(x1, FALSE)), "the false is removed, one term is left");
+        assertEquals(x1, evalOr.eval(List.of(x1, x1)), "A || A, one term is left");
+        assertEquals(FALSE, evalOr.eval(List.of(FALSE, FALSE)), "nothing is left");
+        Expression x2 = r.equals(r.newChar('<'), x);
+        assertEquals("'!'==x||'<'==x", evalOr.eval(List.of(x1, x2)).toString(), "two terms stay an Or");
+    }
 }
