@@ -61,6 +61,11 @@ afterEvaluate {
         // the big test passed, and every remaining suite is aborted. JVM startup is noise next to a
         // corpus run; isolation buys each suite the full TESTXMX budget.
         forkEvery = 1
+        // ⛔ A corpus test that SKIPS because its corpus is absent reports the same green as one that ran
+        // and measured 9,000 types. `slowTest` exists to measure corpora, so here a missing corpus is a
+        // failure (TestOssCorpus.require). The fast `test` task never needs a corpus and is unaffected;
+        // a contributor without the checkouts can still run `./gradlew slowTest -Pcorpus.optional`.
+        systemProperty("maddi.corpus.required", if (project.hasProperty("corpus.optional")) "false" else "true")
     }
 }
 

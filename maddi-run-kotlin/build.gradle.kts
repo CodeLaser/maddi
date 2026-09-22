@@ -45,6 +45,8 @@ dependencies {
     implementation(project(":maddi-kotlin-realm"))          // K2Realm: the compiler goes in a classloader of its own
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
+    implementation(project(":maddi-modification-link"))    // LinkCodec: the only codec that can write full results
+    implementation(project(":maddi-util"))                 // Trie: the shape WriteAnalysisResults takes
     implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
     implementation(project(":maddi-cst-analysis"))          // PropertyImpl/ValueImpl: read the immutability verdict
     implementation(project(":maddi-graph"))                 // G<Info>

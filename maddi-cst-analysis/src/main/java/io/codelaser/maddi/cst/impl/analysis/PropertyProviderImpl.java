@@ -84,6 +84,19 @@ public class PropertyProviderImpl {
                 UNMODIFIED_PARAMETER,
                 UTILITY_CLASS
         );
+        // ⛔ Added 2026-09-22. A property the ENCODER can write but this provider does not know makes the
+        // decoder assert ("Have no property object for key ..."), so the whole results file is unreadable.
+        // Both of these are written by live analyzers — DEGRADED_ANALYSIS_METHOD by LinkComputerImpl and
+        // SingleIterationAnalyzerImpl, INDEPENDENT_TYPE_PARAMETER by ShallowTypeAnalyzer — and neither was
+        // registered, so any run whose results contained one could not be read back at all.
+        // TestEveryWritablePropertyDecodes pins the class of defect, unconditionally: AnalysisTier is about
+        // RELOAD COST, not persistence (FINAL_FIELD is INTRINSIC and has always been registered), so no tier
+        // earns an exemption. INSTANCEOF_SCOPE is registered for the same reason — if it is never written,
+        // knowing how to read it costs nothing; if it ever is, the alternative is an unreadable file.
+        Collections.addAll(properties,
+                DEGRADED_ANALYSIS_METHOD,
+                INDEPENDENT_TYPE_PARAMETER,
+                INSTANCEOF_SCOPE);
         properties.forEach(p -> propertyMap.put(p.key(), p));
     }
 

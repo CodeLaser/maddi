@@ -92,12 +92,26 @@ public class TestOneEntryPoint {
      */
     @Test
     public void anUnsupportedOptionIsRefusedByNameOnAKotlinProject(@TempDir Path tmp) throws Exception {
+        // ⚠ This used to use --analysis-results-dir, which the mixed CLI refused. It is HONOURED since
+        // 2026-09-22 (the runner writes through LinkCodec; see TestKotlinAnalysisRoundTrip), so the refusal
+        // is now demonstrated with one that genuinely remains unsupported: consuming results to SKIP work
+        // needs the rewire/fingerprint machinery, which writing and reading them does not give you.
+        String[] args = concat(kotlinProject(tmp), "--analysis-steps", "modification", "--incremental-analysis");
+        assertEquals(ExitCode.UNSUPPORTED_OPTION, Main.execute(args));
+        assertTrue(ExitCode.message(ExitCode.UNSUPPORTED_OPTION).contains("not supported"));
+    }
+
+    /** ⭐ ...and the other half: the option that moved from refused to honoured actually writes. */
+    @Test
+    public void theResultsDirectoryIsHonouredOnAKotlinProject(@TempDir Path tmp) throws Exception {
         Path out = tmp.resolve("results");
         String[] args = concat(kotlinProject(tmp),
                 "--analysis-steps", "modification", "--analysis-results-dir", out.toString());
-        assertEquals(ExitCode.UNSUPPORTED_OPTION, Main.execute(args));
-        assertFalse(Files.exists(out), "refused, so nothing may be written");
-        assertTrue(ExitCode.message(ExitCode.UNSUPPORTED_OPTION).contains("not supported"));
+        assertEquals(0, Main.execute(args));
+        assertTrue(Files.isDirectory(out), "honoured, so results must be written");
+        try (var walk = Files.walk(out)) {
+            assertTrue(walk.anyMatch(Files::isRegularFile), "the results directory is empty");
+        }
     }
 
     /** …and the same project without that option runs. The refusal must be about the option, not the project. */

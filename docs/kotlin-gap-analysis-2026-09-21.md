@@ -693,6 +693,162 @@ is a differential oracle**, and it found a core defect that 3,505 same-language 
 did not. Kotlin's lowerings emit ternaries where a human writes `if`, so the Kotlin front end walked into a
 blind spot Java code mostly steps around.
 
+### 7.19 ⭐ Callable references — five shapes of six, and the field that decides the answer
+
+`::f` was the largest remaining unmodelled family (≈92 sites on detekt). It is Java's method reference and
+the CST already has a `MethodReference`, so the work was resolution, not modelling. ⚠ The inventory was
+established by probe rather than by reading the dump, which had only ever matched method *signatures*
+containing the type name:
+
+| shape | K2 resolves it to | before | after |
+|---|---|---|---|
+| `::two` (top-level) | `KaNamedFunctionSymbol` `/two` | placeholder | ✅ facade `PKt`, scope = type |
+| `::twice` (member, implicit) | `KaNamedFunctionSymbol` `/P.twice` | placeholder | ✅ scope = `this` |
+| `this::twice` | same | placeholder | ✅ scope = `this` |
+| `Q::len` (unbound) | `KaNamedFunctionSymbol` `/Q.len` | placeholder | ✅ scope = type `Q` |
+| `::Q` (constructor) | `KaConstructorSymbol` | placeholder | ✅ the constructor |
+| `Q::i`, `String::length` | `KaFir…PropertySymbol` | placeholder | ⛔ `k2-callable-ref-property` |
+
+⭐ **The field that decides what the analyzer concludes is `scope()`, not `methodInfo()`.**
+`ExpressionVisitor.methodReference` treats a scope with no links-primary — a `TypeExpression` — as an
+INTERNAL receiver and drops its self-modifications, and a scope that is a value as the caller's own object.
+So `Q::len` and `this::len` must not produce the same tree, and a test asserting only "no placeholder"
+would not have noticed if they did. `CallableReferenceTest` asserts the scope KIND on every shape.
+
+The three no-receiver cases are the subtle ones: `::two` and `::twice` are written identically and mean
+opposite things. The discriminator is whether the symbol's PSI has a containing class — a member is
+implicitly `this` (bound), a top-level function lives on the file facade (unbound).
+
+⛔ **Property references are deliberately left.** A Kotlin property is not a `MethodInfo` in this front end,
+so `Q::i` has nothing to reference; it keeps a placeholder that NAMES the shape (`k2-callable-ref-property`)
+rather than hiding among the unsupported expressions. The census is the disclosure instrument, so the name
+is the deliverable.
+
+⚠ One knock-on stays open and is pinned: the reference in `val g = ::twice` converts, but CALLING it
+(`g(2)`) does not — invoke-operator sugar over a `KFunction1`, a type this front end knows only shallowly.
+
+**Verdict-level, via §7.17's instrument** — both sides calling the same Java method through the same
+functional interface, so a disagreement is the reference and not the library:
+
+    refBound     kotlin: b.unmodified=true c.unmodified=false   java: b.unmodified=true c.unmodified=false
+    refUnbound   kotlin: b.unmodified=true c.unmodified=true    java: b.unmodified=true c.unmodified=true
+
+`c::add` marks `c` modified; `Box::touch` does not, on EITHER side — that is the documented conservative
+drop for an unbound receiver in `ExpressionVisitor.methodReference`. ⭐ The Kotlin front end matches Java
+including its conservatism, which is the right result for a differential test: fidelity to the engine, not
+to an ideal.
+
+⚠ **Not yet measured on a corpus.** The ≈92 detekt sites are a recorded figure, not a re-measurement; the
+box was full of other threads' JVMs when this landed. Unit evidence only: 254 tests in `maddi-kotlin-k2`,
+3,513 in the repo, 0 failures. The corpus delta is owed.
+
+### 7.20 ⭐ Make the evidence fail — the rung that protects every other one
+
+Three corpus tests opened with `Assumptions.assumeTrue(Files.exists(config))`. An absent corpus made them
+SKIP, and a skipped test reports the same build outcome as one that analysed 9,319 types. `AGENTS.md`
+§Commands has warned about exactly this for months. ⛔ **And it caught me an hour after I wrote it**: the
+commit message for the conditional-expression fix claimed "slowTest green on clone-bench, detekt, coil and
+fernflower". Fernflower was never run — `maddi-run-openjdk:slowTest` had not executed in the session at all,
+and its only result file was 32 days old. Believing a green build outcome is the failure; it is not enough
+to know about it.
+
+**1. A corpus that is required cannot be skipped.** `TestOssCorpus.requireConfig` / `requireDir` skip by
+default — a contributor without the checkouts still gets a green build — but under
+`-Dmaddi.corpus.required=true` the same absence is a hard failure naming the corpus and the command that
+generates it. `slowTest` sets the property, because measuring corpora is the whole reason that task exists;
+`-Pcorpus.optional` turns it back off. ⚠ `TestCorpusRequirement` is the identity check for the mechanism —
+deliberately NOT tagged slow and needing no checkout, because a guard nobody tests is the failure mode it
+exists to prevent, one level up.
+
+**2. A two-sided ratchet on the Kotlin census.** The Java corpus tests assert floors ("at least 1,000
+types"), deliberately, so a version bump is not brittle. A floor is the wrong instrument for the quantity
+this campaign moves: placeholders went 6,057 → 4,704, and every floor loose enough to survive that is loose
+enough to miss a regression of several hundred. So `CensusRatchet` fails on a regression **and on an
+unrecorded improvement**: a bound nobody tightens rots into a floor, and the only reliable moment to tighten
+it is the run that beat it.
+
+| pinned 2026-09-22 at `29e951ea1` | detekt | coil |
+|---|---|---|
+| placeholders | **4,704** (in 790 of 1,384 types) | **367** (in 69 of 186) |
+| isolated by prep | **0** | **0** |
+| immutable types | **668** | — |
+
+⚠ The corpus runs can only ever exercise the ratchet's passing side, so both failing sides are proved
+separately in `TestCensusRatchet`, free of any checkout.
+
+**3. A mixed-language regression, owned here.** §7.17's instrument compares Kotlin → Java. The direction the
+downstream planners actually hit is the other one — **Java calling Kotlin** — and it was covered only at the
+PARSE level (`TestMixedHardening`: void/Unit, companions, facades, extensions, varargs, generics). A parse is
+not a verdict, and the stubs javac resolves Kotlin through are maddi's own, so the boundary belongs here.
+`TestMixedBoundaryVerdicts` asserts a matched pair: Java calling a modifying Kotlin method sees its
+parameter modified, **and** Java calling a read-only one does not — without the second, "everything is
+modified" would pass the first. `KBox`'s own verdicts are asserted first, so a failure says which side broke.
+
+⭐ The census guard earned itself immediately: the fixture's first draft used `ArrayList`, which that source
+set cannot resolve (the dependency runs Java → Kotlin here, so Kotlin has no JDK), and the run was refused
+as vacuous rather than passing on three placeholders.
+
+### 7.21 ⭐ A real Kotlin round trip — and two properties that made a results file unreadable
+
+§5.1 recorded "no encode path: no Kotlin module references `Codec`". Rung 6 asks whether a Kotlin analysis
+can be written and read back — the mechanism under incremental analysis and the IDE daemon.
+`TestKotlinAnalysisRoundTrip` does it end to end: one session parses, analyses and writes; a second,
+completely fresh session parses the same sources, runs NO analysis, and loads what the first wrote.
+
+    fresh  : add nonModifying=false params=n:false; setCount …value:false; size nonModifying=false
+    before : add nonModifying=false params=n:true ; setCount …value:true ; size nonModifying=true
+    after  : add nonModifying=false params=n:true ; setCount …value:true ; size nonModifying=true
+
+Four things the probe found, none of them guessable from the gap list:
+
+1. ⭐ **The encoder already handles Kotlin.** The writer is language-agnostic and produced a complete
+   `A.json` with the real verdicts on the first try. "No encode path" meant nobody *calls* it.
+2. A Kotlin type is only resolvable by FQN when the configuration **also has a Java source set**. With a
+   Kotlin-only configuration `runtime.getFullyQualified` returns null and every hint is skipped as "type not
+   on the classpath" — which is how the first attempt read back 0 of 1 types while looking like a decode bug.
+3. ⛔⛔ **Two properties the analysers write were unknown to the decoder**, which does not degrade: it
+   asserts, and the ENTIRE file is lost, not just that value. `DEGRADED_ANALYSIS_METHOD` (written by
+   `LinkComputerImpl` and `SingleIterationAnalyzerImpl`) and `INDEPENDENT_TYPE_PARAMETER` (written by
+   `ShallowTypeAnalyzer`) were declared in `PropertyImpl` but never registered in `PropertyProviderImpl`.
+   Java-side defects both, found once more through the Kotlin work.
+   `TestEveryWritablePropertyDecodes` now removes the class of defect: every declared property must resolve.
+   ⚠ Its first draft invented an exemption — "INTRINSIC means never persisted" — and `FINAL_FIELD`, which is
+   INTRINSIC *and* has always been registered, refuted it on the first run. `AnalysisTier` grades reload
+   cost, not persistence; there is no exemption.
+4. The reader must be paired with the writer. `LoadAnalysisResults` lives in maddi-modification-prepwork,
+   which structurally cannot know `methodLinks` (declared in maddi-modification-link, which prepwork must
+   not depend on). `LinkCodec.restoreCodec()` is the matching read side.
+
+⚠ Two traps in the test itself, both caught by its own controls rather than by review. The fingerprint's
+first version filtered out lines matching `nonModifying=false params=` "to drop empty ones" — it dropped
+`add`, the only modifying method, leaving a round trip that compared one read-only method with itself. And
+the negative control first asserted the fresh type carries NO verdicts; it carries **defaults**, which is
+exactly what a decode that did nothing would leave, so the control had to become "the fresh fingerprint
+must DIFFER from the analysed one".
+
+⚠ Also visible in the written JSON, and not chased here: Kotlin's synthesized property setter
+`MsetCount(1,int)` carries `degradedAnalysisMethod` — the analysis of that accessor was abandoned. It
+round-trips faithfully, but it is a verdict worth a look on its own.
+
+**And then wired.** `RunMixedPrepAnalyzer.Options` gained `analysisResultsTargetDir`, and the mixed CLI now
+honours `--analysis-results-dir` — an option it used to REFUSE by name with exit
+{@code UNSUPPORTED_OPTION}. `TestOneEntryPoint` carried that refusal as an assertion, so the change shows up
+there as a test that had to move: the refusal case now uses `--incremental-analysis`, which genuinely
+remains unsupported, and a new case asserts the results directory is written. `TestMixedMain` adds the
+end-to-end check with the half that matters — a run WITHOUT the option must write nothing, or the assertion
+would pass on a directory something else filled.
+
+⛔ The codec choice is load-bearing and easy to get wrong silently: `WriteAnalysisResults`' two-argument
+overload builds a prep-work codec that cannot know `methodLinks`, so results written with it are unreadable
+— and the reader does not degrade, it asserts and loses the whole file. The runner passes `LinkCodec`
+explicitly, with the reason in a comment beside it.
+
+**Scope.** ⚠ `--incremental-analysis` is still refused, deliberately. Being able to write and read results
+is not the same as being able to consume them to SKIP work: that needs the rewire and fingerprint
+machinery, which is a separate question. What rung 6 can now claim is that the persistence layer underneath
+incremental analysis and the IDE daemon works for Kotlin, is reachable from the CLI, and has a test
+standing on each half.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -712,17 +868,25 @@ blind spot Java code mostly steps around.
    arity rule and operator extensions, `bootstrapString`'s statics, extension properties, blocks in
    expression position, `x ?: return`, and `try` as a value. detekt **6,057 → 5,525** sites, types holding
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
-   What remains, in order: **callable references** (92 on detekt), then **annotations** and **`suspend`**,
+   ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
+   keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
+   What remains, in order: **property references**, then **annotations** and **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
-5. **Make the evidence fail.** ⭐ Begun: §7.16 is the first test that asks what the analyzer CONCLUDES
-   rather than what it parsed, and it found a wrong answer on its first run. The rest of the rung — Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
-   baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
-6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
-   IDE daemon.
+5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under
+   `-Dmaddi.corpus.required`, which `slowTest` sets; a two-sided ratchet pins the Kotlin census on both
+   corpora; and the Java → Kotlin verdict boundary is a regression owned here rather than downstream.
+   ⚠ Remaining: the ~10 Java corpus tests still use a bare `assumeTrue`, so `slowTest` will not yet fail
+   for a missing guava/fernflower/elasticsearch checkout. Converting them is one line each, and should be
+   done with a check of which corpora each machine has — it changes what a green `slowTest` means.
+6. ✅ **Persistence** (§7.21). The round trip is measured — write, fresh re-parse, load, identical verdicts
+   — it cost two Java-side codec fixes to get there, and the mixed CLI now honours `--analysis-results-dir`
+   where it used to refuse it. ⚠ `--incremental-analysis` stays refused: consuming results to SKIP work
+   needs the rewire/fingerprint machinery, which is the next question, not this one. The IDE daemon is
+   likewise still Java-only; what changed is that the layer underneath both now exists for Kotlin.
 
 Steps 3–5 buy "maddi is Java+Kotlin, with a published coverage boundary". Step 6 and Tier 3 buy the
 unqualified claim.

@@ -174,7 +174,8 @@ public class Main {
                 configuration.analysisHintsConfiguration() == null ? List.of()
                         : configuration.analysisHintsConfiguration().preloadAnalysisResultsDirs(),
                 configuration.generalConfiguration().parallel(),
-                configuration.generalConfiguration().warnNearMisses());
+                configuration.generalConfiguration().warnNearMisses(),
+                configuration.generalConfiguration().analysisResultsDir());
         RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
                 .go(configuration.inputConfiguration(), options);
         // the placeholder count belongs on the SAME line as the type counts: a run that reports what it
@@ -199,10 +200,10 @@ public class Main {
     static List<String> unsupportedOptions(Configuration configuration) {
         List<String> unsupported = new ArrayList<>();
         var general = configuration.generalConfiguration();
-        String resultsDir = general.analysisResultsDir();
-        if (resultsDir != null && !resultsDir.isBlank() && !AS_NONE.equalsIgnoreCase(resultsDir)) {
-            unsupported.add("--" + ANALYSIS_RESULTS_DIR);
-        }
+        // ⭐ --analysis-results-dir is honoured since 2026-09-22: the mixed runner writes through LinkCodec,
+        // and TestKotlinAnalysisRoundTrip shows a fresh session reads those results back to identical
+        // verdicts. ⚠ --incremental-analysis still is NOT: consuming results to SKIP work needs the rewire
+        // and fingerprint machinery, which is a separate question from being able to write and read them.
         if (general.incrementalAnalysis()) unsupported.add("--" + INCREMENTAL_ANALYSIS);
         if (general.analysisSteps().contains(AS_REWIRE_TESTS)) {
             unsupported.add("--" + ANALYSIS_STEPS + " " + AS_REWIRE_TESTS);
