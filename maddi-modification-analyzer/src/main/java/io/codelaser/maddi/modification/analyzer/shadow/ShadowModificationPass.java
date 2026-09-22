@@ -871,12 +871,13 @@ public class ShadowModificationPass {
     // ------------------------------------------------------------------ cutover writer (P2.3)
 
     public record WriteCounts(int downgraded, int decidedFalse, int decidedTrue,
-                              int leftUndecided, int reverseUpgraded, int reverseKept) {
+                              int leftUndecided, int reverseUpgraded, int reverseKept, int contractKept) {
         public String summary() {
             return "modreach wrote: " + downgraded + " TRUE->FALSE downgrades, "
                    + decidedFalse + " null->FALSE, " + decidedTrue + " null->TRUE, "
                    + leftUndecided + " left undecided (frontier), "
-                   + reverseUpgraded + " FALSE->TRUE upgrades, " + reverseKept + " reverse kept (tainted)";
+                   + reverseUpgraded + " FALSE->TRUE upgrades, " + reverseKept + " reverse kept (tainted), "
+                   + contractKept + " contract kept (authored on a bodiless method)";
         }
     }
 
@@ -898,14 +899,28 @@ public class ShadowModificationPass {
      * The caller must freeze the three properties against later writers (TolerantWrite) —
      * Bool's legal overwrite direction is FALSE->TRUE, so any re-derivation writer could
      * silently undo a downgrade.
+     * <p>
+     * ⛔ {@code contracted} is the ONE exception to the single-writer authority, added 2026-09-22. A bodiless
+     * method has nothing to compute from, so the value the analyzer derives for it is the disjunction over its
+     * implementations — and this pass reaches it through exactly those implementations. That is the very
+     * reconstruction an authored {@code @NotModified} exists to override, so the pass must leave a contracted
+     * bodiless method alone; the guard still reports each implementation that breaks the contract.
+     * <p>
+     * Without this, an authored contract was seeded in pass 1, overwritten to FALSE here (this writer calls
+     * {@code analysis.overwrite} directly, bypassing TolerantWrite), and could never be re-seeded because the
+     * caller then FREEZES the three properties. Measured on vavr 1.0.1: the written {@code nonModifyingMethod}
+     * of ten {@code io.vavr.Value} methods was byte-identical with and without their {@code @NotModified}
+     * annotations — the contracts changed nothing at all.
      */
-    public WriteCounts writeVerdicts(List<Info> analysisOrder, Report report) {
+    public WriteCounts writeVerdicts(List<Info> analysisOrder, Report report,
+                                     java.util.function.Predicate<MethodInfo> contracted) {
         AnalysisHelper analysisHelper = new AnalysisHelper();
-        int[] counts = new int[7]; // indexed by the write-result constants
+        int[] counts = new int[8]; // indexed by the write-result constants
         for (Info info : analysisOrder) {
             switch (info) {
                 case MethodInfo mi -> {
-                    counts[write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
+                    counts[contracted.test(mi) ? CONTRACT_KEPT : write(mi.analysis(),
+                            PropertyImpl.NON_MODIFYING_METHOD,
                             report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi)]++;
                     for (ParameterInfo pi : mi.parameters()) {
                         boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
@@ -923,11 +938,11 @@ public class ShadowModificationPass {
             }
         }
         return new WriteCounts(counts[DOWNGRADED], counts[DECIDED_FALSE], counts[DECIDED_TRUE],
-                counts[LEFT_UNDECIDED], counts[REVERSE_UPGRADED], counts[REVERSE_KEPT]);
+                counts[LEFT_UNDECIDED], counts[REVERSE_UPGRADED], counts[REVERSE_KEPT], counts[CONTRACT_KEPT]);
     }
 
     private static final int NO_CHANGE = 0, DOWNGRADED = 1, DECIDED_FALSE = 2, DECIDED_TRUE = 3,
-            LEFT_UNDECIDED = 4, REVERSE_KEPT = 5, REVERSE_UPGRADED = 6;
+            LEFT_UNDECIDED = 4, REVERSE_KEPT = 5, REVERSE_UPGRADED = 6, CONTRACT_KEPT = 7;
 
     private int write(PropertyValueMap analysis, io.codelaser.maddi.cst.api.analysis.Property property,
                       boolean reached, boolean tainted, boolean immutableType, Object element) {

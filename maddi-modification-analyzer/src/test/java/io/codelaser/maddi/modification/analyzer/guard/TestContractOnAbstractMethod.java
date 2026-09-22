@@ -308,15 +308,63 @@ public class TestContractOnAbstractMethod extends CommonTest {
         assertTrue(middleValue.isTrue(), "have " + middleValue);
     }
 
+    /**
+     * ⭐ The vavr case, ROOT-CAUSED 2026-09-22. Every test above runs with the default configuration, in which
+     * {@code modificationViaReachability} is OFF — and they all pass. The measured runs do not: the corpus goes
+     * through {@code maddi-run-openjdk}'s {@code RunAnalyzer}, which turns MODREACH ON unless {@code MODREACH=0}.
+     * <p>
+     * {@code ShadowModificationPass.write} is the ONE writer that deliberately bypasses {@link
+     * io.codelaser.maddi.modification.common.util.TolerantWrite} — it calls {@code analysis.overwrite(property,
+     * FALSE)} directly — and the iterating analyzer then calls {@code freezeModificationProperties()}, after which
+     * every later {@code setAllowControlledOverwrite} of the three modification properties returns false without
+     * writing. So a contract seeded in pass 1 is downgraded by the pass and can never be re-seeded.
+     * <p>
+     * Measured on vavr 1.0.1 (run 9) with {@code @NotModified} on ten {@code io.vavr.Value} methods: all ten SCM
+     * seeds fire in pass 1, {@code MODREACH round 1} reports {@code 3921 TRUE->FALSE downgrades}, and exactly the
+     * seven methods whose implementations genuinely modify come out of the writer with no {@code
+     * nonModifyingMethod} at all (FALSE is the default, so it serialises as ABSENT). The three survivors —
+     * {@code isAsync}, {@code isLazy}, {@code isSingleValued} — are simply not reached by the closure.
+     * <p>
+     * The pass is right about the implementations and wrong about the declaration: reaching a bodiless method
+     * through its modifying overrides is the very disjunction the contract exists to override. The author's
+     * statement must survive, and the violating implementation must still be reported by the guard.
+     */
+    @DisplayName("MODREACH must not downgrade a contract on a bodiless method (the measured vavr case)")
+    @Test
+    public void contractSurvivesModificationReachability() throws IOException {
+        Run run = analyzeWithModReach("a.b.Y", NOT_MODIFIED_ON_INTERFACE);
+
+        MethodInfo count = run.typeInfo().findSubType("Counter").methodStream()
+                .filter(m -> "count".equals(m.name())).findFirst().orElseThrow();
+        Value.Bool nonModifying = count.analysis()
+                .getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        assertNotNull(nonModifying, "MODREACH downgraded the contract on a.b.Y.Counter.count() to FALSE, which "
+                                    + "serialises as ABSENT; the author's statement must survive the pass");
+        assertTrue(nonModifying.isTrue(), "have " + nonModifying);
+
+        // the other half, unchanged: trusting the declaration must not silence the implementation that breaks it
+        Message violation = onlyViolation(run.messages(), "a.b.Y.BadCounter.count()");
+        assertTrue(violation.message().contains("modifying"), violation.message());
+    }
+
     private record Run(TypeInfo typeInfo, List<Message> messages) {
     }
 
     private Run analyzeWithGuard(String fqn, String source) throws IOException {
+        return analyze(fqn, source, false);
+    }
+
+    private Run analyzeWithModReach(String fqn, String source) throws IOException {
+        return analyze(fqn, source, true);
+    }
+
+    private Run analyze(String fqn, String source, boolean modificationViaReachability) throws IOException {
         AnalyzerBundle bundle = buildAnalyzerBundle();
         TypeInfo typeInfo = bundle.javaInspector().parse(fqn, source);
         List<Info> analysisOrder = bundle.prepAnalyzer().doPrimaryType(typeInfo);
         IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(bundle.javaInspector(),
-                new IteratingAnalyzerImpl.ConfigurationBuilder().setMaxIterations(10).setGuardContracts(true).build());
+                new IteratingAnalyzerImpl.ConfigurationBuilder().setMaxIterations(10).setGuardContracts(true)
+                        .setModificationViaReachability(modificationViaReachability).build());
         analyzer.analyze(analysisOrder);
         return new Run(typeInfo, analyzer.messages());
     }
