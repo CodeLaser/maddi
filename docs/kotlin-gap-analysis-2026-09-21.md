@@ -502,12 +502,14 @@ constants are aliases of it rather than a second copy of the numbers.
    whether the project holds a `.kt` file, so it is a strict superset of `bin/maddi` rather than a second
    tool. Two bundles stay (85 MB vs 11 MB), one command line. What the mixed pipeline cannot honour is
    refused by name, which points at step 6.
-4. **Close the model.** ✅ Done: the arity rule and operator extensions (§7.9), `bootstrapString`'s statics
-   (§7.10), extension properties (§7.11), blocks in expression position and `x ?: return` (§7.12). What
-   remains, in order: **`try` as a value (stage 2)**
-   — `KtBlockExpression` 287 + `KtReturnExpression` 270 + `throw`/`try`/`continue` are ONE family, the
-   `x ?: return` and `val v = if (c) {…} else {…}` idioms, ~575 sites — then callable references (92), then
-   annotations and `suspend`, which neither corpus reaches, then the local delegated property (§3, 1.3).
+4. **Close the model.** The whole statements-in-expression-position family is ✅ done (§7.9–§7.12): the
+   arity rule and operator extensions, `bootstrapString`'s statics, extension properties, blocks in
+   expression position, `x ?: return`, and `try` as a value. detekt **6,057 → 5,525** sites, types holding
+   one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
+   What remains, in order: **callable references** (92 on detekt), then **annotations** and **`suspend`**,
+   which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
+   families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
+   work, and one the site dump can drive.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
@@ -517,3 +519,14 @@ constants are aliases of it rather than a second copy of the numbers.
 
 Steps 3–5 buy "maddi is Java+Kotlin, with a published coverage boundary". Step 6 and Tier 3 buy the
 unqualified claim.
+
+### 8b. Not on the ladder, but done since — the front end stopped poisoning its hosts
+
+`docs/kotlin-classloader-isolation.md` (G46). The K2 front end's 62 MB fat compiler jar carries 8,235
+non-Kotlin classes under their original package names and was reaching every consumer's *runtime* classpath
+through an `implementation` dependency; downstream it shadowed 174 of ANTLR's classes, 787 of guava's and
+115 of JNA's, and killed a conformance oracle. It now loads in a plexus-classworlds realm behind the
+five-type contract in `maddi-kotlin-api`. ⭐ The verification that matters for this document: the detekt
+placeholder dump through the realm is **identical, site for site**, and prep isolation stays 0 — the
+isolation changed the classpath and nothing about what the front end reads. It does not advance the ladder,
+but it removes the reason a host would refuse to put maddi's Kotlin support on their classpath at all.
