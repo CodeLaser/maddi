@@ -164,12 +164,24 @@ public class TestGenericCarrierImmutability extends CommonTest {
     @DisplayName("a generic carrier is @ImmutableHC even when its final field is recorded as modified")
     @Test
     public void genericCarrierIsImmutableHc() throws IOException {
+        run(false);
+    }
+
+    @DisplayName("... and the same with the MODREACH cutover on, as every corpus run has it")
+    @Test
+    public void genericCarrierIsImmutableHcUnderModReach() throws IOException {
+        run(true);
+    }
+
+    private void run(boolean modReach) throws IOException {
         AnalyzerBundle bundle = buildAnalyzerBundle();
         TypeInfo typeInfo = bundle.javaInspector().parse("a.b.X", GENERIC_CARRIER);
         List<Info> analysisOrder = bundle.prepAnalyzer().doPrimaryType(typeInfo);
         IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(bundle.javaInspector(),
-                new IteratingAnalyzerImpl.ConfigurationBuilder().setMaxIterations(10).build());
+                new IteratingAnalyzerImpl.ConfigurationBuilder().setMaxIterations(10)
+                        .setModificationViaReachability(modReach).build());
         analyzer.analyze(analysisOrder);
+        System.out.println("### modReach=" + modReach);
 
         for (String name : new String[]{"Carrier", "PlainCarrier", "Pair", "Indirect"}) {
             TypeInfo sub = typeInfo.findSubType(name);
