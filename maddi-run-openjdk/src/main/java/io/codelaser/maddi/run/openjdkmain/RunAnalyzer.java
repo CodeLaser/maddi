@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.aapi.parser.AnalysisHintsParser;
 import io.codelaser.maddi.aapi.parser.AnalysisHints;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
@@ -170,7 +171,7 @@ public class RunAnalyzer implements Runnable {
         }
         assert summary.parseResult().primaryTypes().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
-                .noneMatch(ti -> ti.simpleName().endsWith("$"))
+                .noneMatch(AnalysisHintsParser::isAnalysisHintsShadow)
                 : "It looks like the analysis hints types are part of the primary types of the parse result";
 
         if (modification) {
@@ -210,7 +211,9 @@ public class RunAnalyzer implements Runnable {
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
-            assert ccg.graph().vertices().stream().noneMatch(v -> v.t() instanceof TypeInfo typeInfo && typeInfo.simpleName().endsWith("$"))
+            assert ccg.graph().vertices().stream()
+                    .noneMatch(v -> v.t() instanceof TypeInfo typeInfo
+                                    && AnalysisHintsParser.isAnalysisHintsShadow(typeInfo))
                     : "It looks like the analysis hints types are part of the call graph.";
 
             // fault isolation: one failing type/method no longer aborts the whole run; surface what was skipped

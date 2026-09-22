@@ -247,6 +247,18 @@ tasks:
     cmds:
       - { task: _clone, vars: { NAME: coil, URL: 'https://github.com/coil-kt/coil.git' } }
 
+  # ------------------------------------------- analysis-hints campaign targets
+  # Libraries we ANNOTATE rather than stress-test: the goal is a curated set of analysis hints for
+  # a widely-used library, so the projects that depend on it stop reading it as mutable/dependent.
+  # They are ordinary corpus entries in every other respect, and deliberately NOT in install:wired
+  # — no @Tag("slow") test consumes them (yet).
+
+  vavr:
+    desc: 'vavr — Maven, one module; first target of the analysis-hints campaign'
+    cmds:
+      - { task: _clone, vars: { NAME: vavr, URL: 'https://github.com/vavr-io/vavr.git' } }
+      - { task: _build, vars: { NAME: vavr, BUILD: 'mvn clean install -DskipTests' } }
+
   # ---------------------------------------------------- extra "Built" projects
 
   gradle:
@@ -485,6 +497,20 @@ tasks:
   config:langchain4j:
     desc: 'langchain4j config (module langchain4j-core)'
     cmds: [{ task: _config:maven, vars: { NAME: langchain4j, MODULE: langchain4j-core } }]
+
+  # ⛔ THREE STEPS, AND THE ORDER IS THE POINT — vavr is the entry where `config` runs BEFORE
+  # `build`. Its pom cleans at generate-sources without excludeDefaultDirectories, so the route
+  # deletes the whole of vavr/target on its way to the mojo: the test source set it then records is
+  # missing its annotation-processor root (parse REFUSED, "Parser error(s)", zero results, over
+  # MatchTest_DeveloperPatterns), and the checkout is left un-built. Hence the derivation, which
+  # drops the test source sets, and the rebuild, which restores the main root the parse still
+  # needs. Analyse inputConfiguration.main.json, never the raw file. See catalogue/vavr.yml.
+  config:vavr:
+    desc: 'vavr config (Maven plugin, module vavr) + main-only derivation + the rebuild it undoes'
+    cmds:
+      - { task: _config:maven, vars: { NAME: vavr, MODULE: vavr } }
+      - 'python3 {{.TASKFILE_DIR}}/scripts/vavr-main-config.py'
+      - { task: _build, vars: { NAME: vavr, BUILD: 'mvn clean install -DskipTests' } }
 
   # --- Gradle projects: compile-log path (whole reactor) ---
   config:fernflower:
