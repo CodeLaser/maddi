@@ -83,6 +83,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtAnonymousInitializer
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBlockExpression
+import org.jetbrains.kotlin.psi.KtConstantExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
 import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -175,6 +176,9 @@ internal class KotlinBodyConverter(
      * was read here and it may be the wrong thing", which no walk over the tree can detect afterwards.
      */
     var ambiguousBindings: Int = 0
+
+    /** Elvis lowerings whose left operand is re-evaluated: see [controlFlowElvisLowering]. */
+    var elvisReEvaluations: Int = 0
         private set
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
@@ -351,6 +355,7 @@ internal class KotlinBodyConverter(
             .setSource(source(elvis, guardIndex))
             .build()
         if (isWholeStatement) return listOf(guard)
+        if (!isStableReference(left)) ++elvisReEvaluations
         val value = convertExpression(left, method, locals) // converted a second time: see #32 above
         val raw = when (statement) {
             is KtProperty -> localVariableCreation(statement, method, locals, value)
@@ -410,6 +415,18 @@ internal class KotlinBodyConverter(
         }
 
     /** An elvis whose right-hand side leaves the method: `?: return v` (unlabelled) or `?: throw E()`. */
+    /**
+     * Whether re-evaluating [expression] is free of consequence: a name, `this`, a constant, or a dotted
+     * chain of those. Anything else — a call, an index, a constructor — must not be evaluated twice.
+     */
+    private fun isStableReference(expression: KtExpression?): Boolean = when (expression) {
+        is KtNameReferenceExpression, is KtThisExpression, is KtConstantExpression -> true
+        is KtParenthesizedExpression -> isStableReference(expression.expression)
+        is KtDotQualifiedExpression ->
+            isStableReference(expression.receiverExpression) && isStableReference(expression.selectorExpression)
+        else -> false
+    }
+
     private fun isControlFlowElvis(expression: KtExpression?): Boolean {
         if (expression !is KtBinaryExpression || expression.operationToken != KtTokens.ELVIS) return false
         return when (val right = expression.right) {

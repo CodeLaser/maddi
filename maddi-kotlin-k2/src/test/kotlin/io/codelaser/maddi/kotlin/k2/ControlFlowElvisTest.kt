@@ -101,4 +101,54 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
         assertEquals(0, PlaceholderCensus.of(listOf(p)).total)
         assertEquals(listOf("0", "1"), p.findUniqueMethod("f", 1).methodBody().statements().map { it.source().index() })
     }
+
+    /**
+     * ⚠ <b>The lowering converts its left operand TWICE</b> (guard and value), so a left operand that is not
+     * a stable reference is EVALUATED twice — `val t = f() ?: return` becomes `if (f() == null) return; val
+     * t = f()`, two calls where the source has one. The CST is well formed and says something the source
+     * does not, which no placeholder census can see. [KotlinScan.elvisReEvaluations] counts it so it is a
+     * number rather than a worry.
+     *
+     * <p>⭐ This is the positive control for that counter. Measured with it: <b>0</b> on detekt and coil —
+     * every lowered site in both corpora has a stable left operand — but "0 on the corpus" only means
+     * something once the instrument is known to fire.
+     */
+    @Test
+    fun aCallOnTheLeftIsCountedAsReEvaluated() {
+        val scan = KotlinScan(runtime, sourceSet)
+        val types = scan.parse("P.kt", """
+            class P {
+                fun g(): Int? = 1
+                fun f(): Int { val t = g() ?: return 0; return t }
+            }
+            """.trimIndent() + "\n")
+        assertEquals(listOf("0.0", "0.1", "1"),
+            types.first().findUniqueMethod("f", 0).methodBody().statements().map { it.source().index() })
+        assertEquals(1, scan.elvisReEvaluations, "a call on the left of a lowered elvis is evaluated twice")
+    }
+
+    /** …and a plain name is not: it is a stable reference, so the second conversion evaluates nothing. */
+    @Test
+    fun aNameOnTheLeftIsNotCounted() {
+        val scan = KotlinScan(runtime, sourceSet)
+        scan.parse("P.kt", """
+            class P {
+                fun f(s: String?): String { val t = s ?: return ""; return t }
+            }
+            """.trimIndent() + "\n")
+        assertEquals(0, scan.elvisReEvaluations)
+    }
+
+    /** A dotted chain of names is stable too — the common shape, and the reason the corpora measure 0. */
+    @Test
+    fun aDottedChainIsNotCounted() {
+        val scan = KotlinScan(runtime, sourceSet)
+        scan.parse("P.kt", """
+            class Q(val name: String?)
+            class P(val q: Q) {
+                fun f(): String { val t = q.name ?: return ""; return t }
+            }
+            """.trimIndent() + "\n")
+        assertEquals(0, scan.elvisReEvaluations)
+    }
 }
