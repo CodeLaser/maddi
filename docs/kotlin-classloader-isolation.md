@@ -1,6 +1,6 @@
 # Isolating the Kotlin front end behind a classloader
 
-**Status: in progress** (started 2026-09-21). Tracked downstream as `jfocus-refactor-server/modularization/cassandra/GAPS.md` §G46.
+**Status: done** (2026-09-21 → 2026-09-22). Tracked downstream as `jfocus-refactor-server/modularization/cassandra/GAPS.md` §G46.
 
 ## 1. The defect
 
@@ -120,8 +120,53 @@ a *single* `TypeInfo`; two copies of the CST classes and that silently stops bei
    `ReferenceRecall` joined the contract on the way (`KotlinReferenceRecall`), which is what let the corpus
    tests stop naming K2 classes; a `LauncherSessionListener` installs the realm once for that module, so its
    corpus runs exercise the isolation rather than coexisting with a flat compiler.
-5. Verification: the Kotlin suites, detekt and coil, and a first-one-wins classpath census that must reach
-   **0** (today: 1,098 on the consumer's classpath, 174 in our own zip).
+5. ✅ Verification. The realm changed the classpath and nothing else:
+
+| | before the realm | through the realm |
+|---|---|---|
+| detekt placeholder dump | 5,525 sites | **identical, site for site** (`diff` clean) |
+| detekt | 1,202 primary types, order 15,118, 0 isolated by prep, 669 immutable | unchanged |
+| coil | 379 placeholders, 131 types, order 2,181, 0 isolated | unchanged |
+| maddi's full suite | — | **3,495 tests, 30 modules, 0 failures** |
+| the shipped launcher on detekt | — | 1,271 Kotlin types, order 15,118, 5,525 unreadable |
+
+`TestCompilerIsNotOnTheClasspath` in `maddi-run-kotlin` is what makes those corpus numbers *evidence*: it
+asserts the compiler and the IntelliJ platform are unreachable from that JVM, that ANTLR's
+`CharStreams.fromString(String)` — the overload the minimised copy drops — is present, and that no bundled
+root's `CodeSource` is a `kotlin-compiler` jar.
+
+## 7. What a consumer changes
+
+Nothing about the contract, one configuration and one call. Given a module that reaches maddi's Kotlin
+support (`testRuntimeOnly(project(":your-kotlin-support"))`, unchanged):
+
+```kotlin
+// the K2 front end's jars: resolvable, and deliberately NOT part of any runtime classpath
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    k2Runtime("io.codelaser:maddi-kotlin-k2")   // project(":maddi:maddi-kotlin-k2") in a composite build
+}
+tasks.withType<Test> {
+    systemProperty("maddi.k2.classpath", k2Runtime.asPath)
+}
+```
+
+and, once, where the support class is initialised:
+
+```java
+K2Realm.installIfAbsent();   // reads -Dmaddi.k2.classpath / -Dmaddi.k2.home, else lib-k2 beside its own jar
+```
+
+⚠ A consumer that installs nothing gets an `IllegalStateException` naming both properties — never a silent
+fall back to the classpath, which is the defect this whole change exists to remove. A consumer who wants the
+old flat behaviour during a migration can still put `maddi-kotlin-k2` on their runtime classpath: the
+service lookup finds it, with all the shadowing that implies.
+
+⭐ Their gain beyond the fix: a `JavaExec` task that shares a test runtime classpath no longer carries 62 MB
+of compiler it never asked for.
 
 ## 6. Consumers
 
