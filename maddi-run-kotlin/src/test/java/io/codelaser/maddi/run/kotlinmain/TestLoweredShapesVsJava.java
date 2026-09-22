@@ -17,6 +17,7 @@ package io.codelaser.maddi.run.kotlinmain;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -26,6 +27,7 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
@@ -79,6 +81,8 @@ public class TestLoweredShapesVsJava {
                 public void add(String s) { items.add(s); }
                 public int size() { return items.size(); }
                 public Box next() { return this; }
+                public int addAndSize(String s) { items.add(s); return items.size(); }
+                public String addAndEcho(String s) { items.add(s); return s; }
             }
             """;
 
@@ -104,6 +108,31 @@ public class TestLoweredShapesVsJava {
                     return 0
                 }
                 fun readOnlyChain(b: Box?): Int = b?.next()?.size() ?: 0
+                fun whenAsValue(b: Box, t: String, n: Int): Int {
+                    val v = when (n) { 0 -> { b.add(t); 1 } else -> b.size() }
+                    return v
+                }
+                fun elvisThrow(b: Box?, t: String): Int {
+                    val x = b ?: throw IllegalStateException("null")
+                    x.add(t)
+                    return x.size()
+                }
+                // ⚠ the three OFF-SPINE shapes: `c.addAndSize(t)` sits where the hoist deliberately does not
+                // reach (an argument, the right of `?:`, a branch arm), so it is still converted twice.
+                fun argOffSpine(b: Box?, c: Box, t: String): Int = b?.addAndSize(c.addAndEcho(t)) ?: 0
+                fun elvisRightModifies(b: Box?, c: Box, t: String): Int = b?.size() ?: c.addAndSize(t)
+                fun armModifies(b: Box?, c: Box, t: String): Int {
+                    val v = if (b == null) c.addAndSize(t) else b.size()
+                    return v
+                }
+                fun dupOffSpine(b: Box, c: Box?, t: String): Int = b.addAndSize(c?.addAndEcho(t) ?: t)
+                fun ternaryArm(b: Box?, c: Box, t: String): Int = if (b == null) c.addAndSize(t) else b.size()
+                fun expressionBodiedTry(b: Box, t: String): Int =
+                    try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
+            }
+            class KHolder(private val box: Box) {
+                fun touch(t: String) { box.next()?.add(t) }
+                fun count(): Int = box.size()
             }
             """;
 
@@ -137,11 +166,57 @@ public class TestLoweredShapesVsJava {
                     Box t1 = b == null ? null : b.next();
                     return t1 == null ? 0 : t1.size();
                 }
+                public int whenAsValue(Box b, String t, int n) {
+                    int v;
+                    if (n == 0) { b.add(t); v = 1; } else { v = b.size(); }
+                    return v;
+                }
+                public int elvisThrow(Box b, String t) {
+                    if (b == null) throw new IllegalStateException("null");
+                    Box x = b;
+                    x.add(t);
+                    return x.size();
+                }
+                public int argOffSpine(Box b, Box c, String t) {
+                    Integer r = b == null ? null : b.addAndSize(c.addAndEcho(t));
+                    return r == null ? 0 : r;
+                }
+                public int elvisRightModifies(Box b, Box c, String t) {
+                    Integer r = b == null ? null : b.size();
+                    return r != null ? r : c.addAndSize(t);
+                }
+                public int armModifies(Box b, Box c, String t) {
+                    int v;
+                    if (b == null) { v = c.addAndSize(t); } else { v = b.size(); }
+                    return v;
+                }
+                public int dupOffSpine(Box b, Box c, String t) {
+                    String s = c == null ? null : c.addAndEcho(t);
+                    return b.addAndSize(s != null ? s : t);
+                }
+                public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
+                public int expressionBodiedTry(Box b, String t) {
+                    try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
+                }
+            }
+            """;
+
+    /** A FIELD holding the helper, so the type-level verdict has something to say. */
+    private static final String JAVA_HOLDER = """
+            package b;
+            import s.Box;
+            public class JHolder {
+                private final Box box;
+                public JHolder(Box box) { this.box = box; }
+                public void touch(String t) { Box t1 = box.next(); if (t1 != null) t1.add(t); }
+                public int count() { return box.size(); }
             }
             """;
 
     private static final List<String> METHODS =
-            List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain");
+            List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
+                    "whenAsValue", "elvisThrow", "expressionBodiedTry",
+                    "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {
@@ -152,6 +227,7 @@ public class TestLoweredShapesVsJava {
         Files.createDirectories(jDir.resolve("s"));
         Files.writeString(kDir.resolve("a/K.kt"), KOTLIN);
         Files.writeString(jDir.resolve("b/J.java"), JAVA);
+        Files.writeString(jDir.resolve("b/JHolder.java"), JAVA_HOLDER);
         Files.writeString(jDir.resolve("s/Box.java"), BOX);
 
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -166,6 +242,12 @@ public class TestLoweredShapesVsJava {
         Runtime runtime = parsed.getRuntime();
         Set<TypeInfo> primaryTypes = Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream())
                 .map(TypeInfo::primaryType).collect(Collectors.toUnmodifiableSet());
+        // ⛔ the guard that keeps this test from agreeing by accident: a shape the front end could not read
+        // becomes a placeholder, and two sides can then agree on a verdict neither derived from the code. Every
+        // shape below must be FULLY converted, or the comparison proves nothing about the lowering.
+        PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
+        assertEquals(0, census.getTotal(), "unread Kotlin would make the comparison vacuous: " + census.getByKind());
+
         // without the annotated APIs java.util.List is an unknown and NOTHING can be concluded on either
         // side, which would make this comparison vacuously equal
         new LoadAnalysisResults(runtime, kotlinSet).go(LoadAnalysisResults.ANALYZED_RESULTS);
@@ -192,6 +274,23 @@ public class TestLoweredShapesVsJava {
             kotlinSide.append(name).append(' ').append(kv).append('\n');
             javaSide.append(name).append(' ').append(jv).append('\n');
         }
+        // ⛔ identity check for the duplication probe: if these no longer stand more than once, the three
+        // off-spine shapes stopped testing what they were added to test and this comparison is vacuous.
+        int kDup = callsTo(method(k, "dupOffSpine"), "addAndEcho");
+        report.append(String.format("%-18s addAndEcho in the Kotlin tree: %d×   in the Java tree: %d×%n",
+                "dupOffSpine", kDup, callsTo(method(j, "dupOffSpine"), "addAndEcho")));
+        // ⛔ identity check: if the Kotlin tree stops holding the call twice, this row no longer asks the
+        // duplication question and the agreement below proves nothing about it.
+        assertEquals(2, kDup, "dupOffSpine must still DUPLICATE the modifying call, or it tests nothing");
+
+        // ⭐ the type-level sensor: a field reached through a lowered shape. A method-level agreement that
+        // did not propagate to the type would be agreement about the wrong thing.
+        String kHolder = typeVerdict(type(primaryTypes, "a.KHolder"));
+        String jHolder = typeVerdict(type(primaryTypes, "b.JHolder"));
+        report.append(String.format("%-14s kotlin: %-44s java: %s%n", "«holder»", kHolder, jHolder));
+        kotlinSide.append("holder ").append(kHolder).append('\n');
+        javaSide.append("holder ").append(jHolder).append('\n');
+
         LOGGER.info("lowered shape vs hand-written Java:{}", report);
         assertEquals(javaSide.toString(), kotlinSide.toString(),
                 "a lowered Kotlin shape must yield the same verdicts as the Java it claims to produce");
@@ -208,13 +307,39 @@ public class TestLoweredShapesVsJava {
                 .orElseThrow(() -> new AssertionError("no method " + name + " on " + type.fullyQualifiedName()));
     }
 
+    /** How many times `addAndSize` stands in this method's tree. The source writes it once. */
+    private static int callsTo(MethodInfo method, String name) {
+        int[] n = {0};
+        method.methodBody().visit(e -> {
+            if (e instanceof MethodCall mc && name.equals(mc.methodInfo().name())) n[0]++;
+            return true;
+        });
+        return n[0];
+    }
+
+    /** Type-level: immutability, plus whether the method that walks a lowered chain modifies the field. */
+    private static String typeVerdict(TypeInfo type) {
+        Value.Immutable immutable = type.analysis()
+                .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
+        String level = immutable.isImmutable() ? "IMMUTABLE"
+                : immutable.isAtLeastImmutableHC() ? "IMMUTABLE_HC"
+                : immutable.isFinalFields() ? "FINAL_FIELDS" : "MUTABLE";
+        boolean touchModifies = !method(type, "touch").analysis()
+                .getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
+        return "type=" + level + " touch.modifies=" + touchModifies;
+    }
+
     /** The two sensors a mis-shaped tree actually moves. */
     private static String verdict(MethodInfo method) {
         boolean nonModifying = method.analysis()
                 .getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
-        ParameterInfo box = method.parameters().getFirst();
-        Value.Bool unmodified = box.analysis()
-                .getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
-        return "nonModifying=" + nonModifying + " box.unmodified=" + unmodified.isTrue();
+        // every Box parameter, by name: the off-spine probes carry two, and the duplicated call is in the
+        // SECOND one. Reporting only the first would have missed exactly the question being asked.
+        String params = method.parameters().stream()
+                .filter(p -> "s.Box".equals(String.valueOf(p.parameterizedType().typeInfo())))
+                .map(p -> p.simpleName() + ".unmodified=" + p.analysis()
+                        .getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue())
+                .collect(Collectors.joining(" "));
+        return "nonModifying=" + nonModifying + " " + params;
     }
 }
