@@ -788,6 +788,67 @@ modified" would pass the first. `KBox`'s own verdicts are asserted first, so a f
 set cannot resolve (the dependency runs Java → Kotlin here, so Kotlin has no JDK), and the run was refused
 as vacuous rather than passing on three placeholders.
 
+### 7.21 ⭐ A real Kotlin round trip — and two properties that made a results file unreadable
+
+§5.1 recorded "no encode path: no Kotlin module references `Codec`". Rung 6 asks whether a Kotlin analysis
+can be written and read back — the mechanism under incremental analysis and the IDE daemon.
+`TestKotlinAnalysisRoundTrip` does it end to end: one session parses, analyses and writes; a second,
+completely fresh session parses the same sources, runs NO analysis, and loads what the first wrote.
+
+    fresh  : add nonModifying=false params=n:false; setCount …value:false; size nonModifying=false
+    before : add nonModifying=false params=n:true ; setCount …value:true ; size nonModifying=true
+    after  : add nonModifying=false params=n:true ; setCount …value:true ; size nonModifying=true
+
+Four things the probe found, none of them guessable from the gap list:
+
+1. ⭐ **The encoder already handles Kotlin.** The writer is language-agnostic and produced a complete
+   `A.json` with the real verdicts on the first try. "No encode path" meant nobody *calls* it.
+2. A Kotlin type is only resolvable by FQN when the configuration **also has a Java source set**. With a
+   Kotlin-only configuration `runtime.getFullyQualified` returns null and every hint is skipped as "type not
+   on the classpath" — which is how the first attempt read back 0 of 1 types while looking like a decode bug.
+3. ⛔⛔ **Two properties the analysers write were unknown to the decoder**, which does not degrade: it
+   asserts, and the ENTIRE file is lost, not just that value. `DEGRADED_ANALYSIS_METHOD` (written by
+   `LinkComputerImpl` and `SingleIterationAnalyzerImpl`) and `INDEPENDENT_TYPE_PARAMETER` (written by
+   `ShallowTypeAnalyzer`) were declared in `PropertyImpl` but never registered in `PropertyProviderImpl`.
+   Java-side defects both, found once more through the Kotlin work.
+   `TestEveryWritablePropertyDecodes` now removes the class of defect: every declared property must resolve.
+   ⚠ Its first draft invented an exemption — "INTRINSIC means never persisted" — and `FINAL_FIELD`, which is
+   INTRINSIC *and* has always been registered, refuted it on the first run. `AnalysisTier` grades reload
+   cost, not persistence; there is no exemption.
+4. The reader must be paired with the writer. `LoadAnalysisResults` lives in maddi-modification-prepwork,
+   which structurally cannot know `methodLinks` (declared in maddi-modification-link, which prepwork must
+   not depend on). `LinkCodec.restoreCodec()` is the matching read side.
+
+⚠ Two traps in the test itself, both caught by its own controls rather than by review. The fingerprint's
+first version filtered out lines matching `nonModifying=false params=` "to drop empty ones" — it dropped
+`add`, the only modifying method, leaving a round trip that compared one read-only method with itself. And
+the negative control first asserted the fresh type carries NO verdicts; it carries **defaults**, which is
+exactly what a decode that did nothing would leave, so the control had to become "the fresh fingerprint
+must DIFFER from the analysed one".
+
+⚠ Also visible in the written JSON, and not chased here: Kotlin's synthesized property setter
+`MsetCount(1,int)` carries `degradedAnalysisMethod` — the analysis of that accessor was abandoned. It
+round-trips faithfully, but it is a verdict worth a look on its own.
+
+**And then wired.** `RunMixedPrepAnalyzer.Options` gained `analysisResultsTargetDir`, and the mixed CLI now
+honours `--analysis-results-dir` — an option it used to REFUSE by name with exit
+{@code UNSUPPORTED_OPTION}. `TestOneEntryPoint` carried that refusal as an assertion, so the change shows up
+there as a test that had to move: the refusal case now uses `--incremental-analysis`, which genuinely
+remains unsupported, and a new case asserts the results directory is written. `TestMixedMain` adds the
+end-to-end check with the half that matters — a run WITHOUT the option must write nothing, or the assertion
+would pass on a directory something else filled.
+
+⛔ The codec choice is load-bearing and easy to get wrong silently: `WriteAnalysisResults`' two-argument
+overload builds a prep-work codec that cannot know `methodLinks`, so results written with it are unreadable
+— and the reader does not degrade, it asserts and loses the whole file. The runner passes `LinkCodec`
+explicitly, with the reason in a comment beside it.
+
+**Scope.** ⚠ `--incremental-analysis` is still refused, deliberately. Being able to write and read results
+is not the same as being able to consume them to SKIP work: that needs the rewire and fingerprint
+machinery, which is a separate question. What rung 6 can now claim is that the persistence layer underneath
+incremental analysis and the IDE daemon works for Kotlin, is reachable from the CLI, and has a test
+standing on each half.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -821,8 +882,11 @@ as vacuous rather than passing on three placeholders.
    ⚠ Remaining: the ~10 Java corpus tests still use a bare `assumeTrue`, so `slowTest` will not yet fail
    for a missing guava/fernflower/elasticsearch checkout. Converting them is one line each, and should be
    done with a check of which corpora each machine has — it changes what a green `slowTest` means.
-6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
-   IDE daemon.
+6. ✅ **Persistence** (§7.21). The round trip is measured — write, fresh re-parse, load, identical verdicts
+   — it cost two Java-side codec fixes to get there, and the mixed CLI now honours `--analysis-results-dir`
+   where it used to refuse it. ⚠ `--incremental-analysis` stays refused: consuming results to SKIP work
+   needs the rewire/fingerprint machinery, which is the next question, not this one. The IDE daemon is
+   likewise still Java-only; what changed is that the layer underneath both now exists for Kotlin.
 
 Steps 3–5 buy "maddi is Java+Kotlin, with a published coverage boundary". Step 6 and Tier 3 buy the
 unqualified claim.

@@ -20,6 +20,10 @@ import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import java.io.File;
+import io.codelaser.maddi.util.Trie;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
@@ -78,9 +82,14 @@ public class RunMixedPrepAnalyzer {
      * and an option it does NOT honour is refused there by name, never quietly dropped.
      */
     public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
-                          boolean warnNearMisses) {
+                          boolean warnNearMisses, String analysisResultsTargetDir) {
         public Options(boolean modification, List<String> analysisResultsDirs) {
-            this(modification, analysisResultsDirs, false, false);
+            this(modification, analysisResultsDirs, false, false, null);
+        }
+
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, null);
         }
     }
 
@@ -173,8 +182,38 @@ public class RunMixedPrepAnalyzer {
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
+        writeAnalysisResults(options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
+                inputConfiguration);
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
                 primaryTypes.size(), order.size(), prepErrors, immutableTypes, placeholderCensus.getTotal());
+    }
+
+    /**
+     * ⭐ The encode half of the round trip (`TestKotlinAnalysisRoundTrip`): write what was concluded, so a
+     * later run — incremental analysis, the IDE daemon, or a consumer of this project's results — can read it
+     * back instead of recomputing it.
+     *
+     * <p>⛔ The codec is not interchangeable. {@code WriteAnalysisResults}' two-argument overload builds a
+     * prep-work codec, whose property provider cannot know {@code methodLinks} — that Property is declared in
+     * maddi-modification-link, which maddi-modification-prepwork does not and must not depend on. Written with
+     * the wrong codec the file is unreadable, and the reader does not degrade: it asserts, and the WHOLE file
+     * is lost. {@link LinkCodec} is the matching pair, and {@code restoreCodec()} its read side.
+     *
+     * <p>⚠ Without {@code --analysis-steps=modification} the results carry only what prep concluded. That is a
+     * legitimate thing to write, but it is not a full analysis, and a reader cannot tell the two apart from
+     * the file alone — so the log says which it was.
+     */
+    private void writeAnalysisResults(String targetDir, Runtime runtime, MixedProjectInspector.Result parsed,
+                                      Set<TypeInfo> primaryTypes, InputConfiguration inputConfiguration)
+            throws IOException {
+        if (targetDir == null || targetDir.isBlank() || "none".equalsIgnoreCase(targetDir)) return;
+        SourceSet sourceSetOfRequest = parsed.getKotlinBySourceSet().keySet().stream().findFirst()
+                .orElseGet(() -> inputConfiguration.sourceSets().stream().findAny().orElse(null));
+        Trie<TypeInfo> trie = new Trie<>();
+        primaryTypes.forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
+        new WriteAnalysisResults(runtime).write(new File(targetDir), trie,
+                new LinkCodec(parsed.getJavaInspector(), sourceSetOfRequest).codec());
+        LOGGER.info("Wrote analysis results for {} primary type(s) to {}", primaryTypes.size(), targetDir);
     }
 
     /**
