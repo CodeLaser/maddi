@@ -517,28 +517,52 @@ After: detekt and coil both **0** re-evaluations, prep still isolates **0**, imm
 **5,525 → 5,271**. ⭐ The entire 254-site drop is de-duplication: 254 fewer duplicated rows, and **zero** new
 distinct sites. The census had been over-counting wherever a left operand did not convert.
 
-### 7.15 ⛔⛔ …and the same defect, bigger, in the expression path — OPEN
+### 7.15 ⛔⛔ …and the same defect, bigger, in the expression path — fixed, mostly
 
-Chasing the remaining duplicates found the real shape of it. detekt's dump still holds **1,105 duplicated
-rows over 4,166 distinct sites — 20% inflation** — and the multiplicities are powers of two:
+Chasing §7.14's remaining duplicates found the real shape of it. Both a safe call `a?.b()` and a *value*
+elvis `a ?: b` lower to a ternary in which the tested operand stands twice, and the rule §7.12 inherited and
+recorded as deliberate — "the left operand is converted TWICE … the CST is a tree and sharing a node makes
+every walker visit its statements twice (#32)" — is right about sharing and wrong about evaluation. Down a
+chain each level doubles the one below it.
 
-| multiplicity | 1× | 2× | 4× | 8× | 16× | 32× |
-|---|---|---|---|---|---|---|
-| distinct sites | 3,677 | 331 | 116 | 28 | 6 | 4 |
+⭐ Measured on detekt before: 331 sites twice over, 116 four times, 28 eight times, 6 sixteen times and **4
+thirty-two times** — 20% of the census was duplicates. The worst,
+`SuspendFunSwallowedCancellation.hasSuspendCalls`, is a chained value elvis over safe calls: **32 copies of
+one call** in the tree.
 
-That is doubling per null-safe link. The worst case is
-`SuspendFunSwallowedCancellation.hasSuspendCalls`, a chained value elvis over safe calls
-(`resolveToCall()?.a?.b?.c ?: (resolveToCall()?.d)?.e ?: false`): **32 copies of the same call** in the CST.
+**Fixed by hoisting the spine into temporaries** — the same remedy as §7.14, and the scoping is the whole
+design:
 
-The cause is the rule §7.12 inherited and stated as deliberate — "the left operand is converted TWICE …
-the CST is a tree and sharing a node makes every walker visit its statements twice (#32), which is the rule
-the elvis expression conversion already follows". It is correct about tree sharing and wrong about
-evaluation, and down a chain it compounds multiplicatively.
+⛔ **Only the unconditionally-evaluated spine.** Hoisting an evaluation out of a conditional position changes
+it: in `x?.foo(g())` the source runs `g()` only when `x != null`, so lifting it above the statement would
+run it always. So the walk descends *only* through safe-call receivers and elvis left operands, from the
+statement's own expression — a path that is by construction evaluated every time, before anything is
+tested. Everything off it (arguments, the right of `?:`, lambda bodies, branch arms) is untouched, still
+converted twice, still counted. Innermost first, so `a?.b()?.c()` becomes `t0 = a.b(); t1 = (t0 == null) ?
+null : t0.c()` — linear in the chain instead of exponential.
 
-⚠ What it costs: the analyzer sees 32 calls where the source has one, the call graph counts them, CST size
-blows up, and the census over-reports by a fifth. The fix is the same one §7.14 used — a temporary — applied
-in the expression path to `?:` and `?.`; the open question is where to put a temporary when the construct is
-an expression rather than a statement.
+⚠ It took three passes to reach the sites that mattered, and each pass says where statements actually live:
+the method-body loop alone (−186), then the lambda/returning/assigning loops (−52), then the **tail**
+positions — a lambda's result expression, a block's last statement, an expression body — which is where the
+16× and 32× cases were, inside `analyze(this) { … }`. The same "a statement list lives in four places"
+lesson as §7.12, in its fourth costume.
+
+| detekt | before | after |
+|---|---|---|
+| placeholder rows | 5,271 | **4,781** |
+| distinct sites | 4,166 | **4,166 — unchanged** |
+| inflation from duplication | 20% | **12%** |
+| worst multiplicity | 32× | **17×** (one site); the 16× and 32× tiers are gone |
+| analysis order | 15,056 | 14,946 |
+| prep isolated / immutable | 0 / 669 | 0 / 669 |
+
+`NullSafeSpineTest` asserts the property directly — **calls in the tree against calls in the source** —
+which is what neither the census nor a passing parse could see.
+
+⚠ 12% inflation remains, at multiplicities that are no longer powers of two (5×, 6×, 7×, 9×, 11×, 17×), so
+the remaining duplication is mixed-path, not chain blow-up. A duplicated operand *inside* a conditional arm
+is not hoistable to the statement, but could be hoisted to the head of that arm's own block. That is the
+next refinement, and it is worth doing only if a verdict-level test shows it changes an answer.
 
 ## 8. The ordered path to the claim
 

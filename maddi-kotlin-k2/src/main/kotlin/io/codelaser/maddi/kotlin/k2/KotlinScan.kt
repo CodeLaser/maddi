@@ -182,6 +182,9 @@ class KotlinScan(
     /** See [KotlinBodyConverter.elvisTemporaries]. */
     val elvisTemporaries: Int get() = bodyConverter.elvisTemporaries
 
+    /** See [KotlinBodyConverter.nullSafeTemporaries]. */
+    val nullSafeTemporaries: Int get() = bodyConverter.nullSafeTemporaries
+
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }
