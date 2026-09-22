@@ -113,8 +113,15 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
      * every lowered site in both corpora has a stable left operand — but "0 on the corpus" only means
      * something once the instrument is known to fire.
      */
+    /**
+     * ⭐ <b>A call on the left is evaluated ONCE, through a temporary.</b> The lowering needs its left
+     * operand twice — to test for null and as the value — so converting it twice EVALUATED it twice:
+     * `val t = g() ?: return 0` became `if (g() == null) return 0; val t = g()`, two calls where the source
+     * has one. Well-formed CST saying something the source does not, and invisible to the placeholder
+     * census. Measured before the fix: 190 such sites on detekt, 3 on coil.
+     */
     @Test
-    fun aCallOnTheLeftIsCountedAsReEvaluated() {
+    fun aCallOnTheLeftIsBoundToATemporaryAndEvaluatedOnce() {
         val scan = KotlinScan(runtime, sourceSet)
         val types = scan.parse("P.kt", """
             class P {
@@ -122,14 +129,17 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
                 fun f(): Int { val t = g() ?: return 0; return t }
             }
             """.trimIndent() + "\n")
-        assertEquals(listOf("0.0", "0.1", "1"),
-            types.first().findUniqueMethod("f", 0).methodBody().statements().map { it.source().index() })
-        assertEquals(1, scan.elvisReEvaluations, "a call on the left of a lowered elvis is evaluated twice")
+        val statements = types.first().findUniqueMethod("f", 0).methodBody().statements()
+        // temporary, guard, declaration — then the original `return t`
+        assertEquals(listOf("0.0", "0.1", "0.2", "1"), statements.map { it.source().index() })
+        assertTrue(statements[0] is LocalVariableCreation, statements[0].javaClass.toString())
+        assertEquals(1, scan.elvisTemporaries)
+        assertEquals(0, scan.elvisReEvaluations, "the left operand must be evaluated exactly once")
     }
 
-    /** …and a plain name is not: it is a stable reference, so the second conversion evaluates nothing. */
+    /** …and a plain name needs no temporary: re-reading a stable reference evaluates nothing. */
     @Test
-    fun aNameOnTheLeftIsNotCounted() {
+    fun aNameOnTheLeftNeedsNoTemporary() {
         val scan = KotlinScan(runtime, sourceSet)
         scan.parse("P.kt", """
             class P {
@@ -137,11 +147,12 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
             }
             """.trimIndent() + "\n")
         assertEquals(0, scan.elvisReEvaluations)
+        assertEquals(0, scan.elvisTemporaries, "a plain name needs no temporary")
     }
 
-    /** A dotted chain of names is stable too — the common shape, and the reason the corpora measure 0. */
+    /** A dotted chain of names is stable too — and it is the common shape, which is why most sites need none. */
     @Test
-    fun aDottedChainIsNotCounted() {
+    fun aDottedChainNeedsNoTemporary() {
         val scan = KotlinScan(runtime, sourceSet)
         scan.parse("P.kt", """
             class Q(val name: String?)
@@ -150,5 +161,6 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
             }
             """.trimIndent() + "\n")
         assertEquals(0, scan.elvisReEvaluations)
+        assertEquals(0, scan.elvisTemporaries)
     }
 }

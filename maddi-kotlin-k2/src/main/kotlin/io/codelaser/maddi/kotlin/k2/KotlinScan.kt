@@ -179,6 +179,9 @@ class KotlinScan(
     /** See [KotlinBodyConverter.elvisReEvaluations]. */
     val elvisReEvaluations: Int get() = bodyConverter.elvisReEvaluations
 
+    /** See [KotlinBodyConverter.elvisTemporaries]. */
+    val elvisTemporaries: Int get() = bodyConverter.elvisTemporaries
+
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }

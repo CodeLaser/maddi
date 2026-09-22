@@ -493,6 +493,53 @@ constants are aliases of it rather than a second copy of the numbers.
 | fernflower (Java only) | `Running prep analyzer on 225 types`, exit 0 | "No Kotlin source file in 2 source set(s); running the Java analyzer" → **byte-identical**, exit 0 |
 | detekt (Kotlin) | refuses (exit 6) | 1,271 Kotlin types, analysis order 15,118, 5,525 unreadable constructs, exit 0 |
 
+### 7.14 ⛔ The lowering that was well formed and wrong — `01815b03e`, this commit
+
+§7.12 reported the statement-as-value family closed on the strength of the placeholder census. The census
+cannot see this: `controlFlowElvisLowering` needs its left operand twice — to test for null, and as the
+value — and converting it twice **evaluates** it twice.
+
+    val t = f() ?: return 0    ->    if (f() == null) return 0;
+                                     val t = f();
+
+Two calls where the source has one. `isControlFlowElvis` only ever constrained the RIGHT operand (an
+unlabelled `return` or a `throw`); nothing constrained the left. ⭐ Measured: **190 sites on detekt, 3 on
+coil** — not rare, and invisible, because nothing is missing.
+
+**Fixed by a temporary**, exactly as a hand-written Java version would: `T $elvis0 = f(); if ($elvis0 ==
+null) return 0; val t = $elvis0;`, three statements indexed `n.0/n.1/n.2`. A stable left operand (a name,
+`this`, a constant, a dotted chain of those) keeps the two-statement form, because re-reading it evaluates
+nothing. `elvisReEvaluations` stays as an invariant check — it must read 0 — and is logged on every project
+parse *including when it is zero*, because an absence of output is not a measurement.
+
+After: detekt and coil both **0** re-evaluations, prep still isolates **0**, immutable types unchanged at
+669, analysis order **15,118 → 15,056** (62 duplicated elements gone), and the placeholder dump
+**5,525 → 5,271**. ⭐ The entire 254-site drop is de-duplication: 254 fewer duplicated rows, and **zero** new
+distinct sites. The census had been over-counting wherever a left operand did not convert.
+
+### 7.15 ⛔⛔ …and the same defect, bigger, in the expression path — OPEN
+
+Chasing the remaining duplicates found the real shape of it. detekt's dump still holds **1,105 duplicated
+rows over 4,166 distinct sites — 20% inflation** — and the multiplicities are powers of two:
+
+| multiplicity | 1× | 2× | 4× | 8× | 16× | 32× |
+|---|---|---|---|---|---|---|
+| distinct sites | 3,677 | 331 | 116 | 28 | 6 | 4 |
+
+That is doubling per null-safe link. The worst case is
+`SuspendFunSwallowedCancellation.hasSuspendCalls`, a chained value elvis over safe calls
+(`resolveToCall()?.a?.b?.c ?: (resolveToCall()?.d)?.e ?: false`): **32 copies of the same call** in the CST.
+
+The cause is the rule §7.12 inherited and stated as deliberate — "the left operand is converted TWICE …
+the CST is a tree and sharing a node makes every walker visit its statements twice (#32), which is the rule
+the elvis expression conversion already follows". It is correct about tree sharing and wrong about
+evaluation, and down a chain it compounds multiplicatively.
+
+⚠ What it costs: the analyzer sees 32 calls where the source has one, the call graph counts them, CST size
+blows up, and the census over-reports by a fifth. The fix is the same one §7.14 used — a temporary — applied
+in the expression path to `?:` and `?.`; the open question is where to put a temporary when the construct is
+an expression rather than a statement.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
