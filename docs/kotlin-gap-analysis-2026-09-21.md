@@ -742,6 +742,52 @@ to an ideal.
 box was full of other threads' JVMs when this landed. Unit evidence only: 254 tests in `maddi-kotlin-k2`,
 3,513 in the repo, 0 failures. The corpus delta is owed.
 
+### 7.20 ⭐ Make the evidence fail — the rung that protects every other one
+
+Three corpus tests opened with `Assumptions.assumeTrue(Files.exists(config))`. An absent corpus made them
+SKIP, and a skipped test reports the same build outcome as one that analysed 9,319 types. `AGENTS.md`
+§Commands has warned about exactly this for months. ⛔ **And it caught me an hour after I wrote it**: the
+commit message for the conditional-expression fix claimed "slowTest green on clone-bench, detekt, coil and
+fernflower". Fernflower was never run — `maddi-run-openjdk:slowTest` had not executed in the session at all,
+and its only result file was 32 days old. Believing a green build outcome is the failure; it is not enough
+to know about it.
+
+**1. A corpus that is required cannot be skipped.** `TestOssCorpus.requireConfig` / `requireDir` skip by
+default — a contributor without the checkouts still gets a green build — but under
+`-Dmaddi.corpus.required=true` the same absence is a hard failure naming the corpus and the command that
+generates it. `slowTest` sets the property, because measuring corpora is the whole reason that task exists;
+`-Pcorpus.optional` turns it back off. ⚠ `TestCorpusRequirement` is the identity check for the mechanism —
+deliberately NOT tagged slow and needing no checkout, because a guard nobody tests is the failure mode it
+exists to prevent, one level up.
+
+**2. A two-sided ratchet on the Kotlin census.** The Java corpus tests assert floors ("at least 1,000
+types"), deliberately, so a version bump is not brittle. A floor is the wrong instrument for the quantity
+this campaign moves: placeholders went 6,057 → 4,704, and every floor loose enough to survive that is loose
+enough to miss a regression of several hundred. So `CensusRatchet` fails on a regression **and on an
+unrecorded improvement**: a bound nobody tightens rots into a floor, and the only reliable moment to tighten
+it is the run that beat it.
+
+| pinned 2026-09-22 at `29e951ea1` | detekt | coil |
+|---|---|---|
+| placeholders | **4,704** (in 790 of 1,384 types) | **367** (in 69 of 186) |
+| isolated by prep | **0** | **0** |
+| immutable types | **668** | — |
+
+⚠ The corpus runs can only ever exercise the ratchet's passing side, so both failing sides are proved
+separately in `TestCensusRatchet`, free of any checkout.
+
+**3. A mixed-language regression, owned here.** §7.17's instrument compares Kotlin → Java. The direction the
+downstream planners actually hit is the other one — **Java calling Kotlin** — and it was covered only at the
+PARSE level (`TestMixedHardening`: void/Unit, companions, facades, extensions, varargs, generics). A parse is
+not a verdict, and the stubs javac resolves Kotlin through are maddi's own, so the boundary belongs here.
+`TestMixedBoundaryVerdicts` asserts a matched pair: Java calling a modifying Kotlin method sees its
+parameter modified, **and** Java calling a read-only one does not — without the second, "everything is
+modified" would pass the first. `KBox`'s own verdicts are asserted first, so a failure says which side broke.
+
+⭐ The census guard earned itself immediately: the fixture's first draft used `ArrayList`, which that source
+set cannot resolve (the dependency runs Java → Kotlin here, so Kotlin has no JDK), and the run was refused
+as vacuous rather than passing on three placeholders.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -769,9 +815,12 @@ box was full of other threads' JVMs when this landed. Unit evidence only: 254 te
    work, and one the site dump can drive.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
-5. **Make the evidence fail.** ⭐ Begun: §7.16 is the first test that asks what the analyzer CONCLUDES
-   rather than what it parsed, and it found a wrong answer on its first run. The rest of the rung — Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
-   baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
+5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under
+   `-Dmaddi.corpus.required`, which `slowTest` sets; a two-sided ratchet pins the Kotlin census on both
+   corpora; and the Java → Kotlin verdict boundary is a regression owned here rather than downstream.
+   ⚠ Remaining: the ~10 Java corpus tests still use a bare `assumeTrue`, so `slowTest` will not yet fail
+   for a missing guava/fernflower/elasticsearch checkout. Converting them is one line each, and should be
+   done with a check of which corpora each machine has — it changes what a green `slowTest` means.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
    IDE daemon.
 

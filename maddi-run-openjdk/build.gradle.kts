@@ -23,6 +23,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    // TestOssCorpus skips (or, under -Dmaddi.corpus.required, fails) when a corpus is absent, so the
+    // fixture itself needs the assumption API; the convention plugin only puts junit on `test`.
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
+
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))
     implementation(project(":maddi-modification-prepwork"))

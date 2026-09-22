@@ -21,7 +21,6 @@ import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall;
 import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -48,11 +47,7 @@ public class TestDetektReferenceRecall {
 
     @Test
     public void measure() throws IOException {
-        Path config = TestOssCorpus.config("detekt");
-        Assumptions.assumeTrue(Files.exists(config),
-                () -> "requires the detekt corpus checkout with its input configuration at "
-                      + config.toAbsolutePath().normalize()
-                      + "; generate it with `task corpus:config:detekt` at the repo root");
+        Path config = TestOssCorpus.requireConfig("detekt");
         KotlinInspector inspector = new KotlinInspector(new RuntimeImpl());
         inspector.initialize(JsonStreaming.objectMapper().readValue(config.toFile(), InputConfigurationImpl.class));
 
