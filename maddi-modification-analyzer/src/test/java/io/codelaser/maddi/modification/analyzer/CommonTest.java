@@ -126,6 +126,11 @@ public abstract class CommonTest {
 
     protected List<Info> prepWork(TypeInfo typeInfo) {
         List<Info> analysisOrder = prepAnalyzer.doPrimaryType(typeInfo);
+        // NOTE: the name suffix alone does NOT identify a hints shadow -- $ is a legal type name, and
+        // AnalysisHintsParser.isAnalysisHintsShadow is the real rule (the shadow must be nested inside a class
+        // declaring PACKAGE_NAME). That rule lives in maddi-aapi-parser, which depends on THIS module, so it
+        // cannot be called from here. The weaker test is sound in this one place because the inputs are
+        // hand-written fixtures in this module: a type named X$ can only get here on purpose.
         assert analysisOrder.stream().noneMatch(i -> i instanceof TypeInfo ti && ti.simpleName().endsWith("$"))
                 : "It looks like annotated API types are part of the analysis info list.";
         return analysisOrder;
