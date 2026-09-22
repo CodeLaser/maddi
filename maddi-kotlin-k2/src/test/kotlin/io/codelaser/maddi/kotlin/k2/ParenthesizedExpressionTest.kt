@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus
 import io.codelaser.maddi.cst.api.expression.BinaryOperator
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.statement.ReturnStatement

@@ -13,6 +13,9 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex
+import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex.DeclarationKey
+import io.codelaser.maddi.kotlin.api.KotlinReferenceIndex.Occurrence
 import io.codelaser.maddi.cst.api.element.Source
 import io.codelaser.maddi.cst.api.info.Info
 import io.codelaser.maddi.cst.api.info.TypeInfo
@@ -46,27 +49,15 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  * KDoc links (`[name]`, `@see name`) are included, marked [Occurrence.isDoc]. Not included: string contents, and
  * references K2 does not resolve.
  */
-class KotlinReferenceIndex : KotlinParseObserver() {
-
-    /** A declaration, by the position of the first character of its name. */
-    data class DeclarationKey(val uri: String, val line: Int, val column: Int)
-
-    /**
-     * One spelling of a declaration's name: 1-based, end inclusive, as every maddi [Source]. [sharedWith] lists the
-     * other declarations the same spelling names (an import of an overloaded name): renaming one of them alone
-     * cannot rewrite this occurrence.
-     */
-    data class Occurrence(val uri: String, val beginLine: Int, val beginPos: Int, val endLine: Int, val endPos: Int,
-                          val name: String, val isDeclaration: Boolean,
-                          val sharedWith: Set<DeclarationKey> = emptySet(), val isDoc: Boolean = false)
+class K2ReferenceIndex : K2ParseObserver(), KotlinReferenceIndex {
 
     private val declarations = HashMap<DeclarationKey, Occurrence>()
     private val references = HashMap<DeclarationKey, MutableList<Occurrence>>()
     private val parent = HashMap<DeclarationKey, DeclarationKey>()
     private val outsideProject = HashSet<DeclarationKey>()
-    var referenceCount = 0; private set
-    var docReferenceCount = 0; private set
-    var unresolvedReferences = 0; private set
+    override var referenceCount = 0; private set
+    override var docReferenceCount = 0; private set
+    override var unresolvedReferences = 0; private set
 
     // ---------------------------------------------------------------------------------------------------------------
     // building
@@ -163,7 +154,7 @@ class KotlinReferenceIndex : KotlinParseObserver() {
      * The key of a CST declaration: its compilation unit and the position its name was recorded at (the name detail
      * of its source). Null when the CST recorded no name position for it, e.g. a synthesized accessor.
      */
-    fun keyOf(info: Info): DeclarationKey? {
+    override fun keyOf(info: Info): DeclarationKey? {
         val uri = info.compilationUnit()?.uri()?.toString() ?: return null
         val name = info.simpleName()
         var at: Source? = null
@@ -174,13 +165,13 @@ class KotlinReferenceIndex : KotlinParseObserver() {
     }
 
     /** Where the declaration with [key] spells its name, if it was indexed. */
-    fun declaration(key: DeclarationKey): Occurrence? = declarations[key]
+    override fun declaration(key: DeclarationKey): Occurrence? = declarations[key]
 
     /** Every reference to the declaration with [key], in no particular order. */
-    fun references(key: DeclarationKey): List<Occurrence> = references[key].orEmpty()
+    override fun references(key: DeclarationKey): List<Occurrence> = references[key].orEmpty()
 
     /** The declaration and everything overriding or overridden by it within the project; just [key] if nothing. */
-    fun family(key: DeclarationKey): Set<DeclarationKey> {
+    override fun family(key: DeclarationKey): Set<DeclarationKey> {
         val root = find(key)
         val members = (declarations.keys + parent.keys).filterTo(HashSet()) { find(it) == root }
         members += key
@@ -188,14 +179,14 @@ class KotlinReferenceIndex : KotlinParseObserver() {
     }
 
     /** True when some member of [key]'s family overrides a declaration outside the project (a library contract). */
-    fun overridesOutsideProject(key: DeclarationKey): Boolean = family(key).any { it in outsideProject }
+    override fun overridesOutsideProject(key: DeclarationKey): Boolean = family(key).any { it in outsideProject }
 
     /** Every occurrence a rename of [key]'s family has to rewrite: each member's declaration and references. */
-    fun occurrencesOfFamily(key: DeclarationKey): List<Occurrence> =
+    override fun occurrencesOfFamily(key: DeclarationKey): List<Occurrence> =
         family(key).flatMap { listOfNotNull(declarations[it]) + references(it) }
 
-    fun declarationCount(): Int = declarations.size
+    override fun declarationCount(): Int = declarations.size
 
     /** Every declaration indexed or referenced: to compare what each reference names across two parses. */
-    fun keys(): Set<DeclarationKey> = declarations.keys + references.keys
+    override fun keys(): Set<DeclarationKey> = declarations.keys + references.keys
 }

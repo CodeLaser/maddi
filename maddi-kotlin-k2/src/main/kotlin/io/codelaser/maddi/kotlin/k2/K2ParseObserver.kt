@@ -14,6 +14,7 @@
 package io.codelaser.maddi.kotlin.k2
 
 import io.codelaser.maddi.cst.api.info.TypeInfo
+import io.codelaser.maddi.kotlin.api.KotlinParseObserver
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import org.jetbrains.kotlin.psi.KtFile
 
@@ -22,10 +23,12 @@ import org.jetbrains.kotlin.psi.KtFile
  * the parse has been converted to CST, while the session (and so PSI resolution) is still alive. The session does
  * not outlive the parse, so anything that needs K2's answers has to collect them here.
  *
- * Passed to [KotlinScan.parse] and [KotlinProjectScan.parse]; the observers in this module are [ReferenceRecall]
+ * ⚠ The HOST-side type is the marker [KotlinParseObserver]: this callback takes the compiler's own PSI,
+ * so it cannot cross a classloader boundary. A host obtains an observer from the front end and hands it
+ * back; it never calls it. The observers in this module are [ReferenceRecall]
  * (an instrument) and [KotlinReferenceIndex] (where every project declaration is referenced).
  */
-abstract class KotlinParseObserver {
+abstract class K2ParseObserver : KotlinParseObserver {
     /**
      * @param ktFiles every Kotlin file of the parse
      * @param types   every CST type the parse produced (a file's types share its compilation-unit URI)

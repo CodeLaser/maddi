@@ -26,7 +26,14 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-kotlin-k2"))          // KotlinScan
+    // ⭐ the CONTRACT, and ONLY the contract. A reference to a K2 type from this module's main code is a
+    // compile error, and the implementation is not a runtime dependency either -- that `runtimeOnly` is
+    // precisely how 62 MB of compiler reached a consumer's classpath (G46). The host installs a front end
+    // (KotlinFrontEnds.install), normally one loaded in a realm; see maddi-kotlin-realm.
+    implementation(project(":maddi-kotlin-api"))
+    // ⚠ tests MAY name the implementation (they exercise it); main code may not — that asymmetry is the
+    // boundary, and it is enforced by these two lines rather than by anyone remembering it.
+    testImplementation(project(":maddi-kotlin-k2"))
     implementation(project(":maddi-inspection-kotlin"))  // JavaStubGenerator
     implementation(project(":maddi-inspection-openjdk")) // the openjdk (javac) Java front-end
     implementation(project(":maddi-java-openjdk"))       // SourceSetInterleave

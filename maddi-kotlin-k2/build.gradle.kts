@@ -26,6 +26,9 @@ group = "io.codelaser"
 val analysisApiVersion = "2.4.0"
 
 dependencies {
+    // ⭐ The front end's CONTRACT, which the host loads and this module implements. Everything the host
+    // is allowed to see lives there; see docs/kotlin-classloader-isolation.md and the ⛔ rule in its build.
+    api(project(":maddi-kotlin-api"))
     // The shared CST this front-end produces (Runtime factories, TypeInfo, ParameterizedType, ...).
     api(project(":maddi-cst-api"))
     // The shared type registry (InfoByFqn) used across language front-ends.

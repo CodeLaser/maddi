@@ -24,7 +24,7 @@ import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
 import io.codelaser.maddi.inspection.resource.InfoByFqn
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
-import io.codelaser.maddi.kotlin.k2.KotlinScan
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds
 import java.net.URI
 import java.nio.file.Files
 import javax.tools.JavaFileObject
@@ -104,7 +104,7 @@ class MixedInspector {
     fun parse(kotlinSourcesByFileName: Map<String, String>, javaSourcesByFqn: Map<String, String>): Result {
         // 1) Kotlin first; K2 also reads the Java sources so Kotlin can resolve Java-source references.
         val javaForK2 = javaSourcesByFqn.mapKeys { (fqn, _) -> fqn.replace('.', '/') + ".java" }
-        val kotlinTypes = KotlinScan(runtime, sourceSet, infoByFqn, compiledTypesManager)
+        val kotlinTypes = KotlinFrontEnds.get().sourceScan(runtime, sourceSet, infoByFqn, compiledTypesManager)
             .parse(kotlinSourcesByFileName, javaForK2)
 
         // 2) generate + compile a stub for each Kotlin type onto the classpath so javac can resolve it

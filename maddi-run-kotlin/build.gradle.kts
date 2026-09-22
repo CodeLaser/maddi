@@ -22,7 +22,17 @@ java {
     sourceCompatibility = JavaVersion.VERSION_26
     targetCompatibility = JavaVersion.VERSION_26
 }
+// ⭐ The jars that go INSIDE the realm. Resolvable but not consumable, so nothing here reaches this module's
+// own runtimeClasspath -- which is the entire point (G46). The distribution carries them in lib-k2/, beside
+// lib/ but never on the launcher's CLASSPATH.
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
+    k2Runtime(project(":maddi-kotlin-k2"))
+
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-inspection-resource"))
     implementation(project(":maddi-run-config"))
@@ -31,7 +41,8 @@ dependencies {
 
     // the prep-only mixed runner (RunMixedPrepAnalyzer)
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
-    implementation(project(":maddi-kotlin-k2"))             // PlaceholderCensus: what the front end could not read
+    implementation(project(":maddi-kotlin-api"))            // PlaceholderCensus: what the front end could not read
+    implementation(project(":maddi-kotlin-realm"))          // K2Realm: the compiler goes in a classloader of its own
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
     implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
@@ -44,7 +55,8 @@ dependencies {
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path
-    testImplementation(project(":maddi-kotlin-k2"))                    // ReferenceRecall, the editor's-eye instrument
+    // K2RealmTestBootstrap: installs the realm once for the whole module, the way the CLI does in Main
+    testImplementation("org.junit.platform:junit-platform-launcher")
     testImplementation(testFixtures(project(":maddi-run-openjdk")))    // TestOssCorpus
 }
 
@@ -72,8 +84,20 @@ tasks.withType<Test> {
     // the placeholder worklist: same forwarding, and for the same reason -- a -D on the Gradle JVM reaches
     // the test fork only if it is named here, and a dump that silently writes nothing looks like a clean run
     System.getProperty("maddi.placeholderDump")?.let { systemProperty("maddi.placeholderDump", it) }
+    // ⭐ the tests run against the REALM, exactly as the shipped CLI does: the compiler is never on the test
+    // JVM's own classpath, so a corpus run proves the isolation rather than merely coexisting with it
+    systemProperty("maddi.k2.classpath", k2Runtime.asPath)
     System.getenv("MADDI_PLACEHOLDER_DUMP")?.let { systemProperty("maddi.placeholderDump", it) }
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
+}
+
+// the realm's jars ship beside lib/, not in it: present in the distribution, absent from the CLASSPATH
+distributions {
+    main {
+        contents {
+            from(k2Runtime) { into("lib-k2") }
+        }
+    }
 }
 
 application {

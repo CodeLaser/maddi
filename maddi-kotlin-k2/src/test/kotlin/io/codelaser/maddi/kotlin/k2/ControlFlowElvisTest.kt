@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.statement.IfElseStatement
 import io.codelaser.maddi.cst.api.statement.LocalVariableCreation
