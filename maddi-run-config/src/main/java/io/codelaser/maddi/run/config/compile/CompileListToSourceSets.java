@@ -736,11 +736,24 @@ public class CompileListToSourceSets {
                 // ambiguity to abstain from: this set was compiled with exactly these options.
                 .setSourceRelease(inv.effectiveRelease())
                 .setAddModules(inv.addModules())
-                .setAddExports(inv.addExports())
+                .setAddExports(addExports(inv, sourceDirs))
                 .setWarningFlags(inv.warningFlags())
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);
         return sourceSet;
+    }
+
+    /**
+     * The invocation's own {@code --add-exports}, and for a build below the module system the ones it never had
+     * to write; see {@link EncapsulatedImports}.
+     */
+    private static List<String> addExports(CompileInvocation inv, List<Path> sourceDirs) {
+        if (!EncapsulatedImports.applies(inv)) return inv.addExports();
+        List<String> all = new ArrayList<>(inv.addExports());
+        for (String export : EncapsulatedImports.addExportsFor(sourceDirs)) {
+            if (!all.contains(export)) all.add(export);
+        }
+        return List.copyOf(all);
     }
 
     /** The language directory Gradle inserts as {@code build/classes/<language>/<kind>}; javac's is the default. */
