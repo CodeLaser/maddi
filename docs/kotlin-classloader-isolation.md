@@ -150,9 +150,21 @@ dependencies {
     k2Runtime("io.codelaser:maddi-kotlin-k2")   // project(":maddi:maddi-kotlin-k2") in a composite build
 }
 tasks.withType<Test> {
-    systemProperty("maddi.k2.classpath", k2Runtime.asPath)
+    // an INPUT, not a string: Gradle then builds the jars first and re-runs the test when they change
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
 }
 ```
+
+⛔ The first version of this snippet was `systemProperty("maddi.k2.classpath", k2Runtime.asPath)`, and it is
+wrong in a way no green run shows: it hands over the jars' PATHS and tells Gradle nothing, so the test task
+neither builds them nor re-runs when they change. A working copy that had built `maddi-kotlin-k2` for other
+reasons passed; a second worktree handed the realm a `maddi-kotlin-k2` jar from before the realm existed and 4 of
+`K2RealmTest`'s 5 failed with "no KotlinFrontEnd implementation is visible"; a clean checkout hands it a path
+that does not exist. `maddi-kotlin-realm` and `maddi-run-kotlin` carry the corrected form.
+
+⚠ A `JavaExec` task (a script runner sharing the test runtime classpath) needs the same two lines if it is ever
+pointed at a Kotlin project: `tasks.withType<Test>` does not reach it.
 
 and, once, where the support class is initialised:
 
@@ -179,5 +191,16 @@ writing verb against a `source.kotlin=true` project — point the first snapshot
 ⚠ Related, and closed by the same change: `maddi-kotlin-k2` forces IntelliJ's *patched*
 `kotlinx-coroutines-core` through a `dependencySubstitution` rule. Substitution rules are local to the
 project that declares them, so a consumer does not inherit it — downstream had to hand-copy the rule into two
-build files to stay correct. Both copies are deleted when the realm lands, because the patched coroutines
-goes inside it.
+build files to stay correct. Both HOST-side copies are deleted when the realm lands — the host no longer
+carries coroutines at all.
+
+⛔ **But the rule did not become unnecessary; it moved inside the realm, where the substitution did not reach.**
+A `k2Runtime` configuration is another project's configuration, so it received BOTH copies — upstream
+`kotlinx-coroutines-core-jvm:1.8.0` (through `kotlin-compiler:2.4.0`) at realm jar 6 of 31, and the patch at jar
+10 — and the realm answered every class they share from UPSTREAM, with only `IntellijCoroutines` from the patch.
+Worse, the shipped CLI disagreed with the tests: `K2Realm.jarsIn` sorts a `lib-k2/` directory by name, and
+`…-1.10.2-intellij-1.jar` sorts before `…-1.8.0.jar`, so the distribution loaded the patch while every test over
+`-Dmaddi.k2.classpath` loaded upstream. Fixed where a consumer inherits it: an `exclude` of upstream coroutines
+on `maddi-kotlin-k2`'s `kotlin-compiler` edge — an exclude travels with the dependency, a substitution does not.
+`RealmCoroutinesTest` asserts one provider of `kotlinx.coroutines.Job`, and that it is the jar that also
+carries `IntellijCoroutines`, using `ClasspathCensus` — the first-one-wins census both sides of G46 agreed on.
