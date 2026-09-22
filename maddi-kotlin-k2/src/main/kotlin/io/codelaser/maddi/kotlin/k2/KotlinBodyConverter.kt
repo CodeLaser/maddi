@@ -87,6 +87,8 @@ import org.jetbrains.kotlin.psi.KtConstantExpression
 import org.jetbrains.kotlin.psi.KtBreakExpression
 import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.idea.references.mainReference
+import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
 import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
@@ -1219,6 +1221,7 @@ internal class KotlinBodyConverter(
                         ?: runtime.objectParameterizedType())
                     .setSource(runtime.noSource()).build()
             }
+            is KtCallableReferenceExpression -> convertCallableReference(expression, method, locals)
             else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
         }
     }
@@ -1700,6 +1703,98 @@ internal class KotlinBodyConverter(
             .firstOrNull { s -> s.valueParameters.any { (it.psi as? KtParameter)?.defaultValue != null } }
 
     /** Collect every method named [name] with [arity] parameters on [type] and its supertypes. */
+    /**
+     * `::f`, `this::f`, `Type::f`, `::Type` — a Kotlin callable reference is Java's method reference, and the CST
+     * has one. Two fields carry the meaning, and both come straight from K2: `methodInfo()`, and whether
+     * `scope()` yields a links primary — which IS the bound/unbound distinction the link engine reads
+     * (`ExpressionVisitor.methodReference`: a TypeExpression has no primary and its receiver is treated as
+     * internal; a value expression has one and its modifications reach the caller).
+     *
+     * ⚠ `expression.expressionType` is `kotlin.reflect.KFunction1`, NOT the functional interface the reference
+     * is being coerced to at the use site. It is recorded as-is rather than guessed at: the engine types the
+     * synthetic functional-interface variable with it and reads nothing else from it.
+     *
+     * ⛔ A PROPERTY reference (`String::length`, `Q::i`) is deliberately not converted here — a Kotlin property
+     * is not a MethodInfo in this front end — and keeps a placeholder that NAMES the shape, so the census
+     * discloses it separately instead of hiding it among the unsupported expressions.
+     */
+    private fun KaSession.convertCallableReference(expression: KtCallableReferenceExpression, method: MethodInfo,
+                                                   locals: Map<String, Variable>): Expression {
+        val symbol = expression.callableReference.mainReference.resolveToSymbol()
+        val functionalType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+            ?: runtime.objectParameterizedType()
+
+        // `::Foo` — the scope is the type, the callee its constructor, and the engine has a dedicated arm for it
+        // (a constructor reference's SAM returns the new object).
+        if (symbol is KaConstructorSymbol) {
+            val owner = (symbol.containingDeclaration as? KaNamedClassSymbol)?.let { classTypeInfo(it) }
+                ?: return placeholder("k2-callable-ref-constructor-owner", expression)
+            val ctor = owner.constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
+                ?: return placeholder("k2-callable-ref-constructor", expression)
+            return methodReference(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()),
+                ctor, functionalType, expression)
+        }
+        val fn = symbol as? KaNamedFunctionSymbol
+            ?: return placeholder("k2-callable-ref-property", expression)
+
+        val receiver = expression.receiverExpression
+        // (scope expression, the type to resolve the callee on)
+        val scopeAndOwner: Pair<Expression, TypeInfo>? = when {
+            // `::f` with no receiver: a top-level function lives on the file facade (a type), a member of the
+            // enclosing class is implicitly `this` (a value). The difference is exactly bound vs unbound.
+            receiver == null -> {
+                if ((fn.psi as? KtNamedFunction)?.containingClassOrObject == null) {
+                    val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) }
+                    facade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
+                } else method.typeInfo().let { self(method) to it }
+            }
+            receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
+            else -> {
+                val asClass = (receiver as? KtNameReferenceExpression)
+                    ?.mainReference?.resolveToSymbol() as? KaNamedClassSymbol
+                if (asClass != null) classTypeInfo(asClass)?.let {
+                    runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it
+                } else {
+                    val value = convertExpression(receiver, method, locals)
+                    value.parameterizedType().typeInfo()?.let { value to it }
+                }
+            }
+        }
+        val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
+        val callee = resolveCalleeByArity(owner, fn.name.asString(), fn.valueParameters.size)
+            ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
+        return methodReference(scope, callee, functionalType, expression)
+    }
+
+    private fun methodReference(scope: Expression, callee: MethodInfo, functionalType: ParameterizedType,
+                                expression: KtCallableReferenceExpression): Expression =
+        runtime.newMethodReferenceBuilder()
+            .setScope(scope)
+            .setMethod(callee)
+            .setConcreteFunctionalType(functionalType)
+            .setConcreteParameterTypes(callee.parameters().map { it.parameterizedType() })
+            .setConcreteReturnType(callee.returnType())
+            .setSource(source(expression, "-"))
+            .build()
+
+    /** A class symbol's TypeInfo: from this compilation if it is ours, else loaded from the classpath. */
+    private fun KaSession.classTypeInfo(symbol: KaNamedClassSymbol): TypeInfo? {
+        val fqn = symbol.classId?.asFqNameString() ?: return null
+        return infoByFqn.getType(fqn, sourceSet) ?: with(typeMapper) { loadLibraryClass(symbol) }
+    }
+
+    /**
+     * [resolveCallee] disambiguates overloads by ARGUMENT expressions; a callable reference has none, only an
+     * arity. Overloads that differ only in parameter types are therefore not distinguishable here.
+     */
+    private fun resolveCalleeByArity(type: TypeInfo, name: String, arity: Int): MethodInfo? {
+        val all = mutableListOf<MethodInfo>()
+        collectMethods(type, name, arity, mutableSetOf(), all)
+        all.removeIf { m -> m.isSynthetic && all.any { !it.isSynthetic && it.typeInfo() === m.typeInfo() } }
+        if (all.size > 1) ++ambiguousBindings
+        return all.firstOrNull()
+    }
+
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
                                acc: MutableList<MethodInfo>) {
         if (!visited.add(type)) return

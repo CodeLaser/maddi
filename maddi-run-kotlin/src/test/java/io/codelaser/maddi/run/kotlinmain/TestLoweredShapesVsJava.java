@@ -83,6 +83,9 @@ public class TestLoweredShapesVsJava {
                 public Box next() { return this; }
                 public int addAndSize(String s) { items.add(s); return items.size(); }
                 public String addAndEcho(String s) { items.add(s); return s; }
+                public void touch() { items.add("t"); }
+                public void feed(StringSink sink, String t) { sink.accept(t); }
+                public void feedBox(BoxSink sink, Box target) { sink.accept(target); }
             }
             """;
 
@@ -126,6 +129,11 @@ public class TestLoweredShapesVsJava {
                     return v
                 }
                 fun dupOffSpine(b: Box, c: Box?, t: String): Int = b.addAndSize(c?.addAndEcho(t) ?: t)
+                // callable references: bound (`c::add`, the caller's own object) and unbound (`Box::touch`,
+                // whose receiver is the sink's argument). Both sides call the SAME Java method with the SAME
+                // functional interface, so a disagreement is the reference and not the library.
+                fun refBound(b: Box, c: Box, t: String) { b.feed(c::add, t) }
+                fun refUnbound(b: Box, c: Box, t: String) { b.feedBox(Box::touch, c) }
                 fun ternaryArm(b: Box?, c: Box, t: String): Int = if (b == null) c.addAndSize(t) else b.size()
                 fun expressionBodiedTry(b: Box, t: String): Int =
                     try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
@@ -194,11 +202,23 @@ public class TestLoweredShapesVsJava {
                     String s = c == null ? null : c.addAndEcho(t);
                     return b.addAndSize(s != null ? s : t);
                 }
+                public void refBound(Box b, Box c, String t) { b.feed(c::add, t); }
+                public void refUnbound(Box b, Box c, String t) { b.feedBox(Box::touch, c); }
                 public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
                 public int expressionBodiedTry(Box b, String t) {
                     try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
                 }
             }
+            """;
+
+    private static final String SINKS = """
+            package s;
+            public interface StringSink { void accept(String s); }
+            """;
+
+    private static final String BOX_SINK = """
+            package s;
+            public interface BoxSink { void accept(Box b); }
             """;
 
     /** A FIELD holding the helper, so the type-level verdict has something to say. */
@@ -216,7 +236,8 @@ public class TestLoweredShapesVsJava {
     private static final List<String> METHODS =
             List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
                     "whenAsValue", "elvisThrow", "expressionBodiedTry",
-                    "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine");
+                    "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine",
+                    "refBound", "refUnbound");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {
@@ -226,6 +247,8 @@ public class TestLoweredShapesVsJava {
         Files.createDirectories(jDir.resolve("b"));
         Files.createDirectories(jDir.resolve("s"));
         Files.writeString(kDir.resolve("a/K.kt"), KOTLIN);
+        Files.writeString(jDir.resolve("s/StringSink.java"), SINKS);
+        Files.writeString(jDir.resolve("s/BoxSink.java"), BOX_SINK);
         Files.writeString(jDir.resolve("b/J.java"), JAVA);
         Files.writeString(jDir.resolve("b/JHolder.java"), JAVA_HOLDER);
         Files.writeString(jDir.resolve("s/Box.java"), BOX);

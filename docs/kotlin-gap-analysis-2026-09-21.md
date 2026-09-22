@@ -693,6 +693,55 @@ is a differential oracle**, and it found a core defect that 3,505 same-language 
 did not. Kotlin's lowerings emit ternaries where a human writes `if`, so the Kotlin front end walked into a
 blind spot Java code mostly steps around.
 
+### 7.19 ⭐ Callable references — five shapes of six, and the field that decides the answer
+
+`::f` was the largest remaining unmodelled family (≈92 sites on detekt). It is Java's method reference and
+the CST already has a `MethodReference`, so the work was resolution, not modelling. ⚠ The inventory was
+established by probe rather than by reading the dump, which had only ever matched method *signatures*
+containing the type name:
+
+| shape | K2 resolves it to | before | after |
+|---|---|---|---|
+| `::two` (top-level) | `KaNamedFunctionSymbol` `/two` | placeholder | ✅ facade `PKt`, scope = type |
+| `::twice` (member, implicit) | `KaNamedFunctionSymbol` `/P.twice` | placeholder | ✅ scope = `this` |
+| `this::twice` | same | placeholder | ✅ scope = `this` |
+| `Q::len` (unbound) | `KaNamedFunctionSymbol` `/Q.len` | placeholder | ✅ scope = type `Q` |
+| `::Q` (constructor) | `KaConstructorSymbol` | placeholder | ✅ the constructor |
+| `Q::i`, `String::length` | `KaFir…PropertySymbol` | placeholder | ⛔ `k2-callable-ref-property` |
+
+⭐ **The field that decides what the analyzer concludes is `scope()`, not `methodInfo()`.**
+`ExpressionVisitor.methodReference` treats a scope with no links-primary — a `TypeExpression` — as an
+INTERNAL receiver and drops its self-modifications, and a scope that is a value as the caller's own object.
+So `Q::len` and `this::len` must not produce the same tree, and a test asserting only "no placeholder"
+would not have noticed if they did. `CallableReferenceTest` asserts the scope KIND on every shape.
+
+The three no-receiver cases are the subtle ones: `::two` and `::twice` are written identically and mean
+opposite things. The discriminator is whether the symbol's PSI has a containing class — a member is
+implicitly `this` (bound), a top-level function lives on the file facade (unbound).
+
+⛔ **Property references are deliberately left.** A Kotlin property is not a `MethodInfo` in this front end,
+so `Q::i` has nothing to reference; it keeps a placeholder that NAMES the shape (`k2-callable-ref-property`)
+rather than hiding among the unsupported expressions. The census is the disclosure instrument, so the name
+is the deliverable.
+
+⚠ One knock-on stays open and is pinned: the reference in `val g = ::twice` converts, but CALLING it
+(`g(2)`) does not — invoke-operator sugar over a `KFunction1`, a type this front end knows only shallowly.
+
+**Verdict-level, via §7.17's instrument** — both sides calling the same Java method through the same
+functional interface, so a disagreement is the reference and not the library:
+
+    refBound     kotlin: b.unmodified=true c.unmodified=false   java: b.unmodified=true c.unmodified=false
+    refUnbound   kotlin: b.unmodified=true c.unmodified=true    java: b.unmodified=true c.unmodified=true
+
+`c::add` marks `c` modified; `Box::touch` does not, on EITHER side — that is the documented conservative
+drop for an unbound receiver in `ExpressionVisitor.methodReference`. ⭐ The Kotlin front end matches Java
+including its conservatism, which is the right result for a differential test: fidelity to the engine, not
+to an ideal.
+
+⚠ **Not yet measured on a corpus.** The ≈92 detekt sites are a recorded figure, not a re-measurement; the
+box was full of other threads' JVMs when this landed. Unit evidence only: 254 tests in `maddi-kotlin-k2`,
+3,513 in the repo, 0 failures. The corpus delta is owed.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -712,7 +761,9 @@ blind spot Java code mostly steps around.
    arity rule and operator extensions, `bootstrapString`'s statics, extension properties, blocks in
    expression position, `x ?: return`, and `try` as a value. detekt **6,057 → 5,525** sites, types holding
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
-   What remains, in order: **callable references** (92 on detekt), then **annotations** and **`suspend`**,
+   ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
+   keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
+   What remains, in order: **property references**, then **annotations** and **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive.
