@@ -564,6 +564,42 @@ the remaining duplication is mixed-path, not chain blow-up. A duplicated operand
 is not hoistable to the statement, but could be hoisted to the head of that arm's own block. That is the
 next refinement, and it is worth doing only if a verdict-level test shows it changes an answer.
 
+### 7.16 ⭐ The first verdict-level test, and what it found in one run
+
+Everything measured about the lowerings until now was about the PARSE — placeholders, statement indexes,
+prep isolating nothing. None of it says the analyzer concludes the right thing, and §7.14 had just shown
+that a lowering can be well formed and wrong for months without a red test.
+
+`TestLoweredShapesVsJava` asks the other question: **for each lowered shape, does the modification analysis
+reach the same verdict as for the Java a human would write?** Both sides call the same Java helper, so a
+disagreement is the lowering and not the standard library; the sensors are `NON_MODIFYING_METHOD` and
+`UNMODIFIED_PARAMETER`, which is what a mis-shaped tree moves.
+
+Five shapes: `try` as a value, a multi-statement `if` as a value, `x ?: return`, a null-safe chain that
+modifies, and one that does not. **Four agreed. One did not**, on the first run:
+
+    safeChain   kotlin: box.unmodified=true    java: box.unmodified=false
+
+`b?.next()?.add(t)` — the analysis did not see that the parameter was modified. The parse was clean, prep
+isolated nothing, the census showed no hole, and the answer was wrong.
+
+⛔ **The cause: a safe call in STATEMENT position lowered to a ternary with a void arm.** `(b == null) ? null
+: b.add(t)` is not a shape Java can write — `add` returns `Unit` — and the analysis does not follow it.
+Fixed by lowering a statement-position safe call to what it is, an `if`:
+
+    b?.next()?.add(t)   ->   Box $nullSafe0 = (b == null) ? null : b.next();
+                             if (!($nullSafe0 == null)) { $nullSafe0.add(t); }
+
+⚠ And it took two attempts, the second found by probing the CST rather than by reading the code: hoisting
+the spine of the safe call's RECEIVER leaves the outer node's own tested operand un-hoisted, so the receiver
+ternary was still inlined twice — once in the condition, once in the call. The walk has to start at the
+whole safe call.
+
+detekt after: placeholder rows **4,781 → 4,744**, analysis order 14,946 → 14,908, prep isolated **0**,
+immutable types 669, coil unchanged. ⚠ 19 sites are newly *visible* — the same reveal pattern as every other
+swallow fixed in this campaign, and the invariant holds: all 19 sit in members that already held a
+placeholder, and **no member is newly dirty**.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -583,7 +619,8 @@ next refinement, and it is worth doing only if a verdict-level test shows it cha
    work, and one the site dump can drive.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
-5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
+5. **Make the evidence fail.** ⭐ Begun: §7.16 is the first test that asks what the analyzer CONCLUDES
+   rather than what it parsed, and it found a wrong answer on its first run. The rest of the rung — Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
    IDE daemon.

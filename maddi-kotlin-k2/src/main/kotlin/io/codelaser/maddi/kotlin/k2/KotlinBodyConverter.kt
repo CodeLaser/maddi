@@ -195,7 +195,12 @@ internal class KotlinBodyConverter(
 
     /** Temporaries introduced for a null-safe spine; see [hoistNullSafeSpine]. */
     var nullSafeTemporaries: Int = 0
-        private set
+
+    /**
+     * Safe calls whose null test the CALLER supplies as a statement, so the conversion must hand back the
+     * bare selector call rather than wrap it in a ternary. See [safeCallAsStatementLowering].
+     */
+    private val unwrappedSafeCalls = java.util.IdentityHashMap<KtExpression, Boolean>()
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
@@ -403,6 +408,50 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * <b>`b?.f()` alone on a line is an `if`, not a ternary.</b>
+     *
+     * <p>A safe call lowers to `(b == null) ? null : b.f()`. In VALUE position that is right. In STATEMENT
+     * position, where the value is discarded and the selector may return `Unit`, it produces a conditional
+     * whose arms are a null constant and a <b>void call</b> — a shape Java cannot write, and one the
+     * modification analysis does not follow: measured, `b?.next()?.add(t)` left the parameter
+     * {@code unmodified=true} while the hand-written Java equivalent said {@code false}. The parse was
+     * clean, prep isolated nothing, and the census saw no hole. Only comparing the VERDICT against the Java
+     * the lowering claims to produce could show it (`TestLoweredShapesVsJava`).
+     *
+     * <p>So: `if (b != null) b.f();`, with the receiver spine hoisted as everywhere else.
+     */
+    private fun KaSession.safeCallAsStatementLowering(statement: KtExpression, method: MethodInfo,
+                                                      locals: MutableMap<String, Variable>,
+                                                      index: String): List<Statement>? {
+        if (statement !is KtSafeQualifiedExpression) return null
+        val receiverPsi = statement.receiverExpression
+        // ⚠ the WHOLE safe call, not its receiver: the node whose tested operand needs a temporary is this
+        // one, and walking from the receiver skips exactly that. Measured by the probe -- the receiver
+        // ternary was still inlined twice, in the condition and in the call.
+        val hoisted = hoistNullSafeSpine(statement, method, locals, index)
+        val callIndex = if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
+        val receiver = convertExpression(receiverPsi, method, locals)
+        unwrappedSafeCalls[statement] = true
+        val call = try {
+            convertExpression(statement, method, locals)
+        } finally {
+            unwrappedSafeCalls.remove(statement)
+            hoistedReads.clear()
+        }
+        val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+            runtime.newEquals(receiver, runtime.nullConstant()), runtime.precedenceUnary())
+        val guarded = runtime.newIfElseBuilder()
+            .setExpression(notNull)
+            .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$callIndex.0"))
+                .addStatement(indexed(runtime.newExpressionAsStatement(call), "$callIndex.0.0")).build())
+            .setElseBlock(runtime.newBlockBuilder()
+                .setSource(runtime.noSource().withIndex("$callIndex.1")).build())
+            .setSource(source(statement, callIndex))
+            .build()
+        return hoisted + guarded
+    }
+
+    /**
      * The two statement-level lowerings, in one place. ⚠ A statement list lives in FOUR places — a block
      * body, a lambda body, and the branch blocks of a value-yielding `try`/`if` — and a lowering that
      * reaches only the first sees a fraction of the sites: measured on detekt, all four remaining
@@ -414,6 +463,7 @@ internal class KotlinBodyConverter(
                                             index: String): List<Statement>? =
         controlFlowElvisLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
+            ?: safeCallAsStatementLowering(s, method, locals, index)
 
     /** `if (c) { … } else { … }` in the position of a VALUE: each branch returns or assigns its tail. */
     private fun KaSession.convertValueIf(statement: KtIfExpression, method: MethodInfo,
@@ -1209,6 +1259,8 @@ internal class KotlinBodyConverter(
         // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token.
         // The receiver stands in the test as well as in the call, and the CST is a tree: it is converted a second
         // time for the test rather than shared, as the elvis operand above (#32).
+        // the caller is making the null test a STATEMENT (`b?.f()` alone on a line): hand back the call
+        if (expression is KtSafeQualifiedExpression && unwrappedSafeCalls.containsKey(expression)) return selectorResult
         return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(convertExpression(expression.receiverExpression, method, locals),
                     runtime.nullConstant()))
