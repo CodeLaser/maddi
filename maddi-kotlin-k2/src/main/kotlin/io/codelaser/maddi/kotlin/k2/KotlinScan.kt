@@ -176,6 +176,9 @@ class KotlinScan(
      */
     val ambiguousBindings: Int get() = bodyConverter.ambiguousBindings
 
+    /** See [KotlinBodyConverter.elvisReEvaluations]. */
+    val elvisReEvaluations: Int get() = bodyConverter.elvisReEvaluations
+
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }

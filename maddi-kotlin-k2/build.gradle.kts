@@ -33,6 +33,9 @@ dependencies {
     api(project(":maddi-cst-api"))
     // The shared type registry (InfoByFqn) used across language front-ends.
     implementation(project(":maddi-inspection-resource"))
+    // the front end reports what it could not do faithfully (elvis re-evaluations); the realm shares
+    // org.slf4j with the host, so those lines come out of the host's appenders
+    implementation("org.slf4j:slf4j-api:2.0.16")
 
     // The compiler itself (PSI + FIR internals the Analysis API sits on top of). Maven Central.
     implementation("org.jetbrains.kotlin:kotlin-compiler:$analysisApiVersion")

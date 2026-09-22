@@ -70,6 +70,11 @@ class KotlinProjectScan(
         open(orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots).use { session ->
             orderedSourceSets.forEach { session.convert(it) }
             session.observe(observers)
+            // ⚠ always logged, including the 0: the absence of a warning is not evidence of absence, and
+            // this number is not visible to the placeholder census (the CST is well formed, just wrong)
+            org.slf4j.LoggerFactory.getLogger(KotlinProjectScan::class.java)
+                .info("elvis lowerings re-evaluating their left operand: {} (see KotlinBodyConverter#controlFlowElvisLowering)",
+                        session.elvisReEvaluations)
             session.result
         }
 
@@ -201,6 +206,14 @@ class KotlinProjectScan(
             scans.values.any { it.hasOrAwaitsBody(method) }
 
         /** After every set is completed, so a reference into an upstream set finds its CST; the session is still alive. */
+        /**
+         * ⚠ How many elvis lowerings re-evaluated their left operand — see
+         * [KotlinBodyConverter.controlFlowElvisLowering]. Not a placeholder, so the census cannot see it:
+         * the CST is well formed and says something the source does not, which is the one failure mode worse
+         * than a hole. Reported so it is a number rather than a worry.
+         */
+        val elvisReEvaluations: Int get() = scans.values.sumOf { it.elvisReEvaluations }
+
         override fun observe(observers: List<KotlinParseObserver>) {
             val allTypes = result.values.flatten()
             // only an observer built by THIS front end can read PSI; a host-side marker is all the boundary carries
