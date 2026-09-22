@@ -115,9 +115,16 @@ public class ParameterInfoImpl implements ParameterInfo {
         return Objects.hash(index, methodInfo);
     }
 
+    /*
+     Parameters of one method used to compare by index, everything else by fully qualified name. Both orders agree
+     up to nine parameters; from ten on they do not ("m:10:x" < "m:2:y" by name), and a variable named after a
+     parameter, such as the array access "m:10:x[i]", then sits between the two by name: p2 < p10 (index),
+     p10 < p10[i] < p2 (name) -- a cycle, which TimSort reports as "Comparison method violates its general
+     contract" while sorting the links of a method with ten or more parameters (TestParameterOrder). One order
+     for every variable.
+     */
     @Override
     public int compareTo(Variable o) {
-        if (o instanceof ParameterInfoImpl pi && methodInfo == pi.methodInfo) return index - pi.index;
         return fullyQualifiedName().compareTo(o.fullyQualifiedName());
     }
 
