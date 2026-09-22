@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IGNORE_MODIFICATIONS_FIELD;
 import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_FIELD;
 import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD;
 import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFECTS_METHOD;
 
 /**
@@ -53,14 +55,19 @@ import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFE
  *       immutable. Nothing in the declared type says so, and no source-level inference computes it today, so
  *       the contract is the only possible source. (Inferring it is a separate, inter-procedural problem — see
  *       {@code docs/dynamic-immutability-feasibility.md}.)</li>
- *   <li>Everything the analyzer <em>does</em> compute — {@code NON_MODIFYING_METHOD}, the {@code INDEPENDENT_*}
- *       and {@code CONTAINER_*} family, {@code FINAL_FIELD}, … — is deliberately NOT materialized. Trusting a
- *       wrong contract there would silently replace a derived verdict with an assertion, and comparing the two
- *       is precisely what guard mode exists for.</li>
+ *   <li>Everything the analyzer <em>does</em> compute — the {@code INDEPENDENT_*} and {@code CONTAINER_*}
+ *       family, {@code FINAL_FIELD}, … — is deliberately NOT materialized <b>on a method with a body</b>.
+ *       Trusting a wrong contract there would silently replace a derived verdict with an assertion, and
+ *       comparing the two is precisely what guard mode exists for.</li>
+ *   <li><b>Exception, and it is not one: a BODILESS method.</b> {@code INDEPENDENT_METHOD} and
+ *       {@code NON_MODIFYING_METHOD} contracted on an abstract method ARE materialized, because there is no
+ *       body to compute from — the "computed" value is a fold over implementations, i.e. a reconstruction of
+ *       the declaration the author already wrote. {@link ContractResolution} carries the full argument,
+ *       including why a contract that conflicts with ANOTHER CONTRACT decides nothing.</li>
  * </ul>
- * The guard reads neither of these two properties (it polices {@code NON_MODIFYING_METHOD} and
- * {@code INDEPENDENT_METHOD} on abstract methods, and {@code IMMUTABLE_TYPE}/{@code CONTAINER_TYPE} on types),
- * so materializing them cannot blunt any contract check that exists.
+ * Materializing cannot blunt any contract check that exists: the guard re-derives contracts from the CST
+ * through the {@link ContractReader}, never from {@code analysis()}, and compares them against each
+ * implementation's own computed value.
  *
  * <h2>Idempotent, and re-run every pass on purpose</h2>
  * A computed value always wins: we write only when nothing has been decided yet. And the write is repeated
@@ -72,15 +79,29 @@ public class SourceContractMaterializer {
     private static final String IGNORE_MODIFICATIONS_FQN = "io.codelaser.maddi.annotation.rare.IgnoreModifications";
 
     private final ContractReader contractReader;
+    private final ContractResolution contractResolution;
     private final AtomicInteger propertyChanges;
 
-    public SourceContractMaterializer(Runtime runtime, AtomicInteger propertyChanges) {
+    public SourceContractMaterializer(Runtime runtime, AtomicInteger propertyChanges,
+                                      ContractResolution contractResolution) {
         this.contractReader = new ContractReader(runtime);
+        this.contractResolution = contractResolution;
         this.propertyChanges = propertyChanges;
     }
 
     public void materialize(MethodInfo methodInfo) {
         materialize(methodInfo, IMMUTABLE_METHOD);
+        // A BODILESS method's contract is decided, not merely expected: there is no body to compute from, so
+        // the value the analyzer would derive is a fold over implementations — a reconstruction of the very
+        // declaration the author wrote. See ContractResolution for why deciding (seed + skip the fold) rather
+        // than protecting (seed only) is the right shape, and for the contract-vs-contract exception.
+        // ⚠ The scope is deliberately "no body", not "any source method": a method WITH a body can be computed,
+        // and there the annotation stays an expectation the guard checks unless the author opts in explicitly
+        // with contract=true. That arm is not implemented yet.
+        if (methodInfo.isAbstract()) {
+            materializeContracted(methodInfo, INDEPENDENT_METHOD);
+            materializeContracted(methodInfo, NON_MODIFYING_METHOD);
+        }
         // @StaticSideEffects is the global-escape twin of @IgnoreModifications: a pure contract on the safe
         // surface (e.g. System.setOut in an AAPI declaration) whose global effect the analyzer cannot see. On a
         // SOURCE method it is normally computed, but a source author may also assert it directly; materialize it
@@ -160,6 +181,24 @@ public class SourceContractMaterializer {
                 return;
             }
         }
+    }
+
+    /**
+     * Seed an adjudicated contract on a bodiless method. Writes only a value that is not the silent default
+     * (DEPENDENT / modifying): those are indistinguishable from an absent annotation, and writing them would
+     * turn "nobody said anything" into a decision. A conflict decides nothing — {@code ContractResolution}
+     * returns no value, and {@code GuardAnalyzerImpl} reports it.
+     */
+    private void materializeContracted(MethodInfo methodInfo, Property property) {
+        if (methodInfo.analysis().haveAnalyzedValueFor(property)) return; // computed earlier, or already seeded
+        Value value = contractResolution.resolve(methodInfo, property).value();
+        if (value == null) return;
+        boolean worthWriting = value instanceof Value.Independent independent && independent.isAtLeastIndependentHc()
+                               || value instanceof Value.Bool bool && bool.isTrue();
+        if (!worthWriting) return;
+        methodInfo.analysis().set(property, value);
+        CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of bodiless {} = {}", property, methodInfo, value);
+        propertyChanges.incrementAndGet();
     }
 
     private void materialize(Info info, Property property) {

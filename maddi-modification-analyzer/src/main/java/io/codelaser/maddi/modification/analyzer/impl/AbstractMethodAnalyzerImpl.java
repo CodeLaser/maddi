@@ -40,11 +40,14 @@ import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.IND
 public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
 
     private final EventualCluster eventualCluster;
+    private final ContractResolution contractResolution;
 
     public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged,
-                                      List<Message> analyzerMessages, EventualCluster eventualCluster) {
+                                      List<Message> analyzerMessages, EventualCluster eventualCluster,
+                                      ContractResolution contractResolution) {
         super(configuration, propertiesChanged, analyzerMessages);
         this.eventualCluster = eventualCluster;
+        this.contractResolution = contractResolution;
     }
 
     @Override
@@ -147,6 +150,10 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     }
 
     private void methodNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        // as methodIndependent: a contracted bodiless method is decided. This fold is the more destructive of
+        // the two -- it defaults an UNDECIDED implementation to modifying and breaks immediately -- so without
+        // the skip a single unresolved implementation erases the declaration outright.
+        if (contractResolution.resolve(methodInfo, NON_MODIFYING_METHOD).decided()) return;
         Value.Bool nonModifying = methodInfo.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
         if (nonModifying.isTrue()) {
             return;
@@ -280,6 +287,11 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     }
 
     private void methodIndependent(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        // decided by contract: SourceContractMaterializer seeded it at the top of this pass, and folding over
+        // implementations would only second-guess a declaration. Skipping also keeps the fold from writing a
+        // value that overwriteAllowed refuses every pass -- a refused downgrade is invisible to the verification
+        // passes (TolerantWrite's certification blind spot), so protecting the seed is not enough on its own.
+        if (contractResolution.resolve(methodInfo, INDEPENDENT_METHOD).decided()) return;
         Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
         if (independent.isIndependent()) {
             return;

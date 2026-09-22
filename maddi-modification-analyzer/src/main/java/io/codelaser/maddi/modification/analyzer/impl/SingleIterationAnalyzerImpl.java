@@ -153,10 +153,13 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
         staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);
-        sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged);
+        // ONE resolution, shared: the materializer seeds from it and the abstract-method folds skip on it, so a
+        // disagreement between the two would mean a contract seeded and then folded over (or the reverse).
+        ContractResolution contractResolution = new ContractResolution(runtime);
+        sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged, contractResolution);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages,
-                eventualCluster);
+                eventualCluster, contractResolution);
         this.runtime = runtime;
         this.flattenVariableData = configuration.flattenVariableData();
     }

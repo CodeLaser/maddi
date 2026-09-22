@@ -77,6 +77,8 @@ import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
  */
 public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyzer {
     public static final String CONTRACT_VIOLATION = "contract-violation";
+    /** two AUTHORED statements disagree; the analyzer cannot rank them, so nothing is decided and nothing propagates */
+    public static final String CONTRACT_CONFLICT = "contract-conflict";
     /** a contract the guard can see but cannot check locally; see {@link #guardDynamicImmutableFields} */
     public static final String CONTRACT_UNVERIFIABLE = "contract-unverifiable";
     public static final String NEAR_MISS_CONTAINER = "near-miss-container";
@@ -88,11 +90,13 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     public static final String IGNORE_MODIFICATIONS_NOT_CONFINED = "ignore-modifications-not-confined";
 
     private final ContractReader contractReader;
+    private final ContractResolution contractResolution;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
     public GuardAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration, List<Message> messages) {
         super(configuration, null, messages);
         this.contractReader = new ContractReader(runtime);
+        this.contractResolution = new ContractResolution(runtime);
     }
 
     @Override
@@ -791,6 +795,7 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
 
     private void guardMethod(MethodInfo methodInfo) {
         if (!methodInfo.isAbstract()) return;
+        guardContractConflict(methodInfo);
         Map<Property, Value> contracts = contractReader.contracts(methodInfo);
         // @NotModified: no implementation may modify its receiver.
         if (contracts.get(NON_MODIFYING_METHOD) instanceof Value.Bool nonModifying && nonModifying.isTrue()) {
@@ -848,6 +853,28 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                             + " but is dependent, violating its @Independent contract");
                 }
             }
+        }
+    }
+
+    /**
+     * Contract vs CONTRACT, which is a different thing from contract vs computed evidence. A contract that
+     * disagrees with what the analyzer infers is trusted and reported ({@link #CONTRACT_VIOLATION}); a contract
+     * that disagrees with ANOTHER CONTRACT cannot be adjudicated at all — both are authored, and nothing here
+     * can rank them. {@code ContractResolution} decides nothing in that case, so an unadjudicable statement
+     * never propagates; this reports it instead. The shape that counts is an own contract WEAKER than one it
+     * inherits: an override may strengthen a promise, never weaken it.
+     */
+    private void guardContractConflict(MethodInfo methodInfo) {
+        for (Property property : List.of(INDEPENDENT_METHOD, NON_MODIFYING_METHOD)) {
+            ContractResolution.Outcome outcome = contractResolution.resolve(methodInfo, property);
+            if (!outcome.conflict()) continue;
+            analyzerMessages.add(MessageImpl.error(methodInfo, CONTRACT_CONFLICT,
+                    methodInfo.fullyQualifiedName() + " contracts " + property.key()
+                    + " more weakly than the contract it inherits from "
+                    + outcome.weakerThan().fullyQualifiedName()
+                    + "; an override may strengthen a contract, never weaken it. Neither is applied: the"
+                    + " property is left to computation.",
+                    new Message[]{MessageImpl.cause(outcome.weakerThan(), "the stronger contract is here")}));
         }
     }
 
