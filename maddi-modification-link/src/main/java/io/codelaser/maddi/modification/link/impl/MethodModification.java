@@ -85,7 +85,15 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
         if (rp.links() != null && rp.links().primary() != null) {
             LOGGER.debug("Mark argument primary {} as modified by {}", rp.links().primary(), mc.methodInfo());
-            Util.variableAndScopes(rp.links().primary()).forEach(modified::add);
+            // the LAST of go()'s four modification-recording sites to get this filter (fix C, 2026-09-22): a
+            // disclaimed face never implicates its own node, whichever site reaches it. Handing a field that is
+            // @IgnoreModifications to a callee's @Modified parameter is the author saying that what the callee
+            // does to it is not this type's modification -- exactly what the receiver and propagated sites
+            // already honoured. ShadowModificationPass.project() has ALWAYS filtered it here (its FieldReference
+            // arm), so before this the two implementations disagreed on the argument site by construction.
+            Util.variableAndScopes(rp.links().primary())
+                    .filter(v -> !v.isIgnoreModifications())
+                    .forEach(modified::add);
         }
         if (argument instanceof MethodReference mr) {
             propagateModificationOfObject(modified, mr);

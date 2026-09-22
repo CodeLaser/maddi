@@ -844,7 +844,15 @@ public class ShadowModificationPass {
                     if (fr.scopeIsRecursivelyThis()) out.add(mi);
                     push(todo, fr.scopeVariable());
                 }
-                case ParameterInfo pi -> out.add(pi); // own or another method's: node either way
+                // own or another method's: a node either way — UNLESS disclaimed. The engine's
+                // Util.variableAndScopes(...).filter(!isIgnoreModifications) drops ANY disclaimed variable,
+                // parameters included; only the FieldReference arm above mirrored that, so a disclaimed
+                // PARAMETER handed to a @Modified parameter still got a node here and was written FALSE at
+                // cutover, contradicting its own ignoreModsParameter=true. Caught by the modReach=true twin of
+                // TestIgnoreModificationsOnArgument, which read true (engine) vs false (this pass).
+                case ParameterInfo pi -> {
+                    if (!pi.isIgnoreModifications()) out.add(pi);
+                }
                 case DependentVariable dv -> push(todo, dv.arrayVariable());
                 default -> {
                     VariableInfoContainer vic = vd.variableInfoContainerOrNull(v.fullyQualifiedName());
