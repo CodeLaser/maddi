@@ -527,8 +527,26 @@ public class ShadowModificationPass {
                     seedAssignmentTarget(mi, vd, a.variableTarget());
                 }
                 if (e instanceof MethodCall mc) {
-                    seedBoundaryCallee(mi, mc.methodInfo());
-                    handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions());
+                    // mirror of MethodModification.go's receiverDisclaimed guard: when the receiver carries
+                    // @IgnoreModifications the author has declared that none of this call's effects are theirs,
+                    // ARGUMENTS included. The two implementations must agree or TestShadowCloneBench's pinned
+                    // divergence counts move — measured 2026-09-22: gating only the engine took
+                    // unmodifiedParameter 812 -> 814, gating the whole of seedBoundaryCallee here took it to
+                    // 811. Only the PARAMETER seeding is the mirror of the engine's gated site: the callee seed
+                    // just above corresponds to the engine's RECEIVER site, which is not gated there — it has
+                    // its own per-variable `!v.isIgnoreModifications()` filter, so a partly-disclaimed receiver
+                    // chain still implicates its undisclaimed scopes.
+                    boolean disclaimed = receiverDisclaimed(mc.object());
+                    seedBoundaryCallee(mi, mc.methodInfo(), disclaimed);
+                    // ... and no E1 ARGUMENT edges either. Not seeding the callee's parameter from THIS site is
+                    // not enough: the seed lives on the SHARED callee node (java.util.function.Function.apply's
+                    // arg0), so an undisclaimed call anywhere else seeds it and the E1 edge from here teleports
+                    // it onto our argument. That is the same "teleport" the E6 out-of-order guard above exists
+                    // to prevent. Caught in 3s by the MODREACH variant of
+                    // TestIgnoreModificationsOnFunctionalParameter, which is why that fast twin exists.
+                    if (!disclaimed) {
+                        handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions());
+                    }
                     // E2: callee receiver -> caller-side receiver nodes (chained receivers resolved
                     // through the inner callee's return-value summary, P2.2a)
                     for (Object node : projectReceiverChain(mi, vd, mc.object())) {
@@ -550,7 +568,7 @@ public class ShadowModificationPass {
      * edges carry the modification to every call site's arguments/receivers, replacing the
      * summary-fold channel the receiver-rooted skip removed.
      */
-    private void seedBoundaryCallee(MethodInfo mi, MethodInfo callee) {
+    private void seedBoundaryCallee(MethodInfo mi, MethodInfo callee, boolean receiverDisclaimed) {
         if (callee == null) return;
         if (orderMethods.contains(callee)) {
             // conservative mirror of the engine's undecided-callee default (MethodInfo.isNonModifying:
@@ -576,7 +594,13 @@ public class ShadowModificationPass {
         if (callee.isModifying() && !callee.isIgnoreModification() && !callee.isFinalizer()) {
             seedWithOrigin(callee, mi, "non-analyzed modifying callee");
         }
-        seedBoundaryCalleeParameters(mi, callee);
+        if (!receiverDisclaimed) seedBoundaryCalleeParameters(mi, callee);
+    }
+
+    /** @see io.codelaser.maddi.modification.link.impl.MethodModification the engine-side twin of this rule */
+    private boolean receiverDisclaimed(io.codelaser.maddi.cst.api.expression.Expression receiver) {
+        return receiver instanceof VariableExpression ve
+               && Util.variableAndScopes(ve.variable()).anyMatch(Variable::isIgnoreModifications);
     }
 
     private void seedBoundaryCalleeParameters(MethodInfo mi, MethodInfo callee) {
@@ -820,7 +844,15 @@ public class ShadowModificationPass {
                     if (fr.scopeIsRecursivelyThis()) out.add(mi);
                     push(todo, fr.scopeVariable());
                 }
-                case ParameterInfo pi -> out.add(pi); // own or another method's: node either way
+                // own or another method's: a node either way — UNLESS disclaimed. The engine's
+                // Util.variableAndScopes(...).filter(!isIgnoreModifications) drops ANY disclaimed variable,
+                // parameters included; only the FieldReference arm above mirrored that, so a disclaimed
+                // PARAMETER handed to a @Modified parameter still got a node here and was written FALSE at
+                // cutover, contradicting its own ignoreModsParameter=true. Caught by the modReach=true twin of
+                // TestIgnoreModificationsOnArgument, which read true (engine) vs false (this pass).
+                case ParameterInfo pi -> {
+                    if (!pi.isIgnoreModifications()) out.add(pi);
+                }
                 case DependentVariable dv -> push(todo, dv.arrayVariable());
                 default -> {
                     VariableInfoContainer vic = vd.variableInfoContainerOrNull(v.fullyQualifiedName());
