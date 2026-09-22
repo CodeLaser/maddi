@@ -49,7 +49,8 @@ dependencies {
     testImplementation(project(":maddi-modification-prepwork")) // Tier-1: run the analyzer on Kotlin CST
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // FlatFrontEndTestBootstrap: the explicit install of the flat front end these tests use
+    testImplementation("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {

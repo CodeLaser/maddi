@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * instances cross in both directions and the mixed inspector's core invariant is that a cross-language
  * reference resolves to a <b>single</b> {@code TypeInfo}. Two copies of those classes would not throw
  * anywhere obvious — the parse would simply stop agreeing with itself. So {@link #SHARED} is imported from
- * the host, and {@code TestTypeInfoIdentity} asserts the identity that depends on it.
+ * the host, and {@code K2RealmTest} asserts the identity that depends on it.
  *
  * <p>⚠ {@code kotlin.*} is shared too, and it is easy to miss: a Kotlin lambda in the contract
  * ({@code KotlinSession.declare} takes one) is a {@code kotlin.jvm.functions.Function1} at run time. Loaded

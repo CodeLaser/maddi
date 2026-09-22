@@ -64,7 +64,7 @@ interface KotlinFrontEnd {
         fun load(loader: ClassLoader = KotlinFrontEnd::class.java.classLoader): KotlinFrontEnd =
             ServiceLoader.load(KotlinFrontEnd::class.java, loader).firstOrNull()
                 ?: throw IllegalStateException(
-                    "no KotlinFrontEnd implementation is visible to . maddi-kotlin-k2 provides one;"
+                    "no KotlinFrontEnd implementation is visible to ${loader.name ?: loader}. maddi-kotlin-k2 provides one;"
                     + " a host that isolates it must hand this method the realm's classloader.")
     }
 }
@@ -89,10 +89,20 @@ object KotlinFrontEnds {
     @JvmStatic
     fun isInstalled(): Boolean = instance != null
 
-    /** The installed front end, or the one on the ordinary classpath if the host installed none. */
+    /**
+     * The installed front end. ⛔ There is no fallback: until 2026-09-22 this answered
+     * `instance ?: KotlinFrontEnd.load()`, i.e. the flat classpath, which is the silent path this object's own
+     * doc forbids -- a host that forgot to install, with `maddi-kotlin-k2` on its classpath by accident, got the
+     * compiler flat and every library it shadows (G46). A host that WANTS the flat classpath -- a test suite that
+     * puts `maddi-kotlin-k2` on its own classpath on purpose -- says so in one line:
+     * `KotlinFrontEnds.install(KotlinFrontEnd.load())`. See NoSilentFallbackTest.
+     */
     @JvmStatic
-    fun get(): KotlinFrontEnd =
-        instance ?: synchronized(this) { instance ?: KotlinFrontEnd.load().also { instance = it } }
+    fun get(): KotlinFrontEnd = instance ?: throw IllegalStateException(
+        "no Kotlin front end is installed. A host installs the realm with K2Realm.installIfAbsent(), which reads"
+        + " -Dmaddi.k2.classpath (a path-separated jar list), -Dmaddi.k2.home (a directory of jars) or a lib-k2"
+        + " directory beside the realm's jar; a host that deliberately runs the compiler on its own classpath says"
+        + " so with KotlinFrontEnds.install(KotlinFrontEnd.load()).")
 }
 
 /** One source set's worth of Kotlin, from text. */
