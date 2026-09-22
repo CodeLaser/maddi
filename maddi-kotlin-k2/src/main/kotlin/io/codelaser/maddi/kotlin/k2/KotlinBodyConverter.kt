@@ -177,9 +177,30 @@ internal class KotlinBodyConverter(
      */
     var ambiguousBindings: Int = 0
 
-    /** Elvis lowerings whose left operand is re-evaluated: see [controlFlowElvisLowering]. */
+    /**
+     * ⭐ Elvis lowerings whose left operand is re-evaluated. Since the temporary landed this must stay 0 —
+     * it is an invariant check, not a tally, and it is logged on every project parse so a regression shows
+     * up as a number rather than as a wrong verdict nobody looks for.
+     */
     var elvisReEvaluations: Int = 0
-        private set
+
+    /** Temporaries introduced to evaluate an elvis's left operand exactly once. */
+    var elvisTemporaries: Int = 0
+
+    /**
+     * PSI already bound to a temporary for this statement, so [convertExpression] returns a read instead of
+     * converting -- and so EVALUATING -- it again. Cleared per statement by [hoistNullSafeSpine].
+     */
+    private val hoistedReads = java.util.IdentityHashMap<KtExpression, Variable>()
+
+    /** Temporaries introduced for a null-safe spine; see [hoistNullSafeSpine]. */
+    var nullSafeTemporaries: Int = 0
+
+    /**
+     * Safe calls whose null test the CALLER supplies as a statement, so the conversion must hand back the
+     * bare selector call rather than wrap it in a ternary. See [safeCallAsStatementLowering].
+     */
+    private val unwrappedSafeCalls = java.util.IdentityHashMap<KtExpression, Boolean>()
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
@@ -213,12 +234,20 @@ internal class KotlinBodyConverter(
                 body is KtTryExpression -> convertTry(body, method, locals, "0", returning = returning)
                 body is KtIfExpression && body.hasAMultiStatementBranch() ->
                     convertValueIf(body, method, locals, "0", returning, assignTo = null)
-                else -> {
-                    val expr = convertExpression(body, method, locals)
-                    if (returning) runtime.newReturnStatement(expr) else runtime.newExpressionAsStatement(expr)
-                }
+                else -> null
             }
-            block.addStatement(indexed(statement, "0"))
+            if (statement != null) {
+                block.addStatement(indexed(statement, "0"))
+            } else {
+                // `fun f() = a?.b()?.c()` is a tail too: hoist its spine above the single returned statement
+                val (hoisted, tailIndex) = hoistBefore(body, method, locals, "0")
+                hoisted.forEach { block.addStatement(it) }
+                val expr = convertExpression(body, method, locals)
+                hoistedReads.clear()
+                block.addStatement(indexed(
+                    if (returning) runtime.newReturnStatement(expr) else runtime.newExpressionAsStatement(expr),
+                    tailIndex))
+            }
         }
         return block.build()
     }
@@ -243,7 +272,7 @@ internal class KotlinBodyConverter(
             // (prepwork compares them as strings), and renumbering would shift every statement after them.
             val lowered = loweredStatements(s, method, locals, childIndex)
             if (lowered != null) lowered.forEach { block.addStatement(it) }
-            else block.addStatement(convertStatement(s, method, locals, childIndex))
+            else convertHoisting(s, method, locals, childIndex).forEach { block.addStatement(it) }
         }
         return block.build()
     }
@@ -276,6 +305,153 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * <b>`a?.b?.c` and `a ?: b` evaluate their tested operand once, not 2ⁿ times.</b>
+     *
+     * <p>Both lower to a ternary in which the tested operand stands TWICE — in the null test and in the
+     * value — and the CST is a tree, so the same instance cannot be used for both (#32: prep then throws
+     * "Trying to overwrite a value for property variableData"). Converting it a second time was the answer,
+     * and it is wrong: converting evaluates. Down a chain it compounds, because each level's receiver is
+     * itself a null-safe expression. ⭐ Measured on detekt before this: 331 sites twice over, 116 four
+     * times, 28 eight times, 6 sixteen times and 4 <b>thirty-two</b> times — one call appearing 32 times in
+     * the tree — and 20% of the placeholder census was duplicates.
+     *
+     * <p>The fix is a temporary, as in [controlFlowElvisLowering]. The question is where it may go, and the
+     * answer is narrow on purpose:
+     *
+     * <h2>⛔ Only the unconditionally-evaluated spine</h2>
+     * Hoisting an evaluation out of a conditional position CHANGES it: in `x?.foo(g())`, `g()` runs only
+     * when `x != null`, so lifting it above the statement would call it always. So this walks only the
+     * <b>spine</b> — from the statement's own expression down through safe-call receivers and elvis left
+     * operands — which is by construction evaluated unconditionally, every time, before anything is tested.
+     * Everything off the spine (arguments, the right-hand side of `?:`, lambda bodies, branch arms) is left
+     * exactly as it was, still converted twice, and still counted.
+     *
+     * <p>Innermost first, so `a?.b?.c` yields `t0 = a.b; t1 = (t0 == null) ? null : t0.c` — linear in the
+     * chain rather than exponential. A stable operand (a name, `this`, a constant, a dotted chain of those)
+     * gets no temporary: re-reading it evaluates nothing.
+     *
+     * @return the temporaries' declarations, in evaluation order; empty when the statement has no spine
+     *         worth hoisting. [hoistedReads] is left populated for the conversion that follows.
+     */
+    private fun KaSession.hoistNullSafeSpine(statement: KtExpression, method: MethodInfo,
+                                             locals: MutableMap<String, Variable>,
+                                             index: String): List<Statement> {
+        hoistedReads.clear()
+        val root = when (statement) {
+            is KtProperty -> if (statement.isLocal) statement.initializer else null
+            is KtReturnExpression -> statement.returnedExpression
+            is KtBinaryExpression -> if (statement.operationToken == KtTokens.EQ) statement.right else statement
+            else -> statement
+        } ?: return listOf()
+        val raw = ArrayList<Statement>()
+        hoistSpineOf(root, method, locals, index, raw)
+        // ⚠ indexed only now: the declarations and the statement they precede must sort, and `pad` needs the
+        // total (9 temporaries and a statement would otherwise index .10 before .2, as strings)
+        return raw.mapIndexed { i, d -> indexed(d, "$index.${pad(i, raw.size + 1)}") }
+    }
+
+    /** The index the hoisted statement itself takes, after [n] declarations. */
+    private fun hoistedStatementIndex(index: String, n: Int): String = "$index.${pad(n, n + 1)}"
+
+    /** Depth-first along the spine, so an inner receiver is bound before the outer one that reads it. */
+    private fun KaSession.hoistSpineOf(expression: KtExpression, method: MethodInfo,
+                                       locals: MutableMap<String, Variable>, index: String,
+                                       declarations: MutableList<Statement>) {
+        val tested = when {
+            expression is KtSafeQualifiedExpression -> expression.receiverExpression
+            expression is KtBinaryExpression && expression.operationToken == KtTokens.ELVIS -> expression.left
+            expression is KtParenthesizedExpression -> {
+                expression.expression?.let { hoistSpineOf(it, method, locals, index, declarations) }
+                return
+            }
+            else -> return
+        } ?: return
+        hoistSpineOf(tested, method, locals, index, declarations)   // innermost first
+        if (isStableReference(tested)) return                       // re-reading it evaluates nothing
+        val type = tested.expressionType?.let { mapType(it, method.typeInfo()) }
+            ?: runtime.objectParameterizedType()
+        val name = "\$nullSafe${nullSafeTemporaries++}"
+        val temporary = runtime.newLocalVariable(name, type, convertExpression(tested, method, locals))
+        declarations.add(runtime.newLocalVariableCreation(temporary))
+        hoistedReads[tested] = temporary
+    }
+
+    /**
+     * The temporaries a TAIL expression's spine needs, and the index the tail itself then takes. A block's
+     * or a lambda's value is evaluated unconditionally, so hoisting above it is safe — and it is where the
+     * worst chains live: detekt's 32× site is the result expression of an `analyze(this) { … }` lambda.
+     * ⚠ The caller must convert the tail while [hoistedReads] is still populated, and clear it afterwards.
+     */
+    private fun KaSession.hoistBefore(expression: KtExpression, method: MethodInfo,
+                                      locals: MutableMap<String, Variable>,
+                                      index: String): Pair<List<Statement>, String> {
+        val hoisted = hoistNullSafeSpine(expression, method, locals, index)
+        return hoisted to if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
+    }
+
+    /**
+     * One statement, preceded by whatever temporaries its null-safe spine needs ([hoistNullSafeSpine]).
+     * Almost always a list of one: only a chain like `a?.b?.c` or `f() ?: d` produces anything to hoist.
+     */
+    private fun KaSession.convertHoisting(s: KtExpression, method: MethodInfo,
+                                          locals: MutableMap<String, Variable>,
+                                          index: String): List<Statement> {
+        val hoisted = hoistNullSafeSpine(s, method, locals, index)
+        if (hoisted.isEmpty()) {
+            hoistedReads.clear()
+            return listOf(convertStatement(s, method, locals, index))
+        }
+        // the conversion below READS the temporaries, through hoistedReads; clear it after, never before
+        val statement = convertStatement(s, method, locals, hoistedStatementIndex(index, hoisted.size))
+        hoistedReads.clear()
+        return hoisted + statement
+    }
+
+    /**
+     * <b>`b?.f()` alone on a line is an `if`, not a ternary.</b>
+     *
+     * <p>A safe call lowers to `(b == null) ? null : b.f()`. In VALUE position that is right. In STATEMENT
+     * position, where the value is discarded and the selector may return `Unit`, it produces a conditional
+     * whose arms are a null constant and a <b>void call</b> — a shape Java cannot write, and one the
+     * modification analysis does not follow: measured, `b?.next()?.add(t)` left the parameter
+     * {@code unmodified=true} while the hand-written Java equivalent said {@code false}. The parse was
+     * clean, prep isolated nothing, and the census saw no hole. Only comparing the VERDICT against the Java
+     * the lowering claims to produce could show it (`TestLoweredShapesVsJava`).
+     *
+     * <p>So: `if (b != null) b.f();`, with the receiver spine hoisted as everywhere else.
+     */
+    private fun KaSession.safeCallAsStatementLowering(statement: KtExpression, method: MethodInfo,
+                                                      locals: MutableMap<String, Variable>,
+                                                      index: String): List<Statement>? {
+        if (statement !is KtSafeQualifiedExpression) return null
+        val receiverPsi = statement.receiverExpression
+        // ⚠ the WHOLE safe call, not its receiver: the node whose tested operand needs a temporary is this
+        // one, and walking from the receiver skips exactly that. Measured by the probe -- the receiver
+        // ternary was still inlined twice, in the condition and in the call.
+        val hoisted = hoistNullSafeSpine(statement, method, locals, index)
+        val callIndex = if (hoisted.isEmpty()) index else hoistedStatementIndex(index, hoisted.size)
+        val receiver = convertExpression(receiverPsi, method, locals)
+        unwrappedSafeCalls[statement] = true
+        val call = try {
+            convertExpression(statement, method, locals)
+        } finally {
+            unwrappedSafeCalls.remove(statement)
+            hoistedReads.clear()
+        }
+        val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+            runtime.newEquals(receiver, runtime.nullConstant()), runtime.precedenceUnary())
+        val guarded = runtime.newIfElseBuilder()
+            .setExpression(notNull)
+            .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$callIndex.0"))
+                .addStatement(indexed(runtime.newExpressionAsStatement(call), "$callIndex.0.0")).build())
+            .setElseBlock(runtime.newBlockBuilder()
+                .setSource(runtime.noSource().withIndex("$callIndex.1")).build())
+            .setSource(source(statement, callIndex))
+            .build()
+        return hoisted + guarded
+    }
+
+    /**
      * The two statement-level lowerings, in one place. ⚠ A statement list lives in FOUR places — a block
      * body, a lambda body, and the branch blocks of a value-yielding `try`/`if` — and a lowering that
      * reaches only the first sees a fraction of the sites: measured on detekt, all four remaining
@@ -287,6 +463,7 @@ internal class KotlinBodyConverter(
                                             index: String): List<Statement>? =
         controlFlowElvisLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
+            ?: safeCallAsStatementLowering(s, method, locals, index)
 
     /** `if (c) { … } else { … }` in the position of a VALUE: each branch returns or assigns its tail. */
     private fun KaSession.convertValueIf(statement: KtIfExpression, method: MethodInfo,
@@ -346,25 +523,52 @@ internal class KotlinBodyConverter(
         val left = elvis.left ?: return null
         val control = elvis.right ?: return null
         val isWholeStatement = statement === elvis
-        val guardIndex = if (isWholeStatement) index else "$index.0"
+
+        // ⛔ The left operand is needed TWICE -- to test for null, and as the value. Converting it twice
+        // EVALUATES it twice, which for `f() ?: return` means two calls where the source has one: a CST that
+        // is well formed and says something the source does not, invisible to the placeholder census.
+        // Measured before this was fixed: 190 such sites on detekt, 3 on coil. So a left operand that is not
+        // a stable reference is bound to a temporary first, exactly as a hand-written Java version would.
+        val statements = ArrayList<Statement>()
+        val needsTemporary = !isWholeStatement && !isStableReference(left)
+        val leftValue: () -> Expression = if (!needsTemporary) {
+            { convertExpression(left, method, locals) }   // a name/this/dotted chain: re-reading it is free
+        } else {
+            val type = left.expressionType?.let { mapType(it, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val name = "\$elvis${elvisTemporaries++}"
+            val temporary = runtime.newLocalVariable(name, type, convertExpression(left, method, locals))
+            locals[name] = temporary
+            statements.add(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"))
+            val read = { runtime.newVariableExpressionBuilder().setVariable(temporary)
+                .setSource(runtime.noSource()).build() as Expression }
+            read
+        }
+        // with a temporary the guard is the SECOND statement, so the indexes shift by one
+        val guardIndex = when {
+            isWholeStatement -> index
+            needsTemporary -> "$index.1"
+            else -> "$index.0"
+        }
         val guard = runtime.newIfElseBuilder()
-            .setExpression(runtime.newEquals(convertExpression(left, method, locals), runtime.nullConstant()))
+            .setExpression(runtime.newEquals(leftValue(), runtime.nullConstant()))
             .setIfBlock(statementsToBlock(listOf(control), method, locals, "$guardIndex.0"))
             .setElseBlock(runtime.newBlockBuilder()
                 .setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
             .setSource(source(elvis, guardIndex))
             .build()
-        if (isWholeStatement) return listOf(guard)
-        if (!isStableReference(left)) ++elvisReEvaluations
-        val value = convertExpression(left, method, locals) // converted a second time: see #32 above
+        statements.add(guard)
+        if (isWholeStatement) return statements
+        val value = leftValue()
         val raw = when (statement) {
             is KtProperty -> localVariableCreation(statement, method, locals, value)
             is KtReturnExpression -> runtime.newReturnStatement(value)
             else -> return null
         }
-        val whole = source(statement, "$index.1")
+        val whole = source(statement, if (needsTemporary) "$index.2" else "$index.1")
         val detailed = raw.source()?.detailedSources()
-        return listOf(guard, raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)))
+        statements.add(raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)))
+        return statements
     }
 
     /**
@@ -670,10 +874,17 @@ internal class KotlinBodyConverter(
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
             val lowered = if (j == statements.lastIndex) null else loweredStatements(s, method, childLocals, childIndex)
             if (lowered != null) return@forEachIndexed lowered.forEach { block.addStatement(it) }
-            val stmt = convertStatement(s, method, childLocals, childIndex)
+            if (j != statements.lastIndex) {
+                return@forEachIndexed convertHoisting(s, method, childLocals, childIndex)
+                    .forEach { block.addStatement(it) }
+            }
+            val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
+            hoisted.forEach { block.addStatement(it) }
+            val stmt = convertStatement(s, method, childLocals, tailIndex)
+            hoistedReads.clear()
             // the `return` takes the index of the statement it replaces: the analyzer requires one on every statement
-            block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
-                indexed(runtime.newReturnStatement(stmt.expression()), childIndex) else stmt)
+            block.addStatement(if (stmt is ExpressionAsStatement)
+                indexed(runtime.newReturnStatement(stmt.expression()), tailIndex) else stmt)
         }
         return block.build()
     }
@@ -698,11 +909,18 @@ internal class KotlinBodyConverter(
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
             val lowered = if (j == statements.lastIndex) null else loweredStatements(s, method, childLocals, childIndex)
             if (lowered != null) return@forEachIndexed lowered.forEach { block.addStatement(it) }
-            val stmt = convertStatement(s, method, childLocals, childIndex)
-            block.addStatement(if (j == statements.lastIndex && stmt is ExpressionAsStatement)
+            if (j != statements.lastIndex) {
+                return@forEachIndexed convertHoisting(s, method, childLocals, childIndex)
+                    .forEach { block.addStatement(it) }
+            }
+            val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
+            hoisted.forEach { block.addStatement(it) }
+            val stmt = convertStatement(s, method, childLocals, tailIndex)
+            hoistedReads.clear()
+            block.addStatement(if (stmt is ExpressionAsStatement)
                 indexed(runtime.newExpressionAsStatement(
                     runtime.newAssignment(runtime.newVariableExpressionBuilder().setVariable(target)
-                        .setSource(runtime.noSource()).build(), stmt.expression())), childIndex)
+                        .setSource(runtime.noSource()).build(), stmt.expression())), tailIndex)
             else stmt)
         }
         return block.build()
@@ -906,6 +1124,11 @@ internal class KotlinBodyConverter(
      */
     internal fun KaSession.convertExpression(expression: KtExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
+        // ⭐ already bound to a temporary by [hoistNullSafeSpine]: hand back a READ of it. A fresh
+        // VariableExpression every time, never a shared instance -- sharing a node is what #32 forbids, and a
+        // read of a local is a leaf, so there is nothing to walk twice.
+        hoistedReads[expression]?.let { return runtime.newVariableExpressionBuilder().setVariable(it)
+            .setSource(source(expression, "-")).build() }
         val raw = convertExpressionRaw(expression, method, locals)
         // a placeholder for code not converted keeps that code's range: what the CST does not represent
         if (raw is EmptyExpression) return if (isPlaceholder(raw)) raw.withSource(source(expression, "-")) else raw
@@ -1036,6 +1259,8 @@ internal class KotlinBodyConverter(
         // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token.
         // The receiver stands in the test as well as in the call, and the CST is a tree: it is converted a second
         // time for the test rather than shared, as the elvis operand above (#32).
+        // the caller is making the null test a STATEMENT (`b?.f()` alone on a line): hand back the call
+        if (expression is KtSafeQualifiedExpression && unwrappedSafeCalls.containsKey(expression)) return selectorResult
         return if (expression is KtSafeQualifiedExpression) runtime.newInlineConditionalBuilder()
             .setCondition(runtime.newEquals(convertExpression(expression.receiverExpression, method, locals),
                     runtime.nullConstant()))
@@ -1262,9 +1487,16 @@ internal class KotlinBodyConverter(
             val lowered = if (isResult) null else loweredStatements(stmt, method, bodyScope, index)
             when {
                 lowered != null -> lowered.forEach { block.addStatement(it) }
-                isResult -> block.addStatement(
-                    indexed(runtime.newReturnStatement(convertExpression(stmt, method, bodyScope)), index))
-                else -> block.addStatement(convertStatement(stmt, method, bodyScope, index))
+                isResult -> {
+                    val (hoisted, tailIndex) = hoistBefore(stmt, method, bodyScope, index)
+                    hoisted.forEach { block.addStatement(it) }
+                    block.addStatement(
+                        indexed(runtime.newReturnStatement(convertExpression(stmt, method, bodyScope)), tailIndex))
+                    hoistedReads.clear()
+                }
+                // ⭐ a lambda body is where detekt's worst chains live: the 32× site is a chained value elvis
+                // inside an `analyze(this) { … }` block, and wiring only the method-body loop missed it
+                else -> convertHoisting(stmt, method, bodyScope, index).forEach { block.addStatement(it) }
             }
         }
         samBuilder.setMethodBody(block.build()).commit()

@@ -493,11 +493,217 @@ constants are aliases of it rather than a second copy of the numbers.
 | fernflower (Java only) | `Running prep analyzer on 225 types`, exit 0 | "No Kotlin source file in 2 source set(s); running the Java analyzer" → **byte-identical**, exit 0 |
 | detekt (Kotlin) | refuses (exit 6) | 1,271 Kotlin types, analysis order 15,118, 5,525 unreadable constructs, exit 0 |
 
+### 7.14 ⛔ The lowering that was well formed and wrong — `01815b03e`, this commit
+
+§7.12 reported the statement-as-value family closed on the strength of the placeholder census. The census
+cannot see this: `controlFlowElvisLowering` needs its left operand twice — to test for null, and as the
+value — and converting it twice **evaluates** it twice.
+
+    val t = f() ?: return 0    ->    if (f() == null) return 0;
+                                     val t = f();
+
+Two calls where the source has one. `isControlFlowElvis` only ever constrained the RIGHT operand (an
+unlabelled `return` or a `throw`); nothing constrained the left. ⭐ Measured: **190 sites on detekt, 3 on
+coil** — not rare, and invisible, because nothing is missing.
+
+**Fixed by a temporary**, exactly as a hand-written Java version would: `T $elvis0 = f(); if ($elvis0 ==
+null) return 0; val t = $elvis0;`, three statements indexed `n.0/n.1/n.2`. A stable left operand (a name,
+`this`, a constant, a dotted chain of those) keeps the two-statement form, because re-reading it evaluates
+nothing. `elvisReEvaluations` stays as an invariant check — it must read 0 — and is logged on every project
+parse *including when it is zero*, because an absence of output is not a measurement.
+
+After: detekt and coil both **0** re-evaluations, prep still isolates **0**, immutable types unchanged at
+669, analysis order **15,118 → 15,056** (62 duplicated elements gone), and the placeholder dump
+**5,525 → 5,271**. ⭐ The entire 254-site drop is de-duplication: 254 fewer duplicated rows, and **zero** new
+distinct sites. The census had been over-counting wherever a left operand did not convert.
+
+### 7.15 ⛔⛔ …and the same defect, bigger, in the expression path — fixed, mostly
+
+Chasing §7.14's remaining duplicates found the real shape of it. Both a safe call `a?.b()` and a *value*
+elvis `a ?: b` lower to a ternary in which the tested operand stands twice, and the rule §7.12 inherited and
+recorded as deliberate — "the left operand is converted TWICE … the CST is a tree and sharing a node makes
+every walker visit its statements twice (#32)" — is right about sharing and wrong about evaluation. Down a
+chain each level doubles the one below it.
+
+⭐ Measured on detekt before: 331 sites twice over, 116 four times, 28 eight times, 6 sixteen times and **4
+thirty-two times** — 20% of the census was duplicates. The worst,
+`SuspendFunSwallowedCancellation.hasSuspendCalls`, is a chained value elvis over safe calls: **32 copies of
+one call** in the tree.
+
+**Fixed by hoisting the spine into temporaries** — the same remedy as §7.14, and the scoping is the whole
+design:
+
+⛔ **Only the unconditionally-evaluated spine.** Hoisting an evaluation out of a conditional position changes
+it: in `x?.foo(g())` the source runs `g()` only when `x != null`, so lifting it above the statement would
+run it always. So the walk descends *only* through safe-call receivers and elvis left operands, from the
+statement's own expression — a path that is by construction evaluated every time, before anything is
+tested. Everything off it (arguments, the right of `?:`, lambda bodies, branch arms) is untouched, still
+converted twice, still counted. Innermost first, so `a?.b()?.c()` becomes `t0 = a.b(); t1 = (t0 == null) ?
+null : t0.c()` — linear in the chain instead of exponential.
+
+⚠ It took three passes to reach the sites that mattered, and each pass says where statements actually live:
+the method-body loop alone (−186), then the lambda/returning/assigning loops (−52), then the **tail**
+positions — a lambda's result expression, a block's last statement, an expression body — which is where the
+16× and 32× cases were, inside `analyze(this) { … }`. The same "a statement list lives in four places"
+lesson as §7.12, in its fourth costume.
+
+| detekt | before | after |
+|---|---|---|
+| placeholder rows | 5,271 | **4,781** |
+| distinct sites | 4,166 | **4,166 — unchanged** |
+| inflation from duplication | 20% | **12%** |
+| worst multiplicity | 32× | **17×** (one site); the 16× and 32× tiers are gone |
+| analysis order | 15,056 | 14,946 |
+| prep isolated / immutable | 0 / 669 | 0 / 669 |
+
+`NullSafeSpineTest` asserts the property directly — **calls in the tree against calls in the source** —
+which is what neither the census nor a passing parse could see.
+
+⚠ 12% inflation remains, at multiplicities that are no longer powers of two (5×, 6×, 7×, 9×, 11×, 17×), so
+the remaining duplication is mixed-path, not chain blow-up. A duplicated operand *inside* a conditional arm
+is not hoistable to the statement, but could be hoisted to the head of that arm's own block. That is the
+next refinement, and it is worth doing only if a verdict-level test shows it changes an answer.
+
+### 7.16 ⭐ The first verdict-level test, and what it found in one run
+
+Everything measured about the lowerings until now was about the PARSE — placeholders, statement indexes,
+prep isolating nothing. None of it says the analyzer concludes the right thing, and §7.14 had just shown
+that a lowering can be well formed and wrong for months without a red test.
+
+`TestLoweredShapesVsJava` asks the other question: **for each lowered shape, does the modification analysis
+reach the same verdict as for the Java a human would write?** Both sides call the same Java helper, so a
+disagreement is the lowering and not the standard library; the sensors are `NON_MODIFYING_METHOD` and
+`UNMODIFIED_PARAMETER`, which is what a mis-shaped tree moves.
+
+Five shapes: `try` as a value, a multi-statement `if` as a value, `x ?: return`, a null-safe chain that
+modifies, and one that does not. **Four agreed. One did not**, on the first run:
+
+    safeChain   kotlin: box.unmodified=true    java: box.unmodified=false
+
+`b?.next()?.add(t)` — the analysis did not see that the parameter was modified. The parse was clean, prep
+isolated nothing, the census showed no hole, and the answer was wrong.
+
+⛔ **The cause: a safe call in STATEMENT position lowered to a ternary with a void arm.** `(b == null) ? null
+: b.add(t)` is not a shape Java can write — `add` returns `Unit` — and the analysis does not follow it.
+Fixed by lowering a statement-position safe call to what it is, an `if`:
+
+    b?.next()?.add(t)   ->   Box $nullSafe0 = (b == null) ? null : b.next();
+                             if (!($nullSafe0 == null)) { $nullSafe0.add(t); }
+
+⚠ And it took two attempts, the second found by probing the CST rather than by reading the code: hoisting
+the spine of the safe call's RECEIVER leaves the outer node's own tested operand un-hoisted, so the receiver
+ternary was still inlined twice — once in the condition, once in the call. The walk has to start at the
+whole safe call.
+
+detekt after: placeholder rows **4,781 → 4,744**, analysis order 14,946 → 14,908, prep isolated **0**,
+immutable types 669, coil unchanged. ⚠ 19 sites are newly *visible* — the same reveal pattern as every other
+swallow fixed in this campaign, and the invariant holds: all 19 sit in members that already held a
+placeholder, and **no member is newly dirty**.
+
+### 7.17 ⭐ The verdict test widened — and the 12% duplication question, answered
+
+§7.16 shipped with five paired shapes and two sensors. Widened to **thirteen paired shapes** (`when` as a
+value, elvis-with-throw, an expression-bodied `try`, a modifying call in an argument, in the right of `?:`,
+in a branch arm, in a ternary arm, and a shape that genuinely duplicates) plus a **type-level row** — a
+`KHolder`/`JHolder` pair whose field is reached through a lowered chain, sensed on `IMMUTABLE_TYPE`.
+
+Two guards were added, because a comparison that agrees for the wrong reason is worse than one that fails:
+
+- ⛔ **a placeholder census assertion**. A shape the front end cannot read becomes a placeholder, and two
+  sides can then agree on a verdict neither derived from the code. The Kotlin half must convert to **zero**
+  placeholders or the run is declared vacuous.
+- ⛔ **a multiplicity assertion**. The duplication row asserts the modifying call still stands **twice** in
+  the Kotlin tree. Without it the row silently stops asking its question the day the hoist widens.
+
+⚠ The first multiplicity counter was wrong in the way this document keeps recording: it counted
+`addAndSize` and `addAndEcho` together and reported "2×" for shapes that duplicate nothing. The rows it
+"confirmed" proved nothing until it was made to count one named method.
+
+⭐ **The §7.15 question is answered.** `b.addAndSize(c?.addAndEcho(t) ?: t)` — the elvis sits in an argument,
+so the spine hoist deliberately does not reach it and the modifying call stands **2× in the Kotlin tree
+against 1× in the Java**. The verdicts are identical, on every sensor, including the type-level one:
+
+    dupOffSpine  kotlin: b.unmodified=false c.unmodified=false   java: b.unmodified=false c.unmodified=false
+    dupOffSpine  addAndEcho in the Kotlin tree: 2×   in the Java tree: 1×
+
+So the further refinement §7.15 proposed — hoisting a duplicated operand to the head of its own arm's block
+— is **not warranted on verdict grounds**. The residual 12% is census inflation and analysis-order size, a
+cost, not a wrong answer. ⚠ Demonstrated for the modification/immutability sensors on this shape, not
+proven for every sensor; the row is there to fail if that changes.
+
+### 7.18 ⛔⛔ The verdict test's real catch: a Java-engine defect, in Java
+
+Widening the test produced exactly one disagreement, and it was not the Kotlin front end's:
+
+    armModifies   kotlin: c.unmodified=true     java: c.unmodified=false
+
+The Kotlin lowered `val v = if (b == null) c.addAndSize(t) else b.size()` into a ternary; the hand-written
+Java used an `if` statement. Adding a **paired ternary row**, where both sides are ternaries, made both sides
+say `true` — so the cause was the shape, not the language.
+
+Reproduced minimally in the engine's own suite (`TestModificationInConditionalExpression`, pure Java, no
+Kotlin anywhere): the same modifying call, in eight positions. Only two were right.
+
+| shape | before | after |
+|---|---|---|
+| `c.addAndSize(t) + b.size()` | ✅ modified | ✅ |
+| inside an `if` statement's arm | ✅ modified | ✅ |
+| inside a ternary arm | ⛔ **not modified** | ✅ |
+| inside the ternary's **condition** | ⛔ **not modified** | ✅ |
+| in both arms | ⛔ **not modified** | ✅ |
+| a ternary nested in an argument | ⛔ **not modified** | ✅ |
+| a ternary assigned to a local | ⛔ **not modified** | ✅ |
+| a switch-expression arrow arm | ⛔ **not modified** | ✅ |
+
+⭐ It is not "conditional arms are skipped": the **condition** is not conditional at all and was lost too.
+`ExpressionVisitor.inlineConditional` visits all three sub-expressions and merges them, then rebuilds the
+result with `new Result(links, extra)` — the two-argument constructor, which resets the other five fields to
+empty, `modified` among them. Every modification recorded anywhere inside a conditional expression was
+discarded on the way out. The sibling `switchExpression`, written from the same template and carrying a
+comment saying so, already used the preserving idiom `merge.with(newLinks)`; the asymmetry was the whole
+defect. A switch **entry's arrow arm** had the identical drop — its block-bodied sibling never did, because
+that path re-adds `d.modified` explicitly.
+
+⚠ Two traps on the way to the fix, both caught by controls rather than by reading:
+
+- `with()` also carries `evaluated`, and `merge` inherits it from its leftmost operand — so the naive fix
+  made a ternary evaluate to its **condition**. `setEvaluated(ic)` restores what the old constructor left to
+  `visit`'s fallback.
+- The negative control (`l == null ? emptyList() : Collections.unmodifiableList(l)`, taken verbatim from the
+  corpus) stayed red, and it was **not** the fix: the archive gives `unmodifiableList` `@Independent[M]` and
+  no `@NotModified`, so its argument is modified by hint. The ternary had been hiding that. Pinned in the
+  test as-is; whether that hint is right is a separate question, for the Java side.
+
+**Measured, A/B on clone-bench, 9,319 types, nothing else changed:**
+
+| `TestShadowCloneBench` | before | after |
+|---|---|---|
+| divergences (shadow modified, main optimistic) | 855 | **848** |
+| — nonModifyingMethod / unmodifiedField / unmodifiedParameter | 16 / 27 / 812 | **11 / 26 / 811** |
+| reverse (main modified, shadow unreached) | 263 | **273** |
+| types holding a divergence | 969 | **972** |
+
+Both directions are one story: the main analysis found **17 modifications it used to drop**. Seven the
+shadow pass had already found, closing a divergence; ten it does not reach, opening a reverse — and those
+ten are five near-clones × two methods, every one of them the `unmodifiableList` shape above. The ratchet is
+re-baselined with that reasoning recorded beside it.
+
+⭐ This is what the Kotlin exercise bought the Java side: **a verdict-level comparison between two languages
+is a differential oracle**, and it found a core defect that 3,505 same-language tests and years of corpora
+did not. Kotlin's lowerings emit ternaries where a human writes `if`, so the Kotlin front end walked into a
+blind spot Java code mostly steps around.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
 2. ✅ Count the holes (§7.2), and close the two silent drops the count could not see (§7.3, §7.4) — "maddi analyzes Kotlin *and tells you what it could not read*" is defensible
    at today's coverage; the unqualified claim is not.
+2b. ✅ **Ask the analyzer, not the parser** (§7.16–§7.18). `TestLoweredShapesVsJava` compares thirteen
+   lowered Kotlin shapes and a type-level row against the Java a human would write for each, guarded by a
+   zero-placeholder assertion so agreement cannot be vacuous. It found a wrong safe-call lowering on its
+   first run, answered §7.15's duplication question (2× in the tree, same verdict — not worth refining),
+   and then found a **Java-engine defect**: every modification inside a conditional expression was
+   discarded. This rung is the instrument the remaining rungs should be measured on.
 3. ✅ **One entry point** (§7.13). `bin/maddi-kotlin` takes the Java CLI's own option surface and routes on
    whether the project holds a `.kt` file, so it is a strict superset of `bin/maddi` rather than a second
    tool. Two bundles stay (85 MB vs 11 MB), one command line. What the mixed pipeline cannot honour is
@@ -512,7 +718,8 @@ constants are aliases of it rather than a second copy of the numbers.
    work, and one the site dump can drive.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
-5. **Make the evidence fail.** Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
+5. **Make the evidence fail.** ⭐ Begun: §7.16 is the first test that asks what the analyzer CONCLUDES
+   rather than what it parsed, and it found a wrong answer on its first run. The rest of the rung — Turn the three `assumeTrue` skips into hard failures in CI, commit a Kotlin
    baseline ratchet beside the Java ones, and move one mixed-language regression into this repository.
 6. **Persistence**: codec encode plus a real Kotlin round trip — which is what unlocks incremental and the
    IDE daemon.
