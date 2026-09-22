@@ -212,13 +212,27 @@ public class TestShadowCloneBench extends CommonTest {
         // lambda/method-ref receivers, array-element writes in loops); the seed class collapsed
         // 212 -> 41 and propagated grew 12 -> 814 for the same reason: the summary evidence moved out
         // of the seeds and into what the diff now counts as propagation-visible.
-        org.junit.jupiter.api.Assertions.assertEquals(263, totalRev,
+        // ⭐ Re-baselined 2026-09-22 for the conditional-expression fix in ExpressionVisitor
+        // (`inlineConditional` and a switch entry's arrow arm both rebuilt their Result with the two-arg
+        // constructor, discarding `modified` for everything inside — including the condition, which is not
+        // conditional at all; see TestModificationInConditionalExpression). A/B on this corpus, same
+        // 9,319 types, nothing else changed:
+        //     divergences 855 -> 848   {nonModifyingMethod 16 -> 11, unmodifiedField 27 -> 26,
+        //                               unmodifiedParameter 812 -> 811}   {propagated 814 -> 803, seed 41 -> 45}
+        //     reverse      263 -> 273   types with a divergence 969 -> 972
+        // Both directions are one story: the main analysis found 17 modifications it used to drop. Seven the
+        // shadow pass had already found, closing a divergence; ten it does not reach, opening a reverse. The
+        // ten are five near-clones x two methods, all of the shape
+        // `l == null ? emptyList() : Collections.unmodifiableList(l)` — and what marks them modified is the
+        // ARCHIVE (`unmodifiableList` carries @Independent[M] and no @NotModified, so its argument is
+        // modified), not the fix. ⚠ If that hint is ever corrected, these ten go away again.
+        org.junit.jupiter.api.Assertions.assertEquals(273, totalRev,
                 "reverse divergences are expected since design A (110695ece) retired the "
                 + "walkable-summary seed channel; re-baseline deliberately, and reclassify");
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 16, "unmodifiedField", 27, "unmodifiedParameter", 812),
+                Map.of("nonModifyingMethod", 11, "unmodifiedField", 26, "unmodifiedParameter", 811),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 814, "seed", 41), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 803, "seed", 45), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;

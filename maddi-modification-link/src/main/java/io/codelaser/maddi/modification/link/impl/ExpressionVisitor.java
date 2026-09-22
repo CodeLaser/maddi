@@ -330,7 +330,13 @@ public record ExpressionVisitor(Runtime runtime,
         Links rfChanged = atl.go(newPrimary, rf.links());
         Links newLinks = rtChanged.merge(rfChanged);
         Result merge = rc.merge(rt).merge(rf);
-        return new Result(newLinks, merge.extra());
+        // ⛔ `new Result(links, extra)` keeps only those two and resets the other five — including `modified`,
+        // the record of which variables a call in here modifies. It threw away every modification made by the
+        // condition and both arms, so `cond ? c.add(t) : 0` left `c` unmodified. `with()` replaces the links
+        // and preserves the rest, which is what `switchExpression` two methods down already did. `evaluated`
+        // goes back to `ic`: `merge` inherits it from the leftmost operand, and the ternary's value is the
+        // ternary, not its condition.
+        return merge.with(newLinks).setEvaluated(ic);
     }
 
     // this part of the switchExpression code is very similar to inlineConditional
@@ -365,7 +371,12 @@ public record ExpressionVisitor(Runtime runtime,
             if (r.links().primary() != null) {
                 linksBuilder.add(primary, LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
-            return new ResultVd(new Result(linksBuilder.build(), r.extra()).merge(rc), null);
+            // ⛔ the same drop as in `inlineConditional`: `new Result(links, extra)` kept the arm's links and
+            // threw away its `modified`, so `case 0 -> c.add(t)` left `c` unmodified. The BLOCK arm below never
+            // had the bug — it re-adds `d.modified` explicitly.
+            // `evaluated` back to null as the two-arg constructor left it: switchExpression's merge keeps the
+            // SELECTOR's evaluated expression, and an arm's must not displace it.
+            return new ResultVd(r.with(linksBuilder.build()).merge(rc).setEvaluated(null), null);
         }
         sourceMethodComputer.startSwitchExpression(primary);
         VariableData vd = sourceMethodComputer.doBlock(entry.statementAsBlock(), variableData);
