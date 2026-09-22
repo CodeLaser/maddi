@@ -16,7 +16,9 @@ package io.codelaser.maddi.modification.analyzer.impl;
 
 import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.modification.common.defaults.ContractReader;
 
@@ -83,45 +85,79 @@ public class ContractResolution {
     // resolve() is called from both the materializer and the fold, for every abstract method, every pass; the
     // reader re-derives from the CST on each call by design (that is what lets the guard compare contract with
     // analysis()), so the repeated walk is memoized rather than repeated.
-    private final Map<MethodInfo, Map<Property, Outcome>> cache = new ConcurrentHashMap<>();
+    private final Map<Info, Map<Property, Outcome>> cache = new ConcurrentHashMap<>();
 
     public ContractResolution(Runtime runtime) {
         this.contractReader = new ContractReader(runtime);
     }
 
     public Outcome resolve(MethodInfo methodInfo, Property property) {
-        return cache.computeIfAbsent(methodInfo, _ -> new ConcurrentHashMap<>())
-                .computeIfAbsent(property, p -> compute(methodInfo, p));
+        return cached(methodInfo, property, _ -> {
+            Value own = contractOf(methodInfo, property);
+            Inherited inherited = strongestInherited(methodInfo, property,
+                    parent -> contractOf(parent, property));
+            return adjudicate(own, inherited);
+        });
     }
 
-    private Outcome compute(MethodInfo methodInfo, Property property) {
-        Value own = contractOf(methodInfo, property);
-        Value inherited = null;
-        MethodInfo inheritedSource = null;
+    /**
+     * The PARAMETER arm, same rule and same reasons. A bodiless method's parameter has nothing to compute from
+     * either: {@code AbstractMethodAnalyzerImpl.unmodified} folds {@code UNMODIFIED_PARAMETER} over the
+     * implementations' parameter at the same index, so one modifying implementation reconstructs — and
+     * contradicts — the declaration the author wrote on the interface. The inherited contract is the one on the
+     * overridden method's parameter at the SAME INDEX.
+     */
+    public Outcome resolve(ParameterInfo parameterInfo, Property property) {
+        return cached(parameterInfo, property, _ -> {
+            Value own = contractOf(parameterInfo, property);
+            Inherited inherited = strongestInherited(parameterInfo.methodInfo(), property, parent -> {
+                // a bridge/erasure override can differ in arity; index out of range means "not this declaration"
+                if (parameterInfo.index() >= parent.parameters().size()) return null;
+                return contractOf(parent.parameters().get(parameterInfo.index()), property);
+            });
+            return adjudicate(own, inherited);
+        });
+    }
+
+    private Outcome cached(Info info, Property property, java.util.function.Function<Property, Outcome> compute) {
+        return cache.computeIfAbsent(info, _ -> new ConcurrentHashMap<>()).computeIfAbsent(property, compute);
+    }
+
+    /** the strongest contract among the overridden declarations, and which one it came from */
+    private record Inherited(Value value, MethodInfo source) {
+        static final Inherited NONE = new Inherited(null, null);
+    }
+
+    private Inherited strongestInherited(MethodInfo methodInfo, Property property,
+                                         java.util.function.Function<MethodInfo, Value> contractOfParent) {
+        Inherited best = Inherited.NONE;
         for (MethodInfo parent : methodInfo.overrides()) {
-            Value fromParent = contractOf(parent, property);
+            Value fromParent = contractOfParent.apply(parent);
             if (fromParent == null) continue;
-            if (inherited == null || stronger(fromParent, inherited)) {
-                inherited = fromParent;
-                inheritedSource = parent;
+            if (best.value() == null || stronger(fromParent, best.value())) {
+                best = new Inherited(fromParent, parent);
             }
         }
+        return best;
+    }
+
+    private static Outcome adjudicate(Value own, Inherited inherited) {
         if (own == null) {
             // "a contract on a declaration binds every override" — the same inheritance the shallow analyzer
             // gives jar methods, and which SourceContractMaterializer already applies to @IgnoreModifications
-            return inherited == null ? Outcome.NONE : new Outcome(inherited, null);
+            return inherited.value() == null ? Outcome.NONE : new Outcome(inherited.value(), null);
         }
-        if (inherited == null || own.equals(inherited) || stronger(own, inherited)) {
+        if (inherited.value() == null || own.equals(inherited.value()) || stronger(own, inherited.value())) {
             return new Outcome(own, null);
         }
-        return new Outcome(null, inheritedSource);
+        return new Outcome(null, inherited.source());
     }
 
-    private Value contractOf(MethodInfo methodInfo, Property property) {
-        // most methods carry no annotation at all, and of those that do @Override is by far the most common;
+    private Value contractOf(Info info, Property property) {
+        // most elements carry no annotation at all, and of those that do @Override is by far the most common;
         // skip before paying for the CST walk
-        if (methodInfo.annotations().isEmpty()) return null;
-        Map<Property, Value> contracts = contractReader.contracts(methodInfo);
+        if (info.annotations().isEmpty()) return null;
+        Map<Property, Value> contracts = contractReader.contracts(info);
         return contracts.get(property);
     }
 

@@ -866,16 +866,29 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
      */
     private void guardContractConflict(MethodInfo methodInfo) {
         for (Property property : List.of(INDEPENDENT_METHOD, NON_MODIFYING_METHOD)) {
-            ContractResolution.Outcome outcome = contractResolution.resolve(methodInfo, property);
-            if (!outcome.conflict()) continue;
-            analyzerMessages.add(MessageImpl.error(methodInfo, CONTRACT_CONFLICT,
-                    methodInfo.fullyQualifiedName() + " contracts " + property.key()
-                    + " more weakly than the contract it inherits from "
-                    + outcome.weakerThan().fullyQualifiedName()
-                    + "; an override may strengthen a contract, never weaken it. Neither is applied: the"
-                    + " property is left to computation.",
-                    new Message[]{MessageImpl.cause(outcome.weakerThan(), "the stronger contract is here")}));
+            reportConflict(methodInfo, methodInfo.fullyQualifiedName(), property,
+                    contractResolution.resolve(methodInfo, property));
         }
+        // the parameter arm: ContractResolution adjudicates a parameter's contract against the one on the
+        // overridden method's parameter at the same index, and an unadjudicable pair decides nothing. Without
+        // this, that silent drop would be invisible -- the property would simply fall back to computation with
+        // no explanation anywhere.
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            reportConflict(pi, pi.toString(), UNMODIFIED_PARAMETER,
+                    contractResolution.resolve(pi, UNMODIFIED_PARAMETER));
+        }
+    }
+
+    private void reportConflict(Info info, String name, Property property,
+                                ContractResolution.Outcome outcome) {
+        if (!outcome.conflict()) return;
+        analyzerMessages.add(MessageImpl.error(info, CONTRACT_CONFLICT,
+                name + " contracts " + property.key()
+                + " more weakly than the contract it inherits from "
+                + outcome.weakerThan().fullyQualifiedName()
+                + "; an override may strengthen a contract, never weaken it. Neither is applied: the"
+                + " property is left to computation.",
+                new Message[]{MessageImpl.cause(outcome.weakerThan(), "the stronger contract is here")}));
     }
 
     private Iterable<MethodInfo> implementationsOf(MethodInfo abstractMethod) {

@@ -348,6 +348,12 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     }
 
     private void unmodified(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        // decided by contract, exactly as in methodNonModifying: a bodiless method's parameter has nothing to
+        // compute from, and folding over the implementations only reconstructs the declaration. The fold's FALSE
+        // is already refused by the lattice (upgrade-only), but a refused downgrade is TolerantWrite's
+        // certification blind spot -- counted forever, and certifiedWithoutFrozenValues requires it to be zero,
+        // so leaving the fold to be refused every pass is not harmless.
+        if (contractResolution.resolve(pi, UNMODIFIED_PARAMETER).decided()) return;
         Value.Bool unmodified = pi.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
         if (unmodified.isTrue()) {
             return;

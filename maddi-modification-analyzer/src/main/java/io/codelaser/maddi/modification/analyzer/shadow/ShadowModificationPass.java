@@ -906,6 +906,14 @@ public class ShadowModificationPass {
      * reconstruction an authored {@code @NotModified} exists to override, so the pass must leave a contracted
      * bodiless method alone; the guard still reports each implementation that breaks the contract.
      * <p>
+     * The predicate covers BOTH element kinds this pass writes for a method: the method itself
+     * ({@code NON_MODIFYING_METHOD}) and each of its parameters ({@code UNMODIFIED_PARAMETER}), since a bodiless
+     * method's parameter is folded over the implementations' parameter at the same index by the same logic.
+     * {@code UNMODIFIED_FIELD}, the third frozen property, deliberately has NO contracted case: a field is never
+     * bodiless, {@code FieldAnalyzerImpl} computes it from the code that touches the field, and
+     * {@code SourceContractMaterializer.materialize(FieldInfo)} never materializes it on source — so there is no
+     * authored value here to protect, and inventing one would assert what the analyzer can check.
+     * <p>
      * Without this, an authored contract was seeded in pass 1, overwritten to FALSE here (this writer calls
      * {@code analysis.overwrite} directly, bypassing TolerantWrite), and could never be re-seeded because the
      * caller then FREEZES the three properties. Measured on vavr 1.0.1: the written {@code nonModifyingMethod}
@@ -913,25 +921,27 @@ public class ShadowModificationPass {
      * annotations — the contracts changed nothing at all.
      */
     public WriteCounts writeVerdicts(List<Info> analysisOrder, Report report,
-                                     java.util.function.Predicate<MethodInfo> contracted) {
+                                     java.util.function.Predicate<Info> contracted) {
         AnalysisHelper analysisHelper = new AnalysisHelper();
         int[] counts = new int[8]; // indexed by the write-result constants
         for (Info info : analysisOrder) {
             switch (info) {
                 case MethodInfo mi -> {
-                    counts[contracted.test(mi) ? CONTRACT_KEPT : write(mi.analysis(),
-                            PropertyImpl.NON_MODIFYING_METHOD,
-                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi)]++;
+                    counts[write(mi.analysis(), PropertyImpl.NON_MODIFYING_METHOD,
+                            report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi,
+                            contracted.test(mi))]++;
                     for (ParameterInfo pi : mi.parameters()) {
                         boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
                         counts[write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
-                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable, pi)]++;
+                                report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable, pi,
+                                contracted.test(pi))]++;
                     }
                 }
                 case FieldInfo fi -> {
                     boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
                     counts[write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
-                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable, fi)]++;
+                            report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable, fi,
+                            false)]++;
                 }
                 default -> {
                 }
@@ -945,8 +955,16 @@ public class ShadowModificationPass {
             LEFT_UNDECIDED = 4, REVERSE_KEPT = 5, REVERSE_UPGRADED = 6, CONTRACT_KEPT = 7;
 
     private int write(PropertyValueMap analysis, io.codelaser.maddi.cst.api.analysis.Property property,
-                      boolean reached, boolean tainted, boolean immutableType, Object element) {
+                      boolean reached, boolean tainted, boolean immutableType, Object element,
+                      boolean contracted) {
         Value.Bool current = analysis.getOrNull(property, ValueImpl.BoolImpl.class);
+        // ⚠ A contract blocks the DOWNGRADE, never an upgrade. The reached branch below is the only one that
+        // can write FALSE, and it is the one an authored declaration on a bodiless element overrides; the
+        // unreached branches only ever write or keep TRUE, which agrees with the contract and is strictly more
+        // information. Skipping the whole write instead cost io.codelaser.maddi.cst.api.analysis.Value.Precondition
+        // its eventual verdict (TestEventualRatchet 224 -> 225, 2026-09-22): a contracted element whose value was
+        // still FALSE lost the reverse-upgrade that would have lifted it.
+        if (reached && contracted) return CONTRACT_KEPT;
         if (reached) {
             if (immutableType) return NO_CHANGE; // an immutable object cannot be modified: union over-reach
             if (current == null) {
