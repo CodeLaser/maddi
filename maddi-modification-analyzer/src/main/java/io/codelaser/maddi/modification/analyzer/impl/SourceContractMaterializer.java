@@ -15,6 +15,7 @@
 package io.codelaser.maddi.modification.analyzer.impl;
 
 import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.modification.common.util.TolerantWrite;
 import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -70,7 +71,10 @@ import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFE
  * implementation's own computed value.
  *
  * <h2>Idempotent, and re-run every pass on purpose</h2>
- * A computed value always wins: we write only when nothing has been decided yet. And the write is repeated
+ * For the computed-property arm a computed value always wins: we write only when nothing has been decided yet.
+ * The BODILESS arm is the deliberate exception — there the contract must beat a value the analyzer already
+ * wrote, or it lands only when it agrees, which is exactly when it changes nothing; it goes through
+ * {@code TolerantWrite}, so the lattice still refuses a downgrade. And the write is repeated
  * each pass rather than done once on the first iteration, because {@code IteratingAnalyzerImpl}'s
  * clear-before-recompute ({@code clearDerivedFamily}) removes both properties along with the rest of the
  * derived family; a first-iteration-only materialization would be silently dropped on that path.
@@ -190,15 +194,26 @@ public class SourceContractMaterializer {
      * returns no value, and {@code GuardAnalyzerImpl} reports it.
      */
     private void materializeContracted(MethodInfo methodInfo, Property property) {
-        if (methodInfo.analysis().haveAnalyzedValueFor(property)) return; // computed earlier, or already seeded
         Value value = contractResolution.resolve(methodInfo, property).value();
         if (value == null) return;
         boolean worthWriting = value instanceof Value.Independent independent && independent.isAtLeastIndependentHc()
                                || value instanceof Value.Bool bool && bool.isTrue();
         if (!worthWriting) return;
-        methodInfo.analysis().set(property, value);
-        CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of bodiless {} = {}", property, methodInfo, value);
-        propertyChanges.incrementAndGet();
+        // ⛔ NOT "write only when nothing has been decided yet", which is the rule for the computed-property arm
+        // above. A contract on a bodiless method must beat a value the analyzer already wrote, or it lands only
+        // when it agrees — which is exactly when it changes nothing. Measured on vavr 2026-09-22: of ten
+        // @NotModified contracts on io.vavr.Value, the three with no modifying implementation "worked" and the
+        // seven that mattered did not, because pass 1 had already written FALSE for them.
+        // ⚠ The asymmetry that hid this: clearDerivedFamily clears INDEPENDENT_METHOD but NOT
+        // NON_MODIFYING_METHOD, so the @Independent arm was re-seeded every pass into a cleared slot and looked
+        // like it worked, while the @NotModified arm only ever saw an occupied one.
+        // setAllowControlledOverwrite, not set(): the lattice still refuses a DOWNGRADE, so a contract cannot
+        // silently weaken a stronger value that is already there -- that case is a contract-vs-computed
+        // disagreement, and the guard reports it.
+        if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), property, value, methodInfo)) {
+            CommonAnalyzerImpl.DECIDE.debug("SCM: Contracted {} of bodiless {} = {}", property, methodInfo, value);
+            propertyChanges.incrementAndGet();
+        }
     }
 
     private void materialize(Info info, Property property) {

@@ -251,6 +251,63 @@ public class TestContractOnAbstractMethod extends CommonTest {
                 "an unadjudicable statement must not propagate; have " + independent);
     }
 
+    /**
+     * vavr's actual shape, which the two-level cases above do not reach: the contract sits on the ROOT
+     * interface, an intermediate interface RE-DECLARES the method abstract without repeating the annotation,
+     * and the concrete implementation modifies. Measured on vavr 1.0.1, {@code @NotModified} on
+     * {@code io.vavr.Value.get()} did not reach {@code analysis()} while {@code Traversable.get()} (abstract,
+     * unannotated) and {@code Iterator.get()} sat between it and the modifying implementations.
+     */
+    @Language("java")
+    private static final String CONTRACT_THROUGH_INTERMEDIATE = """
+            package a.b;
+            import io.codelaser.maddi.annotation.NotModified;
+
+            public class W {
+
+                interface Root {
+                    @NotModified
+                    int count();
+                }
+
+                interface Middle extends Root {
+                    @Override
+                    int count();
+                }
+
+                static class Impl implements Middle {
+                    private int n;
+
+                    @Override
+                    public int count() {
+                        return ++n;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("the contract survives an intermediate abstract re-declaration (vavr's Value/Traversable shape)")
+    @Test
+    public void contractThroughIntermediateAbstract() throws IOException {
+        Run run = analyzeWithGuard("a.b.W", CONTRACT_THROUGH_INTERMEDIATE);
+
+        MethodInfo root = run.typeInfo().findSubType("Root").methodStream()
+                .filter(m -> "count".equals(m.name())).findFirst().orElseThrow();
+        Value.Bool rootValue = root.analysis()
+                .getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        assertNotNull(rootValue, "the contract on the ROOT must reach analysis()");
+        assertTrue(rootValue.isTrue(), "have " + rootValue);
+
+        // and it binds the intermediate re-declaration, which carries no annotation of its own: a contract on a
+        // declaration binds every override, exactly as the shallow analyzer does for jar methods
+        MethodInfo middle = run.typeInfo().findSubType("Middle").methodStream()
+                .filter(m -> "count".equals(m.name())).findFirst().orElseThrow();
+        Value.Bool middleValue = middle.analysis()
+                .getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        assertNotNull(middleValue, "the inherited contract must reach the intermediate declaration too");
+        assertTrue(middleValue.isTrue(), "have " + middleValue);
+    }
+
     private record Run(TypeInfo typeInfo, List<Message> messages) {
     }
 
