@@ -172,6 +172,10 @@ internal class KotlinBodyConverter(
     // set by KotlinScan after construction (the bodies<->declarations cycle)
     lateinit var memberConverter: MemberConverter
 
+    // set by KotlinScan: a local variable converted from its declaration PSI, so the uses K2 resolves to that
+    // declaration can be recorded under it (KotlinReferenceRegistry.local)
+    var localDeclared: (PsiElement, LocalVariable) -> Unit = { _, _ -> }
+
     /**
      * Calls bound to an overload NONE of whose parameter types the arguments fit — a guess, kept because
      * some callee is better than none, and counted because the CST cannot show it. ⚠ It is the blind spot
@@ -296,6 +300,7 @@ internal class KotlinBodyConverter(
             ?: runtime.newEmptyExpression()
         val local = runtime.newLocalVariable(name, type, initializer)
         locals[name] = local
+        localDeclared(statement, local)
         // detail: name keyed by both the name String and the LocalVariable, plus the type reference
         val dsb = runtime.newDetailedSourcesBuilder()
         statement.nameIdentifier?.let { nameId ->
@@ -743,6 +748,7 @@ internal class KotlinBodyConverter(
             val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
                 ?: runtime.objectParameterizedType()
             val loopVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            parameter?.let { localDeclared(it, loopVariable) }
             runtime.newForEachBuilder()
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
                 .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) }
@@ -809,7 +815,7 @@ internal class KotlinBodyConverter(
                     .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
                     .setSource(runtime.noSource()).build()
             } ?: placeholder("k2-component${i + 1}", statement)
-            runtime.newLocalVariable(name, type, componentInit).also { locals[name] = it }
+            runtime.newLocalVariable(name, type, componentInit).also { locals[name] = it; localDeclared(entry, it) }
         }
         if (variables.isEmpty()) return runtime.newExpressionAsStatement(placeholder("k2-destructuring", statement))
         val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
@@ -840,6 +846,7 @@ internal class KotlinBodyConverter(
                 ?: runtime.objectParameterizedType()
             val name = parameter?.name ?: "e"
             val catchVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            parameter?.let { localDeclared(it, catchVariable) }
             val catchLocals = (locals + (name to catchVariable)).toMutableMap()
             builder.addCatchClause(
                 runtime.newCatchClauseBuilder()
@@ -958,6 +965,7 @@ internal class KotlinBodyConverter(
             val init = subjectVar.initializer?.let { convertExpression(it, method, locals) }
                 ?: placeholder("k2-absent-when-subject", subjectVar)
             val local = runtime.newLocalVariable(name, type, init)
+            localDeclared(subjectVar, local)
             return variableExpression(local) to (locals + (name to local))
         }
         val selector = statement.subjectExpression?.let { convertExpression(it, method, locals) } ?: runtime.newBoolean(true)

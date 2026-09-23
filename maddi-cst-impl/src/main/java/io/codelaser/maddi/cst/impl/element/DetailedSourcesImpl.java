@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,22 +32,23 @@ import java.util.stream.Stream;
 public class DetailedSourcesImpl implements DetailedSources {
     private final IdentityHashMap<Object, Object> identityHashMap;
     private final IdentityHashMap<Object, Object> association;
-    // putReference: the declarations this element's text names, and where; null when none were recorded
-    private final IdentityHashMap<Info, List<Source>> references;
+    // putReference and putLocalReference: the declarations (Info) and local variables (LocalVariable) this element's
+    // text names, and where; null when none were recorded. One map, so that merge/copy/withSources carry both.
+    private final IdentityHashMap<Object, List<Source>> references;
 
     private DetailedSourcesImpl(IdentityHashMap<Object, Object> identityHashMap,
                                 IdentityHashMap<Object, Object> association,
-                                IdentityHashMap<Info, List<Source>> references) {
+                                IdentityHashMap<Object, List<Source>> references) {
         this.identityHashMap = identityHashMap;
         this.association = association;
         this.references = references;
     }
 
-    private static IdentityHashMap<Info, List<Source>> mergeReferences(IdentityHashMap<Info, List<Source>> a,
-                                                                       IdentityHashMap<Info, List<Source>> b) {
+    private static IdentityHashMap<Object, List<Source>> mergeReferences(IdentityHashMap<Object, List<Source>> a,
+                                                                       IdentityHashMap<Object, List<Source>> b) {
         if (a == null && b == null) return null;
-        IdentityHashMap<Info, List<Source>> merged = new IdentityHashMap<>();
-        for (IdentityHashMap<Info, List<Source>> m : Arrays.asList(a, b)) {
+        IdentityHashMap<Object, List<Source>> merged = new IdentityHashMap<>();
+        for (IdentityHashMap<Object, List<Source>> m : Arrays.asList(a, b)) {
             if (m != null) m.forEach((k, v) -> merged.computeIfAbsent(k, _ -> new ArrayList<>()).addAll(v));
         }
         return merged;
@@ -55,7 +57,7 @@ public class DetailedSourcesImpl implements DetailedSources {
     public static class BuilderImpl implements DetailedSources.Builder {
         private final IdentityHashMap<Object, Object> identityHashMap = new IdentityHashMap<>();
         private IdentityHashMap<Object, Object> association;
-        private IdentityHashMap<Info, List<Source>> references;
+        private IdentityHashMap<Object, List<Source>> references;
 
         @Override
         public Object getAssociated(Object pt) {
@@ -90,6 +92,13 @@ public class DetailedSourcesImpl implements DetailedSources {
         public Builder putReference(Info target, Source identifier) {
             if (references == null) references = new IdentityHashMap<>();
             references.computeIfAbsent(target, _ -> new ArrayList<>()).add(identifier);
+            return this;
+        }
+
+        @Override
+        public Builder putLocalReference(LocalVariable variable, Source identifier) {
+            if (references == null) references = new IdentityHashMap<>();
+            references.computeIfAbsent(variable, _ -> new ArrayList<>()).add(identifier);
             return this;
         }
 
@@ -173,7 +182,23 @@ public class DetailedSourcesImpl implements DetailedSources {
 
     @Override
     public void forEachReference(BiConsumer<Info, Source> consumer) {
-        if (references != null) references.forEach((target, list) -> list.forEach(s -> consumer.accept(target, s)));
+        if (references != null) references.forEach((target, list) -> {
+            if (target instanceof Info info) list.forEach(s -> consumer.accept(info, s));
+        });
+    }
+
+    @Override
+    public List<Source> localReferences(LocalVariable variable) {
+        if (references == null) return List.of();
+        List<Source> list = references.get(variable);
+        return list == null ? List.of() : List.copyOf(list);
+    }
+
+    @Override
+    public void forEachLocalReference(BiConsumer<LocalVariable, Source> consumer) {
+        if (references != null) references.forEach((variable, list) -> {
+            if (variable instanceof LocalVariable lv) list.forEach(s -> consumer.accept(lv, s));
+        });
     }
 
     @Override
