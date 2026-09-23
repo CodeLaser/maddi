@@ -77,7 +77,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         Independent typeIndependent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         if (typeIndependent.isIndependent()) return; // nothing to be gained
         Independent independent = computeIndependentType(typeInfo, activateCycleBreaking,
-                TypeImmutableAnalyzer.AfterMark.NONE);
+                TypeImmutableAnalyzer.AfterMark.NONE, false);
         if (independent != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), INDEPENDENT_TYPE, independent, typeInfo)) {
                 DECIDE.debug("Ti: Decide independent of type {} = {}", typeInfo, independent);
@@ -96,11 +96,16 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
     @Override
     public Independent independentAfterMark(TypeInfo typeInfo, TypeImmutableAnalyzer.AfterMark afterMark,
                                             boolean activateCycleBreaking) {
-        return computeIndependentType(typeInfo, activateCycleBreaking, afterMark);
+        return computeIndependentType(typeInfo, activateCycleBreaking, afterMark, false);
+    }
+
+    @Override
+    public Independent independentIgnoringSelfFields(TypeInfo typeInfo, boolean activateCycleBreaking) {
+        return computeIndependentType(typeInfo, activateCycleBreaking, TypeImmutableAnalyzer.AfterMark.NONE, true);
     }
 
     private Independent computeIndependentType(TypeInfo typeInfo, boolean activateCycleBreaking,
-                                               TypeImmutableAnalyzer.AfterMark afterMark) {
+                                               TypeImmutableAnalyzer.AfterMark afterMark, boolean skipSelfFields) {
         Independent indyFromHierarchy = INDEPENDENT;
 
         // hierarchy
@@ -138,7 +143,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         }
         assert indyFromHierarchy.isAtLeastIndependentHc();
 
-        Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo, afterMark);
+        Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo, afterMark,
+                skipSelfFields);
         if (fromFieldsAndAbstractMethods == null && !afterMark.isNone()) {
             // Undecided, and in after-mark mode that must not be read as INDEPENDENT the way min(null) does for
             // the unconditional verdict. The unconditional value is revised as inputs settle (TolerantWrite lets
@@ -191,10 +197,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
     }
 
     private Independent loopOverFieldsAndAbstractMethods(TypeInfo typeInfo,
-                                                         TypeImmutableAnalyzer.AfterMark afterMark) {
+                                                         TypeImmutableAnalyzer.AfterMark afterMark,
+                                                         boolean skipSelfFields) {
         boolean afterMarkMode = !afterMark.isNone();
         Independent independent = INDEPENDENT;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (skipSelfFields && typeInfo.equals(fieldInfo.type().bestTypeInfo())) continue;
             // AfterMark.fields() originally held only fields whose own TYPE is eventually immutable -- what
             // such a field exposes has itself become immutable at the mark. Since the container ride-along,
             // it also holds RAW container fields (a final List of committable content): committed content,

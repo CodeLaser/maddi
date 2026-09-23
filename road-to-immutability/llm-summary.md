@@ -63,7 +63,11 @@ Rules (each level requires the previous):
   on the static field, and modifications inside a static initializer block (the static fields' constructor).
   `@StaticSideEffects` is for modifying static calls on state the primary type (with its enclosing and parent
   types) does NOT own. A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
-  access to it. ⚠ Code divergence: `instanceFieldTypesDeeplyImmutable` (the hc-free check) skips static fields.
+  access to it. Since 2026-09-23 the hc-free check (`instanceFieldTypesDeeplyImmutable`) counts statics too.
+- **Self-referencing fields** (declared type = the type itself) are skipped for rules 1 and 2, for the hc label, and
+  in the independence that FEEDS the immutability rule (`independentIgnoringSelfFields`) -- never for rule 0
+  (assignability). The PUBLISHED independence still counts them: dependent while the type is undecided, and after
+  it is decided independent if the type is immutable, dependent if not (a mutable `Node` returning `next`).
 - Exposure matters: a type that stores externally supplied mutable objects (dependent constructor) or
   returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
