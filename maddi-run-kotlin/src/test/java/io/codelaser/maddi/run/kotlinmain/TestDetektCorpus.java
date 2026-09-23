@@ -154,10 +154,12 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-22 at 29e951ea1 (callable references), on the pinned detekt checkout, in a
-        // --rerun-tasks slowTest whose roll-call was read: 4,704 placeholders in 790 of 1,384 types and
-        // 2,152 of 7,747 members. Previous: 4,744 / 791 / 2,160 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 4_704);
+        // Measured 2026-09-23 (property references), on the pinned detekt checkout, in a --rerun slowTest
+        // whose roll-call was read: 4,701 placeholders in 790 of 1,384 types and 2,152 of 7,747 members,
+        // against a control run of the parent commit at exactly the previous pin — the three
+        // `k2-callable-ref-property` sites converted, no site appeared. Previous: 4,704 / 790 / 2,152 at
+        // 29e951ea1 (callable references); 4,744 / 791 / 2,160 at fbe6b138a.
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 4_701);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 668);
     }

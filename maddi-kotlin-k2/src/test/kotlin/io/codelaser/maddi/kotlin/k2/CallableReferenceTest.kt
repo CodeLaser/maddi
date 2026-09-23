@@ -115,19 +115,96 @@ class CallableReferenceTest : KotlinScanTestBase() {
     }
 
     /**
-     * ⛔ Not yet converted, and deliberately: a Kotlin property is not a `MethodInfo` in this front end, so
-     * `Q::i` has nothing to reference. It keeps a placeholder that NAMES the shape rather than hiding among
-     * the unsupported expressions — the census is the disclosure instrument, so the name is the deliverable.
+     * A property reference is its GETTER: as a function, `Q::i` is `(Q) -> Int`, which is what a Java author writes
+     * as `Q::getI`. The same two fields decide the answer as for a function reference: the getter, and whether the
+     * scope is the type (unbound) or a value (bound).
      */
     @Test
-    fun aPropertyReferenceKeepsANamedPlaceholder() {
+    fun anUnboundPropertyReferenceIsItsGetterScopedToTheType() {
         val types = parse("""
             class Q(val i: Int)
             class P { fun f(l: List<Q>): List<Int> = l.map(Q::i) }
             """)
-        val census = PlaceholderCensus.of(types)
-        assertEquals(1, census.total, census.byKind.toString())
-        assertEquals(setOf("k2-callable-ref-property"), census.byKind.keys)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types)
+        assertEquals("getI", mr.methodInfo().name())
+        assertEquals("Q", mr.methodInfo().typeInfo().simpleName())
+        assertTrue(mr.scope() is TypeExpression, "an unbound reference names a type, not a value: got ${mr.scope()}")
+    }
+
+    /** ⛔ The control: bound to a value, the scope is that value, not its type. */
+    @Test
+    fun aBoundPropertyReferenceCarriesItsReceiverAsItsScope() {
+        val types = parse("""
+            class Q(val i: Int)
+            class P { fun f(q: Q): () -> Int = q::i }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types)
+        assertEquals("getI", mr.methodInfo().name())
+        val scope = mr.scope()
+        assertTrue(scope is VariableExpression && scope.variable().simpleName() == "q", "got $scope")
+    }
+
+    /** Written without `this::`, a member property is bound to the enclosing object, as a member function is. */
+    @Test
+    fun anImplicitMemberPropertyReferenceIsBound() {
+        val types = parse("""
+            class P {
+                val i: Int = 3
+                fun f(): () -> Int = ::i
+            }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types, 0)
+        assertEquals("getI", mr.methodInfo().name())
+        val scope = mr.scope()
+        assertTrue(scope is VariableExpression && scope.variable() is This, "got $scope")
+    }
+
+    /**
+     * ⚠ A library property has no getter to reference in THIS fixture: with no `CompiledTypesManager` a library
+     * type is built from K2 symbols, and `loadLibraryMembers` turns its properties into FIELDS (so `sb.length`
+     * reads a field). A method reference cannot name a field, so the shape keeps its named placeholder here. The
+     * shipping pipeline loads library types from class files, where `length()` is a method; that path is covered
+     * by `TestLoweredShapesVsJava` in maddi-run-kotlin. Pinned so a change to the standalone loader shows up.
+     */
+    @Test
+    fun aLibraryPropertyReferenceHasNoGetterInAStandaloneScan() {
+        val types = parse("""
+            class P { fun f(l: List<StringBuilder>): List<Int> = l.map(StringBuilder::length) }
+            """)
+        assertEquals(setOf("k2-callable-ref-property-no-getter"), PlaceholderCensus.of(types).byKind.keys)
+    }
+
+    /** An extension property is a static getter on its facade, the receiver its first parameter. */
+    @Test
+    fun anExtensionPropertyReferenceIsTheFacadeGetter() {
+        val types = parse("""
+            val Q.doubled: Int get() = i * 2
+            class Q(val i: Int)
+            class P { fun f(l: List<Q>): List<Int> = l.map(Q::doubled) }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types)
+        assertEquals("getDoubled", mr.methodInfo().name())
+        assertEquals("PKt", mr.methodInfo().typeInfo().simpleName())
+        assertTrue(mr.methodInfo().isStatic, "an extension getter is static: ${mr.methodInfo()}")
+        assertTrue(mr.scope() is TypeExpression, "got ${mr.scope()}")
+    }
+
+    /** A top-level property's getter lives on the file facade, like a top-level function. */
+    @Test
+    fun aTopLevelPropertyReferenceIsTheFacadeGetter() {
+        val types = parse("""
+            val top: Int = 3
+            class P { fun f(): () -> Int = ::top }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types, 0)
+        assertEquals("getTop", mr.methodInfo().name())
+        assertEquals("PKt", mr.methodInfo().typeInfo().simpleName())
+        assertTrue(mr.scope() is TypeExpression, "got ${mr.scope()}")
     }
 
     /**
