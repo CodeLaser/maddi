@@ -73,16 +73,27 @@ public class TestAnalysisHintsCompiler extends CommonTest {
 
     @Test
     public void test(@TempDir Path tempDirectory) throws IOException {
-        CompileAnalysisHints.compileAll(tempDirectory);
+        // the jdk results are current for ONE release, the CI JDK's (see CompileAnalysisHints.JDK_RELEASE_FILE);
+        // on any other JDK only the libs/* libraries and libs.jar can be compared
+        int committedJdk = CompileAnalysisHints.committedJdkRelease();
+        int runningJdk = CompileAnalysisHints.runningJdkRelease();
+        boolean withJdk = committedJdk == runningJdk;
+        if (!withJdk) {
+            LOGGER.warn("Not comparing the jdk results and openjdk.jar: they are generated on JDK {}, this is JDK {}",
+                    committedJdk, runningJdk);
+        }
+        Files.createDirectories(tempDirectory.resolve(CompileAnalysisHints.JDK_LIBRARY)); // packageJars lists it
+        CompileAnalysisHints.compileAll(tempDirectory, withJdk);
         CompileAnalysisHints.packageJars(tempDirectory);
 
         List<String> complaints = new ArrayList<>();
         for (String library : CompileAnalysisHints.LIBRARIES) {
+            if (!withJdk && CompileAnalysisHints.JDK_LIBRARY.equals(library)) continue;
             compareJson(CompileAnalysisHints.RESULTS_BASE_DIR.resolve(library), tempDirectory.resolve(library),
                     library, complaints);
         }
         // the two archives packageJars writes, packed here from the freshly compiled JSON
-        for (String jar : List.of("openjdk.jar", "libs.jar")) {
+        for (String jar : withJdk ? List.of("openjdk.jar", "libs.jar") : List.of("libs.jar")) {
             compareJar(CompileAnalysisHints.RESULTS_BASE_DIR.resolve(jar), tempDirectory.resolve(jar), complaints);
         }
         if (!complaints.isEmpty()) {

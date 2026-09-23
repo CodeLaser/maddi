@@ -58,14 +58,48 @@ public class CompileAnalysisHints {
     /** {@link #RESULTS_BASE} as a path; the directory the committed results live in. */
     static final Path RESULTS_BASE_DIR = Path.of(RESULTS_BASE);
     static final String KOTLIN_LIBRARY = "libs/kotlin";
+    static final String JDK_LIBRARY = "jdk";
+    /**
+     * The JDK feature release the committed {@code jdk/} results (and so {@code openjdk.jar}) were generated on.
+     * <p>
+     * ⚠ <b>The {@code jdk} library compiles differently on every JDK</b>: its shadows decorate the RUNNING JDK's
+     * types, and 27 has members 26 does not. The data can therefore be current for one release only, and the
+     * one it is current for is the CI JDK's, recorded here. On another JDK {@link #main} regenerates only the
+     * {@code libs/*} libraries and {@link TestAnalysisHintsCompiler} compares only those, so a developer on a
+     * newer JDK neither sees a red test nor can overwrite CI's data by regenerating. Moving the data to the
+     * running JDK is explicit: {@code gradle :maddi-aapi-parser:compileAnalysisHints -Pmaddi.aapi.moveJdkRelease=true}.
+     */
+    static final Path JDK_RELEASE_FILE = RESULTS_BASE_DIR.resolve(JDK_LIBRARY).resolve("jdk-release.txt");
+    static final String MOVE_JDK_RELEASE = "maddi.aapi.moveJdkRelease";
     // fixed entry timestamp (2020-01-01T00:00:00Z) so a regenerated jar only differs when its content does
     private static final long FIXED_ENTRY_TIME = 1_577_836_800_000L;
 
     public static void main(String[] args) throws IOException {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("io.codelaser.maddi.aapi")).setLevel(Level.INFO);
-        compileAll();
-        packageJars();
+        int committed = committedJdkRelease();
+        int running = runningJdkRelease();
+        boolean withJdk = running == committed || Boolean.getBoolean(MOVE_JDK_RELEASE);
+        if (!withJdk) {
+            LOGGER.warn("The committed jdk results are for JDK {}, this is JDK {}: regenerating the libs only."
+                        + " To move the jdk results to JDK {}, pass -P{}=true", committed, running, running,
+                    MOVE_JDK_RELEASE);
+        }
+        compileAll(RESULTS_BASE_DIR, withJdk);
+        packageJars(); // openjdk.jar is repacked from the jdk results on disk, unchanged when they were skipped
+        if (withJdk && running != committed) {
+            Files.writeString(JDK_RELEASE_FILE, running + "\n");
+            LOGGER.warn("Moved the jdk results from JDK {} to JDK {}", committed, running);
+        }
+    }
+
+    /** The release recorded in {@link #JDK_RELEASE_FILE}. */
+    static int committedJdkRelease() throws IOException {
+        return Integer.parseInt(Files.readString(JDK_RELEASE_FILE).trim());
+    }
+
+    static int runningJdkRelease() {
+        return java.lang.Runtime.version().feature();
     }
 
     /** Compile every configured library into the committed location. */
@@ -80,10 +114,16 @@ public class CompileAnalysisHints {
      * compare: a test must not write into the working tree. Only {@link #main} passes the committed location.
      */
     public static void compileAll(Path resultsBase) throws IOException {
+        compileAll(resultsBase, true);
+    }
+
+    /** As {@link #compileAll(Path)}; {@code includeJdk} false leaves the {@code jdk} library out (see {@link #JDK_RELEASE_FILE}). */
+    public static void compileAll(Path resultsBase, boolean includeJdk) throws IOException {
         // the archive covers java.desktop (swing/awt) and java.net.http, which the lean default omits
         AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(
                 javaInspectorFactory("java.desktop", "java.net.http"));
         for (String library : LIBRARIES) {
+            if (!includeJdk && JDK_LIBRARY.equals(library)) continue;
             if (KOTLIN_LIBRARY.equals(library)) {
                 // Its own compiler, with kotlin-stdlib on the class path. AnalysisHintsParser DECORATES a type it
                 // can load rather than minting one from the shadow -- without the jar it logs "Ignoring type
