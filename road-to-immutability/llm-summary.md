@@ -53,9 +53,17 @@ Rules (each level requires the previous):
 - **Level 2 vs 3 (hidden content)**: `@Immutable` (hc-free, level 3) additionally requires that every
   instance field's type is itself deeply immutable (level 3) -- INHERITED instance fields included, of source
   and jar superclasses alike (a superclass's own hc verdict is not consulted: `Record`/`Enum` are hc because
-  extensible, which is not content) -- the type is not extensible, and independence holds. A private, never-modified, never-exposed field of a mutable type is *hidden
-  content*, not absence of content → level 2, not 3. Static fields do NOT count toward instance
-  immutability (they belong to the class).
+  extensible, which is not content) -- the type is not extensible, and independence holds. A private,
+  never-modified, never-exposed field of a mutable type is *hidden content*, not absence of content → level 2,
+  not 3.
+- **Static fields are NOT exempt** (road §050 "Static side effects"; corrected 2026-09-23 -- this summary used to
+  say the opposite, and a change built on it had to be reverted): "the definitions make no distinction between
+  static and instance fields"; inside the primary type, "modifications are modifications". A type that modifies
+  its own static counter is `@FinalFields` (the book's `CountAccess`). The only exemptions: `@IgnoreModifications`
+  on the static field, and modifications inside a static initializer block (the static fields' constructor).
+  `@StaticSideEffects` is for modifying static calls on state the primary type (with its enclosing and parent
+  types) does NOT own. A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
+  access to it. ⚠ Code divergence: `instanceFieldTypesDeeplyImmutable` (the hc-free check) skips static fields.
 - Exposure matters: a type that stores externally supplied mutable objects (dependent constructor) or
   returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
