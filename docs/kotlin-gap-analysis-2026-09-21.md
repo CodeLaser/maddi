@@ -81,7 +81,7 @@ Verified in code (zero occurrences / absent from the dispatch), not read in a do
 1. **No encode path.** No Kotlin module references `Codec`; `RunMixedPrepAnalyzer` writes no results. So no
    incremental analysis, no IDE daemon, no result reuse for Kotlin. The one decode defect that surfaced
    (`mapOf`, `CodecImpl.java:423-424`) suggests others wait.
-2. **The link engine has zero Kotlin tests**, and `VirtualFieldComputer.java:110` excludes
+2. *(Answered for lambdas, §7.22: same verdicts.)* **The link engine has zero Kotlin tests**, and `VirtualFieldComputer.java:110` excludes
    `java.util.function` from virtual fields — every Kotlin lambda is a `Function1` and therefore takes a
    *different* path than its Java equivalent, untested.
 3. `GetSetHelper.java:249` hard-codes the `"set"` prefix and wants a backing field with a body; every
@@ -849,6 +849,48 @@ machinery, which is a separate question. What rung 6 can now claim is that the p
 incremental analysis and the IDE daemon works for Kotlin, is reachable from the CLI, and has a test
 standing on each half.
 
+### 7.22 Kotlin lambdas vs Java lambdas — the same verdict, and a "mixed-pipeline gap" that was the fixture
+
+§5 item 2 predicted a divergence: `VirtualFieldComputer` excludes `java.util.function`, so a Kotlin lambda
+(`Function1`) takes a different path than a Java one (`Consumer`). `TestKotlinLambdaVsJavaLambda` asks whether
+it is a different ANSWER, with three paired rows: a higher-order call through each language's own function
+type, a SAM-converted lambda handed to a Java interface, and a read-only control. **All three agree on every
+sensor**; `higherOrder` sees `b` modified through `(String) -> Unit` exactly as through `Consumer<String>`.
+
+⛔ The test sat `@Disabled` behind a pinned "gap": in the mixed pipeline `ArrayList<String>().add(t)` was
+three placeholders, and adding kotlin-stdlib to the classpath "changed nothing". The jar it added was
+`kotlin-stdlib-jdk8-2.4.0.jar`, the first file name containing `kotlin-stdlib`, which carries none of
+`kotlin.collections`. K2 answered `Unresolved reference 'ArrayList'` (it is a stdlib typealias). With the real
+jar: zero placeholders. The refutation had measured the jar next to the question. The fixture now selects the
+jar by exact name and checks it holds `kotlin/collections/CollectionsKt.class`.
+
+### 7.23 Property references — the getter, bound or unbound
+
+`Q::i` used as a function is `(Q) -> Int`, which a Java author writes `Q::getI`, so a property reference now
+becomes a `MethodReference` to the getter the front end already builds, found exactly as a property ACCESS finds
+it (`resolveAccessor`). The bound/unbound rule is the function reference's (§7.19): `Q::i` is scoped to the type,
+`q::i`/`this::i`/`::i` to the value. Extension properties reference the facade's static getter, top-level ones
+the facade getter. The receiver helper now also recognises a qualified or generic type (`java.util.ArrayList<String>::size`),
+which function references gain too.
+
+⭐ **Verdict level**, three new rows in `TestLoweredShapesVsJava` against a Java getter that modifies
+(`Box.getCount()`, which Kotlin sees as the property `count`): `propBound` (`c::count` vs `c::getCount`) marks `c`
+modified on both sides; `propUnbound` (`Box::count` vs `Box::getCount`) does not, on both sides (the engine's
+documented conservatism for an unbound receiver); `propLibrary` (`ArrayList<String>::size`) reaches the class
+file's `size()`. An identity check asserts each side holds one method reference to the SAME method.
+
+⛔ Still named placeholders: a property with no getter method (`private`, `const`: read as the field, and a
+method reference cannot name a field), a bound extension reference (`s::lastIndex`, no Java spelling), a
+top-level non-extension library property. ⚠ In a standalone `KotlinScan` (no `CompiledTypesManager`), library
+properties are loaded as FIELDS, so `StringBuilder::length` has no getter there; the shipping pipeline loads
+class files, where it is a method. Pinned in `CallableReferenceTest`.
+
+**Measured**, against a control run of the parent commit that reproduced the pins exactly: detekt
+**4,704 → 4,701**, all three `k2-callable-ref-property` sites converted, **zero new sites**, nothing else moved;
+coil 367 unchanged (it has none). Small, because the corpora hardly use the shape: the callable-reference
+family's remainder on detekt is **37** `k2-callable-ref-unresolved` sites (`toRegex` 18, `pathGlobToRegex` 8),
+which are the next target in this family, not property references.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -870,7 +912,7 @@ standing on each half.
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
    ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
    keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
-   What remains, in order: **property references**, then **annotations** and **`suspend`**,
+   ✅ **Property references** (§7.23). What remains, in order: **annotations** and **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive.

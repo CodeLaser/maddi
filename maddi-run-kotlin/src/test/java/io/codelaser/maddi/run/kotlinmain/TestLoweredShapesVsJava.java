@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -86,6 +87,12 @@ public class TestLoweredShapesVsJava {
                 public void touch() { items.add("t"); }
                 public void feed(StringSink sink, String t) { sink.accept(t); }
                 public void feedBox(BoxSink sink, Box target) { sink.accept(target); }
+                // a getter that modifies (a counting/caching getter): Kotlin sees it as the property `count`, so
+                // a property reference to it is where bound vs unbound decides the verdict
+                public int getCount() { items.add("c"); return items.size(); }
+                public int pull(IntSource source) { return source.get(); }
+                public int pullBox(BoxToInt f, Box target) { return f.apply(target); }
+                public int pullList(ListToInt f, java.util.ArrayList<String> l) { return f.apply(l); }
             }
             """;
 
@@ -134,6 +141,11 @@ public class TestLoweredShapesVsJava {
                 // functional interface, so a disagreement is the reference and not the library.
                 fun refBound(b: Box, c: Box, t: String) { b.feed(c::add, t) }
                 fun refUnbound(b: Box, c: Box, t: String) { b.feedBox(Box::touch, c) }
+                // property references: the getter, bound (`c::count`) and unbound (`Box::count`); and a library
+                // property (`ArrayList::size`), which must reach the class file's `size()`
+                fun propBound(b: Box, c: Box): Int = b.pull(c::count)
+                fun propUnbound(b: Box, c: Box): Int = b.pullBox(Box::count, c)
+                fun propLibrary(b: Box, l: java.util.ArrayList<String>): Int = b.pullList(java.util.ArrayList<String>::size, l)
                 fun ternaryArm(b: Box?, c: Box, t: String): Int = if (b == null) c.addAndSize(t) else b.size()
                 fun expressionBodiedTry(b: Box, t: String): Int =
                     try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
@@ -204,6 +216,9 @@ public class TestLoweredShapesVsJava {
                 }
                 public void refBound(Box b, Box c, String t) { b.feed(c::add, t); }
                 public void refUnbound(Box b, Box c, String t) { b.feedBox(Box::touch, c); }
+                public int propBound(Box b, Box c) { return b.pull(c::getCount); }
+                public int propUnbound(Box b, Box c) { return b.pullBox(Box::getCount, c); }
+                public int propLibrary(Box b, java.util.ArrayList<String> l) { return b.pullList(java.util.ArrayList::size, l); }
                 public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
                 public int expressionBodiedTry(Box b, String t) {
                     try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
@@ -219,6 +234,21 @@ public class TestLoweredShapesVsJava {
     private static final String BOX_SINK = """
             package s;
             public interface BoxSink { void accept(Box b); }
+            """;
+
+    private static final String INT_SINKS = """
+            package s;
+            public interface IntSource { int get(); }
+            """;
+
+    private static final String BOX_TO_INT = """
+            package s;
+            public interface BoxToInt { int apply(Box b); }
+            """;
+
+    private static final String LIST_TO_INT = """
+            package s;
+            public interface ListToInt { int apply(java.util.ArrayList<String> l); }
             """;
 
     /** A FIELD holding the helper, so the type-level verdict has something to say. */
@@ -237,7 +267,7 @@ public class TestLoweredShapesVsJava {
             List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
                     "whenAsValue", "elvisThrow", "expressionBodiedTry",
                     "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine",
-                    "refBound", "refUnbound");
+                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {
@@ -249,6 +279,9 @@ public class TestLoweredShapesVsJava {
         Files.writeString(kDir.resolve("a/K.kt"), KOTLIN);
         Files.writeString(jDir.resolve("s/StringSink.java"), SINKS);
         Files.writeString(jDir.resolve("s/BoxSink.java"), BOX_SINK);
+        Files.writeString(jDir.resolve("s/IntSource.java"), INT_SINKS);
+        Files.writeString(jDir.resolve("s/BoxToInt.java"), BOX_TO_INT);
+        Files.writeString(jDir.resolve("s/ListToInt.java"), LIST_TO_INT);
         Files.writeString(jDir.resolve("b/J.java"), JAVA);
         Files.writeString(jDir.resolve("b/JHolder.java"), JAVA_HOLDER);
         Files.writeString(jDir.resolve("s/Box.java"), BOX);
@@ -269,7 +302,7 @@ public class TestLoweredShapesVsJava {
         // becomes a placeholder, and two sides can then agree on a verdict neither derived from the code. Every
         // shape below must be FULLY converted, or the comparison proves nothing about the lowering.
         PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
-        assertEquals(0, census.getTotal(), "unread Kotlin would make the comparison vacuous: " + census.getByKind());
+        assertEquals(0, census.getTotal(), "unread Kotlin would make the comparison vacuous: " + census.dumpLines());
 
         // without the annotated APIs java.util.List is an unknown and NOTHING can be concluded on either
         // side, which would make this comparison vacuously equal
@@ -306,6 +339,16 @@ public class TestLoweredShapesVsJava {
         // duplication question and the agreement below proves nothing about it.
         assertEquals(2, kDup, "dupOffSpine must still DUPLICATE the modifying call, or it tests nothing");
 
+        // ⛔ identity check for the property-reference rows: each side must hold ONE method reference, to the
+        // SAME method. Two sides referencing nothing, or the wrong accessor, could still agree on a verdict.
+        for (String row : List.of("propBound", "propUnbound", "propLibrary")) {
+            List<String> kRefs = referencedMethods(method(k, row));
+            report.append(String.format("%-14s references kotlin: %s   java: %s%n", row, kRefs,
+                    referencedMethods(method(j, row))));
+            assertEquals(1, kRefs.size(), row + " must hold exactly one method reference: " + kRefs);
+            assertEquals(referencedMethods(method(j, row)), kRefs, row + " must reference the getter Java names");
+        }
+
         // ⭐ the type-level sensor: a field reached through a lowered shape. A method-level agreement that
         // did not propagate to the type would be agreement about the wrong thing.
         String kHolder = typeVerdict(type(primaryTypes, "a.KHolder"));
@@ -328,6 +371,16 @@ public class TestLoweredShapesVsJava {
     private static MethodInfo method(TypeInfo type, String name) {
         return type.methods().stream().filter(m -> name.equals(m.name())).findFirst()
                 .orElseThrow(() -> new AssertionError("no method " + name + " on " + type.fullyQualifiedName()));
+    }
+
+    /** The fully qualified names of the methods this method's tree holds a method reference to. */
+    private static List<String> referencedMethods(MethodInfo method) {
+        List<String> found = new java.util.ArrayList<>();
+        method.methodBody().visit(e -> {
+            if (e instanceof MethodReference mr) found.add(mr.methodInfo().fullyQualifiedName());
+            return true;
+        });
+        return found;
     }
 
     /** How many times `addAndSize` stands in this method's tree. The source writes it once. */

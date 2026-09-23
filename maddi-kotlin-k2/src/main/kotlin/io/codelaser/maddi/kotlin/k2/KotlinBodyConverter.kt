@@ -40,6 +40,7 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable
 import io.codelaser.maddi.cst.api.variable.Variable
 import io.codelaser.maddi.cst.api.type.NullableState
 import io.codelaser.maddi.cst.api.type.ParameterizedType
+import io.codelaser.maddi.cst.api.expression.TypeExpression
 import io.codelaser.maddi.cst.api.type.TypeNature
 import io.codelaser.maddi.inspection.resource.InfoByFqn
 import com.intellij.psi.PsiElement
@@ -1714,9 +1715,7 @@ internal class KotlinBodyConverter(
      * is being coerced to at the use site. It is recorded as-is rather than guessed at: the engine types the
      * synthetic functional-interface variable with it and reads nothing else from it.
      *
-     * ⛔ A PROPERTY reference (`String::length`, `Q::i`) is deliberately not converted here — a Kotlin property
-     * is not a MethodInfo in this front end — and keeps a placeholder that NAMES the shape, so the census
-     * discloses it separately instead of hiding it among the unsupported expressions.
+     * A PROPERTY reference (`Q::i`, `String::length`) is its getter — see [propertyReference].
      */
     private fun KaSession.convertCallableReference(expression: KtCallableReferenceExpression, method: MethodInfo,
                                                    locals: Map<String, Variable>): Expression {
@@ -1734,8 +1733,9 @@ internal class KotlinBodyConverter(
             return methodReference(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()),
                 ctor, functionalType, expression)
         }
+        if (symbol is KaPropertySymbol) return propertyReference(symbol, expression, functionalType, method, locals)
         val fn = symbol as? KaNamedFunctionSymbol
-            ?: return placeholder("k2-callable-ref-property", expression)
+            ?: return placeholder("k2-callable-ref-unsupported", expression)
 
         val receiver = expression.receiverExpression
         // (scope expression, the type to resolve the callee on)
@@ -1749,21 +1749,84 @@ internal class KotlinBodyConverter(
                 } else method.typeInfo().let { self(method) to it }
             }
             receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
-            else -> {
-                val asClass = (receiver as? KtNameReferenceExpression)
-                    ?.mainReference?.resolveToSymbol() as? KaNamedClassSymbol
-                if (asClass != null) classTypeInfo(asClass)?.let {
-                    runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it
-                } else {
-                    val value = convertExpression(receiver, method, locals)
-                    value.parameterizedType().typeInfo()?.let { value to it }
-                }
-            }
+            else -> explicitReceiverScope(receiver, method, locals)
         }
         val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
         val callee = resolveCalleeByArity(owner, fn.name.asString(), fn.valueParameters.size)
             ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
         return methodReference(scope, callee, functionalType, expression)
+    }
+
+    /**
+     * The written receiver of a callable reference, as (scope, the type to resolve the callee on): a TYPE name
+     * (`Q::f`, unbound — a [TypeExpression], which the engine reads as having no links-primary) or a VALUE
+     * (`q::f`, bound — the value itself, whose modifications reach the caller).
+     */
+    private fun KaSession.explicitReceiverScope(receiver: KtExpression, method: MethodInfo,
+                                                locals: Map<String, Variable>): Pair<Expression, TypeInfo>? {
+        // the class a TYPE receiver names, however it is spelled: `Q`, `a.b.Q` (the class is the last selector)
+        // or `ArrayList<String>` (a call-shaped node whose callee is the name)
+        fun className(e: KtExpression?): KtNameReferenceExpression? = when (e) {
+            is KtNameReferenceExpression -> e
+            is KtDotQualifiedExpression -> className(e.selectorExpression)
+            is KtCallExpression -> e.calleeExpression as? KtNameReferenceExpression
+            else -> null
+        }
+        val asClass = className(receiver)?.mainReference?.resolveToSymbol() as? KaNamedClassSymbol
+        return if (asClass != null) classTypeInfo(asClass)?.let {
+            runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it
+        } else {
+            val value = convertExpression(receiver, method, locals)
+            value.parameterizedType().typeInfo()?.let { value to it }
+        }
+    }
+
+    /**
+     * `Q::i`, `q::i`, `::i`, `String::length`, `Q::ext`, `::top` — a property reference used as a function IS its
+     * getter: `Q::i` is `(Q) -> Int`, which a Java author writes `Q::getI`. So it becomes a method reference to the
+     * getter the front end already builds for the property (or, for a library property, the JVM accessor K2's
+     * property stands for — `String::length` is `length()`), with the same bound/unbound scope rule as a function
+     * reference. The getter is found exactly as a property ACCESS finds it (`resolveAccessor`), so `q::i` and
+     * `{ q.i }` reach the same method.
+     *
+     * ⛔ Still a named placeholder: a property with no getter method (`private`, `const`: the front end reads those
+     * as the field, and a method reference cannot name a field), a bound extension reference (`s::lastIndex`, which
+     * has no Java spelling), and a top-level non-extension LIBRARY property (its facade is built from getters of
+     * extension properties only).
+     */
+    private fun KaSession.propertyReference(property: KaPropertySymbol, expression: KtCallableReferenceExpression,
+                                            functionalType: ParameterizedType, method: MethodInfo,
+                                            locals: Map<String, Variable>): Expression {
+        val name = property.name.asString()
+        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val receiver = expression.receiverExpression
+        val sourceFacade = (property.psi as? KtProperty)?.containingKtFile?.let { facadeOf(it) }
+
+        // an extension property: a static getter on its facade, the receiver its first parameter (`Q::ext` is
+        // `PKt::getExt`). Only the unbound form has a Java spelling.
+        if (property.receiverParameter != null) {
+            val facade = sourceFacade ?: with(typeMapper) { loadLibraryFacadeForProperty(property) }
+                ?: return placeholder("k2-callable-ref-property-facade", expression)
+            val typeReceiver = receiver != null && explicitReceiverScope(receiver, method, locals)?.first is TypeExpression
+            if (!typeReceiver) return placeholder("k2-callable-ref-property-bound-extension", expression)
+            val getter = resolveCalleeByArity(facade, getterName, 1) ?: resolveCalleeByArity(facade, name, 1)
+                ?: return placeholder("k2-callable-ref-property-no-getter", expression)
+            return methodReference(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()),
+                getter, functionalType, expression)
+        }
+
+        val scopeAndOwner: Pair<Expression, TypeInfo>? = when {
+            // `::p` with no receiver: a top-level property lives on the file facade, a member is implicitly `this`
+            receiver == null -> if (property.callableId?.classId == null) {
+                sourceFacade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
+            } else method.typeInfo().let { self(method) to it }
+            receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
+            else -> explicitReceiverScope(receiver, method, locals)
+        }
+        val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
+        val getter = resolveAccessor(owner, name)
+            ?: return placeholder("k2-callable-ref-property-no-getter", expression)
+        return methodReference(scope, getter, functionalType, expression)
     }
 
     private fun methodReference(scope: Expression, callee: MethodInfo, functionalType: ParameterizedType,
