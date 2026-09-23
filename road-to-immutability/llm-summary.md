@@ -51,14 +51,22 @@ Rules (each level requires the previous):
 - **Rule 1 (→ level 2)**: no field's content is modified by the type's own methods.
 - **Rule 2 (→ level 2)**: every field is private OR of (at least hc-)immutable type.
 - **Level 2 vs 3 (hidden content)**: `@Immutable` (hc-free, level 3) additionally requires that every
-  instance field's type is itself deeply immutable (level 3), the type is not extensible, and
-  independence holds. A private, never-modified, never-exposed field of a mutable type is *hidden
+  instance field's type is itself deeply immutable (level 3) -- INHERITED instance fields included, of source
+  and jar superclasses alike (a superclass's own hc verdict is not consulted: `Record`/`Enum` are hc because
+  extensible, which is not content) -- the type is not extensible, and independence holds. A private, never-modified, never-exposed field of a mutable type is *hidden
   content*, not absence of content → level 2, not 3. Static fields do NOT count toward instance
   immutability (they belong to the class).
 - Exposure matters: a type that stores externally supplied mutable objects (dependent constructor) or
   returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
-  breaking).
+  breaking). **Superclasses and jar/hints supertypes cap by their verdict; SOURCE INTERFACES are WALKED**
+  (2026-09-23, `TypeImmutableAnalyzerImpl`, gate `INTERFACEWALK=0` for A/B): an interface's FINAL_FIELDS comes from
+  its abstract methods, which fold over ALL implementations, so passing it down let a stateful sibling cap every
+  other implementation (`io.vavr.collection.Iterator` is an `io.vavr.Value`). Instead, each abstract method the type
+  inherits that nothing on its path overrides is folded over the implementations in the type's CONE only; its own
+  verdict is kept when it is contracted or when the cone has no implementation. The type-immutability rule reads
+  only own fields + own abstract methods (+ this walk); concrete/default methods count through the fields they
+  modify. After-mark (eventual) mode keeps the verdict rule. Independence still takes the min over supertypes.
 
 ## Eventual immutability — COMPUTED
 

@@ -635,12 +635,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     .forEach(d -> System.out.println("MODREACH_REVERSE " + d));
                         }
                         // MODREACH_EXPLAIN=<substring>: print the BFS chain (node <- cause <- ... <- seed)
-                        // for every reached method receiver whose FQN contains the substring
+                        // for every reached node (method receiver, parameter, FIELD) whose FQN contains the substring
                         String explain = System.getenv("MODREACH_EXPLAIN");
                         if (explain != null) {
                             for (Object node : report.reached()) {
-                                if (node instanceof io.codelaser.maddi.cst.api.info.MethodInfo rm
-                                    && rm.fullyQualifiedName().contains(explain)) {
+                                if (node instanceof io.codelaser.maddi.cst.api.info.Info info
+                                    && info.fullyQualifiedName().contains(explain)) {
                                     System.out.println("MODREACH_EXPLAIN " + report.explain(node));
                                 }
                             }
