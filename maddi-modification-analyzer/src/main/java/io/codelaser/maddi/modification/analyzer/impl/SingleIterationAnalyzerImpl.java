@@ -148,16 +148,17 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         // because the dependence cap in computeImmutableType would otherwise fire before the AfterMark relaxation
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(runtime, configuration, propertiesChanged, messages,
                 eventualCluster);
+        // ONE resolution, shared: the materializer seeds from it and the abstract-method folds skip on it, so a
+        // disagreement between the two would mean a contract seeded and then folded over (or the reverse). The
+        // immutable analyzer's interface walk honours it too: a contracted abstract method is not re-folded.
+        ContractResolution contractResolution = new ContractResolution(runtime);
+        this.contractResolution = contractResolution;
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
-                propertiesChanged, messages, eventualCluster);
+                propertiesChanged, messages, eventualCluster, contractResolution);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
         staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);
-        // ONE resolution, shared: the materializer seeds from it and the abstract-method folds skip on it, so a
-        // disagreement between the two would mean a contract seeded and then folded over (or the reverse).
-        ContractResolution contractResolution = new ContractResolution(runtime);
-        this.contractResolution = contractResolution;
         sourceContractMaterializer = new SourceContractMaterializer(runtime, propertiesChanged, contractResolution);
         dynamicImmutabilityInference = new DynamicImmutabilityInference(propertiesChanged);
         abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged, messages,
