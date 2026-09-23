@@ -266,7 +266,9 @@ public class TestShallow extends CommonTest {
 
         MethodInfo iterator = iterable.findUniqueMethod("iterator", 0);
         MethodLinkedVariables mlvIterator = linkComputer.doMethod(iterator);
-        assertEquals("[] --> iterator.§ts⊆this.§ts,iterator.§m☷this.§m", mlvIterator.toString());
+        // Iterable is @ImmutableContainer(hc = true) since f8e855ce1: it has no §m, so the mutable Iterator it
+        // returns shares no modification area with it
+        assertEquals("[] --> iterator.§ts⊆this.§ts", mlvIterator.toString());
     }
 
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
