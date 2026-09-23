@@ -1111,6 +1111,20 @@ detekt: `k2-unresolved-call` 304 → 192, `k2-unresolved-ref` 387 → 303; total
 **359 → 297** -- for 62 rules the `super` call was the only hole. coil 323 → 316. No new site, no verdict moved
 (665 immutable types).
 
+### 7.31 Members of a primitive — detekt 849 → 755
+
+`i.toString()` (72 on detekt), `b.not()` (17), `i.toLong()`: a member of `kotlin.Int` or `kotlin.Boolean` on a
+receiver the CST types as `int`/`boolean`, where no Java type declares it. Each now becomes the Java a human writes,
+which is also what kotlinc compiles -- read with javap on 2.4.0, not recalled: `String.valueOf(i)`, `!b`, a primitive
+conversion (`i2l`, `i2d`, `i2c`), `Integer.hashCode(i)`, and `i + j` for `i.plus(j)`. Two differ from kotlinc on
+purpose, because the question is what the equivalent Java would be analysed as: `i.compareTo(j)` is
+`Integer.compare(i, j)` (kotlinc: `Intrinsics.compare`), `i.equals(j)` is `i == j` (kotlinc boxes both sides).
+Overloads are matched on the EXACT parameter type, so that no widening can bind `valueOf(char[])`; a mixed-type call
+(`i.compareTo(l)`) keeps its placeholder. A nullable receiver is boxed and keeps binding to the box's own member.
+
+detekt: `toString` 72 → 0, `not` 17 → 2, `toLong` 4 → 0; `k2-unresolved-call` 192 → 98; total **849 → 755**
+(types 297 → 288). coil 316 → 310. No new site, no verdict moved.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1136,8 +1150,8 @@ detekt: `k2-unresolved-call` 304 → 192, `k2-unresolved-ref` 387 → 303; total
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29) and `super` dispatch (§7.30) have taken
-   detekt 4,701 → 849 and coil 367 → 316 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30) and primitive members (§7.31)
+   have taken detekt 4,701 → 755 and coil 367 → 310 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

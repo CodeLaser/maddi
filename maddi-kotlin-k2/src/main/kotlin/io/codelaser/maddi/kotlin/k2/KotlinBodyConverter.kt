@@ -168,6 +168,9 @@ internal interface MemberConverter {
  * (and this class reaching `KotlinTypeMapper` the same way). Member-building flows back through the
  * injected [MemberConverter], breaking the bodies<->declarations cycle.
  */
+private val PRIMITIVE_CONVERSIONS =
+    setOf("toInt", "toLong", "toDouble", "toFloat", "toShort", "toByte", "toChar")
+
 internal class KotlinBodyConverter(
     private val runtime: Runtime,
     private val infoByFqn: InfoByFqn,
@@ -1615,6 +1618,56 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(listOf()).setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
 
+    /**
+     * A member of a Kotlin primitive, as the Java a human writes for it -- and as kotlinc compiles it, measured with
+     * javap on 2.4.0, except where noted: `i.toString()` is `String.valueOf(i)`, `b.not()` is `!b`, `i.toLong()` a
+     * primitive conversion (`i2l`), `i.hashCode()` `Integer.hashCode(i)`, `i.compareTo(j)` `Integer.compare(i, j)`
+     * (kotlinc: `Intrinsics.compare`), `i.equals(j)` `i == j` (kotlinc boxes both), and `i.plus(j)` `i + j`.
+     * Overloads are chosen by the EXACT parameter type, so that no widening can pick `valueOf(char[])`; a shape not
+     * listed here, or a mixed-type one (`i.compareTo(l)`), returns null and keeps its placeholder.
+     */
+    private fun KaSession.primitiveMember(name: String, receiver: Expression, arguments: List<Expression>,
+                                          call: KtCallExpression, method: MethodInfo): Expression? {
+        val type = receiver.parameterizedType()
+        if (!type.isPrimitiveExcludingVoid || type.arrays() > 0) return null
+        val primitive = type.typeInfo() ?: return null
+        val resultType = call.expressionType?.let { mapType(it, method.typeInfo()) }
+        val argument = arguments.singleOrNull()
+        val sameType = argument != null && argument.parameterizedType() == type
+        fun static(owner: TypeInfo, methodName: String, args: List<Expression>): Expression? {
+            val callee = members(owner).methods().firstOrNull { m ->
+                m.isStatic && m.name() == methodName && m.parameters().size == args.size &&
+                    m.parameters().all { it.parameterizedType() == type }
+            } ?: return null
+            return runtime.newMethodCallBuilder()
+                .setObject(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()))
+                .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(args)
+                .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        }
+        fun binary(operator: MethodInfo, precedence: io.codelaser.maddi.cst.api.expression.Precedence): Expression =
+            runtime.newBinaryOperatorBuilder().setLhs(receiver).setRhs(argument).setOperator(operator)
+                .setPrecedence(precedence).setParameterizedType(resultType ?: operator.returnType())
+                .setSource(runtime.noSource()).build()
+        return when {
+            arguments.isEmpty() && name == "toString" -> static(runtime.stringTypeInfo(), "valueOf", listOf(receiver))
+            arguments.isEmpty() && name == "not" && type.isBooleanOrBoxedBoolean -> logicalNot(receiver)
+            arguments.isEmpty() && name == "hashCode" -> static(runtime.boxed(primitive), "hashCode", listOf(receiver))
+            arguments.isEmpty() && name in PRIMITIVE_CONVERSIONS && resultType?.isPrimitiveExcludingVoid == true ->
+                if (resultType == type) receiver else runtime.newCast(receiver, resultType)
+            sameType && name == "compareTo" -> static(runtime.boxed(primitive), "compare", listOf(receiver, argument!!))
+            sameType && name == "equals" -> binary(runtime.equalsOperatorInt(), runtime.precedenceEquality())
+            argument != null && receiver.isNumeric && argument.isNumeric -> when (name) {
+                "plus" -> binary(runtime.plusOperatorInt(), runtime.precedenceAdditive())
+                "minus" -> binary(runtime.minusOperatorInt(), runtime.precedenceAdditive())
+                "times" -> binary(runtime.multiplyOperatorInt(), runtime.precedenceMultiplicative())
+                "div" -> binary(runtime.divideOperatorInt(), runtime.precedenceMultiplicative())
+                "rem" -> binary(runtime.remainderOperatorInt(), runtime.precedenceMultiplicative())
+                else -> null
+            }
+            else -> null
+        }
+    }
+
     /** `!e` as a boolean UnaryOperator. */
     private fun logicalNot(e: Expression): Expression =
         runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(), e, runtime.precedenceUnary())
@@ -2038,6 +2091,9 @@ internal class KotlinBodyConverter(
         val contexts = contextArguments(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.contextArguments,
             method, locals) ?: return runtime.newEmptyExpression("k2-context-argument-unresolved:$name")
         val arguments = contexts + (ordered?.expressions ?: valueArgs)
+
+        // a member of a primitive (`i.toString()`, `b.not()`, `i.toLong()`): no Java type declares it
+        if (receiver != null) primitiveMember(name, receiver.first, arguments, call, method)?.let { return it }
 
         // a SAM constructor, `Runnable { … }`: what it makes IS the lambda, whose anonymous type implements the
         // interface -- so the lambda is the expression, carrying that interface rather than its Kotlin function type.
