@@ -971,6 +971,40 @@ order that dropped it (`URL` loaded before a subclass of `URLStreamHandler`, `Fo
 ⭐ This retires part of §7.5b's reading: the "members of library types" family was in large part not K2 knowing
 something the CST could not express, but the CST's library types being EMPTY at the moment of conversion.
 
+### 7.26 Members of an implicit receiver — detekt 3,434 → 2,256
+
+The largest remaining families were calls and reads with NO written receiver whose receiver is not the class's own
+`this`: `append("# " + t)` inside `fun Md.h1()`, `configPaths` inside `with(configSpec) { … }`, the assignments inside
+a builder lambda. The name-based lookup searched the enclosing class (and a field of the extension receiver), so a
+method, or a property that is only an accessor on the JVM, fell through to a placeholder. K2 names the receiver
+(`dispatchReceiver` of the resolved call or variable access); the converter now maps it through the same routine
+the implicit extension receiver already used (class `this`, an enclosing class's `this`, or the `$receiver` of the
+lambda / extension function whose type K2 names) and looks the member up there, field before accessor, exactly as a
+qualified `obj.x` is converted. The class's own `this` stays on the old path, unchanged.
+
+| detekt family | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 1,796 | 1,159 |
+| `k2-unresolved-ref` | 1,040 | 540 |
+| `k2-assign-target` | 40 | 3 |
+| **total** | **3,434** | **2,256** (types holding one 579 → 434, members 1,609 → 864) |
+
+coil 362 → 335. 15 new distinct sites are reveals, none in a previously clean member (e.g. a top-level property
+of ANOTHER file, `LIST_ITEM_SPACING`, inside a `debug { }` lambda that used to be swallowed whole — the same gap as
+`NL`, next on the list). Immutable types 668 → 667, three types changed, none of them holding a changed site
+itself: `dev.detekt.core.Analyzer` @FinalFields → @Immutable(hc=true), and `AnalysisFacade` plus its interface
+`Detekt` @Immutable(hc=true) → @FinalFields. Each is transitive, from code the analysis did not read before
+(`EnvironmentFacade`'s init lost nine assign-target holes; `withSettings`, `loadConfiguration`, `extractUris` now
+read `loggingSpec`, `configSpec`, `resources` on the implicit receiver) — the verdict the Java spelling of the same
+code would get, which is this document's criterion, not a judgement of the engine's precision there.
+`ImplicitReceiverTest` fails four of its six without the change; the lambda-receiver CALL was already converted
+(the lambda's `$receiver` is in scope), and is kept as a guard.
+
+Still open in this family, from a probe of shapes: a primitive receiver (`i.toString()`, 72 on detekt),
+`b.not()`, a member extension through an implicit dispatch receiver (`"x".ext()` inside `analyze(s) { }`, ~70 on
+detekt's `resolveToCall`/`resolveToSymbol`/`isSubtypeOf`), `x?.own()` on a class-level member extension,
+`arrayOf`, invoking a function type with receiver (`s.block()`), and a top-level property of another file.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -995,7 +1029,8 @@ something the CST could not express, but the CST's library types being EMPTY at 
    ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
-   work, and one the site dump can drive.
+   work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) have
+   taken detekt 4,701 → 2,256 and coil 367 → 335 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

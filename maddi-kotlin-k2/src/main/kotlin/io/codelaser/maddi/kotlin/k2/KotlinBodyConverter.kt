@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.expression.NullConstant
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.variable.This
 import io.codelaser.maddi.cst.api.info.FieldInfo
 import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.MethodModifier
@@ -51,8 +52,10 @@ import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.resolution.KaImplicitReceiverValue
+import org.jetbrains.kotlin.analysis.api.resolution.KaReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.KaSmartCastedReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
+import org.jetbrains.kotlin.analysis.api.resolution.successfulVariableAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
@@ -1155,6 +1158,7 @@ internal class KotlinBodyConverter(
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
+                ?: implicitMemberAccess(expression, method, locals)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
@@ -2032,6 +2036,11 @@ internal class KotlinBodyConverter(
                 }
         }
 
+        // a member called on an implicit receiver that is not this class's own `this`: the receiver of the extension
+        // function the call is written in (`append(…)` inside `fun Md.h1()` is `$receiver.append(…)`), or an
+        // enclosing receiver. K2 names the receiver; the name-based routes above could only guess at it.
+        if (receiver == null && defaults == null) implicitDispatchCall(call, name, arguments, method, locals)?.let { return it }
+
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
             ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
@@ -2071,9 +2080,17 @@ internal class KotlinBodyConverter(
      */
     @OptIn(KaExperimentalApi::class)
     private fun KaSession.implicitExtensionReceiver(call: KtCallExpression, method: MethodInfo,
-                                                    locals: Map<String, Variable>): Expression? {
-        val written = call.resolveToCall()?.singleFunctionCallOrNull()?.extensionReceiver ?: return null
-        val implicit = generateSequence(written) { (it as? KaSmartCastedReceiverValue)?.original }
+                                                    locals: Map<String, Variable>): Expression? =
+        implicitReceiverValue(call.resolveToCall()?.singleFunctionCallOrNull()?.extensionReceiver, method, locals)
+
+    /**
+     * The CST value an IMPLICIT receiver stands for -- `this` of the class or of one enclosing it, or the `$receiver`
+     * of the lambda or extension function K2 says it is -- or null when [value] is not implicit, or names a receiver
+     * this converter cannot express (then the caller keeps its placeholder rather than picking the wrong object).
+     */
+    private fun KaSession.implicitReceiverValue(value: KaReceiverValue?, method: MethodInfo,
+                                                locals: Map<String, Variable>): Expression? {
+        val implicit = generateSequence(value) { (it as? KaSmartCastedReceiverValue)?.original }
             .filterIsInstance<KaImplicitReceiverValue>().firstOrNull() ?: return null
         return when (val symbol = implicit.symbol) {
             // `this` of the class the call is written in, or of one enclosing it
@@ -2089,6 +2106,44 @@ internal class KotlinBodyConverter(
             }
             else -> null
         }
+    }
+
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.implicitDispatchCall(call: KtCallExpression, name: String, arguments: List<Expression>,
+                                               method: MethodInfo, locals: Map<String, Variable>): Expression? {
+        val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
+        val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+        // this class's own `this` is the fallback's business below, unchanged
+        if (obj is VariableExpression && obj.variable() is This && obj.parameterizedType().typeInfo() == method.typeInfo()) {
+            return null
+        }
+        val type = obj.parameterizedType().typeInfo() ?: return null
+        val callee = resolveCallee(members(type), name, arguments, callReturnFqn(call, method)) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(obj).setObjectIsImplicit(true)
+            .setMethodInfo(callee).setParameterExpressions(arguments)
+            .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A bare name that is a member of an implicit receiver the name-based lookup cannot see: `length` inside
+     * `fun String.f()` is `$receiver.length()`, a METHOD on the JVM, where [resolveReference] only looks for a field
+     * of the extension receiver. K2 says which receiver and which member; the member is the field when the type has
+     * one of that name, else its accessor, exactly as a qualified `obj.x` is converted.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.implicitMemberAccess(expression: KtNameReferenceExpression, method: MethodInfo,
+                                               locals: Map<String, Variable>): Expression? {
+        val access = expression.resolveToCall()?.successfulVariableAccessCall() ?: return null
+        val obj = implicitReceiverValue(access.partiallyAppliedSymbol.dispatchReceiver, method, locals) ?: return null
+        val type = obj.parameterizedType().typeInfo()?.let { members(it) } ?: return null
+        val name = expression.getReferencedName()
+        type.fields().firstOrNull { it.name() == name }?.let { field ->
+            return runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(field, obj, field.type())).setSource(runtime.noSource()).build()
+        }
+        return resolveAccessor(type, name)?.let { accessorCall(obj, it) }
     }
 
     /**
