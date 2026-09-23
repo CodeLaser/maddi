@@ -78,7 +78,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         if (currentImmutable.isImmutable()) {
             return; // nothing to be gained
         }
-        Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
+        // rule 3 is read with self-referencing fields left out (TypeIndependentAnalyzer.independentIgnoringSelfFields):
+        // the PUBLISHED independence grades such a field dependent until this very verdict exists
+        Independent conditional = typeIndependentAnalyzer.independentIgnoringSelfFields(typeInfo, activateCycleBreaking);
+        Independent independent = conditional != null ? conditional
+                : typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking, AfterMark.NONE);
         if (immutable != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), IMMUTABLE_TYPE, immutable, typeInfo)) {
@@ -372,18 +376,22 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
     }
 
     /*
-    Every instance field, INHERITED ones included: a superclass's field is this object's content as much as an own
-    one. Checking own fields only let a field-less final subclass of an @Immutable(hc=true) class come out hc-free
+    Every field, static and instance alike (road to immutability 050: "the definitions make no distinction between
+    static and instance fields"; until 2026-09-23 statics were skipped here, "per spec", which misread it), and
+    INHERITED ones included: a superclass's field is this object's content as much as an own one. Checking own fields only let a field-less final subclass of an @Immutable(hc=true) class come out hc-free
     (Guava's Synchronized.SynchronizedTable, inheriting 'final Object delegate'; TestInheritedFieldHiddenContent).
     A jar superclass is judged the same way, by its instance fields, NOT by its verdict: java.lang.Record and
     java.lang.Enum are @Immutable(hc=true) because they are extensible, which is not content -- Record has no instance
     fields and Enum's are a String and an int, so records and enums stay hc-free.
+    A field of the type being computed ITSELF is skipped: it adds no content the type does not already have, and
+    reading it would make this verdict wait on itself (TestStaticAndSelfFields). "Itself" is typeInfo, not the
+    field's owner: an inherited 'Base parent' in 'Sub extends Base' allows hidden content (Base is extensible).
      */
     private Boolean instanceFieldTypesDeeplyImmutable(TypeInfo typeInfo) {
         boolean undecided = false;
         for (TypeInfo type = typeInfo; type != null && !type.isJavaLangObject(); type = parentOf(type)) {
             for (FieldInfo fieldInfo : type.fields()) {
-                if (fieldInfo.isStatic()) continue; // instance content only; static state belongs to the class
+                if (typeInfo.equals(fieldInfo.type().bestTypeInfo())) continue; // self-reference
                 Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                 if (immutable == null) {
                     undecided = true;
@@ -458,6 +466,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
 
         Boolean isImmutable = true;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
+            // a SELF-REFERENCING field (declared type = this type) is skipped for rules 1 and 2 (rule 0, its
+            // assignability, is checked in computeImmutableType0 and is not skipped): whatever modifies its content
+            // modifies one of this type's own fields, which this loop checks anyway -- other.g.add(..) is recorded
+            // on g (TestStaticAndSelfFields.Cell) -- and "is this type immutable" is the question being answered
+            if (!isNotSelf(fieldInfo)) continue;
             if (!fieldInfo.access().isPrivate()) {
                 // EXPERIMENTAL (EVENTUALCLUSTER): the privacy rule reads the field type's PLAIN immutability,
                 // which held a protected-final field of eventual type (BinaryOperatorImpl.lhs and its four
@@ -473,7 +486,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                                              && afterMark.fields().contains(fieldInfo)
                                              && fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()
                                              && fieldTypeCommits(typeInfo, fieldInfo);
-                if (!committedAfterMark && isNotSelf(fieldInfo)) {
+                if (!committedAfterMark) {
                     Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                     if (immutable == null) {
                         isImmutable = null;
