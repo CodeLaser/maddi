@@ -189,6 +189,19 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return null;
     }
 
+    @Override
+    public TypeInfo typeWithMembers(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        TypeInfo typeInfo = type(fullyQualifiedName, sourceSetOfRequest);
+        if (typeInfo == null || typeInfo.hasBeenInspected() || lazyLoader == null) return typeInfo;
+        // the loader completes a type it finds registered (ScanCompilationUnits.loadCompiledTypeOrNull, LoadMode
+        // COMPLETE) and returns the same instance; same monitor as type(), for the same javac thread-hostility
+        synchronized (this) {
+            if (typeInfo.hasBeenInspected()) return typeInfo;
+            TypeInfo completed = lazyLoader.apply(fullyQualifiedName, sourceSetOfRequest);
+            return completed != null ? completed : typeInfo;
+        }
+    }
+
     /** @deprecated renamed to {@link #type(String, SourceSet)}; kept so existing callers keep compiling. */
     @Deprecated
     @Override

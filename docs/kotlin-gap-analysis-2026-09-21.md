@@ -891,6 +891,271 @@ coil 367 unchanged (it has none). Small, because the corpora hardly use the shap
 family's remainder on detekt is **37** `k2-callable-ref-unresolved` sites (`toRegex` 18, `pathGlobToRegex` 8),
 which are the next target in this family, not property references.
 
+### 7.24 Annotations — converted, placed where Java sees them, and the engine defect they exposed
+
+§4's "largest single hole" is closed: annotations on Kotlin declarations are converted (`KotlinAnnotations.kt`) in
+the shapes the Java class-file reader builds (`ClassSymbolScanner.annotationExpression`) — constants, `ArrayInitializer`
+of `IntConstant`/`StringConstant`, enum entries as field references, class literals, nested annotations — which are
+the shapes the contract reader casts to.
+
+⭐ **Placement is K2's, measured before it was written.** K2 already applies Kotlin's use-site rules per symbol:
+`@get:`/`@set:`/`@field:`/`@setparam:` sit on the getter/setter/backing-field/setter-parameter symbol, a Java
+annotation on a class-body property on its backing field, a no-target one on a constructor `val` on the parameter
+and the field, and a `PROPERTY`-only one on the property alone, which has no JVM element and so lands on no CST
+element — as with kotlinc. So each CST element simply copies the annotations of the symbol it is built from
+(`AnnotationPlacementTest`, each case asserting the neighbours it must NOT land on too).
+
+⚠ Library enums had no constants in a scan without a class-file loader (`KotlinInspector`, the pure-Kotlin path):
+K2 models a Java enum's constants as enum entries too, which `loadLibraryMembers` skipped. They are now fields.
+
+**Verdict level:** `TestKotlinContractsVsJava` — the same contract annotations on a Kotlin interface and on its
+Java twin, with callers, and an unannotated twin per row so a contract that changes nothing fails the test. All
+rows agree across the two languages; `@Modified` on a parameter and `@NotModified` on a method move the verdicts.
+Corpora unchanged: detekt 4,701 / coil 367 placeholders, ratchets green.
+
+⛔⛔ **The Java-engine defect it found.** On both sides, a `@NotModified` parameter of an abstract method made the
+CALLER's argument *modified*, where leaving the annotation out did not. Cause, traced with `RETAINTRACE`: the
+abstract method's shallow link summary is computed while the parameter is undecided (read as dependent,
+`b.§m ≡ this*.§m`); once it is decided `@Independent` the recomputed summary is `[-]`, and `methodLinks`
+retention keeps the RICHER of two equal-keyed values — equal because the contract kept `b` out of the modified set
+from the start. Without the annotation the modified set shrinks, the values compare unequal, and the fresh one wins.
+
+A latest-wins fix for abstract-method summaries works (`TestAbstractSummaryFollowsDecisions`; fernflower 0 verdict
+changes, clone-bench pins unchanged) but on guava moves 59 elements, all optimistic: ~half real corrections
+(`Hasher.putBytes`' bytes, `BaseEncoding.encode`'s input), ~20 unsound (`ForwardingList.add`, `Maps.EntrySet.clear`,
+…). Those reach their state through an abstract accessor (`delegate()`), and
+`AbstractMethodAnalyzerImpl.doMethodWithoutImplementation` decides an UNIMPLEMENTED abstract method `@Independent`
+— which the stale summary had been masking. A second defect sits beside it: a `@Dependent` abstract accessor whose
+summary has no return link (`Fwd.add` is non-modifying today, fix or not). **Parked** on branch
+`park/abstract-summary-latest-wins`, waiting on the ws/dsl work on abstract methods without implementations, which
+answers the same question — what "no implementation" means — the other way for non-modification. The defect is
+pinned in `TestKotlinContractsVsJava` as it is.
+
+### 7.25 ⭐ The unresolved references were a class-file-shell defect — detekt 4,701 → 3,434
+
+The 34 `k2-callable-ref-unresolved` sites split, by reading their source, into four shapes: an extension function
+through its type (`String::toRegex` 18, `String::pathGlobToRegex` 8), local functions (5), an extension bound to an
+implicit receiver (3), and `Path::toUri`/`Path::toFile`/`::FqName`, which should simply have resolved.
+
+⛔⛔ **The last group was not about references.** A probe through the mixed pipeline showed `p.toUri()` and
+`URI("x")` failing too: `java.nio.file.Path` and `java.net.URI` reached the Kotlin converter with ZERO members. The
+Java front end registers a type it meets in another type's signature (`File.toPath()` names `Path`) as a SHELL,
+hierarchy only, and completes its shells in a batch when its parse commits. In a mixed project the Kotlin parse runs
+after that commit, and `CompiledTypesManager.type()` hands a registered shell over as it is. `java.util` types are
+preloaded whole, which is why every fixture built on `ArrayList` looked fine.
+
+Fixed without touching the Java front end's behaviour: `CompiledTypesManager.typeWithMembers` completes a shell
+through the existing lazy loader, and the Kotlin converter calls it where members are LOOKED UP (method, constructor
+and field lookups), so a type that is only named stays a shell. Extension references become the facade's static
+method, receiver first (`StringsKt::toRegex` in Java); bound extensions and local functions keep NAMED placeholders
+(`k2-callable-ref-bound-extension`, `-local-function`).
+
+| detekt family | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 2,446 | 1,796 |
+| `k2-unresolved-access` | 864 | 279 |
+| `k2-ctor-unresolved` | 145 | 7 |
+| `k2-callable-ref-unresolved` | 34 | 0 |
+| **total** | **4,701** | **3,434** (types holding one 790 → 579) |
+
+Immutable types 668 and prep isolation 0, both unchanged; coil 367 → 362. ⚠ 92 new distinct sites are REVEALED
+(an unresolved call swallows its arguments); all but one sit in a member that already held a placeholder, and that
+one is itself a reveal of a SILENT drop: `class FindingAssert(…) : AbstractAssert<…>(actual, FindingAssert::class.java)`
+— the super call to a shell (assertj) had no constructor to bind and vanished without a placeholder. ✅ Closed in the
+next commit: the super call's target is completed like any other member lookup, and one that still cannot bind is a
+NAMED placeholder statement (`k2-super-call-unresolved:<type>`, `k2-super-call-no-parent`) rather than nothing.
+Whether it had bound was ORDER-dependent — a body call resolving up the hierarchy completed the parent first — so
+detekt and coil show no change (0 such placeholders, counts identical), and `TestLibraryShellMembers` forces the
+order that dropped it (`URL` loaded before a subclass of `URLStreamHandler`, `Format` before one of `ParsePosition`).
+
+⭐ This retires part of §7.5b's reading: the "members of library types" family was in large part not K2 knowing
+something the CST could not express, but the CST's library types being EMPTY at the moment of conversion.
+
+### 7.26 Members of an implicit receiver — detekt 3,434 → 2,256
+
+The largest remaining families were calls and reads with NO written receiver whose receiver is not the class's own
+`this`: `append("# " + t)` inside `fun Md.h1()`, `configPaths` inside `with(configSpec) { … }`, the assignments inside
+a builder lambda. The name-based lookup searched the enclosing class (and a field of the extension receiver), so a
+method, or a property that is only an accessor on the JVM, fell through to a placeholder. K2 names the receiver
+(`dispatchReceiver` of the resolved call or variable access); the converter now maps it through the same routine
+the implicit extension receiver already used (class `this`, an enclosing class's `this`, or the `$receiver` of the
+lambda / extension function whose type K2 names) and looks the member up there, field before accessor, exactly as a
+qualified `obj.x` is converted. The class's own `this` stays on the old path, unchanged.
+
+| detekt family | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 1,796 | 1,159 |
+| `k2-unresolved-ref` | 1,040 | 540 |
+| `k2-assign-target` | 40 | 3 |
+| **total** | **3,434** | **2,256** (types holding one 579 → 434, members 1,609 → 864) |
+
+coil 362 → 335. 15 new distinct sites are reveals, none in a previously clean member (e.g. a top-level property
+of ANOTHER file, `LIST_ITEM_SPACING`, inside a `debug { }` lambda that used to be swallowed whole — the same gap as
+`NL`, next on the list). Immutable types 668 → 667, three types changed, none of them holding a changed site
+itself: `dev.detekt.core.Analyzer` @FinalFields → @Immutable(hc=true), and `AnalysisFacade` plus its interface
+`Detekt` @Immutable(hc=true) → @FinalFields. Each is transitive, from code the analysis did not read before
+(`EnvironmentFacade`'s init lost nine assign-target holes; `withSettings`, `loadConfiguration`, `extractUris` now
+read `loggingSpec`, `configSpec`, `resources` on the implicit receiver) — the verdict the Java spelling of the same
+code would get, which is this document's criterion, not a judgement of the engine's precision there.
+`ImplicitReceiverTest` fails four of its six without the change; the lambda-receiver CALL was already converted
+(the lambda's `$receiver` is in scope), and is kept as a guard.
+
+Still open in this family, from a probe of shapes: a primitive receiver (`i.toString()`, 72 on detekt),
+`b.not()`, a member extension through an implicit dispatch receiver (`"x".ext()` inside `analyze(s) { }`, ~70 on
+detekt's `resolveToCall`/`resolveToSymbol`/`isSubtypeOf`), `x?.own()` on a class-level member extension,
+`arrayOf`, invoking a function type with receiver (`s.block()`), and a top-level property of another file.
+
+### 7.27 Member extensions — detekt 2,256 → 1,351
+
+A function or property declared as an extension INSIDE a type has two receivers: the extension receiver, written, and
+the dispatch receiver, always implicit. detekt's whole Analysis-API surface is this shape --
+`expression.resolveToCall()` inside `analyze(expression) { }` dispatches on the lambda's `KaSession` -- and the
+converter knew only the facade route of a top-level extension, so every such call or access was a placeholder that
+swallowed its receiver and arguments. On the JVM it is an instance method of the declaring type (or a supertype:
+`resolveToCall` lives on `KaResolver`) with the extension receiver as argument 0; `expression.expressionType` is
+`$receiver.getExpressionType(expression)`. The dispatch receiver is mapped by the same routine as §7.26.
+
+| detekt | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 1,159 | 402 (`resolveToCall` 246 → 59, `resolveToSymbol` 25 → 0, `isSubtypeOf` 16 → 0) |
+| `k2-unresolved-access` | 281 | 85 (`expressionType` 58 → 11) |
+| `k2-unresolved-ref` | 540 | 594 (reveals: bare names inside calls that used to be swallowed whole) |
+| **total** | **2,256** | **1,351** (types 434 → 371, members 864 → 621) |
+
+coil 335 → 327. 22 new distinct sites, none in a previously clean member.
+
+⭐ Parity is measured, not argued: `TestLoweredShapesVsJava` has a `KReport` / `JReport` pair (a member extension
+property, a member extension on `Any`, a modifying member extension on `Box`) and agrees on every method row and the
+type. Its first run disagreed on the type alone -- Kotlin IMMUTABLE, Java IMMUTABLE_HC -- because the Java fixture
+was not `final` and a Kotlin class is; an extensible type has hidden content.
+
+⚠ Immutable types 667 → 665: `dev.detekt.api.OutputReport` and `CheckstyleOutputReport`, @Immutable → @FinalFields.
+The one changed site in the report module is `filePath.invariantSeparatorsPathString.toXmlString()`, now
+`this.toXmlString(…)` with a placeholder argument (`filePath` is a destructured lambda parameter, §7.26's list). Two
+probes rule the class out: a placeholder argument costs a type nothing, and `CheckstyleOutputReport` reproduced
+verbatim with stub interfaces stays @Immutable with and without this change. What did change is
+`HtmlOutputReport` -- its private `FlowContent.renderGroup/renderRule/renderIssue` member extensions are now read --
+and `OutputReport`'s verdict is the engine's aggregate over its implementations, which `CheckstyleOutputReport`
+inherits. That aggregation is the area parked on ws/dsl (abstract-method summaries, defects A and B), not a lowering.
+
+Next in the family: the 59 `resolveToCall` left are MIXED, and only partly sorted -- functions with a context
+parameter (`context(session: KaSession)`, 13 in `SuspendFunSwallowedCancellation` alone; `session` is also 38
+unresolved refs), calls whose extension receiver is implicit too (`analyze(this) { resolveToCall() }`), and calls in
+nested lambdas not yet read. Then destructured lambda parameters (`(filePath, issues) ->`), bare member-extension
+properties (`type`, `returnType`), and §7.26's list.
+
+### 7.28 Which implicit receiver: nesting and smart casts — detekt 1,351 → 1,083
+
+Two ways §7.26's receiver mapping named no receiver, so the member stayed a placeholder:
+
+- **Nesting.** A receiver lambda held its receiver as `$receiver`, the innermost one only, so inside
+  `with(b) { with(session) { size } }` the outer `Box` was out of reach. K2 names the function literal that owns the
+  receiver (`owningCallableSymbol`); each receiver lambda now also keeps its receiver under that literal's key, and
+  the lookup is exact. The innermost-by-type fallback remains, and now also tries the extension function's own
+  `$receiver` (`bodyExpression` inside `with(session) { }` in `fun KtNamedFunction.f()`).
+- **Smart casts.** `when (this) { is KaClassSymbol -> classId }`: the receiver is the declared `KaSymbol`, the member
+  is `KaClassSymbol`'s. The member is looked up on the narrowed type K2 gives the receiver value -- the convention a
+  WRITTEN smart-cast receiver already follows in `convertQualified` (its `expressionType`), no cast node.
+
+| detekt | before | after |
+|---|---|---|
+| `k2-unresolved-ref` | 594 | 425 (`selectorExpression` 28, `classId` 22, `bodyExpression` 18 → 0) |
+| `k2-unresolved-call` | 402 | 304 (`resolveToCall` 59 → 0) |
+| **total** | **1,351** | **1,083** (types 371 → 360, members 621 → 586) |
+
+coil 327 → 323. 4 new distinct sites, none in a previously clean member; no verdict moved (665 immutable types).
+The `resolveToCall`s inside context-parameter functions resolved as well: they sit in `with(session) { … }`, whose
+lambda receiver is typed even though `session` itself is still a placeholder -- the context parameter is the next
+gap, and it is a SIGNATURE gap before it is a call one (`context(session: KaSession) fun f(x)` is `f(KaSession, x)`
+on the JVM, and the scan declares `f(x)`).
+
+### 7.29 Context parameters — a signature gap first, detekt 1,083 → 1,045
+
+`context(session: KaSession) fun f(x: X)` (47 declarations in detekt, none in coil) was scanned as `f(X)`: the context
+parameter was not modelled at all, so every reference to `session` in the body was a placeholder, and the method's
+signature contradicted the class file. kotlinc compiles context parameters as the LEADING parameters, ahead of an
+extension receiver -- measured with javap on kotlinc 2.4.0, not recalled: `top(Session, String)`,
+`ext2(Session, Box, int)`, a context property's getter `getProp(Session, Box)`, `Host.member(Session, String)`.
+Kotlin makes them no implicit receiver (`x.memberExt()` does not compile against one; detekt writes `with(session)`).
+
+Declarations now carry them, in that order, on every signature a receiver is added to: the function, its `$default`,
+its overloads, and computed and custom accessors. A call passes K2's `contextArguments` first on every route -- a
+plain, facade, extension, member-extension call, and an extension property's getter -- each mapped by the implicit-
+receiver routine, which now also names a context parameter passed on (`relay(x) = top(x)` passes relay's own `s`).
+One that cannot be expressed is a named placeholder, `k2-context-argument-unresolved:<name>`.
+
+detekt: `session` 38 → 0; total 1,083 → 1,045 (types 360 → 359, members 566); no new site (compared on member
+names: the members' own signatures changed, which is the point), no verdict moved, coil unchanged at 323.
+`TestLoweredShapesVsJava` gains `ctxModifies` / `ctxCaller`: a modification of the context parameter, and one
+passed on through it, agree with the Java that spells the parameter first.
+
+### 7.30 `super` with two supertypes, a Java parent's default constructor, implicit extension properties — detekt 1,045 → 849
+
+Three defects, each found by probing a corpus site before building anything:
+
+- **`super.visitX(…)` in a class that also implements an interface.** 112 of detekt's 333 `super.visitX(…)` calls
+  were placeholders -- exactly the rules declared `: Rule(…), RequiresAnalysisApi`. With one supertype, `super`'s
+  expression type is the superclass; with two it is not, and the callee was looked up where it is not declared. K2's
+  resolved call names the supertype on its dispatch receiver, and `convertQualified` now uses it for `super`.
+  Reproduced with a two-line fixture before the fix; a library parent (`KtTreeVisitorVoid`) and a Java source parent
+  both bind to the PARENT's method, not to the override (`TestSuperCallTargets`).
+- **`class D : V()` where the Java class `V` declares no constructor** was `k2-super-call-unresolved:V`. The Java
+  front end models the generated default constructor as synthetic (`SYNTHETIC_CONSTRUCTOR`), and the target search
+  skipped every synthetic constructor to avoid kotlinc's overloads -- which are synthetic but of the ordinary
+  constructor type. It now skips only those. Found by the probe, not by a corpus count: neither corpus has the shape.
+- **An extension property on an implicit receiver**, `containingClassOrObject` inside `fun KtProperty.f()`: the bare
+  name looked only at the dispatch receiver. It now converts to the getter a written `recv.prop` does, top-level or
+  member extension (`containingClassOrObject` 18, `mainReference` 14, `expressionType` 11 → 0).
+
+detekt: `k2-unresolved-call` 304 → 192, `k2-unresolved-ref` 387 → 303; total **1,045 → 849**, types holding one
+**359 → 297** -- for 62 rules the `super` call was the only hole. coil 323 → 316. No new site, no verdict moved
+(665 immutable types).
+
+### 7.31 Members of a primitive — detekt 849 → 755
+
+`i.toString()` (72 on detekt), `b.not()` (17), `i.toLong()`: a member of `kotlin.Int` or `kotlin.Boolean` on a
+receiver the CST types as `int`/`boolean`, where no Java type declares it. Each now becomes the Java a human writes,
+which is also what kotlinc compiles -- read with javap on 2.4.0, not recalled: `String.valueOf(i)`, `!b`, a primitive
+conversion (`i2l`, `i2d`, `i2c`), `Integer.hashCode(i)`, and `i + j` for `i.plus(j)`. Two differ from kotlinc on
+purpose, because the question is what the equivalent Java would be analysed as: `i.compareTo(j)` is
+`Integer.compare(i, j)` (kotlinc: `Intrinsics.compare`), `i.equals(j)` is `i == j` (kotlinc boxes both sides).
+Overloads are matched on the EXACT parameter type, so that no widening can bind `valueOf(char[])`; a mixed-type call
+(`i.compareTo(l)`) keeps its placeholder. A nullable receiver is boxed and keeps binding to the box's own member.
+
+detekt: `toString` 72 → 0, `not` 17 → 2, `toLong` 4 → 0; `k2-unresolved-call` 192 → 98; total **849 → 755**
+(types 297 → 288). coil 316 → 310. No new site, no verdict moved.
+
+### 7.32 Top-level properties of another file or a library — detekt 755 → 657
+
+A bare `NL` (detekt's own, another file) or ktlint's `INDENT_SIZE_PROPERTY` (36×, a library) resolved only when the
+property lived on the method's OWN facade. It is now read through its facade as Java reads it: a `const val` or
+`@JvmField` as the static field, anything else through the static getter (`CoreKt.getNL()`,
+`…Kt.getINDENT_SIZE_PROPERTY()`). The library facade builder made getters only for EXTENSION properties; it now makes
+them for plain ones too, and fields for public consts.
+
+Two defects of my own, both caught before commit and both pinned in `TestTopLevelPropertyReads`:
+- the first corpus run **crashed detekt's parse** (NPE in `Access.level()`): a const field computed its access
+  against the library facade's, which is set only at the facade's commit. The facade now computes its access first.
+  The unit fixture had missed it -- its facades held no const next to a called function -- so the regression uses the
+  shape the crash trace named (`DurationKt`: `toDuration` beside the internal const `NANOS_IN_MILLIS`), and fails with
+  the NPE when the fix is reverted.
+- the stdlib's `SequenceBuilderKt` holds PRIVATE consts (`State_Ready`, …): they were being built as public fields. A
+  private top-level property has no getter and no reader outside its file; the facade skips them.
+
+Pinned, pre-existing, and not changed here: a `const` is folded to its VALUE before this route is reached (`MAX` → `3`,
+`PI` → `3.14…`); and a library facade is the multi-file PART class (`IntrinsicsKt__IntrinsicsKt`,
+`MathKt__MathJVMKt`) where Java names the facade (`IntrinsicsKt`) -- the locator every library top-level function
+shares. Also seen: `kotlin.math.sqrt` is `@InlineOnly` (private in bytecode) and stays unresolved.
+
+detekt: `INDENT_SIZE_PROPERTY` 36, `MAX_LINE_LENGTH_PROPERTY` 16, `NL` 3, `LIST_ITEM_SPACING` 2 → 0;
+`k2-unresolved-ref` 303 → 205; total **755 → 657** (types 288 → 233). coil 310 → 305. No new site.
+⚠ Immutable types 665 → **666**: `IgnoreAnnotatedKt` (a facade holding `val ignoreAnnotatedDefaults:
+Array<IgnoreAnnotated> = arrayOf(…)`) @FinalFields → @Immutable, once its one reader (`printRule`'s
+`ignoreAnnotatedDefaults.firstNotNullOfOrNull { … }`) resolved to the getter. NOT explained: a minimal reproduction
+(a top-level array read from another file, with and without the reader, against the Java facade) stays @FinalFields
+on both sides, so the lowering is at parity there; what differs in detekt (an abstract element type whose only value
+is a private object) was not pursued. Recorded, not accepted as understood.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -912,10 +1177,12 @@ which are the next target in this family, not property references.
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
    ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
    keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
-   ✅ **Property references** (§7.23). What remains, in order: **annotations** and **`suspend`**,
+   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
-   work, and one the site dump can drive.
+   work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31) and top-level
+   properties (§7.32) have taken detekt 4,701 → 657 and coil 367 → 305 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

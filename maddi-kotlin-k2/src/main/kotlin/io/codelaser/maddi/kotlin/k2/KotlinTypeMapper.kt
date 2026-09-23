@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -165,6 +166,21 @@ internal class KotlinTypeMapper(
         val symbol = pointer.restoreSymbol() ?: return typeInfo.builder().commit()
         loadLibraryMembers(typeInfo, symbol)
         typeInfo.builder().commit()
+    }
+
+    /**
+     * [type] with its members, when it is a class-file type the Java front end registered as a SHELL (hierarchy only,
+     * named by some other type's signature) and completes only in its own commit batch -- which, in a mixed project,
+     * ran before this front end asks. Without it `p.toUri()` found no method on `java.nio.file.Path` and `URI("x")` no
+     * constructor on `java.net.URI`: both were placeholders, while `java.util` types, preloaded whole, resolved.
+     * Called where members are LOOKED UP, not where a type is mentioned, so a type only named stays a shell.
+     * Not for a type this mapper built itself from K2 symbols (its own shells: [deepen]), nor for a source type.
+     */
+    internal fun withMembers(type: TypeInfo): TypeInfo {
+        if (type.hasBeenInspected() || compiledTypesManager == null) return type
+        val compilationUnit = type.compilationUnit()
+        if (!compilationUnit.externalLibrary() || compilationUnit.sourceSet() == librarySourceSet) return type
+        return compiledTypesManager.typeWithMembers(type.fullyQualifiedName(), compilationUnit.sourceSet()) ?: type
     }
 
     /**
@@ -419,6 +435,9 @@ internal class KotlinTypeMapper(
         val properties = pkg.packageScope.callables
             .filterIsInstance<KaPropertySymbol>()
             .filter { jvmFacadeClassId(it) == classId }
+            // a private top-level property has no getter, and its field (a private `const`, the stdlib's
+            // `SequenceBuilderKt.State_Ready`) no reader outside its file
+            .filter { it.visibility != KaSymbolVisibility.PRIVATE }
             .toList()
         if (functions.isEmpty() && properties.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
@@ -429,11 +448,14 @@ internal class KotlinTypeMapper(
             .setParentClass(runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // now, not at the commit: a field's own computeAccess combines with it (a const field)
         val seen = mutableSetOf<String>() // erased overloads can collide on the same signature
         functions.map { convertLibraryMethod(typeInfo, it, static = true) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        properties.filter { it.receiverParameter == null && (it as? KaKotlinPropertySymbol)?.isConst == true }
+            .forEach { builder.addField(convertLibraryConstField(typeInfo, it)) }
         builder.computeAccess().commit()
         return typeInfo
     }
@@ -444,12 +466,15 @@ internal class KotlinTypeMapper(
      * `val` is a field on the facade, which is a different shape and not this path's business.
      */
     private fun KaSession.convertLibraryPropertyGetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
-        val receiver = property.receiverParameter ?: return null
+        val receiver = property.receiverParameter
+        // a plain top-level `val` has a getter too (`getINDENT_SIZE_PROPERTY()`) -- unless it is a `const`, which
+        // is read as the facade's static field (convertLibraryConstField)
+        if (receiver == null && (property as? KaKotlinPropertySymbol)?.isConst == true) return null
         val name = property.name.asString()
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
         val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
         val builder = method.builder()
-        builder.addParameter("\$receiver", mapType(receiver.returnType, owner))
+        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         builder.setReturnType(mapType(property.returnType, owner))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
@@ -457,6 +482,18 @@ internal class KotlinTypeMapper(
             .addMethodModifier(runtime.methodModifierStatic())
         builder.commitParameters().computeAccess().commit()
         return method
+    }
+
+    /** A top-level library `const val` as the public static final field kotlinc compiles it to. */
+    private fun KaSession.convertLibraryConstField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
+        val field = runtime.newFieldInfo(property.name.asString(), true, mapType(property.returnType, owner), owner)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
+        return field
     }
 
     /**
@@ -558,6 +595,13 @@ internal class KotlinTypeMapper(
             symbol.staticMemberScope.declarations
                 .filterIsInstance<KaJavaFieldSymbol>()
                 .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
+            // an enum's constants, as the class file has them: `public static final` fields of the enum's own type.
+            // K2 models them as enum entries, not fields, for a Java enum as well as a Kotlin one, so without this a
+            // library enum built here had no constants at all -- `ElementType.FIELD` in an annotation argument lost
+            // its pair, and in a body had nothing to resolve to. (A class-file-loaded type never took this path.)
+            symbol.staticMemberScope.declarations
+                .filterIsInstance<KaEnumEntrySymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryEnumEntry(typeInfo, it)) }
             // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
             // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
             val seen = mutableSetOf<String>()
@@ -711,6 +755,17 @@ internal class KotlinTypeMapper(
             .setInitializer(runtime.newEmptyExpression())
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
         builder.computeAccess().commit()
+        return fieldInfo
+    }
+
+    private fun convertLibraryEnumEntry(owner: TypeInfo, entry: KaEnumEntrySymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(entry.name.asString(), true, owner.asParameterizedType(), owner)
+        fieldInfo.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
         return fieldInfo
     }
 

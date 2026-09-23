@@ -147,8 +147,21 @@ public class TestLoweredShapesVsJava {
                 fun propUnbound(b: Box, c: Box): Int = b.pullBox(Box::count, c)
                 fun propLibrary(b: Box, l: java.util.ArrayList<String>): Int = b.pullList(java.util.ArrayList<String>::size, l)
                 fun ternaryArm(b: Box?, c: Box, t: String): Int = if (b == null) c.addAndSize(t) else b.size()
+                // a context parameter is the LEADING JVM parameter, and a caller in the same context passes its own on
+                context(c: Box) fun ctxModifies(b: Box, t: String): Int { c.add(t); return b.size() }
+                context(c: Box) fun ctxCaller(b: Box, t: String): Int = ctxModifies(b, t)
                 fun expressionBodiedTry(b: Box, t: String): Int =
                     try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
+            }
+            // member extensions (detekt's CheckstyleOutputReport): two receivers, the dispatch one implicit. On the
+            // JVM an instance method taking the extension receiver as argument 0 -- JReport, as a human writes it
+            class KReport {
+                val id: String = "x"
+                private val Box.label: String get() = "n" + size()
+                private fun Any.esc(): String = toString().trim()
+                fun render(b: Box): String = b.label.esc() + b.esc()
+                fun touchVia(b: Box, t: String) { b.poke(t) }
+                private fun Box.poke(t: String) { add(t) }
             }
             class KHolder(private val box: Box) {
                 fun touch(t: String) { box.next()?.add(t) }
@@ -220,6 +233,8 @@ public class TestLoweredShapesVsJava {
                 public int propUnbound(Box b, Box c) { return b.pullBox(Box::getCount, c); }
                 public int propLibrary(Box b, java.util.ArrayList<String> l) { return b.pullList(java.util.ArrayList::size, l); }
                 public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
+                public int ctxModifies(Box c, Box b, String t) { c.add(t); return b.size(); }
+                public int ctxCaller(Box c, Box b, String t) { return ctxModifies(c, b, t); }
                 public int expressionBodiedTry(Box b, String t) {
                     try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
                 }
@@ -263,11 +278,28 @@ public class TestLoweredShapesVsJava {
             }
             """;
 
+    private static final String JAVA_REPORT = """
+            package b;
+            import s.Box;
+            public final class JReport { // final: a Kotlin class is, and an extensible type has hidden content
+                private final String id = "x";
+                public String getId() { return id; }
+                private String getLabel(Box b) { return "n" + b.size(); }
+                private String esc(Object o) { return o.toString().trim(); }
+                public String render(Box b) { return esc(getLabel(b)) + esc(b); }
+                public void touchVia(Box b, String t) { poke(b, t); }
+                private void poke(Box b, String t) { b.add(t); }
+            }
+            """;
+
+    /** The KReport/JReport rows: the member extensions and the public methods that call them. */
+    private static final List<String> REPORT_METHODS = List.of("getLabel", "esc", "render", "touchVia", "poke");
+
     private static final List<String> METHODS =
             List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
                     "whenAsValue", "elvisThrow", "expressionBodiedTry",
                     "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine",
-                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary");
+                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary", "ctxModifies", "ctxCaller");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {
@@ -284,6 +316,7 @@ public class TestLoweredShapesVsJava {
         Files.writeString(jDir.resolve("s/ListToInt.java"), LIST_TO_INT);
         Files.writeString(jDir.resolve("b/J.java"), JAVA);
         Files.writeString(jDir.resolve("b/JHolder.java"), JAVA_HOLDER);
+        Files.writeString(jDir.resolve("b/JReport.java"), JAVA_REPORT);
         Files.writeString(jDir.resolve("s/Box.java"), BOX);
 
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -357,6 +390,26 @@ public class TestLoweredShapesVsJava {
         kotlinSide.append("holder ").append(kHolder).append('\n');
         javaSide.append("holder ").append(jHolder).append('\n');
 
+        // member extensions: every row by POSITION (the Kotlin receiver parameter is `$receiver`, the Java one is
+        // named), and the type, which is where detekt's CheckstyleOutputReport moved when these were first read
+        TypeInfo kReport = type(primaryTypes, "a.KReport");
+        TypeInfo jReport = type(primaryTypes, "b.JReport");
+        for (String name : REPORT_METHODS) {
+            MethodInfo km = method(kReport, name);
+            // ⛔ identity: the Kotlin member extension must BE the instance method Java declares, receiver first
+            assertEquals(method(jReport, name).parameters().size(), km.parameters().size(), name + " arity");
+            String kv = positionalVerdict(km);
+            String jv = positionalVerdict(method(jReport, name));
+            report.append(String.format("%-14s kotlin: %-44s java: %s%n", "report." + name, kv, jv));
+            kotlinSide.append("report.").append(name).append(' ').append(kv).append('\n');
+            javaSide.append("report.").append(name).append(' ').append(jv).append('\n');
+        }
+        String kReportType = immutability(kReport);
+        String jReportType = immutability(jReport);
+        report.append(String.format("%-14s kotlin: %-44s java: %s%n", "«report»", kReportType, jReportType));
+        kotlinSide.append("report ").append(kReportType).append('\n');
+        javaSide.append("report ").append(jReportType).append('\n');
+
         LOGGER.info("lowered shape vs hand-written Java:{}", report);
         assertEquals(javaSide.toString(), kotlinSide.toString(),
                 "a lowered Kotlin shape must yield the same verdicts as the Java it claims to produce");
@@ -403,6 +456,24 @@ public class TestLoweredShapesVsJava {
         boolean touchModifies = !method(type, "touch").analysis()
                 .getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
         return "type=" + level + " touch.modifies=" + touchModifies;
+    }
+
+    private static String immutability(TypeInfo type) {
+        Value.Immutable immutable = type.analysis()
+                .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
+        return immutable.isImmutable() ? "IMMUTABLE" : immutable.isAtLeastImmutableHC() ? "IMMUTABLE_HC"
+                : immutable.isFinalFields() ? "FINAL_FIELDS" : "MUTABLE";
+    }
+
+    /** As [verdict], for every parameter by position rather than name. */
+    private static String positionalVerdict(MethodInfo method) {
+        boolean nonModifying = method.analysis()
+                .getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
+        String params = method.parameters().stream()
+                .map(p -> "p" + p.index() + ".unmodified=" + p.analysis()
+                        .getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue())
+                .collect(Collectors.joining(" "));
+        return "nonModifying=" + nonModifying + " " + params;
     }
 
     /** The two sensors a mis-shaped tree actually moves. */
