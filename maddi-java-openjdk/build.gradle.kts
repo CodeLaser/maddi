@@ -33,8 +33,8 @@ dependencies {
 
     testImplementation(project(":maddi-cst-impl"))
 
-    testImplementation("org.projectlombok:lombok:1.18.46")
-    testAnnotationProcessor("org.projectlombok:lombok:1.18.46")
+    testImplementation("org.projectlombok:lombok:1.18.48")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.48")
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.mockito:mockito-core:5.23.0")

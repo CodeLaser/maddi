@@ -154,11 +154,14 @@ public class CommonTest {
                 .map(e -> new InMemoryJavaFileObject("source", e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
+        // --enable-preview is only legal for the release we RUN on, so the default release is the running JDK's,
+        // as in JavaInspectorImpl: a hard-coded 26 failed every fixture the day JDK 27 became the build JDK.
+        String running = "--release=" + java.lang.Runtime.version().feature();
         List<String> options = release > 0 ? List.of("-proc:none", "--release=" + release)
                 : annotationProcessing
                 ? List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
-                "--enable-preview", "--release=26")
-                : List.of("-proc:none", "--enable-preview", "--release=26");
+                "--enable-preview", running)
+                : List.of("-proc:none", "--enable-preview", running);
         return (JavacTask) compiler.getTask(
                 null, fm, diagnostics,
                 options,

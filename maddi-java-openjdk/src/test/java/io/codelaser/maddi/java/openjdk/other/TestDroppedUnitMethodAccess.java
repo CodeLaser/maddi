@@ -53,8 +53,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The result is a committed type holding an uncommitted method whose {@code access()} answers null forever;
  * the first reader to ask {@code isPrivate()} dies (the guard phase) or is isolated (the analysis).
  * <p>
- * This test replays step 3 exactly as the product does it (same predicate, same call), on the drop shape that
- * {@code TestAnnotatedArrayReturnType.unresolvedAnnotation} already establishes.
+ * This test replays step 3 exactly as the product does it (same predicate, same call), on a unit dropped by an
+ * unresolvable annotation.
+ * <p>
+ * ⚠ The annotation carries an unresolvable ARGUMENT, {@code @Missing(Gone.X)}, named nowhere else in the file (an
+ * imported name is stubbed too). A bare {@code @Missing} dropped the unit up to JDK 26; JDK 27's javac gives it
+ * an error type that maddi stubs, the unit survives, and every fixture here stopped testing anything. The
+ * argument still throws at the same point: inside the annotation's conversion, after the member is registered.
  */
 public class TestDroppedUnitMethodAccess extends CommonTest {
 
@@ -65,7 +70,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
             import org.nowhere.Missing;
             public interface Dropped {
                 String first();
-                void go(@Missing String s);
+                void go(@Missing(Gone.X) String s);
                 String last();
                 interface Builder {
                     Builder setName(String name);
@@ -87,7 +92,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
                 String first();
                 interface Builder {
                     Builder setFirst(String first);
-                    Builder setName(@Missing String name);
+                    Builder setName(@Missing(Gone.X) String name);
                     Builder setLast(String last);
                 }
             }
@@ -107,7 +112,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
             import org.nowhere.Gone;
             public interface Dropped {
                 String first();
-                void go(@Missing String s);
+                void go(@Missing(Absent.X) String s);
                 void later(Gone g);
                 interface Builder {
                     Builder setName(String name);
@@ -122,7 +127,7 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
             import org.nowhere.Missing;
             public class Dropped {
                 public final String first = "f";
-                @Missing private final String hidden = "h";
+                @Missing(Gone.X) private final String hidden = "h";
                 public static final int LAST = 3;
                 interface Builder {
                     Builder setName(String name);
@@ -162,7 +167,9 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
     @DisplayName("the scan throws in one method, and completing the type throws in another")
     @Test
     public void commitThrowsToo() {
-        check(COMMIT_THROWS_TOO, false);
+        // ⚠ Up to JDK 26 completing the type threw on 'later(Gone g)'. JDK 27's javac stubs Gone, so the commit
+        // succeeds and every member must come out committed: the failed-commit branch has no fixture on 27.
+        check(COMMIT_THROWS_TOO, java.lang.Runtime.version().feature() >= 27);
     }
 
     private void check(String source, boolean commitSucceeds) {
@@ -176,7 +183,8 @@ public class TestDroppedUnitMethodAccess extends CommonTest {
         // JavaInspectorImpl, "copy into CTM": every loaded, uninspected primary type is committed through the
         // class-symbol scanner, dropped ones included. Same predicate, same call, same tolerance of a failure.
         List<String> commitFailures = new ArrayList<>();
-        for (TypeInfo typeInfo : classSymbolScanner.typesLoaded()) {
+        // a copy, as JavaInspectorImpl takes one: committing can load (stub) more types into the live collection
+        for (TypeInfo typeInfo : List.copyOf(classSymbolScanner.typesLoaded())) {
             if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
                 try {
                     classSymbolScanner.commitType(typeInfo);
