@@ -1144,19 +1144,9 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertExpressionRaw(expression: KtExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression {
         expression.evaluate()?.let { constant ->
-            return when (val value = constant.value) {
-                is Int -> runtime.newInt(value)
-                is Long -> runtime.newLong(value)
-                is Short -> runtime.newShort(value)
-                is Byte -> runtime.newByte(value)
-                is Double -> runtime.newDouble(value)
-                is Float -> runtime.newFloat(value)
-                is Char -> runtime.newChar(value)
-                is Boolean -> runtime.newBoolean(value)
-                is String -> runtime.newStringConstant(value)
-                null -> runtime.nullConstant()
-                else -> runtime.newEmptyExpression("k2-unsupported-constant:${value::class.simpleName}")
-            }
+            val value = constant.value
+            return constantExpression(runtime, value)
+                ?: runtime.newEmptyExpression("k2-unsupported-constant:${value?.let { it::class.simpleName }}")
         }
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)

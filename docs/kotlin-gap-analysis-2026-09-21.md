@@ -891,6 +891,46 @@ coil 367 unchanged (it has none). Small, because the corpora hardly use the shap
 family's remainder on detekt is **37** `k2-callable-ref-unresolved` sites (`toRegex` 18, `pathGlobToRegex` 8),
 which are the next target in this family, not property references.
 
+### 7.24 Annotations — converted, placed where Java sees them, and the engine defect they exposed
+
+§4's "largest single hole" is closed: annotations on Kotlin declarations are converted (`KotlinAnnotations.kt`) in
+the shapes the Java class-file reader builds (`ClassSymbolScanner.annotationExpression`) — constants, `ArrayInitializer`
+of `IntConstant`/`StringConstant`, enum entries as field references, class literals, nested annotations — which are
+the shapes the contract reader casts to.
+
+⭐ **Placement is K2's, measured before it was written.** K2 already applies Kotlin's use-site rules per symbol:
+`@get:`/`@set:`/`@field:`/`@setparam:` sit on the getter/setter/backing-field/setter-parameter symbol, a Java
+annotation on a class-body property on its backing field, a no-target one on a constructor `val` on the parameter
+and the field, and a `PROPERTY`-only one on the property alone, which has no JVM element and so lands on no CST
+element — as with kotlinc. So each CST element simply copies the annotations of the symbol it is built from
+(`AnnotationPlacementTest`, each case asserting the neighbours it must NOT land on too).
+
+⚠ Library enums had no constants in a scan without a class-file loader (`KotlinInspector`, the pure-Kotlin path):
+K2 models a Java enum's constants as enum entries too, which `loadLibraryMembers` skipped. They are now fields.
+
+**Verdict level:** `TestKotlinContractsVsJava` — the same contract annotations on a Kotlin interface and on its
+Java twin, with callers, and an unannotated twin per row so a contract that changes nothing fails the test. All
+rows agree across the two languages; `@Modified` on a parameter and `@NotModified` on a method move the verdicts.
+Corpora unchanged: detekt 4,701 / coil 367 placeholders, ratchets green.
+
+⛔⛔ **The Java-engine defect it found.** On both sides, a `@NotModified` parameter of an abstract method made the
+CALLER's argument *modified*, where leaving the annotation out did not. Cause, traced with `RETAINTRACE`: the
+abstract method's shallow link summary is computed while the parameter is undecided (read as dependent,
+`b.§m ≡ this*.§m`); once it is decided `@Independent` the recomputed summary is `[-]`, and `methodLinks`
+retention keeps the RICHER of two equal-keyed values — equal because the contract kept `b` out of the modified set
+from the start. Without the annotation the modified set shrinks, the values compare unequal, and the fresh one wins.
+
+A latest-wins fix for abstract-method summaries works (`TestAbstractSummaryFollowsDecisions`; fernflower 0 verdict
+changes, clone-bench pins unchanged) but on guava moves 59 elements, all optimistic: ~half real corrections
+(`Hasher.putBytes`' bytes, `BaseEncoding.encode`'s input), ~20 unsound (`ForwardingList.add`, `Maps.EntrySet.clear`,
+…). Those reach their state through an abstract accessor (`delegate()`), and
+`AbstractMethodAnalyzerImpl.doMethodWithoutImplementation` decides an UNIMPLEMENTED abstract method `@Independent`
+— which the stale summary had been masking. A second defect sits beside it: a `@Dependent` abstract accessor whose
+summary has no return link (`Fwd.add` is non-modifying today, fix or not). **Parked** on branch
+`park/abstract-summary-latest-wins`, waiting on the ws/dsl work on abstract methods without implementations, which
+answers the same question — what "no implementation" means — the other way for non-modification. The defect is
+pinned in `TestKotlinContractsVsJava` as it is.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -912,7 +952,7 @@ which are the next target in this family, not property references.
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
    ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
    keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
-   ✅ **Property references** (§7.23). What remains, in order: **annotations** and **`suspend`**,
+   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive.

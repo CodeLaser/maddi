@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -558,6 +559,13 @@ internal class KotlinTypeMapper(
             symbol.staticMemberScope.declarations
                 .filterIsInstance<KaJavaFieldSymbol>()
                 .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
+            // an enum's constants, as the class file has them: `public static final` fields of the enum's own type.
+            // K2 models them as enum entries, not fields, for a Java enum as well as a Kotlin one, so without this a
+            // library enum built here had no constants at all -- `ElementType.FIELD` in an annotation argument lost
+            // its pair, and in a body had nothing to resolve to. (A class-file-loaded type never took this path.)
+            symbol.staticMemberScope.declarations
+                .filterIsInstance<KaEnumEntrySymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryEnumEntry(typeInfo, it)) }
             // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
             // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
             val seen = mutableSetOf<String>()
@@ -711,6 +719,17 @@ internal class KotlinTypeMapper(
             .setInitializer(runtime.newEmptyExpression())
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
         builder.computeAccess().commit()
+        return fieldInfo
+    }
+
+    private fun convertLibraryEnumEntry(owner: TypeInfo, entry: KaEnumEntrySymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(entry.name.asString(), true, owner.asParameterizedType(), owner)
+        fieldInfo.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
         return fieldInfo
     }
 
