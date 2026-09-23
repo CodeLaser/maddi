@@ -153,12 +153,12 @@ public class TestCoilJvmSlice {
                 "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
 
         // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Measured 2026-09-23
-        // (members of a primitive) on the pinned coil slice: 310 placeholders in 65 of 186 types, 162 of 1,451
-        // members. Previous: 316 / 66 / 163 (`super` dispatch, Java default constructors, implicit extension
+        // (top-level properties of another file or a library) on the pinned coil slice: 305 placeholders in 65 of
+        // 186 types, 161 of 1,451 members. Previous: 310 / 65 / 162 (members of a primitive); 316 / 66 / 163 (`super` dispatch, Java default constructors, implicit extension
         // properties); 323 / 66 / 169 (nested and smart-cast
         // implicit receivers); 327 / 67 / 172 (member extensions); 335 / 67 / 177 (implicit-receiver members); 362 / 69 / 192 (class-file shells, extension references); 367 / 69 / 195 at 29e951ea1; 371 / 71 / 197 at fbe6b138a. ⚠ coil is the SECOND corpus for a reason — it and detekt
         // have no overlap in what they call, so a change that helps one and hurts the other shows up here.
-        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 310);
+        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 305);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }
 }

@@ -154,18 +154,20 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-23 (members of a primitive: `i.toString()`, `b.not()`, conversions), on the pinned detekt
-        // checkout, in a --rerun slowTest whose roll-call was read: 755 placeholders in 288 of 1,384 types and 412 of
-        // 7,747 members; 665 immutable types, 0 isolated by prep. Previous: 849 / 297 / 433 (`super` dispatch, Java
+        // Measured 2026-09-23 (a top-level property of another file or a library, by its bare name), on the pinned
+        // detekt checkout, in a --rerun slowTest whose roll-call was read: 657 placeholders in 233 of 1,384 types and
+        // 348 of 7,747 members; 666 immutable types, 0 isolated by prep. Previous: 755 / 288 / 412 (members of a
+        // primitive); 849 / 297 / 433 (`super` dispatch, Java
         // default constructors, implicit extension properties); 1,045 / 359 / 566 (context parameters); 1,083 / 360 / 586 (nested and
         // smart-cast receivers); 1,351 / 371 / 621 (member extensions); 2,256 / 434 / 864 and 667 (implicit-receiver members); 3,434 / 579 / 1,609 and 668 (class-file shells, extension
         // references); 4,701 (property references); 4,704 at 29e951ea1; 4,744 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 755);
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 657);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         // Re-baselined deliberately, twice, each time because more code was READ, never because a lowering was
         // found wrong (gap doc §7.26, §7.27): 668 -> 667 (three transitive moves), 667 -> 665 (OutputReport and
         // CheckstyleOutputReport, through the interface's aggregate over its implementations -- the class alone,
-        // reproduced verbatim, does not move, and the member-extension row of TestLoweredShapesVsJava agrees).
-        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 665);
+        // reproduced verbatim, does not move, and the member-extension row of TestLoweredShapesVsJava agrees);
+        // 665 -> 666 (IgnoreAnnotatedKt up, once its one reader resolved; NOT explained -- §7.32).
+        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 666);
     }
 }

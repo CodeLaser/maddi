@@ -1125,6 +1125,37 @@ Overloads are matched on the EXACT parameter type, so that no widening can bind 
 detekt: `toString` 72 → 0, `not` 17 → 2, `toLong` 4 → 0; `k2-unresolved-call` 192 → 98; total **849 → 755**
 (types 297 → 288). coil 316 → 310. No new site, no verdict moved.
 
+### 7.32 Top-level properties of another file or a library — detekt 755 → 657
+
+A bare `NL` (detekt's own, another file) or ktlint's `INDENT_SIZE_PROPERTY` (36×, a library) resolved only when the
+property lived on the method's OWN facade. It is now read through its facade as Java reads it: a `const val` or
+`@JvmField` as the static field, anything else through the static getter (`CoreKt.getNL()`,
+`…Kt.getINDENT_SIZE_PROPERTY()`). The library facade builder made getters only for EXTENSION properties; it now makes
+them for plain ones too, and fields for public consts.
+
+Two defects of my own, both caught before commit and both pinned in `TestTopLevelPropertyReads`:
+- the first corpus run **crashed detekt's parse** (NPE in `Access.level()`): a const field computed its access
+  against the library facade's, which is set only at the facade's commit. The facade now computes its access first.
+  The unit fixture had missed it -- its facades held no const next to a called function -- so the regression uses the
+  shape the crash trace named (`DurationKt`: `toDuration` beside the internal const `NANOS_IN_MILLIS`), and fails with
+  the NPE when the fix is reverted.
+- the stdlib's `SequenceBuilderKt` holds PRIVATE consts (`State_Ready`, …): they were being built as public fields. A
+  private top-level property has no getter and no reader outside its file; the facade skips them.
+
+Pinned, pre-existing, and not changed here: a `const` is folded to its VALUE before this route is reached (`MAX` → `3`,
+`PI` → `3.14…`); and a library facade is the multi-file PART class (`IntrinsicsKt__IntrinsicsKt`,
+`MathKt__MathJVMKt`) where Java names the facade (`IntrinsicsKt`) -- the locator every library top-level function
+shares. Also seen: `kotlin.math.sqrt` is `@InlineOnly` (private in bytecode) and stays unresolved.
+
+detekt: `INDENT_SIZE_PROPERTY` 36, `MAX_LINE_LENGTH_PROPERTY` 16, `NL` 3, `LIST_ITEM_SPACING` 2 → 0;
+`k2-unresolved-ref` 303 → 205; total **755 → 657** (types 288 → 233). coil 310 → 305. No new site.
+⚠ Immutable types 665 → **666**: `IgnoreAnnotatedKt` (a facade holding `val ignoreAnnotatedDefaults:
+Array<IgnoreAnnotated> = arrayOf(…)`) @FinalFields → @Immutable, once its one reader (`printRule`'s
+`ignoreAnnotatedDefaults.firstNotNullOfOrNull { … }`) resolved to the getter. NOT explained: a minimal reproduction
+(a top-level array read from another file, with and without the reader, against the Java facade) stays @FinalFields
+on both sides, so the lowering is at parity there; what differs in detekt (an abstract element type whose only value
+is a private object) was not pursued. Recorded, not accepted as understood.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1150,8 +1181,8 @@ detekt: `toString` 72 → 0, `not` 17 → 2, `toLong` 4 → 0; `k2-unresolved-ca
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30) and primitive members (§7.31)
-   have taken detekt 4,701 → 755 and coil 367 → 310 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31) and top-level
+   properties (§7.32) have taken detekt 4,701 → 657 and coil 367 → 305 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

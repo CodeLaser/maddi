@@ -435,6 +435,9 @@ internal class KotlinTypeMapper(
         val properties = pkg.packageScope.callables
             .filterIsInstance<KaPropertySymbol>()
             .filter { jvmFacadeClassId(it) == classId }
+            // a private top-level property has no getter, and its field (a private `const`, the stdlib's
+            // `SequenceBuilderKt.State_Ready`) no reader outside its file
+            .filter { it.visibility != KaSymbolVisibility.PRIVATE }
             .toList()
         if (functions.isEmpty() && properties.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
@@ -445,11 +448,14 @@ internal class KotlinTypeMapper(
             .setParentClass(runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // now, not at the commit: a field's own computeAccess combines with it (a const field)
         val seen = mutableSetOf<String>() // erased overloads can collide on the same signature
         functions.map { convertLibraryMethod(typeInfo, it, static = true) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
         properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        properties.filter { it.receiverParameter == null && (it as? KaKotlinPropertySymbol)?.isConst == true }
+            .forEach { builder.addField(convertLibraryConstField(typeInfo, it)) }
         builder.computeAccess().commit()
         return typeInfo
     }
@@ -460,12 +466,15 @@ internal class KotlinTypeMapper(
      * `val` is a field on the facade, which is a different shape and not this path's business.
      */
     private fun KaSession.convertLibraryPropertyGetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
-        val receiver = property.receiverParameter ?: return null
+        val receiver = property.receiverParameter
+        // a plain top-level `val` has a getter too (`getINDENT_SIZE_PROPERTY()`) -- unless it is a `const`, which
+        // is read as the facade's static field (convertLibraryConstField)
+        if (receiver == null && (property as? KaKotlinPropertySymbol)?.isConst == true) return null
         val name = property.name.asString()
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
         val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
         val builder = method.builder()
-        builder.addParameter("\$receiver", mapType(receiver.returnType, owner))
+        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         builder.setReturnType(mapType(property.returnType, owner))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
@@ -473,6 +482,18 @@ internal class KotlinTypeMapper(
             .addMethodModifier(runtime.methodModifierStatic())
         builder.commitParameters().computeAccess().commit()
         return method
+    }
+
+    /** A top-level library `const val` as the public static final field kotlinc compiles it to. */
+    private fun KaSession.convertLibraryConstField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
+        val field = runtime.newFieldInfo(property.name.asString(), true, mapType(property.returnType, owner), owner)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
+        return field
     }
 
     /**

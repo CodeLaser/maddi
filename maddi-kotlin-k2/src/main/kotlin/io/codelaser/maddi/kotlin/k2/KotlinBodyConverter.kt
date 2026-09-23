@@ -1164,6 +1164,7 @@ internal class KotlinBodyConverter(
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
+                ?: topLevelPropertyAccess(expression, method)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
@@ -1600,6 +1601,35 @@ internal class KotlinBodyConverter(
             .setObject(obj).setObjectIsImplicit(true).setMethodInfo(callee)
             .setParameterExpressions(listOf(receiver)).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A top-level property of ANOTHER file or of a library, by its bare name (`NL`, ktlint's `INDENT_SIZE_PROPERTY`):
+     * read through its facade, as Java reads it -- a `const val` or `@JvmField` as the static field, anything else
+     * through the static getter (`CoreKt.getNL()`). Its own file's facade holds the field, and [resolveReference] has
+     * already found it there.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.topLevelPropertyAccess(expression: KtNameReferenceExpression, method: MethodInfo): Expression? {
+        val access = expression.resolveToCall()?.successfulVariableAccessCall() ?: return null
+        val property = access.partiallyAppliedSymbol.symbol as? KaPropertySymbol ?: return null
+        if (property.receiverParameter != null || access.partiallyAppliedSymbol.dispatchReceiver != null) return null
+        if (property.callableId?.classId != null) return null // a member, not top-level
+        val facade = (property.psi as? KtProperty)?.containingKtFile?.let { facadeOf(it) }
+            ?: with(typeMapper) { loadLibraryFacadeForProperty(property) } ?: return null
+        val name = expression.getReferencedName()
+        val asField = (property as? KaKotlinPropertySymbol)?.let { it.isConst || it.backingFieldSymbol?.annotations
+            ?.any { a -> a.classId?.asFqNameString() == "kotlin.jvm.JvmField" } == true } == true
+        val field = facade.fields().firstOrNull { it.name() == name && it.isStatic }
+        if (asField && field != null) return staticFieldRef(field, facade)
+        val getterName = if (name.startsWith("is") && name.getOrNull(2)?.isUpperCase() == true) name
+                         else "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val getter = members(facade).methods().firstOrNull { it.isStatic && it.name() == getterName && it.parameters().isEmpty() }
+            ?: return field?.let { staticFieldRef(it, facade) }
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
+            .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /** The file facade TypeInfo for a source file, as `extensionFacade` computes it for a function. */
