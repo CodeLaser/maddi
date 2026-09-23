@@ -961,8 +961,12 @@ method, receiver first (`StringsKt::toRegex` in Java); bound extensions and loca
 Immutable types 668 and prep isolation 0, both unchanged; coil 367 → 362. ⚠ 92 new distinct sites are REVEALED
 (an unresolved call swallows its arguments); all but one sit in a member that already held a placeholder, and that
 one is itself a reveal of a SILENT drop: `class FindingAssert(…) : AbstractAssert<…>(actual, FindingAssert::class.java)`
-— the super call to a shell (assertj) had no constructor to bind and vanished without a placeholder. That silent
-super-call drop is worth its own look.
+— the super call to a shell (assertj) had no constructor to bind and vanished without a placeholder. ✅ Closed in the
+next commit: the super call's target is completed like any other member lookup, and one that still cannot bind is a
+NAMED placeholder statement (`k2-super-call-unresolved:<type>`, `k2-super-call-no-parent`) rather than nothing.
+Whether it had bound was ORDER-dependent — a body call resolving up the hierarchy completed the parent first — so
+detekt and coil show no change (0 such placeholders, counts identical), and `TestLibraryShellMembers` forces the
+order that dropped it (`URL` loaded before a subclass of `URLStreamHandler`, `Format` before one of `ParsePosition`).
 
 ⭐ This retires part of §7.5b's reading: the "members of library types" family was in large part not K2 knowing
 something the CST could not express, but the CST's library types being EMPTY at the moment of conversion.

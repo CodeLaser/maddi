@@ -88,6 +88,65 @@ public class TestLibraryShellMembers {
         assertEquals(List.of("kotlin.text.StringsKt__RegexExtensionsKt.toRegex(String)"), targets(k, "refExtension"));
     }
 
+    /**
+     * ⛔ The SUPER CALL was the silent one. A Kotlin class whose parent is a class-file shell -- `URLStreamHandler`
+     * becomes one the moment `java.net.URL` is loaded, because URL's constructors name it -- had its header call
+     * `: URLStreamHandler()` dropped: no target constructor on a memberless type, so no statement at all, and no
+     * placeholder either, taking the arguments' reads with it. The census reported such constructors clean. Whether it
+     * happened depended on ORDER: a body call resolving up the hierarchy completed the parent first and the super call
+     * then bound. Here the order is forced: {@code A} and {@code F} load the types whose signatures create the shells.
+     */
+    @Test
+    public void aSuperCallToAClassFileShellIsKept(@TempDir Path tmp) throws Exception {
+        Path kDir = tmp.resolve("src/main/kotlin");
+        Path jDir = tmp.resolve("src/main/java");
+        Files.createDirectories(kDir.resolve("a"));
+        Files.createDirectories(jDir.resolve("s"));
+        Files.writeString(kDir.resolve("a/K.kt"), """
+                package a
+                import java.net.URL
+                import java.net.URLConnection
+                import java.net.URLStreamHandler
+                class A(val u: URL)
+                class H(val base: URL) : URLStreamHandler() {
+                    override fun openConnection(u: URL): URLConnection = base.openConnection()
+                }
+                class F(val f: java.text.Format)
+                class P(start: Int) : java.text.ParsePosition(start + 1)
+                """);
+        Files.writeString(jDir.resolve("s/Trivial.java"), "package s;\npublic class Trivial { public int n; }\n");
+        SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
+                .setSourceDirectories(List.of(jDir)).setUri(jDir.toUri()).build();
+        SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
+                .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri()).setDependencies(List.of(javaSet)).build();
+        MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(new InputConfigurationImpl.Builder()
+                .addSourceSets(javaSet).addSourceSets(kotlinSet).addClassPath(kotlinStdlibJar()).build());
+
+        assertEquals("java.net.URLStreamHandler.<init>()", superCall(parsed, "a.H"));
+        assertEquals("java.text.ParsePosition.<init>(int)", superCall(parsed, "a.P"));
+        // ...with its argument: the reads a dropped call took with it
+        io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci = eci(parsed, "a.P");
+        assertEquals(1, eci.parameterExpressions().size(), eci.toString());
+        PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
+        assertEquals(0, census.getTotal(), census.dumpLines().toString());
+    }
+
+    private static io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci(
+            MixedProjectInspector.Result parsed, String fqn) {
+        TypeInfo t = parsed.getKotlinTypes().stream().filter(x -> fqn.equals(x.fullyQualifiedName())).findFirst()
+                .orElseThrow();
+        MethodInfo ctor = t.constructors().getFirst();
+        return ctor.methodBody().statements().stream()
+                .filter(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation)
+                .map(s -> (io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation) s)
+                .findFirst().orElseThrow(() -> new AssertionError(fqn + ": the super call was dropped, body "
+                                                                  + ctor.methodBody().statements()));
+    }
+
+    private static String superCall(MixedProjectInspector.Result parsed, String fqn) {
+        return eci(parsed, fqn).methodInfo().fullyQualifiedName();
+    }
+
     /** The methods a method's body calls, constructs or references, in order. */
     private static List<String> targets(TypeInfo type, String name) {
         MethodInfo m = type.methods().stream().filter(x -> name.equals(x.name())).findFirst().orElseThrow();

@@ -1244,7 +1244,11 @@ class KotlinScan(
                 true to (superCall as KtCallElement)
             }
         }
-        val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner) ?: return null
+        // ⛔ never `return null` past this point: a dropped call takes its arguments' reads with it and leaves no
+        // placeholder, so the census reports the constructor clean. An unbindable call is a NAMED placeholder instead.
+        val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner)
+            ?.let { typeMapper.withMembers(it) } // a class-file parent may be a shell: see KotlinTypeMapper.withMembers
+            ?: return unboundInvocation("k2-super-call-no-parent")
         val ordered = (call.resolveSymbol() as? KaConstructorSymbol)?.takeIf { s -> s.valueParameters.none { it.isVararg } }
             ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
         val argExpressions = ordered?.expressions ?: call.valueArguments
@@ -1252,7 +1256,7 @@ class KotlinScan(
         // else resolve the target constructor by arity (refine to full overload resolution later)
         val target = ordered?.defaults
             ?: targetType.constructors().firstOrNull { !it.isSynthetic && it.parameters().size == argExpressions.size }
-            ?: return null
+            ?: return unboundInvocation("k2-super-call-unresolved:${targetType.simpleName()}")
         return runtime.newExplicitConstructorInvocationBuilder()
             .setIsSuper(isSuper)
             .setMethodInfo(target)
@@ -1260,6 +1264,12 @@ class KotlinScan(
             .setSource(runtime.newParserSource("0", 0, 0, 0, 0)) // must be the first statement (index "0")
             .build()
     }
+
+    /** A `this(...)`/`super(...)` that cannot be bound, as a placeholder statement in its place (index "0"). */
+    private fun unboundInvocation(kind: String): Statement = runtime.newExpressionAsStatementBuilder()
+        .setExpression(runtime.newEmptyExpression(kind))
+        .setSource(runtime.newParserSource("0", 0, 0, 0, 0))
+        .build()
 
     /**
      * What a constructor's `this(...)`/`super(...)` calls, for a Java stub made before any body exists: the call
