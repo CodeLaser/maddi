@@ -151,11 +151,21 @@ public class TestKotlinAnalysisRoundTrip {
 
         List<Path> written;
         try (Stream<Path> walk = Files.walk(out)) {
-            written = walk.filter(Files::isRegularFile).toList();
+            written = walk.filter(Files::isRegularFile).sorted().toList();
         }
         LOGGER.info("ENCODE wrote {} file(s): {}", written.size(), written);
         assertTrue(written.size() >= 1, "the encode path produced nothing at all");
-        String json = Files.readString(written.getFirst());
+        // ⛔ NAME THE FILE; DO NOT TAKE THE FIRST ONE. The writer emits one file per package -- A.json for the
+        // Kotlin type, B.json for the Java control -- and it writes them in the iteration order of a HashSet of
+        // TypeInfo, which is an identity hash order and therefore differs between JVM runs. `written.getFirst()`
+        // off an unsorted Files.walk was then sometimes B.json, and the assertion below read the Java control
+        // and reported "does not mention the Kotlin type" about a file that was never supposed to. Green for
+        // weeks, red on 2026-09-22 for no change in the code under test. The package is what makes the name:
+        // WriteAnalysisResults capitalizes it, so package `a` is A.json.
+        Path kotlinResults = out.resolve("A.json");
+        assertTrue(Files.isRegularFile(kotlinResults),
+                "no results file for the Kotlin type's package; the encode path wrote " + written);
+        String json = Files.readString(kotlinResults);
         LOGGER.info("ENCODE content ({} chars): {}", json.length(), json.length() > 1500 ? json.substring(0, 1500) : json);
         assertTrue(json.contains("KBox"), "the written result does not mention the Kotlin type: " + json);
 
