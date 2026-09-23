@@ -1029,7 +1029,11 @@ public class JavaLang {
     }
 
     //public interface Iterable
-    @Container
+    // @ImmutableContainer(hc = true) since 2026-09-23: Iterable has no state, and all three methods are @NotModified.
+    // With only @Container the type carried NO immutability level, so every source type implementing Iterable read
+    // its supertype as undecided and waited for cycle breaking to floor it at FINAL_FIELDS (io.vavr.Value, and through
+    // it io.vavr.control.Option/Some). The iterator's `except = "remove"` stays: a caller can still remove through it.
+    @ImmutableContainer(hc = true)
     class Iterable$<T> {
         //override has frequency 2
         @NotModified @NotNull @Independent(hc = true, except = "remove")
