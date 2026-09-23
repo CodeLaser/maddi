@@ -188,6 +188,7 @@ class KotlinScan(
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }
+        bodyConverter.localDeclared = { psi, variable -> references.local(psi, variable) }
     }
 
     // Where each member names a project declaration (see KotlinReferenceRegistry). A project scan shares one

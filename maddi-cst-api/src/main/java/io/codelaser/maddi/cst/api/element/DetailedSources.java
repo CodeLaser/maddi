@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -197,6 +198,21 @@ public interface DetailedSources {
     void forEachReference(@NotNull BiConsumer<Info, Source> consumer);
 
     /**
+     * The positions at which this element's text names the local variable {@code variable}, as recorded with
+     * {@link Builder#putLocalReference(LocalVariable, Source)}; empty when none were. A local variable is not an
+     * {@link Info}, so these are kept apart from {@link #references(Info)}, which the dependency graph reads as edges.
+     * Recorded on the member whose text holds them, like every reference.
+     */
+    @NotNull
+    default List<Source> localReferences(LocalVariable variable) {
+        return List.of();
+    }
+
+    /** Calls {@code consumer} once per recorded local-variable reference position, with the variable it names. */
+    default void forEachLocalReference(@NotNull BiConsumer<LocalVariable, Source> consumer) {
+    }
+
+    /**
      * Returns a new {@code DetailedSources} combining the entries of this and {@code other}.
      */
     DetailedSources merge(DetailedSources other);
@@ -239,6 +255,13 @@ public interface DetailedSources {
          * {@link #put(Object, Source)}: an Info-keyed detail is not necessarily a reference.
          */
         Builder putReference(Info target, Source identifier);
+
+        /**
+         * Records that this element's text names the local variable {@code variable} at {@code identifier}, the exact
+         * range of the name. Kotlin's desugared CST does not keep a faithful element for every use of a local, so its
+         * front end records them here, as it records the uses of declarations with {@link #putReference}.
+         */
+        Builder putLocalReference(LocalVariable variable, Source identifier);
 
         DetailedSources build();
 
