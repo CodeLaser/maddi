@@ -371,18 +371,33 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return candidate == root || candidate.superTypesExcludingJavaLangObject().contains(root);
     }
 
+    /*
+    Every instance field, INHERITED ones included: a superclass's field is this object's content as much as an own
+    one. Checking own fields only let a field-less final subclass of an @Immutable(hc=true) class come out hc-free
+    (Guava's Synchronized.SynchronizedTable, inheriting 'final Object delegate'; TestInheritedFieldHiddenContent).
+    A jar superclass is judged the same way, by its instance fields, NOT by its verdict: java.lang.Record and
+    java.lang.Enum are @Immutable(hc=true) because they are extensible, which is not content -- Record has no instance
+    fields and Enum's are a String and an int, so records and enums stay hc-free.
+     */
     private Boolean instanceFieldTypesDeeplyImmutable(TypeInfo typeInfo) {
         boolean undecided = false;
-        for (FieldInfo fieldInfo : typeInfo.fields()) {
-            if (fieldInfo.isStatic()) continue; // instance content only; static state belongs to the class
-            Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
-            if (immutable == null) {
-                undecided = true;
-            } else if (!immutable.isImmutable()) {
-                return false; // includes NO_VALUE: no proof of deep immutability, no hc-free promotion
+        for (TypeInfo type = typeInfo; type != null && !type.isJavaLangObject(); type = parentOf(type)) {
+            for (FieldInfo fieldInfo : type.fields()) {
+                if (fieldInfo.isStatic()) continue; // instance content only; static state belongs to the class
+                Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
+                if (immutable == null) {
+                    undecided = true;
+                } else if (!immutable.isImmutable()) {
+                    return false; // includes NO_VALUE: no proof of deep immutability, no hc-free promotion
+                }
             }
         }
         return undecided ? null : true;
+    }
+
+    private static TypeInfo parentOf(TypeInfo type) {
+        ParameterizedType parent = type.parentClass();
+        return parent == null ? null : parent.typeInfo();
     }
 
     // {@code member} is the subtype whose analysis is leaning on {@code superType}; it is recorded as the assumer
