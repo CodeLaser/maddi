@@ -39,7 +39,7 @@ dependencies {
         api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
         api("commons-cli:commons-cli:1.11.0")
 
-        api("org.ow2.asm:asm:9.9.1")
+        api("org.ow2.asm:asm:9.10.1")
     }
 }
 

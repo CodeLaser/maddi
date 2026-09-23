@@ -130,7 +130,9 @@ public class AnalysisHintsParser implements AnnotationProvider {
             String simpleNameWithoutDollar = typeInfo.simpleName().substring(0, typeInfo.simpleName().length() - 1);
             String fqn = apiPackage + "." + simpleNameWithoutDollar;
             TypeInfo targetType = compiledTypesManager.type(fqn, typeInfo.compilationUnit().sourceSet());
-            if (targetType != null) {
+            // a STUB (no source set, InfoByFqn's GAP #163 rule) is not a loaded type either. JDK 27's javac recovers
+            // an unresolvable name where 26 left none, so off its class path kotlin.Pair now comes back as a stub
+            if (targetType != null && targetType.compilationUnit().sourceSet() != null) {
                 assert targetType.compilationUnit().sourceSet().externalLibrary();
                 annotatedTypes++;
                 transferAnnotations(typeInfo, targetType);

@@ -2686,7 +2686,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ParameterInfo pi;
                 String name = vd.name.toString();
                 List<AnnotationExpression> annots = new ArrayList<>();
-                ParameterizedType type = convertTypeWithAnnotations(vd.getType(), dsbParam, annots::add);
+                // ⛔ JDK 27: attribution no longer synthesizes a type tree for an implicit parameter -- it stays null
+                // ('var' has a VAR_TYPE tree) -- and converting null gave VOID: every 'x -> ...' came out as
+                // 'accept(void)'. The attributed symbol has the inferred type; there is no type token, hence no
+                // detailed sources. Up to 26 the synthesized tree went through the ordinary conversion below.
+                Tree paramTree = vd.getType();
+                ParameterizedType type = (paramTree == null || "VAR_TYPE".equals(paramTree.getKind().name()))
+                                         && vd.sym != null && vd.sym.type != null
+                        ? convertType.convert(vd.sym.type)
+                        : convertTypeWithAnnotations(vd.getType(), dsbParam, annots::add);
                 if (name.isEmpty()) {
                     pi = miBuilder.addUnnamedParameter(type);
                 } else {
@@ -2699,7 +2707,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 Lambda.OutputVariant ov;
                 if (vd.declaredUsingVar()) {
                     ov = runtime.lambdaOutputVariantVar();
-                } else if (vd.vartype == null || vd.vartype.pos == vd.pos) {
+                } else if (vd.isImplicitlyTyped() || vd.vartype == null || vd.vartype.pos == vd.pos) {
+                    // JDK 27 keeps the declaration kind through attribution, so isImplicitlyTyped() answers; up to
+                    // 26 it is 'vartype == null', which attribution has made false, hence the position test.
                     ov = runtime.lambdaOutputVariantEmpty();
                 } else {
                     ov = runtime.lambdaOutputVariantTyped();
