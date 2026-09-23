@@ -81,7 +81,7 @@ Verified in code (zero occurrences / absent from the dispatch), not read in a do
 1. **No encode path.** No Kotlin module references `Codec`; `RunMixedPrepAnalyzer` writes no results. So no
    incremental analysis, no IDE daemon, no result reuse for Kotlin. The one decode defect that surfaced
    (`mapOf`, `CodecImpl.java:423-424`) suggests others wait.
-2. **The link engine has zero Kotlin tests**, and `VirtualFieldComputer.java:110` excludes
+2. *(Answered for lambdas, §7.22: same verdicts.)* **The link engine has zero Kotlin tests**, and `VirtualFieldComputer.java:110` excludes
    `java.util.function` from virtual fields — every Kotlin lambda is a `Function1` and therefore takes a
    *different* path than its Java equivalent, untested.
 3. `GetSetHelper.java:249` hard-codes the `"set"` prefix and wants a backing field with a body; every
@@ -848,6 +848,21 @@ is not the same as being able to consume them to SKIP work: that needs the rewir
 machinery, which is a separate question. What rung 6 can now claim is that the persistence layer underneath
 incremental analysis and the IDE daemon works for Kotlin, is reachable from the CLI, and has a test
 standing on each half.
+
+### 7.22 Kotlin lambdas vs Java lambdas — the same verdict, and a "mixed-pipeline gap" that was the fixture
+
+§5 item 2 predicted a divergence: `VirtualFieldComputer` excludes `java.util.function`, so a Kotlin lambda
+(`Function1`) takes a different path than a Java one (`Consumer`). `TestKotlinLambdaVsJavaLambda` asks whether
+it is a different ANSWER, with three paired rows: a higher-order call through each language's own function
+type, a SAM-converted lambda handed to a Java interface, and a read-only control. **All three agree on every
+sensor**; `higherOrder` sees `b` modified through `(String) -> Unit` exactly as through `Consumer<String>`.
+
+⛔ The test sat `@Disabled` behind a pinned "gap": in the mixed pipeline `ArrayList<String>().add(t)` was
+three placeholders, and adding kotlin-stdlib to the classpath "changed nothing". The jar it added was
+`kotlin-stdlib-jdk8-2.4.0.jar`, the first file name containing `kotlin-stdlib`, which carries none of
+`kotlin.collections`. K2 answered `Unresolved reference 'ArrayList'` (it is a stdlib typealias). With the real
+jar: zero placeholders. The refutation had measured the jar next to the question. The fixture now selects the
+jar by exact name and checks it holds `kotlin/collections/CollectionsKt.class`.
 
 ## 8. The ordered path to the claim
 
