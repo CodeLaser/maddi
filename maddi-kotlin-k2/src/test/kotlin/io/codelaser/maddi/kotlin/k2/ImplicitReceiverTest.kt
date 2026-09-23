@@ -45,6 +45,9 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         class Session { fun plain(): Int = 1 }
         fun <T> analyze(s: Session, block: Session.() -> T): T = s.block()
 
+        val Box.half: Int get() = size / 2
+        fun Box.quarter(): Int = half / 2
+
         open class Shape
         class Circle : Shape() { val r: Int get() = 1 }
         fun Shape.radius(): Int = if (this is Circle) r else 0
@@ -101,6 +104,15 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         val receiver = receiverParameter(getSize)
         assertEquals("\$receiver", receiver.name())
         assertEquals(type("Box"), receiver.parameterizedType().typeInfo())
+    }
+
+    @Test
+    fun extensionPropertyOfTheExtensionReceiver() {
+        // `half` is an extension property: `IrKt.getHalf($receiver)`, as a written `b.half` is
+        val quarter = type("IrKt").findUniqueMethod("quarter", 1)
+        val getHalf = calls(quarter).single { it.methodInfo().name() == "getHalf" }
+        assertEquals(type("IrKt"), getHalf.methodInfo().typeInfo())
+        assertEquals(quarter.parameters()[0], (getHalf.parameterExpressions()[0] as VariableExpression).variable())
     }
 
     @Test

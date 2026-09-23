@@ -1257,7 +1257,11 @@ class KotlinScan(
             .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
         // else resolve the target constructor by arity (refine to full overload resolution later)
         val target = ordered?.defaults
-            ?: targetType.constructors().firstOrNull { !it.isSynthetic && it.parameters().size == argExpressions.size }
+            // not kotlinc's overloads (synthetic, and only Java's to call) -- but a Java class's GENERATED default
+            // constructor is synthetic too, and it is the one `class D : V()` calls when V declares none
+            ?: targetType.constructors().firstOrNull {
+                (!it.isSynthetic || it.isSyntheticConstructor) && it.parameters().size == argExpressions.size
+            }
             ?: return unboundInvocation("k2-super-call-unresolved:${targetType.simpleName()}")
         return runtime.newExplicitConstructorInvocationBuilder()
             .setIsSuper(isSuper)

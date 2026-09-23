@@ -1089,6 +1089,28 @@ names: the members' own signatures changed, which is the point), no verdict move
 `TestLoweredShapesVsJava` gains `ctxModifies` / `ctxCaller`: a modification of the context parameter, and one
 passed on through it, agree with the Java that spells the parameter first.
 
+### 7.30 `super` with two supertypes, a Java parent's default constructor, implicit extension properties — detekt 1,045 → 849
+
+Three defects, each found by probing a corpus site before building anything:
+
+- **`super.visitX(…)` in a class that also implements an interface.** 112 of detekt's 333 `super.visitX(…)` calls
+  were placeholders -- exactly the rules declared `: Rule(…), RequiresAnalysisApi`. With one supertype, `super`'s
+  expression type is the superclass; with two it is not, and the callee was looked up where it is not declared. K2's
+  resolved call names the supertype on its dispatch receiver, and `convertQualified` now uses it for `super`.
+  Reproduced with a two-line fixture before the fix; a library parent (`KtTreeVisitorVoid`) and a Java source parent
+  both bind to the PARENT's method, not to the override (`TestSuperCallTargets`).
+- **`class D : V()` where the Java class `V` declares no constructor** was `k2-super-call-unresolved:V`. The Java
+  front end models the generated default constructor as synthetic (`SYNTHETIC_CONSTRUCTOR`), and the target search
+  skipped every synthetic constructor to avoid kotlinc's overloads -- which are synthetic but of the ordinary
+  constructor type. It now skips only those. Found by the probe, not by a corpus count: neither corpus has the shape.
+- **An extension property on an implicit receiver**, `containingClassOrObject` inside `fun KtProperty.f()`: the bare
+  name looked only at the dispatch receiver. It now converts to the getter a written `recv.prop` does, top-level or
+  member extension (`containingClassOrObject` 18, `mainReference` 14, `expressionType` 11 → 0).
+
+detekt: `k2-unresolved-call` 304 → 192, `k2-unresolved-ref` 387 → 303; total **1,045 → 849**, types holding one
+**359 → 297** -- for 62 rules the `super` call was the only hole. coil 323 → 316. No new site, no verdict moved
+(665 immutable types).
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1114,8 +1136,8 @@ passed on through it, agree with the Java that spells the parameter first.
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) and context parameters (§7.29) have taken detekt
-   4,701 → 1,045 and coil 367 → 323 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29) and `super` dispatch (§7.30) have taken
+   detekt 4,701 → 849 and coil 367 → 316 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

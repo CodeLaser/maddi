@@ -1236,7 +1236,8 @@ internal class KotlinBodyConverter(
         (expression.selectorExpression as? KtCallExpression)
             ?.let { staticCall(expression.receiverExpression, it, method, locals) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
-        val receiverType = expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
+        val receiverType = superDispatchType(expression, method)
+            ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
             is KtNameReferenceExpression -> {
@@ -1269,6 +1270,20 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, expression.operationTokenNode.psi)))
             .build(runtime)
         else selectorResult
+    }
+
+    /**
+     * The supertype a `super.member` dispatches to. `super`'s own expression type is the superclass only while the class
+     * has ONE supertype: detekt's `class R : Rule(…), RequiresAnalysisApi` got a type in which `visitCallExpression`
+     * was not found, and 112 of its 333 `super.visitX(…)` calls were placeholders. K2's resolved call names the
+     * supertype on its dispatch receiver. Null for any other receiver.
+     */
+    private fun KaSession.superDispatchType(expression: KtQualifiedExpression, method: MethodInfo): TypeInfo? {
+        if (expression.receiverExpression !is KtSuperExpression) return null
+        val call = expression.selectorExpression?.resolveToCall() ?: return null
+        val dispatch = call.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
+            ?: call.successfulVariableAccessCall()?.partiallyAppliedSymbol?.dispatchReceiver
+        return dispatch?.type?.let { mapType(it, method.typeInfo()).typeInfo() }
     }
 
     /**
@@ -2202,10 +2217,18 @@ internal class KotlinBodyConverter(
     private fun KaSession.implicitMemberAccess(expression: KtNameReferenceExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression? {
         val access = expression.resolveToCall()?.successfulVariableAccessCall() ?: return null
+        val name = expression.getReferencedName()
+        // an EXTENSION property on an implicit receiver (`containingClassOrObject` inside `fun KtProperty.f()`): the
+        // same getter a written `recv.prop` converts to, top-level or member extension, with that receiver
+        if (access.partiallyAppliedSymbol.symbol.receiverParameter != null) {
+            val receiver = implicitReceiverValue(access.partiallyAppliedSymbol.extensionReceiver, method, locals)
+                ?: return null
+            return extensionPropertyAccess(expression, name, receiver, method, locals)
+                ?: memberExtensionPropertyAccess(expression, name, receiver, method, locals)
+        }
         val dispatch = access.partiallyAppliedSymbol.dispatchReceiver
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
         val type = receiverLookupType(dispatch, obj, method)?.let { members(it) } ?: return null
-        val name = expression.getReferencedName()
         type.fields().firstOrNull { it.name() == name }?.let { field ->
             return runtime.newVariableExpressionBuilder()
                 .setVariable(runtime.newFieldReference(field, obj, field.type())).setSource(runtime.noSource()).build()
