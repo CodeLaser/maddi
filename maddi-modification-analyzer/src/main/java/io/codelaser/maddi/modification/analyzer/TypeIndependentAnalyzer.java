@@ -43,4 +43,14 @@ public interface TypeIndependentAnalyzer {
      */
     Value.Independent independentAfterMark(TypeInfo typeInfo, TypeImmutableAnalyzer.AfterMark afterMark,
                                            boolean activateCycleBreaking);
+
+    /**
+     * The type's independence with its SELF-REFERENCING fields (declared type = the owning type) left out, as an
+     * input to the immutability rule only; never published. A self field's own independence is derived from the
+     * very immutability verdict being computed -- dependent while it is undecided -- so reading it there makes
+     * that verdict wait on itself. Assuming it independent is self-consistent: if the type turns out immutable,
+     * exposing the field is harmless; if not, rules 1 and 2 decide anyway. The published independence keeps
+     * counting the field, so a mutable type exposing one stays dependent. Null when undecided.
+     */
+    Value.Independent independentIgnoringSelfFields(TypeInfo typeInfo, boolean activateCycleBreaking);
 }

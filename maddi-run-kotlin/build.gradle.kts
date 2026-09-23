@@ -22,7 +22,17 @@ java {
     sourceCompatibility = JavaVersion.VERSION_26
     targetCompatibility = JavaVersion.VERSION_26
 }
+// ⭐ The jars that go INSIDE the realm. Resolvable but not consumable, so nothing here reaches this module's
+// own runtimeClasspath -- which is the entire point (G46). The distribution carries them in lib-k2/, beside
+// lib/ but never on the launcher's CLASSPATH.
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
+    k2Runtime(project(":maddi-kotlin-k2"))
+
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-inspection-resource"))
     implementation(project(":maddi-run-config"))
@@ -31,16 +41,24 @@ dependencies {
 
     // the prep-only mixed runner (RunMixedPrepAnalyzer)
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
+    implementation(project(":maddi-kotlin-api"))            // PlaceholderCensus: what the front end could not read
+    implementation(project(":maddi-kotlin-realm"))          // K2Realm: the compiler goes in a classloader of its own
     implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
     implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
+    implementation(project(":maddi-modification-link"))    // LinkCodec: the only codec that can write full results
+    implementation(project(":maddi-util"))                 // Trie: the shape WriteAnalysisResults takes
     implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
     implementation(project(":maddi-cst-analysis"))          // PropertyImpl/ValueImpl: read the immutability verdict
     implementation(project(":maddi-graph"))                 // G<Info>
     implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON
+    // ⭐ the command line itself: Main builds it from the Java CLI's own Options object, so the two cannot drift
+    implementation("commons-cli:commons-cli")
+    implementation(project(":maddi-aapi-parser"))           // AnalysisHintsConfiguration (--preload-…-dirs)
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path
-    testImplementation(project(":maddi-kotlin-k2"))                    // ReferenceRecall, the editor's-eye instrument
+    // K2RealmTestBootstrap: installs the realm once for the whole module, the way the CLI does in Main
+    testImplementation("org.junit.platform:junit-platform-launcher")
     testImplementation(testFixtures(project(":maddi-run-openjdk")))    // TestOssCorpus
 }
 
@@ -65,7 +83,25 @@ tasks.withType<Test> {
     // RunMixedPrepAnalyzer.writeVerdicts. Unset -> nothing is written.
     System.getProperty("maddi.verdictDump")?.let { systemProperty("maddi.verdictDump", it) }
     System.getenv("MADDI_VERDICT_DUMP")?.let { systemProperty("maddi.verdictDump", it) }
+    // the placeholder worklist: same forwarding, and for the same reason -- a -D on the Gradle JVM reaches
+    // the test fork only if it is named here, and a dump that silently writes nothing looks like a clean run
+    System.getProperty("maddi.placeholderDump")?.let { systemProperty("maddi.placeholderDump", it) }
+    // ⭐ the tests run against the REALM, exactly as the shipped CLI does: the compiler is never on the test
+    // JVM's own classpath, so a corpus run proves the isolation rather than merely coexisting with it
+    // ⛔ an INPUT, not a string: see maddi-kotlin-realm/build.gradle.kts for what the string form cost
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
+    System.getenv("MADDI_PLACEHOLDER_DUMP")?.let { systemProperty("maddi.placeholderDump", it) }
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
+}
+
+// the realm's jars ship beside lib/, not in it: present in the distribution, absent from the CLASSPATH
+distributions {
+    main {
+        contents {
+            from(k2Runtime) { into("lib-k2") }
+        }
+    }
 }
 
 application {

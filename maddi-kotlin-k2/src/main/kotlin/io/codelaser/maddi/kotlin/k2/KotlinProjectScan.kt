@@ -14,6 +14,10 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.KotlinSession
+import io.codelaser.maddi.kotlin.api.KotlinProjectScanner
+import io.codelaser.maddi.kotlin.api.ConstructorDelegation
+import io.codelaser.maddi.kotlin.api.KotlinParseObserver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import io.codelaser.maddi.cst.api.element.SourceSet
@@ -48,7 +52,7 @@ class KotlinProjectScan(
     // Mixed-language: the Java front-end's CompiledTypesManager, so `java.*`/classpath types resolve to ONE
     // shared bytecode-authoritative TypeInfo. Null = standalone Kotlin (K2 loads library types itself).
     private val compiledTypesManager: CompiledTypesManager? = null,
-) {
+) : KotlinProjectScanner {
 
     /**
      * @param orderedSourceSets source sets in dependency order (a set's dependencies appear before it). Each
@@ -59,12 +63,18 @@ class KotlinProjectScan(
      *        Kotlin→Java). K2 resolves the symbols from these (its `addSourceRoot` includes `.java`); the CST
      *        `TypeInfo` still comes from the shared registry/CTM (those Java sets must be parsed first).
      */
-    fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
-              javaSourceRoots: List<Path> = emptyList(),
-              observers: List<KotlinParseObserver> = emptyList()): Map<SourceSet, List<TypeInfo>> =
+    @JvmOverloads
+    override fun parse(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
+              javaSourceRoots: List<Path>,
+              observers: List<KotlinParseObserver>): Map<SourceSet, List<TypeInfo>> =
         open(orderedSourceSets, libraryRoots, jdkHome, javaSourceRoots).use { session ->
             orderedSourceSets.forEach { session.convert(it) }
             session.observe(observers)
+            // ⚠ always logged, including the 0: the absence of a warning is not evidence of absence, and
+            // this number is not visible to the placeholder census (the CST is well formed, just wrong)
+            org.slf4j.LoggerFactory.getLogger(KotlinProjectScan::class.java)
+                .info("elvis lowerings re-evaluating their left operand: {} (see KotlinBodyConverter#controlFlowElvisLowering)",
+                        session.elvisReEvaluations)
             session.result
         }
 
@@ -72,8 +82,9 @@ class KotlinProjectScan(
      * The session [parse] runs, left open for a driver that interleaves another front end between a source set's
      * declarations and its bodies (see [Session.declare]). Close it when done: see [parse] for why.
      */
-    fun open(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
-             javaSourceRoots: List<Path> = emptyList()): Session {
+    @JvmOverloads
+    override fun open(orderedSourceSets: List<SourceSet>, libraryRoots: List<Path>, jdkHome: Path,
+             javaSourceRoots: List<Path>): Session {
         // The session's project lives until this disposable is disposed: IntelliJ's Disposer tree is static, so an
         // undisposed session -- every PSI file, every FIR cache -- stays reachable for the life of the JVM. A host
         // that parses more than once (the refactoring server re-parses after every write) kept one full detekt
@@ -89,7 +100,7 @@ class KotlinProjectScan(
 
     inner class Session internal constructor(private val disposable: Disposable, orderedSourceSets: List<SourceSet>,
                                              libraryRoots: List<Path>, jdkHome: Path,
-                                             javaSourceRoots: List<Path>) : AutoCloseable {
+                                             javaSourceRoots: List<Path>) : KotlinSession {
         private val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
         private val session = buildStandaloneAnalysisAPISession(disposable) {
             val jvm = JvmPlatforms.defaultJvmPlatform
@@ -142,7 +153,7 @@ class KotlinProjectScan(
         private val declaredTypes = LinkedHashMap<SourceSet, List<TypeInfo>>()
 
         /** The converted types per source set, in the order the sets completed. */
-        val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
+        override val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
 
         private fun ktFiles(ss: SourceSet): List<KtFile> {
             val module = checkNotNull(moduleBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }
@@ -153,7 +164,7 @@ class KotlinProjectScan(
          * Declarations of [ss] (types, hierarchy, signatures), no bodies: see [KotlinScan.declare]. Dependency order.
          * [javaSourceTypes]: see [KotlinTypeMapper.javaSourceTypes], for a set whose Java sources are not parsed yet.
          */
-        fun declare(ss: SourceSet, javaSourceTypes: ((String) -> TypeInfo?)? = null): List<TypeInfo> {
+        override fun declare(ss: SourceSet, javaSourceTypes: ((String) -> TypeInfo?)?): List<TypeInfo> {
             check(ss !in scans) { "source set ${ss.name()} declared twice" }
             val scan = KotlinScan(runtime, ss, infoByFqn, compiledTypesManager).also {
                 it.references = references
@@ -166,38 +177,48 @@ class KotlinProjectScan(
         }
 
         /** The bodies and commits of [ss], after [declare]: see [KotlinScan.complete]. */
-        fun complete(ss: SourceSet): List<TypeInfo> {
+        override fun complete(ss: SourceSet): List<TypeInfo> {
             val scan = checkNotNull(scans[ss]) { "source set ${ss.name()} completed before it was declared" }
             scan.javaSourceTypes = null // the Java types are registered by now; nothing more is made on request
             return scan.complete().also { result[ss] = it }
         }
 
-        fun isDeclared(ss: SourceSet): Boolean = ss in scans
+        override fun isDeclared(ss: SourceSet): Boolean = ss in scans
 
         /** Every type declared so far, in every set: the completed ones, and those between declare and complete. */
-        fun declaredTypes(): List<TypeInfo> = declaredTypes.values.flatten()
+        override fun declaredTypes(): List<TypeInfo> = declaredTypes.values.flatten()
 
-        fun isCompleted(ss: SourceSet): Boolean = ss in result
+        override fun isCompleted(ss: SourceSet): Boolean = ss in result
 
-        fun convert(ss: SourceSet): List<TypeInfo> {
-            declare(ss)
+        override fun convert(ss: SourceSet): List<TypeInfo> {
+            declare(ss, null)
             return complete(ss)
         }
 
 
         /** See [KotlinScan.delegationOf]; [constructor] may belong to any set of this session. */
-        fun delegationOf(constructor: io.codelaser.maddi.cst.api.info.MethodInfo): KotlinScan.ConstructorDelegation? =
+        override fun delegationOf(constructor: io.codelaser.maddi.cst.api.info.MethodInfo): ConstructorDelegation? =
             scans.values.firstNotNullOfOrNull { it.delegationOf(constructor) }
 
 
         /** See [KotlinScan.hasOrAwaitsBody]; [method] may belong to any set of this session. */
-        fun hasOrAwaitsBody(method: io.codelaser.maddi.cst.api.info.MethodInfo): Boolean =
+        override fun hasOrAwaitsBody(method: io.codelaser.maddi.cst.api.info.MethodInfo): Boolean =
             scans.values.any { it.hasOrAwaitsBody(method) }
 
         /** After every set is completed, so a reference into an upstream set finds its CST; the session is still alive. */
-        fun observe(observers: List<KotlinParseObserver>) {
+        /**
+         * ⚠ How many elvis lowerings re-evaluated their left operand — see
+         * [KotlinBodyConverter.controlFlowElvisLowering]. Not a placeholder, so the census cannot see it:
+         * the CST is well formed and says something the source does not, which is the one failure mode worse
+         * than a hole. Reported so it is a number rather than a worry.
+         */
+        val elvisReEvaluations: Int get() = scans.values.sumOf { it.elvisReEvaluations }
+
+        override fun observe(observers: List<KotlinParseObserver>) {
             val allTypes = result.values.flatten()
-            observers.forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
+            // only an observer built by THIS front end can read PSI; a host-side marker is all the boundary carries
+            observers.filterIsInstance<K2ParseObserver>()
+                .forEach { it.observe(runtime, sourceSetOf.keys.toList(), allTypes) { f -> sourceSetOf.getValue(f) } }
         }
 
         override fun close() = Disposer.dispose(disposable)

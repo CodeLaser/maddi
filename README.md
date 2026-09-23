@@ -88,6 +88,14 @@ analysis goals; set them once in `.mvn/jvm.config` or `MAVEN_OPTS` — the
 - `maddi-<version>.zip` — the Java analyzer, launcher `bin/maddi`
 - `maddi-kotlin-<version>.zip` — Java **and** Kotlin, launcher `bin/maddi-kotlin`
 
+`bin/maddi-kotlin` takes the **same command line** as `bin/maddi` and is a strict superset of it:
+given a project with no `.kt` file it runs the Java analyzer and behaves identically, and given
+one with Kotlin it runs both front ends over a shared core. Take the small zip for a Java-only
+build (85 MB of K2 compiler jars is the price of the Kotlin one); take the Kotlin zip for
+anything mixed, and use one tool. An option the mixed pipeline cannot honour yet — writing
+analysis results, incremental analysis, the hints compiler, all of which need a Kotlin codec
+round trip — is **refused by name**, never run as a no-op.
+
 Unpack and run: every jar rides along in `lib/`, and the required JVM flags are baked into the
 launcher. Kotlin support ships only this way — it depends on JetBrains K2 artifacts that are not
 on Maven Central, so it cannot be a resolvable library.
@@ -151,7 +159,7 @@ GitHub Releases. Where each part stands:
 | Parser / resolver (javac front end) | Robust; exercised on many open-source projects and one closed-source 3M-line codebase |
 | Modification & immutability analysis | Runs to a certified fixpoint on a proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
 | Gradle / Maven plugins | Published in 0.9.1; both validated against a corpus of real multi-module builds |
-| Kotlin front end | Works; ships only via the `maddi-kotlin` CLI distribution |
+| Kotlin front end | Works; ships only via the `maddi-kotlin` CLI distribution, which takes the same command line as `maddi` |
 
 The engine is stable on everything we run it on — and your codebase will contain Java the corpus
 does not. If maddi mis-parses, crashes, or computes something you can argue is wrong, that is

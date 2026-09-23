@@ -27,6 +27,11 @@ the `corpus/` Taskfile in this repo, override with `-Dtest.oss.root`) and `testa
 (override with `-Dtestarchive.root`; the former "analyzed" branch was merged into main 2026-07-26). The defaults are `../../<corpus>`, so
 a checkout one level deeper — a worktree — needs the override even when the corpora are present.
 
+⛔ Since 2026-09-22 `slowTest` sets `-Dmaddi.corpus.required=true`, so a corpus test that reaches
+`TestOssCorpus.requireConfig` / `requireDir` **fails** rather than skips when its checkout is absent.
+Pass `-Pcorpus.optional` to get the old skipping behaviour. ⚠ Only the Kotlin corpus tests use those
+helpers so far; the Java ones still call `Assumptions.assumeTrue` directly and still skip silently.
+
 **A green `slowTest` is not by itself evidence that anything ran.** Before quoting one as proof,
 check all four:
 
@@ -39,7 +44,12 @@ check all four:
    types`, `SHADOW DIV` lines, `byClass`/`totalRev` counts). `TestCloneBench` once passed having
    analyzed 0 types, on an absent corpus with no assumption to stop it (fixed 2026-07, but the
    shape is worth recognising: vacuous success is the failure mode that looks most like evidence).
-4. **Is the module's heap what you think?** Gradle lifts `-Xmx` out of `jvmArgs` into
+4. **Did the task run at all?** A module whose `slowTest` never executed leaves STALE result files, and
+   a partial multi-project run (one module's fork killed, say) reports failure without telling you which
+   suites never started. Check the timestamps on `build/test-results/slowTest/*.xml`, not just the build
+   outcome — a claim of "green on fernflower" was written from a run in which
+   `maddi-run-openjdk:slowTest` had not executed at all and its only result file was 32 days old.
+5. **Is the module's heap what you think?** Gradle lifts `-Xmx` out of `jvmArgs` into
    `maxHeapSize`; anything that copies `jvmArgs` between test tasks silently drops it. `slowTest`
    ran on the 512m default for exactly this reason (fixed 2026-07).
 

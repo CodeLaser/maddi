@@ -122,6 +122,12 @@ public class TranslationMapImpl implements TranslationMap {
             }
             return translated;
         }
+        if (variable instanceof LocalVariable lv) {
+            // a REFERENCE to a local follows what the translation made of its declaration; on its own a
+            // reference was never translated, and so kept the assignment expression (a lambda) as it was
+            LocalVariable declared = tm.translatedLocalVariable(lv);
+            return declared != null ? declared : variable;
+        }
         if (variable instanceof FieldReference fr) {
             Expression tScope = fr.scope().translate(tm);
             FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
@@ -384,6 +390,20 @@ public class TranslationMapImpl implements TranslationMap {
     @Override
     public Variable translateVariableRecursively(Variable variable) {
         return translateVariableRecursively(this, variable);
+    }
+
+    // by identity, for the life of this map; see TranslationMap.translatedLocalVariable
+    private final Map<LocalVariable, LocalVariable> translatedLocalVariables =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+
+    @Override
+    public LocalVariable translatedLocalVariable(LocalVariable original) {
+        return translatedLocalVariables.get(original);
+    }
+
+    @Override
+    public void rememberTranslatedLocalVariable(LocalVariable original, LocalVariable translated) {
+        translatedLocalVariables.put(original, translated);
     }
 
     @Override

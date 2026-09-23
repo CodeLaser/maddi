@@ -1873,6 +1873,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     .map(e -> convertTree(e, dsb)).toList();
             return runtime.newIntersectionType(null, bounds);
         }
+        /*
+         ⛔ JDK 27: A 'var' HAS A TREE OF ITS OWN. Up to 26 javac left vartype null for 'var' and attribution
+         synthesized an ordinary type tree (JCIdent, JCTypeApply, ...) from the inferred type, which the branches
+         above handled. 27 keeps a JCVarType (kind VAR_TYPE) carrying the inferred type, and every 'var' local,
+         for-each variable, resource and record-pattern binding ended here. There is no written type token, so
+         nothing goes into the detailed sources; the callers already discard them for 'var'.
+         ⚠ Matched by NAME: Tree.Kind.VAR_TYPE and JCVarType do not exist before 27, and maddi still compiles on 25.
+         */
+        if ("VAR_TYPE".equals(type.getKind().name()) && type instanceof JCTree varTree && varTree.type != null) {
+            return convert(varTree.type);
+        }
         String resolved = type instanceof JCTree jct && jct.type != null
                 ? jct.type + " (" + jct.type.getClass().getName() + ", tag " + jct.type.getTag() + ")"
                 : "null";

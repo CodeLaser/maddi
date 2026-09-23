@@ -51,14 +51,34 @@ Rules (each level requires the previous):
 - **Rule 1 (→ level 2)**: no field's content is modified by the type's own methods.
 - **Rule 2 (→ level 2)**: every field is private OR of (at least hc-)immutable type.
 - **Level 2 vs 3 (hidden content)**: `@Immutable` (hc-free, level 3) additionally requires that every
-  instance field's type is itself deeply immutable (level 3), the type is not extensible, and
-  independence holds. A private, never-modified, never-exposed field of a mutable type is *hidden
-  content*, not absence of content → level 2, not 3. Static fields do NOT count toward instance
-  immutability (they belong to the class).
+  instance field's type is itself deeply immutable (level 3) -- INHERITED instance fields included, of source
+  and jar superclasses alike (a superclass's own hc verdict is not consulted: `Record`/`Enum` are hc because
+  extensible, which is not content) -- the type is not extensible, and independence holds. A private,
+  never-modified, never-exposed field of a mutable type is *hidden content*, not absence of content → level 2,
+  not 3.
+- **Static fields are NOT exempt** (road §050 "Static side effects"; corrected 2026-09-23 -- this summary used to
+  say the opposite, and a change built on it had to be reverted): "the definitions make no distinction between
+  static and instance fields"; inside the primary type, "modifications are modifications". A type that modifies
+  its own static counter is `@FinalFields` (the book's `CountAccess`). The only exemptions: `@IgnoreModifications`
+  on the static field, and modifications inside a static initializer block (the static fields' constructor).
+  `@StaticSideEffects` is for modifying static calls on state the primary type (with its enclosing and parent
+  types) does NOT own. A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
+  access to it. Since 2026-09-23 the hc-free check (`instanceFieldTypesDeeplyImmutable`) counts statics too.
+- **Self-referencing fields** (declared type = the type itself) are skipped for rules 1 and 2, for the hc label, and
+  in the independence that FEEDS the immutability rule (`independentIgnoringSelfFields`) -- never for rule 0
+  (assignability). The PUBLISHED independence still counts them: dependent while the type is undecided, and after
+  it is decided independent if the type is immutable, dependent if not (a mutable `Node` returning `next`).
 - Exposure matters: a type that stores externally supplied mutable objects (dependent constructor) or
   returns its mutable content (dependent accessor, e.g. record accessors) caps at FINAL_FIELDS.
 - A mutable supertype makes the subtype mutable; an undecided supertype blocks the decision (see cycle
-  breaking).
+  breaking). **Superclasses and jar/hints supertypes cap by their verdict; SOURCE INTERFACES are WALKED**
+  (2026-09-23, `TypeImmutableAnalyzerImpl`, gate `INTERFACEWALK=0` for A/B): an interface's FINAL_FIELDS comes from
+  its abstract methods, which fold over ALL implementations, so passing it down let a stateful sibling cap every
+  other implementation (`io.vavr.collection.Iterator` is an `io.vavr.Value`). Instead, each abstract method the type
+  inherits that nothing on its path overrides is folded over the implementations in the type's CONE only; its own
+  verdict is kept when it is contracted or when the cone has no implementation. The type-immutability rule reads
+  only own fields + own abstract methods (+ this walk); concrete/default methods count through the fields they
+  modify. After-mark (eventual) mode keeps the verdict rule. Independence still takes the min over supertypes.
 
 ## Eventual immutability — COMPUTED
 

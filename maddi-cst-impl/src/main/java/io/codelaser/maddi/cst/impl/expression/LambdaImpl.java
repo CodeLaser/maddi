@@ -59,8 +59,12 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         super(comments, source, 1 + methodInfo.complexity());
         this.methodInfo = methodInfo;
         assert methodInfo.typeInfo().compilationUnitOrEnclosingType().isRight();
-        assert methodInfo.typeInfo().methods().size() == 1;
-        assert methodInfo.isPublic() : "This method implements a functional interface, so it must be public";
+        assert methodInfo.typeInfo().methods().size() == 1 : "The implementation type of a lambda has one method; "
+                + methodInfo.typeInfo() + " at " + source + ", enclosed by " + methodInfo.typeInfo().enclosingMethod()
+                + ", has " + methodInfo.typeInfo().methods();
+        assert methodInfo.isPublic() : "This method implements a functional interface, so it must be public: "
+                                       + methodInfo + " at " + source + ", enclosed by "
+                                       + methodInfo.typeInfo().enclosingMethod();
         this.outputVariants = outputVariants;
     }
 
@@ -286,7 +290,9 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
     @Override
     public Expression rewire(InfoMapView infoMap) {
         MethodInfo rewired = infoMap.typeInfoRecurseAllPhases(methodInfo.typeInfo()).singleAbstractMethod();
-        assert rewired != null;
+        assert rewired != null : "No single abstract method on the rewired type of the lambda " + methodInfo
+                                 + " at " + source() + ", enclosed by " + methodInfo.typeInfo().enclosingMethod()
+                                 + "; the type before rewiring had " + methodInfo.typeInfo().singleAbstractMethod();
         return new LambdaImpl(comments(), source(), rewired, outputVariants);
     }
 }

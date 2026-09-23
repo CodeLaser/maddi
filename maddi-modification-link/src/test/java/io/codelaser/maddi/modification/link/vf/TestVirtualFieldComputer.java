@@ -356,8 +356,9 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFieldComputer.VfTm vfTm = vfc.compute(iterable.parameterizedType(), true);
+        // no §m: Iterable is @ImmutableContainer(hc = true) since f8e855ce1
         assertEquals("""
-                VfTm[virtualFields=§m - S[] §ss, formalToConcrete=T=TP#0 in Iterable [] --> S=TP#0 in C []]\
+                VfTm[virtualFields=/ - S[] §ss, formalToConcrete=T=TP#0 in Iterable [] --> S=TP#0 in C []]\
                 """, vfTm.toString());
 
     }

@@ -455,6 +455,24 @@ would have made the churn unattributable.
   suspect; TypeAnnotation of the toJava union cascade; ConstantPool), 4 STRENGTHENED
   @FinalFields->@ImmutableHC (IReachabilityAction + anonymous impls: the pass decided their null
   modification values, so re-derivation could conclude more). Both directions predicted (§6).
+- **P2.3c — the cutover is NOT authoritative over authored contracts.** 2026-09-22.
+  `writeVerdicts` takes a `contracted` predicate; a BODILESS method whose `NON_MODIFYING_METHOD`
+  contract `ContractResolution` decides is skipped entirely (counted `contract kept` in the
+  summary line). Rationale: a bodiless method has nothing to compute from, so its computed value
+  is the disjunction over its implementations — which is precisely the E6 path by which this pass
+  reaches it. That is the reconstruction an authored `@NotModified` exists to override. This
+  EXTENDS the rule already applied to out-of-order (jar/AAPI) abstracts with a decided TRUE
+  ("authority, not fixpoint optimism", Quest E 2026-08-03) to in-order abstracts that carry a
+  contract. The guard still reports every implementation that breaks the contract.
+  Measured motivation, vavr 1.0.1: ten `@NotModified` contracts on `io.vavr.Value` changed the
+  written `nonModifyingMethod` of ZERO methods — the values were byte-identical to runs taken
+  before the annotations existed, because `MODREACH round 1` downgraded seven of them (3921
+  TRUE->FALSE overall) and the subsequent freeze blocked re-seeding. FALSE is the default, and
+  `WriteAnalysisResults` filters defaults, so the downgrade serialises as ABSENT.
+  Pinned by `TestContractOnAbstractMethod.contractSurvivesModificationReachability`; with the
+  predicate forced to `_ -> false` that test fails with `have false` (a downgrade, not a null).
+  ⚠ STILL OPEN: the same hole for the other two frozen properties, `UNMODIFIED_PARAMETER` and
+  `UNMODIFIED_FIELD` — `ContractResolution` adjudicates methods only.
 - **P2.4 — promote the shadow baseline.** After cutover the shadow diff must be identically zero
   (frozen == pass output); TestShadowCloneBench's pins collapse to a zero assertion and become the
   permanent regression tripwire. Metrics-side deepFieldChains saturation pin flips as §8 predicts.

@@ -28,6 +28,17 @@ public final class ExitCode {
     public static final int INSPECTION_ERROR = 3;
     public static final int IO_EXCEPTION = 4;
     public static final int ANALYZER_ERROR = 5;
+    /**
+     * The run was handed Kotlin sources that the Java-only analyzer reads as nothing at all
+     * ({@code DetectKotlinSources}); refusing beats reporting success over a tree it only partly read.
+     */
+    public static final int KOTLIN_SOURCES = 6;
+    /**
+     * An option was given that this pipeline does not honour. Refusing beats running it as a no-op: the
+     * mixed Java+Kotlin runner cannot yet persist an analysis result, and a run that wrote an empty result
+     * directory would look exactly like one that worked.
+     */
+    public static final int UNSUPPORTED_OPTION = 7;
 
     public static String message(int exitValue) {
         return switch (exitValue) {
@@ -37,6 +48,8 @@ public final class ExitCode {
             case INSPECTION_ERROR -> "Inspection error(s)";
             case IO_EXCEPTION -> "IO exception";
             case ANALYZER_ERROR -> "Analyzer error(s)";
+            case KOTLIN_SOURCES -> "Kotlin source files present, which this analyzer cannot read";
+            case UNSUPPORTED_OPTION -> "Option(s) not supported by this pipeline";
             default -> "Unknown exit code " + exitValue;
         };
     }

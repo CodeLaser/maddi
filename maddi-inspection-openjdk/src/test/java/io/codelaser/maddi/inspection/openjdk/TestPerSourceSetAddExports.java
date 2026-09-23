@@ -87,8 +87,17 @@ public class TestPerSourceSetAddExports {
         } catch (RuntimeException refused) {
             return; // a refused parse is the other way of saying the same thing
         }
-        assertNull(parseResult.findType("p.UsesJavacTypes"),
-                "com.sun.tools.javac.code is not exported to the unnamed module; if this resolves, the test above"
-                + " proves nothing");
+        TypeInfo usesTypes = parseResult.findType("p.UsesJavacTypes");
+        if (java.lang.Runtime.version().feature() < 27) {
+            assertNull(usesTypes, "com.sun.tools.javac.code is not exported to the unnamed module; if this resolves,"
+                                  + " the test above proves nothing");
+            return;
+        }
+        // JDK 27's javac recovers from the unexported symbol: the unit survives, and maddi STUBS the type it cannot
+        // read -- a compilation unit with no source set (InfoByFqn, GAP #163). Resolved, it would have one.
+        assertNotNull(usesTypes, "JDK 27 keeps the unit");
+        TypeInfo types = usesTypes.getFieldByName("types", true).type().typeInfo();
+        assertNull(types.compilationUnit().sourceSet(),
+                "without the export Types must be a stub; if it resolves, the test above proves nothing");
     }
 }

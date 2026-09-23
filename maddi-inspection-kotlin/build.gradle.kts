@@ -32,7 +32,14 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-kotlin-k2"))
+    // ⭐ the CONTRACT, and ONLY the contract. A reference to a K2 type from this module's main code is a
+    // compile error, and the implementation is not a runtime dependency either -- that `runtimeOnly` is
+    // precisely how 62 MB of compiler reached a consumer's classpath (G46). The host installs a front end
+    // (KotlinFrontEnds.install), normally one loaded in a realm; see maddi-kotlin-realm.
+    implementation(project(":maddi-kotlin-api"))
+    // ⚠ tests MAY name the implementation (they exercise it); main code may not — that asymmetry is the
+    // boundary, and it is enforced by these two lines rather than by anyone remembering it.
+    testImplementation(project(":maddi-kotlin-k2"))
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-cst-analysis")) // PropertyImpl.FINAL_FIELD / ValueImpl for final-field port
@@ -42,7 +49,8 @@ dependencies {
     testImplementation(project(":maddi-modification-prepwork")) // Tier-1: run the analyzer on Kotlin CST
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // FlatFrontEndTestBootstrap: the explicit install of the flat front end these tests use
+    testImplementation("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {

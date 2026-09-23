@@ -166,14 +166,36 @@ public class CodecImpl implements Codec {
         Matcher m = NAME_INDEX_PATTERN.matcher(fqnNameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
+            String parameters = m.group(3);
             List<MethodInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedConstructors(),
                     index, ti -> ti.constructors().stream()
                             .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList());
+            // The index alone used to decide, which a new JDK's inserted constructor turns into a silent mismatch
+            // (BigDecimal on JDK 27 with the JDK-26 hints). A token carrying parameter types is checked against
+            // them, and resolved by them when the index is stale.
+            if (parameters != null) {
+                if (index < sorted.size() && parameterTypes(sorted.get(index)).equals(parameters)) {
+                    return sorted.get(index);
+                }
+                for (MethodInfo constructor : sorted) {
+                    if (parameterTypes(constructor).equals(parameters)) return constructor;
+                }
+                throw new DecoderException("constructor <init>(" + parameters + ") not found in "
+                                           + typeAndSorted.typeInfo() + "; has " + sorted.size() + " constructor(s)");
+            }
             if (index >= sorted.size()) {
                 throw new DecoderException("constructor index " + index + " out of range; "
                                            + typeAndSorted.typeInfo() + " has " + sorted.size() + " constructor(s)");
             }
             MethodInfo methodInfo = sorted.get(index);
+            // no types in the token: the current encoder writes them whenever there are any, so this is the
+            // zero-argument constructor -- unless it is a token from before types were carried, which the index
+            // alone must still resolve
+            if (!methodInfo.parameters().isEmpty()) {
+                for (MethodInfo constructor : sorted) {
+                    if (constructor.parameters().isEmpty()) return constructor;
+                }
+            }
             assert methodInfo.isConstructor();
             return methodInfo;
         } else {
@@ -372,8 +394,14 @@ public class CodecImpl implements Codec {
             List<MethodInfo> sorted = reinspectIfNeeded(typeAndSorted.typeInfo(), typeAndSorted.sortedMethods(),
                     index, ti -> ti.methods().stream()
                             .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList());
-            // Fast path: the encoded index still points at the right method (its name matches).
-            if (index < sorted.size() && sorted.get(index).name().equals(name)) {
+            // Fast path: the encoded index still points at the right method -- its name matches, and so do its
+            // parameter types when the token carries them. The name alone is not enough: a stale index can land IN
+            // RANGE on a neighbouring overload of the same name (a new JDK inserting String.encodedLength shifted
+            // String.getBytes(int,int,byte[],int) onto getBytes(String); 38 JDK-26 tokens misresolved on JDK 27).
+            String parameters = m.group(3);
+            if (index < sorted.size() && sorted.get(index).name().equals(name)
+                && (parameters != null ? parameterTypes(sorted.get(index)).equals(parameters)
+                    : sorted.get(index).parameters().isEmpty() || !overloaded(sorted, name))) {
                 return sorted.get(index);
             }
             // Index stale: the loaded method set differs from the encoder's -- e.g. a synthetic <clinit> or private
@@ -384,7 +412,6 @@ public class CodecImpl implements Codec {
             // Overloaded: only the erased parameter types tell them apart. A token written before they were carried
             // has none, and there is nothing to do but report it -- which is what a Kotlin stdlib contract for
             // `mapOf` hit, two overloads deep in a multifile part class.
-            String parameters = m.group(3);
             if (parameters != null) {
                 for (MethodInfo mi : byName) {
                     if (parameterTypes(mi).equals(parameters)) return mi;
@@ -392,6 +419,11 @@ public class CodecImpl implements Codec {
                 throw new DecoderException("method '" + name + "(" + parameters + ")' not found in "
                                            + typeAndSorted.typeInfo() + "; " + byName.size() + " other overload(s)");
             }
+            // No types: the current encoder writes them whenever there are any, so this token names the
+            // zero-argument overload. (Only a token from before types were carried can mean anything else, and
+            // with a stale index on an overloaded name there was never a way to resolve that one.)
+            List<MethodInfo> noArguments = byName.stream().filter(mi -> mi.parameters().isEmpty()).toList();
+            if (noArguments.size() == 1) return noArguments.getFirst();
             if (byName.isEmpty()) {
                 throw new DecoderException("method '" + name + "' (index " + index + ") not found in "
                                            + typeAndSorted.typeInfo() + "; has " + sorted.size() + " method(s)");
@@ -400,6 +432,10 @@ public class CodecImpl implements Codec {
                                        + " overloads) with a stale index " + index + " in "
                                        + typeAndSorted.typeInfo() + "; name+descriptor needed to disambiguate");
         } else throw new UnsupportedOperationException();
+    }
+
+    private static boolean overloaded(List<MethodInfo> methods, String name) {
+        return methods.stream().filter(mi -> mi.name().equals(name)).limit(2).count() > 1;
     }
 
     /**

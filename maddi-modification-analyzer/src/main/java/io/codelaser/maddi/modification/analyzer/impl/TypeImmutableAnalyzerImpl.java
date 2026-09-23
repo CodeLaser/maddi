@@ -28,6 +28,8 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,17 +54,22 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         }
         return false;
     }
+    // INTERFACEWALK=0 restores the pre-2026-09-23 rule (a source interface's own verdict caps its subtypes), for A/B
+    static final boolean INTERFACE_WALK = !"0".equals(System.getenv("INTERFACEWALK"));
+
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final EventualCluster eventualCluster;
+    private final ContractResolution contractResolution;
 
     public TypeImmutableAnalyzerImpl(TypeIndependentAnalyzer typeIndependentAnalyzer,
                                      IteratingAnalyzer.Configuration configuration,
                                      AtomicInteger propertiesChanged, List<Message> analyzerMessages,
-                                     EventualCluster eventualCluster) {
+                                     EventualCluster eventualCluster, ContractResolution contractResolution) {
         super(configuration, propertiesChanged, analyzerMessages);
         this.typeIndependentAnalyzer = typeIndependentAnalyzer;
         this.eventualCluster = eventualCluster;
+        this.contractResolution = contractResolution;
     }
 
     @Override
@@ -71,7 +78,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         if (currentImmutable.isImmutable()) {
             return; // nothing to be gained
         }
-        Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
+        // rule 3 is read with self-referencing fields left out (TypeIndependentAnalyzer.independentIgnoringSelfFields):
+        // the PUBLISHED independence grades such a field dependent until this very verdict exists
+        Independent conditional = typeIndependentAnalyzer.independentIgnoringSelfFields(typeInfo, activateCycleBreaking);
+        Independent independent = conditional != null ? conditional
+                : typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
         Immutable immutable = computeImmutableType(typeInfo, independent, activateCycleBreaking, AfterMark.NONE);
         if (immutable != null) {
             if (TolerantWrite.setAllowControlledOverwrite(typeInfo.analysis(), IMMUTABLE_TYPE, immutable, typeInfo)) {
@@ -166,11 +177,26 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Immutable immFromHierarchy = IMMUTABLE;
         boolean stopExternal = false;
 
+        // Source interfaces are WALKED rather than read as a verdict (see inheritedAbstractMethodsNonModifying);
+        // what the walk passes through without being able to walk -- jar/hints interfaces -- is read as a verdict
+        // below, exactly like the parent class. After-mark mode keeps the plain verdict rule.
+        boolean walkInterfaces = INTERFACE_WALK && afterMark.isNone();
+        Set<TypeInfo> walkedInterfaces = new LinkedHashSet<>();
+        List<TypeInfo> supersByVerdict = new ArrayList<>();
         for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
-            Immutable immutableSuper = immutableSuper(typeInfo, superType.typeInfo(), afterMark);
+            TypeInfo st = superType.typeInfo();
+            if (walkInterfaces && isSourceInterface(st)) {
+                collectSourceInterfaces(st, walkedInterfaces, supersByVerdict);
+            } else if (!supersByVerdict.contains(st)) {
+                supersByVerdict.add(st);
+            }
+        }
+
+        for (TypeInfo superTypeInfo : supersByVerdict) {
+            Immutable immutableSuper = immutableSuper(typeInfo, superTypeInfo, afterMark);
             if (ecTypeDebug(typeInfo)) {
                 System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " super=" +
-                                   superType.typeInfo().fullyQualifiedName() + " -> " + immutableSuper
+                                   superTypeInfo.fullyQualifiedName() + " -> " + immutableSuper
                                    + " afterMarkNone=" + afterMark.isNone());
             }
             Immutable immutableSuperBroken;
@@ -198,13 +224,30 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 if (immutableSuper.isMutable() && !immutableSuper.isFinalFields()) {
                     if (dbg && !afterMark.isNone()) {
                         System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
-                                           + " MUTABLE: super " + superType.typeInfo().fullyQualifiedName());
+                                           + " MUTABLE: super " + superTypeInfo.fullyQualifiedName());
                     }
                     return MUTABLE;
                 }
                 immutableSuperBroken = immutableSuper;
             }
             immFromHierarchy = immutableSuperBroken.min(immFromHierarchy);
+        }
+        if (!walkedInterfaces.isEmpty()) {
+            Boolean inherited = inheritedAbstractMethodsNonModifying(typeInfo, walkedInterfaces);
+            if (dbg) {
+                System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " walked="
+                                   + walkedInterfaces.stream().map(TypeInfo::simpleName).toList()
+                                   + " -> inherited abstract methods non-modifying=" + inherited);
+            }
+            if (inherited == null) {
+                if (!activateCycleBreaking) {
+                    stopExternal = true;
+                } else if (configuration.cycleBreakingStrategy() != CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING) {
+                    immFromHierarchy = FINAL_FIELDS.min(immFromHierarchy);
+                }
+            } else if (!inherited) {
+                immFromHierarchy = FINAL_FIELDS.min(immFromHierarchy);
+            }
         }
         if (independent.isDependent()) {
             // an undecided supertype may still force MUTABLE: wait rather than conclude FINAL_FIELDS prematurely
@@ -240,18 +283,129 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         return noHiddenContent ? IMMUTABLE : IMMUTABLE_HC;
     }
 
+    private static boolean isSourceInterface(TypeInfo typeInfo) {
+        return typeInfo != null && typeInfo.isInterface() && !typeInfo.compilationUnit().externalLibrary();
+    }
+
+    /** The source interfaces reachable from {@code start} through interface edges only (walked), and the
+     *  non-source supertypes met on the way, which are read as verdicts. */
+    private static void collectSourceInterfaces(TypeInfo start, Set<TypeInfo> walked, List<TypeInfo> byVerdict) {
+        if (!walked.add(start)) return;
+        for (ParameterizedType pt : start.interfacesImplemented()) {
+            TypeInfo st = pt.typeInfo();
+            if (isSourceInterface(st)) {
+                collectSourceInterfaces(st, walked, byVerdict);
+            } else if (st != null && !byVerdict.contains(st)) {
+                byVerdict.add(st);
+            }
+        }
+    }
+
+    /**
+     * The hierarchy WALK that replaces reading a source interface's own verdict. A field-less interface's
+     * FINAL_FIELDS comes from its abstract methods, and those fold over ALL implementations
+     * ({@code AbstractMethodAnalyzerImpl}) -- the stateful sibling's included. Passing that verdict down as a cap
+     * hands the sibling's mutability to every other implementation: {@code io.vavr.collection.Iterator} is a
+     * {@code io.vavr.Value}, so {@code Value} is honestly FINAL_FIELDS, and it capped {@code Option.Some}, whose own
+     * code is entirely non-modifying.
+     * <p>
+     * What {@code typeInfo} really inherits from a walked interface is the abstract methods nothing on its own path
+     * implements or re-declares. For each of those, only the implementations inside {@code typeInfo}'s cone
+     * ({@code typeInfo} and its subtypes) can execute on an instance of {@code typeInfo}, so the fold is restricted
+     * to them. A method something on the path overrides is covered: a re-declaration is folded by its own type,
+     * and an implementation counts through the fields it touches, like every other concrete method.
+     * Static interface fields are not instance state and are ignored. Default methods do not enter a type verdict
+     * (own concrete methods do not either).
+     * <p>
+     * Two cases keep the method's OWN verdict, i.e. the old rule for that one method: a CONTRACTED method (an
+     * authored {@code @Modified}/{@code @NotModified} is authority, not a fold to redo), and a method with no
+     * implementation in the cone at all (nothing there to judge by -- {@code interface KK extends K} with no
+     * implementations must still inherit {@code K.add}'s {@code @Modified}).
+     *
+     * @return TRUE when every such method is non-modifying in the cone, FALSE when one is modifying, null when one
+     * is still undecided.
+     */
+    private Boolean inheritedAbstractMethodsNonModifying(TypeInfo typeInfo, Set<TypeInfo> walked) {
+        Boolean result = true;
+        for (TypeInfo anInterface : walked) {
+            for (MethodInfo abstractMethod : anInterface.methods()) {
+                if (!abstractMethod.isAbstract() || abstractMethod.isStatic()) continue;
+                if (coveredOnPath(typeInfo, anInterface, abstractMethod)) continue;
+                Value.SetOfMethodInfo implementations = abstractMethod.analysis().getOrDefault(IMPLEMENTATIONS,
+                        ValueImpl.SetOfMethodInfoImpl.EMPTY);
+                List<MethodInfo> inCone = new ArrayList<>();
+                for (MethodInfo impl : implementations.methodInfoSet()) {
+                    if (inCone(impl.typeInfo(), typeInfo)) inCone.add(impl);
+                }
+                List<MethodInfo> judgedBy = inCone.isEmpty()
+                                            || contractResolution.resolve(abstractMethod, NON_MODIFYING_METHOD).decided()
+                        ? List.of(abstractMethod) : inCone;
+                for (MethodInfo m : judgedBy) {
+                    Value.Bool nonModifying = m.analysis().getOrNull(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+                    if (nonModifying == null) {
+                        result = null;
+                    } else if (nonModifying.isFalse()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /** Some type between {@code typeInfo} (inclusive) and {@code declaringInterface} (exclusive) declares a method
+     *  overriding {@code abstractMethod}. */
+    private static boolean coveredOnPath(TypeInfo typeInfo, TypeInfo declaringInterface, MethodInfo abstractMethod) {
+        if (declaresOverride(typeInfo, abstractMethod)) return true;
+        for (TypeInfo between : typeInfo.superTypesExcludingJavaLangObject()) {
+            if (between != declaringInterface
+                && between.superTypesExcludingJavaLangObject().contains(declaringInterface)
+                && declaresOverride(between, abstractMethod)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean declaresOverride(TypeInfo type, MethodInfo abstractMethod) {
+        return type.methods().stream().anyMatch(m -> m.overrides().contains(abstractMethod));
+    }
+
+    private static boolean inCone(TypeInfo candidate, TypeInfo root) {
+        return candidate == root || candidate.superTypesExcludingJavaLangObject().contains(root);
+    }
+
+    /*
+    Every field, static and instance alike (road to immutability 050: "the definitions make no distinction between
+    static and instance fields"; until 2026-09-23 statics were skipped here, "per spec", which misread it), and
+    INHERITED ones included: a superclass's field is this object's content as much as an own one. Checking own fields only let a field-less final subclass of an @Immutable(hc=true) class come out hc-free
+    (Guava's Synchronized.SynchronizedTable, inheriting 'final Object delegate'; TestInheritedFieldHiddenContent).
+    A jar superclass is judged the same way, by its instance fields, NOT by its verdict: java.lang.Record and
+    java.lang.Enum are @Immutable(hc=true) because they are extensible, which is not content -- Record has no instance
+    fields and Enum's are a String and an int, so records and enums stay hc-free.
+    A field of the type being computed ITSELF is skipped: it adds no content the type does not already have, and
+    reading it would make this verdict wait on itself (TestStaticAndSelfFields). "Itself" is typeInfo, not the
+    field's owner: an inherited 'Base parent' in 'Sub extends Base' allows hidden content (Base is extensible).
+     */
     private Boolean instanceFieldTypesDeeplyImmutable(TypeInfo typeInfo) {
         boolean undecided = false;
-        for (FieldInfo fieldInfo : typeInfo.fields()) {
-            if (fieldInfo.isStatic()) continue; // instance content only; static state belongs to the class
-            Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
-            if (immutable == null) {
-                undecided = true;
-            } else if (!immutable.isImmutable()) {
-                return false; // includes NO_VALUE: no proof of deep immutability, no hc-free promotion
+        for (TypeInfo type = typeInfo; type != null && !type.isJavaLangObject(); type = parentOf(type)) {
+            for (FieldInfo fieldInfo : type.fields()) {
+                if (typeInfo.equals(fieldInfo.type().bestTypeInfo())) continue; // self-reference
+                Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
+                if (immutable == null) {
+                    undecided = true;
+                } else if (!immutable.isImmutable()) {
+                    return false; // includes NO_VALUE: no proof of deep immutability, no hc-free promotion
+                }
             }
         }
         return undecided ? null : true;
+    }
+
+    private static TypeInfo parentOf(TypeInfo type) {
+        ParameterizedType parent = type.parentClass();
+        return parent == null ? null : parent.typeInfo();
     }
 
     // {@code member} is the subtype whose analysis is leaning on {@code superType}; it is recorded as the assumer
@@ -312,6 +466,11 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
 
         Boolean isImmutable = true;
         for (FieldInfo fieldInfo : typeInfo.fields()) {
+            // a SELF-REFERENCING field (declared type = this type) is skipped for rules 1 and 2 (rule 0, its
+            // assignability, is checked in computeImmutableType0 and is not skipped): whatever modifies its content
+            // modifies one of this type's own fields, which this loop checks anyway -- other.g.add(..) is recorded
+            // on g (TestStaticAndSelfFields.Cell) -- and "is this type immutable" is the question being answered
+            if (!isNotSelf(fieldInfo)) continue;
             if (!fieldInfo.access().isPrivate()) {
                 // EXPERIMENTAL (EVENTUALCLUSTER): the privacy rule reads the field type's PLAIN immutability,
                 // which held a protected-final field of eventual type (BinaryOperatorImpl.lhs and its four
@@ -327,7 +486,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                                              && afterMark.fields().contains(fieldInfo)
                                              && fieldInfo.analysis().getOrDefault(FINAL_FIELD, ValueImpl.BoolImpl.FALSE).isTrue()
                                              && fieldTypeCommits(typeInfo, fieldInfo);
-                if (!committedAfterMark && isNotSelf(fieldInfo)) {
+                if (!committedAfterMark) {
                     Immutable immutable = analysisHelper.typeImmutableNullIfUndecided(fieldInfo.type());
                     if (immutable == null) {
                         isImmutable = null;

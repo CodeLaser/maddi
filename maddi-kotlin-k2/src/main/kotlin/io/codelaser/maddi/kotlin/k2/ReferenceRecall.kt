@@ -13,6 +13,8 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall
+import io.codelaser.maddi.kotlin.api.K2_PLACEHOLDER_PREFIX
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import io.codelaser.maddi.cst.api.element.Element
@@ -98,7 +100,7 @@ import java.util.IdentityHashMap
  * becomes an accessor call in the CST. Positions use [sourceOf], the computation the CST itself uses, so equal
  * means equal. Nothing is asserted here: a caller reads [report] or [rows].
  */
-class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver() {
+class ReferenceRecall(private val samplesPerCell: Int = 6) : K2ParseObserver(), KotlinReferenceRecall {
 
     enum class Tier { EXACT, CONTAINED, COVERED, DROPPED }
 
@@ -124,12 +126,14 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
     private val sourceLines = HashMap<String, List<String>>()
     private val unresolvedSamples = ArrayList<String>()
     private var walker = KotlinReferenceWalker(emptySet())
-    val libraryReferences get() = walker.libraryReferences
-    val unresolvedReferences get() = walker.unresolvedReferences
-    val failedReferences get() = walker.failedReferences
-    var filesWithoutCst = 0; private set
+    override val libraryReferences get() = walker.libraryReferences
+    override val unresolvedReferences get() = walker.unresolvedReferences
+    override val failedReferences get() = walker.failedReferences
+    override var filesWithoutCst = 0; private set
 
     fun rows(): List<Row> = rows
+
+    override fun rowCount(): Int = rows.size
 
     // ---------------------------------------------------------------------------------------------------------------
     // measuring: called by the scan, while its K2 session is alive and after every file has been converted
@@ -295,7 +299,8 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
             addDetails(element)
             val source = element.source()
             // a placeholder keeps the range of the code it stands for, which the CST does not hold: not coverage
-            val placeholder = element is EmptyExpression && element.msg()?.startsWith("k2-") == true
+            val placeholder = element is EmptyExpression
+                    && element.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true
             if (source != null && source.beginLine() > 0 && element is Expression && !placeholder) {
                 expressionRanges += rangeKey(source)
                 referenceName(element)?.let { name ->
@@ -385,7 +390,7 @@ class ReferenceRecall(private val samplesPerCell: Int = 6) : KotlinParseObserver
      * The tables are over the **hand-written** rows ([Row.handWritten]): generated sources and build scripts are
      * counted in the headline and the per-source-set table, but they are nobody's refactoring target.
      */
-    fun report(): String = buildString {
+    override fun report(): String = buildString {
         val handWritten = rows.filter { it.handWritten }
         appendLine("reference recall: ${rows.size} project reference(s) in the PSI " +
                    "(skipped: $libraryReferences to library declarations, $unresolvedReferences unresolved, " +

@@ -84,12 +84,15 @@ public class TestParseAnalyzeWrite extends CommonTest {
         List<TypeInfo> types = analysisHintsParser.typesParsed();
         // the WHOLE hints path (prefix io.codelaser.maddi.aapi.archive), so every shadow file counts here --
         // including OrgE2immuSupport, whose library CompileAnalysisHints no longer compiles.
-        // ⛔ NOT the two Kotlin files. They name kotlin.Pair and kotlin.jvm.functions.Function1 in their
+        // ⛔ NOT the Kotlin files (up to JDK 26). They name kotlin.Pair and kotlin.jvm.functions.Function1 in their
         // signatures, and this parser runs on the SHARED factory, which carries no kotlin-stdlib -- so both
         // compilation units are dropped whole ("package kotlin does not exist"). That is deliberate:
         // CompileAnalysisHints gives libs/kotlin its own factory rather than widen this one, because a jar that
         // merely makes more types resolvable can move verdicts in every modification-* test that shares it.
-        assertEquals(31, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
+        // ⚠ JDK 27's javac recovers the unresolvable kotlin.* names, maddi stubs them, and the three Kotlin units
+        // (Kotlin, KotlinCollections, KotlinText) survive; the parser then skips each stubbed target with a warning.
+        int kotlinUnits = java.lang.Runtime.version().feature() >= 27 ? 3 : 0;
+        assertEquals(31 + kotlinUnits, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
         for (TypeInfo typeInfo : types) {
             if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {
                 TypeInfo charSeq = typeInfo.findSubType("CharSequence$");

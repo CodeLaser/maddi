@@ -635,17 +635,35 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     .forEach(d -> System.out.println("MODREACH_REVERSE " + d));
                         }
                         // MODREACH_EXPLAIN=<substring>: print the BFS chain (node <- cause <- ... <- seed)
-                        // for every reached method receiver whose FQN contains the substring
+                        // for every reached node (method receiver, parameter, FIELD) whose FQN contains the substring
                         String explain = System.getenv("MODREACH_EXPLAIN");
                         if (explain != null) {
                             for (Object node : report.reached()) {
-                                if (node instanceof io.codelaser.maddi.cst.api.info.MethodInfo rm
-                                    && rm.fullyQualifiedName().contains(explain)) {
+                                if (node instanceof io.codelaser.maddi.cst.api.info.Info info
+                                    && info.fullyQualifiedName().contains(explain)) {
                                     System.out.println("MODREACH_EXPLAIN " + report.explain(node));
                                 }
                             }
                         }
-                        var counts = pass.writeVerdicts(analysisOrder, report);
+                        // the cutover is the authority over what the analyzer COMPUTES, never over what the
+                        // author DECLARES: a bodiless method's computed value is the disjunction over its
+                        // implementations, which is exactly the path by which this pass reaches it. The same
+                        // holds for that method's PARAMETERS, folded over the implementations' parameter at the
+                        // same index. UNMODIFIED_FIELD has no such case: see writeVerdicts' javadoc.
+                        java.util.function.Predicate<Info> contracted =
+                                singleIterationAnalyzer instanceof SingleIterationAnalyzerImpl s
+                                        ? info -> switch (info) {
+                                    case io.codelaser.maddi.cst.api.info.MethodInfo mi -> mi.isAbstract()
+                                            && s.contractResolution().resolve(mi, io.codelaser.maddi.cst.impl
+                                            .analysis.PropertyImpl.NON_MODIFYING_METHOD).decided();
+                                    case io.codelaser.maddi.cst.api.info.ParameterInfo pi ->
+                                            pi.methodInfo().isAbstract()
+                                            && s.contractResolution().resolve(pi, io.codelaser.maddi.cst.impl
+                                            .analysis.PropertyImpl.UNMODIFIED_PARAMETER).decided();
+                                    default -> false;
+                                }
+                                        : _ -> false;
+                        var counts = pass.writeVerdicts(analysisOrder, report, contracted);
                         TolerantWrite.freezeModificationProperties();
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, counts.summary());
                         LOGGER.info("MODREACH round {}: {}", modReachRounds, report.summary());

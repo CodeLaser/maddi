@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.Info
 import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
+import io.codelaser.maddi.cst.api.variable.LocalVariable
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.kdoc.parser.KDocKnownTag
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.kdoc.psi.impl.KDocLink
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocSection
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocTag
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import java.util.IdentityHashMap
 
 /**
@@ -55,6 +57,14 @@ internal class KotlinReferenceRegistry {
     private val hostOf = IdentityHashMap<PsiElement, Info>()
     private val recorded = IdentityHashMap<Info, MutableList<Pair<Info, Source>>>()
 
+    // local variables: not Infos, so neither targets nor hosts. Each declaration's PSI, with EVERY CST variable
+    // converted from it -- an expression off the null-safe spine is converted twice (KotlinBodyConverter), and the
+    // uses are recorded under each instance, so whichever one the tree kept finds them. Per host: the uses of each
+    // local, and each local's declared name.
+    private val localsOf = IdentityHashMap<PsiElement, MutableList<LocalVariable>>()
+    private val recordedLocals = IdentityHashMap<Info, MutableList<Pair<LocalVariable, Source>>>()
+    private val declaredLocals = IdentityHashMap<Info, MutableList<Pair<LocalVariable, Source>>>()
+
     // a declaration's KDoc, and the links in it that name project declarations: its JavaDoc, set in attach
     private val kdocOf = IdentityHashMap<Info, KDoc>()
     private val docTags = IdentityHashMap<Info, MutableList<JavaDoc.Tag>>()
@@ -77,6 +87,11 @@ internal class KotlinReferenceRegistry {
     /** The `$default` synthetic of the function or constructor [declaration], or null if it declares no default. */
     fun defaultsOf(declaration: PsiElement?): MethodInfo? = declaration?.let { defaultsOf[it] }
 
+    /** [variable] is a CST local converted from the declaration [psi]: a `val`/`var`, a loop, catch or `when` variable. */
+    fun local(psi: PsiElement?, variable: LocalVariable) {
+        if (psi != null) localsOf.getOrPut(psi) { ArrayList() } += variable
+    }
+
     fun host(psi: PsiElement?, info: Info) {
         if (psi != null) hostOf[psi] = info
     }
@@ -96,6 +111,21 @@ internal class KotlinReferenceRegistry {
                     declarationPsi(symbol)?.let { targetOf[it] } ?: javaTarget(symbol)
                 }.distinct()
                 targets.forEach { target -> recorded.getOrPut(host) { ArrayList() } += target to identifier }
+                // a use of a local: recorded on the same host, under every CST variable its declaration became
+                symbols.forEach { symbol ->
+                    declarationPsi(symbol)?.let { localsOf[it] }?.forEach { variable ->
+                        recordedLocals.getOrPut(host) { ArrayList() } += variable to identifier
+                    }
+                }
+            }
+            // each local's declared name, on the host its declaration is written in, keyed by the variable -- as the
+            // declaration statement keys it; a loop, catch or destructured variable has no statement source of its own
+            for ((psi, variables) in localsOf) {
+                if (psi.containingFile != ktFile) continue
+                val nameId = (psi as? KtNamedDeclaration)?.nameIdentifier ?: continue
+                val host = hostFor(psi) ?: continue
+                val name = sourceOf(runtime, nameId, "-")
+                variables.forEach { declaredLocals.getOrPut(host) { ArrayList() } += it to name }
             }
             // a lambda's implicit label spells the called function's name, and is recorded on the same host as the
             // call: `before { return@before }` is one more place `before` is written (KotlinReferenceWalker.walkLabels)
@@ -160,11 +190,16 @@ internal class KotlinReferenceRegistry {
                 else -> {}
             }
         }
-        val records = recorded.remove(host) ?: return
+        val records = recorded.remove(host)
+        val localUses = recordedLocals.remove(host)
+        val localDeclarations = declaredLocals.remove(host)
+        if (records == null && localUses == null && localDeclarations == null) return
         // a file facade has no declaration of its own: its records ride on a source without a position
         val source = host.source() ?: runtime.noSource()
         val dsb = runtime.newDetailedSourcesBuilder()
-        records.forEach { (target, identifier) -> dsb.putReference(target, identifier) }
+        records?.forEach { (target, identifier) -> dsb.putReference(target, identifier) }
+        localUses?.forEach { (variable, identifier) -> dsb.putLocalReference(variable, identifier) }
+        localDeclarations?.forEach { (variable, name) -> dsb.put(variable, name) }
         val references = dsb.build()
         val merged = source.withDetailedSources(source.detailedSources()?.merge(references) ?: references)
         when (host) {

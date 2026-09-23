@@ -85,6 +85,9 @@ tasks.register<JavaExec>("compileAnalysisHints") {
     workingDir = projectDir // paths in CompileAnalysisHints are relative to this module directory
     maxHeapSize = "2G"
     jvmArgs(javacAddExports)
+    // -Pmaddi.aapi.moveJdkRelease=true regenerates the jdk results on a JDK other than the recorded one
+    // (analyzedPackageFiles/jdk/jdk-release.txt); without it only the libs/* results are rewritten there
+    providers.gradleProperty("maddi.aapi.moveJdkRelease").orNull?.let { systemProperty("maddi.aapi.moveJdkRelease", it) }
 }
 
 tasks.withType<Test> {

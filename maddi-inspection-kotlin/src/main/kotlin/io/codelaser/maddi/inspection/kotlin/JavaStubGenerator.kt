@@ -15,7 +15,7 @@
 package io.codelaser.maddi.inspection.kotlin
 
 import io.codelaser.maddi.cst.api.info.MethodInfo
-import io.codelaser.maddi.kotlin.k2.KotlinScan
+import io.codelaser.maddi.kotlin.api.ConstructorDelegation
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.info.TypeParameter
 import io.codelaser.maddi.cst.api.type.ParameterizedType
@@ -41,14 +41,14 @@ object JavaStubGenerator {
     /**
      * What a stub needs to know that the CST does not say, or does not say yet. The defaults read the CST, which is
      * enough for a stub of a fully converted type; a mixed source set's stubs are made from a Kotlin scan's
-     * declarations, before any body (see `KotlinScan.declare`), and ask the scan.
+     * declarations, before any body (see `KotlinSession.declare`), and ask the session.
      */
     interface StubHints {
         /** An implementation rather than an abstract declaration: a Kotlin interface's `default` method. */
         fun hasBody(method: MethodInfo): Boolean = runCatching { method.methodBody() }.getOrNull() != null
 
         /** The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. */
-        fun delegation(constructor: MethodInfo): KotlinScan.ConstructorDelegation? = null
+        fun delegation(constructor: MethodInfo): ConstructorDelegation? = null
     }
 
     private val DEFAULT_HINTS = object : StubHints {}
@@ -214,9 +214,9 @@ object JavaStubGenerator {
     /**
      * `super(...)`/`this(...)` with one typed dummy per parameter: the cast is what picks the overload, since the
      * values are never evaluated. A parameter typed by a type parameter gets a bare `null` (see
-     * [KotlinScan.ConstructorDelegation]).
+     * [ConstructorDelegation]).
      */
-    private fun explicitInvocation(delegation: KotlinScan.ConstructorDelegation): String =
+    private fun explicitInvocation(delegation: ConstructorDelegation): String =
         (if (delegation.isSuper) "super(" else "this(") + delegation.parameterTypes.joinToString(", ") { pt ->
             when {
                 pt == null -> "null"

@@ -264,8 +264,10 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testIterable() {
         TypeInfo typeInfo = compiledTypesManager().typeIfLoaded(Iterable.class);
-        assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
-        assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+        // @ImmutableContainer(hc = true) since 2026-09-23 (was @Container only, which left the level UNDECIDED for
+        // every source type implementing Iterable); independence follows as hc, iterator() keeps except="remove"
+        assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(INDEPENDENT_HC, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
 

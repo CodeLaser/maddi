@@ -14,117 +14,126 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
+import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ErrorReport;
 import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.run.kotlinmain.kotlinc.ParseMixedList;
+import io.codelaser.maddi.run.openjdkmain.RunAnalyzer;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
+import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.codelaser.maddi.run.openjdkmain.Main.*;
+
 /**
- * CLI for the prep-only mixed Java+Kotlin analysis (the Kotlin counterpart of {@code run-openjdk}'s {@code Main}).
- * It obtains an {@link InputConfiguration} either from a mixed build/compile log ({@code --compile-log}, parsed by
- * {@link ParseMixedList} — the javac + kotlinc invocations link into one configuration) or from a serialized
- * configuration ({@code --input-configuration}), then runs {@link RunMixedPrepAnalyzer} and prints its summary.
- * <p>
- * {@code --write-input-configuration <file>} is terminal — write the derived configuration and exit, no analysis —
- * exactly as in {@code run-openjdk}. Combined with {@code --compile-log} it is how a Kotlin corpus's checked-in
- * {@code inputConfiguration.json} is produced, which is the whole point of having it here too.
- * <p>
- * The JVM must be started with the openjdk {@code --add-exports jdk.compiler/com.sun.tools.javac.*=ALL-UNNAMED}
- * (the {@code application} run task and the test task inject them).
+ * <b>The mixed Java+Kotlin CLI — one entry point, not a second tool.</b> It takes the <i>same</i> command line
+ * as {@code bin/maddi} (the option surface is literally {@link io.codelaser.maddi.run.openjdkmain.Main#createOptions()},
+ * not a second list that happens to agree), and routes on what the project turns out to hold:
+ *
+ * <ul>
+ *   <li><b>No {@code .kt} file</b> — the run IS {@code maddi}: same {@link RunAnalyzer}, same behaviour, same
+ *   exit codes. {@code bin/maddi-kotlin} is therefore a strict superset of {@code bin/maddi}, which is what
+ *   lets a user with one mixed repository install one tool.</li>
+ *   <li><b>Kotlin present</b> — the mixed pipeline ({@link RunMixedPrepAnalyzer}): both front ends share one
+ *   core, so a cross-language reference resolves to a single type.</li>
+ * </ul>
+ *
+ * <p>⛔ <b>An option the mixed pipeline does not honour is REFUSED by name</b> (exit
+ * {@value ExitCode#UNSUPPORTED_OPTION}), never silently dropped — the same rule that made
+ * {@code --skip-kotlin-sources} necessary on the Java side. Today that is persistence and everything built on
+ * it: {@code --analysis-results-dir}, {@code --incremental-analysis}, {@code --analysis-steps rewire-tests},
+ * and the analysis-hints compiler modes. Those wait on a Kotlin codec round trip, and a run that wrote an
+ * empty result directory would look exactly like one that worked.
+ *
+ * <p>The JVM must be started with the openjdk {@code --add-exports jdk.compiler/com.sun.tools.javac.*=ALL-UNNAMED}
+ * (the launcher and the test task inject them).
  */
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
     public static final int EXIT_OK = ExitCode.OK;
 
-    static final String COMPILE_LOG = "--compile-log";
-    static final String INPUT_CONFIGURATION = "--input-configuration";
-    static final String EXTRA_JMOD = "--extra-jmod";
-    /** Terminal, as in {@code run-openjdk}'s Main: write the derived configuration and exit, no analysis. */
-    static final String WRITE_INPUT_CONFIGURATION = "--write-input-configuration";
-    /** {@value #AS_PREP} (default) or {@value #AS_MODIFICATION}, as in {@code run-openjdk}'s Main. */
-    static final String ANALYSIS_STEPS = "--analysis-steps";
-    static final String AS_PREP = "prep";
-    static final String AS_MODIFICATION = "modification";
-    /** Repeatable, as in {@code run-openjdk}: directories of pre-analyzed library annotations (the AAPI). */
-    static final String PRELOAD_ANALYSIS_RESULTS_DIRS = "--preload-analysis-results-dirs";
+    /** What {@code --help} calls this tool: the launcher is {@code bin/maddi-kotlin} (see PUBLISHING.md). */
+    public static final String PROGRAM_NAME = "maddi-kotlin";
+
+    /** {@code --compile-log}: javac AND kotlinc invocations out of one log, linked by output identity. */
+    public static final CompileLogParser MIXED_COMPILE_LOG =
+            (log, jmods) -> new ParseMixedList().parse(log, jmods);
 
     public static void main(String[] args) {
         int exitValue = execute(args);
         if (exitValue != EXIT_OK) {
+            LOGGER.error(ExitCode.message(exitValue));
             System.exit(exitValue);
         }
     }
 
-    static int execute(String[] args) {
-        String compileLog = null;
-        String inputConfigurationFile = null;
-        String writeInputConfiguration = null;
-        String analysisSteps = AS_PREP;
-        List<String> extraJmods = new ArrayList<>();
-        List<String> analysisResultsDirs = new ArrayList<>();
-        for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case COMPILE_LOG -> compileLog = value(args, ++i);
-                case INPUT_CONFIGURATION -> inputConfigurationFile = value(args, ++i);
-                case EXTRA_JMOD -> extraJmods.add(value(args, ++i));
-                case WRITE_INPUT_CONFIGURATION -> writeInputConfiguration = value(args, ++i);
-                case ANALYSIS_STEPS -> analysisSteps = value(args, ++i);
-                case PRELOAD_ANALYSIS_RESULTS_DIRS -> analysisResultsDirs.add(value(args, ++i));
-                default -> {
-                    LOGGER.error("Unknown argument '{}'. Use {} <file> or {} <file> [{} <module>]... [{} <file>]",
-                            args[i], COMPILE_LOG, INPUT_CONFIGURATION, EXTRA_JMOD, WRITE_INPUT_CONFIGURATION);
-                    return ExitCode.INTERNAL_EXCEPTION;
-                }
-            }
-        }
+    /**
+     * The mixed CLI's command line. ⭐ It IS the Java CLI's — not a second list that happens to agree today.
+     * {@code TestOneEntryPoint} reads it from here, so a future divergence fails a test rather than a user.
+     */
+    static Options cliOptions() {
+        return createOptions();
+    }
+
+    public static int execute(String[] args) {
         try {
-            InputConfiguration inputConfiguration;
-            if (inputConfigurationFile != null) {
-                LOGGER.info("Reading input configuration from {}", inputConfigurationFile);
-                inputConfiguration = JsonStreaming.objectMapper()
-                        .readValue(new File(inputConfigurationFile), InputConfigurationImpl.class);
-            } else if (compileLog != null) {
-                LOGGER.info("Deriving input configuration from mixed compile log {} (extra jmods {})",
-                        compileLog, extraJmods);
-                inputConfiguration = new ParseMixedList().parse(Path.of(compileLog), extraJmods);
-            } else {
-                LOGGER.error("Provide either {} <file> or {} <file>", COMPILE_LOG, INPUT_CONFIGURATION);
-                return ExitCode.INTERNAL_EXCEPTION;
-            }
+            CommandLineParser commandLineParser = new DefaultParser();
+            Options options = cliOptions();
+            CommandLine cmd = commandLineParser.parse(options, args);
+            Configuration configuration = parseConfiguration(cmd, options, PROGRAM_NAME, MIXED_COMPILE_LOG);
+
+            // terminal, as in the Java CLI: write the derived configuration and exit, no analysis. Combined
+            // with --compile-log this is how a Kotlin corpus's checked-in inputConfiguration.json is produced.
+            String writeInputConfiguration = cmd.getOptionValue(WRITE_INPUT_CONFIGURATION);
             if (writeInputConfiguration != null) {
                 File file = new File(writeInputConfiguration);
                 LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
-                JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter().writeValue(file, inputConfiguration);
+                JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
+                        .writeValue(file, configuration.inputConfiguration());
                 return EXIT_OK;
             }
-            if (!AS_PREP.equals(analysisSteps) && !AS_MODIFICATION.equals(analysisSteps)) {
-                LOGGER.error("{} must be '{}' or '{}', not '{}'", ANALYSIS_STEPS, AS_PREP, AS_MODIFICATION,
-                        analysisSteps);
-                return ExitCode.INTERNAL_EXCEPTION;
+
+            InputConfiguration inputConfiguration = configuration.inputConfiguration();
+            DetectKotlinSources kotlinSources = DetectKotlinSources.in(inputConfiguration);
+            if (!kotlinSources.found()) {
+                LOGGER.info("No Kotlin source file in {} source set(s); running the Java analyzer",
+                        inputConfiguration.sourceSets().size());
+                return runJavaAnalyzer(configuration);
             }
-            boolean modification = AS_MODIFICATION.equals(analysisSteps);
-            RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
-                    .go(inputConfiguration, modification, analysisResultsDirs);
-            LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {}",
-                    analysisSteps, summary.kotlinTypes(), summary.javaTypes(), summary.primaryTypes(),
-                    summary.analysisOrderSize());
-            // isolated elements are reported in full by the runner; the exit code must not call them a success
-            if (summary.prepErrors() > 0) {
-                LOGGER.error("{} element(s) were isolated by prep and not analyzed", summary.prepErrors());
-                return ExitCode.ANALYZER_ERROR;
+            // ⚠ --skip-kotlin-sources means the same thing on both CLIs: analyze the Java half and say so.
+            // On `maddi` it lifts a refusal; here it asks for the Java pipeline over a project this tool CAN
+            // read in full. Ignoring it because "this one does Kotlin" would be exactly the silent drop the
+            // option exists to prevent — and it is the only way to get the flags the mixed pipeline refuses.
+            if (configuration.generalConfiguration().skipKotlinSources()) {
+                LOGGER.warn("{} Kotlin source file(s) in {} are NOT analyzed: {} was given. The findings cover"
+                            + " the Java sources alone.", kotlinSources.fileCount(),
+                        kotlinSources.sourceSetNames(), DetectKotlinSources.SKIP_OPTION);
+                return runJavaAnalyzer(configuration);
             }
-            return EXIT_OK;
+            LOGGER.info("{} Kotlin source file(s) in {}; running the mixed Java+Kotlin analysis",
+                    kotlinSources.fileCount(), kotlinSources.sourceSetNames());
+            // ⭐ the Kotlin compiler is loaded HERE, in a realm of its own, and never on this JVM's classpath
+            // (G46: a 62 MB fat jar with unrelocated org.antlr/com.google/com.sun.jna shadows whatever else
+            // is on it). Installed only on the path that needs it: a Java-only run never builds a realm.
+            K2Realm.install();
+            return runMixed(configuration);
+        } catch (ParseException parseException) {
+            LOGGER.error("Parse exception: ", parseException);
+            return ExitCode.INTERNAL_EXCEPTION;
         } catch (IOException ioException) {
             ErrorReport.report(null, ioException);
             return ExitCode.IO_EXCEPTION;
@@ -134,8 +143,76 @@ public class Main {
         }
     }
 
-    private static String value(String[] args, int i) {
-        if (i >= args.length) throw new IllegalArgumentException("Missing value after " + args[i - 1]);
-        return args[i];
+    /** The Java-only route: byte-for-byte what {@code bin/maddi} does with the same arguments. */
+    private static int runJavaAnalyzer(Configuration configuration) {
+        RunAnalyzer runAnalyzer = new RunAnalyzer(configuration);
+        runAnalyzer.run();
+        if (!configuration.generalConfiguration().quiet()) {
+            runAnalyzer.printSummaries();
+        }
+        return runAnalyzer.exitValue();
+    }
+
+    private static int runMixed(Configuration configuration) throws IOException {
+        List<String> unsupported = unsupportedOptions(configuration);
+        if (!unsupported.isEmpty()) {
+            LOGGER.error("""
+                    These options are not (yet) honoured for a project that contains Kotlin: {}.
+                    They all depend on persisting an analysis result, which needs a Kotlin codec round trip \
+                    (see docs/kotlin-gap-analysis-2026-09-21.md §8.6). Refusing rather than running them as \
+                    no-ops: a run that wrote an empty result directory would look like one that worked. \
+                    Drop the option, or analyze the Java half with `bin/maddi`.""", unsupported);
+            return ExitCode.UNSUPPORTED_OPTION;
+        }
+        List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
+        if (analysisSteps.size() == 1 && AS_NONE.equalsIgnoreCase(analysisSteps.getFirst())) {
+            LOGGER.info("--{} {}: nothing to do", ANALYSIS_STEPS, AS_NONE);
+            return EXIT_OK;
+        }
+        boolean modification = analysisSteps.contains(AS_MODIFICATION);
+        RunMixedPrepAnalyzer.Options options = new RunMixedPrepAnalyzer.Options(modification,
+                configuration.analysisHintsConfiguration() == null ? List.of()
+                        : configuration.analysisHintsConfiguration().preloadAnalysisResultsDirs(),
+                configuration.generalConfiguration().parallel(),
+                configuration.generalConfiguration().warnNearMisses(),
+                configuration.generalConfiguration().analysisResultsDir());
+        RunMixedPrepAnalyzer.Summary summary = new RunMixedPrepAnalyzer()
+                .go(configuration.inputConfiguration(), options);
+        // the placeholder count belongs on the SAME line as the type counts: a run that reports what it
+        // parsed without reporting what it could not read invites the reader to take the first for the whole
+        LOGGER.info("Mixed {} complete: {} Kotlin + {} Java type(s), {} primary; analysis order size {};"
+                    + " {} unreadable Kotlin construct(s)",
+                modification ? AS_MODIFICATION : AS_PREP, summary.kotlinTypes(), summary.javaTypes(),
+                summary.primaryTypes(), summary.analysisOrderSize(), summary.placeholders());
+        // isolated elements are reported in full by the runner; the exit code must not call them a success
+        if (summary.prepErrors() > 0) {
+            LOGGER.error("{} element(s) were isolated by prep and not analyzed", summary.prepErrors());
+            return ExitCode.ANALYZER_ERROR;
+        }
+        return EXIT_OK;
+    }
+
+    /**
+     * The options the Java pipeline honours and the mixed one does not, by the name the user typed. Every one
+     * of them ends at the same place — an analysis result that can be written and read back — which is why
+     * they are listed here together rather than refused one at a time where they would be used.
+     */
+    static List<String> unsupportedOptions(Configuration configuration) {
+        List<String> unsupported = new ArrayList<>();
+        var general = configuration.generalConfiguration();
+        // ⭐ --analysis-results-dir is honoured since 2026-09-22: the mixed runner writes through LinkCodec,
+        // and TestKotlinAnalysisRoundTrip shows a fresh session reads those results back to identical
+        // verdicts. ⚠ --incremental-analysis still is NOT: consuming results to SKIP work needs the rewire
+        // and fingerprint machinery, which is a separate question from being able to write and read them.
+        if (general.incrementalAnalysis()) unsupported.add("--" + INCREMENTAL_ANALYSIS);
+        if (general.analysisSteps().contains(AS_REWIRE_TESTS)) {
+            unsupported.add("--" + ANALYSIS_STEPS + " " + AS_REWIRE_TESTS);
+        }
+        var hints = configuration.analysisHintsConfiguration();
+        if (hints != null) {
+            if (hints.analysisResultsTargetDir() != null) unsupported.add("--" + ANALYSIS_RESULTS_TARGET_DIR);
+            if (hints.updatedHintsDir() != null) unsupported.add("--" + UPDATED_HINTS_DIR);
+        }
+        return unsupported;
     }
 }

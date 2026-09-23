@@ -19,6 +19,7 @@ import org.apache.commons.cli.*;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
@@ -36,12 +37,15 @@ import java.util.function.Consumer;
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
-    public static final int EXIT_OK = 0;
-    public static final int EXIT_INTERNAL_EXCEPTION = 1;
-    public static final int EXIT_PARSER_ERROR = 2;
-    public static final int EXIT_INSPECTION_ERROR = 3;
-    public static final int EXIT_IO_EXCEPTION = 4;
-    public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
+    public static final int EXIT_OK = ExitCode.OK;
+    public static final int EXIT_INTERNAL_EXCEPTION = ExitCode.INTERNAL_EXCEPTION;
+    public static final int EXIT_PARSER_ERROR = ExitCode.PARSER_ERROR;
+    public static final int EXIT_INSPECTION_ERROR = ExitCode.INSPECTION_ERROR;
+    public static final int EXIT_IO_EXCEPTION = ExitCode.IO_EXCEPTION;
+    public static final int EXIT_ANALYZER_ERROR = ExitCode.ANALYZER_ERROR; // analyzer found errors
+    // the run was handed Kotlin sources, which this analyzer reads as nothing at all; refusing beats reporting
+    // success over a tree it only partly read (DetectKotlinSources)
+    public static final int EXIT_KOTLIN_SOURCES = ExitCode.KOTLIN_SOURCES;
 
     public static final String HELP = "help";
 
@@ -51,6 +55,7 @@ public class Main {
     public static final String SOURCE_ENCODING = "source-encoding";
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
     public static final String AS_NONE = "none";
@@ -87,16 +92,9 @@ public class Main {
 
     public static final String COMMA = ",";
 
+    /** ⚠ One table, in {@link ExitCode}; see {@code openjdkmain.Main#exitMessage} for why it is not a copy. */
     public static String exitMessage(int exitValue) {
-        return switch (exitValue) {
-            case EXIT_OK -> "OK";
-            case EXIT_INTERNAL_EXCEPTION -> "Internal exception";
-            case EXIT_PARSER_ERROR -> "Parser error(s)";
-            case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
-            case EXIT_IO_EXCEPTION -> "IO exception";
-            case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
-            default -> throw new UnsupportedOperationException("don't know value " + exitValue);
-        };
+        return ExitCode.message(exitValue);
     }
 
     public static void main(String[] args) {
@@ -209,6 +207,9 @@ public class Main {
         options.addOption("q", QUIET, false, "Silent mode. Do not write warnings, errors, etc. to stdout.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
+        options.addOption(null, SKIP_KOTLIN_SOURCES, false, "Analyze the Java sources of a project that also "
+                + "holds Kotlin, accepting an incomplete result. Without it, a run that meets a .kt file refuses "
+                + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
     }
 
     public static GeneralConfiguration generalConfiguration(Map<String, String> kvMap) {
@@ -217,6 +218,7 @@ public class Main {
         setBooleanProperty(kvMap, PARALLEL, builder::setParallel);
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
@@ -230,6 +232,7 @@ public class Main {
         builder.setQuiet(cmd.hasOption(QUIET));
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
         splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);

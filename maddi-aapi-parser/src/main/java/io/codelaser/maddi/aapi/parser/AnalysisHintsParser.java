@@ -80,18 +80,45 @@ public class AnalysisHintsParser implements AnnotationProvider {
         return javaInspector;
     }
 
+    /**
+     * The library package a hints class stands for, or {@code null} when {@code typeInfo} is not a hints class.
+     * <p>
+     * This is the <em>only</em> definition of "is this an analysis-hints source": a class declaring
+     * {@code public static final String PACKAGE_NAME = "<a package>"}. Everything that needs to recognise hints —
+     * including the guards in the runners that refuse to analyse them as ordinary code — goes through here or
+     * through {@link #isAnalysisHintsShadow}.
+     */
+    public static String analysisHintsPackage(TypeInfo typeInfo) {
+        FieldInfo packageName = typeInfo.getFieldByName("PACKAGE_NAME", false);
+        if (packageName != null && packageName.initializer() instanceof StringConstant sc) {
+            return sc.constant();
+        }
+        return null;
+    }
+
+    /**
+     * Is {@code typeInfo} a hints SHADOW — an {@code X$} stand-in for the library type {@code X}?
+     * <p>
+     * Both halves are needed, and the second half is the one that was missing. {@code $} is a legal Java identifier
+     * and real libraries use it as a type name ({@code io.vavr.$}), so a name test alone misreads ordinary code as
+     * hints: on vavr it aborted the entire analysis through the guards in {@code RunAnalyzer}. A shadow is always
+     * NESTED inside a hints class — see the structure documented on {@link AnalysisHintsComposer} and enforced by
+     * {@link #inspect} — so the enclosing type's {@code PACKAGE_NAME} is what tells the two apart.
+     */
+    public static boolean isAnalysisHintsShadow(TypeInfo typeInfo) {
+        return typeInfo.simpleName().endsWith("$")
+               && typeInfo.compilationUnitOrEnclosingType().isRight()
+               && analysisHintsPackage(typeInfo.compilationUnitOrEnclosingType().getRight()) != null;
+    }
+
     private void process(CompiledTypesManager compiledTypesManager, TypeInfo typeInfo) {
         typesParsed.add(typeInfo);
-        FieldInfo packageName = typeInfo.getFieldByName("PACKAGE_NAME", false);
-        if (packageName == null) {
-            LOGGER.info("Ignoring class {}, has no PACKAGE_NAME field", typeInfo);
-            return;
-        }
-        String apiPackage;
-        if (packageName.initializer() instanceof StringConstant sc) {
-            apiPackage = sc.constant();
-        } else {
-            LOGGER.info("Ignoring class {}, PACKAGE_NAME field has not been assigned a String literal", typeInfo);
+        String apiPackage = analysisHintsPackage(typeInfo);
+        if (apiPackage == null) {
+            LOGGER.info(typeInfo.getFieldByName("PACKAGE_NAME", false) == null
+                            ? "Ignoring class {}, has no PACKAGE_NAME field"
+                            : "Ignoring class {}, PACKAGE_NAME field has not been assigned a String literal",
+                    typeInfo);
             return;
         }
         LOGGER.debug("Starting AAPI inspection of {}, in API package {}", typeInfo, apiPackage);
@@ -103,7 +130,9 @@ public class AnalysisHintsParser implements AnnotationProvider {
             String simpleNameWithoutDollar = typeInfo.simpleName().substring(0, typeInfo.simpleName().length() - 1);
             String fqn = apiPackage + "." + simpleNameWithoutDollar;
             TypeInfo targetType = compiledTypesManager.type(fqn, typeInfo.compilationUnit().sourceSet());
-            if (targetType != null) {
+            // a STUB (no source set, InfoByFqn's GAP #163 rule) is not a loaded type either. JDK 27's javac recovers
+            // an unresolvable name where 26 left none, so off its class path kotlin.Pair now comes back as a stub
+            if (targetType != null && targetType.compilationUnit().sourceSet() != null) {
                 assert targetType.compilationUnit().sourceSet().externalLibrary();
                 annotatedTypes++;
                 transferAnnotations(typeInfo, targetType);

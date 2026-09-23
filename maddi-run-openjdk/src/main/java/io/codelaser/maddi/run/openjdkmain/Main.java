@@ -20,6 +20,7 @@ import org.apache.commons.cli.help.HelpFormatter;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
+import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
@@ -40,12 +41,15 @@ import java.util.function.Consumer;
 public class Main {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
-    public static final int EXIT_OK = 0;
-    public static final int EXIT_INTERNAL_EXCEPTION = 1;
-    public static final int EXIT_PARSER_ERROR = 2;
-    public static final int EXIT_INSPECTION_ERROR = 3;
-    public static final int EXIT_IO_EXCEPTION = 4;
-    public static final int EXIT_ANALYZER_ERROR = 5; // analyzer found errors
+    public static final int EXIT_OK = ExitCode.OK;
+    public static final int EXIT_INTERNAL_EXCEPTION = ExitCode.INTERNAL_EXCEPTION;
+    public static final int EXIT_PARSER_ERROR = ExitCode.PARSER_ERROR;
+    public static final int EXIT_INSPECTION_ERROR = ExitCode.INSPECTION_ERROR;
+    public static final int EXIT_IO_EXCEPTION = ExitCode.IO_EXCEPTION;
+    public static final int EXIT_ANALYZER_ERROR = ExitCode.ANALYZER_ERROR; // analyzer found errors
+    // the run was handed Kotlin sources, which this analyzer reads as nothing at all; refusing beats reporting
+    // success over a tree it only partly read (DetectKotlinSources). Kept in step with run.main.Main's copy.
+    public static final int EXIT_KOTLIN_SOURCES = ExitCode.KOTLIN_SOURCES;
 
     public static final String HELP = "help";
 
@@ -56,6 +60,7 @@ public class Main {
     public static final String INCREMENTAL_ANALYSIS = "incremental-analysis";
     public static final String JDK_INTERNALS = "jdk-internals";
     public static final String WARN_NEAR_MISSES = "warn-near-misses";
+    public static final String SKIP_KOTLIN_SOURCES = "skip-kotlin-sources";
     public static final String ANALYSIS_STEPS = "analysis-steps";
 
     public static final String AS_NONE = "none";
@@ -97,16 +102,29 @@ public class Main {
 
     public static final String COMMA = ",";
 
+    /** What {@code --help} calls this tool: the launcher is {@code bin/maddi} (see PUBLISHING.md). */
+    public static final String PROGRAM_NAME = "maddi";
+
+    /**
+     * Turns a build/compile log into an {@link InputConfiguration}. The Java CLI reads the <b>javac</b>
+     * invocations; the mixed CLI reads javac <i>and</i> kotlinc ones out of the same log, which is the only
+     * part of the command line that cannot be shared between the two.
+     */
+    @FunctionalInterface
+    public interface CompileLogParser {
+        InputConfiguration parse(Path compileLog, List<String> extraJmods) throws IOException;
+    }
+
+    /** The Java CLI's: javac invocations only. */
+    public static final CompileLogParser JAVAC_COMPILE_LOG = (log, jmods) -> new ParseJavacList().parse(log, jmods);
+
+    /**
+     * ⚠ One table, in {@link ExitCode}. This used to be a private copy in each runner's {@code Main} that
+     * <b>threw</b> on a code it did not know — so a code added in one runner turned into an
+     * {@code UnsupportedOperationException} in another, at the moment it was trying to report a failure.
+     */
     public static String exitMessage(int exitValue) {
-        return switch (exitValue) {
-            case EXIT_OK -> "OK";
-            case EXIT_INTERNAL_EXCEPTION -> "Internal exception";
-            case EXIT_PARSER_ERROR -> "Parser error(s)";
-            case EXIT_INSPECTION_ERROR -> "Inspection error(s)";
-            case EXIT_IO_EXCEPTION -> "IO exception";
-            case EXIT_ANALYZER_ERROR -> "Analyzer error(s)";
-            default -> throw new UnsupportedOperationException("don't know value " + exitValue);
-        };
+        return ExitCode.message(exitValue);
     }
 
     public static void main(String[] args) {
@@ -125,11 +143,11 @@ public class Main {
         }
     }
 
-    static int execute(String[] args) throws ParseException, IOException {
+    public static int execute(String[] args) throws ParseException, IOException {
         CommandLineParser commandLineParser = new DefaultParser();
         Options options = createOptions();
         CommandLine cmd = commandLineParser.parse(options, args);
-        Configuration configuration = parseConfiguration(cmd, options);
+        Configuration configuration = parseConfiguration(cmd, options, PROGRAM_NAME, JAVAC_COMPILE_LOG);
 
         String writeInputConfiguration = cmd.getOptionValue(WRITE_INPUT_CONFIGURATION);
         if (writeInputConfiguration != null) {
@@ -151,7 +169,13 @@ public class Main {
     }
 
 
-    private static Options createOptions() {
+    /**
+     * The whole option surface of the Java CLI. ⭐ Public because the <b>mixed</b> CLI
+     * ({@code maddi-run-kotlin}'s {@code Main}) builds its command line from exactly this object: "one entry
+     * point" (the Kotlin bundle is a strict superset of the Java one) is a property of a SHARED option set, not
+     * of two lists that happen to agree today. {@code TestOneEntryPoint} asserts they never drift.
+     */
+    public static Options createOptions() {
         Options options = new Options();
         options.addOption("h", HELP, false, "Print help.");
         addGeneralConfigurationOptions(options);
@@ -160,11 +184,17 @@ public class Main {
         return options;
     }
 
-    private static Configuration parseConfiguration(CommandLine cmd, Options options) throws IOException {
+    /**
+     * @param programName     what {@code --help} calls the tool; the mixed CLI is a different launcher.
+     * @param compileLogParser how {@code --compile-log} becomes an {@link InputConfiguration}: javac invocations
+     *                        only here, javac <i>and</i> kotlinc ones in the mixed CLI.
+     */
+    public static Configuration parseConfiguration(CommandLine cmd, Options options, String programName,
+                                                   CompileLogParser compileLogParser) throws IOException {
         if (cmd.hasOption(HELP)) {
             HelpFormatter formatter = HelpFormatter.builder().get();
             //formatter.setWidth(128);
-            formatter.printHelp("maddi-analyzer", "", options, "", true);
+            formatter.printHelp(programName, "", options, "", true);
             System.exit(EXIT_OK);
         }
         Configuration.Builder builder = new Configuration.Builder();
@@ -172,7 +202,7 @@ public class Main {
         GeneralConfiguration generalConfiguration = parseGeneralConfiguration(cmd);
         builder.setGeneralConfiguration(generalConfiguration);
 
-        InputConfiguration inputConfiguration = parseInputConfiguration(cmd);
+        InputConfiguration inputConfiguration = parseInputConfiguration(cmd, compileLogParser);
         builder.setInputConfiguration(inputConfiguration);
 
         AnalysisHintsConfiguration analysisHintsConfiguration = parseAnalysisHintsConfiguration(cmd);
@@ -228,6 +258,9 @@ public class Main {
         options.addOption(null, JDK_INTERNALS, false, "We're working with JDK internals: load jdk.internal.*/sun.* "
                 + "types, and open the JDK modules to javac (add-exports every non-exported package, bypass ct.sym, "
                 + "avoid system-module package clashes). Needed to parse the JDK's own sources.");
+        options.addOption(null, SKIP_KOTLIN_SOURCES, false, "Analyze the Java sources of a project that also "
+                + "holds Kotlin, accepting an incomplete result. Without it, a run that meets a .kt file refuses "
+                + "(exit " + EXIT_KOTLIN_SOURCES + ") rather than skipping it silently.");
         options.addOption(null, WARN_NEAR_MISSES, false, "Emit advisory warnings for types/methods that narrowly "
                 + "miss a property (e.g. would be @Container but for a single modifying parameter). Off by default.");
     }
@@ -239,6 +272,7 @@ public class Main {
         setBooleanProperty(kvMap, INCREMENTAL_ANALYSIS, builder::setIncrementalAnalysis);
         setBooleanProperty(kvMap, JDK_INTERNALS, builder::setJdkInternals);
         setBooleanProperty(kvMap, WARN_NEAR_MISSES, builder::setWarnNearMisses);
+        setBooleanProperty(kvMap, SKIP_KOTLIN_SOURCES, builder::setSkipKotlinSources);
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
@@ -253,6 +287,7 @@ public class Main {
         builder.setIncrementalAnalysis(cmd.hasOption(INCREMENTAL_ANALYSIS));
         builder.setJdkInternals(cmd.hasOption(JDK_INTERNALS));
         builder.setWarnNearMisses(cmd.hasOption(WARN_NEAR_MISSES));
+        builder.setSkipKotlinSources(cmd.hasOption(SKIP_KOTLIN_SOURCES));
 
         String[] analysisSteps = cmd.getOptionValues(ANALYSIS_STEPS);
         splitAndAdd(analysisSteps, COMMA, builder::addAnalysisSteps);
@@ -349,12 +384,31 @@ public class Main {
         return builder.build();
     }
 
-    private static InputConfiguration parseInputConfiguration(CommandLine cmd) throws IOException {
+    /**
+     * The explicit options that only the {@code --source}/{@code --classpath} route reads. ⚠ Given alongside
+     * {@code --input-configuration} or {@code --compile-log} they are accepted and dropped — the same shape of
+     * bug that {@code --jre} had (see {@link #withStatedJre}), which is why they are at least named now rather
+     * than silently ignored. {@code --jre} itself is NOT in this list: it is applied on all three routes.
+     */
+    private static final List<String> EXPLICIT_ROUTE_ONLY = List.of(SOURCE, TEST_SOURCE, CLASSPATH, JMOD,
+            SOURCE_PACKAGES, TEST_SOURCE_PACKAGES, SOURCE_ENCODING);
+
+    private static void warnAboutIgnoredOptions(CommandLine cmd, String route) {
+        List<String> ignored = EXPLICIT_ROUTE_ONLY.stream().filter(cmd::hasOption).map(o -> "--" + o).toList();
+        if (!ignored.isEmpty()) {
+            LOGGER.warn("{} supplies the whole input configuration, so {} {} ignored", route, ignored,
+                    ignored.size() == 1 ? "is" : "are");
+        }
+    }
+
+    private static InputConfiguration parseInputConfiguration(CommandLine cmd, CompileLogParser compileLogParser)
+            throws IOException {
         String inputConfigurationFile = cmd.getOptionValue(INPUT_CONFIGURATION);
         if (inputConfigurationFile != null) {
             ObjectMapper objectMapper = JsonStreaming.objectMapper();
             File file = new File(inputConfigurationFile);
             LOGGER.info("Reading inputConfiguration from file {}", inputConfigurationFile);
+            warnAboutIgnoredOptions(cmd, "--" + INPUT_CONFIGURATION);
             return withStatedJre(cmd, objectMapper.readValue(file, InputConfigurationImpl.class));
         }
         String compileLog = cmd.getOptionValue(COMPILE_LOG);
@@ -362,7 +416,8 @@ public class Main {
             String[] extraJmods = cmd.getOptionValues(EXTRA_JMOD);
             List<String> extraJmodList = extraJmods == null ? List.of() : Arrays.asList(extraJmods);
             LOGGER.info("Deriving inputConfiguration from compile log {} (extra jmods {})", compileLog, extraJmodList);
-            return withStatedJre(cmd, new ParseJavacList().parse(Path.of(compileLog), extraJmodList));
+            warnAboutIgnoredOptions(cmd, "--" + COMPILE_LOG);
+            return withStatedJre(cmd, compileLogParser.parse(Path.of(compileLog), extraJmodList));
         }
         InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder();
 
@@ -439,7 +494,11 @@ public class Main {
     */
 
     private static void addAnalysisHintsConfigurationOptions(Options options) {
-        options.addOption(Option.builder("s").longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
+        // ⛔ NO short form. It used to be "-s", which --source already had: commons-cli keys the short map by
+        // the letter, so the later registration won and `maddi -s src` bound the SOURCE directory to the
+        // analysis-hints option instead. Measured 2026-09-21: "Running prep analyzer on 0 types", exit 0 — a
+        // run that analyzed nothing and called it success, and --source was not even listed in --help.
+        options.addOption(Option.builder().longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
                 .desc("Add a directory where the analyzed analysis hints files can be found." +
                       " Use the Java path separator '" + File.pathSeparator + "' to separate directories, " +
                       "or use this options multiple times.").get());

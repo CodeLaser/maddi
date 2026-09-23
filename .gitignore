@@ -6,6 +6,7 @@ bazel-*
 **/target/
 */bin/
 **/.gradle/
+**/.gradle-home/
 **/out/
 .idea
 **/.idea

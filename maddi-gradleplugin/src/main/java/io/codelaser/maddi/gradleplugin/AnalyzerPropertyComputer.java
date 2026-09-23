@@ -174,7 +174,7 @@ public record AnalyzerPropertyComputer(
         File buildDir = project.getLayout().getBuildDirectory().get().getAsFile();
         return PluginOptions.generalConfigMap(extension.incrementalAnalysis, extension.analysisResultsDir,
                 new File(buildDir, "maddi"), extension.parallel, extension.analysisSteps, extension.debugTargets,
-                extension.quiet, extension.warnNearMisses);
+                extension.quiet, extension.warnNearMisses, extension.skipKotlinSources);
     }
 
     private static void addSystemProperties(Map<String, Object> properties) {

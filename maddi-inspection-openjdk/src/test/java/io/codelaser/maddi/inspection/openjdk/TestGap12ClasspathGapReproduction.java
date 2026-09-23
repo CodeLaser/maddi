@@ -140,10 +140,17 @@ public class TestGap12ClasspathGapReproduction {
      * ⛔ The measurement that matters, and it is asserted UNCONDITIONALLY — a branch that accepts every outcome
      * is an escape hatch, not a control ({@code TestGap12StaleJarReproduction} learned that the hard way).
      */
-    @DisplayName("#12b: with the classpath gap, the type is dropped — on the warning channel, parse 'successful'")
+    @DisplayName("#12b: with the classpath gap, the type is dropped (up to JDK 26) — on the warning channel, parse 'successful'")
     @Test
     public void withTheGapTheTypeIsDroppedAndTheParseStillSucceeds() throws Exception {
         Observation o = run(true);
+        if (java.lang.Runtime.version().feature() >= 27) {
+            // JDK 27's javac recovers from the unresolvable annotation and maddi stubs it: the gap no longer costs
+            // the type, which parses exactly as in the control
+            assertEquals("[3-arg, 1-arg]", o.cfgConstructors(), "JDK 27 keeps the whole type");
+            assertTrue(o.parseExceptions().isEmpty(), o.parseExceptions().toString());
+            return;
+        }
         assertEquals("(absent)", o.cfgConstructors(),
                 "the whole type is gone from the parse result, not merely truncated");
         assertFalse(o.warnings().isEmpty(), "it is NOT silent: the drop is reported");

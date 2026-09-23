@@ -45,9 +45,11 @@ import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISe
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import com.intellij.psi.PsiMethod
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaJavaFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
@@ -164,6 +166,21 @@ internal class KotlinTypeMapper(
         val symbol = pointer.restoreSymbol() ?: return typeInfo.builder().commit()
         loadLibraryMembers(typeInfo, symbol)
         typeInfo.builder().commit()
+    }
+
+    /**
+     * [type] with its members, when it is a class-file type the Java front end registered as a SHELL (hierarchy only,
+     * named by some other type's signature) and completes only in its own commit batch -- which, in a mixed project,
+     * ran before this front end asks. Without it `p.toUri()` found no method on `java.nio.file.Path` and `URI("x")` no
+     * constructor on `java.net.URI`: both were placeholders, while `java.util` types, preloaded whole, resolved.
+     * Called where members are LOOKED UP, not where a type is mentioned, so a type only named stays a shell.
+     * Not for a type this mapper built itself from K2 symbols (its own shells: [deepen]), nor for a source type.
+     */
+    internal fun withMembers(type: TypeInfo): TypeInfo {
+        if (type.hasBeenInspected() || compiledTypesManager == null) return type
+        val compilationUnit = type.compilationUnit()
+        if (!compilationUnit.externalLibrary() || compilationUnit.sourceSet() == librarySourceSet) return type
+        return compiledTypesManager.typeWithMembers(type.fullyQualifiedName(), compilationUnit.sourceSet()) ?: type
     }
 
     /**
@@ -392,8 +409,20 @@ internal class KotlinTypeMapper(
      * among them (maddi#43). An extension is a static of the facade whose first parameter is the receiver, which
      * is exactly what kotlinc compiles it to, so nothing else here has to know the difference.
      */
-    internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? {
-        val classId = jvmFacadeClassId(function) ?: return null
+    internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? =
+        loadLibraryFacade(jvmFacadeClassId(function))
+
+    /**
+     * The facade holding a top-level library PROPERTY — `Class<T>.java`, `CharSequence.lastIndex`. Kotlin
+     * compiles an extension property into a static getter on the same kind of facade class its functions go
+     * to, so this is the same load; it exists as its own entry point because a property is not a
+     * [KaNamedFunctionSymbol].
+     */
+    internal fun KaSession.loadLibraryFacadeForProperty(property: KaPropertySymbol): TypeInfo? =
+        loadLibraryFacade(jvmFacadeClassId(property))
+
+    private fun KaSession.loadLibraryFacade(classId: ClassId?): TypeInfo? {
+        if (classId == null) return null
         val jvmFqn = classId.asFqNameString()
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
         val pkg = findPackage(classId.packageFqName) ?: return null
@@ -401,7 +430,16 @@ internal class KotlinTypeMapper(
             .filterIsInstance<KaNamedFunctionSymbol>()
             .filter { jvmFacadeClassId(it) == classId }
             .toList()
-        if (functions.isEmpty()) return null
+        // ⭐ and its PROPERTIES, as static getters: an extension property compiles to `getX(receiver)` on the
+        // same facade, so a facade built from functions alone cannot resolve `x.lastIndex` or `c.java`.
+        val properties = pkg.packageScope.callables
+            .filterIsInstance<KaPropertySymbol>()
+            .filter { jvmFacadeClassId(it) == classId }
+            // a private top-level property has no getter, and its field (a private `const`, the stdlib's
+            // `SequenceBuilderKt.State_Ready`) no reader outside its file
+            .filter { it.visibility != KaSymbolVisibility.PRIVATE }
+            .toList()
+        if (functions.isEmpty() && properties.isEmpty()) return null
         val typeInfo = runtime.newTypeInfo(
             libraryCompilationUnit(classId.packageFqName.asString()), classId.shortClassName.asString())
         registerLibraryType(jvmFqn, typeInfo) // register before members (param types may cycle back)
@@ -410,11 +448,52 @@ internal class KotlinTypeMapper(
             .setParentClass(runtime.objectParameterizedType())
             .addTypeModifier(runtime.typeModifierPublic())
             .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess() // now, not at the commit: a field's own computeAccess combines with it (a const field)
         val seen = mutableSetOf<String>() // erased overloads can collide on the same signature
         functions.map { convertLibraryMethod(typeInfo, it, static = true) }
             .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        properties.mapNotNull { convertLibraryPropertyGetter(typeInfo, it) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        properties.filter { it.receiverParameter == null && (it as? KaKotlinPropertySymbol)?.isConst == true }
+            .forEach { builder.addField(convertLibraryConstField(typeInfo, it)) }
         builder.computeAccess().commit()
         return typeInfo
+    }
+
+    /**
+     * A top-level extension property as the static getter kotlinc compiles it to: `val C.x: T` becomes
+     * `getX(C): T` on the file facade. Null when the property has no extension receiver — a plain top-level
+     * `val` is a field on the facade, which is a different shape and not this path's business.
+     */
+    private fun KaSession.convertLibraryPropertyGetter(owner: TypeInfo, property: KaPropertySymbol): MethodInfo? {
+        val receiver = property.receiverParameter
+        // a plain top-level `val` has a getter too (`getINDENT_SIZE_PROPERTY()`) -- unless it is a `const`, which
+        // is read as the facade's static field (convertLibraryConstField)
+        if (receiver == null && (property as? KaKotlinPropertySymbol)?.isConst == true) return null
+        val name = property.name.asString()
+        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
+        val builder = method.builder()
+        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        builder.setReturnType(mapType(property.returnType, owner))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+        builder.commitParameters().computeAccess().commit()
+        return method
+    }
+
+    /** A top-level library `const val` as the public static final field kotlinc compiles it to. */
+    private fun KaSession.convertLibraryConstField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
+        val field = runtime.newFieldInfo(property.name.asString(), true, mapType(property.returnType, owner), owner)
+        field.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
+        return field
     }
 
     /**
@@ -423,7 +502,7 @@ internal class KotlinTypeMapper(
      * place the facade name lives. Reached reflectively: the Analysis API does not expose the FIR container
      * source in its stable surface, and a soft failure (null) simply skips the resolution.
      */
-    private fun jvmFacadeClassId(symbol: KaNamedFunctionSymbol): ClassId? = try {
+    private fun jvmFacadeClassId(symbol: KaCallableSymbol): ClassId? = try {
         val firSymbol = symbol.javaClass.methods.firstOrNull { it.name == "getFirSymbol" }?.invoke(symbol)
         val fir = firSymbol?.javaClass?.methods?.firstOrNull { it.name == "getFir" }?.invoke(firSymbol)
         val cs = fir?.javaClass?.methods?.firstOrNull { it.name == "getContainerSource" }?.invoke(fir)
@@ -516,6 +595,13 @@ internal class KotlinTypeMapper(
             symbol.staticMemberScope.declarations
                 .filterIsInstance<KaJavaFieldSymbol>()
                 .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(typeInfo, it)) }
+            // an enum's constants, as the class file has them: `public static final` fields of the enum's own type.
+            // K2 models them as enum entries, not fields, for a Java enum as well as a Kotlin one, so without this a
+            // library enum built here had no constants at all -- `ElementType.FIELD` in an annotation argument lost
+            // its pair, and in a body had nothing to resolve to. (A class-file-loaded type never took this path.)
+            symbol.staticMemberScope.declarations
+                .filterIsInstance<KaEnumEntrySymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryEnumEntry(typeInfo, it)) }
             // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
             // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
             val seen = mutableSetOf<String>()
@@ -607,6 +693,25 @@ internal class KotlinTypeMapper(
         symbol.declaredMemberScope.declarations
             .filterIsInstance<KaConstructorSymbol>()
             .forEach { builder.addConstructor(convertLibraryConstructor(stringType, it)) }
+        // ⛔ STATIC members: `String.format(…)`, `String.valueOf(…)`, `String.join(…)` live in their own
+        // scope, which this bootstrap never read.
+        //
+        // ⚠ Its PROPERTIES are deliberately NOT turned into fields here, and the measurement is why.
+        // `loadLibraryMembers` does that for every other library type, so doing it looked like the missing
+        // half — but this bootstrap only runs when nothing has inspected `java.lang.String` yet, i.e. in a
+        // Kotlin-only parse with no JDK. Every real run loads the JDK, where `length` is a METHOD and
+        // `s.length` resolves through `resolveAccessor` as `length()` — which is why the corpora show ZERO
+        // `k2-unresolved-access:length`. Adding a field made the FIXTURE path model a property read that the
+        // real path models as a call, and a ported prepwork test caught it: `java.lang.String.length#s`
+        // appeared in a VariableData its Java original does not have.
+        val seenFields = mutableSetOf<String>()
+        symbol.staticMemberScope.declarations
+            .filterIsInstance<KaNamedFunctionSymbol>()
+            .map { convertLibraryMethod(stringType, it, static = true) }
+            .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+        symbol.staticMemberScope.declarations
+            .filterIsInstance<KaJavaFieldSymbol>()
+            .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticField(stringType, it)) }
         builder.commit()
     }
 
@@ -650,6 +755,17 @@ internal class KotlinTypeMapper(
             .setInitializer(runtime.newEmptyExpression())
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
         builder.computeAccess().commit()
+        return fieldInfo
+    }
+
+    private fun convertLibraryEnumEntry(owner: TypeInfo, entry: KaEnumEntrySymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(entry.name.asString(), true, owner.asParameterizedType(), owner)
+        fieldInfo.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
         return fieldInfo
     }
 

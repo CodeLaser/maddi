@@ -889,7 +889,10 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         MethodInfo sam = singleAbstractMethod();
         if (sam != null) {
             MethodInfo rewiredSam = infoMap.methodInfo(sam);
-            assert rewiredSam != sam;
+            // a copy when the method is this type's own. An INHERITED one may come from a type that is not
+            // being rewired -- `interface X extends Supplier<String>` -- and then the info map rightly answers
+            // the method itself: there is no copy to point at.
+            assert rewiredSam != sam || sam.typeInfo() != this;
             builder.setSingleAbstractMethod(rewiredSam);
         }
         for (FieldInfo fieldInfo : fields()) {

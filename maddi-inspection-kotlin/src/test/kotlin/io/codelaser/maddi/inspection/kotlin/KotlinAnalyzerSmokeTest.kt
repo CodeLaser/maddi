@@ -57,6 +57,33 @@ class KotlinAnalyzerSmokeTest {
         assertTrue(names.contains("y"), "variables: $names")
     }
 
+    /**
+     * ⛔ The one risk in lowering `s ?: return 0` into TWO statements: they are indexed `0.0`/`0.1` with
+     * nothing at `0`, because the indexes only have to SORT and renumbering would shift every statement
+     * after them. Prep compares those indexes as strings and keys its per-statement variable data on them,
+     * so this asserts prep actually RUNS over a lowered method and sees both variables — a structural
+     * assumption is worth exactly as much as the run that confirms it.
+     */
+    @Test
+    fun analyzerRunsOnALoweredControlFlowElvis() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "E.kt",
+            "class E { fun m(s: String?): Int { val t = s ?: return 0; return t.hashCode() } }\n"
+        )
+        val method = types.first().findUniqueMethod("m", 1)
+        val body = method.methodBody()
+        // the lowering: `if (s == null) return 0;` then `val t = s;` then the original return
+        assertEquals(listOf("0.0", "0.1", "1"), body.statements().map { it.source().index() })
+
+        PrepAnalyzer(runtime).doMethod(method)
+
+        val variableData = VariableDataImpl.of(body.lastStatement())
+        assertNotNull(variableData)
+        val names = variableData.knownVariableNamesToString()
+        assertTrue(names.contains("s"), "variables: $names")
+        assertTrue(names.contains("t"), "variables: $names")
+    }
+
     @Test
     fun analyzerRunsOnAKotlinClass() {
         // a class with a primary-constructor property (-> backing field + getter/setter) and a method

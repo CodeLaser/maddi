@@ -26,13 +26,27 @@ group = "io.codelaser"
 val analysisApiVersion = "2.4.0"
 
 dependencies {
+    // ⭐ The front end's CONTRACT, which the host loads and this module implements. Everything the host
+    // is allowed to see lives there; see docs/kotlin-classloader-isolation.md and the ⛔ rule in its build.
+    api(project(":maddi-kotlin-api"))
     // The shared CST this front-end produces (Runtime factories, TypeInfo, ParameterizedType, ...).
     api(project(":maddi-cst-api"))
     // The shared type registry (InfoByFqn) used across language front-ends.
     implementation(project(":maddi-inspection-resource"))
+    // the front end reports what it could not do faithfully (elvis re-evaluations); the realm shares
+    // org.slf4j with the host, so those lines come out of the host's appenders
+    implementation("org.slf4j:slf4j-api:2.0.16")
 
     // The compiler itself (PSI + FIR internals the Analysis API sits on top of). Maven Central.
-    implementation("org.jetbrains.kotlin:kotlin-compiler:$analysisApiVersion")
+    // ⛔ Minus its UPSTREAM coroutines: the Analysis API needs IntelliJ's patched copy (runtimeOnly below), and
+    // an EXCLUDE is the only form of that rule a consumer inherits. The dependencySubstitution further down
+    // governs this project's own configurations and nothing else -- the realm's k2Runtime, maddi-run-kotlin's
+    // lib-k2 and every consumer's received BOTH jars, upstream 1.8.0 first, so the realm ran upstream coroutines
+    // with one patched class beside it (RealmCoroutinesTest).
+    implementation("org.jetbrains.kotlin:kotlin-compiler:$analysisApiVersion") {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+    }
 
     // K2 Analysis API '*-for-ide' artifacts (intellij-dependencies repo). Names verified for 2.4.0.
     // Transitives are declared via shaded *-base artifacts that are NOT separately published, so we

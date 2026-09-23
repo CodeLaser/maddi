@@ -20,6 +20,10 @@ import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import java.io.File;
+import io.codelaser.maddi.util.Trie;
+import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
+import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
@@ -28,7 +32,9 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.graph.G;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +72,25 @@ public class RunMixedPrepAnalyzer {
      * did).
      */
     public record Summary(int kotlinTypes, int javaTypes, int primaryTypes, int analysisOrderSize,
-                          int prepErrors, int immutableTypes) {
+                          int prepErrors, int immutableTypes, int placeholders) {
+    }
+
+    /**
+     * What the CLI can vary, beyond the input configuration. A record rather than more {@code go} overloads:
+     * the mixed runner now serves a command line with the SAME flags as the Java one (see
+     * {@code kotlinmain.Main}), so this list grows with the options the mixed pipeline learns to honour —
+     * and an option it does NOT honour is refused there by name, never quietly dropped.
+     */
+    public record Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                          boolean warnNearMisses, String analysisResultsTargetDir) {
+        public Options(boolean modification, List<String> analysisResultsDirs) {
+            this(modification, analysisResultsDirs, false, false, null);
+        }
+
+        public Options(boolean modification, List<String> analysisResultsDirs, boolean parallel,
+                       boolean warnNearMisses) {
+            this(modification, analysisResultsDirs, parallel, warnNearMisses, null);
+        }
     }
 
     public Summary go(InputConfiguration inputConfiguration) throws IOException {
@@ -89,6 +113,15 @@ public class RunMixedPrepAnalyzer {
      */
     public Summary go(InputConfiguration inputConfiguration, boolean modification,
                       List<String> analysisResultsDirs) throws IOException {
+        return go(inputConfiguration, new Options(modification, analysisResultsDirs));
+    }
+
+    public Summary go(InputConfiguration inputConfiguration, Options options) throws IOException {
+        // idempotent: the CLI installs the realm before it gets here; a test or embedder that calls this
+        // runner directly gets it installed on the way in, from -Dmaddi.k2.classpath / -Dmaddi.k2.home
+        K2Realm.installIfAbsent();
+        boolean modification = options.modification();
+        List<String> analysisResultsDirs = options.analysisResultsDirs();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);
         Runtime runtime = parsed.getRuntime();
 
@@ -97,6 +130,17 @@ public class RunMixedPrepAnalyzer {
                 .collect(Collectors.toUnmodifiableSet());
         LOGGER.info("Mixed parse produced {} Kotlin and {} Java type(s), {} primary; running prep analyzer",
                 parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(), primaryTypes.size());
+
+        // ⭐ BEFORE anything is concluded: how much of the Kotlin the front end could not read. A placeholder is
+        // EMPTY to every consumer downstream, so a hole in a body is indistinguishable from a body with nothing
+        // to say — unless a run says how many there are. Disclosed like the by-name lane's unresolvedSinkCalls.
+        PlaceholderCensus placeholderCensus = PlaceholderCensus.of(parsed.getKotlinTypes());
+        if (placeholderCensus.getTotal() > 0) {
+            LOGGER.warn("{}", placeholderCensus.report());
+        } else {
+            LOGGER.info("{}", placeholderCensus.report());
+        }
+        writePlaceholderDump(placeholderCensus);
 
         // AFTER the parse, as in run-openjdk's RunAnalyzer: only by now is the compiled-types manager
         // populated, and loading earlier resolves none of the hint types. The source set of request is a
@@ -115,7 +159,8 @@ public class RunMixedPrepAnalyzer {
         // less — prep aborted detekt outright at 652 of 1,202 types before this.
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime,
                 new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-        G<Info> callGraph = prepAnalyzer.doPrimaryTypesReturnGraph(primaryTypes);
+        G<Info> callGraph = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(primaryTypes, List.of(),
+                _ -> false, options.parallel()).graph();
         int prepErrors = report("Prep", prepAnalyzer.exceptions());
         List<Info> order = new ComputeAnalysisOrder().go(callGraph);
         LOGGER.info("Prep analysis order has size {}", order.size());
@@ -127,6 +172,7 @@ public class RunMixedPrepAnalyzer {
                     .setMaxIterations(30) // safety net; the loop exits on convergence/certification/plateau
                     .setStopWhenCycleDetectedAndNoImprovements(true)
                     .setFaultTolerant(true) // isolate a crash on one element rather than abort the run
+                    .setWarnNearMisses(options.warnNearMisses())
                     .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(parsed.getJavaInspector(), configuration);
             analyzer.analyze(order, callGraph); // the graph enables worklist narrowing
@@ -136,8 +182,54 @@ public class RunMixedPrepAnalyzer {
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
+        writeAnalysisResults(options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
+                inputConfiguration);
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
-                primaryTypes.size(), order.size(), prepErrors, immutableTypes);
+                primaryTypes.size(), order.size(), prepErrors, immutableTypes, placeholderCensus.getTotal());
+    }
+
+    /**
+     * ⭐ The encode half of the round trip (`TestKotlinAnalysisRoundTrip`): write what was concluded, so a
+     * later run — incremental analysis, the IDE daemon, or a consumer of this project's results — can read it
+     * back instead of recomputing it.
+     *
+     * <p>⛔ The codec is not interchangeable. {@code WriteAnalysisResults}' two-argument overload builds a
+     * prep-work codec, whose property provider cannot know {@code methodLinks} — that Property is declared in
+     * maddi-modification-link, which maddi-modification-prepwork does not and must not depend on. Written with
+     * the wrong codec the file is unreadable, and the reader does not degrade: it asserts, and the WHOLE file
+     * is lost. {@link LinkCodec} is the matching pair, and {@code restoreCodec()} its read side.
+     *
+     * <p>⚠ Without {@code --analysis-steps=modification} the results carry only what prep concluded. That is a
+     * legitimate thing to write, but it is not a full analysis, and a reader cannot tell the two apart from
+     * the file alone — so the log says which it was.
+     */
+    private void writeAnalysisResults(String targetDir, Runtime runtime, MixedProjectInspector.Result parsed,
+                                      Set<TypeInfo> primaryTypes, InputConfiguration inputConfiguration)
+            throws IOException {
+        if (targetDir == null || targetDir.isBlank() || "none".equalsIgnoreCase(targetDir)) return;
+        SourceSet sourceSetOfRequest = parsed.getKotlinBySourceSet().keySet().stream().findFirst()
+                .orElseGet(() -> inputConfiguration.sourceSets().stream().findAny().orElse(null));
+        Trie<TypeInfo> trie = new Trie<>();
+        primaryTypes.forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
+        new WriteAnalysisResults(runtime).write(new File(targetDir), trie,
+                new LinkCodec(parsed.getJavaInspector(), sourceSetOfRequest).codec());
+        LOGGER.info("Wrote analysis results for {} primary type(s) to {}", primaryTypes.size(), targetDir);
+    }
+
+    /**
+     * Every placeholder as {@code <kind> <owner> <line>:<pos>}, to the file named by
+     * {@code -Dmaddi.placeholderDump} (absent: no file, no cost). ⭐ The count says how big the front end's
+     * blind spot is; only this says WHERE, and the two questions have different answers — detekt's biggest
+     * kind is {@code k2-unresolved-call:add}, which a four-line fixture of `mutableListOf().add(...)`
+     * converts perfectly. A worklist needs the sites.
+     */
+    private static void writePlaceholderDump(PlaceholderCensus census) throws IOException {
+        String target = System.getProperty("maddi.placeholderDump");
+        if (target == null || target.isBlank()) return;
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, census.dumpLines());
+        LOGGER.info("Wrote {} placeholder site(s) to {}", census.getSites().size(), path);
     }
 
     /**

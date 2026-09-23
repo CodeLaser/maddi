@@ -169,6 +169,53 @@ public class CompileListToInputConfiguration {
             LOGGER.info("No compile invocation states a Java release; the parse uses the running JDK ({})",
                     Runtime.version().feature());
         }
+        String downgrade = statedSourceOlderThanRunningJdk(invocations, Runtime.version().feature());
+        if (downgrade != null) LOGGER.warn(downgrade);
+    }
+
+    /**
+     * ⛔⛔ <b>THE SILENT HALF OF "NO RELEASE STATED" (cassandra-G2).</b> Leaving {@code sourceRelease} unset is
+     * the right call — see {@link CompileInvocation#effectiveRelease()} for the 391 compilation units that
+     * reading {@code -source} as the API level costs — but it is not a harmless one, and until now it was
+     * announced at {@code info} in the same words whether the build said nothing at all or said
+     * {@code -source 17} to a JDK 26.
+     *
+     * <p>Those two are not the same risk. A build that states {@code -source N} below the running JDK compiled
+     * its API against ITS OWN, older platform; the parse compiles it against the running one. Every type
+     * removed in between then fails to resolve, and the cost is paid in <b>edges that are never created</b>
+     * rather than in an error anyone is looking at.
+     *
+     * <p>MEASURED on Cassandra (2026-09, Ant passes {@code -source 17}, no {@code --release}, maddi on JDK 26):
+     * {@code Ref}, {@code BufferPool} and {@code MemoryUtil} import {@code jdk.internal.ref.Cleaner}, which JDK
+     * 26 no longer has. <b>12 types left the giant component (2,594 → 2,582) and the graph verbs returned
+     * {@code messages: []}.</b> Only an external jar screen caught it.
+     *
+     * <p>⚠ This warns; it does not act. Guessing the platform is what {@code effectiveRelease} was stopped from
+     * doing. The operator holds the one fact the command line never records — which JDK actually ran that build
+     * — and states it with {@code --jre}/{@code alternativeJREDirectory}, which wins in {@code JavaInspectorImpl}
+     * either way. ⛔ A {@code -source} at or above the running JDK is NOT warned about: nothing has been removed
+     * yet to lose.
+     *
+     * @param running the JDK feature version the parse will use; a parameter so the warning can be tested
+     *                without depending on the JDK the test happens to run on
+     * @return the warning, or {@code null} when no invocation is exposed to this
+     */
+    static String statedSourceOlderThanRunningJdk(List<CompileInvocation> invocations, int running) {
+        List<CompileInvocation> exposed = invocations.stream()
+                .filter(inv -> inv.effectiveRelease() <= 0)
+                .filter(inv -> inv.sourceRelease() > 0 && inv.sourceRelease() < running)
+                .toList();
+        if (exposed.isEmpty()) return null;
+        Set<Integer> levels = exposed.stream().map(CompileInvocation::sourceRelease)
+                .collect(Collectors.toCollection(TreeSet::new));
+        return exposed.size() + " of " + invocations.size() + " compile invocation(s) state -source "
+               + levels + " and no --release, but the parse runs on JDK " + running
+               + ": they compiled against an OLDER platform than the one they will now be parsed against."
+               + " Any API removed between " + levels.iterator().next() + " and " + running
+               + " no longer resolves, and a compilation unit whose import does not resolve loses its edges"
+               + " — a graph that is quietly short, not an error. If the result looks light, point"
+               + " --jre/alternativeJREDirectory at a JDK " + levels.iterator().next()
+               + " (only the operator knows which JDK ran that build; the javac line never records it).";
     }
 
     /**

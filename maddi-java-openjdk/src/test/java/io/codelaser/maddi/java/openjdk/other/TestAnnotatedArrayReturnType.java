@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
@@ -200,11 +201,20 @@ public class TestAnnotatedArrayReturnType extends CommonTest {
      * {@code ConstraintProvider} is committed with a {@code defineConstraints} carrying <b>no return type and
      * no parameters</b> — a shell that every later reader believes.
      */
-    @DisplayName("an unresolvable annotation drops the compilation unit that uses it")
+    @DisplayName("an unresolvable annotation drops the compilation unit that uses it, up to JDK 26")
     @Test
     public void unresolvedAnnotation() {
         Map<String, TypeInfo> types = scan(true, "a.b.Factory", FACTORY, "a.b.Unresolved", UNRESOLVED_ANNOTATION);
-        assertNull(types.get("a.b.Unresolved"), "the unit is dropped, not repaired: " + types.keySet());
+        if (java.lang.Runtime.version().feature() < 27) {
+            assertNull(types.get("a.b.Unresolved"), "the unit is dropped, not repaired: " + types.keySet());
+            return;
+        }
+        // JDK 27's javac gives the unresolved annotation an error type that maddi stubs: the unit survives whole
+        TypeInfo unresolved = types.get("a.b.Unresolved");
+        assertNotNull(unresolved, "JDK 27 keeps the unit: " + types.keySet());
+        MethodInfo define = unresolved.methods().getFirst();
+        assertEquals(1, define.parameters().size(), define.descriptor());
+        assertEquals("a.b.Factory", define.parameters().getFirst().parameterizedType().fullyQualifiedName());
     }
 
     @DisplayName("timefold's ConstraintProvider, verbatim: one method, one parameter")

@@ -21,12 +21,12 @@ import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.inspection.api.integration.JavaInspector
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.kotlin.JavaStubGenerator
-import io.codelaser.maddi.kotlin.k2.KotlinParseObserver
+import io.codelaser.maddi.kotlin.api.KotlinFrontEnds
+import io.codelaser.maddi.kotlin.api.KotlinParseObserver
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl
 import io.codelaser.maddi.java.openjdk.SourceSetInterleave
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl
 import io.codelaser.maddi.inspection.resource.SourceSetImpl
-import io.codelaser.maddi.kotlin.k2.KotlinProjectScan
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -44,11 +44,11 @@ import javax.tools.ToolProvider
  * The openjdk [JavaInspectorImpl] owns the shared `Runtime`/`InfoByFqn`/`CompiledTypesManager` and is
  * initialised with the Java source sets (+ the generated-stub directory on their classpath). The parse order
  * follows the cross-language dependency direction:
- * - **Java→Kotlin** (or independent): Kotlin runs first via [KotlinProjectScan] (one `KaSourceModule` per set,
+ * - **Java→Kotlin** (or independent): Kotlin runs first via [KotlinFrontEnd.projectScan] (one module per set,
  *   dependency order, sharing the core); a stub is generated and compiled for every Kotlin type; then the Java
  *   sets parse from disk, resolving Kotlin references against the stubs and reusing the shared Kotlin `TypeInfo`.
  * - **Kotlin→Java** (only): the Java sets parse first (their source types commit to the shared CTM), then
- *   Kotlin resolves those references to the same instances ([KotlinProjectScan] gets the Java dirs as source
+ *   Kotlin resolves those references to the same instances (the project scan gets the Java dirs as source
  *   roots so K2 resolves the symbols; the `TypeInfo` comes from the shared CTM).
  *
  * Current scope: a Java set's Kotlin-set dependencies are satisfied via the stubs (dropped from the Java
@@ -57,6 +57,10 @@ import javax.tools.ToolProvider
  * follow-ups. Single-threaded (javac); needs the openjdk `--add-exports`.
  */
 class MixedProjectInspector {
+
+    /** The Kotlin front end: the contract only. Its implementation may live in a realm of its own. */
+    private val frontEnd get() = KotlinFrontEnds.get()
+
 
     /**
      * ⚠ The stub directory must outlive every call -- [sourceSet] names it as an external-library URI -- so it
@@ -87,7 +91,7 @@ class MixedProjectInspector {
 
     /**
      * @param observers read the Kotlin parse through its K2 session before it closes (e.g. a
-     * [io.codelaser.maddi.kotlin.k2.KotlinReferenceIndex], the oracle a rename census compares against). As
+     * [io.codelaser.maddi.kotlin.api.KotlinReferenceIndex], the oracle a rename census compares against). As
      * `KotlinInspector.parseFromConfiguration(observers)`, which a mixed project cannot use.
      */
     @JvmOverloads
@@ -184,14 +188,14 @@ class MixedProjectInspector {
             // resolves those references to the same instances (K2 sees the Java dirs as source roots).
             val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
-            val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
+            val kotlinBySourceSet = frontEnd.projectScan(runtime, infoByFqn, ctm)
                 .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots, observers)
             return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
-        val kotlinBySourceSet = KotlinProjectScan(runtime, infoByFqn, ctm)
-            .parse(orderedKotlin, libraryRoots, jdkHome, observers = observers)
+        val kotlinBySourceSet = frontEnd.projectScan(runtime, infoByFqn, ctm)
+            .parse(orderedKotlin, libraryRoots, jdkHome, emptyList(), observers)
         val kotlinTypes = kotlinBySourceSet.values.flatten()
         // PRIMARY types only: JavaStubGenerator already recurses into subTypes(), so stubbing a nested type
         // as well emits it twice — once nested inside its parent's stub, once as a top-level class in the
@@ -270,7 +274,7 @@ class MixedProjectInspector {
         val kotlinByName = orderedKotlin.associateBy { it.name() }
         val stubbed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
 
-        KotlinProjectScan(javaInspector.runtime(), javaInspector.infoByFqn(), javaInspector.compiledTypesManager())
+        frontEnd.projectScan(javaInspector.runtime(), javaInspector.infoByFqn(), javaInspector.compiledTypesManager())
             .open(orderedKotlin, libraryRoots, jdkHome, javaOnlyRoots).use { kotlin ->
                 fun convertUpstream(ss: SourceSet) {
                     ss.dependencies().forEach { d ->
