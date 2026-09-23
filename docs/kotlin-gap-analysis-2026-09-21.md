@@ -1005,6 +1005,45 @@ Still open in this family, from a probe of shapes: a primitive receiver (`i.toSt
 detekt's `resolveToCall`/`resolveToSymbol`/`isSubtypeOf`), `x?.own()` on a class-level member extension,
 `arrayOf`, invoking a function type with receiver (`s.block()`), and a top-level property of another file.
 
+### 7.27 Member extensions — detekt 2,256 → 1,351
+
+A function or property declared as an extension INSIDE a type has two receivers: the extension receiver, written, and
+the dispatch receiver, always implicit. detekt's whole Analysis-API surface is this shape --
+`expression.resolveToCall()` inside `analyze(expression) { }` dispatches on the lambda's `KaSession` -- and the
+converter knew only the facade route of a top-level extension, so every such call or access was a placeholder that
+swallowed its receiver and arguments. On the JVM it is an instance method of the declaring type (or a supertype:
+`resolveToCall` lives on `KaResolver`) with the extension receiver as argument 0; `expression.expressionType` is
+`$receiver.getExpressionType(expression)`. The dispatch receiver is mapped by the same routine as §7.26.
+
+| detekt | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 1,159 | 402 (`resolveToCall` 246 → 59, `resolveToSymbol` 25 → 0, `isSubtypeOf` 16 → 0) |
+| `k2-unresolved-access` | 281 | 85 (`expressionType` 58 → 11) |
+| `k2-unresolved-ref` | 540 | 594 (reveals: bare names inside calls that used to be swallowed whole) |
+| **total** | **2,256** | **1,351** (types 434 → 371, members 864 → 621) |
+
+coil 335 → 327. 22 new distinct sites, none in a previously clean member.
+
+⭐ Parity is measured, not argued: `TestLoweredShapesVsJava` has a `KReport` / `JReport` pair (a member extension
+property, a member extension on `Any`, a modifying member extension on `Box`) and agrees on every method row and the
+type. Its first run disagreed on the type alone -- Kotlin IMMUTABLE, Java IMMUTABLE_HC -- because the Java fixture
+was not `final` and a Kotlin class is; an extensible type has hidden content.
+
+⚠ Immutable types 667 → 665: `dev.detekt.api.OutputReport` and `CheckstyleOutputReport`, @Immutable → @FinalFields.
+The one changed site in the report module is `filePath.invariantSeparatorsPathString.toXmlString()`, now
+`this.toXmlString(…)` with a placeholder argument (`filePath` is a destructured lambda parameter, §7.26's list). Two
+probes rule the class out: a placeholder argument costs a type nothing, and `CheckstyleOutputReport` reproduced
+verbatim with stub interfaces stays @Immutable with and without this change. What did change is
+`HtmlOutputReport` -- its private `FlowContent.renderGroup/renderRule/renderIssue` member extensions are now read --
+and `OutputReport`'s verdict is the engine's aggregate over its implementations, which `CheckstyleOutputReport`
+inherits. That aggregation is the area parked on ws/dsl (abstract-method summaries, defects A and B), not a lowering.
+
+Next in the family: the 59 `resolveToCall` left are MIXED, and only partly sorted -- functions with a context
+parameter (`context(session: KaSession)`, 13 in `SuspendFunSwallowedCancellation` alone; `session` is also 38
+unresolved refs), calls whose extension receiver is implicit too (`analyze(this) { resolveToCall() }`), and calls in
+nested lambdas not yet read. Then destructured lambda parameters (`(filePath, issues) ->`), bare member-extension
+properties (`type`, `returnType`), and §7.26's list.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1029,8 +1068,8 @@ detekt's `resolveToCall`/`resolveToSymbol`/`isSubtypeOf`), `x?.own()` on a class
    ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`**,
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
-   work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) have
-   taken detekt 4,701 → 2,256 and coil 367 → 335 on that dump.
+   work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
+   member extensions (§7.27) have taken detekt 4,701 → 1,351 and coil 367 → 327 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

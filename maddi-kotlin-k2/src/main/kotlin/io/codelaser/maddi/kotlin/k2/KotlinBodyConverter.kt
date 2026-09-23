@@ -1249,6 +1249,7 @@ internal class KotlinBodyConverter(
                         // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
                         // on the facade, exactly as an extension FUNCTION compiles to a static function.
                         ?: extensionPropertyAccess(selector, name, receiver, method)
+                        ?: memberExtensionPropertyAccess(selector, name, receiver, method, locals)
                         ?: runtime.newEmptyExpression("k2-unresolved-access:$name")
                 }
             }
@@ -1545,6 +1546,31 @@ internal class KotlinBodyConverter(
             .setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(listOf(receiver))
             .setConcreteReturnType(callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * `recv.extProp` where `extProp` is a MEMBER extension property -- declared inside a type, so it has a dispatch
+     * receiver as well as an extension receiver: detekt's `expression.expressionType` inside `analyze(…) { }` is
+     * `$receiver.getExpressionType(expression)` on the JVM, an instance getter of the session with the extension
+     * receiver as its argument.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.memberExtensionPropertyAccess(selector: KtNameReferenceExpression, name: String,
+                                                        receiver: Expression, method: MethodInfo,
+                                                        locals: Map<String, Variable>): Expression? {
+        val access = selector.resolveToCall()?.successfulVariableAccessCall() ?: return null
+        if (access.partiallyAppliedSymbol.symbol.receiverParameter == null) return null
+        val obj = implicitReceiverValue(access.partiallyAppliedSymbol.dispatchReceiver, method, locals) ?: return null
+        val type = obj.parameterizedType().typeInfo() ?: return null
+        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val callee = resolveCallee(type, getterName, listOf(receiver))
+            ?: resolveCallee(type, name, listOf(receiver)) // an `is…` property keeps its name
+            ?: return null
+        val returnType = selector.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
+        return runtime.newMethodCallBuilder()
+            .setObject(obj).setObjectIsImplicit(true).setMethodInfo(callee)
+            .setParameterExpressions(listOf(receiver)).setConcreteReturnType(returnType)
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
@@ -2002,6 +2028,7 @@ internal class KotlinBodyConverter(
         if (calleeSymbol?.receiverParameter != null) {
             (receiver?.first ?: implicitExtensionReceiver(call, method, locals))?.let { recv ->
                 extensionCall(name, recv, arguments, calleeSymbol, call, method, defaults)?.let { return it }
+                if (defaults == null) memberExtensionCall(call, name, recv, arguments, method, locals)?.let { return it }
             }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
@@ -2168,6 +2195,30 @@ internal class KotlinBodyConverter(
             .setTypeArguments(listOf())
             .setSource(runtime.noSource())
             .build()
+    }
+
+    /**
+     * `recv.ext(args)` where `ext` is a MEMBER extension -- declared inside a type, so the call has two receivers:
+     * the extension receiver [receiverExpr], and the dispatch receiver, always implicit (detekt's
+     * `expression.resolveToCall()` inside `analyze(…) { }` dispatches on the lambda's `KaSession`). On the JVM it is
+     * an instance method of the declaring type with the extension receiver as argument 0:
+     * `$receiver.resolveToCall(expression)`. Null when K2 names a dispatch receiver this converter cannot express.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.memberExtensionCall(call: KtCallExpression, name: String, receiverExpr: Expression,
+                                              arguments: List<Expression>, method: MethodInfo,
+                                              locals: Map<String, Variable>): Expression? {
+        val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
+            ?: return null
+        val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+        val type = obj.parameterizedType().typeInfo() ?: return null
+        val memberArgs = listOf(receiverExpr) + arguments
+        val callee = resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(obj).setObjectIsImplicit(true)
+            .setMethodInfo(callee).setParameterExpressions(memberArgs)
+            .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /**
