@@ -132,15 +132,24 @@ public class TestKotlinContractsVsJava {
         Files.writeString(jDir.resolve("b/JSink.java"), JAVA_SINK);
         Files.writeString(jDir.resolve("b/JUse.java"), JAVA_USE);
 
+        // the annotations' own jar, as a project that uses them has it: a library DEPENDENCY of each set that reads
+        // it. ⚠ Not addClassPath alone: javac's class path is built from a set's dependencies, and with none it
+        // falls back to the PROCESS class path -- which holds this jar under Gradle's test worker and not under the
+        // JUnit console launcher (--class-path) the gate runs, where JSink was dropped as unresolvable.
+        // Named after the jar FILE, as addClassPath names it: named otherwise, javac resolves the annotation and the
+        // CST cannot map it onto a TypeInfo.
+        SourceSet annotations = new SourceSetImpl.Builder().setName(annotationJar().getFileName().toString())
+                .setSourceDirectories(List.of()).setUri(annotationJar().toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
-                .setSourceDirectories(List.of(jDir)).setUri(jDir.toUri()).build();
+                .setSourceDirectories(List.of(jDir)).setUri(jDir.toUri())
+                .setDependencies(List.of(annotations)).build();
         SourceSet kotlinSet = new SourceSetImpl.Builder().setName("kotlin/main")
                 .setSourceDirectories(List.of(kDir)).setUri(kDir.toUri())
-                .setDependencies(List.of(javaSet)).build();
-        // the annotations' own jar, as a project that uses them has it on its class path
+                .setDependencies(List.of(javaSet, annotations)).build();
         InputConfiguration config = new InputConfigurationImpl.Builder()
                 .addSourceSets(javaSet).addSourceSets(kotlinSet)
-                .addClassPath(annotationJar()).build();
+                .addClassPathParts(annotations).build();
 
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(config);
         Runtime runtime = parsed.getRuntime();
@@ -212,9 +221,9 @@ public class TestKotlinContractsVsJava {
     }
 
     /** The jar holding io.codelaser.maddi.annotation, located from a class it contains. */
-    private static String annotationJar() throws Exception {
+    private static Path annotationJar() throws Exception {
         return Path.of(io.codelaser.maddi.annotation.NotModified.class.getProtectionDomain().getCodeSource()
-                .getLocation().toURI()).toString();
+                .getLocation().toURI());
     }
 
     private static TypeInfo type(Set<TypeInfo> types, String fqn) {
