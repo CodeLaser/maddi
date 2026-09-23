@@ -697,9 +697,9 @@ public class ShadowModificationPass {
                 targets.addAll(project(mi, vd, links.primary()));
                 String primaryFqn = links.primary().fullyQualifiedName();
                 links.stream()
-                        .filter(l -> l.linkNature().isAssignedFrom()
-                                     && Util.firstRealVariable(l.from()).fullyQualifiedName().equals(primaryFqn))
-                        .forEach(l -> targets.addAll(project(mi, vd, Util.firstRealVariable(l.to()))));
+                        .filter(l -> carriesWholeObjectModification(l)
+                                     && l.from().fullyQualifiedName().equals(primaryFqn))
+                        .forEach(l -> targets.addAll(project(mi, vd, l.to())));
             } else {
                 links.stream().forEach(link -> targets.addAll(project(mi, vd, Util.firstRealVariable(link.to()))));
             }
@@ -865,12 +865,15 @@ public class ShadowModificationPass {
                                 // follow only links whose endpoint is exactly this variable: a link on a
                                 // COMPONENT face (td.f <- ...) must not widen "td modified" to "td.f modified" —
                                 // the engine distinguishes whole-object from per-field modification
-                                links.stream().filter(l -> l.linkNature().isAssignedFrom()).forEach(l -> {
-                                    Variable from = Util.firstRealVariable(l.from());
-                                    Variable to = Util.firstRealVariable(l.to());
-                                    if (from.fullyQualifiedName().equals(v.fullyQualifiedName())) push(todo, to);
-                                    if (to.fullyQualifiedName().equals(v.fullyQualifiedName())) push(todo, from);
-                                });
+                                links.stream().filter(ShadowModificationPass::carriesWholeObjectModification)
+                                        .forEach(l -> {
+                                            if (l.from().fullyQualifiedName().equals(v.fullyQualifiedName())) {
+                                                push(todo, l.to());
+                                            }
+                                            if (l.to().fullyQualifiedName().equals(v.fullyQualifiedName())) {
+                                                push(todo, l.from());
+                                            }
+                                        });
                             }
                         }
                     }
@@ -878,6 +881,17 @@ public class ShadowModificationPass {
             }
         }
         return out;
+    }
+
+    /**
+     * Whether "one end modified" implies "the other end modified" along this link: an assigned-from link between two
+     * REAL faces -- the engine's own rule (TypeModIndyAnalyzerImpl.relevantLinkForModification: a non-virtual
+     * IS_ASSIGNED_TO). A virtual face must not be stripped to its owner first: {@code zero.§tss <- NONE.§tss} says the
+     * two objects share hidden content, and read as {@code zero <- NONE} it marked vavr's {@code Option.None.INSTANCE}
+     * modified because {@code Future.sequence} hands a new Future holding it to {@code foldLeft(zero, f)}.
+     */
+    static boolean carriesWholeObjectModification(Link link) {
+        return link.linkNature().isAssignedFrom() && !Util.virtual(link.from()) && !Util.virtual(link.to());
     }
 
     private static void push(Deque<Variable> todo, Variable v) {
