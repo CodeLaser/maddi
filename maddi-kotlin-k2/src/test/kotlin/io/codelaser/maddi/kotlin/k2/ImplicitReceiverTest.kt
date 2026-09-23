@@ -45,8 +45,13 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         class Session { fun plain(): Int = 1 }
         fun <T> analyze(s: Session, block: Session.() -> T): T = s.block()
 
+        open class Shape
+        class Circle : Shape() { val r: Int get() = 1 }
+        fun Shape.radius(): Int = if (this is Circle) r else 0
+
         class K {
             fun own(): Int = 2
+            fun nested(b: Box, s: Session): Int = with(b) { with(s) { size } }
             fun viaLambda(s: Session): Int = analyze(s) { plain() }
             fun viaWith(b: Box): Int = with(b) { size }
             fun control(): Int = own()
@@ -96,6 +101,25 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         val receiver = receiverParameter(getSize)
         assertEquals("\$receiver", receiver.name())
         assertEquals(type("Box"), receiver.parameterizedType().typeInfo())
+    }
+
+    @Test
+    fun outerLambdaReceiverInsideAnInnerOne() {
+        // `size` is the OUTER `with(b)`'s receiver; the innermost `$receiver` in scope is the Session
+        val nested = type("K").findUniqueMethod("nested", 2)
+        val getSize = calls(nested).single { it.methodInfo().name() == "getSize" }
+        val receiver = receiverParameter(getSize)
+        assertEquals(type("Box"), receiver.parameterizedType().typeInfo())
+        assertEquals("\$receiver", receiver.name())
+    }
+
+    @Test
+    fun memberOfASmartCastReceiver() {
+        // `r` is Circle's, on the extension receiver declared as Shape and narrowed by `this is Circle`
+        val radius = type("IrKt").findUniqueMethod("radius", 1)
+        val getR = calls(radius).single { it.methodInfo().name() == "getR" }
+        assertEquals(type("Circle"), getR.methodInfo().typeInfo())
+        assertEquals(radius.parameters()[0], receiverParameter(getR))
     }
 
     /** Already converted before implicit receivers were asked of K2 (the lambda's `$receiver` is in scope); a guard. */

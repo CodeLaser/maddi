@@ -1044,6 +1044,31 @@ unresolved refs), calls whose extension receiver is implicit too (`analyze(this)
 nested lambdas not yet read. Then destructured lambda parameters (`(filePath, issues) ->`), bare member-extension
 properties (`type`, `returnType`), and §7.26's list.
 
+### 7.28 Which implicit receiver: nesting and smart casts — detekt 1,351 → 1,083
+
+Two ways §7.26's receiver mapping named no receiver, so the member stayed a placeholder:
+
+- **Nesting.** A receiver lambda held its receiver as `$receiver`, the innermost one only, so inside
+  `with(b) { with(session) { size } }` the outer `Box` was out of reach. K2 names the function literal that owns the
+  receiver (`owningCallableSymbol`); each receiver lambda now also keeps its receiver under that literal's key, and
+  the lookup is exact. The innermost-by-type fallback remains, and now also tries the extension function's own
+  `$receiver` (`bodyExpression` inside `with(session) { }` in `fun KtNamedFunction.f()`).
+- **Smart casts.** `when (this) { is KaClassSymbol -> classId }`: the receiver is the declared `KaSymbol`, the member
+  is `KaClassSymbol`'s. The member is looked up on the narrowed type K2 gives the receiver value -- the convention a
+  WRITTEN smart-cast receiver already follows in `convertQualified` (its `expressionType`), no cast node.
+
+| detekt | before | after |
+|---|---|---|
+| `k2-unresolved-ref` | 594 | 425 (`selectorExpression` 28, `classId` 22, `bodyExpression` 18 → 0) |
+| `k2-unresolved-call` | 402 | 304 (`resolveToCall` 59 → 0) |
+| **total** | **1,351** | **1,083** (types 371 → 360, members 621 → 586) |
+
+coil 327 → 323. 4 new distinct sites, none in a previously clean member; no verdict moved (665 immutable types).
+The `resolveToCall`s inside context-parameter functions resolved as well: they sit in `with(session) { … }`, whose
+lambda receiver is typed even though `session` itself is still a placeholder -- the context parameter is the next
+gap, and it is a SIGNATURE gap before it is a call one (`context(session: KaSession) fun f(x)` is `f(KaSession, x)`
+on the JVM, and the scan declares `f(x)`).
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1069,7 +1094,8 @@ properties (`type`, `returnType`), and §7.26's list.
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) have taken detekt 4,701 → 1,351 and coil 367 → 327 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) have taken detekt 4,701 → 1,083
+   and coil 367 → 323 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

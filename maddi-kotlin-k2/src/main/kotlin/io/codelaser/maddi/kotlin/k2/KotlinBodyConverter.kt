@@ -101,6 +101,7 @@ import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFunctionLiteral
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
@@ -1476,6 +1477,9 @@ internal class KotlinBodyConverter(
         val block = runtime.newBlockBuilder()
         val bodyScope: MutableMap<String, Variable> = locals.toMutableMap()
         sam.parameters().forEach { bodyScope[it.name()] = it }
+        // `$receiver` is the INNERMOST receiver only: an outer lambda's stays reachable under its own key, which is
+        // how implicitReceiverValue finds the receiver K2 names inside `with(session) { … }` nested in another one
+        if (functionType?.receiverType != null) bodyScope[receiverKey(lambda.functionLiteral)] = sam.parameters()[0]
         val statements = lambda.bodyExpression?.statements.orEmpty()
         val voidReturn = returnType == runtime.voidParameterizedType()
         statements.forEachIndexed { i, stmt ->
@@ -1561,8 +1565,9 @@ internal class KotlinBodyConverter(
                                                         locals: Map<String, Variable>): Expression? {
         val access = selector.resolveToCall()?.successfulVariableAccessCall() ?: return null
         if (access.partiallyAppliedSymbol.symbol.receiverParameter == null) return null
-        val obj = implicitReceiverValue(access.partiallyAppliedSymbol.dispatchReceiver, method, locals) ?: return null
-        val type = obj.parameterizedType().typeInfo() ?: return null
+        val dispatch = access.partiallyAppliedSymbol.dispatchReceiver
+        val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+        val type = receiverLookupType(dispatch, obj, method) ?: return null
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
         val callee = resolveCallee(type, getterName, listOf(receiver))
             ?: resolveCallee(type, name, listOf(receiver)) // an `is…` property keeps its name
@@ -2124,27 +2129,40 @@ internal class KotlinBodyConverter(
             is KaClassSymbol -> symbol.classId?.asFqNameString()?.let { infoByFqn.getType(it, sourceSet) }?.let {
                 if (it == method.typeInfo()) self(method) else variableExpression(runtime.newThis(it.asParameterizedType()))
             }
-            // an enclosing receiver: the lambda's own (`$receiver` in scope, innermost) or the extension function's
-            // parameter of that name. Only when it is the one K2 means -- receivers nest, and the type says which.
+            // an enclosing receiver: a lambda's, by the function literal K2 says owns it (receivers nest, and inside
+            // `with(a) { with(b) { … } }` the innermost is not always the one meant), or the extension function's
+            // own `$receiver`. Failing an exact owner, the innermost in scope -- only when its type is the one wanted.
             is KaReceiverParameterSymbol -> {
+                (symbol.owningCallableSymbol.psi as? KtFunctionLiteral)?.let { locals[receiverKey(it)] }
+                    ?.let { return variableExpression(it) }
                 val wanted = mapType(implicit.type, method.typeInfo()).typeInfo()
-                (locals["\$receiver"] ?: method.parameters().firstOrNull { it.name() == "\$receiver" })
-                    ?.takeIf { it.parameterizedType().typeInfo() == wanted }?.let { variableExpression(it) }
+                listOfNotNull(locals["\$receiver"], method.parameters().firstOrNull { it.name() == "\$receiver" })
+                    .firstOrNull { it.parameterizedType().typeInfo() == wanted }?.let { variableExpression(it) }
             }
             else -> null
         }
     }
+
+    /** The scope key under which a receiver lambda's `$receiver` stays reachable from lambdas nested in it. */
+    private fun receiverKey(literal: KtFunctionLiteral): String = "\$receiver@${literal.textOffset}"
+
+    /**
+     * The type to look a member up in, for an implicit receiver [value] standing for [obj]: a SMART-CAST receiver's
+     * narrowed type (`is KaClassSymbol -> classId`), as for a written smart-cast receiver, whose expressionType
+     * convertQualified uses; otherwise the value's own.
+     */
+    private fun KaSession.receiverLookupType(value: KaReceiverValue?, obj: Expression, method: MethodInfo): TypeInfo? =
+        (value as? KaSmartCastedReceiverValue)?.let { mapType(it.type, method.typeInfo()).typeInfo() }
+            ?: obj.parameterizedType().typeInfo()
 
     @OptIn(KaExperimentalApi::class)
     private fun KaSession.implicitDispatchCall(call: KtCallExpression, name: String, arguments: List<Expression>,
                                                method: MethodInfo, locals: Map<String, Variable>): Expression? {
         val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+        val type = receiverLookupType(dispatch, obj, method) ?: return null
         // this class's own `this` is the fallback's business below, unchanged
-        if (obj is VariableExpression && obj.variable() is This && obj.parameterizedType().typeInfo() == method.typeInfo()) {
-            return null
-        }
-        val type = obj.parameterizedType().typeInfo() ?: return null
+        if (obj is VariableExpression && obj.variable() is This && type == method.typeInfo()) return null
         val callee = resolveCallee(members(type), name, arguments, callReturnFqn(call, method)) ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(obj).setObjectIsImplicit(true)
@@ -2163,8 +2181,9 @@ internal class KotlinBodyConverter(
     private fun KaSession.implicitMemberAccess(expression: KtNameReferenceExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression? {
         val access = expression.resolveToCall()?.successfulVariableAccessCall() ?: return null
-        val obj = implicitReceiverValue(access.partiallyAppliedSymbol.dispatchReceiver, method, locals) ?: return null
-        val type = obj.parameterizedType().typeInfo()?.let { members(it) } ?: return null
+        val dispatch = access.partiallyAppliedSymbol.dispatchReceiver
+        val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+        val type = receiverLookupType(dispatch, obj, method)?.let { members(it) } ?: return null
         val name = expression.getReferencedName()
         type.fields().firstOrNull { it.name() == name }?.let { field ->
             return runtime.newVariableExpressionBuilder()
@@ -2211,7 +2230,7 @@ internal class KotlinBodyConverter(
         val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
             ?: return null
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
-        val type = obj.parameterizedType().typeInfo() ?: return null
+        val type = receiverLookupType(dispatch, obj, method) ?: return null
         val memberArgs = listOf(receiverExpr) + arguments
         val callee = resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
         return runtime.newMethodCallBuilder()
