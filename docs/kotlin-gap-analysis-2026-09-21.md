@@ -1069,6 +1069,26 @@ lambda receiver is typed even though `session` itself is still a placeholder -- 
 gap, and it is a SIGNATURE gap before it is a call one (`context(session: KaSession) fun f(x)` is `f(KaSession, x)`
 on the JVM, and the scan declares `f(x)`).
 
+### 7.29 Context parameters — a signature gap first, detekt 1,083 → 1,045
+
+`context(session: KaSession) fun f(x: X)` (47 declarations in detekt, none in coil) was scanned as `f(X)`: the context
+parameter was not modelled at all, so every reference to `session` in the body was a placeholder, and the method's
+signature contradicted the class file. kotlinc compiles context parameters as the LEADING parameters, ahead of an
+extension receiver -- measured with javap on kotlinc 2.4.0, not recalled: `top(Session, String)`,
+`ext2(Session, Box, int)`, a context property's getter `getProp(Session, Box)`, `Host.member(Session, String)`.
+Kotlin makes them no implicit receiver (`x.memberExt()` does not compile against one; detekt writes `with(session)`).
+
+Declarations now carry them, in that order, on every signature a receiver is added to: the function, its `$default`,
+its overloads, and computed and custom accessors. A call passes K2's `contextArguments` first on every route -- a
+plain, facade, extension, member-extension call, and an extension property's getter -- each mapped by the implicit-
+receiver routine, which now also names a context parameter passed on (`relay(x) = top(x)` passes relay's own `s`).
+One that cannot be expressed is a named placeholder, `k2-context-argument-unresolved:<name>`.
+
+detekt: `session` 38 → 0; total 1,083 → 1,045 (types 360 → 359, members 566); no new site (compared on member
+names: the members' own signatures changed, which is the point), no verdict moved, coil unchanged at 323.
+`TestLoweredShapesVsJava` gains `ctxModifies` / `ctxCaller`: a modification of the context parameter, and one
+passed on through it, agree with the Java that spells the parameter first.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1094,8 +1114,8 @@ on the JVM, and the scan declares `f(x)`).
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) have taken detekt 4,701 → 1,083
-   and coil 367 → 323 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) and context parameters (§7.29) have taken detekt
+   4,701 → 1,045 and coil 367 → 323 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

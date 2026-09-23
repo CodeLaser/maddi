@@ -59,6 +59,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.successfulVariableAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
@@ -1249,7 +1250,7 @@ internal class KotlinBodyConverter(
                         // above can find it: `o.doubled` failed for a property declared in the same file,
                         // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
                         // on the facade, exactly as an extension FUNCTION compiles to a static function.
-                        ?: extensionPropertyAccess(selector, name, receiver, method)
+                        ?: extensionPropertyAccess(selector, name, receiver, method, locals)
                         ?: memberExtensionPropertyAccess(selector, name, receiver, method, locals)
                         ?: runtime.newEmptyExpression("k2-unresolved-access:$name")
                 }
@@ -1536,19 +1537,23 @@ internal class KotlinBodyConverter(
      */
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
     private fun KaSession.extensionPropertyAccess(selector: KtNameReferenceExpression, name: String,
-                                                  receiver: Expression, method: MethodInfo): Expression? {
+                                                  receiver: Expression, method: MethodInfo,
+                                                  locals: Map<String, Variable>): Expression? {
         val property = selector.resolveSymbol() as? KaPropertySymbol ?: return null
         if (property.receiverParameter == null) return null
+        val contexts = contextArguments(selector.resolveToCall()?.successfulVariableAccessCall()
+            ?.partiallyAppliedSymbol?.contextArguments, method, locals) ?: return null
+        val getterArgs = contexts + listOf(receiver)
         val facade = (property.psi as? KtProperty)?.containingKtFile?.let { facadeOf(it) }
             ?: with(typeMapper) { loadLibraryFacadeForProperty(property) } ?: return null
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
-        val callee = resolveCallee(facade, getterName, listOf(receiver))
-            ?: resolveCallee(facade, name, listOf(receiver)) // a @JvmName'd getter keeps the property's name
+        val callee = resolveCallee(facade, getterName, getterArgs)
+            ?: resolveCallee(facade, name, getterArgs) // a @JvmName'd getter keeps the property's name
             ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
             .setObjectIsImplicit(false).setMethodInfo(callee)
-            .setParameterExpressions(listOf(receiver))
+            .setParameterExpressions(getterArgs)
             .setConcreteReturnType(callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -2012,8 +2017,12 @@ internal class KotlinBodyConverter(
                 (call.valueArguments.any { a -> a.getArgumentName() != null } ||
                     call.valueArguments.size < it.valueParameters.size)
         }?.let { callArguments(call, it, method, locals) }
-        val arguments = ordered?.expressions ?: valueArgs
         val defaults = ordered?.defaults
+        // a callee with context parameters takes them FIRST, ahead of an extension receiver (KotlinScan.contextParameters);
+        // K2 names the value each one is bound to. One this converter cannot express leaves a named placeholder.
+        val contexts = contextArguments(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.contextArguments,
+            method, locals) ?: return runtime.newEmptyExpression("k2-context-argument-unresolved:$name")
+        val arguments = contexts + (ordered?.expressions ?: valueArgs)
 
         // a SAM constructor, `Runnable { … }`: what it makes IS the lambda, whose anonymous type implements the
         // interface -- so the lambda is the expression, carrying that interface rather than its Kotlin function type.
@@ -2032,8 +2041,9 @@ internal class KotlinBodyConverter(
         // The receiver need not be written: `run { … }` inside a member is `this.run { … }`.
         if (calleeSymbol?.receiverParameter != null) {
             (receiver?.first ?: implicitExtensionReceiver(call, method, locals))?.let { recv ->
-                extensionCall(name, recv, arguments, calleeSymbol, call, method, defaults)?.let { return it }
-                if (defaults == null) memberExtensionCall(call, name, recv, arguments, method, locals)?.let { return it }
+                val valueArguments = arguments.drop(contexts.size)
+                extensionCall(name, recv, contexts, valueArguments, calleeSymbol, call, method, defaults)?.let { return it }
+                if (defaults == null) memberExtensionCall(call, name, recv, contexts, valueArguments, method, locals)?.let { return it }
             }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
@@ -2120,6 +2130,7 @@ internal class KotlinBodyConverter(
      * of the lambda or extension function K2 says it is -- or null when [value] is not implicit, or names a receiver
      * this converter cannot express (then the caller keeps its placeholder rather than picking the wrong object).
      */
+    @OptIn(KaExperimentalApi::class) // KaContextParameterSymbol
     private fun KaSession.implicitReceiverValue(value: KaReceiverValue?, method: MethodInfo,
                                                 locals: Map<String, Variable>): Expression? {
         val implicit = generateSequence(value) { (it as? KaSmartCastedReceiverValue)?.original }
@@ -2139,9 +2150,19 @@ internal class KotlinBodyConverter(
                 listOfNotNull(locals["\$receiver"], method.parameters().firstOrNull { it.name() == "\$receiver" })
                     .firstOrNull { it.parameterizedType().typeInfo() == wanted }?.let { variableExpression(it) }
             }
+            // a context parameter passed on as a context argument: the enclosing function's parameter of that name
+            is KaContextParameterSymbol -> resolveReference(symbol.name.asString(), method, locals)
             else -> null
         }
     }
+
+    /**
+     * The CST values of a call's context arguments, in order, or null when one names a value this converter cannot
+     * express. Empty for a callee without context parameters.
+     */
+    private fun KaSession.contextArguments(values: List<KaReceiverValue>?, method: MethodInfo,
+                                           locals: Map<String, Variable>): List<Expression>? =
+        values.orEmpty().map { implicitReceiverValue(it, method, locals) ?: return null }
 
     /** The scope key under which a receiver lambda's `$receiver` stays reachable from lambdas nested in it. */
     private fun receiverKey(literal: KtFunctionLiteral): String = "\$receiver@${literal.textOffset}"
@@ -2198,11 +2219,11 @@ internal class KotlinBodyConverter(
      * its JVM one is loaded from the class path, as a top-level library function's is. Returns null when neither
      * the facade nor the static method can be resolved.
      */
-    private fun KaSession.extensionCall(name: String, receiverExpr: Expression, arguments: List<Expression>,
-                                        symbol: KaNamedFunctionSymbol, call: KtCallExpression, method: MethodInfo,
-                                        defaults: MethodInfo?): Expression? {
+    private fun KaSession.extensionCall(name: String, receiverExpr: Expression, contexts: List<Expression>,
+                                        arguments: List<Expression>, symbol: KaNamedFunctionSymbol,
+                                        call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
-        val facadeArgs = listOf(receiverExpr) + arguments
+        val facadeArgs = contexts + listOf(receiverExpr) + arguments
         val callee = defaults ?: resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
@@ -2225,13 +2246,13 @@ internal class KotlinBodyConverter(
      */
     @OptIn(KaExperimentalApi::class)
     private fun KaSession.memberExtensionCall(call: KtCallExpression, name: String, receiverExpr: Expression,
-                                              arguments: List<Expression>, method: MethodInfo,
-                                              locals: Map<String, Variable>): Expression? {
+                                              contexts: List<Expression>, arguments: List<Expression>,
+                                              method: MethodInfo, locals: Map<String, Variable>): Expression? {
         val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
             ?: return null
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
         val type = receiverLookupType(dispatch, obj, method) ?: return null
-        val memberArgs = listOf(receiverExpr) + arguments
+        val memberArgs = contexts + listOf(receiverExpr) + arguments
         val callee = resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(obj).setObjectIsImplicit(true)

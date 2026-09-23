@@ -147,6 +147,9 @@ public class TestLoweredShapesVsJava {
                 fun propUnbound(b: Box, c: Box): Int = b.pullBox(Box::count, c)
                 fun propLibrary(b: Box, l: java.util.ArrayList<String>): Int = b.pullList(java.util.ArrayList<String>::size, l)
                 fun ternaryArm(b: Box?, c: Box, t: String): Int = if (b == null) c.addAndSize(t) else b.size()
+                // a context parameter is the LEADING JVM parameter, and a caller in the same context passes its own on
+                context(c: Box) fun ctxModifies(b: Box, t: String): Int { c.add(t); return b.size() }
+                context(c: Box) fun ctxCaller(b: Box, t: String): Int = ctxModifies(b, t)
                 fun expressionBodiedTry(b: Box, t: String): Int =
                     try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
             }
@@ -230,6 +233,8 @@ public class TestLoweredShapesVsJava {
                 public int propUnbound(Box b, Box c) { return b.pullBox(Box::getCount, c); }
                 public int propLibrary(Box b, java.util.ArrayList<String> l) { return b.pullList(java.util.ArrayList::size, l); }
                 public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
+                public int ctxModifies(Box c, Box b, String t) { c.add(t); return b.size(); }
+                public int ctxCaller(Box c, Box b, String t) { return ctxModifies(c, b, t); }
                 public int expressionBodiedTry(Box b, String t) {
                     try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
                 }
@@ -294,7 +299,7 @@ public class TestLoweredShapesVsJava {
             List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
                     "whenAsValue", "elvisThrow", "expressionBodiedTry",
                     "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine",
-                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary");
+                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary", "ctxModifies", "ctxCaller");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {

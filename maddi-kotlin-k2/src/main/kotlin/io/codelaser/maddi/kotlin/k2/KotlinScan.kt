@@ -70,6 +70,8 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.contextParameters
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
@@ -1353,17 +1355,20 @@ class KotlinScan(
      * the zero value and the mask bit of every one it leaves out -- the call kotlinc compiles into them. A Java call
      * that leaves the defaults out binds to one; a Kotlin call never does (it binds to [defaults] itself).
      */
+    @OptIn(KaExperimentalApi::class) // contextParameters
     private fun KaSession.overloadMethods(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
                                           static: Boolean) {
         val defaults = defaultsMethodOf[target] ?: return
-        val offset = if (function.receiverParameter != null) 1 else 0
+        val contexts = function.contextParameters
+        val offset = contexts.size + if (function.receiverParameter != null) 1 else 0
         overloadParameters(offset, function.valueParameters.map { it.hasDefaultValue },
             function.annotations.contains(JVM_OVERLOADS), false).forEach { kept ->
             val method = runtime.newMethod(owner, target.name(), target.methodType())
             val builder = method.builder().setSynthetic(true)
             addTypeParameters(builder, function, owner, method)
             kept.forEach { i ->
-                if (i < offset) syntheticParameter(builder, "\$receiver", mapType(function.receiverParameter!!.returnType, owner, method))
+                if (i < contexts.size) contexts[i].let { c -> syntheticParameter(builder, c.name.asString(), mapType(c.returnType, owner, method)) }
+                else if (i < offset) syntheticParameter(builder, "\$receiver", mapType(function.receiverParameter!!.returnType, owner, method))
                 else function.valueParameters[i - offset].let { p ->
                     syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method))
                 }
@@ -1602,6 +1607,7 @@ class KotlinScan(
         val builder = method.builder()
         builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
         // an extension property's accessor is static, with the receiver first (the JVM model), as the getter has it
+        if (field == null) contextParameters(builder, property, owner, null, synthetic = false)
         if (field == null) property.receiverParameter?.let {
             builder.addParameter("\$receiver", mapType(it.returnType, owner))
         }
@@ -1880,6 +1886,7 @@ class KotlinScan(
         getter.builder().setReturnType(type)
         // an extension property (`val Int.doubled get() = this * 2`) becomes a static getter whose first
         // parameter is the `$receiver` -- so `this` in the body resolves to it (the JVM model)
+        contextParameters(getter.builder(), property, owner, null, synthetic = false)
         property.receiverParameter?.let { getter.builder().addParameter("\$receiver", mapType(it.returnType, owner)) }
         annotate(getter.builder(), property.getter, owner)
         addMethodModifiers(getter.builder(), property)
@@ -1924,6 +1931,7 @@ class KotlinScan(
                 methodType(static, property, owner))
         val builder = setter.builder()
         builder.setReturnType(runtime.voidParameterizedType())
+        contextParameters(builder, property, owner, null, synthetic = false)
         property.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
         val valueParameter = builder.addParameter(accessor?.parameter?.name ?: "value", type)
         parameter(valueParameter, accessor?.parameter, type)
@@ -2102,7 +2110,8 @@ class KotlinScan(
                 .commit()
         }
         val returnType = mapType(function.returnType, owner, method)
-        // an extension function's receiver becomes the synthetic first parameter (the JVM model)
+        // context parameters come first, then an extension function's receiver, then the value parameters (the JVM model)
+        contextParameters(builder, function, owner, method, synthetic = false)
         function.receiverParameter?.let { receiver ->
             val parameterInfo = builder.addParameter("\$receiver", mapType(receiver.returnType, owner, method))
             if (!forwarder) annotate(parameterInfo.builder(), receiver, owner)
@@ -2152,6 +2161,7 @@ class KotlinScan(
             if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
         val builder = method.builder().setSynthetic(true)
         addTypeParameters(builder, function, owner, method)
+        contextParameters(builder, function, owner, method, synthetic = true)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
         masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
@@ -2205,6 +2215,22 @@ class KotlinScan(
                 .setTypeBounds(tp.upperBounds.map { mapType(it, owner, method) }.filterNot { it.isJavaLangObject })
                 .setVariance(mapVariance(tp.variance))
                 .commit()
+        }
+    }
+
+    /**
+     * [callable]'s context parameters (`context(session: KaSession)`), which kotlinc compiles as the LEADING parameters,
+     * ahead of an extension receiver: `context(s: S) fun T.f(x: X)` is `f(S, T, X)`, and a context property's getter
+     * `getP(S, T)` (measured with javap on kotlinc 2.4.0). They are ordinary parameters in the body -- Kotlin makes
+     * them no implicit receiver; `with(session) { … }` does that.
+     */
+    @OptIn(KaExperimentalApi::class) // contextParameters
+    private fun KaSession.contextParameters(builder: MethodInfo.Builder, callable: KaCallableSymbol, owner: TypeInfo,
+                                            method: MethodInfo?, synthetic: Boolean) {
+        callable.contextParameters.forEach { c ->
+            val type = mapType(c.returnType, owner, method)
+            if (synthetic) syntheticParameter(builder, c.name.asString(), type)
+            else builder.addParameter(c.name.asString(), type)
         }
     }
 
