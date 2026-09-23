@@ -102,6 +102,18 @@ public interface CompiledTypesManager {
         return typeIfLoaded(fullyQualifiedName, sourceSetOfRequest);
     }
 
+    /**
+     * {@link #type(String, SourceSet)}, with its members: a type already registered as a SHELL -- loaded lazily,
+     * hierarchy only, because some other type's signature named it -- is completed first. The Java front end
+     * completes its shells in a batch when its parse commits, so it never needs this; a front end that resolves
+     * members AFTER that commit (the Kotlin one, in a mixed project) does, or {@code Path.toUri()} finds no method on
+     * a {@code java.nio.file.Path} that has none yet. Completing is on request, per type, so a type that is only
+     * mentioned stays a shell.
+     */
+    default TypeInfo typeWithMembers(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return type(fullyQualifiedName, sourceSetOfRequest);
+    }
+
     default TypeInfo type(Class<?> clazz, SourceSet sourceSetOfRequest) {
         return type(clazz.getCanonicalName(), sourceSetOfRequest);
     }

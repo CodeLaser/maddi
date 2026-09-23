@@ -1040,7 +1040,7 @@ internal class KotlinBodyConverter(
     /** `x in range` -> `range.contains(x)`, when the range type has a unary `contains` method. */
     private fun containsCall(range: Expression, subject: Expression?): Expression? {
         val containsOn = range.parameterizedType().typeInfo() ?: return null
-        val contains = containsOn.methods().firstOrNull { it.name() == "contains" && it.parameters().size == 1 } ?: return null
+        val contains = members(containsOn).methods().firstOrNull { it.name() == "contains" && it.parameters().size == 1 } ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(range).setObjectIsImplicit(false).setMethodInfo(contains)
             .setParameterExpressions(listOf(subject ?: runtime.newEmptyExpression()))
@@ -1235,7 +1235,7 @@ internal class KotlinBodyConverter(
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
             is KtNameReferenceExpression -> {
                 val name = selector.getReferencedName()
-                val field = receiverType?.fields()?.firstOrNull { it.name() == name }
+                val field = receiverType?.let { members(it) }?.fields()?.firstOrNull { it.name() == name }
                 when {
                     field != null -> variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x
                     // property idiom backed by an accessor method: `list.size`->size(), `obj.name`->getName()
@@ -1303,7 +1303,7 @@ internal class KotlinBodyConverter(
         // a field on the type: a static field (enum entry, Java static, `const` companion forwarder) is a
         // direct static access; an instance field of a singleton (`Point.ORIGIN`, where Kotlin resolves the
         // `Point` receiver to its companion) is reached through the singleton handle
-        receiverType.fields().firstOrNull { it.name() == name }?.let { field ->
+        members(receiverType).fields().firstOrNull { it.name() == name }?.let { field ->
             if (field.isStatic) return staticFieldRef(field, receiverType)
             singletonHandle(receiverType, receiverClass)?.let { handle ->
                 return variableExpression(runtime.newFieldReference(field, handle, field.type()))
@@ -1340,7 +1340,7 @@ internal class KotlinBodyConverter(
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: return runtime.newEmptyExpression("k2-ctor-type")
         val constructor = defaults
-            ?: type.typeInfo()?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
+            ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             ?: return runtime.newEmptyExpression("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}")
         return runtime.newConstructorCallBuilder()
             .setConstructor(constructor)
@@ -1551,6 +1551,9 @@ internal class KotlinBodyConverter(
         return infoByFqn.getType(fqn, sourceSet)
     }
 
+    /** [type], with its members if it is a class-file shell the Java front end has not completed yet. */
+    private fun members(type: TypeInfo): TypeInfo = typeMapper.withMembers(type)
+
     /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
     private fun accessorCall(receiver: Expression, getter: MethodInfo): Expression =
         runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(getter)
@@ -1718,7 +1721,7 @@ internal class KotlinBodyConverter(
         if (symbol is KaConstructorSymbol) {
             val owner = (symbol.containingDeclaration as? KaNamedClassSymbol)?.let { classTypeInfo(it) }
                 ?: return placeholder("k2-callable-ref-constructor-owner", expression)
-            val ctor = owner.constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
+            val ctor = members(owner).constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
                 ?: return placeholder("k2-callable-ref-constructor", expression)
             return methodReference(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()),
                 ctor, functionalType, expression)
@@ -1726,6 +1729,9 @@ internal class KotlinBodyConverter(
         if (symbol is KaPropertySymbol) return propertyReference(symbol, expression, functionalType, method, locals)
         val fn = symbol as? KaNamedFunctionSymbol
             ?: return placeholder("k2-callable-ref-unsupported", expression)
+        // a local function (`fun f() { fun g() {}; ::g }`) is not modelled by this front end at all
+        if ((fn.psi as? KtNamedFunction)?.isLocal == true) return placeholder("k2-callable-ref-local-function", expression)
+        if (fn.receiverParameter != null) return extensionReference(fn, expression, functionalType, method, locals)
 
         val receiver = expression.receiverExpression
         // (scope expression, the type to resolve the callee on)
@@ -1745,6 +1751,31 @@ internal class KotlinBodyConverter(
         val callee = resolveCalleeByArity(owner, fn.name.asString(), fn.valueParameters.size)
             ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
         return methodReference(scope, callee, functionalType, expression)
+    }
+
+    /**
+     * `String::toRegex`, `Q::ext` -- an EXTENSION function referenced through its receiver type is the static method
+     * kotlinc compiles it to, on its file facade, with the receiver as parameter 0: `(String) -> Regex` is what a Java
+     * author writes `StringsKt::toRegex`. So the scope is the facade TYPE (unbound) and the callee has one parameter
+     * more than the Kotlin function declares. Found by the corpus: `String::toRegex` and detekt's own
+     * `String::pathGlobToRegex` were 26 of detekt's 34 unresolved references.
+     *
+     * ⛔ A BOUND extension reference -- `s::ext`, or `::ext` inside a function whose implicit receiver supplies it --
+     * binds the facade method's first argument, which no Java method reference can spell; it keeps a named
+     * placeholder.
+     */
+    private fun KaSession.extensionReference(fn: KaNamedFunctionSymbol, expression: KtCallableReferenceExpression,
+                                             functionalType: ParameterizedType, method: MethodInfo,
+                                             locals: Map<String, Variable>): Expression {
+        val receiver = expression.receiverExpression
+        val unbound = receiver != null && explicitReceiverScope(receiver, method, locals)?.first is TypeExpression
+        if (!unbound) return placeholder("k2-callable-ref-bound-extension", expression)
+        val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) }
+            ?: return placeholder("k2-callable-ref-extension-facade", expression)
+        val callee = resolveCalleeByArity(facade, fn.name.asString(), fn.valueParameters.size + 1)
+            ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
+        return methodReference(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()),
+            callee, functionalType, expression)
     }
 
     /**
@@ -1855,7 +1886,7 @@ internal class KotlinBodyConverter(
         // WRITTEN OUT, so a call carries more expressions than the method has parameters (hence
         // MethodInfo.typeOfParameterHandleVarargs). Without this, `listOf("a", "b")` — 2 written against 1
         // array parameter — found nothing and became a placeholder.
-        type.methods().filterTo(acc) {
+        members(type).methods().filterTo(acc) {
             it.name() == name
             && (it.parameters().size == arity || (it.isVarargs && arity >= it.parameters().size - 1))
         }
@@ -2236,7 +2267,7 @@ internal class KotlinBodyConverter(
         // comes from the use-site expressionType and its 2-arg constructor (Int/Long/Char ranges)
         if (expression.operationToken == KtTokens.RANGE) {
             val rangeType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
-            rangeType?.typeInfo()?.constructors()?.firstOrNull { it.parameters().size == 2 }?.let { ctor ->
+            rangeType?.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { it.parameters().size == 2 }?.let { ctor ->
                 return runtime.newConstructorCallBuilder().setConstructor(ctor).setConcreteReturnType(rangeType)
                     .setParameterExpressions(listOf(left, right)).setDiamond(runtime.diamondNo())
                     .setTypeArguments(listOf()).setSource(runtime.noSource()).build()

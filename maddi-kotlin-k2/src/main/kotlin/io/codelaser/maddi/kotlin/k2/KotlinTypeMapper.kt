@@ -169,6 +169,21 @@ internal class KotlinTypeMapper(
     }
 
     /**
+     * [type] with its members, when it is a class-file type the Java front end registered as a SHELL (hierarchy only,
+     * named by some other type's signature) and completes only in its own commit batch -- which, in a mixed project,
+     * ran before this front end asks. Without it `p.toUri()` found no method on `java.nio.file.Path` and `URI("x")` no
+     * constructor on `java.net.URI`: both were placeholders, while `java.util` types, preloaded whole, resolved.
+     * Called where members are LOOKED UP, not where a type is mentioned, so a type only named stays a shell.
+     * Not for a type this mapper built itself from K2 symbols (its own shells: [deepen]), nor for a source type.
+     */
+    internal fun withMembers(type: TypeInfo): TypeInfo {
+        if (type.hasBeenInspected() || compiledTypesManager == null) return type
+        val compilationUnit = type.compilationUnit()
+        if (!compilationUnit.externalLibrary() || compilationUnit.sourceSet() == librarySourceSet) return type
+        return compiledTypesManager.typeWithMembers(type.fullyQualifiedName(), compilationUnit.sourceSet()) ?: type
+    }
+
+    /**
      * Commit every library type still waiting in [shells], memberless: its visits are over. Not one the Java front
      * end's `CompiledTypesManager` has completed in the meantime, from its class file.
      */

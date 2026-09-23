@@ -931,6 +931,42 @@ summary has no return link (`Fwd.add` is non-modifying today, fix or not). **Par
 answers the same question — what "no implementation" means — the other way for non-modification. The defect is
 pinned in `TestKotlinContractsVsJava` as it is.
 
+### 7.25 ⭐ The unresolved references were a class-file-shell defect — detekt 4,701 → 3,434
+
+The 34 `k2-callable-ref-unresolved` sites split, by reading their source, into four shapes: an extension function
+through its type (`String::toRegex` 18, `String::pathGlobToRegex` 8), local functions (5), an extension bound to an
+implicit receiver (3), and `Path::toUri`/`Path::toFile`/`::FqName`, which should simply have resolved.
+
+⛔⛔ **The last group was not about references.** A probe through the mixed pipeline showed `p.toUri()` and
+`URI("x")` failing too: `java.nio.file.Path` and `java.net.URI` reached the Kotlin converter with ZERO members. The
+Java front end registers a type it meets in another type's signature (`File.toPath()` names `Path`) as a SHELL,
+hierarchy only, and completes its shells in a batch when its parse commits. In a mixed project the Kotlin parse runs
+after that commit, and `CompiledTypesManager.type()` hands a registered shell over as it is. `java.util` types are
+preloaded whole, which is why every fixture built on `ArrayList` looked fine.
+
+Fixed without touching the Java front end's behaviour: `CompiledTypesManager.typeWithMembers` completes a shell
+through the existing lazy loader, and the Kotlin converter calls it where members are LOOKED UP (method, constructor
+and field lookups), so a type that is only named stays a shell. Extension references become the facade's static
+method, receiver first (`StringsKt::toRegex` in Java); bound extensions and local functions keep NAMED placeholders
+(`k2-callable-ref-bound-extension`, `-local-function`).
+
+| detekt family | before | after |
+|---|---|---|
+| `k2-unresolved-call` | 2,446 | 1,796 |
+| `k2-unresolved-access` | 864 | 279 |
+| `k2-ctor-unresolved` | 145 | 7 |
+| `k2-callable-ref-unresolved` | 34 | 0 |
+| **total** | **4,701** | **3,434** (types holding one 790 → 579) |
+
+Immutable types 668 and prep isolation 0, both unchanged; coil 367 → 362. ⚠ 92 new distinct sites are REVEALED
+(an unresolved call swallows its arguments); all but one sit in a member that already held a placeholder, and that
+one is itself a reveal of a SILENT drop: `class FindingAssert(…) : AbstractAssert<…>(actual, FindingAssert::class.java)`
+— the super call to a shell (assertj) had no constructor to bind and vanished without a placeholder. That silent
+super-call drop is worth its own look.
+
+⭐ This retires part of §7.5b's reading: the "members of library types" family was in large part not K2 knowing
+something the CST could not express, but the CST's library types being EMPTY at the moment of conversion.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.

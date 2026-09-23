@@ -208,6 +208,59 @@ class CallableReferenceTest : KotlinScanTestBase() {
     }
 
     /**
+     * An extension FUNCTION referenced through its receiver type is the facade's static method with the receiver as
+     * parameter 0 -- `Q::twice` is `PKt::twice`, `(Q) -> Int` -- so the scope is the facade type and the callee has one
+     * parameter more than the Kotlin declaration.
+     */
+    @Test
+    fun anExtensionFunctionReferenceIsTheFacadeStatic() {
+        val types = parse("""
+            class Q(val i: Int)
+            fun Q.twice(): Int = i * 2
+            class P { fun f(l: List<Q>): List<Int> = l.map(Q::twice) }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types)
+        assertEquals("twice", mr.methodInfo().name())
+        assertEquals("PKt", mr.methodInfo().typeInfo().simpleName())
+        assertEquals(1, mr.methodInfo().parameters().size, "the receiver is parameter 0")
+        assertTrue(mr.scope() is TypeExpression, "got ${mr.scope()}")
+    }
+
+    /** The same for a LIBRARY extension: `String::toRegex` was 18 of detekt's unresolved references. */
+    @Test
+    fun aLibraryExtensionFunctionReferenceIsItsFacadeStatic() {
+        val types = parse("""
+            class P { fun f(l: List<String>): List<Regex> = l.map(String::toRegex) }
+            """)
+        assertEquals(0, PlaceholderCensus.of(types).total, PlaceholderCensus.of(types).byKind.toString())
+        val mr = referenceIn(types)
+        assertEquals("toRegex", mr.methodInfo().name())
+        assertEquals(1, mr.methodInfo().parameters().size, "the receiver is parameter 0")
+        assertTrue(mr.methodInfo().isStatic, "${mr.methodInfo()}")
+        assertTrue(mr.scope() is TypeExpression, "got ${mr.scope()}")
+    }
+
+    /**
+     * ⛔ Kept as NAMED placeholders, each for its own reason: a BOUND extension reference binds the facade method's
+     * first argument, which no Java method reference spells; a LOCAL function is not modelled by this front end.
+     */
+    @Test
+    fun boundExtensionsAndLocalFunctionsKeepNamedPlaceholders() {
+        val types = parse("""
+            class Q(val i: Int)
+            fun Q.twice(): Int = i * 2
+            class P {
+                fun f(q: Q): () -> Int = q::twice
+                fun g(l: List<Int>): List<Int> { fun inc(i: Int) = i + 1; return l.map(::inc) }
+            }
+            """)
+        // the third is the local function's own DECLARATION, the same unmodelled construct
+        assertEquals(setOf("k2-callable-ref-bound-extension", "k2-callable-ref-local-function",
+            "k2-unsupported-expr:KtNamedFunction"), PlaceholderCensus.of(types).byKind.keys)
+    }
+
+    /**
      * ⚠ The reference converts; INVOKING the value it was stored in does not. `g(2)` on a `KFunction1`-typed
      * local is Kotlin's invoke-operator sugar over a type this front end knows only shallowly. Pinned so the
      * remaining hole is a stated one, and so that closing it shows up here.
