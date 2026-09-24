@@ -59,6 +59,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.successfulVariableAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
@@ -75,6 +76,9 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaDefinitelyNotNullType
+import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
+import org.jetbrains.kotlin.analysis.api.types.KaIntersectionType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
@@ -1476,6 +1480,7 @@ internal class KotlinBodyConverter(
         (expression.selectorExpression as? KtNameReferenceExpression)?.let { staticPropertyAccess(it) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = superDispatchType(expression, method)
+            ?: narrowedReceiverType(expression.receiverExpression, expression.selectorExpression, method)
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
@@ -1523,6 +1528,45 @@ internal class KotlinBodyConverter(
      * was not found, and 112 of its 333 `super.visitX(…)` calls were placeholders. K2's resolved call names the
      * supertype on its dispatch receiver. Null for any other receiver.
      */
+    /**
+     * The type to look a member up on when the receiver's K2 type is not a class: a SMART CAST, typed as the
+     * intersection of the declared and the tested type (`c` after `is Validatable` is `Config & Validatable`), or a
+     * TYPE PARAMETER, whose members are its bounds'. Each mapped to a type without a TypeInfo, and the member was
+     * looked up on Object. The component chosen is the one that declares or inherits the class K2 resolved the member
+     * to; the first, when K2 names none. Null for a receiver of a class type: the caller's own mapping applies.
+     */
+    private fun KaSession.narrowedReceiverType(receiver: KtExpression, selector: KtExpression?, method: MethodInfo): TypeInfo? {
+        val type = receiver.expressionType ?: return null
+        // `T!` from a Java signature (`ServiceLoader<T>`'s elements), `T & Any`: the same question underneath
+        var core: KaType = type
+        while (true) core = when (core) {
+            is KaFlexibleType -> core.lowerBound
+            is KaDefinitelyNotNullType -> core.original
+            else -> break
+        }
+        if (core !is KaIntersectionType && core !is KaTypeParameterType) return null
+        val candidates = classComponents(type, HashSet())
+        val declaring = when (selector) {
+            is KtCallExpression -> selector.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId
+            is KtNameReferenceExpression -> (selector.mainReference.resolveToSymbol() as? KaCallableSymbol)?.callableId?.classId
+            else -> null
+        }
+        val chosen = declaring?.let { d ->
+            candidates.firstOrNull { c -> c.classId == d || c.allSupertypes.any { (it as? KaClassType)?.classId == d } }
+        } ?: candidates.firstOrNull() ?: return null
+        return mapType(chosen, method.typeInfo()).typeInfo()
+    }
+
+    /** The class types a smart-cast intersection or a type parameter stands for: conjuncts and bounds, recursively. */
+    private fun KaSession.classComponents(type: KaType, seen: MutableSet<KaTypeParameterType>): List<KaClassType> = when (type) {
+        is KaClassType -> listOf(type)
+        is KaIntersectionType -> type.conjuncts.flatMap { classComponents(it, seen) }
+        is KaDefinitelyNotNullType -> classComponents(type.original, seen)
+        is KaFlexibleType -> classComponents(type.lowerBound, seen)
+        is KaTypeParameterType -> if (seen.add(type)) type.symbol.upperBounds.flatMap { classComponents(it, seen) } else listOf()
+        else -> listOf()
+    }
+
     private fun KaSession.superDispatchType(expression: KtQualifiedExpression, method: MethodInfo): TypeInfo? {
         if (expression.receiverExpression !is KtSuperExpression) return null
         val call = expression.selectorExpression?.resolveToCall() ?: return null

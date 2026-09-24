@@ -1557,6 +1557,28 @@ The new site is a reveal: `visitFile(…)` inside the `KotlinAnalysisApiEngine()
 swallow the whole lambda. It is an extension on `this` typed by a two-bound type parameter (`T : Rule,
 T : RequiresAnalysisApi`). coil **119 → 113** in 41 / 76.
 
+### 7.52 A member on a narrowed receiver — detekt 74 → 67
+
+A receiver whose K2 type is not a class had no TypeInfo, and its member was looked up on Object:
+
+- a SMART CAST, which K2 types as the intersection of the declared and the tested type: `config.validate(…)` in
+  `is ValidatableConfiguration ->`, `it.textContains('\n')` after `it is PsiWhiteSpace &&`, `kaCall.compoundOperation`,
+  `(a ?: b ?: c).parent`;
+- a TYPE PARAMETER, whose members are its bounds': `it.id`, `it.priority`, `it.init(settings)` on a reified
+  `T : Extension`. That one arrives through a Java signature (`ServiceLoader<T>`) as the flexible `T!`, so flexible and
+  definitely-not-null wrappers are unwrapped first.
+
+`narrowedReceiverType` takes the class types the receiver stands for (conjuncts and bounds, recursively). It picks
+the one that declares, or inherits, the class K2 resolved the member to, else the first. The CST writes no cast,
+as §7.28's smart-cast implicit receivers do not. `NarrowedReceiverTest` (k2, eight shapes: smart-cast call, access and
+inherited member, one and two bounds, `T!`, a smart cast in a lambda). ⚠ Its fixture showed `s.length` on a plain
+`String` failing in the k2 unit world, where `String` is built from `kotlin.String`: an artifact of that world, since
+neither corpus has such a site.
+
+detekt **74 → 67** (7 gone, none new) in 40 types / 50 members; **no verdict moved**. coil unchanged at 113.
+Still open from this family: `visitFile` on an IMPLICIT `this` typed by a two-bound type parameter (the implicit
+receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `extendsFrom`).
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1585,7 +1607,7 @@ T : RequiresAnalysisApi`). coil **119 → 113** in 41 / 76.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) and function values invoked (§7.51) have taken detekt 4,701 → 74 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.51; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) and narrowed receivers (§7.52) have taken detekt 4,701 → 67 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.52; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
