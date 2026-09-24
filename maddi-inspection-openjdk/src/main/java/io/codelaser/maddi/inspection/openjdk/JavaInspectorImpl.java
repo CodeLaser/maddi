@@ -1266,7 +1266,13 @@ public class JavaInspectorImpl implements JavaInspector {
             // parseSingleFileInSourceSet calls) it intermittently corrupts and surfaces as
             // "tree.starImportScope is null" during task.analyze(). maddi keys its CST by FQN strings, not javac
             // Names, so not sharing names across compilations is safe here.
-            List<String> options = new ArrayList<>(List.of("-parameters", "-XDuseUnsharedTable=true"));
+            // -XDshould-stop.ifError=FLOW: attribute every unit even when an error came BEFORE attribution (an
+            // annotation processor's, a duplicate class). javac's default stops attribution of the whole task then,
+            // every unit reaches the scanner unattributed and is dropped: one @Builder Lombok 1.18.48 rejects cost
+            // pulsar-broker's tests all 835 units. Units with errors are still dropped one by one; class generation
+            // stays off (FLOW < GENERATE). TestStopPolicy.
+            List<String> options = new ArrayList<>(List.of("-parameters", "-XDuseUnsharedTable=true",
+                    "-XDshould-stop.ifError=FLOW"));
             // The lombok flag is configuration-global (InputConfiguration.containsLombok()), but the processor can
             // only run for a source set that actually has the lombok jar among its own dependencies: javac discovers
             // -processor classes on this task's class path, and requesting a processor that is not there is a hard
