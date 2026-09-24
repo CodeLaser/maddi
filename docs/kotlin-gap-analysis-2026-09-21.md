@@ -1632,6 +1632,25 @@ the JVM operators. They were looked up as methods and found none. They are now t
 mapped as the Java front end maps them (`…OperatorInt` whatever the operand type, `^` on booleans included), with
 Java's precedences. `IntrinsicCallTest` gains the row. **No verdict moved.**
 
+### 7.58 A delegate initializer's scope, and implicit narrowed receivers — detekt 37 → 33
+
+Found by one probe run printing, at each surviving unresolved call and reference, the receivers K2 names (dispatch and
+extension, with their kinds and types). Two fixtures written from reading the source had both passed without
+reproducing anything.
+
+- A delegate's `by` expression was converted in the delegated property's GETTER, where a primary-constructor
+  parameter is not in scope: `private val resolvedNames by lazy(NONE) { imports… }` with `imports` a constructor
+  parameter (two sites). It is converted where kotlinc initializes `x$delegate` now, in the same member as every
+  other property initializer (`initializerContext`). Members 7,759 → 7,761 are the synthetic instance initializers
+  this creates for two types. `DelegatedExtensionPropertyTest` gains the row, which fails on the previous code.
+- The IMPLICIT-receiver twin of §7.52. `text` inside `containsNewline()`, after a `when (this)` whose other branches
+  return, has a smart-cast implicit receiver, `KtExpression & KtResolvableCall`. `visitFile(…)` has an implicit
+  `this` typed `T : Rule, T : RequiresAnalysisApi`. `receiverLookupType` takes the component declaring the member now,
+  as the written-receiver path does. And matching an extension function's `$receiver` compares ERASED types: `this`
+  is `T`, with no TypeInfo, and the parameter carries T's first bound. `NarrowedReceiverTest` gains five rows.
+
+detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged at 103.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1660,7 +1679,7 @@ Java's precedences. `IntrinsicCallTest` gains the row. **No verdict moved.**
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) and infix primitive members (§7.57) have taken detekt 4,701 → 37 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.57; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) have taken detekt 4,701 → 33 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.58; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

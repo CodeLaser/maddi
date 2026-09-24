@@ -37,6 +37,10 @@ class DelegatedExtensionPropertyTest : KotlinScanTestBase() {
             }
             var Holder.note: String? by Slot(null)
             fun Holder.echo(): String? = note
+            class Guesser(imports: List<String>) {
+                private val names: Set<String> by lazy(LazyThreadSafetyMode.NONE) { imports.toSet() }
+                fun has(n: String): Boolean = n in names
+            }
             class K {
                 fun read(h: Holder): String? = h.note
                 fun write(h: Holder) { h.note = "x" }

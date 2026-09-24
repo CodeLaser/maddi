@@ -1547,6 +1547,19 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.narrowedReceiverType(receiver: KtExpression, selector: KtExpression?, method: MethodInfo): TypeInfo? {
         val type = receiver.expressionType ?: return null
+        val declaring = when (selector) {
+            is KtCallExpression -> selector.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId
+            is KtNameReferenceExpression -> (selector.mainReference.resolveToSymbol() as? KaCallableSymbol)?.callableId?.classId
+            else -> null
+        }
+        return narrowedLookupType(type, declaring, method)
+    }
+
+    /**
+     * [type]'s class component to look a member declared in [declaring] up on, when [type] is an intersection or a
+     * type parameter (possibly behind `T!` or `T & Any`); null for any other type.
+     */
+    private fun KaSession.narrowedLookupType(type: KaType, declaring: ClassId?, method: MethodInfo): TypeInfo? {
         // `T!` from a Java signature (`ServiceLoader<T>`'s elements), `T & Any`: the same question underneath
         var core: KaType = type
         while (true) core = when (core) {
@@ -1556,11 +1569,6 @@ internal class KotlinBodyConverter(
         }
         if (core !is KaIntersectionType && core !is KaTypeParameterType) return null
         val candidates = classComponents(type, HashSet())
-        val declaring = when (selector) {
-            is KtCallExpression -> selector.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId
-            is KtNameReferenceExpression -> (selector.mainReference.resolveToSymbol() as? KaCallableSymbol)?.callableId?.classId
-            else -> null
-        }
         val chosen = declaring?.let { d ->
             candidates.firstOrNull { c -> c.classId == d || c.allSupertypes.any { (it as? KaClassType)?.classId == d } }
         } ?: candidates.firstOrNull() ?: return null
@@ -2928,9 +2936,11 @@ internal class KotlinBodyConverter(
             is KaReceiverParameterSymbol -> {
                 (symbol.owningCallableSymbol.psi as? KtFunctionLiteral)?.let { locals[receiverKey(it)] }
                     ?.let { return variableExpression(it) }
-                val wanted = mapType(implicit.type, method.typeInfo()).typeInfo()
+                // ⚠ compared ERASED: `this` of `fun <T : Rule> T.f()` is typed `T`, whose typeInfo is null, while the
+                // `$receiver` parameter carries T's erasure (its first bound)
+                val wanted = mapType(implicit.type, method.typeInfo(), method).bestTypeInfo()
                 listOfNotNull(locals["\$receiver"], method.parameters().firstOrNull { it.name() == "\$receiver" })
-                    .firstOrNull { it.parameterizedType().typeInfo() == wanted }?.let { variableExpression(it) }
+                    .firstOrNull { it.parameterizedType().bestTypeInfo() == wanted }?.let { variableExpression(it) }
             }
             // a context parameter passed on as a context argument: the enclosing function's parameter of that name
             is KaContextParameterSymbol -> resolveReference(symbol.name.asString(), method, locals)
@@ -2954,16 +2964,21 @@ internal class KotlinBodyConverter(
      * narrowed type (`is KaClassSymbol -> classId`), as for a written smart-cast receiver, whose expressionType
      * convertQualified uses; otherwise the value's own.
      */
-    private fun KaSession.receiverLookupType(value: KaReceiverValue?, obj: Expression, method: MethodInfo): TypeInfo? =
-        (value as? KaSmartCastedReceiverValue)?.let { mapType(it.type, method.typeInfo()).typeInfo() }
+    private fun KaSession.receiverLookupType(value: KaReceiverValue?, obj: Expression, method: MethodInfo,
+                                             declaring: ClassId? = null): TypeInfo? =
+        // an intersection (a smart cast to two types) or a type parameter (`this` typed `T : Rule`): the component
+        // declaring the member, as for a written receiver (narrowedReceiverType)
+        value?.let { narrowedLookupType(it.type, declaring, method) }
+            ?: (value as? KaSmartCastedReceiverValue)?.let { mapType(it.type, method.typeInfo()).typeInfo() }
             ?: obj.parameterizedType().typeInfo()
 
     @OptIn(KaExperimentalApi::class)
     private fun KaSession.implicitDispatchCall(call: KtCallExpression, name: String, arguments: List<Expression>,
                                                method: MethodInfo, locals: Map<String, Variable>): Expression? {
-        val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
+        val resolved = call.resolveToCall()?.singleFunctionCallOrNull()
+        val dispatch = resolved?.partiallyAppliedSymbol?.dispatchReceiver
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
-        val type = receiverLookupType(dispatch, obj, method) ?: return null
+        val type = receiverLookupType(dispatch, obj, method, resolved?.symbol?.callableId?.classId) ?: return null
         // this class's own `this` is the fallback's business below, unchanged
         if (obj is VariableExpression && obj.variable() is This && type == method.typeInfo()) return null
         val callee = resolveCallee(members(type), name, arguments, callReturnFqn(call, method)) ?: return null
@@ -2995,7 +3010,8 @@ internal class KotlinBodyConverter(
         }
         val dispatch = access.partiallyAppliedSymbol.dispatchReceiver
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
-        val type = receiverLookupType(dispatch, obj, method)?.let { members(it) } ?: return null
+        val type = receiverLookupType(dispatch, obj, method, access.partiallyAppliedSymbol.symbol.callableId?.classId)
+            ?.let { members(it) } ?: return null
         type.fields().firstOrNull { it.name() == name }?.let { field ->
             return runtime.newVariableExpressionBuilder()
                 .setVariable(runtime.newFieldReference(field, obj, field.type())).setSource(runtime.noSource()).build()

@@ -1793,7 +1793,10 @@ class KotlinScan(
         // under that type
         pendingDelegatesOf.remove(owner)?.forEach { p ->
             if (p.initialized) return@forEach
-            val initializer = p.delegateExpression?.let { convertExpression(it, p.getter, emptyMap()) }
+            // in the member kotlinc initializes `x$delegate` in, as any property initializer (see [initializerContext]):
+            // the primary constructor, where `by lazy { imports… }` reads a constructor PARAMETER. Converted in the
+            // getter, that parameter was out of scope
+            val initializer = p.delegateExpression?.let { convertExpression(it, initializerContext(p.owner, p.static), emptyMap()) }
                 ?: runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
             p.field.builder().setInitializer(initializer).computeAccess()
             p.initialized = true
