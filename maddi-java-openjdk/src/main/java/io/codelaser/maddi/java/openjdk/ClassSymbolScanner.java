@@ -848,7 +848,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         };
     }
 
-    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
+    /*
+    A class file read out of a library archive: jar:file:<dir>/<archive>!/<entry>. The archive is any extension
+    SourceSetImpl.ARCHIVE_EXTENSIONS knows, not .jar alone: the configuration carries a BookKeeper .nar (pulsar's
+    circe-checksum, cpu-affinity) as a library named after its file, javac reads it, and matching .jar only sent
+    every type in it to "off the classpath" -- "Cannot map javac's type ... onto a TypeInfo" (TestNarOnClassPath).
+     */
+    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+("
+            + SourceSetImpl.ARCHIVE_EXTENSIONS.stream().sorted().map(Pattern::quote)
+                    .collect(java.util.stream.Collectors.joining("|"))
+            + "))!/.*");
 
     // javac's authoritative source-vs-binary provenance of a type. NOTE: cs.sourcefile is NOT reliable here, as
     // javac also populates it from the SourceFile debug attribute of a .class file (a synthetic, name-only
@@ -914,8 +923,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         // ⛔ NOT sourceSetOfCurrentTask. Everything reaching here is a COMPILED type -- a source file of the task
         // being compiled returned at the top, on !fromClassFile -- so it belongs to something the configuration did
-        // not describe: an archive that is not a .jar (JAR_FILE above matches only that, while
-        // SourceSetImpl.ARCHIVE_EXTENSIONS also knows .nar and .zip), a class directory outside the registered
+        // not describe: an archive the configuration does not list, a class directory outside the registered
         // prefixes, or a module that is neither configured nor a platform module.
         //
         // Handing back the current task's source set for those is not a failure to classify the type; it is a
