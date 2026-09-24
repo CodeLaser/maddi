@@ -1787,7 +1787,13 @@ internal class KotlinBodyConverter(
             // placeholder: nothing built a Lambda for a call that did not resolve, so nothing ever printed one.
             outputVariants.add(runtime.lambdaOutputVariantEmpty())
         }
-        val returnType = functionType?.returnType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
+        val kotlinReturnType = functionType?.returnType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
+        // a SUSPEND lambda is `invoke(…, Continuation<R> $completion): Object`, the JVM shape of its function type; a
+        // suspend call in its body passes that continuation on (continuationArguments)
+        val returnType = if (functionType?.isSuspend == true && samType == null)
+            with(typeMapper) { continuationParameter(samBuilder, kotlinReturnType) }
+                ?.also { outputVariants.add(runtime.lambdaOutputVariantEmpty()) } ?: kotlinReturnType
+        else kotlinReturnType
         samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
 
         // body: the lambda's block; its last expression becomes the (implicit) return value.
@@ -1800,7 +1806,7 @@ internal class KotlinBodyConverter(
         // how implicitReceiverValue finds the receiver K2 names inside `with(session) { … }` nested in another one
         if (functionType?.receiverType != null) bodyScope[receiverKey(lambda.functionLiteral)] = sam.parameters()[0]
         val statements = lambda.bodyExpression?.statements.orEmpty()
-        val voidReturn = returnType == runtime.voidParameterizedType()
+        val voidReturn = kotlinReturnType == runtime.voidParameterizedType() // a suspend lambda's JVM return is Object
         // `{ (key, value) -> … }`: the body starts by reading each entry from the parameter, as kotlinc compiles it
         val prologue = parameters.mapIndexedNotNull { i, p ->
             val declaration = p.destructuringDeclaration ?: return@mapIndexedNotNull null

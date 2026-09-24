@@ -220,6 +220,9 @@ internal class KotlinTypeMapper(
             (type.projection as? KaTypeArgumentWithVariance)?.let { return mapType(it.type, owner, method) }
         }
         val base = when (type) {
+            // `suspend (A) -> R` is `Function2<A, Continuation<R>, Object>` in bytecode; K2's
+            // `kotlin.coroutines.SuspendFunction1` has no JVM existence at all
+            is KaFunctionType if type.isSuspend -> suspendFunctionType(type, owner, method) ?: mapClassType(type, owner, method)
             is KaClassType -> mapClassType(type, owner, method)
             is KaTypeParameterType -> {
                 val name = type.symbol.name.asString()
@@ -695,6 +698,16 @@ internal class KotlinTypeMapper(
         val continuation = continuationType(returnType) ?: return null
         builder.addParameter("\$completion", continuation)
         return runtime.objectParameterizedType()
+    }
+
+    /** A suspend function type in its JVM shape: `Function{N+1}<[receiver,] P…, Continuation<R>, Object>`. */
+    private fun KaSession.suspendFunctionType(type: KaFunctionType, owner: TypeInfo, method: MethodInfo?): ParameterizedType? {
+        val parameters = listOfNotNull(type.receiverType) + type.parameterTypes
+        val functionN = (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/functions/Function${parameters.size + 1}"))
+            as? KaNamedClassSymbol)?.let { loadLibraryClass(it) } ?: return null
+        val continuation = continuationType(mapType(type.returnType, owner, method)) ?: return null
+        val arguments = parameters.map { mapType(it, owner, method).ensureBoxed(runtime) } + continuation + runtime.objectParameterizedType()
+        return runtime.newParameterizedType(functionN, arguments)
     }
 
     /** `kotlin.coroutines.Continuation<R>` (R boxed); null when the stdlib is not on the class path. */

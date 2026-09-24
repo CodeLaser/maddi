@@ -38,6 +38,9 @@ class SuspendSignatureTest : KotlinScanTestBase() {
                 suspend fun withDefault(b: Box, t: String = "d"): Int = leaf(b, t)
                 suspend fun callsDefault(b: Box): Int = withDefault(b)
                 fun seq(): Sequence<Int> = sequence { yield(1) }
+                fun takes(f: suspend (Box) -> Int): Int = 0
+                fun lam(): Int = takes { b -> leaf(b, "y") }
+                suspend fun invokes(f: suspend (Box) -> Int, b: Box): Int = f(b)
             }
             """.trimIndent() + "\n")
     }
@@ -73,8 +76,18 @@ class SuspendSignatureTest : KotlinScanTestBase() {
 
     @Test
     fun aLibrarySuspendMemberResolves() {
-        // `yield` is SequenceScope's suspend member: two JVM parameters. (The lambda's own continuation is step two.)
-        val body = k().findUniqueMethod("seq", 0).methodBody().toString()
-        assertEquals(true, body.contains("\$receiver.yield(1,"), body)
+        // `yield` is SequenceScope's suspend member: two JVM parameters; the continuation is the suspend lambda's own
+        assertEquals("{return SequencesKt__SequenceBuilderKt.sequence((\$receiver,\$completion)->\$receiver.yield(1,\$completion));}",
+            k().findUniqueMethod("seq", 0).methodBody().toString())
+    }
+
+    /** A suspend function type is `Function{N+1}<…, Continuation<R>, Object>`, as in bytecode, not K2's SuspendFunctionN. */
+    @Test
+    fun suspendFunctionTypesAndLambdas() {
+        assertEquals("takes(kotlin.jvm.functions.Function2<ss.Box,kotlin.coroutines.Continuation<Integer>,Object>):int",
+            signature(k().findUniqueMethod("takes", 1)))
+        assertEquals("{return takes((b,\$completion)->leaf(b,\"y\",\$completion));}", k().findUniqueMethod("lam", 0).methodBody().toString())
+        // invoking a suspend function VALUE passes the continuation too
+        assertEquals("{return f.invoke(b,\$completion);}", k().findUniqueMethod("invokes", 3).methodBody().toString())
     }
 }

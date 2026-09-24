@@ -1443,9 +1443,20 @@ suspend member resolving. detekt **140 → 117**, no new site, **no verdict move
 site list is identical by kind and position, and only the members' signatures moved (they carry the
 continuation now).
 
-⚠ **Step two is owed:** a suspend FUNCTION TYPE still maps to `kotlin.coroutines.SuspendFunction1`, a K2-only class
-with no JVM existence (it is `Function2<A, Continuation<R>, Object>` in bytecode), and a suspend lambda has no
-continuation parameter, so a suspend call inside `sequence { }` or `launch { }` passes `null`.
+**Step two, done:** a suspend FUNCTION TYPE mapped to `kotlin.coroutines.SuspendFunction1`, a K2-only class with
+no JVM existence. It is now `Function{N+1}<[receiver,] P…, Continuation<R>, Object>`, as in bytecode. A suspend
+lambda's `invoke` takes a trailing `$completion` and returns `Object`, so a suspend call inside `sequence { }` or
+`launch { }` passes the lambda's own continuation, and invoking a suspend function value (`f(b)`) passes the
+caller's. The lambda body is converted against the Kotlin return type (a `Unit` suspend lambda returns nothing).
+`SuspendSignatureTest` gains both; they fail on step one's code. `TestKotlinLambdaVsJavaLambda` gains three rows,
+a suspend function modifying its argument, a suspend caller of it, and a reader, against Java written in kotlinc's
+shape (an explicit `Continuation` parameter): all agree. This is a parity guard, not a detector of the fix, since
+the Box modification was visible before too. Corpora: identical sites and verdicts to step one, and coil's prep
+still isolates nothing.
+
+What `suspend` still lacks: no state machine is modelled, and none is needed, because the modification analysis
+reads the body as straight-line code, which is what the source says. `@JvmOverloads` on a suspend function
+generates no overloads.
 
 ## 8. The ordered path to the claim
 
@@ -1468,7 +1479,7 @@ continuation parameter, so a suspend call inside `sequence { }` or `launch { }` 
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
    ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
    keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
-   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`** (step one done, §7.47),
+   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: ✅ **`suspend`** (§7.47),
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
