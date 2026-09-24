@@ -102,6 +102,7 @@ import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtDestructuringDeclarationEntry
 import org.jetbrains.kotlin.psi.KtFunctionLiteral
 import org.jetbrains.kotlin.psi.KtFile
@@ -169,6 +170,8 @@ internal interface MemberConverter {
  * (and this class reaching `KotlinTypeMapper` the same way). Member-building flows back through the
  * injected [MemberConverter], breaking the bodies<->declarations cycle.
  */
+private val REFLECTION = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/internal/Reflection")
+
 private val ARRAY_LITERALS = setOf("arrayOf", "intArrayOf", "longArrayOf", "doubleArrayOf", "floatArrayOf",
     "booleanArrayOf", "charArrayOf", "byteArrayOf", "shortArrayOf")
 
@@ -1197,6 +1200,8 @@ internal class KotlinBodyConverter(
             // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
+            is KtClassLiteralExpression -> kotlinClassLiteral(expression, method)
+                ?: runtime.newEmptyExpression("k2-unsupported-expr:KtClassLiteralExpression")
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
@@ -1270,6 +1275,11 @@ internal class KotlinBodyConverter(
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
         staticMemberAccess(expression, method)?.let { return it }
+        // `X::class.java` is the Java class literal `X.class` (kotlinc: an `LDC`), not a KClass then unwrapped
+        if (expression.receiverExpression is KtClassLiteralExpression &&
+            (expression.selectorExpression as? KtNameReferenceExpression)?.getReferencedName() == "java") {
+            javaClassLiteral(expression.receiverExpression as KtClassLiteralExpression, method)?.let { return it }
+        }
         // `Type.method(args)` where the receiver is a TYPE: a Java static (javalin's `TestUtil.test(app) { … }`).
         // The receiver is no value, so it converted to a placeholder and the call to another, which swallowed the
         // arguments -- including a lambda declaring an `object :` the rename censuses then never saw.
@@ -1790,6 +1800,36 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(listOf(runtime.newEmptyExpression()))
             .setArrayInitializer(initializer)
             .build()
+    }
+
+    /**
+     * The Java class literal `X.class` for a Kotlin `X::class` -- null for a reified type parameter (`T::class` in an
+     * inline function), which has no Java spelling: kotlinc substitutes the argument at each inlined call site.
+     */
+    private fun KaSession.javaClassLiteral(expression: KtClassLiteralExpression, method: MethodInfo): Expression? {
+        val kClass = expression.expressionType as? KaClassType ?: return null
+        val classified = kClass.typeArguments.singleOrNull()?.type ?: return null
+        if (classified is KaTypeParameterType) return null
+        val type = mapType(classified, method.typeInfo()).takeIf { it.typeInfo() != null } ?: return null
+        return runtime.newClassExpressionBuilder(type).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A Kotlin `X::class` (a `KClass`): `Reflection.getOrCreateKotlinClass(X.class)`, the stdlib call kotlinc emits.
+     * Null when the stdlib's `kotlin.jvm.internal.Reflection` is not on the class path.
+     */
+    private fun KaSession.kotlinClassLiteral(expression: KtClassLiteralExpression, method: MethodInfo): Expression? {
+        val classLiteral = javaClassLiteral(expression, method) ?: return null
+        val reflection = (findClass(REFLECTION) as? KaNamedClassSymbol)?.let { classTypeInfo(it) }?.let { members(it) }
+            ?: return null
+        val callee = reflection.methods().firstOrNull {
+            it.isStatic && it.name() == "getOrCreateKotlinClass" && it.parameters().size == 1
+        } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(reflection.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(classLiteral))
+            .setConcreteReturnType(expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /** `!e` as a boolean UnaryOperator. */

@@ -1205,6 +1205,24 @@ What is left of the unresolved families on detekt is small and heterogeneous: `k
 `k2-unresolved-ref` 23. The largest family is now `k2-unsupported-expr` (164: class literals, local functions, …) --
 unmodelled syntax, the next ladder rung, not resolution.
 
+### 7.36 Class literals, and a Java library class's static methods — detekt 444 → 358
+
+`X::class` was unmodelled syntax, the largest `k2-unsupported-expr` kind (89 of 164). `X::class.java` (45) is now the
+Java class literal `X.class` -- kotlinc compiles it to an `LDC`, so the `KClass` is never built; a bare `X::class`
+(a `KClass`) is `Reflection.getOrCreateKotlinClass(X.class)`, the stdlib call kotlinc emits. A reified type parameter
+(`T::class` in an inline function) has no Java spelling -- kotlinc substitutes the argument at each call site -- and
+keeps its placeholder (3 on detekt).
+
+Building the `KClass` form exposed a wider gap: the K2-built model of a JAVA library class (here
+`kotlin.jvm.internal.Reflection`) had no static methods at all -- the loader read static FIELDS from the static member
+scope, but functions only from the instance scope. It now reads both. No new site and no verdict moved on either
+corpus, so nothing that resolved before resolved differently.
+
+⚠ `K::class.simpleName` reads `simpleName` as a FIELD of the `KClass`: the K2-built model of a library Kotlin type
+keeps properties as fields (pre-existing), where Java would call `getSimpleName()`.
+
+detekt: class literals 89 → 3; `k2-unsupported-expr` 164 → 78; total **444 → 358** (types 176 → 160). coil 288 → 283.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1231,8 +1249,8 @@ unmodelled syntax, the next ladder rung, not resolution.
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
-   properties (§7.32), library companions (§7.33), lambda destructuring (§7.34) and companion `invoke` /
-   `arrayOf` (§7.35) have taken detekt 4,701 → 444 and coil 367 → 288 on that dump.
+   properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
+   `arrayOf` (§7.35) and class literals (§7.36) have taken detekt 4,701 → 358 and coil 367 → 283 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

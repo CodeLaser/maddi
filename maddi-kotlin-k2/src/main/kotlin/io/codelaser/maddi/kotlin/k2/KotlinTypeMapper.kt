@@ -621,6 +621,13 @@ internal class KotlinTypeMapper(
                 .filterIsInstance<KaNamedFunctionSymbol>()
                 .map { convertLibraryMethod(typeInfo, it) }
                 .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+            // a Java class's STATIC methods live in the static member scope, not the member scope: without them a
+            // library type built here had none (`Reflection.getOrCreateKotlinClass`, which `X::class` compiles to)
+            symbol.staticMemberScope.declarations
+                .filterIsInstance<KaNamedFunctionSymbol>()
+                .filter { it.isStatic }
+                .map { convertLibraryMethod(typeInfo, it, static = true) }
+                .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
             // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
             // property access as a field access, like a source type's backing field)
             symbol.memberScope.declarations
