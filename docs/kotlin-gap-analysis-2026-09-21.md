@@ -1399,6 +1399,24 @@ the same unannotated library, gets the same verdict.
 on detekt, **no verdict moved**. Left of the kind: a field initializer holding a local function (1), and
 multi-statement `when` branches.
 
+### 7.46 A destructured value is evaluated once — detekt 154 → 140, coil 139 → 136
+
+- ⛔ **A correctness defect, not only a hole.** `val (l, r) = <value>` converted the value once and let every entry
+  read that same node: the CST held one node under two parents (#32 forbids it), and printed `val (l, r) = when {…}`
+  with the whole `when` twice. It said the value was evaluated twice. kotlinc evaluates it once, into a temporary.
+  A value that is not a stable reference is now bound to `$destructuredN` first; a stable one (a name, `this`, a
+  dotted chain) is re-read per entry, a fresh node each time, as the elvis lowering already did.
+- `val (a, b) = f() ?: return 0` had no control-flow elvis lowering: the components were placeholders. It is
+  lowered like `val x = f() ?: return 0`, the entries reading the guarded temporary.
+- `IntArray(n)`, `ByteArray(n)`, `LongArray(n)`, `BooleanArray(n)` and `arrayOfNulls<T>(n)` are `new T[n]`, built
+  as the Java parser builds it. With an init lambda (`IntArray(n) { … }`, 3 on detekt) kotlinc inlines a filling
+  loop no Java expression spells; that keeps a placeholder, now named `k2-array-constructor-with-init`.
+
+`DestructuringValueTest` (k2) fails 2/2 when reverted. detekt **154 → 140**, coil **139 → 136**, **no verdict
+moved**. New on detekt: the 3 renamed init-lambda sites, and one reveal in `MissingUseCall`: there
+`if (A) {…} else if (B) {…} else { null } ?: return false` binds the elvis to the inner `if`, inside the outer else
+branch, so the `return` is in a value branch. It was hidden behind the component placeholders before.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1427,7 +1445,7 @@ multi-statement `when` branches.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 and blocks as values (§7.45) have taken detekt 4,701 → 154 and coil 367 → 283 on that dump (coil is 139 once its class path is complete, §7.39, §7.42–§7.45; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) and single-evaluation destructuring (§7.46) have taken detekt 4,701 → 140 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
