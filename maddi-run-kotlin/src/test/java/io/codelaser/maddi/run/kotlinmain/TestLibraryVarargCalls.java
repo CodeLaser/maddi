@@ -30,19 +30,15 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * A library class NAME used as a value is its companion (`ClassId.fromString(…)`, 18× on detekt;
- * `CompilerConfigurationKey.create(…)`, 12×) or, for an `object`, the object itself. The K2-built model of a Kotlin
- * library class had no static `Companion` field to read it through, so the receiver was a placeholder while the
- * companion's member resolved. And a class name CALLED, `RuleSet(id, rules)` (12× on detekt), is its companion's
- * `operator fun invoke`, not a constructor.
- *
- * <p>A companion's `const val` or `@JvmField` (`LanguageVersion.LATEST_STABLE`) is a static field of the OUTER class,
- * which K2 reaches through the companion; and `String.format(…)` is an inline-only extension on `String.Companion`
- * that kotlinc turns into `java.lang.String.format(…)`.
+ * A LIBRARY function with a vararg parameter, called omitting a defaulted argument or passing one after the vararg,
+ * in the class-file world: `path.writeText(s)` is `writeText(Path, CharSequence, Charset, OpenOption...)` with the
+ * charset omitted; `splitToSequence(".")` has two defaulted parameters AFTER its vararg, so the JVM parameter is a
+ * plain `String[]`. A library callee has no `$default` here: the omitted parameters are filled with their zero value
+ * (see KotlinBodyConverter.callArguments).
  */
-public class TestLibraryCompanions {
+public class TestLibraryVarargCalls {
     @Test
-    public void theNameIsTheCompanion(@TempDir Path tmp) throws Exception {
+    public void theVarargIsBoundAsKotlincBindsIt(@TempDir Path tmp) throws Exception {
         Path kDir = tmp.resolve("src/main/kotlin");
         Path jDir = tmp.resolve("src/main/java");
         Files.createDirectories(kDir.resolve("a"));
@@ -50,30 +46,17 @@ public class TestLibraryCompanions {
         Files.writeString(jDir.resolve("s/Trivial.java"), "package s;\npublic class Trivial { public int n; }\n");
         Files.writeString(kDir.resolve("a/K.kt"), """
                 package a
-                import org.jetbrains.kotlin.name.ClassId
-                import org.jetbrains.kotlin.name.FqName
-                import org.jetbrains.kotlin.config.CompilerConfigurationKey
-                import org.jetbrains.kotlin.config.JvmTarget
-                import org.jetbrains.kotlin.config.LanguageVersion
+                import java.nio.file.Path
+                import kotlin.io.path.writeText
+                import com.intellij.psi.PsiElement
+                import org.jetbrains.kotlin.psi.KtElement
+                import org.jetbrains.kotlin.psi.KtNamedFunction
+                import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypesAndPredicate
                 class K {
-                    fun a(): ClassId = ClassId.fromString("a/B")
-                    fun b(): ClassId = ClassId.topLevel(FqName("a.B"))
-                    fun c(): CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create<Boolean>("x")
-                    fun d(): String = Regex.escape("x")
-                    fun e(): Regex = Regex.fromLiteral("x")
-                    fun f(): Any = Charsets
-                    fun g(): Sized = Sized(listOf("a"))
-                    fun h(): Int = Twice(3)
-                    fun i(): LanguageVersion = LanguageVersion.LATEST_STABLE
-                    fun j(): JvmTarget = JvmTarget.DEFAULT
-                    fun k(): String = String.format("%s", "x")
-                    fun l(): String = String.format(java.util.Locale.ROOT, "%s-%s", "x", 1)
-                }
-                class Sized(val n: Int) {
-                    companion object { operator fun invoke(items: List<String>): Sized = Sized(items.size) }
-                }
-                object Twice { operator fun invoke(i: Int): Int = i * 2 }
-                class Unused {
+                    fun a(p: Path) { p.writeText("x") }
+                    fun b(s: String): Sequence<String> = s.splitToSequence(".")
+                    fun c(e: PsiElement): KtElement? =
+                        e.getParentOfTypesAndPredicate(true, KtNamedFunction::class.java, KtElement::class.java) { true }
                 }
                 """);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -89,20 +72,10 @@ public class TestLibraryCompanions {
         TypeInfo k = parsed.getKotlinTypes().stream().filter(t -> t.simpleName().equals("K")).findFirst().orElseThrow();
         StringBuilder actual = new StringBuilder();
         k.methods().forEach(m -> actual.append(m.name()).append(": ").append(m.methodBody().statements()).append('\n'));
-        // ⚠ `fromString`'s omitted default is filled in as a literal: pre-existing, not this route's
         assertEquals("""
-                a: [return ClassId.Companion.fromString("a/B",false);]
-                b: [return ClassId.Companion.topLevel(new FqName("a.B"));]
-                c: [return CompilerConfigurationKey.Companion.create("x");]
-                d: [return Regex.Companion.escape("x");]
-                e: [return Regex.Companion.fromLiteral("x");]
-                f: [return Charsets.INSTANCE;]
-                g: [return Sized.Companion.invoke(CollectionsKt__CollectionsJVMKt.listOf("a"));]
-                h: [return Twice.INSTANCE.invoke(3);]
-                i: [return LanguageVersion.LATEST_STABLE;]
-                j: [return JvmTarget.DEFAULT;]
-                k: [return String.format("%s","x");]
-                l: [return String.format(Locale.ROOT,"%s-%s","x",1);]
+                a: [PathsKt__PathReadWriteKt.writeText(p,"x",null);]
+                b: [return StringsKt__StringsKt.splitToSequence(s,new String[]{"."},false,0);]
+                c: [return PsiUtilsKt.getParentOfTypesAndPredicate(e,true,new Class[]{KtNamedFunction.class,KtElement.class},it->true);]
                 """, actual.toString());
     }
 

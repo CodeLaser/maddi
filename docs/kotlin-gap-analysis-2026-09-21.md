@@ -1458,6 +1458,127 @@ What `suspend` still lacks: no state machine is modelled, and none is needed, be
 reads the body as straight-line code, which is what the source says. `@JvmOverloads` on a suspend function
 generates no overloads.
 
+### 7.48 Values named through a type — detekt 117 → 95, coil 136 → 119
+
+**The baseline moved under this work, and not because of it.** The merge at e78616190 brought engine commits
+(type independence walks interfaces; `Iterable` is `@ImmutableContainer(hc = true)` in the JDK hints). On that
+merge, with no front-end change, detekt's immutable types went **666 → 641**: about twenty holders of a
+`Collection`/`List`/`Map` (`ConfigSpec`, `RuleSet`, `Issue`, the `*Spec` interfaces) moved IMMUTABLE_HC →
+FINAL_FIELDS. It is a parity question before it is a number, so `TestCollectionHoldersVsJava` pairs the three
+shapes with the Java a human writes for them: **Java gets FINAL_FIELDS too**, on all three. The pin is lowered with
+that reason; placeholders were unchanged at 117.
+
+A value named through a TYPE, not a variable, was a placeholder in three spellings:
+
+- **a qualifier chain**: `Notification.Level.Warning`, `RulesSpec.RunPolicy.NoRestrictions`, `sv.Note.Level.Info`.
+  `staticMemberAccess` accepted a receiver that is ONE name, so a two-type chain was read as a value. The last name
+  of a qualified receiver is the type now; a nested object still reads `INSTANCE`, and one the loaded model does not
+  list (a library type's) is asked of K2 (`classAsValue` on the selector).
+- **an import**: `IGNORE_CASE`, `NONE`, `Show`. A bare name K2 resolves to an enum entry is that enum's static
+  field (`enumEntryValue`), library or source.
+- **a companion's `@JvmField`/`const`**: `JvmTarget.DEFAULT`, `LanguageVersion.LATEST_STABLE`,
+  `LanguageVersionSettingsImpl.DEFAULT`. K2 resolves the receiver to the COMPANION, but kotlinc puts the field on the
+  OUTER class, and the companion has neither a field nor a getter for it. A probe in the detekt run showed the
+  class-file companion empty. So a companion receiver looks on the outer class first. The K2-built library model
+  had the Kotlin view instead: the value was an instance field of the companion. It now builds the JVM view, a
+  static field of the outer class, and an `object`'s `const`/`@JvmField` becomes a static field of the object
+  (§7.47's lesson again: two models of one library type, and the fixture agreed with the wrong one).
+
+And `String.format(…)`: an `@InlineOnly` extension on `String.Companion`, with no method in any class file. kotlinc
+inlines it to `java.lang.String.format(…)`, and so does the front end now, choosing the overload by the arguments
+(the detekt site passes a `Locale`). A spread `*args` is left alone.
+
+`StaticValueTest` (k2, six cases; five fail on the previous code, and the sixth, a qualified library enum constant,
+is a guard that already passed). `TestLibraryCompanions` gains four rows in the class-file world:
+`LanguageVersion.LATEST_STABLE`, `JvmTarget.DEFAULT`, and `String.format` with and without a `Locale`.
+detekt **117 → 95** in 56 types / 71 members, **no verdict moved** (the type-verdict dump is identical to the
+merge's). coil **136 → 119** in 43 types / 82 members.
+
+### 7.49 A vararg callee, bound as kotlinc binds it — detekt 95 → 85
+
+The instrument first: a probe at the unresolved-call placeholder, run once on detekt, printing what K2 resolved each
+callee to, the facade and its methods of that name, and the argument types. 222 lines fired, most from conversions
+retried and discarded, so it was joined to the surviving placeholders by (callee, member): 29 of 31 matched. They fell into
+five causes, and the largest (≈11) was this one: the rebuild of a call that names or omits arguments
+(`callArguments`) excluded EVERY vararg callee. `path.writeText(s)` omits a charset before the vararg options;
+`splitToSequence(".")` has two defaulted parameters after its vararg; `getParentOfTypesAndPredicate(strict, A::class.java,
+B::class.java) { … }` passes one after it. The facade had each method, and no call of the written arity matched it.
+
+The vararg is now bound as in bytecode. Its items are every positional argument from its index on, or one named
+argument, which is the array itself when it is spread or of the array type. They stay loose, Java-style, where the
+vararg is the JVM signature's last parameter, as every vararg call is written elsewhere. They are packed into `new T[]{…}`
+where the JVM parameter is a plain array: a parameter follows it, or the call binds `$default`, whose masks follow
+it. `$default` is generated for a vararg function or constructor now, with the vararg typed as its array. K2's
+`returnType` of a vararg parameter is the ELEMENT type.
+
+`VarargCallTest` (k2, six shapes: a parameter after the vararg, `$default` with and without items, a spread, a named
+array, a plain call). `TestLibraryVarargCalls` (class-file world): `writeText`, `splitToSequence` and
+`getParentOfTypesAndPredicate` bind `PathsKt__PathReadWriteKt.writeText(p,"x",null)`,
+`splitToSequence(s,new String[]{"."},false,0)` and `getParentOfTypesAndPredicate(e,true,new Class[]{…},it->true)`.
+detekt **95 → 85** (10 sites gone, none new) in 50 types / 64 members; members 7,756 → 7,759 are the new
+`$default`s. **No verdict moved.** coil unchanged at 119.
+
+The other causes, for what follows: intrinsics written as calls (`arr.get(i)`, `bytes.set(i, v)`, `s.plus(x)`, a boxed
+`?.not()`/`?.plus(1)`); invoking a function-typed property or receiver-typed parameter (`d.ruleProvider(config)`,
+`init()`); `AutoCloseable.use`, whose facade lookup returns nothing; and receivers typed `Object` where a smart
+cast should have narrowed them.
+
+### 7.50 Intrinsics spelled as calls — detekt 85 → 79
+
+The operator spellings converted, and the call spellings did not: `a.get(i)` / `a.set(i, v)` on a JVM array
+(`Array`, `IntArray`, … have no such methods in a class file), `s.plus(x)` on a String, and a primitive member on a
+BOXED receiver, `oldValue?.plus(1)` or `x?.contains("*")?.not()`, where the safe call types the receiver `Integer` or
+`Boolean`. They are now the array load or store (`a[i]`, `a[i] = v`, the receiver implicit inside an extension on
+`ByteArray`), the concatenation `s + x`, and the primitive operation.
+
+⛔ The boxed case unboxes only when the callee is the primitive class's own MEMBER (`kotlin/Int.plus`,
+`kotlin/Boolean.not`), which Kotlin calls only on a non-null value. The first cut unboxed every boxed receiver, and
+`TestPrimitiveMembers`' row `i.toString()` on an `Int?` caught it: that is the `Any?.toString()` extension,
+`String.valueOf(Object)`, which prints "null". Unboxed, it became `String.valueOf(int)`, which throws.
+
+`IntrinsicCallTest` (k2, six shapes). detekt **85 → 79** (6 sites gone, none new) in 47 types / 59 members; **no
+verdict moved**. coil unchanged at 119.
+
+### 7.51 Function values invoked, and a facade in another JVM package — detekt 79 → 74, coil 119 → 113
+
+Three shapes from the §7.49 probe:
+
+- `AutoCloseable.use { }` (3 on detekt). The stdlib declares it as `kotlin.use` but compiles it into
+  `kotlin.jdk7.AutoCloseableKt` (`@file:JvmPackageName`). The library facade was built from the callables of its JVM
+  package, and `kotlin.jdk7` has none. It is built from the callable's own Kotlin package now, filtered by facade
+  class id.
+- a PROPERTY of function type called like a method: `d.ruleProvider(config)` is `d.getRuleProvider().invoke(config)`.
+  K2 names `invoke` as the callee, and the written name is the property's.
+- a parameter of a function type WITH a receiver, invoked with that receiver implicit: `init()` for
+  `init: XMLStreamWriter.() -> Unit` is `init.invoke($receiver)`.
+
+`FunctionValueCallTest` (k2). detekt **79 → 74** (6 gone, 1 new) in 44 types / 54 members; **no verdict moved**.
+The new site is a reveal: `visitFile(…)` inside the `KotlinAnalysisApiEngine().use { }` whose placeholder used to
+swallow the whole lambda. It is an extension on `this` typed by a two-bound type parameter (`T : Rule,
+T : RequiresAnalysisApi`). coil **119 → 113** in 41 / 76.
+
+### 7.52 A member on a narrowed receiver — detekt 74 → 67
+
+A receiver whose K2 type is not a class had no TypeInfo, and its member was looked up on Object:
+
+- a SMART CAST, which K2 types as the intersection of the declared and the tested type: `config.validate(…)` in
+  `is ValidatableConfiguration ->`, `it.textContains('\n')` after `it is PsiWhiteSpace &&`, `kaCall.compoundOperation`,
+  `(a ?: b ?: c).parent`;
+- a TYPE PARAMETER, whose members are its bounds': `it.id`, `it.priority`, `it.init(settings)` on a reified
+  `T : Extension`. That one arrives through a Java signature (`ServiceLoader<T>`) as the flexible `T!`, so flexible and
+  definitely-not-null wrappers are unwrapped first.
+
+`narrowedReceiverType` takes the class types the receiver stands for (conjuncts and bounds, recursively). It picks
+the one that declares, or inherits, the class K2 resolved the member to, else the first. The CST writes no cast,
+as §7.28's smart-cast implicit receivers do not. `NarrowedReceiverTest` (k2, eight shapes: smart-cast call, access and
+inherited member, one and two bounds, `T!`, a smart cast in a lambda). ⚠ Its fixture showed `s.length` on a plain
+`String` failing in the k2 unit world, where `String` is built from `kotlin.String`: an artifact of that world, since
+neither corpus has such a site.
+
+detekt **74 → 67** (7 gone, none new) in 40 types / 50 members; **no verdict moved**. coil unchanged at 113.
+Still open from this family: `visitFile` on an IMPLICIT `this` typed by a two-bound type parameter (the implicit
+receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `extendsFrom`).
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1486,7 +1607,7 @@ generates no overloads.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46) and suspend signatures (§7.47) have taken detekt 4,701 → 117 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) and narrowed receivers (§7.52) have taken detekt 4,701 → 67 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.52; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
