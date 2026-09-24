@@ -70,6 +70,9 @@ public class TestPrimitiveMembers {
                     fun kc(): Any = K::class
                     fun pc(): Any = Int::class
                     fun ksn(): String? = K::class.simpleName
+                    fun sg(s: String): Char = s.get(0)
+                    fun si(s: String): Char = s[0]
+                    fun ia(a: IntArray): Int { a[0] = 1; a[1] += 2; return a[1] }
                 }
                 """);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -113,6 +116,9 @@ public class TestPrimitiveMembers {
                 kc: [return Reflection.getOrCreateKotlinClass(K.class);] -> kotlin.jvm.internal.Reflection.getOrCreateKotlinClass(Class)
                 pc: [return Reflection.getOrCreateKotlinClass(int.class);] -> kotlin.jvm.internal.Reflection.getOrCreateKotlinClass(Class)
                 ksn: [return Reflection.getOrCreateKotlinClass(K.class).simpleName;] -> kotlin.jvm.internal.Reflection.getOrCreateKotlinClass(Class)
+                sg: [return s.charAt(0);] -> java.lang.String.charAt(int)
+                si: [return s.charAt(0);] -> java.lang.String.charAt(int)
+                ia: [a[0]=1;, a[1]+=2;, return a[1];]
                 """, actual.toString());
     }
 }

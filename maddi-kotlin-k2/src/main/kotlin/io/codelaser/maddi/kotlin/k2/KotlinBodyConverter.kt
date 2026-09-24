@@ -704,6 +704,10 @@ internal class KotlinBodyConverter(
      */
     private val MAPPED_PROPERTIES = mapOf("keys" to "keySet", "entries" to "entrySet")
 
+    /** The Kotlin classes that ARE JVM arrays (`Array<T>` is `T[]`, `IntArray` is `int[]`, …); not the unsigned ones. */
+    private val JVM_ARRAY_CLASSES = setOf("Array", "IntArray", "LongArray", "ShortArray", "ByteArray", "CharArray",
+        "FloatArray", "DoubleArray", "BooleanArray")
+
     private fun isPlaceholder(e: Expression): Boolean =
         e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true && e.source() == null
 
@@ -723,9 +727,11 @@ internal class KotlinBodyConverter(
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
                                               locals: MutableMap<String, Variable>): Statement {
         val left = statement.left
-        return if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
+        // a JVM array element is a variable: `a[i] = v` and `a[i] += v` are assignments to it, as in Java
+        val arrayElement = left is KtArrayAccessExpression && isJvmArrayAccess(left)
+        return if (!arrayElement && left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
             runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
-        } else if (left is KtArrayAccessExpression) {
+        } else if (!arrayElement && left is KtArrayAccessExpression) {
             // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
             val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
             runtime.newExpressionAsStatement(
@@ -1554,18 +1560,56 @@ internal class KotlinBodyConverter(
             runtime.logicalNotOperatorBool(), instanceOf, runtime.precedenceUnary()) else instanceOf
     }
 
-    /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type). */
+    /**
+     * `a[i]` / `a[i] = v` through an EXTENSION `get`/`set` operator (detekt's `operator fun ByteArray.set(c: Char,
+     * v: Byte)`, the stdlib's `MutableMap.set`): the facade static with the receiver first, as any extension call.
+     */
+    private fun KaSession.indexOperatorExtension(expression: KtArrayAccessExpression, receiver: Expression,
+                                                 arguments: List<Expression>, method: MethodInfo): Expression? {
+        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol
+            ?: return null
+        if (symbol.receiverParameter == null) return null
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val facadeArgs = listOf(receiver) + arguments
+        val callee = resolveCallee(facade, symbol.name.asString(), facadeArgs) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(facadeArgs)
+            .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
+            .build()
+    }
+
+    /**
+     * Is `a[i]` the BUILT-IN `get`/`set` of a Kotlin array class? On the JVM that is an array load/store, not a call:
+     * `IntArray` is `int[]` and `Array<T>` is `T[]`. A user's operator extension on an array type
+     * (`operator fun ByteArray.set(c: Char, v: Byte)`) is a call and stays one.
+     */
+    private fun KaSession.isJvmArrayAccess(expression: KtArrayAccessExpression): Boolean {
+        if (expression.indexExpressions.size != 1) return false
+        val owner = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId ?: return false
+        return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
+    }
+
+    /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type); an array element for an array. */
     private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
         val array = expression.arrayExpression?.let { convertExpression(it, method, locals) }
             ?: return placeholder("k2-index", expression)
         val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
+        // `a[i]` on a JVM array: the element, a DependentVariable, exactly as the Java parser builds `a[i]`
+        if (isJvmArrayAccess(expression)) {
+            return runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newDependentVariable(array, indices.single()))
+                .setSource(source(expression, "-")).build()
+        }
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         // Kotlin's indexed get is the `get` operator on most types (List/array/Map/custom), but on a String it
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
-        val get = arrayType?.let { resolveCallee(it, "get", indices) ?: resolveCallee(it, "charAt", indices) }
-            ?: return placeholder("k2-index-get-unresolved", expression)
+        val get = arrayType?.let { resolveCallee(it, "get", indices) } // String: charAt, in resolveCallee
+            ?: return indexOperatorExtension(expression, array, indices, method)
+                ?: placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
         // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
@@ -1585,7 +1629,8 @@ internal class KotlinBodyConverter(
         // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
         // that delegates to `put`, so fall back to put (same key,value arguments)
         val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
-            ?: return placeholder("k2-indexed-set-unresolved", arrayAccess)
+            ?: return indexOperatorExtension(arrayAccess, array, arguments, method)
+                ?: placeholder("k2-indexed-set-unresolved", arrayAccess)
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
             .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())
             .setSource(source(arrayAccess, "-").withDetailedSources(marker(DetailedSources.INDEX_ACCESS, arrayAccess.leftBracket)))
@@ -1946,7 +1991,12 @@ internal class KotlinBodyConverter(
     private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>,
                              returnTypeFqn: String? = null): MethodInfo? {
         val all = mutableListOf<MethodInfo>()
-        collectMethods(type, name, arguments.size, mutableSetOf(), all)
+        // Kotlin's `String.get(i)` (and `s[i]`) is `charAt(i)` on the JVM, so that is tried FIRST. ⚠ Not only as a
+        // fallback: depending on where java.lang.String was built it may carry kotlin.String's `get(int)`, which the
+        // class file does not have (a String built from K2 has `get` and no `charAt`, whence the second lookup).
+        val jvmName = if (name == "get" && arguments.size == 1 && type == runtime.stringTypeInfo()) "charAt" else name
+        collectMethods(type, jvmName, arguments.size, mutableSetOf(), all)
+        if (all.isEmpty() && jvmName != name) collectMethods(type, name, arguments.size, mutableSetOf(), all)
         if (all.size <= 1) return all.firstOrNull()
         // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
         // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)

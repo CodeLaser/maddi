@@ -1337,6 +1337,26 @@ Three causes covered 64 detekt sites:
 
 detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **no verdict moved**. coil **159 → 154**.
 
+### 7.43 Arrays are arrays — detekt 213 → 193, coil 154 → 143
+
+A Kotlin array's `get`/`set` was converted as a CALL looked up by name. That produced a placeholder for every array
+store and every primitive-array load, and a bogus `String.get(int)` for an `Array<String>` load (found on the
+element type). On the JVM `IntArray` is `int[]` and `Array<T>` is `T[]`, and indexing is a load/store instruction.
+When K2 resolves `a[i]` to the built-in operator of a Kotlin array class, it is now the element as a
+`DependentVariable`, exactly as the Java parser builds `a[i]`. `a[i] = v` and `a[i] += v` fall into the ordinary
+assignment path (Java's compound assignment). A user's EXTENSION index operator (detekt's
+`operator fun ByteArray.set(c: Char, v: Byte)`) stays a call, to its facade with the receiver first.
+
+`String.get(i)` is `charAt(i)` on the JVM, and resolving it exposed a model quirk. A `java.lang.String` built from K2's
+`kotlin.String` (the unit-test fixture) has `get` and no `charAt`; the JDK's has `charAt` only. `resolveCallee` tries
+`charAt` first and falls back to `get`.
+
+Tests: `ArrayAccessTest` (k2), with 3 of 4 cases failing when reverted (the fourth, `List.set`, is the control);
+`TestPrimitiveMembers` gains `s.get(0)`, `s[0]` and an `IntArray` load/store/`+=`, printing `s.charAt(0)` and
+`a[0]=1; a[1]+=2;` against the JDK's String; `TestLoweredShapesVsJava` gains `arrayStore`, `arrayElementModified`
+and `arrayRead`, all three agreeing with `Box[]` in Java. detekt **213 → 193**, coil **154 → 143**, no new site on
+either, **no verdict moved**.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1365,7 +1385,7 @@ detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **n
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42 have taken detekt 4,701 → 213 and coil 367 → 283 on that dump (coil is 154 once its class path is complete, §7.39, §7.42; its
+   unresolved-access causes of §7.42 and arrays (§7.43) have taken detekt 4,701 → 193 and coil 367 → 283 on that dump (coil is 143 once its class path is complete, §7.39, §7.42, §7.43; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

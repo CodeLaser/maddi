@@ -76,7 +76,6 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
             package w
             import kotlin.reflect.KProperty
             class Q
-            operator fun Q.set(i: Int, v: Int) {}
             class D
             operator fun D.getValue(thisRef: Any?, property: KProperty<*>): Int = 1
             class U {
