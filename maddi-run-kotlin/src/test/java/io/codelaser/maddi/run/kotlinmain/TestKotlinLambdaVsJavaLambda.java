@@ -77,6 +77,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>{@code invokesValue} hands {@code b} to an unknown function value. Java's {@code Consumer.accept} argument is
  * {@code @Modified}; Kotlin's {@code Function1.invoke} had no contract and read unmodified, until
  * {@code KotlinJvmFunctions} gave {@code Function0}-{@code Function3} the contract of {@code java.util.function.Function}.
+ *
+ * <p>The {@code suspend…} rows: a suspend function is {@code Object f(…, Continuation)} on the JVM, and a call to one
+ * passes the caller's continuation. The Java side is written in that shape, and a modification must travel through
+ * the suspend call exactly as through a plain one.
  */
 public class TestKotlinLambdaVsJavaLambda {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestKotlinLambdaVsJavaLambda.class);
@@ -109,6 +113,9 @@ public class TestKotlinLambdaVsJavaLambda {
                 fun localCaptures(b: Box, t: String) { fun add() = b.add(t); add() }
                 fun localReads(b: Box): Int { fun n(): Int = b.size(); return n() }
                 fun invokesValue(b: Box, f: (Box) -> Unit) { f(b) }
+                suspend fun suspendModifies(b: Box, t: String) { b.add(t) }
+                suspend fun suspendCaller(b: Box, t: String) { suspendModifies(b, t) }
+                suspend fun suspendReads(b: Box): Int = b.size()
             }
             """;
 
@@ -124,10 +131,14 @@ public class TestKotlinLambdaVsJavaLambda {
                 public void localCaptures(Box b, String t) { Runnable add = () -> b.add(t); add.run(); }
                 public int localReads(Box b) { java.util.function.IntSupplier n = () -> b.size(); return n.getAsInt(); }
                 public void invokesValue(Box b, Consumer<Box> f) { f.accept(b); }
+                public Object suspendModifies(Box b, String t, kotlin.coroutines.Continuation<Object> c) { b.add(t); return null; }
+                public Object suspendCaller(Box b, String t, kotlin.coroutines.Continuation<Object> c) { return suspendModifies(b, t, c); }
+                public Object suspendReads(Box b, kotlin.coroutines.Continuation<Integer> c) { return b.size(); }
             }
             """;
 
-    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly", "localCaptures", "localReads", "invokesValue");
+    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly", "localCaptures", "localReads", "invokesValue",
+            "suspendModifies", "suspendCaller", "suspendReads");
 
     /**
      * ⛔ <b>The stdlib is what resolves a library call, and the fixture must prove it holds the stdlib.</b> This
