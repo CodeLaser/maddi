@@ -916,8 +916,11 @@ internal class KotlinTypeMapper(
             .setParentClass(parentClass ?: runtime.objectParameterizedType())
         // a class nested in another is static on the JVM unless it is `inner`: without the modifier every Kotlin
         // nested class was an inner class of the CST (TypeInfo.isInnerClass), capturing an enclosing instance it
-        // does not have. A local class is not nested in a type, and an object/interface/enum is static by nature.
-        if (owner.compilationUnitOrEnclosingType().isRight && classSymbol.classKind == KaClassKind.CLASS
+        // does not have. A local class is not nested in a type, and an interface/enum is static by nature.
+        // ⛔ AN `object` IS A CLASS OF THE CST (natureFor), so it needs the modifier as much: without it every nested
+        // `object` and `data object` read as an inner class, and diagnose.sarif told detekt to drop an `inner` that
+        // `data object Ok` never had.
+        if (owner.compilationUnitOrEnclosingType().isRight && classSymbol.classKind in STATIC_WHEN_NESTED
             && (classSymbol as? KaNamedClassSymbol)?.isInner != true && classSymbol.classId != null) { // a local class: no ClassId
             builder.addTypeModifier(runtime.typeModifierStatic())
         }
@@ -994,3 +997,6 @@ internal class KotlinTypeMapper(
         KotlinVariance.INVARIANT -> Variance.INVARIANT
     }
 }
+
+/** The class kinds a nested declaration of is a static nested class on the JVM, unless `inner`. */
+private val STATIC_WHEN_NESTED = setOf(KaClassKind.CLASS, KaClassKind.OBJECT, KaClassKind.COMPANION_OBJECT)
