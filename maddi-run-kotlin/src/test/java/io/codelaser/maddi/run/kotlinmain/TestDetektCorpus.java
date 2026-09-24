@@ -62,7 +62,7 @@ public class TestDetektCorpus {
     private static final int SOURCE_SET_FLOOR = 25;
 
     private static Path config() {
-        return TestOssCorpus.requireConfig(CORPUS);
+        return TestOssCorpus.requireCompleteConfig(CORPUS);
     }
 
     private static InputConfigurationImpl read(Path config) throws IOException {

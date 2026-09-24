@@ -2,8 +2,14 @@ package io.codelaser.maddi.run.openjdkmain;
 
 import org.junit.jupiter.api.Assumptions;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Locates the local "test-oss" corpus of open-source projects the corpus tests run against
@@ -65,6 +71,38 @@ public final class TestOssCorpus {
     public static Path requireConfig(String project) {
         return require(project, config(project), "input configuration",
                 "generate it with `task corpus:config:" + project + "` at the repo root");
+    }
+
+    private static final Pattern JAR_URI = Pattern.compile("\"uri\"\\s*:\\s*\"(file:[^\"]+?\\.jar)\"");
+
+    /**
+     * {@link #requireConfig}, and every class-path jar it names must exist. ⛔ For a test that PINS a count: the
+     * configuration names jars in the shared Gradle cache by absolute path, and one that is evicted is not an
+     * error anywhere — its calls just stop resolving. coil's placeholder pin was recorded as 283 with
+     * {@code okio-jvm} gone from the cache; the jar came back when an unrelated build re-downloaded it, and the same
+     * code counted 208. A missing jar is treated like a missing corpus: a skip, or a failure under
+     * {@link #REQUIRED_PROPERTY}.
+     */
+    public static Path requireCompleteConfig(String project) {
+        return requireClassPath(project, requireConfig(project));
+    }
+
+    /** The class-path half of {@link #requireCompleteConfig}, for any configuration file. */
+    public static Path requireClassPath(String project, Path config) {
+        String json;
+        try {
+            json = Files.readString(config);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Matcher m = JAR_URI.matcher(json);
+        List<Path> missing = m.results().map(r -> Path.of(URI.create(r.group(1))))
+                .filter(p -> !Files.exists(p)).toList();
+        if (missing.isEmpty()) return config;
+        return require(project, missing.getFirst(), missing.size() + " class-path jar(s), the first",
+                "they are named by " + config.toAbsolutePath().normalize()
+                + "; re-resolve them into the Gradle cache (the paths are content hashes, so the same artifact"
+                + " lands at the same path) or regenerate the configuration, and re-record the pins");
     }
 
     /** A directory inside {@code project}'s checkout; skips the test when absent, or fails under {@link #REQUIRED_PROPERTY}. */
