@@ -193,8 +193,12 @@ public class TestModificationFunctionalE7 extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 0);
         // without @GetSet the application is opaque: run conservatively marks its whole td
         // parameter modified; outer inherits td-modified via argument links; at method, the
-        // modified td holds the fiv, whose captured Result surfaces this.someSet
-        assertEquals("a.b.X.run(a.b.X.TryData):0:td, run", mlv(run).sortedModifiedString());
+        // modified td holds the fiv, whose captured Result surfaces this.someSet.
+        // The callee's parameter apply:0:o in run's summary appeared 2026-09-24, once TryData stopped being frozen
+        // @Independent (TestIndependenceNotWrittenWhileUndecided): it is written while apply is undecided and not
+        // revisited; apply:0 itself settles unmodified (TestShadowModificationPass.testBuilderCallback).
+        assertEquals("a.b.X.ThrowingFunction.apply(a.b.X.TryData):0:o, a.b.X.run(a.b.X.TryData):0:td, run",
+                mlv(run).sortedModifiedString());
         assertEquals("a.b.X.outer(a.b.X.TryData):0:td", mlv(outer).sortedModifiedString());
         assertTrue(method.isModifying(), "method must be modifying: its lambda writes this.someSet");
         assertEquals("this, this.someSet", mlv(method).sortedModifiedString());

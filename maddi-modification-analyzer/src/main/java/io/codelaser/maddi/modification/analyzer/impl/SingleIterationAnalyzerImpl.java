@@ -155,7 +155,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         this.contractResolution = contractResolution;
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(typeIndependentAnalyzer, configuration,
                 propertiesChanged, messages, eventualCluster, contractResolution);
-        shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
+        shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged, messages);
         typeEventualAnalyzer = new TypeEventualAnalyzerImpl(runtime, typeImmutableAnalyzer, configuration, propertiesChanged, messages, eventualCluster);
         staticSideEffectAnalyzer = new StaticSideEffectAnalyzerImpl(propertiesChanged);

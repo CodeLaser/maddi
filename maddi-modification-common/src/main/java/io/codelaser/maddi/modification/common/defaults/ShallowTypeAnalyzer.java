@@ -58,10 +58,27 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
     private final List<Message> messages = new ArrayList<>();
     private final boolean onlyPublic;
+    private final boolean synthesizeIndependence;
 
     public ShallowTypeAnalyzer(Runtime runtime, AnnotationProvider annotationProvider, boolean onlyPublic) {
+        this(runtime, annotationProvider, onlyPublic, true);
+    }
+
+    /**
+     * @param synthesizeIndependence whether a type without an {@code @Independent} or immutability annotation gets
+     *                               the SYNTHESIZED independence of {@code simpleComputeIndependent}. Right for a
+     *                               jar type, whose declaration is all there is; wrong for a SOURCE type the analyzer
+     *                               computes: the synthesized value looks at the type's own methods only, lands in
+     *                               the first iteration, and an {@code @Independent} type is never revisited --
+     *                               {@code NamedBox extends Box} came out {@code @Independent} while the
+     *                               {@code items()} it inherits hands out a live list
+     *                               ({@code TestIndependenceNotWrittenWhileUndecided}).
+     */
+    public ShallowTypeAnalyzer(Runtime runtime, AnnotationProvider annotationProvider, boolean onlyPublic,
+                               boolean synthesizeIndependence) {
         super(runtime, annotationProvider);
         this.onlyPublic = onlyPublic;
+        this.synthesizeIndependence = synthesizeIndependence;
     }
 
     public Map<Element, ShallowAnalyzer.InfoData> analyze(TypeInfo typeInfo) {
@@ -83,6 +100,10 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
         Value.Immutable imm = (Value.Immutable) map.get(IMMUTABLE_TYPE);
         if (imm != null && imm.isImmutable() && isExtensible) {
             map.put(IMMUTABLE_TYPE, IMMUTABLE_HC);
+        }
+        if (!synthesizeIndependence && !map.containsKey(IMMUTABLE_TYPE) && annotations.stream().noneMatch(ae ->
+                Independent.class.getCanonicalName().equals(ae.typeInfo().fullyQualifiedName()))) {
+            map.remove(INDEPENDENT_TYPE);
         }
         Value.Independent ind = (Value.Independent) map.get(INDEPENDENT_TYPE);
         if (ind == null) {

@@ -173,11 +173,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
         Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo, afterMark,
                 skipSelfFields);
-        if (fromFieldsAndAbstractMethods == null && !afterMark.isNone()) {
-            // Undecided, and in after-mark mode that must not be read as INDEPENDENT the way min(null) does for
-            // the unconditional verdict. The unconditional value is revised as inputs settle (TolerantWrite lets
-            // it improve), but the eventual verdict is written once and never revisited, so a promotion made on a
-            // not-yet-copied abstract INDEPENDENT_METHOD would stick. Wait for the next iteration instead.
+        if (fromFieldsAndAbstractMethods == null) {
+            // Undecided: wait for the next iteration. min(null) is the left operand, so this used to read as
+            // INDEPENDENT -- and it is not revised: go() never revisits an @Independent type, and the eventual
+            // verdict is written once. Guava's Multimap was written @Independent while its abstract methods had no
+            // verdict yet; its own computation settles on @Dependent (TestIndependenceNotWrittenWhileUndecided).
+            // Cycle breaking still decides a type that never settles (go()).
             return null;
         }
         return indyFromHierarchy.min(fromFieldsAndAbstractMethods);
