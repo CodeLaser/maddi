@@ -73,6 +73,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * through one and only read through the other, on both sides. They live here rather than in
  * {@code TestLoweredShapesVsJava} because {@code FunctionN} is a stdlib type: without the jar the local stays a
  * placeholder.
+ *
+ * <p>{@code invokesValue} hands {@code b} to an unknown function value. Java's {@code Consumer.accept} argument is
+ * {@code @Modified}; Kotlin's {@code Function1.invoke} had no contract and read unmodified, until
+ * {@code KotlinJvmFunctions} gave {@code Function0}-{@code Function3} the contract of {@code java.util.function.Function}.
  */
 public class TestKotlinLambdaVsJavaLambda {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestKotlinLambdaVsJavaLambda.class);
@@ -104,6 +108,7 @@ public class TestKotlinLambdaVsJavaLambda {
                 fun readOnly(b: Box, t: String): Int { apply(t) { _ -> }; return b.size() }
                 fun localCaptures(b: Box, t: String) { fun add() = b.add(t); add() }
                 fun localReads(b: Box): Int { fun n(): Int = b.size(); return n() }
+                fun invokesValue(b: Box, f: (Box) -> Unit) { f(b) }
             }
             """;
 
@@ -118,10 +123,11 @@ public class TestKotlinLambdaVsJavaLambda {
                 public int readOnly(Box b, String t) { apply(t, s -> { }); return b.size(); }
                 public void localCaptures(Box b, String t) { Runnable add = () -> b.add(t); add.run(); }
                 public int localReads(Box b) { java.util.function.IntSupplier n = () -> b.size(); return n.getAsInt(); }
+                public void invokesValue(Box b, Consumer<Box> f) { f.accept(b); }
             }
             """;
 
-    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly", "localCaptures", "localReads");
+    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly", "localCaptures", "localReads", "invokesValue");
 
     /**
      * ⛔ <b>The stdlib is what resolves a library call, and the fixture must prove it holds the stdlib.</b> This

@@ -327,7 +327,8 @@
  {"name": "MfilterTo(6,java.util.Map,M,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MfilterValues(7,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MgetOrPut(8,java.util.Map,K,kotlin.jvm.functions.Function0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pkey(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pkey(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdefaultValue(2)", "data":{"containerParameter":1}}]},
  {"name": "MgetValue(9,java.util.Map,K)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "Pkey(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MhashMapOf(10,kotlin.Pair[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":

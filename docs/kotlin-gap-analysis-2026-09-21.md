@@ -1276,6 +1276,21 @@ leaves `b` unmodified; Java's `Consumer<Box>.accept(b)` marks it modified. `java
 in the JDK annotated API (its `arg0` is not `@NotModified`); `kotlin.jvm.functions.Function1.invoke` has no entry,
 and an unannotated library parameter reads unmodified. It predates local functions (a function-typed PARAMETER
 shows it) and is the next contract to write: `Function0`…`FunctionN.invoke` as the JDK's functional interfaces are.
+✅ Closed by §7.40.
+
+### 7.40 `kotlin.jvm.functions`: a function value's argument may be modified
+
+`KotlinJvmFunctions` contracts `Function0`–`Function3` as `java.util.function.Function` is: `@Independent(hc=true)` on
+the type, `@Modified` on every `invoke` argument. A Kotlin `(T) -> R` is one interface where Java has `Function`,
+`Consumer`, `Predicate` and the rest, so it takes the general contract. `Predicate.test` is the one JDK interface
+whose argument is `@NotModified`, and a Kotlin predicate has no type of its own to say so. Arities 4–22 are left
+uncontracted until a corpus calls one.
+
+`TestKotlinLambdaVsJavaLambda.invokesValue` (`f(b)` against `Consumer.accept(b)`) agrees now and disagrees with the
+shadow removed. detekt: no method, parameter, field or immutability verdict moves. The only change in `FPDUMP` is
+the independence of the 1,767 lambda types, `@Independent` → `@Independent(hc=true)`, which they inherit from the
+new supertype contract as a Java lambda does from `Function`. coil runs prep only. `TestParseAnalyzeWrite`'s shadow
+count moves by one: the new file imports nothing from `kotlin.*`, so the shared, stdlib-less factory keeps it.
 
 ### 7.39 A corpus pin measured the Gradle cache — coil 283 → 159 with no code change
 

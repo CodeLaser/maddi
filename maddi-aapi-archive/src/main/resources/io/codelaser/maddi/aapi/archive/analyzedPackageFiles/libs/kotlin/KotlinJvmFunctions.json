@@ -1,0 +1,19 @@
+[
+{"name": "Tkotlin.jvm.functions.Function0", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
+ {"name": "Minvoke(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}}},
+
+{"name": "Tkotlin.jvm.functions.Function1", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
+ {"name": "Minvoke(0,P1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}}}},
+
+{"name": "Tkotlin.jvm.functions.Function2", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
+ {"name": "Minvoke(0,P1,P2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}}]}},
+
+{"name": "Tkotlin.jvm.functions.Function3", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "sub":
+ {"name": "Minvoke(0,P1,P2,P3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}}]}}
+]
