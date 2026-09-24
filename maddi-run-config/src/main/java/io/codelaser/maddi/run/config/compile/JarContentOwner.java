@@ -86,6 +86,28 @@ class JarContentOwner {
                 .orElse(Owner.NONE));
     }
 
+    /**
+     * The destinations that hold at least one of the jar's class files, most first; empty when the contents cannot
+     * tell or no destination contributed. Asked of a jar that {@link #ownerOf} gives to no destination: a SHADED jar
+     * (pulsar-client-shaded) bundles several destinations' classes unrelocated beside third-party code of its own,
+     * so none of them is the majority, and yet each of them is in it.
+     */
+    List<String> contributorsOf(String jar) {
+        Map<String, List<String>> index = index();
+        if (index.isEmpty()) return List.of();
+        List<String> classFiles = classFiles(jar);
+        if (classFiles == null) return List.of();
+        Map<String, Integer> hits = new HashMap<>();
+        for (String classFile : classFiles) {
+            for (String destination : index.getOrDefault(classFile, List.of())) {
+                hits.merge(destination, 1, Integer::sum);
+            }
+        }
+        return hits.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .map(Map.Entry::getKey).toList();
+    }
+
     /** The owning destination, or {@code null} for {@link #NONE}. */
     record Owner(String destination) {
         static final Owner NONE = new Owner(null);

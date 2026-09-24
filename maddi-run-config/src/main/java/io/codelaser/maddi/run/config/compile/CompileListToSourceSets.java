@@ -135,7 +135,7 @@ public class CompileListToSourceSets {
         computeModuleJars(buildRoot, buildUnitByDestination, list, CompileInvocation::classpath)
                 .forEach(jarFileToDestination::putIfAbsent);
         // ...and where the jars and class directories exist on disk, their CONTENTS have the last word
-        correctByContent(buildRoot, list, jarFileToDestination);
+        Map<String, List<String>> compositeJars = correctByContent(buildRoot, list, jarFileToDestination);
 
         Map<String, SourceSet> sourceSetsByPath = new HashMap<>();
         Map<String, SourceSet> classPath = handleClasspath(list, sourceSetsByPath, jarFileToDestination);
@@ -155,7 +155,7 @@ public class CompileListToSourceSets {
         Map<String, SourceSet> absorbed = new LinkedHashMap<>();
         for (CompileInvocation inv : list) {
             SourceSet sourceSet = createSourceSet(inv, buildRoot, buildUnitByDestination, sourceSetsByPath,
-                    sourceSetsByDestination, jarFileToDestination, duplicateNamePrevention);
+                    sourceSetsByDestination, jarFileToDestination, compositeJars, duplicateNamePrevention);
 
             Set<Path> sourceDirSet = new HashSet<>(sourceSet.sourceDirectories());
             // we remove source sets that are fully contained in this one
@@ -263,9 +263,19 @@ public class CompileListToSourceSets {
      * contents can decide, they win in both directions: a claim whose jar holds none of the claimed destination's
      * classes is withdrawn (the jar becomes a library again), and an unclaimed jar inside the build root that
      * holds a destination's classes is claimed for it. Where they cannot decide, nothing changes.
+     * <p>
+     * ⛔ <b>A JAR NO DESTINATION OWNS CAN STILL HOLD THEIR CLASSES.</b> A shaded jar bundles several destinations'
+     * classes UNRELOCATED beside relocated third-party code; none of them is the majority, so it is a library -- and
+     * its consumer then depends on no reactor source set at all. Nothing orders it after the sources whose classes
+     * the jar repeats: pulsar's shade tests were parsed first, loaded org.apache.pulsar.client.impl.* out of the
+     * jar, and pulsar-broker then failed on "Cannot map javac's type ...ClientCnx" 200+ times. Such a jar is
+     * returned here as a COMPOSITE, with the destinations that contributed to it; createSourceSet makes its
+     * consumers depend on them too (TestShadedJar).
+     *
+     * @return composite jar -> the destinations that contributed classes to it, most first
      */
-    private static void correctByContent(String buildRoot, List<? extends CompileInvocation> list,
-                                         Map<String, String> jarFileToDestination) {
+    private static Map<String, List<String>> correctByContent(String buildRoot, List<? extends CompileInvocation> list,
+                                                              Map<String, String> jarFileToDestination) {
         JarContentOwner owner = new JarContentOwner(list.stream().map(CompileInvocation::destination).toList());
         Set<String> jarsInBuildRoot = new TreeSet<>();
         for (CompileInvocation inv : list) {
@@ -278,11 +288,20 @@ public class CompileListToSourceSets {
                 }
             }
         }
+        Map<String, List<String>> composites = new TreeMap<>();
         for (String jar : jarsInBuildRoot) {
             Optional<JarContentOwner.Owner> decided = owner.ownerOf(jar);
             if (decided.isEmpty()) continue;
             String byContent = decided.get().destination();
             String byName = jarFileToDestination.get(jar);
+            if (byContent == null) {
+                List<String> contributors = owner.contributorsOf(jar);
+                if (!contributors.isEmpty()) {
+                    LOGGER.info("{} is a composite of {} destination(s) and code of its own: its consumers depend on"
+                                + " {} as well as on the jar", lastPart(jar), contributors.size(), contributors);
+                    composites.put(jar, contributors);
+                }
+            }
             if (Objects.equals(byContent, byName)) continue;
             if (byContent == null) {
                 LOGGER.warn("Withdrawing the claim of {} on {}: the jar holds none of its classes, it is a library",
@@ -293,6 +312,7 @@ public class CompileListToSourceSets {
                 jarFileToDestination.put(jar, byContent);
             }
         }
+        return composites;
     }
 
     /**
@@ -633,12 +653,30 @@ public class CompileListToSourceSets {
         return null;
     }
 
+    /**
+     * A composite jar's contributing source sets, as dependencies AHEAD of the jar: see correctByContent. A
+     * contributor with no source set yet cannot be one (a build tool compiles a jar's inputs before its consumer, so
+     * this is a log read out of order) and is reported rather than guessed.
+     */
+    private static void addContributors(String part, Map<String, List<String>> compositeJars,
+                                        Map<String, SourceSet> sourceSetsByDestination, List<SourceSet> dependencies) {
+        for (String contributor : compositeJars.getOrDefault(part, List.of())) {
+            SourceSet contributed = sourceSetsByDestination.get(contributor);
+            if (contributed == null) {
+                LOGGER.warn("Composite jar {}: contributor {} has no source set yet", lastPart(part), contributor);
+            } else if (!dependencies.contains(contributed)) {
+                dependencies.add(contributed);
+            }
+        }
+    }
+
     private SourceSet createSourceSet(CompileInvocation inv,
                                       String buildRoot,
                                       Map<String, String> buildUnitByDestination,
                                       Map<String, SourceSet> sourceSetsByPath,
                                       Map<String, SourceSet> sourceSetsByDestination,
                                       Map<String, String> jarFileToDestination,
+                                      Map<String, List<String>> compositeJars,
                                       Map<String, Integer> duplicateNamePrevention) {
         String destination = inv.destination();
         ComputeNameResult result = computeName(buildRoot, buildUnitByDestination, destination);
@@ -655,7 +693,9 @@ public class CompileListToSourceSets {
                 if (!classpathPart.equals(destination)) {
                     SourceSet sourceSet = sourceSetsByPath.get(classpathPart);
                     if (sourceSet != null) {
-                        dependencies.add(sourceSet);
+                        addContributors(classpathPart, compositeJars, sourceSetsByDestination, dependencies);
+                        // deduplicated: a composite's contributor may be named on the same path in its own right
+                        if (!dependencies.contains(sourceSet)) dependencies.add(sourceSet);
                     } else {
                         // ⛔ THE SAME FALLBACK THE MODULE-PATH BRANCH BELOW ALWAYS HAD. A sibling named as a
                         // packaged jar is the same edge as one named as a class directory; only the spelling
@@ -679,7 +719,9 @@ public class CompileListToSourceSets {
                 if (!modulePart.equals(destination)) {
                     SourceSet sourceSet = sourceSetsByPath.get(modulePart);
                     if (sourceSet != null) {
-                        dependencies.add(sourceSet);
+                        addContributors(modulePart, compositeJars, sourceSetsByDestination, dependencies);
+                        // deduplicated: a composite's contributor may be named on the same path in its own right
+                        if (!dependencies.contains(sourceSet)) dependencies.add(sourceSet);
                     } else {
                         String srcModule = jarFileToDestination.get(modulePart);
                         SourceSet srcDependency = srcModule == null ? null : sourceSetsByDestination.get(srcModule);
