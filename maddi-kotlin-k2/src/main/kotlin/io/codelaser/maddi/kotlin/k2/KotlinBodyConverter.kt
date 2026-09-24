@@ -3315,6 +3315,24 @@ internal class KotlinBodyConverter(
             else -> null
         } ?: return placeholder("k2-unsupported-operator:${expression.operationToken}", expression)
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+        // `a xor b`, `x shl 2`: an infix MEMBER of a primitive class is the Java operator, which the Java front end
+        // maps to the `…OperatorInt` operator whatever the operands' type (`^` on booleans included)
+        val owner = expression.operationReference.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId
+        if (owner != null && owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in KOTLIN_PRIMITIVES) {
+            when (functionName) {
+                "xor" -> runtime.xorOperatorInt() to runtime.precedenceBitwiseXor()
+                "and" -> runtime.andOperatorInt() to runtime.precedenceBitwiseAnd()
+                "or" -> runtime.orOperatorInt() to runtime.precedenceBitwiseOr()
+                "shl" -> runtime.leftShiftOperatorInt() to runtime.precedenceShift()
+                "shr" -> runtime.signedRightShiftOperatorInt() to runtime.precedenceShift()
+                "ushr" -> runtime.unsignedRightShiftOperatorInt() to runtime.precedenceShift()
+                else -> null
+            }?.let { (operator, precedence) ->
+                return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right).setOperator(operator)
+                    .setPrecedence(precedence).setParameterizedType(returnType ?: operator.returnType())
+                    .setSource(runtime.noSource()).build()
+            }
+        }
         left.parameterizedType().typeInfo()?.let { resolveCallee(it, functionName, listOf(right)) }?.let { callee ->
             return runtime.newMethodCallBuilder()
                 .setObject(left).setObjectIsImplicit(false).setMethodInfo(callee)

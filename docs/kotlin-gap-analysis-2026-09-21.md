@@ -1625,6 +1625,13 @@ another extension on `KtFile` neither. The accessors take `$receiver` first now 
 `DelegatedExtensionPropertyTest` (k2: read, write, a bare read in an extension, and both accessor bodies). All six
 detekt sites gone, none new, **no verdict moved**; coil unchanged at 106.
 
+### 7.57 A primitive's infix members — detekt 39 → 37, coil 106 → 103
+
+`a xor b`, `i shl 2`, `(i and 3) or (i ushr 1)`: infix MEMBERS of `kotlin.Boolean`/`Int`/…, which kotlinc compiles to
+the JVM operators. They were looked up as methods and found none. They are now the Java operators `^ & | << >> >>>`,
+mapped as the Java front end maps them (`…OperatorInt` whatever the operand type, `^` on booleans included), with
+Java's precedences. `IntrinsicCallTest` gains the row. **No verdict moved.**
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1653,7 +1660,7 @@ detekt sites gone, none new, **no verdict moved**; coil unchanged at 106.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) and delegated extension properties (§7.56) have taken detekt 4,701 → 39 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.56; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) and infix primitive members (§7.57) have taken detekt 4,701 → 37 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.57; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

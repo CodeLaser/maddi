@@ -36,6 +36,7 @@ class IntrinsicCallTest : KotlinScanTestBase() {
                 fun boxedPlus(x: Int?): Int = x?.plus(1) ?: 0
                 fun boxedNot(s: String?): Boolean = s?.isEmpty()?.not() == true
             }
+            fun bits(a: Boolean, b: Boolean, i: Int): Int = if (a xor b) i shl 2 else (i and 3) or (i ushr 1)
             fun ByteArray.put(i: Int, v: Byte) = set(i, v)
             """.trimIndent() + "\n")
     }
@@ -54,7 +55,7 @@ class IntrinsicCallTest : KotlinScanTestBase() {
     @Test
     fun theShapes() {
         val actual = listOf("load", "store", "concat", "boxedPlus", "boxedNot")
-            .joinToString("\n") { "$it: ${body("K", it)}" } + "\nput: " + body("IcKt", "put")
+            .joinToString("\n") { "$it: ${body("K", it)}" } + "\nput: " + body("IcKt", "put") + "\nbits: " + body("IcKt", "bits")
         assertEquals("""
             load: return a[i];
             store: a[i]="x";
@@ -62,6 +63,7 @@ class IntrinsicCallTest : KotlinScanTestBase() {
             boxedPlus: Integer ${'$'}nullSafe0=x==null?null:x+1; return ${'$'}nullSafe0==null?0:${'$'}nullSafe0;
             boxedNot: return ((s==null?null:StringsKt__StringsKt.isEmpty(s))==null?null:!(s==null?null:StringsKt__StringsKt.isEmpty(s))).equals(true);
             put: ${'$'}receiver[i]=v;
+            bits: return a^b?i<<2:i&3|i>>>1;
             """.trimIndent(), actual)
     }
 }
