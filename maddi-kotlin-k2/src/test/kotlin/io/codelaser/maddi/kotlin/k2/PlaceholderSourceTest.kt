@@ -39,15 +39,16 @@ class PlaceholderSourceTest : KotlinScanTestBase() {
     fun anUnconvertedExpressionKeepsItsRange() {
         val types = KotlinScan(runtime, sourceSet).parse("u/U.kt", """
             package u
-            fun use(s: String) = String::class.hashCode() + 1
+            inline fun <reified T> use(): Int = T::class.hashCode() + 1
             """.trimIndent() + "\n")
         val use = types.single { it.simpleName() == "UKt" }.methods().single { it.name() == "use" }
         val placeholders = mutableListOf<EmptyExpression>()
         use.methodBody().visit { e -> if (e is EmptyExpression && e.msg()?.startsWith("k2-") == true) placeholders += e; true }
         assertEquals(1, placeholders.size, placeholders.map { it.msg() }.toString())
         val s = placeholders.single().source()
-        // `String::class`, columns 22-34 of line 2: the placeholder's range is the construct it stands for
-        assertEquals(listOf(2, 22, 2, 34), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
+        // `T::class`, columns 37-44 of line 2: the placeholder's range is the construct it stands for
+        // (a reified type parameter's class literal: no Java spelling, so still a placeholder)
+        assertEquals(listOf(2, 37, 2, 44), listOf(s.beginLine(), s.beginPos(), s.endLine(), s.endPos()),
             placeholders.single().msg())
     }
 }

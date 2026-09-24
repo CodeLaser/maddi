@@ -1156,6 +1156,141 @@ Array<IgnoreAnnotated> = arrayOf(…)`) @FinalFields → @Immutable, once its on
 on both sides, so the lowering is at parity there; what differs in detekt (an abstract element type whose only value
 is a private object) was not pursued. Recorded, not accepted as understood.
 
+### 7.33 A library class name as a value: its companion — detekt 657 → 591
+
+`ClassId.fromString(…)` (18× on detekt), `CompilerConfigurationKey.create(…)` (12×): the companion's MEMBER resolved,
+the receiver did not -- a class name used as a value, which Kotlin means as the class's companion object (or, for an
+`object`, the object itself). Found by printing the probe's holder, after two guesses at the cause were wrong: K2
+resolves the name to the COMPANION symbol, and the K2-built model of a Kotlin LIBRARY class carried no static
+`Companion` field (nor an `object`'s `INSTANCE`) to read it through -- the class file declares both. The model now
+does, and the name converts to `ClassId.Companion`, `Charsets.INSTANCE`; the holder is reached through K2
+(`outerClassId`), since a library companion is loaded as a type of its own with no enclosing type.
+Pinned in `TestLibraryCompanions`, which fails with all six placeholders when the change is reverted.
+
+detekt: `ClassId` 18, `CompilerConfigurationKey` 12, `KtlintWrapperProvider` 6 → 0; `k2-unresolved-ref` 205 → 139;
+total **657 → 591** (types 233 → 208). coil 305 → 299. No new site, no verdict moved.
+
+### 7.34 Destructuring in a lambda's parameters, and the stdlib's inlined components — detekt 591 → 467
+
+`xs.partition { (_, rule) -> rule.autoCorrect }`: a destructured lambda parameter was not modelled, so every entry
+(`rule`, `ruleInstance`, `key`, `value`, …) was an unresolved reference -- the bulk of detekt's remaining 139. It is
+ONE parameter on the JVM (`$dstr0`), and the body now starts by reading each entry from it, through the same routine
+`val (a, b) = x` uses; `_` declares nothing. That routine also learned the stdlib's `@InlineOnly` components, which
+are absent from bytecode and compiled to what they inline: `Map.Entry`'s `getKey()`/`getValue()`, a `List`'s `get(N-1)`.
+Chosen only when K2 resolves the entry to that extension. `TestDestructuring` fails with five placeholders when the
+change is reverted.
+
+⚠ A correction to my own expectation: I took the `k2-component1/2` placeholders (7 + 7) to be `Map.Entry`; they were
+not -- 14 → 11. The rest are an initializer the lowering types differently (`val (a, b) = f() ?: return`,
+`= when (…) { … }`) and `Regex`'s `MatchResult.Destructured`, which are not this route.
+
+detekt: `k2-unresolved-ref` 139 → 23; total **591 → 467** (types 208 → 197, members 302 → 280). coil 299 → 288.
+No new site, no verdict moved. (The printer shows a multi-entry declaration with the first entry's type; each
+variable keeps its own -- the shape `val (a, b) =` always had.)
+
+### 7.35 A class name called, and `arrayOf` — detekt 467 → 444
+
+- **`RuleSet(id, rules)`** (12× on detekt) is not a constructor: `RuleSet`'s companion declares `operator fun
+  invoke(id, rules: List<…>)`, and Kotlin calls it through the class name. It is `RuleSet.Companion.invoke(…)`
+  (`Twice.INSTANCE.invoke(…)` for an `object`), built on §7.33's class-name-as-value.
+- **`arrayOf(a, b)`** (8×) is an intrinsic with no bytecode of its own; it is `new T[]{a, b}`, in the exact shape the
+  Java front end gives that expression (an array-creation constructor, one empty dimension, an initializer). The
+  primitive `intArrayOf`-style builders too; not with a spread (`arrayOf(*xs)` copies).
+
+Both pinned (`TestLibraryCompanions`, `TestPrimitiveMembers`), each failing with its placeholders when reverted.
+detekt **467 → 444** (types 197 → 176); coil unchanged at 288. No new site, no verdict moved.
+
+What is left of the unresolved families on detekt is small and heterogeneous: `k2-unresolved-call` 75 (`yield` /
+`yieldAll` in `sequence { }` 18 -- the `suspend` work, not this family), `k2-unresolved-access` 82,
+`k2-unresolved-ref` 23. The largest family is now `k2-unsupported-expr` (164: class literals, local functions, …) --
+unmodelled syntax, the next ladder rung, not resolution.
+
+### 7.36 Class literals, and a Java library class's static methods — detekt 444 → 358
+
+`X::class` was unmodelled syntax, the largest `k2-unsupported-expr` kind (89 of 164). `X::class.java` (45) is now the
+Java class literal `X.class` -- kotlinc compiles it to an `LDC`, so the `KClass` is never built; a bare `X::class`
+(a `KClass`) is `Reflection.getOrCreateKotlinClass(X.class)`, the stdlib call kotlinc emits. A reified type parameter
+(`T::class` in an inline function) has no Java spelling -- kotlinc substitutes the argument at each call site -- and
+keeps its placeholder (3 on detekt).
+
+Building the `KClass` form exposed a wider gap: the K2-built model of a JAVA library class (here
+`kotlin.jvm.internal.Reflection`) had no static methods at all -- the loader read static FIELDS from the static member
+scope, but functions only from the instance scope. It now reads both. No new site and no verdict moved on either
+corpus, so nothing that resolved before resolved differently.
+
+⚠ `K::class.simpleName` reads `simpleName` as a FIELD of the `KClass`: the K2-built model of a library Kotlin type
+keeps properties as fields (pre-existing), where Java would call `getSimpleName()`.
+
+detekt: class literals 89 → 3; `k2-unsupported-expr` 164 → 78; total **444 → 358** (types 176 → 160). coil 288 → 283.
+
+### 7.37 Jumps in expression position, and annotated expressions — detekt 358 → 323
+
+- **The control-flow elvis** (§7.10) accepted `?: return` and `?: throw` only, and only in a declaration or a
+  `return`. It now also takes `?: continue`, `?: break` and a labelled `?: return@label v` (from the lambda, as the
+  lambda's own `return@label` statement already converts), and an ASSIGNMENT, `x = f() ?: return false`. Same guard,
+  same single evaluation of the left operand.
+- **A `throw` as a lambda's last expression** (`e?.let { throw it }`) was wrapped as `return <throw>`; it is a
+  statement.
+- **`@Suppress("…") expr`** (18 on detekt, all `@Suppress`): an annotation on an expression has no run-time meaning
+  and no Java spelling. The base expression is converted, as a statement and as a value.
+
+`ControlFlowElvisTest` gains three cases, failing with five placeholders when reverted. detekt: `k2-unsupported-expr`
+78 → 40 (left: local functions 27, a `return`/`throw` in an argument or other hoist-less position 9, reified class
+literals 3); total **358 → 323** (types 160 → 143). 2 reveals (`Show`/`Hidden` under a formerly swallowed annotated
+`try` in `AnalysisFacade`), no new member, no verdict moved; coil unchanged at 283.
+
+### 7.38 Local functions — detekt 323 → 277
+
+A local `fun` is lowered to a local variable of type `FunctionN<boxed parameters, boxed result>` whose value is an
+anonymous implementation with an `invoke` method (an extension local takes `$receiver` first). A call to it is
+`g.invoke(..)` on that variable, and `::g` is the variable itself. That is what kotlinc emits, minus the class name,
+and what a Java programmer writes with a lambda. `LocalFunctionTest` (k2) fails with six placeholders when the change
+is reverted; `TestKotlinLambdaVsJavaLambda` gains `localCaptures` and `localReads`, both agreeing with the Java
+lambda. `FunctionN` is a stdlib type, so without the jar a local function stays a placeholder, and the rows cannot
+live in the stdlib-free `TestLoweredShapesVsJava`.
+
+detekt: all 27 `k2-unsupported-expr:KtNamedFunction` sites, the 5 local callable references and 25 calls to local
+functions go (57); 11 appear, all inside bodies read for the first time (`yield`/`yieldAll` 5, `resolveToCall` 2,
+`getArgumentExpression` 2, a `try` in a hoist-less position, and one `psi` access whose position is `0:0`, owed a
+look). Total **323 → 277** (types 143 → 134, members 190 → 176); coil has no local functions and stays at 159.
+
+**Verdicts: 666 → 667, every move explained**, and it took `FPDUMP`/`FPDUMP_PARAMS` on both sides to explain them.
+Chains that ended in an unread local function had been **undetermined** (`nonModifying=null`); an undetermined
+link never reports a modification, so the verdicts above it were resting on nothing. Now they resolve:
+
+- `FunCoroutineLaunchesTraverseHelper` ↓ `@FinalFields`: its local `checkFunctionAndSaveToCache` writes the field
+  `exploredFunctionsCache`. A reveal.
+- `Analyzer` ↓ `@FinalFields`: `shouldAnalyzeFile` resolves, and its `Config` receiver is modified through
+  `createPathFilters()`, whose receiver was already modified in the base (`Config.valueOrDefault`). A reveal: the
+  type had been held up by a verdict nobody derived.
+- `AnalysisFacade` and the `Detekt` interface ↑ `@Immutable(hc=true)`: `run`/`runAnalysis` go from `null` to
+  non-modifying.
+- `PathFilters` ↑ `@Immutable(hc=true)`, and this one needed a contract first. Its local
+  `fun isIncluded() = includes?.any { it.matches(path) } ?: true` marked `includes` modified. The local function
+  was innocent: the same body written inline gives the same verdict, and Java's `stream().anyMatch(..)` does not.
+  `Iterable.any` had no contract, and an uncontracted receiver is a modified one. `any`, `all` and `none` are now
+  contracted (b1f2a29d6, `TestKotlinPredicatesVsJava`, negative control included).
+
+⚠ **Open, found on the way: invoking a function VALUE with an argument.** `fun p(b: Box, f: (Box) -> Unit) { f(b) }`
+leaves `b` unmodified; Java's `Consumer<Box>.accept(b)` marks it modified. `java.util.function.Consumer.accept` is
+in the JDK annotated API (its `arg0` is not `@NotModified`); `kotlin.jvm.functions.Function1.invoke` has no entry,
+and an unannotated library parameter reads unmodified. It predates local functions (a function-typed PARAMETER
+shows it) and is the next contract to write: `Function0`…`FunctionN.invoke` as the JDK's functional interfaces are.
+
+### 7.39 A corpus pin measured the Gradle cache — coil 283 → 159 with no code change
+
+coil's `inputConfiguration.json` names six jars by absolute path in the shared Gradle cache, and four (okio-jvm,
+kotlinx-coroutines-core-jvm, atomicfu-jvm, skiko-awt) had been evicted. Nothing reports an absent class-path jar:
+its calls just stop resolving. Unchanged code counted 283, then 208 when an unrelated build re-downloaded okio, then
+159 once the rest were re-resolved (the cache paths are content hashes, so they land where the configuration looks).
+The give-away was the kind of site that vanished: okio calls, and `let`/`also`/`use` on okio receivers.
+
+`TestOssCorpus.requireCompleteConfig` now treats a missing jar like a missing corpus (a skip, or a failure under
+`slowTest`), and both Kotlin corpus tests use it (80cfd34fc). Every coil number before 159 in this document was taken
+cache-starved and is **not comparable** with it. detekt's 62 jars were all present, so its history stands. ⚠ It is
+opt-in because the audit of all 20 corpus configurations found elasticsearch* (97 of 151 jars missing) and fernflower
+(24 of 36), which belong to other lanes and whose counts carry the same exposure.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1181,8 +1316,11 @@ is a private object) was not pursued. Recorded, not accepted as understood.
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31) and top-level
-   properties (§7.32) have taken detekt 4,701 → 657 and coil 367 → 305 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
+   properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
+   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37) and local functions (§7.38) have taken detekt
+   4,701 → 277 and coil 367 → 283 on that dump (coil is 159 once its class path is complete, §7.39; its
+   earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

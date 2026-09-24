@@ -77,6 +77,39 @@ public class KotlinCollections {
                                   Function1<? super T, Boolean> predicate) {
             return null;
         }
+
+        /*
+        public fun <T> Iterable<T>.any(): Boolean
+        public inline fun <T> Iterable<T>.any(predicate: (T) -> Boolean): Boolean
+        public inline fun <T> Iterable<T>.all(predicate: (T) -> Boolean): Boolean
+        public fun <T> Iterable<T>.none(): Boolean
+        public inline fun <T> Iterable<T>.none(predicate: (T) -> Boolean): Boolean
+
+        The read-only predicates: each walks the receiver and answers a boolean, writing nothing. Uncontracted,
+        `includes?.any { it.matches(path) }` marked a field modified that Java's `stream().anyMatch(..)` does not.
+        */
+        static <T> boolean any(@NotModified Iterable<? extends T> receiver) {
+            return false;
+        }
+
+        static <T> boolean any(@NotModified Iterable<? extends T> receiver,
+                               Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean all(@NotModified Iterable<? extends T> receiver,
+                               Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified Iterable<? extends T> receiver) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified Iterable<? extends T> receiver,
+                                Function1<? super T, Boolean> predicate) {
+            return false;
+        }
     }
 
     /*

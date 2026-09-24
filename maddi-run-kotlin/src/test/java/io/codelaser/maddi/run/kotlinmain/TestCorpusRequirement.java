@@ -15,8 +15,13 @@ package io.codelaser.maddi.run.kotlinmain;
 
 import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.opentest4j.TestAbortedException;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,6 +72,29 @@ public class TestCorpusRequirement {
         String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "true");
         try {
             assertThrows(AssertionError.class, () -> TestOssCorpus.requireDir(ABSENT, "server/src/main/java"));
+        } finally {
+            restore(previous);
+        }
+    }
+
+    /**
+     * A configuration whose class path names a jar that is gone: the corpus is incomplete, and a pinned count taken
+     * from it measures the Gradle cache. The control is the same file with the jar present, which must pass.
+     */
+    @Test
+    public void aMissingClassPathJarFailsWhenRequired(@TempDir Path tmp) throws Exception {
+        Path present = Files.createFile(tmp.resolve("present-1.0.jar"));
+        Path config = tmp.resolve("inputConfiguration.json");
+        String template = "{\"classPathParts\": [{\"name\": \"x\", \"uri\": \"%s\"}]}";
+        String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "true");
+        try {
+            Files.writeString(config, template.formatted(present.toUri()));
+            assertEquals(config, TestOssCorpus.requireClassPath(ABSENT, config), "the control: every jar present");
+
+            Files.writeString(config, template.formatted(tmp.resolve("evicted-2.0.jar").toUri()));
+            AssertionError failed = assertThrows(AssertionError.class,
+                    () -> TestOssCorpus.requireClassPath(ABSENT, config));
+            assertTrue(failed.getMessage().contains("evicted-2.0.jar"), failed.getMessage());
         } finally {
             restore(previous);
         }

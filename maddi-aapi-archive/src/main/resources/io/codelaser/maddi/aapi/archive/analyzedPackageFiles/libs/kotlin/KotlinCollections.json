@@ -57,9 +57,14 @@
 
 {"name": "Tkotlin.collections.CollectionsKt___CollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mall(0,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Many(1,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Many(2,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mall(0,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$all(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Many(1,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$any(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "Many(2,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$any(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
  {"name": "MasSequence(3,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "Massociate(4,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MassociateBy(5,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
@@ -202,8 +207,11 @@
  {"name": "Mminus(116,java.lang.Iterable,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "Mminus(117,java.lang.Iterable,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Mnone(118,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mnone(119,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnone(118,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$none(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "Mnone(119,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$none(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
  {"name": "MonEach(120,C,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MonEachIndexed(121,C,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "Mpartition(122,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
