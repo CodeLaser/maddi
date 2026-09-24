@@ -530,7 +530,11 @@ class KotlinScan(
                 references.attach(runtime, facade!!)
                 facade.builder().commit()
             }
-            fc.compilationUnit.setTypes(if (facade != null && !ownsFacade) fc.types else fc.allTypes())
+            // ⛔ TOP-LEVEL ONLY, as CompilationUnit.types() documents and the Java front end sets it. `fc.types` is the
+            // flattened tree the passes above walk; stored as the unit's types, a class with a nested class read as
+            // a file declaring two, and a consumer that recurses (as it must for Java) visited the nested one twice
+            val topLevel = fc.topLevelTypes()
+            fc.compilationUnit.setTypes(if (facade != null && ownsFacade) topLevel + facade else topLevel)
         }
         drainDelegatedProperties() // a delegated property built while B2 converted a body is finished here
         commitDeferred() // ...and a member built there (an `object :` in a constructor argument, say)
@@ -619,6 +623,10 @@ class KotlinScan(
         val topLevelProperties: List<KtProperty>,
     ) {
         fun allTypes(): List<TypeInfo> = if (facade == null) types else types + facade
+
+        /** The file's own classes, not those nested in them: [types] is the flattened tree. */
+        fun topLevelTypes(): List<TypeInfo> =
+            declarations.zip(types).filter { (d, _) -> d.isTopLevel() }.map { it.second }
     }
 
     private fun compilationUnitFor(ktFile: KtFile): CompilationUnit {
