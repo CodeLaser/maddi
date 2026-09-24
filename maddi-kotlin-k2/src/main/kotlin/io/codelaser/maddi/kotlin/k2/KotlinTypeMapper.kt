@@ -566,6 +566,12 @@ internal class KotlinTypeMapper(
                 .filterIsInstance<KaNamedFunctionSymbol>()
                 .map { convertLibraryMethod(typeInfo, it) }
                 .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+            // ⛔ a Java class's INSTANCE fields: AbstractList.modCount, AssertJ's AbstractAssert.actual. They sit in
+            // the member scope as KaJavaFieldSymbols, next to the functions, and only the static scope's were read:
+            // a Kotlin subclass reading `modCount` got a placeholder in every spelling
+            symbol.memberScope.declarations
+                .filterIsInstance<KaJavaFieldSymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryInstanceField(typeInfo, it)) }
             // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
             // property access as a field access, like a source type's backing field)
             symbol.memberScope.declarations
@@ -711,6 +717,16 @@ internal class KotlinTypeMapper(
             .setInitializer(runtime.newEmptyExpression())
         visibilityFieldModifier(field)?.let { builder.addFieldModifier(it) }
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
+        builder.computeAccess().commit()
+        return fieldInfo
+    }
+
+    /** A Java instance field (`AbstractList.modCount`) -> a field on [owner], as visible as declared. */
+    private fun KaSession.convertLibraryInstanceField(owner: TypeInfo, field: KaJavaFieldSymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(field.name.asString(), false, mapType(field.returnType, owner), owner)
+        val builder = fieldInfo.builder().setInitializer(runtime.newEmptyExpression())
+        visibilityFieldModifier(field)?.let { builder.addFieldModifier(it) }
+        if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal())
         builder.computeAccess().commit()
         return fieldInfo
     }

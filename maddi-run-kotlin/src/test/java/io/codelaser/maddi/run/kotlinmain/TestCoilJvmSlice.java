@@ -152,11 +152,13 @@ public class TestCoilJvmSlice {
         assertTrue(summary.prepErrors() < 10,
                 "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
 
-        // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Measured 2026-09-22
-        // at 29e951ea1 on the pinned coil slice: 367 placeholders in 69 of 186 types, 195 of 1,451 members.
-        // Previous: 371 / 71 / 197 at fbe6b138a. ⚠ coil is the SECOND corpus for a reason — it and detekt
+        // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Measured 2026-09-24
+        // at ca6be1333 on the pinned coil slice: 282 placeholders. ⚠ The drop from 367 is NOT that commit's, nor
+        // the Java instance-field fix recorded with it: coil reads 282 with both reverse-applied. It happened in
+        // the 54 commits after 29e951ea1 and was never recorded, so this ratchet had been failing unnoticed; not
+        // bisected. Previous: 367 in 69 of 186 types, 195 of 1,451 members at 29e951ea1; 371 / 71 / 197 at fbe6b138a. ⚠ coil is the SECOND corpus for a reason — it and detekt
         // have no overlap in what they call, so a change that helps one and hurts the other shows up here.
-        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 367);
+        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 282);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }
 }

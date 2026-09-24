@@ -13,6 +13,9 @@
  */
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.statement.ReturnStatement
+import io.codelaser.maddi.cst.api.variable.FieldReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -36,8 +39,35 @@ class LibraryVisibilityTest : KotlinScanTestBase() {
         assertEquals("java.util.AbstractList", abstractList.fullyQualifiedName())
         val removeRange = abstractList.methods().first { it.name() == "removeRange" }
         assertEquals(runtime.accessProtected(), removeRange.access(), "$removeRange")
-        // ⚠ a Java class's INSTANCE fields (`modCount`) are not loaded by this front end at all, only its static
-        // fields and Kotlin properties, so the field half of the fix is not witnessed here
+        val modCount = abstractList.getFieldByName("modCount", true)
+        assertEquals(runtime.accessProtected(), modCount.access(), "$modCount")
         assertEquals(runtime.accessPublic(), abstractList.methods().first { it.name() == "iterator" }.access())
+    }
+
+    /**
+     * A Java class's INSTANCE field, read from a Kotlin subclass in each spelling. The front end loaded a library
+     * class's static fields and Kotlin properties but not its instance fields, and looked a name up only among the
+     * type's OWN fields: `modCount` was a placeholder three times over.
+     */
+    @Test
+    fun anInheritedJavaFieldResolves() {
+        val types = KotlinScan(runtime, sourceSet).parse("l/L.kt", """
+            package l
+
+            class L : java.util.AbstractList<String>() {
+                override val size: Int get() = 0
+                override fun get(index: Int): String = ""
+                fun bare(): Int = modCount
+                fun qualified(o: L): Int = o.modCount
+                fun viaThis(): Int = this.modCount
+            }
+            """.trimIndent() + "\n")
+        val l = types.first { it.simpleName() == "L" }
+        for ((name, arity) in listOf("bare" to 0, "qualified" to 1, "viaThis" to 0)) {
+            val returned = (l.findUniqueMethod(name, arity).methodBody().statements().single() as ReturnStatement)
+                .expression()
+            val field = ((returned as? VariableExpression)?.variable() as? FieldReference)?.fieldInfo()
+            assertEquals("java.util.AbstractList.modCount", field?.fullyQualifiedName(), "$name: $returned")
+        }
     }
 }
