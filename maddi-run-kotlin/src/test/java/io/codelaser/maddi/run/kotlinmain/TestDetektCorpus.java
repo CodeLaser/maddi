@@ -154,10 +154,12 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-24 (values named through a type: an enum constant or nested object behind a qualifier chain
-        // or an import, a companion's `@JvmField`/`const` as the outer class's static field, `String.format`), on the
-        // pinned detekt checkout, in a --rerun slowTest whose roll-call was read: 95 placeholders in 56 of 1,384 types
-        // and 71 of 7,756 members; 641 immutable types, 0 isolated by prep. Previous: 117 / 69 / 85 (suspend
+        // Measured 2026-09-24 (a vararg callee called with an omitted default or a parameter after the vararg, bound
+        // as kotlinc binds it; `$default` for a vararg function), on the pinned detekt checkout, in a --rerun slowTest
+        // whose roll-call was read: 85 placeholders in 50 of 1,384 types and 64 of 7,759 members (+3: the new
+        // `$default`s); 641 immutable types, 0 isolated by prep. Previous: 95 / 56 / 71 (values named through a type:
+        // an enum constant or nested object behind a qualifier chain or an import, a companion's `@JvmField`/`const`
+        // as the outer class's static field, `String.format`); 117 / 69 / 85 (suspend
         // functions in their JVM shape: a trailing `Continuation`, and every call passing one); 140 / 75 / 95 (a
         // destructured value evaluated once; `val (a, b) = x ?: return`; `new T[n]`); 154 / 77 / 100 (block-bodied computed getters; accessor bodies lowered as function bodies;
         // `return if` and a lambda's result `if`); 166 / 84 / 112 (for-loop destructuring, array `size`,
@@ -173,7 +175,7 @@ public class TestDetektCorpus {
         // default constructors, implicit extension properties); 1,045 / 359 / 566 (context parameters); 1,083 / 360 / 586 (nested and
         // smart-cast receivers); 1,351 / 371 / 621 (member extensions); 2,256 / 434 / 864 and 667 (implicit-receiver members); 3,434 / 579 / 1,609 and 668 (class-file shells, extension
         // references); 4,701 (property references); 4,704 at 29e951ea1; 4,744 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 95);
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 85);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         // Re-baselined deliberately, twice, each time because more code was READ, never because a lowering was
         // found wrong (gap doc §7.26, §7.27): 668 -> 667 (three transitive moves), 667 -> 665 (OutputReport and

@@ -2267,15 +2267,42 @@ internal class KotlinBodyConverter(
         val parameters = callee.valueParameters
         val declaring = declaringDefaults(callee)
         val masks = IntArray((parameters.size + 31) / 32)
-        val expressions = parameters.mapIndexed { i, p ->
+        // a VARARG parameter takes every positional argument from its index on (Kotlin passes a parameter after it
+        // by name, or as the trailing lambda), or one named spread `p = *arr`
+        val varargIndex = parameters.indexOfFirst { it.isVararg }
+        val defaultsMethod = defaultsOf(declaring?.psi)
+        val bound: List<List<Expression>> = parameters.mapIndexed { i, p ->
+            if (i == varargIndex) {
+                val named = byName[p.name.asString()]
+                val items = named?.let { listOf(it) } ?: positional.drop(i)
+                val converted = items.map { a -> a.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null }
+                // a vararg's K2 returnType is the ELEMENT type (`vararg xs: IntArray` is an int[][])
+                val element = mapType(p.returnType, method.typeInfo(), method)
+                // `*arr`, or a NAMED argument of the array type (`lead(parts = arr)`): the array itself
+                val spread = items.singleOrNull()?.getSpreadElement() != null
+                    || (named != null && converted.single().parameterizedType().arrays() > element.arrays())
+                // ⚠ loose, Java-style, when the vararg is the JVM signature's last parameter (as every vararg call
+                // is written elsewhere); an ARRAY, as kotlinc passes it, where the JVM parameter is a plain array:
+                // a parameter follows it, or the call binds `$default`, whose masks follow it
+                val packed = !spread && (i != parameters.lastIndex || defaultsMethod != null)
+                return@mapIndexed if (!packed) converted else {
+                    val arrayType = element.copyWithArrays(element.arrays() + 1)
+                    val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource())
+                        .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1)).setExpressions(converted).build()
+                    listOf(runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+                        .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                        .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newEmptyExpression()))
+                        .setArrayInitializer(initializer).build())
+                }
+            }
             val argument = when {
-                i < positional.size -> positional[i]
+                (varargIndex < 0 || i < varargIndex) && i < positional.size -> positional[i]
                 p.name.asString() in byName -> byName[p.name.asString()]
                 i == parameters.lastIndex && lambda != null -> lambda
                 else -> null
             }
             if (argument != null) {
-                argument.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null
+                listOf(argument.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null)
             } else {
                 // ⛔ The test used to be "the DECLARATION's PSI has a default", which is null for every
                 // library function — so `x.joinToString(",")` (7 JVM parameters, 1 written) found no
@@ -2284,12 +2311,13 @@ internal class KotlinBodyConverter(
                 if (!p.hasDefaultValue
                     && (declaring?.valueParameters?.get(i)?.psi as? KtParameter)?.defaultValue == null) return null
                 masks[i / 32] = masks[i / 32] or (1 shl (i % 32))
-                runtime.nullValue(mapType(p.returnType, method.typeInfo(), method))
+                listOf(runtime.nullValue(mapType(p.returnType, method.typeInfo(), method)))
             }
         }
+        val expressions = bound.flatten()
         val continuation = continuationArguments(callee, method, locals)
         if (masks.all { it == 0 }) return Arguments(expressions + continuation, null)
-        val defaults = defaultsOf(declaring?.psi)
+        val defaults = defaultsMethod
             // ⭐ A LIBRARY callee has no `$default` in this parse, and synthesizing one would be the wrong
             // trade: the AAPI's annotations are keyed to the REAL signature (`joinToString(Iterable,
             // CharSequence, …)`), so binding that method with the omitted parameters filled by their zero
@@ -2603,9 +2631,13 @@ internal class KotlinBodyConverter(
         // defaulted parameter otherwise finds no two-parameter constructor and becomes a placeholder, arguments
         // and all.
         val ordered = (resolved as? KaFunctionSymbol)?.takeIf {
-            it.valueParameters.none { p -> p.isVararg } &&
-                (call.valueArguments.any { a -> a.getArgumentName() != null } ||
-                    call.valueArguments.size < it.valueParameters.size)
+            // a vararg callee too: `path.writeText(s)` omits a charset BEFORE its vararg options, and
+            // `getParentOfTypesAndPredicate(strict, A::class.java, B::class.java, p)` has a parameter after one
+            val varargIndex = it.valueParameters.indexOfFirst { p -> p.isVararg }
+            call.valueArguments.any { a -> a.getArgumentName() != null } ||
+                (varargIndex < 0 && call.valueArguments.size < it.valueParameters.size) ||
+                (varargIndex >= 0 && (varargIndex != it.valueParameters.lastIndex ||
+                    call.valueArguments.size < it.valueParameters.size - 1))
         }?.let { callArguments(call, it, method, locals) }
         val defaults = ordered?.defaults
         // a callee with context parameters takes them FIRST, ahead of an extension receiver (KotlinScan.contextParameters);

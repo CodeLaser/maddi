@@ -1494,6 +1494,35 @@ is a guard that already passed). `TestLibraryCompanions` gains four rows in the 
 detekt **117 → 95** in 56 types / 71 members, **no verdict moved** (the type-verdict dump is identical to the
 merge's). coil **136 → 119** in 43 types / 82 members.
 
+### 7.49 A vararg callee, bound as kotlinc binds it — detekt 95 → 85
+
+The instrument first: a probe at the unresolved-call placeholder, run once on detekt, printing what K2 resolved each
+callee to, the facade and its methods of that name, and the argument types. 222 lines fired, most from conversions
+retried and discarded, so it was joined to the surviving placeholders by (callee, member): 29 of 31 matched. They fell into
+five causes, and the largest (≈11) was this one: the rebuild of a call that names or omits arguments
+(`callArguments`) excluded EVERY vararg callee. `path.writeText(s)` omits a charset before the vararg options;
+`splitToSequence(".")` has two defaulted parameters after its vararg; `getParentOfTypesAndPredicate(strict, A::class.java,
+B::class.java) { … }` passes one after it. The facade had each method, and no call of the written arity matched it.
+
+The vararg is now bound as in bytecode. Its items are every positional argument from its index on, or one named
+argument, which is the array itself when it is spread or of the array type. They stay loose, Java-style, where the
+vararg is the JVM signature's last parameter, as every vararg call is written elsewhere. They are packed into `new T[]{…}`
+where the JVM parameter is a plain array: a parameter follows it, or the call binds `$default`, whose masks follow
+it. `$default` is generated for a vararg function or constructor now, with the vararg typed as its array. K2's
+`returnType` of a vararg parameter is the ELEMENT type.
+
+`VarargCallTest` (k2, six shapes: a parameter after the vararg, `$default` with and without items, a spread, a named
+array, a plain call). `TestLibraryVarargCalls` (class-file world): `writeText`, `splitToSequence` and
+`getParentOfTypesAndPredicate` bind `PathsKt__PathReadWriteKt.writeText(p,"x",null)`,
+`splitToSequence(s,new String[]{"."},false,0)` and `getParentOfTypesAndPredicate(e,true,new Class[]{…},it->true)`.
+detekt **95 → 85** (10 sites gone, none new) in 50 types / 64 members; members 7,756 → 7,759 are the new
+`$default`s. **No verdict moved.** coil unchanged at 119.
+
+The other causes, for what follows: intrinsics written as calls (`arr.get(i)`, `bytes.set(i, v)`, `s.plus(x)`, a boxed
+`?.not()`/`?.plus(1)`); invoking a function-typed property or receiver-typed parameter (`d.ruleProvider(config)`,
+`init()`); `AutoCloseable.use`, whose facade lookup returns nothing; and receivers typed `Object` where a smart
+cast should have narrowed them.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1522,7 +1551,7 @@ merge's). coil **136 → 119** in 43 types / 82 members.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47) and values named through a type (§7.48) have taken detekt 4,701 → 95 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.48; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) and vararg binding (§7.49) have taken detekt 4,701 → 85 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.49; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

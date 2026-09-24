@@ -1264,7 +1264,7 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner)
             ?.let { typeMapper.withMembers(it) } // a class-file parent may be a shell: see KotlinTypeMapper.withMembers
             ?: return unboundInvocation("k2-super-call-no-parent")
-        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)?.takeIf { s -> s.valueParameters.none { it.isVararg } }
+        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)
             ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
         val argExpressions = ordered?.expressions ?: call.valueArguments
             .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
@@ -2167,18 +2167,23 @@ class KotlinScan(
      * parameter's default where kotlinc does, in the function's own scope, then calls [target]; a call that omits an
      * argument calls it instead of [target] (KotlinBodyConverter.callArguments). Where kotlinc makes a member's
      * `f$default` static, with the receiver as its first parameter, this one is an instance method, so that the
-     * defaults read `this` as written. Not for a vararg function: a call with a vararg is not ordered.
+     * defaults read `this` as written. A vararg parameter is the array it is on the JVM (kotlinc's `$default` is never
+     * a varargs method: the masks follow it), and a call passes it packed (KotlinBodyConverter.callArguments).
      */
     private fun KaSession.defaultsMethod(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
                                          static: Boolean, psi: KtNamedFunction) {
-        if (psi.valueParameters.none { it.defaultValue != null } || function.valueParameters.any { it.isVararg }) return
+        if (psi.valueParameters.none { it.defaultValue != null }) return
         val method = runtime.newMethod(owner, target.name() + "\$default",
             if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
         val builder = method.builder().setSynthetic(true)
         addTypeParameters(builder, function, owner, method)
         contextParameters(builder, function, owner, method, synthetic = true)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
-        function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
+        function.valueParameters.forEach { p ->
+            // a vararg's K2 returnType is the element type
+            val type = mapType(p.returnType, owner, method).let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it }
+            syntheticParameter(builder, p.name.asString(), type)
+        }
         // kotlinc's `f$default(…, $completion, $mask0, …)`: the continuation stays the target's last parameter
         val continuation = if (function.isSuspend) with(typeMapper) { continuationType(mapType(function.returnType, owner, method)) } else null
         continuation?.let { syntheticParameter(builder, "\$completion", it) }
@@ -2207,7 +2212,7 @@ class KotlinScan(
     private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo): MethodInfo? {
         val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
-        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return null
+        if (parameters.none { it?.defaultValue != null }) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
