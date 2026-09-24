@@ -1777,11 +1777,26 @@ internal class KotlinBodyConverter(
      * `a[i]` / `a[i] = v` through an EXTENSION `get`/`set` operator (detekt's `operator fun ByteArray.set(c: Char,
      * v: Byte)`, the stdlib's `MutableMap.set`): the facade static with the receiver first, as any extension call.
      */
+    @OptIn(KaExperimentalApi::class)
     private fun KaSession.indexOperatorExtension(expression: KtArrayAccessExpression, receiver: Expression,
-                                                 arguments: List<Expression>, method: MethodInfo): Expression? {
-        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol
-            ?: return null
+                                                 arguments: List<Expression>, method: MethodInfo,
+                                                 locals: Map<String, Variable> = emptyMap()): Expression? {
+        val resolved = expression.resolveToCall()?.singleFunctionCallOrNull() ?: return null
+        val symbol = resolved.symbol as? KaNamedFunctionSymbol ?: return null
         if (symbol.receiverParameter == null) return null
+        // a MEMBER extension operator (detekt's `private operator fun ByteArray.set(c: Char, value: Byte)` inside an
+        // `object`): an instance method of the declaring type, the array first, on the implicit dispatch receiver
+        resolved.partiallyAppliedSymbol.dispatchReceiver?.let { dispatch ->
+            val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+            val type = receiverLookupType(dispatch, obj, method) ?: return null
+            val memberArgs = listOf(receiver) + arguments
+            val callee = resolveCallee(type, symbol.name.asString(), memberArgs) ?: return null
+            return runtime.newMethodCallBuilder()
+                .setObject(obj).setObjectIsImplicit(true).setMethodInfo(callee).setParameterExpressions(memberArgs)
+                .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf())
+                .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
+                .build()
+        }
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val facadeArgs = listOf(receiver) + arguments
         val callee = resolveCallee(facade, symbol.name.asString(), facadeArgs) ?: return null
@@ -1852,7 +1867,7 @@ internal class KotlinBodyConverter(
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
         val get = arrayType?.let { resolveCallee(it, "get", indices) } // String: charAt, in resolveCallee
-            ?: return indexOperatorExtension(expression, array, indices, method)
+            ?: return indexOperatorExtension(expression, array, indices, method, locals)
                 ?: placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
@@ -1873,7 +1888,7 @@ internal class KotlinBodyConverter(
         // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
         // that delegates to `put`, so fall back to put (same key,value arguments)
         val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
-            ?: return indexOperatorExtension(arrayAccess, array, arguments, method)
+            ?: return indexOperatorExtension(arrayAccess, array, arguments, method, locals)
                 ?: placeholder("k2-indexed-set-unresolved", arrayAccess)
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
             .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())

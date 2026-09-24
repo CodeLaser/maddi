@@ -1592,6 +1592,15 @@ and `by lazy(NONE)` alike. The read now calls `getValue()` when that is what the
 All ten detekt sites gone, none new, **no verdict moved**. detekt **67 → 57** in 35 types / 40 members, coil
 **113 → 106** in 40 / 69. `TestKotlinLazyVsJavaLazy` still agrees.
 
+### 7.54 A member extension index operator — detekt 57 → 49
+
+`escapeLevels[c] = 4` in detekt's `Xml10EscapeSymbolsInitializer` (eight sites) goes through
+`private operator fun ByteArray.set(c: Char, value: Byte)`, declared inside the `object` itself. The index route
+knew a top-level extension operator (a facade static, §7.43) and not this one. On the JVM it is an instance method
+of the declaring type with the array first, called on the implicit dispatch receiver, and that is what K2's
+`dispatchReceiver` now builds, for `get` and `set` alike. `MemberIndexOperatorTest` (k2). All eight gone, none new,
+**no verdict moved**. coil unchanged at 106.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1620,7 +1629,7 @@ All ten detekt sites gone, none new, **no verdict moved**. detekt **67 → 57** 
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) and `by lazy` against the class-file `Lazy` (§7.53) have taken detekt 4,701 → 57 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.53; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) and member index operators (§7.54) have taken detekt 4,701 → 49 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.54; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
