@@ -110,6 +110,17 @@ public class KotlinCollections {
                                 Function1<? super T, Boolean> predicate) {
             return false;
         }
+
+        /*
+        public operator fun <T> Iterable<T>.contains(element: T): Boolean
+
+        What `x in coll` calls when the element's type is not the collection's (`text in knownAnys`, a String? in a
+        Set<String>): K2 resolves the extension, not Set.contains. Once maddi followed K2 there, detekt's
+        MethodSignatureKt, SuppressionsKt and StringListSupport went @Immutable(hc=true) -> @FinalFields.
+        */
+        static <T> boolean contains(@NotModified Iterable<? extends T> receiver, T element) {
+            return false;
+        }
     }
 
     /*

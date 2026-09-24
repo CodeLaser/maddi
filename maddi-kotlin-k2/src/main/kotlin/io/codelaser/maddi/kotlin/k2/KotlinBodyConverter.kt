@@ -68,6 +68,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
@@ -1366,13 +1367,43 @@ internal class KotlinBodyConverter(
         return raw.withSource(if (detailed == null) rangeSource else rangeSource.withDetailedSources(detailed))
     }
 
+    /** Whether [expression] reads a `const val` declared in this project's sources, see [convertExpressionRaw]. */
+    private fun KaSession.namesASourceConst(expression: KtExpression): Boolean =
+        PsiTreeUtil.collectElementsOfType(expression, KtNameReferenceExpression::class.java).any { reference ->
+            val property = reference.mainReference.resolveToSymbol() as? KaKotlinPropertySymbol
+            property != null && property.isConst && property.origin == KaSymbolOrigin.SOURCE
+        }
+
     private fun KaSession.convertExpressionRaw(expression: KtExpression, method: MethodInfo,
                                                locals: Map<String, Variable>): Expression {
-        expression.evaluate()?.let { constant ->
-            val value = constant.value
-            return constantExpression(runtime, value)
-                ?: placeholder("k2-unsupported-constant:${value?.let { it::class.simpleName }}", expression)
+        val constant = expression.evaluate() ?: return convertExpressionUnfolded(expression, method, locals)
+        // ⛔ NOT FOLDED WHEN IT NAMES A CONST OF THE PROJECT: `s == NULL_TEXT` became `s.equals("null")`, and with the
+        // field reference went every trace that NULL_TEXT is read -- a private const read in a comparison, or in a
+        // "$NAME-SNAPSHOT" template, looked unused to diagnose.sarif. The Java front end keeps the field reference
+        // (javac folds, the CST does not); a library constant (`Int.MAX_VALUE`) still folds, since its field may
+        // not resolve here at all. ⚠ And so does a source const this converter cannot reach yet: detekt's
+        // `Initializer.XmlEscapeSymbols.LEVELS_LEN - 2`, a companion const through two qualifiers, became three
+        // placeholders where the folded value had been. A literal loses the reference; a placeholder loses more.
+        if (namesASourceConst(expression)) {
+            val unfolded = convertExpressionUnfolded(expression, method, locals)
+            if (!containsPlaceholder(unfolded)) return unfolded
         }
+        return constantExpression(runtime, constant.value)
+            ?: placeholder("k2-unsupported-constant:${constant.value?.let { it::class.simpleName }}", expression)
+    }
+
+    private fun containsPlaceholder(expression: Expression): Boolean {
+        var found = false
+        expression.visit { e ->
+            // by message alone: convertExpression gives a placeholder its range, which isPlaceholder rules out
+            if (e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true) found = true
+            !found
+        }
+        return found
+    }
+
+    private fun KaSession.convertExpressionUnfolded(expression: KtExpression, method: MethodInfo,
+                                                   locals: Map<String, Variable>): Expression {
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
             is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) } ?: self(method)
@@ -2965,6 +2996,14 @@ internal class KotlinBodyConverter(
             .build(runtime)
         // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)
         if (expression.operationToken == KtTokens.IN_KEYWORD || expression.operationToken == KtTokens.NOT_IN) {
+            // ⛔ WHAT K2 RESOLVED FIRST: an extension `contains` wins over the member lookup by name, which cannot see
+            // one. detekt's `name !in excludedFunctions` calls `private operator fun Iterable<Regex>.contains(String?)`;
+            // looked up by name it bound to the collection's own contains, the private extension had no caller, and
+            // diagnose.sarif called it unused. The facade call takes the collection as argument 0.
+            extensionOperatorCall(expression, "contains", right, left, runtime.booleanParameterizedType())?.let { call ->
+                return if (expression.operationToken == KtTokens.NOT_IN) runtime.newUnaryOperator(listOf(),
+                    runtime.noSource(), runtime.logicalNotOperatorBool(), call, runtime.precedenceUnary()) else call
+            }
             val collectionType = receiverTypeInfo(expression.right, method)
             val contains = collectionType?.let { resolveCallee(it, "contains", listOf(left)) }
                 ?: return placeholder("k2-in-unresolved", expression)

@@ -67,6 +67,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
+import org.jetbrains.kotlin.analysis.api.signatures.KaFunctionSignature
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
@@ -1537,8 +1538,15 @@ class KotlinScan(
         }
 
         val field = runtime.newFieldInfo(name, static, type, owner)
+        // a `const val` or a @JvmField has no accessor: its field IS the JVM surface, with the property's visibility.
+        // Private for all of them, a public const read as private to diagnose.sarif's unusedPrivateMember (detekt's
+        // `object Versions { const val DETEKT }`, read from a build script) and to anything else asking its access.
+        val fieldIsTheSurface = (property as? KaKotlinPropertySymbol)?.isConst == true
+                || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD) == true
+                || property.annotations.contains(JVM_FIELD)
         val fieldBuilder = field.builder()
-            .addFieldModifier(runtime.fieldModifierPrivate())
+            .addFieldModifier((if (fieldIsTheSurface) typeMapper.visibilityFieldModifier(property) else null)
+                ?: runtime.fieldModifierPrivate())
             .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
         (property.psi as? KtProperty)?.initializer?.let {
             pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(owner, field, it, static)
@@ -2063,6 +2071,7 @@ class KotlinScan(
      * count too — `okio.Sink` extends `Closeable`/`Flushable` — hence `memberScope` rather than the declared
      * one; `Any`'s members are excluded because Kotlin delegation never forwards them.
      */
+    @OptIn(KaExperimentalApi::class) // KaType.scope
     private fun KaSession.addDelegatedMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
         val delegations = declaration.superTypeListEntries.filterIsInstance<KtDelegatedSuperTypeEntry>()
         if (delegations.isEmpty()) return
@@ -2070,13 +2079,17 @@ class KotlinScan(
         present += listOf("equals" to 1, "hashCode" to 0, "toString" to 0)
         delegations.forEach { entry ->
             val superType = entry.typeReference?.type as? KaClassType ?: return@forEach
-            val superSymbol = superType.symbol as? KaClassSymbol ?: return@forEach
-            superSymbol.memberScope.declarations
-                .filterIsInstance<KaNamedFunctionSymbol>()
-                .filter { it.modality == KaSymbolModality.ABSTRACT }
-                .forEach { function ->
+            // ⛔ THE SIGNATURE AS SEEN THROUGH THE SUPERTYPE, not the member's own: `: Iterable<String> by values`
+            // forwards `iterator(): Iterator<String>`. From `memberScope` it was `Iterator<T>`, unbound in the class,
+            // and the Java stub `Iterator<Object> iterator()` does not compile ("return type Iterator<Object> is not
+            // compatible with Iterator<String>"). The type scope substitutes along the whole supertype chain.
+            superType.scope?.getCallableSignatures { true }.orEmpty()
+                .filterIsInstance<KaFunctionSignature<*>>()
+                .filter { (it.symbol as? KaNamedFunctionSymbol)?.modality == KaSymbolModality.ABSTRACT }
+                .forEach { signature ->
+                    val function = signature.symbol as KaNamedFunctionSymbol
                     if (!present.add(function.name.asString() to function.valueParameters.size)) return@forEach
-                    val method = convertMethodSignature(typeInfo, function, forwarder = true)
+                    val method = convertMethodSignature(typeInfo, function, forwarder = true, signature = signature)
                     typeInfo.builder().addMethod(method)
                     method.builder().setMethodBody(runtime.emptyBlock())
                     commitOrDefer(method, null) { method.builder().commit() } // for its overrides
@@ -2091,7 +2104,8 @@ class KotlinScan(
      * not what that PSI declares.
      */
     private fun KaSession.convertMethodSignature(owner: TypeInfo, function: KaNamedFunctionSymbol,
-                                                 static: Boolean = false, forwarder: Boolean = false): MethodInfo {
+                                                 static: Boolean = false, forwarder: Boolean = false,
+                                                 signature: KaFunctionSignature<*>? = null): MethodInfo {
         // a `by`-delegation forwarder is built from the interface's ABSTRACT symbol but has a body of its own
         val methodType = methodType(static, if (forwarder) null else function, owner)
         // honour @JvmName on the function (overloads that erase to the same JVM signature are disambiguated by it)
@@ -2116,16 +2130,19 @@ class KotlinScan(
                 .setVariance(mapVariance(tp.variance))
                 .commit()
         }
-        val returnType = mapType(function.returnType, owner, method)
+        // [signature]: the member substituted through a delegated supertype, see addDelegatedMembers
+        val returnType = mapType(signature?.returnType ?: function.returnType, owner, method)
         // context parameters come first, then an extension function's receiver, then the value parameters (the JVM model)
         contextParameters(builder, function, owner, method, synthetic = false)
         function.receiverParameter?.let { receiver ->
-            val parameterInfo = builder.addParameter("\$receiver", mapType(receiver.returnType, owner, method))
+            val parameterInfo = builder.addParameter("\$receiver",
+                mapType(signature?.receiverType ?: receiver.returnType, owner, method))
             if (!forwarder) annotate(parameterInfo.builder(), receiver, owner)
         }
-        function.valueParameters.forEach { p ->
+        function.valueParameters.forEachIndexed { index, p ->
             // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it
-            val elementType = mapType(p.returnType, owner, method)
+            val elementType = mapType(signature?.valueParameters?.getOrNull(index)?.returnType ?: p.returnType, owner,
+                method)
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
             parameterInfo.builder().setVarArgs(p.isVararg)
