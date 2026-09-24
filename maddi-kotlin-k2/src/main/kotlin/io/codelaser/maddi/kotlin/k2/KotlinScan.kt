@@ -301,9 +301,9 @@ class KotlinScan(
     private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
         inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
 
-    private fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>, index: String) =
-        inBody { with(bodyConverter) { convertStatement(statement, method, locals, index) } }
+    private fun KaSession.convertAccessorBody(accessor: KtPropertyAccessor, returning: Boolean, method: MethodInfo,
+                                              locals: MutableMap<String, Variable>) =
+        inBody { with(bodyConverter) { convertAccessorBody(accessor, returning, method, locals) } }
 
     /**
      * Build a method-local type (`class C : A { … }` declared inside [enclosingMethod]'s body) as a full source
@@ -1635,17 +1635,7 @@ class KotlinScan(
         body {
             val scope = mutableMapOf<String, Variable>()
             field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
-            val block = runtime.newBlockBuilder()
-            val expressionBody = accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null }
-            if (expressionBody != null) {
-                val value = convertExpression(expressionBody, method, scope)
-                block.addStatement(bodyConverter.indexed(if (setter) runtime.newExpressionAsStatement(value)
-                    else runtime.newReturnStatement(value), "0"))
-            } else {
-                val statements = accessor.bodyBlockExpression?.statements.orEmpty()
-                statements.forEachIndexed { i, st -> block.addStatement(convertStatement(st, method, scope, bodyConverter.pad(i, statements.size))) }
-            }
-            builder.setMethodBody(block.build())
+            builder.setMethodBody(convertAccessorBody(accessor, !setter, method, scope))
             commitOrDefer(method, accessor) { method.builder().commit() }
         }
         return method
@@ -1915,15 +1905,9 @@ class KotlinScan(
         awaitBody(getter)
         body {
             val block = runtime.newBlockBuilder()
-            val expressionBody = accessor?.bodyExpression
-            if (expressionBody != null) {
-                block.addStatement(bodyConverter.indexed(runtime.newReturnStatement(convertExpression(expressionBody, getter, emptyMap())), "0"))
-            } else {
-                val statements = accessor?.bodyBlockExpression?.statements.orEmpty()
-                val scope = mutableMapOf<String, Variable>()
-                statements.forEachIndexed { i, s -> block.addStatement(convertStatement(s, getter, scope, bodyConverter.pad(i, statements.size))) }
-            }
-            getter.builder().setMethodBody(block.build())
+            // ⛔ `bodyExpression` is the BLOCK for `get() { … }` too: without the guard a block-bodied computed getter
+            // was converted as one expression, and every such getter's body was a single placeholder
+            getter.builder().setMethodBody(accessor?.let { convertAccessorBody(it, true, getter, mutableMapOf()) } ?: block.build())
             commitOrDefer(getter, propertyPsi) { getter.builder().commit() }
         }
         return getter

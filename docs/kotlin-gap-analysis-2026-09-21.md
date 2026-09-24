@@ -1379,6 +1379,26 @@ it passes `it` to unannotated library members (the `psiUtil.isPublic` extension,
 `it` modified, and with it the field `klass` the constructors come from. A reveal. The same code in Java, against
 the same unannotated library, gets the same verdict.
 
+### 7.45 Blocks as values: a getter's whole body, `return if`, a lambda's `if` — detekt 166 → 154, coil 141 → 139
+
+`k2-block-not-a-single-expression` had two causes:
+
+- **A computed property's block-bodied getter**, `val x: T get() { … }`, lost its entire body. `bodyExpression`
+  returns the block for `get() { … }` too, and `buildComputedGetter` took it as one expression, so each such getter
+  was a single placeholder (coil's `Uri.pathSegments`, `filePath`, `BitmapImage.size`; detekt's
+  `leftMostElementOfLeftSubtree`). The written-accessor path had the guard. Both accessor paths now convert through
+  `convertAccessorBody`, the same routine as a function body, instead of a statement-by-statement loop that skipped
+  the block-level lowerings: `val l = left ?: return this` in a getter was the other placeholder. Reading those
+  bodies exposes two coil sites inside `BitmapImage.getSize()`.
+- **An `if` with a multi-statement branch used as a value** was lowered for `val x = if …` and `fun f() = if …`
+  only. `return if …` (and `return try …`) in a function or accessor now becomes an `if` whose branches return
+  their tails; inside a lambda a bare `return` is non-local and is left alone. The same applies to a lambda's result
+  (`joinToString { if (…) { …; a } else b }`).
+
+`BlockGetterTest` and `ValueIfTest` (k2) fail when reverted. detekt **166 → 154**, coil **141 → 139**, no new site
+on detekt, **no verdict moved**. Left of the kind: a field initializer holding a local function (1), and
+multi-statement `when` branches.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1407,7 +1427,7 @@ the same unannotated library, gets the same verdict.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) and the operator shapes of §7.44 have taken detekt 4,701 → 166 and coil 367 → 283 on that dump (coil is 141 once its class path is complete, §7.39, §7.42–§7.44; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 and blocks as values (§7.45) have taken detekt 4,701 → 154 and coil 367 → 283 on that dump (coil is 139 once its class path is complete, §7.39, §7.42–§7.45; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

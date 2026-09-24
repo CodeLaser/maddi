@@ -47,6 +47,7 @@ import io.codelaser.maddi.inspection.resource.InfoByFqn
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
+import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
@@ -94,6 +95,7 @@ import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
+import org.jetbrains.kotlin.psi.KtDeclarationWithBody
 import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
@@ -121,6 +123,7 @@ import org.jetbrains.kotlin.psi.KtParenthesizedExpression
 import org.jetbrains.kotlin.psi.KtPostfixExpression
 import org.jetbrains.kotlin.psi.KtPrefixExpression
 import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPropertyAccessor
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -239,13 +242,25 @@ internal class KotlinBodyConverter(
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
         // start from the enclosing method's captured variables (for a local class's methods); references
         // resolve against this, so an enclosing parameter/local read inside a local type binds to it.
-        val locals = outerLocals.toMutableMap()
-        if (psi.hasBlockBody()) {
-            return statementsToBlock(psi.bodyBlockExpression?.statements.orEmpty(), method, locals, "")
-        }
+        return convertBodyOf(psi.bodyBlockExpression.takeIf { psi.hasBlockBody() }, psi.bodyExpression,
+            returnType != runtime.voidParameterizedType(), method, outerLocals.toMutableMap())
+    }
+
+    /**
+     * A property accessor's body, `get() { … }` / `get() = …` / `set(v) { … }`, converted as a function body is:
+     * the block-level lowerings (control-flow elvis, hoisted null-safe spines, a value `if`/`try`) apply. Converting
+     * it statement by statement skipped them, so `val l = left ?: return this` in a getter was a placeholder.
+     */
+    internal fun KaSession.convertAccessorBody(accessor: KtPropertyAccessor, returning: Boolean, method: MethodInfo,
+                                               locals: MutableMap<String, Variable>): Block =
+        convertBodyOf(accessor.bodyBlockExpression, accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null },
+            returning, method, locals)
+
+    private fun KaSession.convertBodyOf(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
+                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block {
+        if (blockBody != null) return statementsToBlock(blockBody.statements, method, locals, "")
         val block = runtime.newBlockBuilder()
-        psi.bodyExpression?.let { body ->
-            val returning = returnType != runtime.voidParameterizedType()
+        expressionBody?.let { body ->
             // `fun f(): T = try { … } catch { … }` is the commonest try-as-a-value shape there is — three of
             // detekt's four. The expression body IS the returned value, so the whole statement context the
             // lowering needs is right here: no temporary, the branches just return.
@@ -623,6 +638,18 @@ internal class KotlinBodyConverter(
     private fun KaSession.statementAsValueLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
                                                    index: String): List<Statement>? {
+        // `return if (c) { …; a } else { …; b }` / `return try { … }`: each branch returns its tail, as an
+        // expression-bodied function's does. Only a plain `return` of a FUNCTION: in a lambda it is non-local.
+        if (statement is KtReturnExpression && statement.getTargetLabel() == null
+            && PsiTreeUtil.getParentOfType(statement, KtDeclarationWithBody::class.java) !is KtFunctionLiteral) {
+            return when (val returned = statement.returnedExpression) {
+                is KtIfExpression if returned.hasAMultiStatementBranch() ->
+                    listOf(convertValueIf(returned, method, locals, index, returning = true, assignTo = null))
+                is KtTryExpression ->
+                    listOf(convertTry(returned, method, locals, index, returning = true).withSource(source(returned, index)))
+                else -> null
+            }
+        }
         if (statement !is KtProperty || !statement.isLocal) return null
         val initializer = statement.initializer
         val needsLowering = initializer is KtTryExpression
@@ -1748,6 +1775,9 @@ internal class KotlinBodyConverter(
             val lowered = if (isResult) null else loweredStatements(stmt, method, bodyScope, index)
             when {
                 lowered != null -> lowered.forEach { block.addStatement(it) }
+                // a lambda whose value is an `if` with a multi-statement branch: each branch returns the lambda's value
+                isResult && stmt is KtIfExpression && stmt.hasAMultiStatementBranch() ->
+                    block.addStatement(convertValueIf(stmt, method, bodyScope, index, returning = true, assignTo = null))
                 isResult -> {
                     val (hoisted, tailIndex) = hoistBefore(stmt, method, bodyScope, index)
                     hoisted.forEach { block.addStatement(it) }
