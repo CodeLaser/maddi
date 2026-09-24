@@ -164,10 +164,11 @@ public class TestCoilJvmSlice {
         // fully attributed or bisected. Both fix chains are combined in this merge; re-measured below.
         // Re-measured 2026-09-24 on that merge plus values named through a type (qualified/imported enum constants and
         // nested objects, companion `@JvmField`/`const`, `String.format`), all six jars present: 119 placeholders in
-        // 43 of 186 types, 82 of 1,457 members.
+        // 43 of 186 types, 82 of 1,457 members. Then 113 in 41 / 76 (`AutoCloseable.use`, function-typed properties
+        // and receiver-typed parameters invoked; vararg binding and intrinsic calls left coil at 119).
         // ⚠ coil is the SECOND corpus for a reason — it and detekt have no overlap in what they call, so a change
         // that helps one and hurts the other shows up here.
-        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 119);
+        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 113);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }
 }

@@ -427,7 +427,7 @@ internal class KotlinTypeMapper(
      * is exactly what kotlinc compiles it to, so nothing else here has to know the difference.
      */
     internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? =
-        loadLibraryFacade(jvmFacadeClassId(function))
+        loadLibraryFacade(jvmFacadeClassId(function), function.callableId?.packageName)
 
     /**
      * The facade holding a top-level library PROPERTY — `Class<T>.java`, `CharSequence.lastIndex`. Kotlin
@@ -436,13 +436,18 @@ internal class KotlinTypeMapper(
      * [KaNamedFunctionSymbol].
      */
     internal fun KaSession.loadLibraryFacadeForProperty(property: KaPropertySymbol): TypeInfo? =
-        loadLibraryFacade(jvmFacadeClassId(property))
+        loadLibraryFacade(jvmFacadeClassId(property), property.callableId?.packageName)
 
-    private fun KaSession.loadLibraryFacade(classId: ClassId?): TypeInfo? {
+    /**
+     * [kotlinPackage]: where the callables are DECLARED, which a `@file:JvmPackageName` file does not share with its
+     * facade: the stdlib's `AutoCloseable.use` is `kotlin.use` in `kotlin.jdk7.AutoCloseableKt`, and package
+     * `kotlin.jdk7` holds no callables for K2 to list.
+     */
+    private fun KaSession.loadLibraryFacade(classId: ClassId?, kotlinPackage: FqName? = null): TypeInfo? {
         if (classId == null) return null
         val jvmFqn = classId.asFqNameString()
         infoByFqn.getType(jvmFqn, librarySourceSet)?.let { return it }
-        val pkg = findPackage(classId.packageFqName) ?: return null
+        val pkg = findPackage(kotlinPackage ?: classId.packageFqName) ?: return null
         val functions = pkg.packageScope.callables
             .filterIsInstance<KaNamedFunctionSymbol>()
             .filter { jvmFacadeClassId(it) == classId }

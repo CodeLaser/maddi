@@ -1539,6 +1539,24 @@ BOXED receiver, `oldValue?.plus(1)` or `x?.contains("*")?.not()`, where the safe
 `IntrinsicCallTest` (k2, six shapes). detekt **85 → 79** (6 sites gone, none new) in 47 types / 59 members; **no
 verdict moved**. coil unchanged at 119.
 
+### 7.51 Function values invoked, and a facade in another JVM package — detekt 79 → 74, coil 119 → 113
+
+Three shapes from the §7.49 probe:
+
+- `AutoCloseable.use { }` (3 on detekt). The stdlib declares it as `kotlin.use` but compiles it into
+  `kotlin.jdk7.AutoCloseableKt` (`@file:JvmPackageName`). The library facade was built from the callables of its JVM
+  package, and `kotlin.jdk7` has none. It is built from the callable's own Kotlin package now, filtered by facade
+  class id.
+- a PROPERTY of function type called like a method: `d.ruleProvider(config)` is `d.getRuleProvider().invoke(config)`.
+  K2 names `invoke` as the callee, and the written name is the property's.
+- a parameter of a function type WITH a receiver, invoked with that receiver implicit: `init()` for
+  `init: XMLStreamWriter.() -> Unit` is `init.invoke($receiver)`.
+
+`FunctionValueCallTest` (k2). detekt **79 → 74** (6 gone, 1 new) in 44 types / 54 members; **no verdict moved**.
+The new site is a reveal: `visitFile(…)` inside the `KotlinAnalysisApiEngine().use { }` whose placeholder used to
+swallow the whole lambda. It is an extension on `this` typed by a two-bound type parameter (`T : Rule,
+T : RequiresAnalysisApi`). coil **119 → 113** in 41 / 76.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1567,7 +1585,7 @@ verdict moved**. coil unchanged at 119.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) and intrinsics spelled as calls (§7.50) have taken detekt 4,701 → 79 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.50; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) and function values invoked (§7.51) have taken detekt 4,701 → 74 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.51; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

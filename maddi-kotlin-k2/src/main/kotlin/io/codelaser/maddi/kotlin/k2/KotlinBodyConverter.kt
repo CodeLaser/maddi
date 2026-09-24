@@ -1760,6 +1760,16 @@ internal class KotlinBodyConverter(
         return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
     }
 
+    /** `value.invoke(arguments)`, on [value]'s functional type; null when that type has no fitting `invoke`. */
+    private fun KaSession.invokeValue(value: Expression, arguments: List<Expression>, call: KtCallExpression,
+                                      method: MethodInfo): Expression? {
+        val invoke = value.parameterizedType().typeInfo()?.let { resolveCallee(members(it), "invoke", arguments) } ?: return null
+        return runtime.newMethodCallBuilder().setObject(value).setObjectIsImplicit(false)
+            .setMethodInfo(invoke).setParameterExpressions(arguments)
+            .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: invoke.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
     /**
      * `a.get(i)` or `a.set(i, v)` spelled as a call, on a Kotlin array class: the JVM array load or store, as `a[i]`
      * and `a[i] = v` are (see [isJvmArrayAccess]). The receiver may be implicit: `set(c.code, v)` inside an extension
@@ -2752,12 +2762,19 @@ internal class KotlinBodyConverter(
         // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
         // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
         if (receiver == null) resolveReference(name, method, locals)?.let { fnValue ->
-            fnValue.parameterizedType().typeInfo()?.let { resolveCallee(it, "invoke", arguments) }?.let { invoke ->
-                val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: invoke.returnType()
-                return runtime.newMethodCallBuilder().setObject(fnValue).setObjectIsImplicit(false)
-                    .setMethodInfo(invoke).setParameterExpressions(arguments).setConcreteReturnType(returnType)
-                    .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
-            }
+            invokeValue(fnValue, arguments, call, method)?.let { return it }
+            // a function type WITH a receiver, invoked with that receiver implicit: `init()` for
+            // `init: XMLStreamWriter.() -> Unit` is `init.invoke($receiver)`
+            implicitExtensionReceiver(call, method, locals)
+                ?.let { invokeValue(fnValue, listOf(it) + arguments, call, method) }?.let { return it }
+        }
+        // a PROPERTY of function type called like a method: `d.ruleProvider(config)` is
+        // `d.getRuleProvider().invoke(config)` -- K2's callee is `invoke`, the written name the property's
+        if (receiver != null && calleeSymbol?.name?.asString() == "invoke" && name != "invoke") receiver.second?.let { holder ->
+            val value = resolveAccessor(holder, name)?.let { accessorCall(receiver.first, it) }
+                ?: members(holder).fields().firstOrNull { it.name() == name }
+                    ?.let { variableExpression(runtime.newFieldReference(it, receiver.first, it.type())) }
+            value?.let { invokeValue(it, arguments, call, method) }?.let { return it }
         }
 
         // a member called on the receiver of the lambda it is written in -- `append` in `sb.apply { append("x") }`,
