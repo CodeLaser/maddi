@@ -124,6 +124,7 @@ import java.nio.file.Files
  * `with(typeMapper) { … }`.
  */
 private val ENUM_ENTRIES = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/enums/EnumEntries")
+private val CONTINUATION = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/coroutines/Continuation")
 
 internal class KotlinTypeMapper(
     private val runtime: Runtime,
@@ -682,6 +683,27 @@ internal class KotlinTypeMapper(
         return getter
     }
 
+    /**
+     * A `suspend` function as kotlinc compiles it: a trailing `$completion: Continuation<R>` parameter (after the
+     * value parameters, before a `$default`'s masks), and `Object` as the return type -- the value, or the
+     * COROUTINE_SUSPENDED marker. A class-file type already has that shape (`SequenceScope.yield(Object,
+     * Continuation)`); a type built here did not, so the two models of one function disagreed, and detekt's
+     * `yield(x)` inside `sequence { }` resolved against the class file's 2-parameter method and found nothing.
+     * Adds the parameter to [builder] and returns the JVM return type; null (nothing added) without the stdlib.
+     */
+    internal fun KaSession.continuationParameter(builder: MethodInfo.Builder, returnType: ParameterizedType): ParameterizedType? {
+        val continuation = continuationType(returnType) ?: return null
+        builder.addParameter("\$completion", continuation)
+        return runtime.objectParameterizedType()
+    }
+
+    /** `kotlin.coroutines.Continuation<R>` (R boxed); null when the stdlib is not on the class path. */
+    internal fun KaSession.continuationType(result: ParameterizedType): ParameterizedType? {
+        val continuation = (findClass(CONTINUATION) as? KaNamedClassSymbol)?.let { loadLibraryClass(it) } ?: return null
+        val argument = if (result == runtime.voidParameterizedType()) runtime.objectParameterizedType() else result.ensureBoxed(runtime)
+        return runtime.newParameterizedType(continuation, listOf(argument))
+    }
+
     /** A library method: signature only (params + return type), no body (the analogue of a class-file method). */
     private fun KaSession.convertLibraryMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                static: Boolean = false): MethodInfo {
@@ -698,8 +720,11 @@ internal class KotlinTypeMapper(
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             builder.addParameter(p.name.asString(), parameterType).builder().setVarArgs(p.isVararg)
         }
+        val returnType = mapType(function.returnType, owner)
+        // a suspend function's JVM shape, as the class file has it: see continuationParameter
+        val suspendReturn = if (function.isSuspend) continuationParameter(builder, returnType) else null
         builder
-            .setReturnType(mapType(function.returnType, owner))
+            .setReturnType(suspendReturn ?: returnType)
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody()) // no body available (like a class-file method)
         declaredExceptions(function).forEach { builder.addExceptionType(it) }

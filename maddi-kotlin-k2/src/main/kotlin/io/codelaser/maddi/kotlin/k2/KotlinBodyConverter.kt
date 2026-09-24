@@ -2212,16 +2212,30 @@ internal class KotlinBodyConverter(
                 runtime.nullValue(mapType(p.returnType, method.typeInfo(), method))
             }
         }
-        if (masks.all { it == 0 }) return Arguments(expressions, null)
+        val continuation = continuationArguments(callee, method, locals)
+        if (masks.all { it == 0 }) return Arguments(expressions + continuation, null)
         val defaults = defaultsOf(declaring?.psi)
             // ⭐ A LIBRARY callee has no `$default` in this parse, and synthesizing one would be the wrong
             // trade: the AAPI's annotations are keyed to the REAL signature (`joinToString(Iterable,
             // CharSequence, …)`), so binding that method with the omitted parameters filled by their zero
             // value keeps every contract reachable. The mask is dropped with it — it is an argument of
             // `$default`, and there is no `$default` here.
-            ?: return Arguments(expressions, null)
+            ?: return Arguments(expressions + continuation, null)
         val marker = if (callee is KaConstructorSymbol) listOf(runtime.nullConstant()) else listOf()
-        return Arguments(expressions + masks.map { runtime.newInt(it) } + marker, defaults)
+        return Arguments(expressions + continuation + masks.map { runtime.newInt(it) } + marker, defaults)
+    }
+
+    /**
+     * The continuation a call to a `suspend` [callee] passes as its last argument, as kotlinc compiles it: the
+     * caller's own -- a suspend lambda's `$completion` (in [locals]), else the enclosing suspend function's
+     * `$completion` parameter (a non-suspend lambda inlined into it, `forEach { suspendCall() }`, reads that one too).
+     * `null` where neither exists: the call is then in a context K2 accepted and this model has no continuation for.
+     */
+    internal fun continuationArguments(callee: KaFunctionSymbol?, method: MethodInfo,
+                                       locals: Map<String, Variable>): List<Expression> {
+        if ((callee as? KaNamedFunctionSymbol)?.isSuspend != true) return listOf()
+        val continuation = locals["\$completion"] ?: method.parameters().lastOrNull { it.name() == "\$completion" }
+        return listOf(continuation?.let { variableExpression(it) } ?: runtime.nullConstant())
     }
 
     /**
@@ -2523,7 +2537,7 @@ internal class KotlinBodyConverter(
         // K2 names the value each one is bound to. One this converter cannot express leaves a named placeholder.
         val contexts = contextArguments(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.contextArguments,
             method, locals) ?: return placeholder("k2-context-argument-unresolved:$name", call)
-        val arguments = contexts + (ordered?.expressions ?: valueArgs)
+        val arguments = contexts + (ordered?.expressions ?: (valueArgs + continuationArguments(calleeSymbol, method, locals)))
 
         // a call of a LOCAL function, `g(x)` or `x.g()` for a local extension: `g.invoke([x,] args)` on its variable
         if ((calleeSymbol?.psi as? KtNamedFunction)?.isLocal == true) {
@@ -2622,7 +2636,17 @@ internal class KotlinBodyConverter(
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
-            ?: return placeholder("k2-unresolved-call:$name", call)
+            ?: run {
+                System.getenv("PROBE_CALL")?.split(',')?.takeIf { name in it }?.let {
+                    val rc = call.resolveToCall()?.singleFunctionCallOrNull()
+                    val lr = locals["\$receiver"]
+                    java.io.File(System.getenv("PROBE_FILE")).appendText("CALL $name recv=${receiver?.second?.fullyQualifiedName()} " +
+                        "sym=${rc?.symbol?.callableId} dispatch=${rc?.partiallyAppliedSymbol?.dispatchReceiver?.javaClass?.simpleName}/${rc?.partiallyAppliedSymbol?.dispatchReceiver?.type} " +
+                        "lambdaRecv=${lr?.parameterizedType()} lrMethods=${lr?.parameterizedType()?.typeInfo()?.let { members(it) }?.methods()?.filter { it.name() == name }?.map { it.fullyQualifiedName() }} " +
+                        "args=${arguments.map { it.parameterizedType() }} in=${method.fullyQualifiedName()}\n")
+                }
+                return placeholder("k2-unresolved-call:$name", call)
+            }
         val obj = receiver?.first
             ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
             else self(method)

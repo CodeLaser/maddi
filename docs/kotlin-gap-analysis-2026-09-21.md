@@ -1417,6 +1417,36 @@ moved**. New on detekt: the 3 renamed init-lambda sites, and one reveal in `Miss
 `if (A) {…} else if (B) {…} else { null } ?: return false` binds the elvis to the inner `if`, inside the outer else
 branch, so the `return` is in a value branch. It was hidden behind the component placeholders before.
 
+### 7.47 `suspend`, step one: the JVM signature — detekt 140 → 117
+
+§4's "`suspend` does not exist" turned out to be two models of one function. A **class-file** type (the Java side
+loads the stdlib from bytecode on a corpus) has kotlinc's shape, `Object yield(Object, Continuation)`. A type
+built by **this** front end had the Kotlin one, `R f(A)`. A call resolved against whichever model the callee's type
+came from, so detekt's `yield(x)` inside `sequence { }` found no one-parameter `yield` on the class-file
+`SequenceScope`: all 23 of its `yield`/`yieldAll` placeholders. The unit fixtures could not show it, because there
+`SequenceScope` is built from K2 and both sides agreed on the wrong shape.
+
+The front end now builds kotlinc's shape everywhere:
+
+- a source, forwarder or K2-built library `suspend fun f(a: A): R` is `Object f(A a, Continuation<R> $completion)`
+  (`KotlinTypeMapper.continuationParameter`); its `f$default` keeps the continuation before the masks, as kotlinc's
+  does. `@JvmOverloads` overloads are not generated for a suspend function (rare; they would need the continuation
+  threaded through).
+- every call to a suspend function passes the caller's continuation last: a suspend lambda's `$completion` in scope,
+  else the enclosing function's `$completion` parameter (a non-suspend lambda inlined into it, `forEach { g() }`,
+  reads that one too); `null` where neither exists.
+- the body is converted against the KOTLIN return type, so `suspend fun f() = g()` returning `Unit` stays a
+  statement.
+
+`SuspendSignatureTest` (k2): the signature, a call passing `$completion`, the `$default` shape, and a library
+suspend member resolving. detekt **140 → 117**, no new site, **no verdict moved**. coil is unchanged at 136: its
+site list is identical by kind and position, and only the members' signatures moved (they carry the
+continuation now).
+
+⚠ **Step two is owed:** a suspend FUNCTION TYPE still maps to `kotlin.coroutines.SuspendFunction1`, a K2-only class
+with no JVM existence (it is `Function2<A, Continuation<R>, Object>` in bytecode), and a suspend lambda has no
+continuation parameter, so a suspend call inside `sequence { }` or `launch { }` passes `null`.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1438,14 +1468,14 @@ branch, so the `return` is in a value branch. It was hidden behind the component
    one **846 → 791**, coil **437 → 379**, prep isolation **0** on both.
    ⭐ **Callable references** are now converted for every shape but the property reference (§7.19), which
    keeps a named placeholder; the corpus delta is owed, the box being full when it landed.
-   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`**,
+   ✅ **Property references** (§7.23), ✅ **annotations** (§7.24). What remains, in order: **`suspend`** (step one done, §7.47),
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) and single-evaluation destructuring (§7.46) have taken detekt 4,701 → 140 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46) and suspend signatures (§7.47) have taken detekt 4,701 → 117 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

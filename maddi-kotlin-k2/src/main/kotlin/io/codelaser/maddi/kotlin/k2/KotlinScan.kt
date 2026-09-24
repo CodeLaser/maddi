@@ -1367,6 +1367,9 @@ class KotlinScan(
     private fun KaSession.overloadMethods(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
                                           static: Boolean) {
         val defaults = defaultsMethodOf[target] ?: return
+        // ⚠ not for a suspend function: its overloads would each need the continuation threaded through
+        // (overloadBody); `@JvmOverloads` on one is rare, and a Kotlin call never binds to an overload anyway
+        if (function.isSuspend) return
         val contexts = function.contextParameters
         val offset = contexts.size + if (function.receiverParameter != null) 1 else 0
         overloadParameters(offset, function.valueParameters.map { it.hasDefaultValue },
@@ -2024,7 +2027,9 @@ class KotlinScan(
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
-        method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals))
+        // the KOTLIN return type: a suspend function's JVM one is Object, and `suspend fun f() = g()` still returns nothing
+        method.builder().setMethodBody(convertBody(function,
+            if (function.isSuspend) mapType(function.returnType, method.typeInfo(), method) else method.returnType(), method, outerLocals))
         // nor does it host that PSI: references written there are the property's or the class's, not copy()'s (#38)
         commitOrDefer(method, if (isGenerated(function, false)) null else function.psi) { method.builder().commit() }
         defaultsMethodOf.remove(method)?.let { defaults ->
@@ -2123,12 +2128,15 @@ class KotlinScan(
             parameter(parameterInfo, if (forwarder) null else p.psi as? KtParameter, elementType)
             if (!forwarder) annotate(parameterInfo.builder(), p, owner)
         }
+        // a suspend function's continuation comes last, and it returns Object (KotlinTypeMapper.continuationParameter)
+        val jvmReturnType = if (function.isSuspend) with(typeMapper) { continuationParameter(builder, returnType) } ?: returnType
+                            else returnType
         // a `by`-delegation forwarder is kotlinc's, and carries none of the interface method's annotations
         if (!forwarder) annotate(builder, function, owner)
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = if (forwarder) null else function.psi as? KtNamedFunction
         builder
-            .setReturnType(returnType)
+            .setReturnType(jvmReturnType)
             // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
             .setSource(declarationSource(psi) {
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
@@ -2162,9 +2170,12 @@ class KotlinScan(
         contextParameters(builder, function, owner, method, synthetic = true)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
+        // kotlinc's `f$default(…, $completion, $mask0, …)`: the continuation stays the target's last parameter
+        val continuation = if (function.isSuspend) with(typeMapper) { continuationType(mapType(function.returnType, owner, method)) } else null
+        continuation?.let { syntheticParameter(builder, "\$completion", it) }
         masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
         builder.commitParameters()
-            .setReturnType(mapType(function.returnType, owner, method))
+            .setReturnType(if (continuation != null) runtime.objectParameterizedType() else mapType(function.returnType, owner, method))
             .setSource(runtime.noSource())
         visibilityMethodModifier(function)?.let { builder.addMethodModifier(it) }
         builder.addMethodModifier(when {
@@ -2254,7 +2265,9 @@ class KotlinScan(
     private fun KaSession.defaultsBody(defaults: MethodInfo, target: MethodInfo, parameters: List<KtParameter?>): Block {
         val passed = defaults.parameters().subList(0, target.parameters().size)
         val masks = defaults.parameters().subList(passed.size, passed.size + masks(parameters.size).size)
-        val offset = passed.size - parameters.size // an extension's receiver comes first
+        // an extension's receiver (and context parameters) come first; a suspend target's continuation comes last
+        val trailing = if (target.parameters().lastOrNull()?.name() == "\$completion") 1 else 0
+        val offset = passed.size - trailing - parameters.size
         val withDefault = parameters.withIndex().filter { it.value?.defaultValue != null }
         val count = withDefault.size + 1
         val body = runtime.newBlockBuilder()
