@@ -1847,6 +1847,16 @@ class KotlinScan(
                 .setVariable(runtime.newFieldReference(valueField, delegate, type))
                 .setSource(runtime.noSource()).build()
         }
+        // ⛔ the CLASS-FILE `kotlin.Lazy` has neither: it is an interface whose `val value` is the abstract getter
+        // `getValue()`, which is what kotlinc calls. Which model a run holds depends on who loaded `Lazy` first, so
+        // on detekt ten `by lazy` reads fell through both branches above
+        (delegateType?.let { typeMapper.withMembers(it) } ?: delegateType)?.methods()
+            ?.firstOrNull { it.name() == "getValue" && it.parameters().isEmpty() }?.let { getValue ->
+                return runtime.newMethodCallBuilder()
+                    .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(getValue)
+                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
+                    .setSource(runtime.noSource()).build()
+            }
         return runtime.newEmptyExpression("k2-delegate-read:${field.name()}")
     }
 

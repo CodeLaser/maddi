@@ -1579,6 +1579,19 @@ detekt **74 → 67** (7 gone, none new) in 40 types / 50 members; **no verdict m
 Still open from this family: `visitFile` on an IMPLICIT `this` typed by a two-bound type parameter (the implicit
 receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `extendsFrom`).
 
+### 7.53 `by lazy`, read against the class-file `Lazy` — detekt 67 → 57, coil 113 → 106
+
+The third time today that one library type has two models (§7.47, §7.48). A delegated property's getter reads its
+delegate. A hand-written delegate declares the `getValue(thisRef, property)` operator, and `kotlin.Lazy` declares
+`val value`. The K2-built `Lazy` carries that as a field, and the read was `this.x$delegate.value`. The CLASS-FILE
+`Lazy` is an interface whose `val value` is the abstract getter `getValue()`, which is what kotlinc calls. It has
+neither the operator nor the field, so every read against it fell through to `k2-delegate-read`. Which model a
+run holds depends on which side loaded `Lazy` first: on detekt it was the class file for ten properties, `by lazy`
+and `by lazy(NONE)` alike. The read now calls `getValue()` when that is what the type has.
+
+All ten detekt sites gone, none new, **no verdict moved**. detekt **67 → 57** in 35 types / 40 members, coil
+**113 → 106** in 40 / 69. `TestKotlinLazyVsJavaLazy` still agrees.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1607,7 +1620,7 @@ receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) and narrowed receivers (§7.52) have taken detekt 4,701 → 67 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.52; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) and `by lazy` against the class-file `Lazy` (§7.53) have taken detekt 4,701 → 57 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.53; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
