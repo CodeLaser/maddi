@@ -47,6 +47,7 @@ import io.codelaser.maddi.inspection.resource.InfoByFqn
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
+import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
@@ -94,6 +95,7 @@ import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
+import org.jetbrains.kotlin.psi.KtDeclarationWithBody
 import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
@@ -121,6 +123,7 @@ import org.jetbrains.kotlin.psi.KtParenthesizedExpression
 import org.jetbrains.kotlin.psi.KtPostfixExpression
 import org.jetbrains.kotlin.psi.KtPrefixExpression
 import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPropertyAccessor
 import org.jetbrains.kotlin.psi.KtReturnExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateEntryWithExpression
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -210,6 +213,9 @@ internal class KotlinBodyConverter(
     /** Temporaries introduced to evaluate an elvis's left operand exactly once. */
     var elvisTemporaries: Int = 0
 
+    /** Numbers the temporaries that hold a destructured value (`$destructured0`, …), per converter like the above. */
+    var destructuringTemporaries: Int = 0
+
     /**
      * PSI already bound to a temporary for this statement, so [convertExpression] returns a read instead of
      * converting -- and so EVALUATING -- it again. Cleared per statement by [hoistNullSafeSpine].
@@ -243,13 +249,25 @@ internal class KotlinBodyConverter(
         val psi = function.psi as? KtNamedFunction ?: return runtime.newBlockBuilder().build()
         // start from the enclosing method's captured variables (for a local class's methods); references
         // resolve against this, so an enclosing parameter/local read inside a local type binds to it.
-        val locals = outerLocals.toMutableMap()
-        if (psi.hasBlockBody()) {
-            return statementsToBlock(psi.bodyBlockExpression?.statements.orEmpty(), method, locals, "")
-        }
+        return convertBodyOf(psi.bodyBlockExpression.takeIf { psi.hasBlockBody() }, psi.bodyExpression,
+            returnType != runtime.voidParameterizedType(), method, outerLocals.toMutableMap())
+    }
+
+    /**
+     * A property accessor's body, `get() { … }` / `get() = …` / `set(v) { … }`, converted as a function body is:
+     * the block-level lowerings (control-flow elvis, hoisted null-safe spines, a value `if`/`try`) apply. Converting
+     * it statement by statement skipped them, so `val l = left ?: return this` in a getter was a placeholder.
+     */
+    internal fun KaSession.convertAccessorBody(accessor: KtPropertyAccessor, returning: Boolean, method: MethodInfo,
+                                               locals: MutableMap<String, Variable>): Block =
+        convertBodyOf(accessor.bodyBlockExpression, accessor.bodyExpression.takeIf { accessor.bodyBlockExpression == null },
+            returning, method, locals)
+
+    private fun KaSession.convertBodyOf(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
+                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block {
+        if (blockBody != null) return statementsToBlock(blockBody.statements, method, locals, "")
         val block = runtime.newBlockBuilder()
-        psi.bodyExpression?.let { body ->
-            val returning = returnType != runtime.voidParameterizedType()
+        expressionBody?.let { body ->
             // `fun f(): T = try { … } catch { … }` is the commonest try-as-a-value shape there is — three of
             // detekt's four. The expression body IS the returned value, so the whole statement context the
             // lowering needs is right here: no temporary, the branches just return.
@@ -285,11 +303,15 @@ internal class KotlinBodyConverter(
 
     /** Build a block whose statements are indexed `<blockIndex>.<j>` (or just `<j>` at the method root). */
     private fun KaSession.statementsToBlock(statements: List<KtExpression>, method: MethodInfo,
-                                            locals: MutableMap<String, Variable>, blockIndex: String): Block {
+                                            locals: MutableMap<String, Variable>, blockIndex: String,
+                                            prologue: List<Statement> = listOf()): Block {
         val block = runtime.newBlockBuilder()
         if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        val total = prologue.size + statements.size
+        fun childIndexOf(k: Int) = if (blockIndex.isEmpty()) pad(k, total) else "$blockIndex.${pad(k, total)}"
+        prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, childIndexOf(k))) }
         statements.forEachIndexed { j, s ->
-            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            val childIndex = childIndexOf(j + prologue.size)
             // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
             // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
             // (prepwork compares them as strings), and renumbering would shift every statement after them.
@@ -488,6 +510,7 @@ internal class KotlinBodyConverter(
                                             index: String): List<Statement>? {
         val s = unannotated(annotated)
         return controlFlowElvisLowering(s, method, locals, index)
+            ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index)
     }
@@ -498,6 +521,25 @@ internal class KotlinBodyConverter(
      */
     private fun unannotated(expression: KtExpression): KtExpression =
         generateSequence(expression) { (it as? KtAnnotatedExpression)?.baseExpression }.last()
+
+    /**
+     * `val (a, b) = f()`: kotlinc evaluates the initializer ONCE, into a temporary, and reads each component from it.
+     * Converting it once per entry evaluated it once per entry (and shared one node between two parents, which #32
+     * forbids): `val (l, r) = when { … }` printed the whole `when` twice. A stable reference needs no temporary.
+     */
+    private fun KaSession.destructuringLowering(statement: KtExpression, method: MethodInfo,
+                                                locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        if (statement !is KtDestructuringDeclaration) return null
+        val initializer = statement.initializer ?: return null
+        if (isStableReference(initializer)) return null
+        val type = initializer.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = "\$destructured${destructuringTemporaries++}"
+        val temporary = runtime.newLocalVariable(name, type, convertExpression(initializer, method, locals))
+        locals[name] = temporary
+        val read = { runtime.newVariableExpressionBuilder().setVariable(temporary).setSource(runtime.noSource()).build() as Expression }
+        return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"),
+            indexed(destructuringStatement(statement, read, method, locals), "$index.1"))
+    }
 
     /** `if (c) { … } else { … }` in the position of a VALUE: each branch returns or assigns its tail. */
     private fun KaSession.convertValueIf(statement: KtIfExpression, method: MethodInfo,
@@ -550,6 +592,9 @@ internal class KotlinBodyConverter(
             isControlFlowElvis(statement) -> statement as KtBinaryExpression
             statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer) ->
                 statement.initializer as KtBinaryExpression
+            // `val (a, b) = f() ?: return`
+            statement is KtDestructuringDeclaration && isControlFlowElvis(statement.initializer) ->
+                statement.initializer as KtBinaryExpression
             statement is KtReturnExpression && isControlFlowElvis(statement.returnedExpression) ->
                 statement.returnedExpression as KtBinaryExpression
             // `x = f() ?: return false`
@@ -596,11 +641,12 @@ internal class KotlinBodyConverter(
             .build()
         statements.add(guard)
         if (isWholeStatement) return statements
-        val value = leftValue()
         val raw = when (statement) {
-            is KtProperty -> localVariableCreation(statement, method, locals, value)
-            is KtReturnExpression -> runtime.newReturnStatement(value)
-            is KtBinaryExpression -> assignmentStatement(statement, value, method, locals)
+            // each entry reads the (guarded) value: a fresh read of the temporary, or of the stable reference
+            is KtDestructuringDeclaration -> destructuringStatement(statement, leftValue, method, locals)
+            is KtProperty -> localVariableCreation(statement, method, locals, leftValue())
+            is KtReturnExpression -> runtime.newReturnStatement(leftValue())
+            is KtBinaryExpression -> assignmentStatement(statement, leftValue(), method, locals)
             else -> return null
         }
         val whole = source(statement, if (needsTemporary) "$index.2" else "$index.1")
@@ -624,6 +670,18 @@ internal class KotlinBodyConverter(
     private fun KaSession.statementAsValueLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
                                                    index: String): List<Statement>? {
+        // `return if (c) { …; a } else { …; b }` / `return try { … }`: each branch returns its tail, as an
+        // expression-bodied function's does. Only a plain `return` of a FUNCTION: in a lambda it is non-local.
+        if (statement is KtReturnExpression && statement.getTargetLabel() == null
+            && PsiTreeUtil.getParentOfType(statement, KtDeclarationWithBody::class.java) !is KtFunctionLiteral) {
+            return when (val returned = statement.returnedExpression) {
+                is KtIfExpression if returned.hasAMultiStatementBranch() ->
+                    listOf(convertValueIf(returned, method, locals, index, returning = true, assignTo = null))
+                is KtTryExpression ->
+                    listOf(convertTry(returned, method, locals, index, returning = true).withSource(source(returned, index)))
+                else -> null
+            }
+        }
         if (statement !is KtProperty || !statement.isLocal) return null
         val initializer = statement.initializer
         val needsLowering = initializer is KtTryExpression
@@ -709,6 +767,10 @@ internal class KotlinBodyConverter(
      */
     private val MAPPED_PROPERTIES = mapOf("keys" to "keySet", "entries" to "entrySet")
 
+    /** The Kotlin classes that ARE JVM arrays (`Array<T>` is `T[]`, `IntArray` is `int[]`, …); not the unsigned ones. */
+    private val JVM_ARRAY_CLASSES = setOf("Array", "IntArray", "LongArray", "ShortArray", "ByteArray", "CharArray",
+        "FloatArray", "DoubleArray", "BooleanArray")
+
     private fun isPlaceholder(e: Expression): Boolean =
         e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true && e.source() == null
 
@@ -728,9 +790,11 @@ internal class KotlinBodyConverter(
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
                                               locals: MutableMap<String, Variable>): Statement {
         val left = statement.left
-        return if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
+        // a JVM array element is a variable: `a[i] = v` and `a[i] += v` are assignments to it, as in Java
+        val arrayElement = left is KtArrayAccessExpression && isJvmArrayAccess(left)
+        return if (!arrayElement && left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
             runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
-        } else if (left is KtArrayAccessExpression) {
+        } else if (!arrayElement && left is KtArrayAccessExpression) {
             // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
             val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
             runtime.newExpressionAsStatement(
@@ -788,16 +852,29 @@ internal class KotlinBodyConverter(
         statement is KtForExpression -> {
             // for (x in iterable) { … } -> ForEachStatement; x is a local in scope for the body
             val parameter = statement.loopParameter
-            val name = parameter?.name ?: "_"
+            // `for ((k, v) in map)`: ONE loop variable on the JVM, whose entries the body opens by reading, as a
+            // destructured lambda parameter does
+            val destructuring = parameter?.destructuringDeclaration
+            val name = if (destructuring != null) "\$dstr" else parameter?.name ?: "_"
             val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
                 ?: runtime.objectParameterizedType()
             val loopVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
             parameter?.let { localDeclared(it, loopVariable) }
+            val prologue: (MutableMap<String, Variable>) -> List<Statement> = { scope ->
+                destructuring?.let { d ->
+                    destructure(d.entries, { variableExpression(loopVariable) }, d, method, scope)
+                        .takeIf { it.isNotEmpty() }?.let { vs ->
+                            val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(vs.first())
+                            vs.drop(1).forEach { builder.addOtherLocalVariable(it) }
+                            listOf(builder.setSource(runtime.noSource()).build())
+                        }
+                }.orEmpty()
+            }
             runtime.newForEachBuilder()
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
                 .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) }
                     ?: placeholder("k2-absent-loop-range", statement))
-                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0"))
+                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0", prologue))
                 .also { b -> label?.let { b.setLabel(it) } }
                 .setSource(runtime.noSource()).build()
         }
@@ -846,9 +923,16 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.convertDestructuring(statement: KtDestructuringDeclaration, method: MethodInfo,
                                                locals: MutableMap<String, Variable>): Statement {
-        val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
-            ?: placeholder("k2-absent-destructuring-value", statement)
-        val variables = destructure(statement.entries, { initializer }, statement, method, locals)
+        // a STABLE reference (see destructuringLowering for the rest): each entry re-reads it, a fresh node per read
+        val initializer = statement.initializer
+            ?: return runtime.newExpressionAsStatement(placeholder("k2-absent-destructuring-value", statement))
+        return destructuringStatement(statement, { convertExpression(initializer, method, locals) }, method, locals)
+    }
+
+    /** The locals of `val (a, b) = …` as one creation, each entry reading its component from [source]. */
+    private fun KaSession.destructuringStatement(statement: KtDestructuringDeclaration, source: () -> Expression,
+                                                 method: MethodInfo, locals: MutableMap<String, Variable>): Statement {
+        val variables = destructure(statement.entries, source, statement, method, locals)
         if (variables.isEmpty()) return runtime.newExpressionAsStatement(placeholder("k2-destructuring", statement))
         val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
         variables.drop(1).forEach { builder.addOtherLocalVariable(it) }
@@ -1247,13 +1331,17 @@ internal class KotlinBodyConverter(
         convertBlock(init.body, method, emptyMap(), index)
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
+    /** [prologue] builds statements that open the block (a destructured loop variable's entries), in its scope. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
-                                       locals: Map<String, Variable>, blockIndex: String): Block {
+                                       locals: Map<String, Variable>, blockIndex: String,
+                                       prologue: (MutableMap<String, Variable>) -> List<Statement> = { listOf() }): Block {
         val childLocals = locals.toMutableMap() // a nested block has its own scope
+        val opening = prologue(childLocals)
         return when (body) {
-            null -> runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex)).build()
-            is KtBlockExpression -> statementsToBlock(body.statements, method, childLocals, blockIndex)
-            else -> statementsToBlock(listOf(body), method, childLocals, blockIndex)
+            null -> if (opening.isEmpty()) runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex)).build()
+                    else statementsToBlock(listOf(), method, childLocals, blockIndex, opening)
+            is KtBlockExpression -> statementsToBlock(body.statements, method, childLocals, blockIndex, opening)
+            else -> statementsToBlock(listOf(body), method, childLocals, blockIndex, opening)
         }
     }
 
@@ -1386,6 +1474,9 @@ internal class KotlinBodyConverter(
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
+            // `a.size` on a JVM array is Java's `a.length`
+            is KtNameReferenceExpression if selector.getReferencedName() == "size" && receiver.parameterizedType().arrays() > 0 ->
+                runtime.newArrayLengthBuilder().setExpression(receiver).setSource(runtime.noSource()).build()
             is KtNameReferenceExpression -> {
                 val name = selector.getReferencedName()
                 val field = receiverType?.let { members(it) }?.fields()?.firstOrNull { it.name() == name }
@@ -1528,6 +1619,19 @@ internal class KotlinBodyConverter(
                                                  defaults: MethodInfo?): Expression {
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: return placeholder("k2-ctor-type", call)
+        // `IntArray(n)` / `ByteArray(n)` / `Array<T?>(n)`: a JVM array, `new int[n]`, as the Java front end builds it.
+        // With an init lambda (`IntArray(n) { i -> … }`) kotlinc inlines a filling loop no Java expression spells:
+        // that stays a placeholder, named for what it is.
+        if (type.arrays() > 0) {
+            if (arguments.size != 1) return placeholder("k2-array-constructor-with-init", call)
+            return runtime.newConstructorCallBuilder()
+                .setSource(runtime.noSource())
+                .setConstructor(runtime.newArrayCreationConstructor(type))
+                .setConcreteReturnType(type)
+                .setDiamond(runtime.diamondNo())
+                .setParameterExpressions(arguments)
+                .build()
+        }
         val constructor = defaults
             ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             ?: return placeholder("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}", call)
@@ -1562,18 +1666,56 @@ internal class KotlinBodyConverter(
             runtime.logicalNotOperatorBool(), instanceOf, runtime.precedenceUnary()) else instanceOf
     }
 
-    /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type). */
+    /**
+     * `a[i]` / `a[i] = v` through an EXTENSION `get`/`set` operator (detekt's `operator fun ByteArray.set(c: Char,
+     * v: Byte)`, the stdlib's `MutableMap.set`): the facade static with the receiver first, as any extension call.
+     */
+    private fun KaSession.indexOperatorExtension(expression: KtArrayAccessExpression, receiver: Expression,
+                                                 arguments: List<Expression>, method: MethodInfo): Expression? {
+        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol
+            ?: return null
+        if (symbol.receiverParameter == null) return null
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val facadeArgs = listOf(receiver) + arguments
+        val callee = resolveCallee(facade, symbol.name.asString(), facadeArgs) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(facadeArgs)
+            .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
+            .build()
+    }
+
+    /**
+     * Is `a[i]` the BUILT-IN `get`/`set` of a Kotlin array class? On the JVM that is an array load/store, not a call:
+     * `IntArray` is `int[]` and `Array<T>` is `T[]`. A user's operator extension on an array type
+     * (`operator fun ByteArray.set(c: Char, v: Byte)`) is a call and stays one.
+     */
+    private fun KaSession.isJvmArrayAccess(expression: KtArrayAccessExpression): Boolean {
+        if (expression.indexExpressions.size != 1) return false
+        val owner = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol?.callableId?.classId ?: return false
+        return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
+    }
+
+    /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type); an array element for an array. */
     private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
         val array = expression.arrayExpression?.let { convertExpression(it, method, locals) }
             ?: return placeholder("k2-index", expression)
         val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
+        // `a[i]` on a JVM array: the element, a DependentVariable, exactly as the Java parser builds `a[i]`
+        if (isJvmArrayAccess(expression)) {
+            return runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newDependentVariable(array, indices.single()))
+                .setSource(source(expression, "-")).build()
+        }
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         // Kotlin's indexed get is the `get` operator on most types (List/array/Map/custom), but on a String it
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
-        val get = arrayType?.let { resolveCallee(it, "get", indices) ?: resolveCallee(it, "charAt", indices) }
-            ?: return placeholder("k2-index-get-unresolved", expression)
+        val get = arrayType?.let { resolveCallee(it, "get", indices) } // String: charAt, in resolveCallee
+            ?: return indexOperatorExtension(expression, array, indices, method)
+                ?: placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
         // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
@@ -1593,7 +1735,8 @@ internal class KotlinBodyConverter(
         // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
         // that delegates to `put`, so fall back to put (same key,value arguments)
         val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
-            ?: return placeholder("k2-indexed-set-unresolved", arrayAccess)
+            ?: return indexOperatorExtension(arrayAccess, array, arguments, method)
+                ?: placeholder("k2-indexed-set-unresolved", arrayAccess)
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
             .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())
             .setSource(source(arrayAccess, "-").withDetailedSources(marker(DetailedSources.INDEX_ACCESS, arrayAccess.leftBracket)))
@@ -1687,6 +1830,9 @@ internal class KotlinBodyConverter(
             val lowered = if (isResult) null else loweredStatements(stmt, method, bodyScope, index)
             when {
                 lowered != null -> lowered.forEach { block.addStatement(it) }
+                // a lambda whose value is an `if` with a multi-statement branch: each branch returns the lambda's value
+                isResult && stmt is KtIfExpression && stmt.hasAMultiStatementBranch() ->
+                    block.addStatement(convertValueIf(stmt, method, bodyScope, index, returning = true, assignTo = null))
                 isResult -> {
                     val (hoisted, tailIndex) = hoistBefore(stmt, method, bodyScope, index)
                     hoisted.forEach { block.addStatement(it) }
@@ -1903,8 +2049,14 @@ internal class KotlinBodyConverter(
                                        arguments: List<Expression>, method: MethodInfo): Expression? {
         val id = calleeSymbol?.callableId ?: return null
         if (id.packageName.asString() != "kotlin" || id.className != null) return null
-        if (id.callableName.asString() !in ARRAY_LITERALS || call.valueArguments.any { it.getSpreadElement() != null }) return null
         val arrayType = call.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 } ?: return null
+        // `arrayOfNulls<T>(n)` is `new T[n]`
+        if (id.callableName.asString() == "arrayOfNulls" && arguments.size == 1) {
+            return runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+                .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                .setDiamond(runtime.diamondNo()).setParameterExpressions(arguments).build()
+        }
+        if (id.callableName.asString() !in ARRAY_LITERALS || call.valueArguments.any { it.getSpreadElement() != null }) return null
         val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource())
             .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1)).setExpressions(arguments).build()
         return runtime.newConstructorCallBuilder()
@@ -1954,7 +2106,12 @@ internal class KotlinBodyConverter(
     private fun resolveCallee(type: TypeInfo, name: String, arguments: List<Expression>,
                              returnTypeFqn: String? = null): MethodInfo? {
         val all = mutableListOf<MethodInfo>()
-        collectMethods(type, name, arguments.size, mutableSetOf(), all)
+        // Kotlin's `String.get(i)` (and `s[i]`) is `charAt(i)` on the JVM, so that is tried FIRST. ⚠ Not only as a
+        // fallback: depending on where java.lang.String was built it may carry kotlin.String's `get(int)`, which the
+        // class file does not have (a String built from K2 has `get` and no `charAt`, whence the second lookup).
+        val jvmName = if (name == "get" && arguments.size == 1 && type == runtime.stringTypeInfo()) "charAt" else name
+        collectMethods(type, jvmName, arguments.size, mutableSetOf(), all)
+        if (all.isEmpty() && jvmName != name) collectMethods(type, name, arguments.size, mutableSetOf(), all)
         if (all.size <= 1) return all.firstOrNull()
         // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
         // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
@@ -2807,11 +2964,17 @@ internal class KotlinBodyConverter(
         }
         // range `a..b` -> a constructor call of the range type (`1..10` -> IntRange(1, 10)); the range type
         // comes from the use-site expressionType and its 2-arg constructor (Int/Long/Char ranges)
-        if (expression.operationToken == KtTokens.RANGE) {
+        // `a..<b` -> `IntRange(a, b - 1)` (Int/Long), the Java a human writes for the half-open range
+        val rangeUntil = expression.operationToken == KtTokens.RANGE_UNTIL && left.isNumeric && right.isNumeric
+            && right.parameterizedType().let { it.isInt || it.isLong || it.typeInfo()?.isInteger == true || it.typeInfo()?.isBoxedLong == true }
+        if (expression.operationToken == KtTokens.RANGE || rangeUntil) {
             val rangeType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+            val upper = if (!rangeUntil) right else runtime.newBinaryOperatorBuilder().setLhs(right)
+                .setRhs(runtime.newInt(1)).setOperator(runtime.minusOperatorInt()).setPrecedence(runtime.precedenceAdditive())
+                .setParameterizedType(right.parameterizedType()).setSource(runtime.noSource()).build()
             rangeType?.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { it.parameters().size == 2 }?.let { ctor ->
                 return runtime.newConstructorCallBuilder().setConstructor(ctor).setConcreteReturnType(rangeType)
-                    .setParameterExpressions(listOf(left, right)).setDiamond(runtime.diamondNo())
+                    .setParameterExpressions(listOf(left, upper)).setDiamond(runtime.diamondNo())
                     .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
             }
         }
@@ -2859,6 +3022,16 @@ internal class KotlinBodyConverter(
                 }
             }
             if (equality != null) return if (negate) logicalNot(equality) else equality
+        }
+        // `==` between two non-numeric primitives (booleans): Java's primitive `==`, which its parser builds with the
+        // object-equality operator since the operands are not numeric -- there is no `equals` to call on a boolean
+        val primitives = left.parameterizedType().isPrimitiveExcludingVoid && right.parameterizedType().isPrimitiveExcludingVoid
+        if (!numeric && primitives && (expression.operationToken == KtTokens.EQEQ || expression.operationToken == KtTokens.EXCLEQ)) {
+            val operator = if (expression.operationToken == KtTokens.EQEQ) runtime.equalsOperatorObject()
+            else runtime.notEqualsOperatorObject()
+            return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right).setOperator(operator)
+                .setPrecedence(runtime.precedenceEquality()).setParameterizedType(runtime.booleanParameterizedType())
+                .setSource(runtime.noSource()).build()
         }
         val opAndPrecedence = when (expression.operationToken) {
             KtTokens.PLUS -> when {

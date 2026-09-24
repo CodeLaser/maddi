@@ -1337,6 +1337,86 @@ Three causes covered 64 detekt sites:
 
 detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **no verdict moved**. coil **159 → 154**.
 
+### 7.43 Arrays are arrays — detekt 213 → 193, coil 154 → 143
+
+A Kotlin array's `get`/`set` was converted as a CALL looked up by name. That produced a placeholder for every array
+store and every primitive-array load, and a bogus `String.get(int)` for an `Array<String>` load (found on the
+element type). On the JVM `IntArray` is `int[]` and `Array<T>` is `T[]`, and indexing is a load/store instruction.
+When K2 resolves `a[i]` to the built-in operator of a Kotlin array class, it is now the element as a
+`DependentVariable`, exactly as the Java parser builds `a[i]`. `a[i] = v` and `a[i] += v` fall into the ordinary
+assignment path (Java's compound assignment). A user's EXTENSION index operator (detekt's
+`operator fun ByteArray.set(c: Char, v: Byte)`) stays a call, to its facade with the receiver first.
+
+`String.get(i)` is `charAt(i)` on the JVM, and resolving it exposed a model quirk. A `java.lang.String` built from K2's
+`kotlin.String` (the unit-test fixture) has `get` and no `charAt`; the JDK's has `charAt` only. `resolveCallee` tries
+`charAt` first and falls back to `get`.
+
+Tests: `ArrayAccessTest` (k2), with 3 of 4 cases failing when reverted (the fourth, `List.set`, is the control);
+`TestPrimitiveMembers` gains `s.get(0)`, `s[0]` and an `IntArray` load/store/`+=`, printing `s.charAt(0)` and
+`a[0]=1; a[1]+=2;` against the JDK's String; `TestLoweredShapesVsJava` gains `arrayStore`, `arrayElementModified`
+and `arrayRead`, all three agreeing with `Box[]` in Java. detekt **213 → 193**, coil **154 → 143**, no new site on
+either, **no verdict moved**.
+
+### 7.44 Four operator shapes, one of them not an operator — detekt 193 → 166, coil 143 → 141
+
+The operator placeholders had four causes, one of which was not an operator at all:
+
+- **For-loop destructuring was not implemented.** `for ((clazz, lines) in cache)` declared a loop variable `_` and
+  never the entries, so `lines > allowedLines` compared an unresolved name (and 10 `k2-unresolved-ref` sites were the
+  entries themselves). The loop variable is now `$dstr`, and the body opens by declaring the entries from it, through
+  the same `destructure` a lambda parameter uses (`getKey()`/`getValue()` for a `Map.Entry`, `componentN()`
+  otherwise). `convertBlock`/`statementsToBlock` take a prologue that shifts the body's indices.
+- **`a.size` on an array** is Java's `a.length`: an `ArrayLength` node.
+- **`==` between booleans** (`it.isPublic == publicModifier`, `a == b == c`) took the numeric path or an `equals`
+  call, and a `boolean` has neither. It is the primitive `==`, built as the Java parser builds it.
+- **`a..<b`** is `IntRange(a, b - 1)` for Int/Long, beside `a..b` → `IntRange(a, b)`.
+
+`OperatorLoweringTest` (k2) fails with 5 placeholders when reverted; `TestDestructuring` (run-kotlin, JDK types)
+gains a `Map.Entry` loop and a data-class loop, and fails when reverted. detekt **193 → 166**, coil **143 → 141**,
+no new site. **One verdict moved, 667 → 666**: `UtilityClassConstructor` `@Immutable(hc=true)` → `@FinalFields`.
+FPDUMP shows why: its `secondaryConstructors.any { it.isPublic == publicModifier && … }` was a placeholder. Read now,
+it passes `it` to unannotated library members (the `psiUtil.isPublic` extension, `valueParameters`), which marks
+`it` modified, and with it the field `klass` the constructors come from. A reveal. The same code in Java, against
+the same unannotated library, gets the same verdict.
+
+### 7.45 Blocks as values: a getter's whole body, `return if`, a lambda's `if` — detekt 166 → 154, coil 141 → 139
+
+`k2-block-not-a-single-expression` had two causes:
+
+- **A computed property's block-bodied getter**, `val x: T get() { … }`, lost its entire body. `bodyExpression`
+  returns the block for `get() { … }` too, and `buildComputedGetter` took it as one expression, so each such getter
+  was a single placeholder (coil's `Uri.pathSegments`, `filePath`, `BitmapImage.size`; detekt's
+  `leftMostElementOfLeftSubtree`). The written-accessor path had the guard. Both accessor paths now convert through
+  `convertAccessorBody`, the same routine as a function body, instead of a statement-by-statement loop that skipped
+  the block-level lowerings: `val l = left ?: return this` in a getter was the other placeholder. Reading those
+  bodies exposes two coil sites inside `BitmapImage.getSize()`.
+- **An `if` with a multi-statement branch used as a value** was lowered for `val x = if …` and `fun f() = if …`
+  only. `return if …` (and `return try …`) in a function or accessor now becomes an `if` whose branches return
+  their tails; inside a lambda a bare `return` is non-local and is left alone. The same applies to a lambda's result
+  (`joinToString { if (…) { …; a } else b }`).
+
+`BlockGetterTest` and `ValueIfTest` (k2) fail when reverted. detekt **166 → 154**, coil **141 → 139**, no new site
+on detekt, **no verdict moved**. Left of the kind: a field initializer holding a local function (1), and
+multi-statement `when` branches.
+
+### 7.46 A destructured value is evaluated once — detekt 154 → 140, coil 139 → 136
+
+- ⛔ **A correctness defect, not only a hole.** `val (l, r) = <value>` converted the value once and let every entry
+  read that same node: the CST held one node under two parents (#32 forbids it), and printed `val (l, r) = when {…}`
+  with the whole `when` twice. It said the value was evaluated twice. kotlinc evaluates it once, into a temporary.
+  A value that is not a stable reference is now bound to `$destructuredN` first; a stable one (a name, `this`, a
+  dotted chain) is re-read per entry, a fresh node each time, as the elvis lowering already did.
+- `val (a, b) = f() ?: return 0` had no control-flow elvis lowering: the components were placeholders. It is
+  lowered like `val x = f() ?: return 0`, the entries reading the guarded temporary.
+- `IntArray(n)`, `ByteArray(n)`, `LongArray(n)`, `BooleanArray(n)` and `arrayOfNulls<T>(n)` are `new T[n]`, built
+  as the Java parser builds it. With an init lambda (`IntArray(n) { … }`, 3 on detekt) kotlinc inlines a filling
+  loop no Java expression spells; that keeps a placeholder, now named `k2-array-constructor-with-init`.
+
+`DestructuringValueTest` (k2) fails 2/2 when reverted. detekt **154 → 140**, coil **139 → 136**, **no verdict
+moved**. New on detekt: the 3 renamed init-lambda sites, and one reveal in `MissingUseCall`: there
+`if (A) {…} else if (B) {…} else { null } ?: return false` binds the elvis to the inner `if`, inside the outer else
+branch, so the `return` is in a value branch. It was hidden behind the component placeholders before.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1365,7 +1445,7 @@ detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **n
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42 have taken detekt 4,701 → 213 and coil 367 → 283 on that dump (coil is 154 once its class path is complete, §7.39, §7.42; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) and single-evaluation destructuring (§7.46) have taken detekt 4,701 → 140 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

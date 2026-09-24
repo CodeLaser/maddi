@@ -150,6 +150,9 @@ public class TestLoweredShapesVsJava {
                 // a context parameter is the LEADING JVM parameter, and a caller in the same context passes its own on
                 context(c: Box) fun ctxModifies(b: Box, t: String): Int { c.add(t); return b.size() }
                 context(c: Box) fun ctxCaller(b: Box, t: String): Int = ctxModifies(b, t)
+                fun arrayStore(a: Array<Box>, b: Box) { a[0] = b }
+                fun arrayElementModified(a: Array<Box>, t: String) { a[0].add(t) }
+                fun arrayRead(a: Array<Box>): Int = a[0].size()
                 fun expressionBodiedTry(b: Box, t: String): Int =
                     try { b.size() } catch (e: RuntimeException) { b.add(t); -1 }
             }
@@ -235,6 +238,9 @@ public class TestLoweredShapesVsJava {
                 public int ternaryArm(Box b, Box c, String t) { return b == null ? c.addAndSize(t) : b.size(); }
                 public int ctxModifies(Box c, Box b, String t) { c.add(t); return b.size(); }
                 public int ctxCaller(Box c, Box b, String t) { return ctxModifies(c, b, t); }
+                public void arrayStore(Box[] a, Box b) { a[0] = b; }
+                public void arrayElementModified(Box[] a, String t) { a[0].add(t); }
+                public int arrayRead(Box[] a) { return a[0].size(); }
                 public int expressionBodiedTry(Box b, String t) {
                     try { return b.size(); } catch (RuntimeException e) { b.add(t); return -1; }
                 }
@@ -299,7 +305,8 @@ public class TestLoweredShapesVsJava {
             List.of("tryAsValue", "ifAsValue", "elvisGuard", "safeChain", "readOnlyChain",
                     "whenAsValue", "elvisThrow", "expressionBodiedTry",
                     "argOffSpine", "elvisRightModifies", "armModifies", "ternaryArm", "dupOffSpine",
-                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary", "ctxModifies", "ctxCaller");
+                    "refBound", "refUnbound", "propBound", "propUnbound", "propLibrary", "ctxModifies", "ctxCaller",
+                    "arrayStore", "arrayElementModified", "arrayRead");
 
     @Test
     public void everyLoweredShapeAgreesWithTheJavaItClaimsToProduce(@TempDir Path tmp) throws Exception {

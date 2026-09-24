@@ -153,8 +153,9 @@ public class TestCoilJvmSlice {
                 "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
 
         // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Measured 2026-09-24 on the
-        // pinned coil slice WITH ALL SIX CLASS-PATH JARS PRESENT: 154 placeholders in 46 of 186 types, 102 of 1,457
-        // members (captured types, `map.keys`/`entries`, enum `entries`; 159 / 48 / 107 before them). ⛔ Every number below was taken with four of the six jars (okio-jvm, kotlinx-coroutines-core-jvm,
+        // pinned coil slice WITH ALL SIX CLASS-PATH JARS PRESENT: 136 placeholders in 46 of 186 types, 91 of 1,457
+        // members (`new T[n]` array constructors). Before: 139 / 46 / 94 (block-bodied computed getters); 141 / 46 / 96 (for-loop destructuring); 143 / 46 / 97 (array loads and stores, `String.get`); 154 / 46 / 102 (captured types, `map.keys`/`entries`,
+        // enum `entries`); 159 / 48 / 107. ⛔ Every number below was taken with four of the six jars (okio-jvm, kotlinx-coroutines-core-jvm,
         // atomicfu-jvm, skiko-awt) evicted from the shared Gradle cache, so every okio call and every scope function
         // on an okio receiver was a placeholder; the same code counted 283, then 208 when an unrelated build
         // re-downloaded okio, then 159. They measured the cache, and are not comparable with 159.
@@ -163,7 +164,7 @@ public class TestCoilJvmSlice {
         // properties); 323 / 66 / 169 (nested and smart-cast
         // implicit receivers); 327 / 67 / 172 (member extensions); 335 / 67 / 177 (implicit-receiver members); 362 / 69 / 192 (class-file shells, extension references); 367 / 69 / 195 at 29e951ea1; 371 / 71 / 197 at fbe6b138a. ⚠ coil is the SECOND corpus for a reason — it and detekt
         // have no overlap in what they call, so a change that helps one and hurts the other shows up here.
-        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 154);
+        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 136);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }
 }
