@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.net.URI
 
@@ -666,4 +667,55 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals(c, (ret as ConstructorCall).anonymousClass() ?: ret.constructor().typeInfo())
     }
 
+
+    @Test
+    fun anInnerClassCreationKeepsItsOuterInstance() {
+        // `o.Made()` is Java's `o.new Made()`: the outer instance is the call's object, as the Java front end records
+        // it. A qualifier on a nested (not inner) class is no instance, and an implicit `Made()` has no object either.
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "O.kt", """
+            package p
+            class Outer {
+                inner class Made
+                class Nested
+                fun here(): Made = Made()
+            }
+            class User {
+                fun make(o: Outer): Outer.Made = o.Made()
+                fun nested(): Outer.Nested = p.Outer.Nested()
+            }
+            """.trimIndent() + "\n"
+        )
+        fun creation(owner: String, method: String) = (types.first { it.simpleName() == owner }
+            .findUniqueMethod(method, if (method == "make") 1 else 0).methodBody().statements().first() as ReturnStatement)
+            .expression() as ConstructorCall
+        val made = creation("User", "make")
+        assertEquals("o", (made.`object`() as VariableExpression).variable().simpleName())
+        assertNull(creation("User", "nested").`object`())
+        assertNull(creation("Outer", "here").`object`())
+    }
+
+    @Test
+    fun aNestedObjectIsNotAnInnerClass() {
+        // a nested `object`, `data object` or companion is a static nested class on the JVM; only `inner` captures
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "R.kt", """
+            package p
+            sealed interface Result {
+                data object Ok : Result
+                data class Fail(val m: String) : Result
+            }
+            class Holder {
+                object Single
+                companion object {}
+                inner class Captures
+                class Nested
+            }
+            """.trimIndent() + "\n"
+        )
+        val inner = types.flatMap { it.recursiveSubTypeStream().toList() }.filter { it.isInnerClass }
+            .map { it.simpleName() }.distinct()
+        assertEquals(listOf("Captures"), inner, types.flatMap { it.recursiveSubTypeStream().toList() }
+            .joinToString { "${it.fullyQualifiedName()} ${it.typeNature()} static=${it.isStatic} enc=${it.compilationUnitOrEnclosingType().isRight}" })
+    }
 }

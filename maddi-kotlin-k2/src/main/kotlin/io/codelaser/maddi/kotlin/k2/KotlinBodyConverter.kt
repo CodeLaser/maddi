@@ -1616,10 +1616,11 @@ internal class KotlinBodyConverter(
 
     /**
      * `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count, or
-     * [defaults], the `$default` synthetic constructor, when the call omits an argument.
+     * [defaults], the `$default` synthetic constructor, when the call omits an argument. [outer] is the explicit
+     * outer instance of an `inner` class's creation, `outer.Inner()`.
      */
     private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo,
-                                                 defaults: MethodInfo?): Expression {
+                                                 defaults: MethodInfo?, outer: Expression? = null): Expression {
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: return placeholder("k2-ctor-type", call)
         // `IntArray(n)` / `ByteArray(n)` / `Array<T?>(n)`: a JVM array, `new int[n]`, as the Java front end builds it.
@@ -1639,6 +1640,7 @@ internal class KotlinBodyConverter(
             ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             ?: return placeholder("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}", call)
         return runtime.newConstructorCallBuilder()
+            .setObject(outer)
             .setConstructor(constructor)
             .setConcreteReturnType(type)
             .setParameterExpressions(arguments)
@@ -2583,7 +2585,14 @@ internal class KotlinBodyConverter(
             }
         }
         // a constructor call `Foo(args)` -> ConstructorCall (the call resolves to a constructor, not a method)
-        if (resolved is KaConstructorSymbol) return convertConstructorCall(call, arguments, method, defaults)
+        // `outer.Inner()` on an `inner` class: the receiver is the outer instance, Java's `outer.new Inner()`, so it is
+        // the call's object. On anything else a receiver is a qualifier (`a.b.Outer.Nested()`), never an instance.
+        if (resolved is KaConstructorSymbol) {
+            val outer = receiver?.first?.takeIf {
+                (resolved.containingDeclaration as? KaNamedClassSymbol)?.isInner == true && it !is TypeExpression
+            }
+            return convertConstructorCall(call, arguments, method, defaults, outer)
+        }
 
         // an extension call `recv.ext(args)` routes to the facade's static `ext(recv, args)` (receiver as arg 0).
         // The receiver need not be written: `run { … }` inside a member is `this.run { … }`.
