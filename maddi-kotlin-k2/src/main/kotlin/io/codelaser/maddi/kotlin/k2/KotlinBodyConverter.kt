@@ -281,11 +281,15 @@ internal class KotlinBodyConverter(
 
     /** Build a block whose statements are indexed `<blockIndex>.<j>` (or just `<j>` at the method root). */
     private fun KaSession.statementsToBlock(statements: List<KtExpression>, method: MethodInfo,
-                                            locals: MutableMap<String, Variable>, blockIndex: String): Block {
+                                            locals: MutableMap<String, Variable>, blockIndex: String,
+                                            prologue: List<Statement> = listOf()): Block {
         val block = runtime.newBlockBuilder()
         if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        val total = prologue.size + statements.size
+        fun childIndexOf(k: Int) = if (blockIndex.isEmpty()) pad(k, total) else "$blockIndex.${pad(k, total)}"
+        prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, childIndexOf(k))) }
         statements.forEachIndexed { j, s ->
-            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            val childIndex = childIndexOf(j + prologue.size)
             // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
             // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
             // (prepwork compares them as strings), and renumbering would shift every statement after them.
@@ -789,15 +793,28 @@ internal class KotlinBodyConverter(
         statement is KtForExpression -> {
             // for (x in iterable) { … } -> ForEachStatement; x is a local in scope for the body
             val parameter = statement.loopParameter
-            val name = parameter?.name ?: "_"
+            // `for ((k, v) in map)`: ONE loop variable on the JVM, whose entries the body opens by reading, as a
+            // destructured lambda parameter does
+            val destructuring = parameter?.destructuringDeclaration
+            val name = if (destructuring != null) "\$dstr" else parameter?.name ?: "_"
             val type = (parameter?.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
                 ?: runtime.objectParameterizedType()
             val loopVariable = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+            val prologue: (MutableMap<String, Variable>) -> List<Statement> = { scope ->
+                destructuring?.let { d ->
+                    destructure(d.entries, { variableExpression(loopVariable) }, d, method, scope)
+                        .takeIf { it.isNotEmpty() }?.let { vs ->
+                            val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(vs.first())
+                            vs.drop(1).forEach { builder.addOtherLocalVariable(it) }
+                            listOf(builder.setSource(runtime.noSource()).build())
+                        }
+                }.orEmpty()
+            }
             runtime.newForEachBuilder()
                 .setInitializer(runtime.newLocalVariableCreation(loopVariable))
                 .setExpression(statement.loopRange?.let { convertExpression(it, method, locals) }
                     ?: placeholder("k2-absent-loop-range", statement))
-                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0"))
+                .setBlock(convertBlock(statement.body, method, locals + (name to loopVariable), "$index.0", prologue))
                 .also { b -> label?.let { b.setLabel(it) } }
                 .setSource(runtime.noSource()).build()
         }
@@ -1245,13 +1262,17 @@ internal class KotlinBodyConverter(
         convertBlock(init.body, method, emptyMap(), index)
 
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
+    /** [prologue] builds statements that open the block (a destructured loop variable's entries), in its scope. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
-                                       locals: Map<String, Variable>, blockIndex: String): Block {
+                                       locals: Map<String, Variable>, blockIndex: String,
+                                       prologue: (MutableMap<String, Variable>) -> List<Statement> = { listOf() }): Block {
         val childLocals = locals.toMutableMap() // a nested block has its own scope
+        val opening = prologue(childLocals)
         return when (body) {
-            null -> runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex)).build()
-            is KtBlockExpression -> statementsToBlock(body.statements, method, childLocals, blockIndex)
-            else -> statementsToBlock(listOf(body), method, childLocals, blockIndex)
+            null -> if (opening.isEmpty()) runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex)).build()
+                    else statementsToBlock(listOf(), method, childLocals, blockIndex, opening)
+            is KtBlockExpression -> statementsToBlock(body.statements, method, childLocals, blockIndex, opening)
+            else -> statementsToBlock(listOf(body), method, childLocals, blockIndex, opening)
         }
     }
 
@@ -1384,6 +1405,9 @@ internal class KotlinBodyConverter(
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
+            // `a.size` on a JVM array is Java's `a.length`
+            is KtNameReferenceExpression if selector.getReferencedName() == "size" && receiver.parameterizedType().arrays() > 0 ->
+                runtime.newArrayLengthBuilder().setExpression(receiver).setSource(runtime.noSource()).build()
             is KtNameReferenceExpression -> {
                 val name = selector.getReferencedName()
                 val field = receiverType?.let { members(it) }?.fields()?.firstOrNull { it.name() == name }
@@ -2849,11 +2873,17 @@ internal class KotlinBodyConverter(
         }
         // range `a..b` -> a constructor call of the range type (`1..10` -> IntRange(1, 10)); the range type
         // comes from the use-site expressionType and its 2-arg constructor (Int/Long/Char ranges)
-        if (expression.operationToken == KtTokens.RANGE) {
+        // `a..<b` -> `IntRange(a, b - 1)` (Int/Long), the Java a human writes for the half-open range
+        val rangeUntil = expression.operationToken == KtTokens.RANGE_UNTIL && left.isNumeric && right.isNumeric
+            && right.parameterizedType().let { it.isInt || it.isLong || it.typeInfo()?.isInteger == true || it.typeInfo()?.isBoxedLong == true }
+        if (expression.operationToken == KtTokens.RANGE || rangeUntil) {
             val rangeType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+            val upper = if (!rangeUntil) right else runtime.newBinaryOperatorBuilder().setLhs(right)
+                .setRhs(runtime.newInt(1)).setOperator(runtime.minusOperatorInt()).setPrecedence(runtime.precedenceAdditive())
+                .setParameterizedType(right.parameterizedType()).setSource(runtime.noSource()).build()
             rangeType?.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { it.parameters().size == 2 }?.let { ctor ->
                 return runtime.newConstructorCallBuilder().setConstructor(ctor).setConcreteReturnType(rangeType)
-                    .setParameterExpressions(listOf(left, right)).setDiamond(runtime.diamondNo())
+                    .setParameterExpressions(listOf(left, upper)).setDiamond(runtime.diamondNo())
                     .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
             }
         }
@@ -2901,6 +2931,16 @@ internal class KotlinBodyConverter(
                 }
             }
             if (equality != null) return if (negate) logicalNot(equality) else equality
+        }
+        // `==` between two non-numeric primitives (booleans): Java's primitive `==`, which its parser builds with the
+        // object-equality operator since the operands are not numeric -- there is no `equals` to call on a boolean
+        val primitives = left.parameterizedType().isPrimitiveExcludingVoid && right.parameterizedType().isPrimitiveExcludingVoid
+        if (!numeric && primitives && (expression.operationToken == KtTokens.EQEQ || expression.operationToken == KtTokens.EXCLEQ)) {
+            val operator = if (expression.operationToken == KtTokens.EQEQ) runtime.equalsOperatorObject()
+            else runtime.notEqualsOperatorObject()
+            return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right).setOperator(operator)
+                .setPrecedence(runtime.precedenceEquality()).setParameterizedType(runtime.booleanParameterizedType())
+                .setSource(runtime.noSource()).build()
         }
         val opAndPrecedence = when (expression.operationToken) {
             KtTokens.PLUS -> when {

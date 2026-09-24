@@ -154,9 +154,10 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-24 (array loads and stores, extension index operators, `String.get`), on the pinned detekt
-        // checkout, in a --rerun slowTest whose roll-call was read: 193 placeholders in 94 of 1,384 types and 122 of
-        // 7,756 members; 667 immutable types, 0 isolated by prep. Previous: 213 / 95 / 124 (captured types,
+        // Measured 2026-09-24 (for-loop destructuring, array `size`, boolean `==`, `..<`), on the pinned detekt
+        // checkout, in a --rerun slowTest whose roll-call was read: 166 placeholders in 84 of 1,384 types and 112 of
+        // 7,756 members; 666 immutable types, 0 isolated by prep. Previous: 193 / 94 / 122 (array loads and stores,
+        // extension index operators, `String.get`); 213 / 95 / 124 (captured types,
         // `map.keys`/`entries`, enum `entries`); 277 / 134 / 176 (local functions); 323 / 143 / 190 (`?: continue/break/return@label` and `x = y ?: return`; `throw` as a
         // lambda's result; annotated expressions); 358 / 160 / 218 (class literals, Java library statics); 444 / 176 / 258 (companion `invoke`,
         // `arrayOf`); 467 / 197 / 280 (destructured
@@ -167,7 +168,7 @@ public class TestDetektCorpus {
         // default constructors, implicit extension properties); 1,045 / 359 / 566 (context parameters); 1,083 / 360 / 586 (nested and
         // smart-cast receivers); 1,351 / 371 / 621 (member extensions); 2,256 / 434 / 864 and 667 (implicit-receiver members); 3,434 / 579 / 1,609 and 668 (class-file shells, extension
         // references); 4,701 (property references); 4,704 at 29e951ea1; 4,744 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 193);
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 166);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         // Re-baselined deliberately, twice, each time because more code was READ, never because a lowering was
         // found wrong (gap doc §7.26, §7.27): 668 -> 667 (three transitive moves), 667 -> 665 (OutputReport and
@@ -177,6 +178,8 @@ public class TestDetektCorpus {
         // 666 -> 667 (local functions, §7.38): chains that ran through an unread local function were UNDETERMINED
         // and now resolve. Analyzer and FunCoroutineLaunchesTraverseHelper down (both reveals), AnalysisFacade,
         // Detekt and PathFilters up (PathFilters through the Iterable.any contract).
-        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 667);
+        // 667 -> 666 (§7.44): UtilityClassConstructor, a reveal -- its `it.isPublic == publicModifier` was a
+        // placeholder, and reading it passes the field's constructors to unannotated library members.
+        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 666);
     }
 }

@@ -54,6 +54,8 @@ public class TestDestructuring {
                     fun useEntry(e: Map.Entry<String, Int>): String = entry(e) { (k, v) -> k + v }
                     fun decl(e: Map.Entry<String, Int>): String { val (k, v) = e; return k + v }
                     fun list(l: List<String>): String { val (x, y) = l; return x + y }
+                    fun loop(m: Map<String, Int>): Int { var n = 0; for ((k, v) in m) n += v + k.length; return n }
+                    fun loopData(ps: List<P>): Int { var n = 0; for ((a, _) in ps) { n += a }; return n }
                 }
                 """);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -68,7 +70,7 @@ public class TestDestructuring {
         PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
         TypeInfo k = parsed.getKotlinTypes().stream().filter(t -> t.simpleName().equals("K")).findFirst().orElseThrow();
         StringBuilder actual = new StringBuilder();
-        for (String name : List.of("useLam", "useUnder", "useEntry", "decl", "list")) {
+        for (String name : List.of("useLam", "useUnder", "useEntry", "decl", "list", "loop", "loopData")) {
             actual.append(name).append(": ").append(k.findUniqueMethod(name, 1).methodBody().statements()).append('\n');
         }
         assertEquals(0, census.getTotal(), String.join("\n", census.dumpLines()));
@@ -79,6 +81,8 @@ public class TestDestructuring {
                 useEntry: [return entry(e,$dstr0->{String k=$dstr0.getKey(),v=$dstr0.getValue();return k+v;});]
                 decl: [String k=e.getKey(),v=e.getValue();, return k+v;]
                 list: [String x=l.get(0),y=l.get(1);, return x+y;]
+                loop: [int n=0;, for(Entry<String,Integer> $dstr:m){String k=$dstr.getKey(),v=$dstr.getValue();n+=v+k.length();}, return n;]
+                loopData: [int n=0;, for(P $dstr:ps){int a=$dstr.component1();n+=a;}, return n;]
                 """, actual.toString());
     }
 }

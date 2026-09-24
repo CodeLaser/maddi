@@ -1357,6 +1357,28 @@ Tests: `ArrayAccessTest` (k2), with 3 of 4 cases failing when reverted (the four
 and `arrayRead`, all three agreeing with `Box[]` in Java. detekt **213 → 193**, coil **154 → 143**, no new site on
 either, **no verdict moved**.
 
+### 7.44 Four operator shapes, one of them not an operator — detekt 193 → 166, coil 143 → 141
+
+The operator placeholders had four causes, one of which was not an operator at all:
+
+- **For-loop destructuring was not implemented.** `for ((clazz, lines) in cache)` declared a loop variable `_` and
+  never the entries, so `lines > allowedLines` compared an unresolved name (and 10 `k2-unresolved-ref` sites were the
+  entries themselves). The loop variable is now `$dstr`, and the body opens by declaring the entries from it, through
+  the same `destructure` a lambda parameter uses (`getKey()`/`getValue()` for a `Map.Entry`, `componentN()`
+  otherwise). `convertBlock`/`statementsToBlock` take a prologue that shifts the body's indices.
+- **`a.size` on an array** is Java's `a.length`: an `ArrayLength` node.
+- **`==` between booleans** (`it.isPublic == publicModifier`, `a == b == c`) took the numeric path or an `equals`
+  call, and a `boolean` has neither. It is the primitive `==`, built as the Java parser builds it.
+- **`a..<b`** is `IntRange(a, b - 1)` for Int/Long, beside `a..b` → `IntRange(a, b)`.
+
+`OperatorLoweringTest` (k2) fails with 5 placeholders when reverted; `TestDestructuring` (run-kotlin, JDK types)
+gains a `Map.Entry` loop and a data-class loop, and fails when reverted. detekt **193 → 166**, coil **143 → 141**,
+no new site. **One verdict moved, 667 → 666**: `UtilityClassConstructor` `@Immutable(hc=true)` → `@FinalFields`.
+FPDUMP shows why: its `secondaryConstructors.any { it.isPublic == publicModifier && … }` was a placeholder. Read now,
+it passes `it` to unannotated library members (the `psiUtil.isPublic` extension, `valueParameters`), which marks
+`it` modified, and with it the field `klass` the constructors come from. A reveal. The same code in Java, against
+the same unannotated library, gets the same verdict.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1385,7 +1407,7 @@ either, **no verdict moved**.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42 and arrays (§7.43) have taken detekt 4,701 → 193 and coil 367 → 283 on that dump (coil is 143 once its class path is complete, §7.39, §7.42, §7.43; its
+   unresolved-access causes of §7.42, arrays (§7.43) and the operator shapes of §7.44 have taken detekt 4,701 → 166 and coil 367 → 283 on that dump (coil is 141 once its class path is complete, §7.39, §7.42–§7.44; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
