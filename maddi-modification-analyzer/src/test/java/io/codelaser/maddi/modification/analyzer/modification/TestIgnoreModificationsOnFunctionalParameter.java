@@ -58,28 +58,30 @@ public class TestIgnoreModificationsOnFunctionalParameter extends CommonTest {
 
             public class X {
 
-                // CONTROL: no disclaimer, so handing the field to the function taints it
-                static class Plain<T> {
-                    private final T t;
+                // CONTROL: no disclaimer, so handing the field to the function taints it. The field is of a CONCRETE
+                // type: a field of an unbound type parameter is hidden content and is not tainted either way
+                // (TestHiddenContentToModifiedArgument), which would make this control prove nothing.
+                static class Plain {
+                    private final StringBuilder t;
 
-                    Plain(T t) {
+                    Plain(StringBuilder t) {
                         this.t = t;
                     }
 
-                    <U> U apply(Function<T, U> f) {
+                    <U> U apply(Function<StringBuilder, U> f) {
                         return f.apply(t);
                     }
                 }
 
                 // the author declares that whatever f does is not this carrier's modification
-                static class Disclaimed<T> {
-                    private final T t;
+                static class Disclaimed {
+                    private final StringBuilder t;
 
-                    Disclaimed(T t) {
+                    Disclaimed(StringBuilder t) {
                         this.t = t;
                     }
 
-                    <U> U apply(@IgnoreModifications Function<T, U> f) {
+                    <U> U apply(@IgnoreModifications Function<StringBuilder, U> f) {
                         return f.apply(t);
                     }
                 }

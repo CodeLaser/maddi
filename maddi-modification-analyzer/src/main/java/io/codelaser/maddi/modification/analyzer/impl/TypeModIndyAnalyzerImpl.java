@@ -151,7 +151,11 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         if (imm.isImmutable()) {
             unmodifiedInMethod = TRUE;
         } else {
-            unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
+            // a parameter handed to one of our functional parameters is recorded, not marked (PassedFunction): it is
+            // still modified -- for SOME function -- only its callers may know better
+            boolean throughPassedFunction = !pi.analysis().getOrDefault(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION,
+                    ValueImpl.SetOfStringsImpl.EMPTY_SET).set().isEmpty();
+            unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi) && !throughPassedFunction);
             Links links = mlv.ofParameters().get(pi.index());
             if (!links.isEmpty() && unmodifiedInMethod.isTrue()) {
                 for (Link link : links) {

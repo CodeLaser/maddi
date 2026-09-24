@@ -411,6 +411,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         // own-field slots assigned by callees invoked on 'this' or an own-field chain, rehomed to this
         // method's receiver; see ExpressionVisitor.methodCall and MethodLinkedVariables.assigned
         final Set<Variable> assignedInCallees = new HashSet<>();
+        // own parameters handed to own functional parameters (MethodModification, PassedFunction)
+        final Map<ParameterInfo, Set<String>> modifiedThroughPassedFunction = new HashMap<>();
         final Stack<Links.Builder> yieldStack = new Stack<>();
         final LinkGraph linkGraph;
         final WriteLinksAndModification writeLinksAndModification;
@@ -560,9 +562,36 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
+            writeModifiedThroughPassedFunction(allModified);
 
             countSourceMethods.incrementAndGet();
             return mlv;
+        }
+
+        void recordModifiedThroughPassedFunction(ParameterInfo parameterInfo, String entry) {
+            modifiedThroughPassedFunction.computeIfAbsent(parameterInfo, _ -> new HashSet<>()).add(entry);
+        }
+
+        /*
+        Recomputed with every link computation of the method, so last-write-wins (the LINKED_VARIABLES_ARGUMENTS
+        discipline). A parameter that is ALSO modified some other way gets the empty set: its callers mark their
+        argument whatever function they pass.
+         */
+        private void writeModifiedThroughPassedFunction(Set<Variable> allModified) {
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                Set<String> through = modifiedThroughPassedFunction.get(pi);
+                Value.SetOfStrings value = through == null || allModified.contains(pi)
+                        ? ValueImpl.SetOfStringsImpl.EMPTY_SET
+                        : new ValueImpl.SetOfStringsImpl(Set.copyOf(through));
+                var analysis = pi.analysis();
+                synchronized (analysis) {
+                    if (analysis.haveAnalyzedValueFor(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION)) {
+                        analysis.overwrite(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION, value);
+                    } else if (!value.isDefault()) {
+                        analysis.set(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION, value);
+                    }
+                }
+            }
         }
 
         private void copyDowncastIntoParameters(VariableData vd) {
@@ -604,6 +633,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 } else if (v instanceof ParameterInfo pi && pi.methodInfo().equals(methodInfo)) {
                     paramsModified[pi.index()] = true;
                 }
+            }
+            // handed to one of our own functional parameters: recorded, not marked (PassedFunction) -- but for SOME
+            // function it is modified, so the parameter's own verdict says so
+            for (ParameterInfo pi : modifiedThroughPassedFunction.keySet()) {
+                paramsModified[pi.index()] = true;
             }
             Value.Bool nonModifying = ValueImpl.BoolImpl.from(!methodModified);
             if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), PropertyImpl.NON_MODIFYING_METHOD, nonModifying, methodInfo)) {

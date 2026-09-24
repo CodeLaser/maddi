@@ -34,8 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ⭐ A generic carrier is {@code @ImmutableHC} even when its final field is recorded as MODIFIED. That is the
- * point of hidden content: an unbound type parameter's object is not this type's to keep still, so
+ * ⭐ A generic carrier is {@code @ImmutableHC} even when its final field is recorded as MODIFIED (it no longer is,
+ * since 2026-09-24: handing hidden content to a function does not modify it -- see the end of {@code run}). That is
+ * the point of hidden content: an unbound type parameter's object is not this type's to keep still, so
  * {@code UNMODIFIED_FIELD} on such a field does not cap the type, and neither does a method that is modifying
  * only because it hands the field to somebody else.
  * <p>
@@ -191,12 +192,15 @@ public class TestGenericCarrierImmutability extends CommonTest {
             assertTrue(immutable.isAtLeastImmutableHC(), name + " must reach @ImmutableHC; have " + immutable);
         }
 
-        // and the load-bearing half: Carrier gets there DESPITE a modified field and a modifying method, so the
-        // assertion above is about hidden content and not about the carrier being trivially clean. PlainCarrier
-        // is the control that shows the difference is real.
+        // and the load-bearing half. Until 2026-09-24 Carrier got there DESPITE a modified field and a modifying
+        // method: f.apply(t) recorded t modified. Since then the field is not modified at all -- t is hidden content
+        // of Carrier, which cannot modify it, so handing it to f's @Modified parameter is not Carrier's modification
+        // (road to immutability 080; TestHiddenContentToModifiedArgument). PlainCarrier stays the control.
         TypeInfo carrier = typeInfo.findSubType("Carrier");
-        assertEquals(ValueImpl.BoolImpl.FALSE, carrier.fields().getFirst().analysis()
-                .getOrNull(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.class), "Carrier.t must be MODIFIED");
+        assertEquals(ValueImpl.BoolImpl.TRUE, carrier.fields().getFirst().analysis()
+                .getOrNull(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.class),
+                "Carrier.t is hidden content: handing it to f does not modify it");
+        assertTrue(carrier.findUniqueMethod("apply", 1).isNonModifying(), "Carrier.apply hands over hidden content");
         assertEquals(ValueImpl.BoolImpl.TRUE, typeInfo.findSubType("PlainCarrier").fields().getFirst().analysis()
                 .getOrNull(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.class),
                 "the control's field must be UNMODIFIED, or the contrast proves nothing");

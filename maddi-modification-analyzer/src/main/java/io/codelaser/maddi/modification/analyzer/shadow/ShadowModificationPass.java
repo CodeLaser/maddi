@@ -7,6 +7,7 @@ import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
 import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
 import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
 import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.link.impl.PassedFunction;
 import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl;
@@ -347,7 +348,7 @@ public class ShadowModificationPass {
             Links links = mlv.ofParameters().get(pi.index());
             for (Link link : links) {
                 FieldReference fr = relevantLinkForModification(link);
-                if (fr != null && !fr.isIgnoreModifications()) addEdge(fr.fieldInfo(), pi);
+                if (fr != null && !fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) addEdge(fr.fieldInfo(), pi);
             }
         }
         // E1/E2: call sites
@@ -423,8 +424,14 @@ public class ShadowModificationPass {
             Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
                     EMPTY_PART_OF_CONSTRUCTION);
             if (poc.infoSet().contains(mi)) continue;
-            seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
+            if (isFieldNode(fieldInfo)) seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
         }
+    }
+
+    /** engine mirror (FieldAnalyzerImpl.computeUnmodified): a hidden-content field is never modified, so it is no
+     *  node -- a node would carry one instance's modification to every value ever stored in the field */
+    private static boolean isFieldNode(FieldInfo fieldInfo) {
+        return !Util.isHiddenContentFieldDeclaration(fieldInfo);
     }
 
     private void seedWithOrigin(Object node, MethodInfo mi, String why) {
@@ -504,7 +511,7 @@ public class ShadowModificationPass {
     private void seedFieldReference(MethodInfo mi, FieldReference fr) {
         // mirror MethodModification's Util.variableAndScopes(...).filter(!isIgnoreModifications):
         // modification through a disclaimed face never implicates the field node itself
-        if (!fr.isIgnoreModifications()) seeds.add(fr.fieldInfo());
+        if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) seeds.add(fr.fieldInfo());
         if (fr.scopeIsRecursivelyThis()) seeds.add(mi);
         // E5: modification of a component this.m.i implicates the containing field this.m
         if (fr.scopeVariable() instanceof FieldReference outer) seedFieldReference(mi, outer);
@@ -672,6 +679,7 @@ public class ShadowModificationPass {
                 // nodes directly (the seeded callee-parameter node has no E1 edges here)
                 for (ParameterInfo cpi : callee.parameters()) {
                     if (!cpi.isModified() || cpi.isIgnoreModifications()) continue;
+                    if (PassedFunction.unmodifiedAtCallSite(cpi, argumentExpressions)) continue;
                     if (cpi.isVarArgs()) {
                         for (int i = cpi.index(); i < argumentExpressions.size(); i++) {
                             for (Object node : projectReceiverChain(mi, vd, argumentExpressions.get(i))) {
@@ -679,7 +687,9 @@ public class ShadowModificationPass {
                             }
                         }
                     } else if (cpi.index() < argumentExpressions.size()) {
-                        for (Object node : projectReceiverChain(mi, vd, argumentExpressions.get(cpi.index()))) {
+                        io.codelaser.maddi.cst.api.expression.Expression arg = argumentExpressions.get(cpi.index());
+                        if (arg instanceof VariableExpression ve && Util.isHiddenContentField(ve.variable())) continue;
+                        for (Object node : projectReceiverChain(mi, vd, arg)) {
                             addEdge(cpi, node);
                         }
                     }
@@ -691,6 +701,11 @@ public class ShadowModificationPass {
             if (pi.index() >= list.list().size()) break; // varargs tail
             Links links = list.list().get(pi.index());
             Set<Object> targets = new LinkedHashSet<>();
+            // engine mirror (MethodModification.handleModifiedParameter): a hidden-content field handed to a
+            // @Modified parameter is not modified by it, nor is its holder
+            if (Util.isHiddenContentField(links.primary())) continue;
+            // engine mirror: the callee modifies this parameter only through a function, and ours leaves it alone
+            if (PassedFunction.unmodifiedAtCallSite(pi, argumentExpressions)) continue;
             if (links.primary() != null) {
                 // the argument OBJECT and its whole-object aliases; links on component faces
                 // (oc.field <- ...) must not widen "argument modified" to "field modified"
@@ -765,7 +780,7 @@ public class ShadowModificationPass {
                             }
                         }
                         case FieldReference fr -> {
-                            if (!fr.isIgnoreModifications()) out.add(fr.fieldInfo());
+                            if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) out.add(fr.fieldInfo());
                             if (fr.scopeIsRecursivelyThis()) {
                                 out.addAll(projectReceiverChain(mi, vd, mc.object()));
                             }
@@ -840,7 +855,7 @@ public class ShadowModificationPass {
                 case FieldReference fr -> {
                     // engine mirror: a disclaimed (@IgnoreModifications) face never implicates its
                     // field node; the scope chain still projects (Util.variableAndScopes filter)
-                    if (!fr.isIgnoreModifications()) out.add(fr.fieldInfo());
+                    if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) out.add(fr.fieldInfo());
                     if (fr.scopeIsRecursivelyThis()) out.add(mi);
                     push(todo, fr.scopeVariable());
                 }

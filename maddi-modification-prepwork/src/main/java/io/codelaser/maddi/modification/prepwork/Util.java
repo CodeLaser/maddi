@@ -342,6 +342,38 @@ public class Util {
         return fieldInfo.name().startsWith("§");
     }
 
+    /**
+     * A real field of THIS object (reached through {@code this}) whose type, as seen from here, is an unbound type
+     * parameter: the holder's own hidden content (road to immutability 045/080). The holder cannot modify such a
+     * value -- it can call only java.lang.Object's methods on it -- so handing it to a {@code @Modified} parameter is
+     * not a modification of the field or of its holder: {@code f.apply(this._1)} in vavr's {@code Tuple2.map}.
+     * <p>
+     * The CONCRETE type of the reference decides, not the field's declaration: {@code this.box.t} is hidden content
+     * when {@code box : Box<T1>}, accessible content when {@code box : Box<StringBuilder>}. And only fields of THIS:
+     * {@code src.t} of a parameter {@code Box<X> src} is the caller's object, and a type-parameter PARAMETER handed
+     * over stays modified, because that is still the one channel that carries a concrete function's modification
+     * back to the caller's argument ({@code TestHiddenContentToModifiedArgument}).
+     */
+    /**
+     * A real field DECLARED with an unbound type parameter ({@code public final T1 _1}): its object is hidden content
+     * of the owner (road to immutability 045), so the FIELD is never modified, whatever some code does to the object
+     * in one instance's field -- that is exactly what {@code @Immutable(hc=true)} states. The VARIABLE {@code t._1} in
+     * that code is still modified, and so is its scope {@code t}: that is the channel to the code's caller. What must
+     * not happen is the field NODE carrying it to every value ever stored in that field: vavr's
+     * {@code CheckedFunction2.tupled()}, {@code t -> apply(t._1, t._2)}, marked {@code Tuple2._2} modified, and the
+     * field-to-constructor-parameter rule took it through {@code Tuple.of} to {@code List.Cons.tail}.
+     */
+    public static boolean isHiddenContentFieldDeclaration(FieldInfo fieldInfo) {
+        return !virtual(fieldInfo) && fieldInfo.type().isUnboundTypeParameter();
+    }
+
+    public static boolean isHiddenContentField(Variable v) {
+        return v instanceof FieldReference fr
+               && !virtual(fr.fieldInfo())
+               && fr.scopeIsRecursivelyThis()
+               && fr.parameterizedType().isUnboundTypeParameter();
+    }
+
     public static boolean virtual(Variable v) {
         if (v instanceof FieldReference fr) {
             return virtual(fr.fieldInfo());
