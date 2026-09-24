@@ -163,4 +163,46 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
         assertEquals(0, scan.elvisReEvaluations)
         assertEquals(0, scan.elvisTemporaries)
     }
+
+    /** `?: continue` / `?: break` in a loop, and an ASSIGNMENT whose value is a control-flow elvis. */
+    @Test
+    fun continueBreakAndAssignment() {
+        val p = parse("""fun f(xs: List<String?>): Int {
+            var n = 0
+            var last: String = ""
+            for (x in xs) { val y = x ?: continue; n += y.hashCode() }
+            for (x in xs) { last = x ?: break }
+            return n + last.hashCode()
+        }""")
+        val census = PlaceholderCensus.of(listOf(p))
+        assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+        val printed = p.findUniqueMethod("f", 1).methodBody().toString()
+        assertTrue(printed.contains("continue;"), printed)
+        assertTrue(printed.contains("break;"), printed)
+    }
+
+    /** `?: return@label v` in a lambda returns from the lambda, as the lambda's own `return@label` does. */
+    @Test
+    fun aLabelledReturnInALambda() {
+        val p = parse("""fun f(xs: List<String?>, g: ((String?) -> Int) -> Int): Int = g { x ->
+            val y = x ?: return@g 0
+            y.hashCode()
+        }""")
+        val census = PlaceholderCensus.of(listOf(p))
+        assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+    }
+
+    /** A `throw` as a lambda's last expression is a statement, not a value to return; `@Suppress` is dropped. */
+    @Test
+    fun throwAsTheLambdaResultAndAnAnnotatedExpression() {
+        val p = parse("""fun f(e: Exception?, g: (Exception) -> Unit): Int {
+            e?.let { throw it }
+            @Suppress("UNCHECKED_CAST")
+            val n = (e as Any?) as Int?
+            @Suppress("MagicNumber")
+            return n ?: 3
+        }""")
+        val census = PlaceholderCensus.of(listOf(p))
+        assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+    }
 }

@@ -102,6 +102,7 @@ import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtAnnotatedExpression
 import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtDestructuringDeclarationEntry
 import org.jetbrains.kotlin.psi.KtFunctionLiteral
@@ -411,9 +412,10 @@ internal class KotlinBodyConverter(
      * One statement, preceded by whatever temporaries its null-safe spine needs ([hoistNullSafeSpine]).
      * Almost always a list of one: only a chain like `a?.b?.c` or `f() ?: d` produces anything to hoist.
      */
-    private fun KaSession.convertHoisting(s: KtExpression, method: MethodInfo,
+    private fun KaSession.convertHoisting(annotated: KtExpression, method: MethodInfo,
                                           locals: MutableMap<String, Variable>,
                                           index: String): List<Statement> {
+        val s = unannotated(annotated)
         val hoisted = hoistNullSafeSpine(s, method, locals, index)
         if (hoisted.isEmpty()) {
             hoistedReads.clear()
@@ -476,12 +478,21 @@ internal class KotlinBodyConverter(
      * `try`-as-a-value sites were outside {@code statementsToBlock} (three expression bodies, one inside a
      * lambda), so the first cut of this removed <b>none</b> of them.
      */
-    private fun KaSession.loweredStatements(s: KtExpression, method: MethodInfo,
+    private fun KaSession.loweredStatements(annotated: KtExpression, method: MethodInfo,
                                             locals: MutableMap<String, Variable>,
-                                            index: String): List<Statement>? =
-        controlFlowElvisLowering(s, method, locals, index)
+                                            index: String): List<Statement>? {
+        val s = unannotated(annotated)
+        return controlFlowElvisLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index)
+    }
+
+    /**
+     * `@Suppress("…") expr` -> `expr`: an annotation on an EXPRESSION is for the compiler and linters (detekt's 18 are
+     * all `@Suppress`); it has no run-time meaning, and Java cannot write one.
+     */
+    private fun unannotated(expression: KtExpression): KtExpression =
+        generateSequence(expression) { (it as? KtAnnotatedExpression)?.baseExpression }.last()
 
     /** `if (c) { … } else { … }` in the position of a VALUE: each branch returns or assigns its tail. */
     private fun KaSession.convertValueIf(statement: KtIfExpression, method: MethodInfo,
@@ -536,6 +547,9 @@ internal class KotlinBodyConverter(
                 statement.initializer as KtBinaryExpression
             statement is KtReturnExpression && isControlFlowElvis(statement.returnedExpression) ->
                 statement.returnedExpression as KtBinaryExpression
+            // `x = f() ?: return false`
+            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ && isControlFlowElvis(statement.right) ->
+                statement.right as KtBinaryExpression
             else -> return null
         }
         val left = elvis.left ?: return null
@@ -581,6 +595,7 @@ internal class KotlinBodyConverter(
         val raw = when (statement) {
             is KtProperty -> localVariableCreation(statement, method, locals, value)
             is KtReturnExpression -> runtime.newReturnStatement(value)
+            is KtBinaryExpression -> assignmentStatement(statement, value, method, locals)
             else -> return null
         }
         val whole = source(statement, if (needsTemporary) "$index.2" else "$index.1")
@@ -651,9 +666,10 @@ internal class KotlinBodyConverter(
 
     private fun isControlFlowElvis(expression: KtExpression?): Boolean {
         if (expression !is KtBinaryExpression || expression.operationToken != KtTokens.ELVIS) return false
-        return when (val right = expression.right) {
-            is KtThrowExpression -> true
-            is KtReturnExpression -> right.getTargetLabel() == null
+        // `?: return`, `?: return@label v` (from the lambda, as a lambda's return statement is), `?: throw`,
+        // `?: continue`, `?: break`: a jump Java writes as the body of an `if (x == null)`
+        return when (expression.right) {
+            is KtThrowExpression, is KtReturnExpression, is KtContinueExpression, is KtBreakExpression -> true
             else -> false
         }
     }
@@ -696,6 +712,35 @@ internal class KotlinBodyConverter(
     private fun marker(marker: Any, psi: PsiElement?): DetailedSources =
         runtime.newDetailedSourcesBuilder().also { if (psi != null) it.put(marker, source(psi, "-")) }.build()
 
+    /** `target = value` / `target op= value`, [value] already converted (the control-flow elvis lowering passes its own). */
+    private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
+                                              locals: MutableMap<String, Variable>): Statement {
+        val left = statement.left
+        return if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
+            runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
+        } else if (left is KtArrayAccessExpression) {
+            // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
+            val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
+            runtime.newExpressionAsStatement(
+                if (combined == null) placeholder("k2-augmented-index:${statement.operationToken}", statement)
+                else convertIndexedSet(left, combined, method, locals))
+        } else {
+            val leftExpression = left?.let { convertExpression(it, method, locals) }
+            val target = leftExpression as? VariableExpression
+            // a property with no backing field reads as a call of its getter: assigning to it is a call of its
+            // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
+            val setterCall = if (target != null || statement.operationToken != KtTokens.EQ) null
+            else (leftExpression as? MethodCall)?.let { setterCall(it, value) }
+            if (target == null) runtime.newExpressionAsStatement(
+                setterCall ?: placeholder("k2-assign-target", statement))
+            else {
+                val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
+                augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
+                runtime.newExpressionAsStatement(builder.build())
+            }
+        }
+    }
+
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
                                        locals: MutableMap<String, Variable>, index: String,
                                        label: String? = null): Statement = when {
@@ -705,34 +750,9 @@ internal class KotlinBodyConverter(
             statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
             method, locals, index, statement.getLabelName())
         statement is KtProperty && statement.isLocal -> localVariableCreation(statement, method, locals, null)
-        statement is KtBinaryExpression && isAssignment(statement.operationToken) -> {
-            val left = statement.left
-            val value = statement.right?.let { convertExpression(it, method, locals) }
-                ?: placeholder("k2-absent-assignment-value", statement)
-            if (left is KtArrayAccessExpression && statement.operationToken == KtTokens.EQ) {
-                runtime.newExpressionAsStatement(convertIndexedSet(left, value, method, locals)) // a[i] = v -> a.set(i, v)
-            } else if (left is KtArrayAccessExpression) {
-                // a[i] op= v -> a.set(i, a.get(i) op v)  (numeric/string; else placeholder)
-                val combined = augmentedCombine(convertArrayAccess(left, method, locals), value, statement.operationToken)
-                runtime.newExpressionAsStatement(
-                    if (combined == null) placeholder("k2-augmented-index:${statement.operationToken}", statement)
-                    else convertIndexedSet(left, combined, method, locals))
-            } else {
-                val leftExpression = left?.let { convertExpression(it, method, locals) }
-                val target = leftExpression as? VariableExpression
-                // a property with no backing field reads as a call of its getter: assigning to it is a call of its
-                // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
-                val setterCall = if (target != null || statement.operationToken != KtTokens.EQ) null
-                else (leftExpression as? MethodCall)?.let { setterCall(it, value) }
-                if (target == null) runtime.newExpressionAsStatement(
-                    setterCall ?: placeholder("k2-assign-target", statement))
-                else {
-                    val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
-                    augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
-                    runtime.newExpressionAsStatement(builder.build())
-                }
-            }
-        }
+        statement is KtBinaryExpression && isAssignment(statement.operationToken) -> assignmentStatement(statement,
+            statement.right?.let { convertExpression(it, method, locals) } ?: placeholder("k2-absent-assignment-value", statement),
+            method, locals)
         // `return try { … } catch { … }`: lower the try-as-value to a try statement whose branches `return`
         statement is KtReturnExpression && statement.returnedExpression is KtTryExpression ->
             convertTry(statement.returnedExpression as KtTryExpression, method, locals, index, returning = true)
@@ -1200,6 +1220,8 @@ internal class KotlinBodyConverter(
             // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
+            is KtAnnotatedExpression -> expression.baseExpression?.let { convertExpression(it, method, locals) }
+                ?: runtime.newEmptyExpression("k2-unsupported-expr:KtAnnotatedExpression")
             is KtClassLiteralExpression -> kotlinClassLiteral(expression, method)
                 ?: runtime.newEmptyExpression("k2-unsupported-expr:KtClassLiteralExpression")
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
@@ -2216,7 +2238,8 @@ internal class KotlinBodyConverter(
     /** Whether a lambda's last statement is a value-producing expression (so it becomes the return value). */
     private fun isLambdaResultExpression(statement: KtExpression): Boolean = when (statement) {
         is KtProperty, is KtReturnExpression, is KtForExpression, is KtWhileExpression, is KtDoWhileExpression,
-        is KtBreakExpression, is KtContinueExpression -> false
+        is KtBreakExpression, is KtContinueExpression, is KtThrowExpression -> false
+        is KtAnnotatedExpression -> statement.baseExpression?.let { isLambdaResultExpression(it) } ?: false
         is KtBinaryExpression -> !isAssignment(statement.operationToken)
         else -> true
     }

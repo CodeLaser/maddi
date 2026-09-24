@@ -1223,6 +1223,22 @@ keeps properties as fields (pre-existing), where Java would call `getSimpleName(
 
 detekt: class literals 89 → 3; `k2-unsupported-expr` 164 → 78; total **444 → 358** (types 176 → 160). coil 288 → 283.
 
+### 7.37 Jumps in expression position, and annotated expressions — detekt 358 → 323
+
+- **The control-flow elvis** (§7.10) accepted `?: return` and `?: throw` only, and only in a declaration or a
+  `return`. It now also takes `?: continue`, `?: break` and a labelled `?: return@label v` (from the lambda, as the
+  lambda's own `return@label` statement already converts), and an ASSIGNMENT, `x = f() ?: return false`. Same guard,
+  same single evaluation of the left operand.
+- **A `throw` as a lambda's last expression** (`e?.let { throw it }`) was wrapped as `return <throw>`; it is a
+  statement.
+- **`@Suppress("…") expr`** (18 on detekt, all `@Suppress`): an annotation on an expression has no run-time meaning
+  and no Java spelling. The base expression is converted, as a statement and as a value.
+
+`ControlFlowElvisTest` gains three cases, failing with five placeholders when reverted. detekt: `k2-unsupported-expr`
+78 → 40 (left: local functions 27, a `return`/`throw` in an argument or other hoist-less position 9, reified class
+literals 3); total **358 → 323** (types 160 → 143). 2 reveals (`Show`/`Hidden` under a formerly swallowed annotated
+`try` in `AnalysisFacade`), no new member, no verdict moved; coil unchanged at 283.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1250,7 +1266,8 @@ detekt: class literals 89 → 3; `k2-unsupported-expr` 164 → 78; total **444 �
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
-   `arrayOf` (§7.35) and class literals (§7.36) have taken detekt 4,701 → 358 and coil 367 → 283 on that dump.
+   `arrayOf` (§7.35), class literals (§7.36) and jumps in expression position (§7.37) have taken detekt
+   4,701 → 323 and coil 367 → 283 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under
