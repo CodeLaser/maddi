@@ -258,6 +258,12 @@ public class ScanCompilationUnits {
                         IdentityHashMap::new));
         topLevelClassSymbols.putAll(symbols);
         classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
+        // ⚠ An instrument reads this line: corpus/scripts/catalogue.py (`baseline`, its _COLLECTED regex) counts
+        // primary types per source set from it. 1a0c08017 dropped it, and every baseline check then saw 0 source
+        // sets and failed. THIS set's symbols, not the accumulated map.
+        if (detailedSources) {
+            LOGGER.info("Collected {} class symbols for source set {}", symbols.size(), sourceSet.name());
+        }
 
         // only index in the first pass; in the second pass, all predefined objects will be present
         List<TypeInfo> preloads;
