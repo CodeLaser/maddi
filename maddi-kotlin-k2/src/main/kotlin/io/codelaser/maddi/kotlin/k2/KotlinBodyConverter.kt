@@ -697,6 +697,13 @@ internal class KotlinBodyConverter(
      */
 
     /** One of this front end's placeholders (`k2-…`) without a range yet. */
+    /**
+     * Kotlin properties of the mapped collection types whose JVM getter follows no naming rule: kotlinc compiles
+     * `map.keys` to `Map.keySet()` and `map.entries` to `entrySet()` (`values` is `values()`, found by name). Tried
+     * last, so a type's own `keys`/`getKeys` still wins.
+     */
+    private val MAPPED_PROPERTIES = mapOf("keys" to "keySet", "entries" to "entrySet")
+
     private fun isPlaceholder(e: Expression): Boolean =
         e is EmptyExpression && e.msg()?.startsWith(K2_PLACEHOLDER_PREFIX) == true && e.source() == null
 
@@ -1284,6 +1291,7 @@ internal class KotlinBodyConverter(
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
+                ?: staticPropertyAccess(expression)
                 ?: placeholder("k2-unresolved-ref:${expression.getReferencedName()}", expression)
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
@@ -1363,6 +1371,8 @@ internal class KotlinBodyConverter(
         // arguments -- including a lambda declaring an `object :` the rename censuses then never saw.
         (expression.selectorExpression as? KtCallExpression)
             ?.let { staticCall(expression.receiverExpression, it, method, locals) }?.let { return it }
+        // `E.entries`: a STATIC property, whose receiver is a type, not a value
+        (expression.selectorExpression as? KtNameReferenceExpression)?.let { staticPropertyAccess(it) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = superDispatchType(expression, method)
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
@@ -1706,6 +1716,25 @@ internal class KotlinBodyConverter(
         return resolveCallee(type, propertyName, listOf())          // size(), length()
             ?: resolveCallee(type, "get$capitalized", listOf())     // getName()
             ?: resolveCallee(type, "is$capitalized", listOf())      // isEmpty() (boolean)
+            ?: MAPPED_PROPERTIES[propertyName]?.let { resolveCallee(type, it, listOf()) } // map.keys -> keySet()
+    }
+
+    /**
+     * A STATIC Kotlin property, `C.x` or a bare `x` inside `C`: a static getter on `C` in the class file. In practice
+     * an enum's `entries` (`E.getEntries()`); K2 models it as a static property, where a class-file type has only
+     * the method. It was read on the enum's companion, or on the class name typed `Unit`.
+     */
+    private fun KaSession.staticPropertyAccess(reference: KtNameReferenceExpression): Expression? {
+        val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if (!property.isStatic) return null
+        val owner = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol }
+            ?.let { classTypeInfo(it) }?.let { members(it) } ?: return null
+        val getter = resolveAccessor(owner, reference.getReferencedName())?.takeIf { it.isStatic } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
+            .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
     }
 
     /**

@@ -869,7 +869,10 @@ class KotlinScan(
             .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
-        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
+        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) {
+            addEnumMembers(typeInfo, declaration)
+            with(typeMapper) { enumEntriesGetter(typeInfo) }?.let { typeInfo.builder().addMethod(it) }
+        }
         // method SIGNATURES first, then bodies -- so a method body can call a sibling declared later (or itself).
         // `declarations` is a lazy Sequence: without toList() each signature was followed by its body, and a call to
         // a sibling declared later was a placeholder.

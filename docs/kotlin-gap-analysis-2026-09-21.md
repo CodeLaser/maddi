@@ -1316,6 +1316,27 @@ expression's range. The one exception is `convertUnary`, whose operand PSI can b
 everyPlaceholderCarriesAPosition` fails on the delegate read and the indexed set when the change is reverted.
 Corpora: 0 sites at `0:0` (from ~90); counts (277 / 159), the detekt site list and every verdict are identical.
 
+### 7.42 Three unresolved-access causes — detekt 277 → 213, coil 159 → 154
+
+A probe on the unresolved-access branch recorded the receiver's CST type, its K2 type, and the symbol K2 resolved.
+Three causes covered 64 detekt sites:
+
+- **Captured types** (`callableId` 24, `returnType` 6, `receiverParameter` 4, `psi` 3, …). `call.symbol` on a
+  `KaCallableMemberCall<*, *>` has K2 type `CapturedType(*)`, which the mapper sent to `Object`, where nothing
+  resolves. Java types such an expression by the wildcard's bound. `mapType` now approximates a captured type to its
+  nearest denotable supertype (falling back to an `out` projection's type). `CapturedTypeTest`; a
+  declared-`out` fixture was vacuous (K2 approximates it already), so the fixture uses an invariant parameter behind
+  `*`, and fails 3/3 when the change is reverted.
+- **Kotlin's mapped collection properties** (`keys` 12, `entries` 8 on a Map). kotlinc compiles `map.keys` and
+  `map.entries` to `keySet()` and `entrySet()`, which no getter-naming rule finds. `resolveAccessor` tries them
+  last. `MappedPropertyTest`, explicit and implicit receiver.
+- **Enum `entries`** (8). kotlinc gives every Kotlin enum a static `getEntries(): EnumEntries<E>`. Neither the source
+  nor the K2-built library enum had one, and `E.entries` was read on the companion, or on the class name typed
+  `Unit`. Both enum models now carry the synthetic getter (not Java enums), and a resolved static property routes to
+  its static getter. `EnumEntriesTest`, source, bare-in-companion and stdlib enum; 3/3 fail when reverted.
+
+detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **no verdict moved**. coil **159 → 154**.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1343,8 +1364,8 @@ Corpora: 0 sites at `0:0` (from ~90); counts (277 / 159), the detekt site list a
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
-   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37) and local functions (§7.38) have taken detekt
-   4,701 → 277 and coil 367 → 283 on that dump (coil is 159 once its class path is complete, §7.39; its
+   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
+   unresolved-access causes of §7.42 have taken detekt 4,701 → 213 and coil 367 → 283 on that dump (coil is 154 once its class path is complete, §7.39, §7.42; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
