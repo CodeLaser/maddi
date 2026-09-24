@@ -115,6 +115,17 @@ public class EventualClusterContraction {
                     // its own broken leans (if any) affected only method labels, which are vacuous on an
                     // unconditionally immutable type; do not let them cascade through the closure
                     assumptions.remove(t);
+                } else if (t.analysis()
+                        .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE)
+                        .isFinalFields()) {
+                    // an eventual @FinalFields(after=...) discharges (above), so an UNCONDITIONAL @FinalFields does
+                    // a fortiori. Since #34 (a @FinalFields supertype caps its subtypes instead of sinking them to
+                    // @Mutable) this is where Statement, Block, CompilationUnit, ... land: their after-mark level
+                    // equals the unconditional one, so TypeEventualAnalyzerImpl writes no eventual verdict ("buys
+                    // nothing"), and without this branch every member that leaned on them was retracted -- 105
+                    // eventual @Immutable(hc) verdicts on the dogfood (#51). Unlike the hc branch, its own
+                    // assumptions stay: they may still be what the members leaning on it rest on.
+                    discharged.add(t);
                 }
             }
         }

@@ -432,7 +432,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         Value.Immutable unconditional = typeInfo.analysis()
                 .getOrDefault(IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE);
-        if (afterMarkLevel.compareTo(unconditional) <= 0) {
+        // Under EVENTUALCLUSTER an after-mark @FinalFields equal to the unconditional one is still written: the
+        // eventual verdict is the cluster's proof token (contraction discharge, treatAsEventuallyImmutable's
+        // "proven" branch, the label walks). Since #34 (a @FinalFields supertype caps instead of sinking) some 120
+        // dogfood types -- Statement, Block, CompilationUnit, RuntimeImpl -- went unconditional @Mutable ->
+        // @FinalFields; skipping their verdict as "buys nothing" retracted every type that leaned on them (#51).
+        if (afterMarkLevel.compareTo(unconditional) < 0
+            || afterMarkLevel.compareTo(unconditional) == 0
+               && !(EventualCluster.ENABLED && afterMarkLevel.isFinalFields())) {
             if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " buys nothing: afterMark="
                                         + afterMarkLevel + " <= unconditional=" + unconditional);
             return; // the mark buys nothing; do not claim eventuality the type does not need
