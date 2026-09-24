@@ -29,8 +29,11 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -54,6 +57,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
     // log-only diagnostic gate, shared name with TypeEventualAnalyzerImpl / TypeImmutableAnalyzerImpl
     private static final String EC_TYPE_DEBUG = System.getenv("EC_TYPE_DEBUG");
+    // INDEPENDENCEWALK=0 restores the min over supertype verdicts (A/B switch, as INTERFACEWALK on the immutability side)
+    private static final boolean INDEPENDENCE_WALK = !"0".equals(System.getenv("INDEPENDENCEWALK"));
 
     private static boolean ecTypeDebug(TypeInfo typeInfo) {
         if (EC_TYPE_DEBUG == null) return false;
@@ -108,11 +113,24 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                                                TypeImmutableAnalyzer.AfterMark afterMark, boolean skipSelfFields) {
         Independent indyFromHierarchy = INDEPENDENT;
 
-        // hierarchy
+        // hierarchy: interfaces are WALKED rather than read as a verdict (see inheritedAbstractMethodsIndependent);
+        // classes, and jar interfaces whose methods carry no verdicts, are read as a verdict. After-mark mode keeps
+        // the plain verdict rule, as in TypeImmutableAnalyzerImpl.
+
+        boolean walk = INDEPENDENCE_WALK && afterMark.isNone();
+        Set<TypeInfo> walked = new LinkedHashSet<>();
+        List<TypeInfo> byVerdict = new ArrayList<>();
+        for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
+            TypeInfo st = superType.typeInfo();
+            if (walk && walkable(st)) {
+                collectWalkable(st, walked, byVerdict);
+            } else if (st != null && !byVerdict.contains(st)) {
+                byVerdict.add(st);
+            }
+        }
 
         boolean stopExternal = false;
-        for (ParameterizedType superType : typeInfo.parentAndInterfacesImplemented()) {
-            TypeInfo superTypeInfo = superType.typeInfo();
+        for (TypeInfo superTypeInfo : byVerdict) {
             Independent independentSuper = independentSuper(typeInfo, superTypeInfo, afterMark);
             Independent independentSuperBroken;
             if (independentSuper == null) {
@@ -141,18 +159,117 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         if (stopExternal) {
             return null;
         }
+        if (!walked.isEmpty()) {
+            Independent inherited = inheritedAbstractMethodsIndependent(typeInfo, walked);
+            if (ecTypeDebug(typeInfo)) {
+                System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " independence walked="
+                                   + walked.stream().map(TypeInfo::simpleName).toList() + " -> " + inherited);
+            }
+            if (inherited == null) return null;
+            if (inherited.isDependent()) return DEPENDENT;
+            indyFromHierarchy = inherited.min(indyFromHierarchy);
+        }
         assert indyFromHierarchy.isAtLeastIndependentHc();
 
         Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo, afterMark,
                 skipSelfFields);
-        if (fromFieldsAndAbstractMethods == null && !afterMark.isNone()) {
-            // Undecided, and in after-mark mode that must not be read as INDEPENDENT the way min(null) does for
-            // the unconditional verdict. The unconditional value is revised as inputs settle (TolerantWrite lets
-            // it improve), but the eventual verdict is written once and never revisited, so a promotion made on a
-            // not-yet-copied abstract INDEPENDENT_METHOD would stick. Wait for the next iteration instead.
+        if (fromFieldsAndAbstractMethods == null) {
+            // Undecided: wait for the next iteration. min(null) is the left operand, so this used to read as
+            // INDEPENDENT -- and it is not revised: go() never revisits an @Independent type, and the eventual
+            // verdict is written once. Guava's Multimap was written @Independent while its abstract methods had no
+            // verdict yet; its own computation settles on @Dependent (TestIndependenceNotWrittenWhileUndecided).
+            // Cycle breaking still decides a type that never settles (go()).
             return null;
         }
         return indyFromHierarchy.min(fromFieldsAndAbstractMethods);
+    }
+
+    /**
+     * The independence twin of {@code TypeImmutableAnalyzerImpl.inheritedAbstractMethodsNonModifying}. An interface's
+     * independence is the min over its abstract methods; passing that verdict down as a cap hands every
+     * implementation the exposure of methods it may well have overridden: vavr's {@code Option.None} overrides
+     * {@code get()}, the one hc method of {@code Option}/{@code Value}, and still came out {@code @Independent(hc =
+     * true)}, which kept the hc label on its immutability although it has no content at all
+     * ({@code TestIndependenceThroughHierarchy}).
+     * <p>
+     * What {@code typeInfo} inherits from a walked interface are the abstract methods nothing on its own path
+     * overrides or re-declares; each is judged by its own verdict, with the excuses the type's own abstract methods
+     * get. An overriding implementation counts the way every concrete method does, through the fields it exposes;
+     * a re-declaration is judged in the interface re-declaring it.
+     *
+     * @return the min over those methods, DEPENDENT as soon as one is dependent, null while one is undecided
+     */
+    private Independent inheritedAbstractMethodsIndependent(TypeInfo typeInfo, Set<TypeInfo> walked) {
+        Independent result = INDEPENDENT;
+        boolean undecided = false;
+        for (TypeInfo anInterface : walked) {
+            for (MethodInfo abstractMethod : anInterface.methods()) {
+                if (!abstractMethod.isAbstract() || abstractMethod.isStatic()) continue;
+                if (TypeImmutableAnalyzerImpl.coveredOnPath(typeInfo, anInterface, abstractMethod)) continue;
+                Independent methodIndependent = abstractMethod.analysis().getOrNull(INDEPENDENT_METHOD,
+                        ValueImpl.IndependentImpl.class);
+                if (ecTypeDebug(typeInfo) && (methodIndependent == null || !methodIndependent.isIndependent())) {
+                    System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " inherits "
+                                       + abstractMethod.fullyQualifiedName() + " -> " + methodIndependent);
+                }
+                if (methodIndependent == null) {
+                    undecided = true;
+                } else if (methodIndependent.isDependent()) {
+                    if (!ignoreModificationsAccessor(abstractMethod) && !contractedIndependentHc(abstractMethod)) {
+                        return DEPENDENT;
+                    }
+                } else {
+                    result = result.min(methodIndependent);
+                }
+                for (ParameterInfo pi : abstractMethod.parameters()) {
+                    Independent paramIndependent = pi.analysis().getOrNull(INDEPENDENT_PARAMETER,
+                            ValueImpl.IndependentImpl.class);
+                    if (ecTypeDebug(typeInfo) && (paramIndependent == null || !paramIndependent.isIndependent())) {
+                        System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " inherits "
+                                           + pi.fullyQualifiedName() + " -> " + paramIndependent);
+                    }
+                    if (paramIndependent == null) {
+                        undecided = true;
+                    } else if (paramIndependent.isDependent()) {
+                        if (!contractedIndependentHcParam(pi)) return DEPENDENT;
+                    } else {
+                        result = result.min(paramIndependent);
+                    }
+                }
+            }
+        }
+        return undecided ? null : result;
+    }
+
+    /** A source interface is always walked; a jar interface only when its abstract methods carry verdicts to walk
+     *  by -- otherwise its type-level contract is all there is, and it is read as a verdict. */
+    private static boolean walkable(TypeInfo typeInfo) {
+        if (typeInfo == null || !typeInfo.isInterface()) return false;
+        if (!typeInfo.compilationUnit().externalLibrary()) return true;
+        for (MethodInfo methodInfo : typeInfo.methods()) {
+            if (!methodInfo.isAbstract() || methodInfo.isStatic()) continue;
+            if (methodInfo.analysis().getOrNull(INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class) == null) {
+                return false;
+            }
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                if (pi.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class) == null) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void collectWalkable(TypeInfo start, Set<TypeInfo> walked, List<TypeInfo> byVerdict) {
+        if (!walked.add(start)) return;
+        for (ParameterizedType pt : start.interfacesImplemented()) {
+            TypeInfo st = pt.typeInfo();
+            if (walkable(st)) {
+                collectWalkable(st, walked, byVerdict);
+            } else if (st != null && !byVerdict.contains(st)) {
+                byVerdict.add(st);
+            }
+        }
     }
 
     private Independent independentSuper(TypeInfo member, TypeInfo superTypeInfo,
