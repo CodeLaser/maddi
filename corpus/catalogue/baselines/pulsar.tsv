@@ -1,8 +1,13 @@
 # source set	primary types -- `catalogue.py baseline <name> --record`
 buildtools/main	21
 buildtools/test	11
+jclouds-shaded/main	1
+jetty-upgrade/zookeeper-prometheus-metrics/main	1
+jetty-upgrade/zookeeper-prometheus-metrics/test	3
+jetty-upgrade/zookeeper-with-patched-admin/main	14
 managed-ledger/main	121
 managed-ledger/test	57
+microbench/main	13
 pulsar-broker-auth-athenz/main	1
 pulsar-broker-auth-athenz/test	1
 pulsar-broker-auth-oidc/main	8
@@ -27,6 +32,7 @@ pulsar-client-auth-athenz/test	1
 pulsar-client-auth-sasl/main	3
 pulsar-client-messagecrypto-bc/main	1
 pulsar-client-tools-api/main	6
+pulsar-client-tools-customcommand-example/main	1
 pulsar-client-tools-test/test	7
 pulsar-client-tools/main	59
 pulsar-client-tools/test	17
@@ -85,6 +91,15 @@ pulsar-transaction/coordinator/test	7
 pulsar-websocket/main	30
 pulsar-websocket/test	11
 testmocks/main	10
+tests/docker-images/java-test-functions/main	11
+tests/docker-images/java-test-plugins/main	5
+tests/integration/test	136
+tests/pulsar-client-admin-shade-test/test	3
+tests/pulsar-client-all-shade-test/test	3
+tests/pulsar-client-native-image/main	1
+tests/pulsar-client-native-image/test	2
+tests/pulsar-client-shade-test/test	3
+tests/pulsar-client-test-bcfips/test	2
 tiered-storage/file-system/main	3
 tiered-storage/file-system/test	3
 tiered-storage/jcloud/main	26
