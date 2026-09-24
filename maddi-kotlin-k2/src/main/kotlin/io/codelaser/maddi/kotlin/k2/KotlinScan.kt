@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.api.element.DetailedSources
 import io.codelaser.maddi.cst.api.element.RecordPattern
 import io.codelaser.maddi.cst.api.element.Source
 import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.VariableExpression
@@ -877,7 +878,10 @@ class KotlinScan(
             .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
-        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) addEnumMembers(typeInfo, declaration)
+        if (classSymbol.classKind == KaClassKind.ENUM_CLASS) {
+            addEnumMembers(typeInfo, declaration)
+            with(typeMapper) { enumEntriesGetter(typeInfo) }?.let { typeInfo.builder().addMethod(it) }
+        }
         // method SIGNATURES first, then bodies -- so a method body can call a sibling declared later (or itself).
         // `declarations` is a lazy Sequence: without toList() each signature was followed by its body, and a call to
         // a sibling declared later was a placeholder.
@@ -1811,16 +1815,22 @@ class KotlinScan(
         }
         if (!p.getter.hasBeenInspected()) {
             val read = runtime.newReturnBuilder()
-                .setExpression(delegateRead(p.owner, p.field, p.type, p.static)).setSource(runtime.noSource()).build()
+                .setExpression(atDelegate(p, delegateRead(p.owner, p.field, p.type, p.static)))
+                .setSource(runtime.noSource()).build()
             p.getter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(read).build()).commit()
         }
         val setter = p.setter ?: return
         if (!setter.hasBeenInspected()) {
             val value = setter.parameters().first()
-            val write = runtime.newExpressionAsStatement(delegateWrite(p.owner, p.field, value, p.static))
+            val write = runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field, value, p.static)))
             setter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(write).build()).commit()
         }
     }
+
+    /** A delegate placeholder takes the `by` expression's range: the accessor it stands in has no source of its own. */
+    private fun atDelegate(p: PendingDelegate, e: Expression): Expression =
+        if (e is EmptyExpression && e.source() == null && p.delegateExpression != null)
+            e.withSource(sourceOf(runtime, p.delegateExpression, "-")) else e
 
     /**
      * The delegate read. Kotlin's convention is the `getValue(thisRef, property)` operator, which is what a

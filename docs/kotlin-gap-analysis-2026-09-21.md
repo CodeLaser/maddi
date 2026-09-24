@@ -1276,6 +1276,21 @@ leaves `b` unmodified; Java's `Consumer<Box>.accept(b)` marks it modified. `java
 in the JDK annotated API (its `arg0` is not `@NotModified`); `kotlin.jvm.functions.Function1.invoke` has no entry,
 and an unannotated library parameter reads unmodified. It predates local functions (a function-typed PARAMETER
 shows it) and is the next contract to write: `Function0`…`FunctionN.invoke` as the JDK's functional interfaces are.
+✅ Closed by §7.40.
+
+### 7.40 `kotlin.jvm.functions`: a function value's argument may be modified
+
+`KotlinJvmFunctions` contracts `Function0`–`Function3` as `java.util.function.Function` is: `@Independent(hc=true)` on
+the type, `@Modified` on every `invoke` argument. A Kotlin `(T) -> R` is one interface where Java has `Function`,
+`Consumer`, `Predicate` and the rest, so it takes the general contract. `Predicate.test` is the one JDK interface
+whose argument is `@NotModified`, and a Kotlin predicate has no type of its own to say so. Arities 4–22 are left
+uncontracted until a corpus calls one.
+
+`TestKotlinLambdaVsJavaLambda.invokesValue` (`f(b)` against `Consumer.accept(b)`) agrees now and disagrees with the
+shadow removed. detekt: no method, parameter, field or immutability verdict moves. The only change in `FPDUMP` is
+the independence of the 1,767 lambda types, `@Independent` → `@Independent(hc=true)`, which they inherit from the
+new supertype contract as a Java lambda does from `Function`. coil runs prep only. `TestParseAnalyzeWrite`'s shadow
+count moves by one: the new file imports nothing from `kotlin.*`, so the shared, stdlib-less factory keeps it.
 
 ### 7.39 A corpus pin measured the Gradle cache — coil 283 → 159 with no code change
 
@@ -1290,6 +1305,37 @@ The give-away was the kind of site that vanished: okio calls, and `let`/`also`/`
 cache-starved and is **not comparable** with it. detekt's 62 jars were all present, so its history stands. ⚠ It is
 opt-in because the audit of all 20 corpus configurations found elasticsearch* (97 of 151 jars missing) and fernflower
 (24 of 36), which belong to other lanes and whose counts carry the same exposure.
+
+### 7.41 Every placeholder names its line
+
+About 90 sites across detekt and coil printed `0:0`: `k2-unresolved-access`, `k2-indexed-set-unresolved`,
+`k2-delegate-read` and some calls. A placeholder built inside a larger node (a selector, an indexed set, a
+synthesised delegate accessor) never passed through `convertExpression`'s range step, so the site dump could not
+point at it. They are now built through `placeholder(msg, psi)`; a delegate accessor's placeholder takes the `by`
+expression's range. The one exception is `convertUnary`, whose operand PSI can be null. `PlaceholderCensusTest.
+everyPlaceholderCarriesAPosition` fails on the delegate read and the indexed set when the change is reverted.
+Corpora: 0 sites at `0:0` (from ~90); counts (277 / 159), the detekt site list and every verdict are identical.
+
+### 7.42 Three unresolved-access causes — detekt 277 → 213, coil 159 → 154
+
+A probe on the unresolved-access branch recorded the receiver's CST type, its K2 type, and the symbol K2 resolved.
+Three causes covered 64 detekt sites:
+
+- **Captured types** (`callableId` 24, `returnType` 6, `receiverParameter` 4, `psi` 3, …). `call.symbol` on a
+  `KaCallableMemberCall<*, *>` has K2 type `CapturedType(*)`, which the mapper sent to `Object`, where nothing
+  resolves. Java types such an expression by the wildcard's bound. `mapType` now approximates a captured type to its
+  nearest denotable supertype (falling back to an `out` projection's type). `CapturedTypeTest`; a
+  declared-`out` fixture was vacuous (K2 approximates it already), so the fixture uses an invariant parameter behind
+  `*`, and fails 3/3 when the change is reverted.
+- **Kotlin's mapped collection properties** (`keys` 12, `entries` 8 on a Map). kotlinc compiles `map.keys` and
+  `map.entries` to `keySet()` and `entrySet()`, which no getter-naming rule finds. `resolveAccessor` tries them
+  last. `MappedPropertyTest`, explicit and implicit receiver.
+- **Enum `entries`** (8). kotlinc gives every Kotlin enum a static `getEntries(): EnumEntries<E>`. Neither the source
+  nor the K2-built library enum had one, and `E.entries` was read on the companion, or on the class name typed
+  `Unit`. Both enum models now carry the synthetic getter (not Java enums), and a resolved static property routes to
+  its static getter. `EnumEntriesTest`, source, bare-in-companion and stdlib enum; 3/3 fail when reverted.
+
+detekt **277 → 213** (types 134 → 95, members 176 → 124), no new site, **no verdict moved**. coil **159 → 154**.
 
 ## 8. The ordered path to the claim
 
@@ -1318,8 +1364,8 @@ opt-in because the audit of all 20 corpus configurations found elasticsearch* (9
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
-   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37) and local functions (§7.38) have taken detekt
-   4,701 → 277 and coil 367 → 283 on that dump (coil is 159 once its class path is complete, §7.39; its
+   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
+   unresolved-access causes of §7.42 have taken detekt 4,701 → 213 and coil 367 → 283 on that dump (coil is 154 once its class path is complete, §7.39, §7.42; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

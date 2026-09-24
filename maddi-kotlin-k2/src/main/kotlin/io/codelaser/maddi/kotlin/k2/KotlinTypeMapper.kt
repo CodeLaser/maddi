@@ -62,6 +62,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaDefinitelyNotNullType
+import org.jetbrains.kotlin.analysis.api.types.KaCapturedType
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
 import org.jetbrains.kotlin.analysis.api.types.KaStarTypeProjection
@@ -122,6 +123,8 @@ import java.nio.file.Files
  * from `KotlinScan`; its functions keep the `KaSession` receiver, so `KotlinScan` delegates via
  * `with(typeMapper) { … }`.
  */
+private val ENUM_ENTRIES = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/enums/EnumEntries")
+
 internal class KotlinTypeMapper(
     private val runtime: Runtime,
     private val infoByFqn: InfoByFqn,
@@ -199,6 +202,7 @@ internal class KotlinTypeMapper(
      * arguments. A nullable `T?` is boxed and tagged [NullableState.NULLABLE]. External/library types
      * (the CompiledTypesManager's job) still fall back to Object.
      */
+    @OptIn(KaExperimentalApi::class) // approximateToDenotableSupertypeOrSelf
     internal fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null): ParameterizedType {
         // a Java platform type (`PrintStream!`, `String!`) is a flexible type (T..T?); map its non-null lower
         // bound, so Java library member types (e.g. the type of `System.out`) resolve instead of degrading to Object
@@ -206,6 +210,14 @@ internal class KotlinTypeMapper(
         // `T & Any`, a definitely-non-null type parameter, is `T` on the JVM (javalin's `Validator<T>.get(): T & Any`);
         // falling through to Object, Java saw `ctx.queryParamAsClass("from", Instant.class).get()` return an Object
         if (type is KaDefinitelyNotNullType) return mapType(type.original, owner, method)
+        // a CAPTURED type (`call.symbol` on a `KaCallableMemberCall<*, *>`) is a wildcard's capture; Java types it by
+        // the wildcard's bound, so approximate to the nearest denotable supertype. It fell to Object, where no
+        // member resolves: 90 of detekt's unresolved accesses (`symbol.callableId`, `symbol.returnType`).
+        if (type is KaCapturedType) {
+            val approximated = type.approximateToDenotableSupertypeOrSelf(false)
+            if (approximated !is KaCapturedType) return mapType(approximated, owner, method)
+            (type.projection as? KaTypeArgumentWithVariance)?.let { return mapType(it.type, owner, method) }
+        }
         val base = when (type) {
             is KaClassType -> mapClassType(type, owner, method)
             is KaTypeParameterType -> {
@@ -628,6 +640,10 @@ internal class KotlinTypeMapper(
                 .filter { it.isStatic }
                 .map { convertLibraryMethod(typeInfo, it, static = true) }
                 .forEach { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+            // a KOTLIN enum's `entries` is a static property in K2, and a static `getEntries()` in the class file
+            if (symbol.classKind == KaClassKind.ENUM_CLASS && symbol.origin == KaSymbolOrigin.LIBRARY) {
+                enumEntriesGetter(typeInfo)?.let { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
+            }
             // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
             // property access as a field access, like a source type's backing field)
             symbol.memberScope.declarations
@@ -642,6 +658,28 @@ internal class KotlinTypeMapper(
         } finally {
             memberDepth--
         }
+    }
+
+    /**
+     * The static `getEntries(): EnumEntries<E>` kotlinc gives every Kotlin enum (1.9+), which `E.entries` compiles
+     * to. Signature only, like `EnumSynthetics`' `values()`. Null when the stdlib's `kotlin.enums.EnumEntries` is not
+     * on the class path. A JAVA enum has no such method (`JavaEnum.entries` goes through a synthetic mapping class).
+     */
+    internal fun KaSession.enumEntriesGetter(enumType: TypeInfo): MethodInfo? {
+        val entries = (findClass(ENUM_ENTRIES) as? KaNamedClassSymbol)?.let { loadLibraryClass(it) } ?: return null
+        val getter = runtime.newMethod(enumType, "getEntries", runtime.methodTypeStaticMethod())
+        getter.builder()
+            .setSource(runtime.noSource())
+            .setSynthetic(true)
+            .setAccess(runtime.accessPublic())
+            .addMethodModifier(runtime.methodModifierPublic())
+            .addMethodModifier(runtime.methodModifierStatic())
+            .setReturnType(runtime.newParameterizedType(entries, listOf(enumType.asParameterizedType())))
+            .setMethodBody(runtime.emptyBlock())
+            .setMissingData(runtime.methodMissingMethodBody())
+            .commitParameters()
+            .commit()
+        return getter
     }
 
     /** A library method: signature only (params + return type), no body (the analogue of a class-file method). */
