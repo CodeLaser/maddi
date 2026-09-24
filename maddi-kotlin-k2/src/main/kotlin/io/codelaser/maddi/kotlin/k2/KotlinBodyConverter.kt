@@ -1165,6 +1165,7 @@ internal class KotlinBodyConverter(
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
+                ?: classAsValue(expression)
                 ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
@@ -1340,6 +1341,27 @@ internal class KotlinBodyConverter(
             nested.fields().firstOrNull { it.name() == "INSTANCE" }?.let { return staticFieldRef(it, nested) }
         }
         return null
+    }
+
+    /**
+     * A class NAME used as a value: Kotlin means its companion object (`ClassId.fromString(…)` is
+     * `ClassId.Companion.fromString(…)`, 18× on detekt, a library class) or, for an `object`, the object itself --
+     * the static `Companion` / `INSTANCE` field its class file declares. K2 resolves such a name to the companion
+     * symbol directly; the class's own symbol is handled too. Null for a class with no companion.
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.classAsValue(expression: KtNameReferenceExpression): Expression? {
+        val symbol = expression.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        // the companion's holder: its outer class, reached through K2 -- a LIBRARY companion is loaded as a type of
+        // its own, with no enclosing type to walk up to
+        val (holderSymbol, fieldName) = when (symbol.classKind) {
+            KaClassKind.COMPANION_OBJECT -> (symbol.classId?.outerClassId?.let { findClass(it) } as? KaNamedClassSymbol
+                ?: return null) to symbol.name.asString()
+            KaClassKind.OBJECT -> symbol to "INSTANCE"
+            else -> symbol to (symbol.companionObject?.name?.asString() ?: return null)
+        }
+        val holder = classTypeInfo(holderSymbol)?.let { members(it) } ?: return null
+        return holder.fields().firstOrNull { it.name() == fieldName && it.isStatic }?.let { staticFieldRef(it, holder) }
     }
 
     /** The singleton-instance handle for an object/companion type: `Object.INSTANCE`, or `Outer.Companion`. */

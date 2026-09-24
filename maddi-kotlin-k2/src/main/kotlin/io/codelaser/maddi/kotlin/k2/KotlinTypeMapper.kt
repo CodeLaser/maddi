@@ -602,6 +602,18 @@ internal class KotlinTypeMapper(
             symbol.staticMemberScope.declarations
                 .filterIsInstance<KaEnumEntrySymbol>()
                 .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryEnumEntry(typeInfo, it)) }
+            // a Kotlin class's companion, as the class file has it: the `public static final Companion` field that a
+            // class name used as a value reads (`ClassId.fromString(…)` is `ClassId.Companion.fromString(…)`); and an
+            // `object`'s own `INSTANCE` (`Charsets` as a value)
+            symbol.companionObject?.let { companion ->
+                val companionType = loadLibraryClass(companion) ?: return@let
+                if (seenFields.add(companion.name.asString())) {
+                    builder.addField(convertLibrarySingletonField(typeInfo, companion.name.asString(), companionType))
+                }
+            }
+            if (symbol.classKind == KaClassKind.OBJECT && seenFields.add("INSTANCE")) {
+                builder.addField(convertLibrarySingletonField(typeInfo, "INSTANCE", typeInfo))
+            }
             // dedup by FQN: flattened overloads can erase to the same signature (e.g. printStackTrace
             // (PrintStream)/(PrintWriter) both map to Object on a shell), which the type map rejects
             val seen = mutableSetOf<String>()
@@ -755,6 +767,17 @@ internal class KotlinTypeMapper(
             .setInitializer(runtime.newEmptyExpression())
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
         builder.computeAccess().commit()
+        return fieldInfo
+    }
+
+    private fun convertLibrarySingletonField(owner: TypeInfo, name: String, companion: TypeInfo): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(name, true, companion.asParameterizedType(), owner)
+        fieldInfo.builder()
+            .addFieldModifier(runtime.fieldModifierPublic())
+            .addFieldModifier(runtime.fieldModifierStatic())
+            .addFieldModifier(runtime.fieldModifierFinal())
+            .setInitializer(runtime.newEmptyExpression())
+            .computeAccess().commit()
         return fieldInfo
     }
 

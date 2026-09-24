@@ -1156,6 +1156,20 @@ Array<IgnoreAnnotated> = arrayOf(…)`) @FinalFields → @Immutable, once its on
 on both sides, so the lowering is at parity there; what differs in detekt (an abstract element type whose only value
 is a private object) was not pursued. Recorded, not accepted as understood.
 
+### 7.33 A library class name as a value: its companion — detekt 657 → 591
+
+`ClassId.fromString(…)` (18× on detekt), `CompilerConfigurationKey.create(…)` (12×): the companion's MEMBER resolved,
+the receiver did not -- a class name used as a value, which Kotlin means as the class's companion object (or, for an
+`object`, the object itself). Found by printing the probe's holder, after two guesses at the cause were wrong: K2
+resolves the name to the COMPANION symbol, and the K2-built model of a Kotlin LIBRARY class carried no static
+`Companion` field (nor an `object`'s `INSTANCE`) to read it through -- the class file declares both. The model now
+does, and the name converts to `ClassId.Companion`, `Charsets.INSTANCE`; the holder is reached through K2
+(`outerClassId`), since a library companion is loaded as a type of its own with no enclosing type.
+Pinned in `TestLibraryCompanions`, which fails with all six placeholders when the change is reverted.
+
+detekt: `ClassId` 18, `CompilerConfigurationKey` 12, `KtlintWrapperProvider` 6 → 0; `k2-unresolved-ref` 205 → 139;
+total **657 → 591** (types 233 → 208). coil 305 → 299. No new site, no verdict moved.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1181,8 +1195,8 @@ is a private object) was not pursued. Recorded, not accepted as understood.
    which neither corpus reaches, then the **local delegated property** (§3, 1.3). The largest remaining
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
-   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31) and top-level
-   properties (§7.32) have taken detekt 4,701 → 657 and coil 367 → 305 on that dump.
+   member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
+   properties (§7.32) and library companions (§7.33) have taken detekt 4,701 → 591 and coil 367 → 299 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under
