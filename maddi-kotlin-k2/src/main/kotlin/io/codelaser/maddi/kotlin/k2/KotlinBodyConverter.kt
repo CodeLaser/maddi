@@ -102,6 +102,7 @@ import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtDestructuringDeclarationEntry
 import org.jetbrains.kotlin.psi.KtFunctionLiteral
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
@@ -806,23 +807,54 @@ internal class KotlinBodyConverter(
                                                locals: MutableMap<String, Variable>): Statement {
         val initializer = statement.initializer?.let { convertExpression(it, method, locals) }
             ?: placeholder("k2-absent-destructuring-value", statement)
-        val sourceType = initializer.parameterizedType().typeInfo()
-        val variables = statement.entries.mapIndexed { i, entry ->
-            val name = entry.name ?: "_"
-            val type = (entry.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
-                ?: runtime.objectParameterizedType()
-            val component = sourceType?.let { resolveCallee(it, "component${i + 1}", listOf()) }
-            val componentInit = component?.let {
-                runtime.newMethodCallBuilder().setObject(initializer).setObjectIsImplicit(false).setMethodInfo(it)
-                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
-                    .setSource(runtime.noSource()).build()
-            } ?: placeholder("k2-component${i + 1}", statement)
-            runtime.newLocalVariable(name, type, componentInit).also { locals[name] = it }
-        }
+        val variables = destructure(statement.entries, { initializer }, statement, method, locals)
         if (variables.isEmpty()) return runtime.newExpressionAsStatement(placeholder("k2-destructuring", statement))
         val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
         variables.drop(1).forEach { builder.addOtherLocalVariable(it) }
         return builder.setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * The local variables of a destructuring -- `val (a, b) = x`, or a lambda's `(a, b) ->` -- each initialised by
+     * the component its entry reads from [source] (evaluated once per entry, as kotlinc reads a stable value). `_`
+     * declares nothing. The component is the source type's `componentN()`, or, when K2 resolves it to the stdlib's
+     * `Map.Entry` extension (`@InlineOnly`, absent from bytecode), the `getKey()`/`getValue()` kotlinc inlines.
+     */
+    private fun KaSession.destructure(entries: List<KtDestructuringDeclarationEntry>, source: () -> Expression,
+                                      psi: PsiElement, method: MethodInfo,
+                                      locals: MutableMap<String, Variable>): List<LocalVariable> =
+        entries.mapIndexedNotNull { i, entry ->
+            val name = entry.name ?: return@mapIndexedNotNull null
+            if (name == "_") return@mapIndexedNotNull null
+            val type = (entry.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val value = source()
+            val sourceType = value.parameterizedType().typeInfo()?.let { members(it) }
+            val component = sourceType?.let { resolveCallee(it, "component${i + 1}", listOf()) }?.let { it to listOf() }
+                ?: sourceType?.let { inlinedComponent(entry, it, i) }
+            val init = component?.let { (callee, arguments) ->
+                runtime.newMethodCallBuilder().setObject(value).setObjectIsImplicit(false).setMethodInfo(callee)
+                    .setParameterExpressions(arguments).setConcreteReturnType(type).setTypeArguments(listOf())
+                    .setSource(runtime.noSource()).build()
+            } ?: placeholder("k2-component${i + 1}", psi)
+            runtime.newLocalVariable(name, type, init).also { locals[name] = it }
+        }
+
+    /**
+     * A stdlib `componentN` extension, `@InlineOnly` and so absent from bytecode, as the call kotlinc inlines --
+     * when K2 says that is the call: `Map.Entry`'s `getKey()`/`getValue()`, a `List`'s `get(N-1)`.
+     */
+    private fun KaSession.inlinedComponent(entry: KtDestructuringDeclarationEntry, sourceType: TypeInfo,
+                                           i: Int): Pair<MethodInfo, List<Expression>>? {
+        val callee = entry.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol ?: return null
+        if (callee.receiverParameter == null || callee.callableId?.packageName?.asString() != "kotlin.collections") return null
+        return when (callee.receiverParameter?.returnType?.expandedSymbol?.classId?.asFqNameString()) {
+            "kotlin.collections.Map.Entry" ->
+                resolveCallee(sourceType, if (i == 0) "getKey" else "getValue", listOf())?.takeIf { i <= 1 }?.let { it to listOf() }
+            "kotlin.collections.List" -> listOf<Expression>(runtime.newInt(i)).let { index ->
+                resolveCallee(sourceType, "get", index)?.let { it to index } }
+            else -> null
+        }
     }
 
     /**
@@ -1501,7 +1533,8 @@ internal class KotlinBodyConverter(
                 val type = (p.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, enclosingType) }
                     ?: functionType?.parameterTypes?.getOrNull(i)?.let { mapType(it, enclosingType) }
                     ?: runtime.objectParameterizedType()
-                samBuilder.addParameter(p.name ?: "p$i", type)
+                // a destructured parameter `(a, b) ->` is ONE parameter on the JVM; its entries become locals below
+                samBuilder.addParameter(p.name ?: if (p.destructuringDeclaration != null) "\$dstr$i" else "p$i", type)
                 outputVariants.add(runtime.lambdaOutputVariantEmpty())
             }
         } else if (functionType != null && functionType.parameterTypes.size == 1) {
@@ -1524,8 +1557,21 @@ internal class KotlinBodyConverter(
         if (functionType?.receiverType != null) bodyScope[receiverKey(lambda.functionLiteral)] = sam.parameters()[0]
         val statements = lambda.bodyExpression?.statements.orEmpty()
         val voidReturn = returnType == runtime.voidParameterizedType()
+        // `{ (key, value) -> … }`: the body starts by reading each entry from the parameter, as kotlinc compiles it
+        val prologue = parameters.mapIndexedNotNull { i, p ->
+            val declaration = p.destructuringDeclaration ?: return@mapIndexedNotNull null
+            val parameter = sam.parameters()[i + (if (functionType?.receiverType != null) 1 else 0)]
+            val variables = destructure(declaration.entries, { variableExpression(parameter) }, declaration, method, bodyScope)
+            variables.takeIf { it.isNotEmpty() }?.let { vs ->
+                val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(vs.first())
+                vs.drop(1).forEach { builder.addOtherLocalVariable(it) }
+                builder.setSource(runtime.noSource()).build()
+            }
+        }
+        val total = prologue.size + statements.size
+        prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, pad(k, total))) }
         statements.forEachIndexed { i, stmt ->
-            val index = pad(i, statements.size)
+            val index = pad(i + prologue.size, total)
             val isResult = i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt)
             // a lambda body is a statement list like any other: `val map = try { … } catch { … }` inside one
             // is lowered here too. ⛔ never the result expression — that is the lambda's value, not a statement.

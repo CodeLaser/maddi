@@ -1170,6 +1170,24 @@ Pinned in `TestLibraryCompanions`, which fails with all six placeholders when th
 detekt: `ClassId` 18, `CompilerConfigurationKey` 12, `KtlintWrapperProvider` 6 → 0; `k2-unresolved-ref` 205 → 139;
 total **657 → 591** (types 233 → 208). coil 305 → 299. No new site, no verdict moved.
 
+### 7.34 Destructuring in a lambda's parameters, and the stdlib's inlined components — detekt 591 → 467
+
+`xs.partition { (_, rule) -> rule.autoCorrect }`: a destructured lambda parameter was not modelled, so every entry
+(`rule`, `ruleInstance`, `key`, `value`, …) was an unresolved reference -- the bulk of detekt's remaining 139. It is
+ONE parameter on the JVM (`$dstr0`), and the body now starts by reading each entry from it, through the same routine
+`val (a, b) = x` uses; `_` declares nothing. That routine also learned the stdlib's `@InlineOnly` components, which
+are absent from bytecode and compiled to what they inline: `Map.Entry`'s `getKey()`/`getValue()`, a `List`'s `get(N-1)`.
+Chosen only when K2 resolves the entry to that extension. `TestDestructuring` fails with five placeholders when the
+change is reverted.
+
+⚠ A correction to my own expectation: I took the `k2-component1/2` placeholders (7 + 7) to be `Map.Entry`; they were
+not -- 14 → 11. The rest are an initializer the lowering types differently (`val (a, b) = f() ?: return`,
+`= when (…) { … }`) and `Regex`'s `MatchResult.Destructured`, which are not this route.
+
+detekt: `k2-unresolved-ref` 139 → 23; total **591 → 467** (types 208 → 197, members 302 → 280). coil 299 → 288.
+No new site, no verdict moved. (The printer shows a multi-entry declaration with the first entry's type; each
+variable keeps its own -- the shape `val (a, b) =` always had.)
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1196,7 +1214,8 @@ total **657 → 591** (types 233 → 208). coil 305 → 299. No new site, no ver
    families are now unresolved *calls* and *accesses* rather than unmodelled syntax — a different kind of
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
-   properties (§7.32) and library companions (§7.33) have taken detekt 4,701 → 591 and coil 367 → 299 on that dump.
+   properties (§7.32), library companions (§7.33) and lambda destructuring (§7.34) have taken detekt 4,701 → 467
+   and coil 367 → 288 on that dump.
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under
