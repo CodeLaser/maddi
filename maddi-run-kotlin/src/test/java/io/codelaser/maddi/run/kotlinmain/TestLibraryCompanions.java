@@ -35,6 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * library class had no static `Companion` field to read it through, so the receiver was a placeholder while the
  * companion's member resolved. And a class name CALLED, `RuleSet(id, rules)` (12× on detekt), is its companion's
  * `operator fun invoke`, not a constructor.
+ *
+ * <p>A companion's `const val` or `@JvmField` (`LanguageVersion.LATEST_STABLE`) is a static field of the OUTER class,
+ * which K2 reaches through the companion; and `String.format(…)` is an inline-only extension on `String.Companion`
+ * that kotlinc turns into `java.lang.String.format(…)`.
  */
 public class TestLibraryCompanions {
     @Test
@@ -49,6 +53,8 @@ public class TestLibraryCompanions {
                 import org.jetbrains.kotlin.name.ClassId
                 import org.jetbrains.kotlin.name.FqName
                 import org.jetbrains.kotlin.config.CompilerConfigurationKey
+                import org.jetbrains.kotlin.config.JvmTarget
+                import org.jetbrains.kotlin.config.LanguageVersion
                 class K {
                     fun a(): ClassId = ClassId.fromString("a/B")
                     fun b(): ClassId = ClassId.topLevel(FqName("a.B"))
@@ -58,6 +64,10 @@ public class TestLibraryCompanions {
                     fun f(): Any = Charsets
                     fun g(): Sized = Sized(listOf("a"))
                     fun h(): Int = Twice(3)
+                    fun i(): LanguageVersion = LanguageVersion.LATEST_STABLE
+                    fun j(): JvmTarget = JvmTarget.DEFAULT
+                    fun k(): String = String.format("%s", "x")
+                    fun l(): String = String.format(java.util.Locale.ROOT, "%s-%s", "x", 1)
                 }
                 class Sized(val n: Int) {
                     companion object { operator fun invoke(items: List<String>): Sized = Sized(items.size) }
@@ -89,6 +99,10 @@ public class TestLibraryCompanions {
                 f: [return Charsets.INSTANCE;]
                 g: [return Sized.Companion.invoke(CollectionsKt__CollectionsJVMKt.listOf("a"));]
                 h: [return Twice.INSTANCE.invoke(3);]
+                i: [return LanguageVersion.LATEST_STABLE;]
+                j: [return JvmTarget.DEFAULT;]
+                k: [return String.format("%s","x");]
+                l: [return String.format(Locale.ROOT,"%s-%s","x",1);]
                 """, actual.toString());
     }
 

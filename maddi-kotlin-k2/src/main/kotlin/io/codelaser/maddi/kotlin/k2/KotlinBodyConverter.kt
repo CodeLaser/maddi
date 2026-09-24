@@ -64,6 +64,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
@@ -1387,6 +1388,7 @@ internal class KotlinBodyConverter(
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
+                ?: enumEntryValue(expression)
                 ?: staticPropertyAccess(expression)
                 ?: placeholder("k2-unresolved-ref:${expression.getReferencedName()}", expression)
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
@@ -1466,7 +1468,8 @@ internal class KotlinBodyConverter(
         // The receiver is no value, so it converted to a placeholder and the call to another, which swallowed the
         // arguments -- including a lambda declaring an `object :` the rename censuses then never saw.
         (expression.selectorExpression as? KtCallExpression)
-            ?.let { staticCall(expression.receiverExpression, it, method, locals) }?.let { return it }
+            ?.let { staticCall(expression.receiverExpression, it, method, locals) ?: stringFormat(it, method, locals) }
+            ?.let { return it }
         // `E.entries`: a STATIC property, whose receiver is a type, not a value
         (expression.selectorExpression as? KtNameReferenceExpression)?.let { staticPropertyAccess(it) }?.let { return it }
         val receiver = convertExpression(expression.receiverExpression, method, locals)
@@ -1545,6 +1548,30 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * `String.format(f, args)`: an `@InlineOnly` extension on `String.Companion`, so no class file has a method to
+     * call; kotlinc inlines it to the Java static `java.lang.String.format(f, args)`, and that is what it becomes.
+     */
+    private fun KaSession.stringFormat(call: KtCallExpression, method: MethodInfo, locals: Map<String, Variable>): Expression? {
+        val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return null
+        if (symbol.callableId?.asSingleFqName()?.asString() != "kotlin.text.format") return null
+        val receiverClass = (symbol.receiverParameter?.returnType as? KaClassType)?.classId?.asFqNameString()
+        if (receiverClass != "kotlin.String.Companion") return null
+        // a spread `*args` IS the Object[]: not handled, so not guessed at
+        if (call.valueArguments.any { it.getSpreadElement() != null }) return null
+        val arguments = call.valueArguments.map { a ->
+            a.getArgumentExpression()?.let { convertExpression(it, method, locals) } ?: return null
+        }
+        // ⚠ not through convertCall: that asks K2 for the callee, and K2's answer is the inline extension
+        val string = runtime.stringTypeInfo()
+        val format = resolveCallee(string, "format", arguments)?.takeIf { it.isStatic } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(string.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(format).setParameterExpressions(arguments)
+            .setConcreteReturnType(format.returnType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
+    }
+
+    /**
      * `Type.member` where the receiver is a type (not a value): a static field (`Color.RED`, a Java
      * static, a `const` companion forwarder), a nested object used as a value (`Event.Close` ->
      * `Close.INSTANCE`), or a (non-const) companion property (`Point.ORIGIN` -> `Point.Companion.ORIGIN`).
@@ -1555,8 +1582,24 @@ internal class KotlinBodyConverter(
     private fun KaSession.staticMemberAccess(expression: KtQualifiedExpression, method: MethodInfo): Expression? {
         val selector = expression.selectorExpression as? KtNameReferenceExpression ?: return null
         val name = selector.getReferencedName()
-        val receiverClass = (expression.receiverExpression as? KtNameReferenceExpression)
-            ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        enumEntryValue(selector)?.let { return it }
+        // the receiver names a type in any spelling: `Level`, `Notification.Level`, `sv.Note.Level` -- the last
+        // name of a qualified receiver is the type; a qualifier chain was read as a VALUE, and failed
+        val receiverName = when (val r = expression.receiverExpression) {
+            is KtNameReferenceExpression -> r
+            is KtDotQualifiedExpression -> r.selectorExpression as? KtNameReferenceExpression
+            else -> null
+        }
+        val receiverClass = receiverName?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        // K2 resolves `JvmTarget` in `JvmTarget.DEFAULT` to the COMPANION when the member is the companion's. A
+        // `const val` or `@JvmField` there is a static field of the OUTER class, with no field or getter on the
+        // companion at all: a library companion's model came back empty (`LanguageVersion.LATEST_STABLE`)
+        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT) {
+            val outer = receiverClass.classId?.outerClassId?.let { findClass(it) } as? KaNamedClassSymbol
+            outer?.let { classTypeInfo(it) }?.let { members(it) }?.let { outerType ->
+                outerType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, outerType) }
+            }
+        }
         // a source type (enum, companion holder) is already registered; a library type (`java.lang.System`
         // behind `System.out`) is loaded on demand so its static members are available.
         val receiverType = infoByFqn.getType(receiverClass.classId?.asFqNameString() ?: return null, sourceSet)
@@ -1575,7 +1618,8 @@ internal class KotlinBodyConverter(
         receiverType.subTypes().firstOrNull { it.simpleName() == name }?.let { nested ->
             nested.fields().firstOrNull { it.name() == "INSTANCE" }?.let { return staticFieldRef(it, nested) }
         }
-        return null
+        // ...a library type's nested object, or a nested class's companion: asked of K2, not of the loaded model
+        return classAsValue(selector)
     }
 
     /**
@@ -1597,6 +1641,20 @@ internal class KotlinBodyConverter(
         }
         val holder = classTypeInfo(holderSymbol)?.let { members(it) } ?: return null
         return holder.fields().firstOrNull { it.name() == fieldName && it.isStatic }?.let { staticFieldRef(it, holder) }
+    }
+
+    /**
+     * An enum constant, named however it is written: bare after an import (`IGNORE_CASE`, `NONE`), or qualified by
+     * any chain of types. It is the static field of that name on the enum's class, which a library enum's model
+     * carries as well as a source one's. Null when the name is not an enum entry.
+     */
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
+    private fun KaSession.enumEntryValue(reference: KtNameReferenceExpression): Expression? {
+        val entry = reference.resolveSymbol() as? KaEnumEntrySymbol ?: return null
+        val enumClass = entry.callableId?.classId?.let { findClass(it) } as? KaNamedClassSymbol ?: return null
+        val enumType = classTypeInfo(enumClass)?.let { members(it) } ?: return null
+        val name = entry.name.asString()
+        return enumType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { staticFieldRef(it, enumType) }
     }
 
     /** The singleton-instance handle for an object/companion type: `Object.INSTANCE`, or `Outer.Companion`. */
@@ -2653,17 +2711,7 @@ internal class KotlinBodyConverter(
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
-            ?: run {
-                System.getenv("PROBE_CALL")?.split(',')?.takeIf { name in it }?.let {
-                    val rc = call.resolveToCall()?.singleFunctionCallOrNull()
-                    val lr = locals["\$receiver"]
-                    java.io.File(System.getenv("PROBE_FILE")).appendText("CALL $name recv=${receiver?.second?.fullyQualifiedName()} " +
-                        "sym=${rc?.symbol?.callableId} dispatch=${rc?.partiallyAppliedSymbol?.dispatchReceiver?.javaClass?.simpleName}/${rc?.partiallyAppliedSymbol?.dispatchReceiver?.type} " +
-                        "lambdaRecv=${lr?.parameterizedType()} lrMethods=${lr?.parameterizedType()?.typeInfo()?.let { members(it) }?.methods()?.filter { it.name() == name }?.map { it.fullyQualifiedName() }} " +
-                        "args=${arguments.map { it.parameterizedType() }} in=${method.fullyQualifiedName()}\n")
-                }
-                return placeholder("k2-unresolved-call:$name", call)
-            }
+            ?: return placeholder("k2-unresolved-call:$name", call)
         val obj = receiver?.first
             ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
             else self(method)

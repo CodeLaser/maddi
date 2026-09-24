@@ -627,6 +627,10 @@ internal class KotlinTypeMapper(
                 if (seenFields.add(companion.name.asString())) {
                     builder.addField(convertLibrarySingletonField(typeInfo, companion.name.asString(), companionType))
                 }
+                // ...and the companion's `const val`s and `@JvmField`s, which kotlinc makes static fields of THIS
+                // class: `LanguageVersion.LATEST_STABLE`, `JvmTarget.DEFAULT`. The companion has no field for them
+                companion.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>().filter { isFieldSurface(it) }
+                    .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryStaticProperty(typeInfo, it)) }
             }
             if (symbol.classKind == KaClassKind.OBJECT && seenFields.add("INSTANCE")) {
                 builder.addField(convertLibrarySingletonField(typeInfo, "INSTANCE", typeInfo))
@@ -657,9 +661,16 @@ internal class KotlinTypeMapper(
                 .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryInstanceField(typeInfo, it)) }
             // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
             // property access as a field access, like a source type's backing field)
+            // ⚠ a companion's `const`/`@JvmField` is not here: it is a static field of the outer class (above); an
+            // object's is a static field of the object itself
             symbol.memberScope.declarations
                 .filterIsInstance<KaPropertySymbol>()
-                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryField(typeInfo, it)) }
+                .filter { symbol.classKind != KaClassKind.COMPANION_OBJECT || !isFieldSurface(it) }
+                .forEach {
+                    if (seenFields.add(it.name.asString())) builder.addField(
+                        if (symbol.classKind == KaClassKind.OBJECT && isFieldSurface(it)) convertLibraryStaticProperty(typeInfo, it)
+                        else convertLibraryField(typeInfo, it))
+                }
             // constructors (declared; not inherited) so `Foo(...)` resolves the called constructor
             val seenCtors = mutableSetOf<String>()
             symbol.declaredMemberScope.declarations
@@ -893,6 +904,23 @@ internal class KotlinTypeMapper(
     }
 
     /** A library property -> a field on the type (signature only); the body resolver reads `obj.x` as field access. */
+    /** A `const val` or a `@JvmField`: the JVM surface is the field itself, static when declared in an object. */
+    private fun isFieldSurface(property: KaPropertySymbol): Boolean =
+        (property as? KaKotlinPropertySymbol)?.isConst == true
+                || property.backingFieldSymbol?.annotations?.contains(JVM_FIELD_ANNOTATION) == true
+                || property.annotations.contains(JVM_FIELD_ANNOTATION)
+
+    /** A companion's or object's `const val`/`@JvmField` -> a static field on [owner]; final unless a `var`. */
+    private fun KaSession.convertLibraryStaticProperty(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
+        val field = runtime.newFieldInfo(property.name.asString(), true, mapType(property.returnType, owner), owner)
+        val builder = field.builder().setInitializer(runtime.newEmptyExpression())
+        visibilityFieldModifier(property)?.let { builder.addFieldModifier(it) }
+        builder.addFieldModifier(runtime.fieldModifierStatic())
+        if (property.setter == null) builder.addFieldModifier(runtime.fieldModifierFinal())
+        builder.computeAccess().commit()
+        return field
+    }
+
     private fun KaSession.convertLibraryField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
         val field = runtime.newFieldInfo(property.name.asString(), false, mapType(property.returnType, owner), owner)
         val builder = field.builder()
@@ -994,3 +1022,5 @@ internal class KotlinTypeMapper(
         KotlinVariance.INVARIANT -> Variance.INVARIANT
     }
 }
+
+private val JVM_FIELD_ANNOTATION = ClassId.fromString("kotlin/jvm/JvmField")

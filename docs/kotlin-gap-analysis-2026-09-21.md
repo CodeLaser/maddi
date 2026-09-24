@@ -1458,6 +1458,42 @@ What `suspend` still lacks: no state machine is modelled, and none is needed, be
 reads the body as straight-line code, which is what the source says. `@JvmOverloads` on a suspend function
 generates no overloads.
 
+### 7.48 Values named through a type — detekt 117 → 95, coil 136 → 119
+
+**The baseline moved under this work, and not because of it.** The merge at e78616190 brought engine commits
+(type independence walks interfaces; `Iterable` is `@ImmutableContainer(hc = true)` in the JDK hints). On that
+merge, with no front-end change, detekt's immutable types went **666 → 641**: about twenty holders of a
+`Collection`/`List`/`Map` (`ConfigSpec`, `RuleSet`, `Issue`, the `*Spec` interfaces) moved IMMUTABLE_HC →
+FINAL_FIELDS. It is a parity question before it is a number, so `TestCollectionHoldersVsJava` pairs the three
+shapes with the Java a human writes for them: **Java gets FINAL_FIELDS too**, on all three. The pin is lowered with
+that reason; placeholders were unchanged at 117.
+
+A value named through a TYPE, not a variable, was a placeholder in three spellings:
+
+- **a qualifier chain**: `Notification.Level.Warning`, `RulesSpec.RunPolicy.NoRestrictions`, `sv.Note.Level.Info`.
+  `staticMemberAccess` accepted a receiver that is ONE name, so a two-type chain was read as a value. The last name
+  of a qualified receiver is the type now; a nested object still reads `INSTANCE`, and one the loaded model does not
+  list (a library type's) is asked of K2 (`classAsValue` on the selector).
+- **an import**: `IGNORE_CASE`, `NONE`, `Show`. A bare name K2 resolves to an enum entry is that enum's static
+  field (`enumEntryValue`), library or source.
+- **a companion's `@JvmField`/`const`**: `JvmTarget.DEFAULT`, `LanguageVersion.LATEST_STABLE`,
+  `LanguageVersionSettingsImpl.DEFAULT`. K2 resolves the receiver to the COMPANION, but kotlinc puts the field on the
+  OUTER class, and the companion has neither a field nor a getter for it. A probe in the detekt run showed the
+  class-file companion empty. So a companion receiver looks on the outer class first. The K2-built library model
+  had the Kotlin view instead: the value was an instance field of the companion. It now builds the JVM view, a
+  static field of the outer class, and an `object`'s `const`/`@JvmField` becomes a static field of the object
+  (§7.47's lesson again: two models of one library type, and the fixture agreed with the wrong one).
+
+And `String.format(…)`: an `@InlineOnly` extension on `String.Companion`, with no method in any class file. kotlinc
+inlines it to `java.lang.String.format(…)`, and so does the front end now, choosing the overload by the arguments
+(the detekt site passes a `Locale`). A spread `*args` is left alone.
+
+`StaticValueTest` (k2, six cases; five fail on the previous code, and the sixth, a qualified library enum constant,
+is a guard that already passed). `TestLibraryCompanions` gains four rows in the class-file world:
+`LanguageVersion.LATEST_STABLE`, `JvmTarget.DEFAULT`, and `String.format` with and without a `Locale`.
+detekt **117 → 95** in 56 types / 71 members, **no verdict moved** (the type-verdict dump is identical to the
+merge's). coil **136 → 119** in 43 types / 82 members.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1486,7 +1522,7 @@ generates no overloads.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46) and suspend signatures (§7.47) have taken detekt 4,701 → 117 and coil 367 → 283 on that dump (coil is 136 once its class path is complete, §7.39, §7.42–§7.46; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47) and values named through a type (§7.48) have taken detekt 4,701 → 95 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.48; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

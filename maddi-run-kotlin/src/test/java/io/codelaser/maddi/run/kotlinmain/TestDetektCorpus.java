@@ -154,9 +154,11 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-24 (suspend functions in their JVM shape: a trailing `Continuation`, and every call passing
-        // one), on the pinned detekt checkout, in a --rerun slowTest whose roll-call was read: 117 placeholders in 69
-        // of 1,384 types and 85 of 7,756 members; 666 immutable types, 0 isolated by prep. Previous: 140 / 75 / 95 (a
+        // Measured 2026-09-24 (values named through a type: an enum constant or nested object behind a qualifier chain
+        // or an import, a companion's `@JvmField`/`const` as the outer class's static field, `String.format`), on the
+        // pinned detekt checkout, in a --rerun slowTest whose roll-call was read: 95 placeholders in 56 of 1,384 types
+        // and 71 of 7,756 members; 641 immutable types, 0 isolated by prep. Previous: 117 / 69 / 85 (suspend
+        // functions in their JVM shape: a trailing `Continuation`, and every call passing one); 140 / 75 / 95 (a
         // destructured value evaluated once; `val (a, b) = x ?: return`; `new T[n]`); 154 / 77 / 100 (block-bodied computed getters; accessor bodies lowered as function bodies;
         // `return if` and a lambda's result `if`); 166 / 84 / 112 (for-loop destructuring, array `size`,
         // boolean `==`, `..<`); 193 / 94 / 122 (array loads and stores,
@@ -171,7 +173,7 @@ public class TestDetektCorpus {
         // default constructors, implicit extension properties); 1,045 / 359 / 566 (context parameters); 1,083 / 360 / 586 (nested and
         // smart-cast receivers); 1,351 / 371 / 621 (member extensions); 2,256 / 434 / 864 and 667 (implicit-receiver members); 3,434 / 579 / 1,609 and 668 (class-file shells, extension
         // references); 4,701 (property references); 4,704 at 29e951ea1; 4,744 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 117);
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 95);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         // Re-baselined deliberately, twice, each time because more code was READ, never because a lowering was
         // found wrong (gap doc §7.26, §7.27): 668 -> 667 (three transitive moves), 667 -> 665 (OutputReport and
@@ -183,6 +185,10 @@ public class TestDetektCorpus {
         // Detekt and PathFilters up (PathFilters through the Iterable.any contract).
         // 667 -> 666 (§7.44): UtilityClassConstructor, a reveal -- its `it.isPublic == publicModifier` was a
         // placeholder, and reading it passes the field's constructors to unannotated library members.
-        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 666);
+        // 666 -> 641 (2026-09-24, NOT a Kotlin change: the engine commits merged at e78616190 -- type independence
+        // walking interfaces, Iterable @ImmutableContainer(hc = true) -- measured on that merge with no front-end
+        // change). About twenty holders of a Collection/List/Map moved IMMUTABLE_HC -> FINAL_FIELDS (ConfigSpec,
+        // RuleSet, Issue, the *Spec interfaces); TestCollectionHoldersVsJava shows Java's twins get FINAL_FIELDS too.
+        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 641);
     }
 }
