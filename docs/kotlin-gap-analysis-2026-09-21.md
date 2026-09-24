@@ -1614,6 +1614,17 @@ Still open in this family, each needing an evaluation order the lowering cannot 
 arguments before it: `?: return` as a call ARGUMENT (2), `?: return` inside an inlined lambda (a non-local return,
 1), an `if` expression's `?: return false` (1), and `try` as a lambda's result (1).
 
+### 7.56 A delegated extension property — detekt 45 → 39
+
+detekt's `var KtFile.modifiedText: String? by UserDataProperty(Key("modifiedText"))` is an EXTENSION property with a
+delegate. kotlinc gives it a static `modifiedText$delegate` on the file facade and accessors
+`getModifiedText(KtFile)` / `setModifiedText(KtFile, String)`, which pass the receiver to the delegate as `thisRef`.
+The delegate accessors were built as if for a plain property: no receiver parameter, and `null` as `thisRef`. So
+`it.modifiedText` found no one-argument getter, `ktFile.modifiedText = null` no setter, and a bare `modifiedText` inside
+another extension on `KtFile` neither. The accessors take `$receiver` first now and pass it on.
+`DelegatedExtensionPropertyTest` (k2: read, write, a bare read in an extension, and both accessor bodies). All six
+detekt sites gone, none new, **no verdict moved**; coil unchanged at 106.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1642,7 +1653,7 @@ arguments before it: `?: return` as a call ARGUMENT (2), `?: return` inside an i
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) and jumps as expression bodies (§7.55) have taken detekt 4,701 → 45 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.55; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) and delegated extension properties (§7.56) have taken detekt 4,701 → 39 and coil 367 → 283 on that dump (coil is 106 once its class path is complete, §7.39, §7.42–§7.56; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
