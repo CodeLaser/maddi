@@ -679,7 +679,9 @@ public class ShadowModificationPass {
                             }
                         }
                     } else if (cpi.index() < argumentExpressions.size()) {
-                        for (Object node : projectReceiverChain(mi, vd, argumentExpressions.get(cpi.index()))) {
+                        io.codelaser.maddi.cst.api.expression.Expression arg = argumentExpressions.get(cpi.index());
+                        if (arg instanceof VariableExpression ve && Util.isHiddenContentField(ve.variable())) continue;
+                        for (Object node : projectReceiverChain(mi, vd, arg)) {
                             addEdge(cpi, node);
                         }
                     }
@@ -691,6 +693,9 @@ public class ShadowModificationPass {
             if (pi.index() >= list.list().size()) break; // varargs tail
             Links links = list.list().get(pi.index());
             Set<Object> targets = new LinkedHashSet<>();
+            // engine mirror (MethodModification.handleModifiedParameter): a hidden-content field handed to a
+            // @Modified parameter is not modified by it, nor is its holder
+            if (Util.isHiddenContentField(links.primary())) continue;
             if (links.primary() != null) {
                 // the argument OBJECT and its whole-object aliases; links on component faces
                 // (oc.field <- ...) must not widen "argument modified" to "field modified"

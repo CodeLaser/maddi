@@ -83,7 +83,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
     }
 
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
-        if (rp.links() != null && rp.links().primary() != null) {
+        if (rp.links() != null && rp.links().primary() != null && !Util.isHiddenContentField(rp.links().primary())) {
             LOGGER.debug("Mark argument primary {} as modified by {}", rp.links().primary(), mc.methodInfo());
             // the LAST of go()'s four modification-recording sites to get this filter (fix C, 2026-09-22): a
             // disclaimed face never implicates its own node, whichever site reaches it. Handing a field that is

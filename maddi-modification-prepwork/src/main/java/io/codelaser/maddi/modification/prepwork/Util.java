@@ -342,6 +342,25 @@ public class Util {
         return fieldInfo.name().startsWith("§");
     }
 
+    /**
+     * A real field of THIS object (reached through {@code this}) whose type, as seen from here, is an unbound type
+     * parameter: the holder's own hidden content (road to immutability 045/080). The holder cannot modify such a
+     * value -- it can call only java.lang.Object's methods on it -- so handing it to a {@code @Modified} parameter is
+     * not a modification of the field or of its holder: {@code f.apply(this._1)} in vavr's {@code Tuple2.map}.
+     * <p>
+     * The CONCRETE type of the reference decides, not the field's declaration: {@code this.box.t} is hidden content
+     * when {@code box : Box<T1>}, accessible content when {@code box : Box<StringBuilder>}. And only fields of THIS:
+     * {@code src.t} of a parameter {@code Box<X> src} is the caller's object, and a type-parameter PARAMETER handed
+     * over stays modified, because that is still the one channel that carries a concrete function's modification
+     * back to the caller's argument ({@code TestHiddenContentToModifiedArgument}).
+     */
+    public static boolean isHiddenContentField(Variable v) {
+        return v instanceof FieldReference fr
+               && !virtual(fr.fieldInfo())
+               && fr.scopeIsRecursivelyThis()
+               && fr.parameterizedType().isUnboundTypeParameter();
+    }
+
     public static boolean virtual(Variable v) {
         if (v instanceof FieldReference fr) {
             return virtual(fr.fieldInfo());
