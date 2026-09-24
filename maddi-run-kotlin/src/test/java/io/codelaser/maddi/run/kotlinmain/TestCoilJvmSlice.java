@@ -152,18 +152,18 @@ public class TestCoilJvmSlice {
         assertTrue(summary.prepErrors() < 10,
                 "prep isolated " + summary.prepErrors() + " elements; that is no longer a tail");
 
-        // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Measured 2026-09-24 on the
-        // pinned coil slice WITH ALL SIX CLASS-PATH JARS PRESENT: 136 placeholders in 46 of 186 types, 91 of 1,457
-        // members (`new T[n]` array constructors). Before: 139 / 46 / 94 (block-bodied computed getters); 141 / 46 / 96 (for-loop destructuring); 143 / 46 / 97 (array loads and stores, `String.get`); 154 / 46 / 102 (captured types, `map.keys`/`entries`,
-        // enum `entries`); 159 / 48 / 107. ⛔ Every number below was taken with four of the six jars (okio-jvm, kotlinx-coroutines-core-jvm,
-        // atomicfu-jvm, skiko-awt) evicted from the shared Gradle cache, so every okio call and every scope function
-        // on an okio receiver was a placeholder; the same code counted 283, then 208 when an unrelated build
-        // re-downloaded okio, then 159. They measured the cache, and are not comparable with 159.
-        // requireCompleteConfig now refuses a configuration with a missing jar. Previous (cache-starved): 283 / 62 /
-        // 154 (class literals, Java library statics); 288 / 64 / 156 (destructuring in lambdas, Map.Entry components); 299 / 64 / 158 (library companions and objects as values); 305 / 65 / 161 (top-level properties of another file or a library); 310 / 65 / 162 (members of a primitive); 316 / 66 / 163 (`super` dispatch, Java default constructors, implicit extension
-        // properties); 323 / 66 / 169 (nested and smart-cast
-        // implicit receivers); 327 / 67 / 172 (member extensions); 335 / 67 / 177 (implicit-receiver members); 362 / 69 / 192 (class-file shells, extension references); 367 / 69 / 195 at 29e951ea1; 371 / 71 / 197 at fbe6b138a. ⚠ coil is the SECOND corpus for a reason — it and detekt
-        // have no overlap in what they call, so a change that helps one and hurts the other shows up here.
+        // ⭐ THE RATCHET, as on detekt (see TestDetektCorpus for why it is two-sided). Two independent re-baselines
+        // merged here: one measured 2026-09-24 on the pinned coil slice WITH ALL SIX CLASS-PATH JARS PRESENT down to
+        // 136 placeholders in 46 of 186 types, 91 of 1,457 members (`new T[n]` array constructors), via block-bodied
+        // computed getters (139/46/94), for-loop destructuring (141/46/96), array loads/stores and `String.get`
+        // (143/46/97), captured types/`map.keys`/`entries`/enum `entries` (154/46/102), and the cache-fix baseline
+        // itself (159/48/107; see requireCompleteConfig, which now refuses a configuration missing a jar — earlier
+        // cache-starved numbers, 283 down through 367/69/195 at 29e951ea1 and 371/71/197 at fbe6b138a, measured a
+        // stale Gradle cache and are not comparable). The other, independently, measured 282 at ca6be1333 (a Java
+        // instance-field fix) from the SAME 29e951ea1/fbe6b138a starting point, noting the drop from 367 was not
+        // fully attributed or bisected. Both fix chains are combined in this merge; re-measured below.
+        // ⚠ coil is the SECOND corpus for a reason — it and detekt have no overlap in what they call, so a change
+        // that helps one and hurts the other shows up here.
         CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 136);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }

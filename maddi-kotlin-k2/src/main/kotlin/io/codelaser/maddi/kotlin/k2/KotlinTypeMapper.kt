@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.VariableExpression
 import io.codelaser.maddi.cst.api.info.FieldInfo
 import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.info.FieldModifier
 import io.codelaser.maddi.cst.api.info.MethodModifier
 import io.codelaser.maddi.cst.api.info.ParameterInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
@@ -644,6 +645,12 @@ internal class KotlinTypeMapper(
             if (symbol.classKind == KaClassKind.ENUM_CLASS && symbol.origin == KaSymbolOrigin.LIBRARY) {
                 enumEntriesGetter(typeInfo)?.let { if (seen.add(it.fullyQualifiedName())) builder.addMethod(it) }
             }
+            // ⛔ a Java class's INSTANCE fields: AbstractList.modCount, AssertJ's AbstractAssert.actual. They sit in
+            // the member scope as KaJavaFieldSymbols, next to the functions, and only the static scope's were read:
+            // a Kotlin subclass reading `modCount` got a placeholder in every spelling
+            symbol.memberScope.declarations
+                .filterIsInstance<KaJavaFieldSymbol>()
+                .forEach { if (seenFields.add(it.name.asString())) builder.addField(convertLibraryInstanceField(typeInfo, it)) }
             // properties -> fields, so `obj.size`/`obj.length` resolve (the body resolver reads a
             // property access as a field access, like a source type's backing field)
             symbol.memberScope.declarations
@@ -803,13 +810,13 @@ internal class KotlinTypeMapper(
         }
     }
 
-    /** A Java static field (`java.lang.System.out`, `Integer.MAX_VALUE`) -> a `public static` field on [owner]. */
+    /** A Java static field (`java.lang.System.out`, `Integer.MAX_VALUE`) -> a static field on [owner], as visible as declared. */
     private fun KaSession.convertLibraryStaticField(owner: TypeInfo, field: KaJavaFieldSymbol): FieldInfo {
         val fieldInfo = runtime.newFieldInfo(field.name.asString(), true, mapType(field.returnType, owner), owner)
         val builder = fieldInfo.builder()
-            .addFieldModifier(runtime.fieldModifierPublic())
             .addFieldModifier(runtime.fieldModifierStatic())
             .setInitializer(runtime.newEmptyExpression())
+        visibilityFieldModifier(field)?.let { builder.addFieldModifier(it) }
         if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal()) // final field (`out`, `MAX_VALUE`)
         builder.computeAccess().commit()
         return fieldInfo
@@ -837,12 +844,22 @@ internal class KotlinTypeMapper(
         return fieldInfo
     }
 
+    /** A Java instance field (`AbstractList.modCount`) -> a field on [owner], as visible as declared. */
+    private fun KaSession.convertLibraryInstanceField(owner: TypeInfo, field: KaJavaFieldSymbol): FieldInfo {
+        val fieldInfo = runtime.newFieldInfo(field.name.asString(), false, mapType(field.returnType, owner), owner)
+        val builder = fieldInfo.builder().setInitializer(runtime.newEmptyExpression())
+        visibilityFieldModifier(field)?.let { builder.addFieldModifier(it) }
+        if (field.isVal) builder.addFieldModifier(runtime.fieldModifierFinal())
+        builder.computeAccess().commit()
+        return fieldInfo
+    }
+
     /** A library property -> a field on the type (signature only); the body resolver reads `obj.x` as field access. */
     private fun KaSession.convertLibraryField(owner: TypeInfo, property: KaPropertySymbol): FieldInfo {
         val field = runtime.newFieldInfo(property.name.asString(), false, mapType(property.returnType, owner), owner)
         val builder = field.builder()
-            .addFieldModifier(runtime.fieldModifierPublic())
             .setInitializer(runtime.newEmptyExpression())
+        visibilityFieldModifier(property)?.let { builder.addFieldModifier(it) }
         if (property.setter == null) builder.addFieldModifier(runtime.fieldModifierFinal()) // read-only (val)
         builder.computeAccess().commit()
         return field
@@ -875,7 +892,9 @@ internal class KotlinTypeMapper(
         // visibility as a modifier; the *eventual* access is computed (computeAccess) from it + the enclosing type
         when (classSymbol.visibility) {
             KaSymbolVisibility.PRIVATE -> builder.addTypeModifier(runtime.typeModifierPrivate())
-            KaSymbolVisibility.PROTECTED -> builder.addTypeModifier(runtime.typeModifierProtected())
+            // Java's `protected` (package access too) is its own value, PACKAGE_PROTECTED; see [visibilityMethodModifier]
+            KaSymbolVisibility.PROTECTED, KaSymbolVisibility.PACKAGE_PROTECTED ->
+                builder.addTypeModifier(runtime.typeModifierProtected())
             KaSymbolVisibility.INTERNAL -> builder.addTypeModifier(runtime.typeModifierInternal()) // Kotlin module visibility
             KaSymbolVisibility.PUBLIC -> builder.addTypeModifier(runtime.typeModifierPublic())
             else -> {}
@@ -889,11 +908,29 @@ internal class KotlinTypeMapper(
         else -> runtime.typeNatureClass()
     }
 
+    /**
+     * The visibility of a symbol as a modifier; null for a Java package-private one (PACKAGE_PRIVATE), which the
+     * CST writes as no modifier at all.
+     *
+     * ⛔ A JAVA `protected` IS NOT `PROTECTED`. K2 gives it PACKAGE_PROTECTED, protected plus package access, and
+     * until 2026-09-24 that fell through to null: every protected member of a library class loaded here came out
+     * PACKAGE -- AssertJ's `AbstractAssert.failureWithActualExpected` among them, which a refactoring's access
+     * check then saw as merely package-private.
+     */
     internal fun visibilityMethodModifier(symbol: KaDeclarationSymbol): MethodModifier? = when (symbol.visibility) {
         KaSymbolVisibility.PRIVATE -> runtime.methodModifierPrivate()
-        KaSymbolVisibility.PROTECTED -> runtime.methodModifierProtected()
+        KaSymbolVisibility.PROTECTED, KaSymbolVisibility.PACKAGE_PROTECTED -> runtime.methodModifierProtected()
         KaSymbolVisibility.INTERNAL -> runtime.methodModifierInternal() // Kotlin module visibility
         KaSymbolVisibility.PUBLIC -> runtime.methodModifierPublic()
+        else -> null
+    }
+
+    /** As [visibilityMethodModifier], for a field. */
+    private fun visibilityFieldModifier(symbol: KaDeclarationSymbol): FieldModifier? = when (symbol.visibility) {
+        KaSymbolVisibility.PRIVATE -> runtime.fieldModifierPrivate()
+        KaSymbolVisibility.PROTECTED, KaSymbolVisibility.PACKAGE_PROTECTED -> runtime.fieldModifierProtected()
+        KaSymbolVisibility.INTERNAL -> runtime.fieldModifierInternal()
+        KaSymbolVisibility.PUBLIC -> runtime.fieldModifierPublic()
         else -> null
     }
 

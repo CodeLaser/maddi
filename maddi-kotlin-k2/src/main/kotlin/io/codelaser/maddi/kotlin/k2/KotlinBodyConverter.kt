@@ -1490,6 +1490,9 @@ internal class KotlinBodyConverter(
                         // on the facade, exactly as an extension FUNCTION compiles to a static function.
                         ?: extensionPropertyAccess(selector, name, receiver, method, locals)
                         ?: memberExtensionPropertyAccess(selector, name, receiver, method, locals)
+                        // a field the receiver's type inherits: `o.modCount`, `this.actual`
+                        ?: receiverType?.let { inheritedField(it, name) }
+                            ?.let { variableExpression(runtime.newFieldReference(it, receiver, it.type())) }
                         ?: placeholder("k2-unresolved-access:$name", selector)
                 }
             }
@@ -3152,6 +3155,27 @@ internal class KotlinBodyConverter(
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
         if (!method.isStatic || singleton(method.typeInfo()) != null) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
             return accessorCall(self(method), accessor)
+        }
+        // a field INHERITED from a superclass: `modCount` in a subclass of java.util.AbstractList
+        if (!method.isStatic) inheritedField(method.typeInfo(), name)?.let { field ->
+            return variableExpression(runtime.newFieldReference(field, self(method), field.type()))
+        }
+        return null
+    }
+
+    /**
+     * A non-private field named [name] of a superclass of [type], nearest first; null if none. ⚠ LAST, after every
+     * other way a name resolves: a source type's own fields are all its lookups used to search, so an inherited Java
+     * field (`AbstractList.modCount`, AssertJ's `actual`) became a placeholder. A Kotlin property of a supertype is
+     * NOT found here first -- its field is private, or, on a library type, it has an accessor that resolved before
+     * this runs -- so nothing that resolved before resolves differently now.
+     */
+    private fun inheritedField(type: TypeInfo, name: String): FieldInfo? {
+        var parent = type.parentClass()?.bestTypeInfo()
+        val seen = HashSet<TypeInfo>()
+        while (parent != null && seen.add(parent) && !parent.isJavaLangObject) {
+            parent.fields().firstOrNull { it.name() == name && !it.access().isPrivate }?.let { return it }
+            parent = parent.parentClass()?.bestTypeInfo()
         }
         return null
     }
