@@ -276,6 +276,15 @@ internal class KotlinBodyConverter(
             // `fun f(): T = try { … } catch { … }` is the commonest try-as-a-value shape there is — three of
             // detekt's four. The expression body IS the returned value, so the whole statement context the
             // lowering needs is right here: no temporary, the branches just return.
+            // `fun f(): Nothing = throw E()`: the body is a statement, and there is no value to return
+            if (body is KtThrowExpression) return statementsToBlock(listOf(body), method, locals, "")
+            // `fun f() = x ?: throw E()` / `?: return v`: lowered as the block body `return x ?: throw E()` is
+            if (returning && isControlFlowElvis(body)) {
+                controlFlowElvisLowering(body, method, locals, "0", returnValue = true)?.let { lowered ->
+                    lowered.forEach { block.addStatement(it) }
+                    return block.build()
+                }
+            }
             val statement = when {
                 body is KtTryExpression -> convertTry(body, method, locals, "0", returning = returning)
                 body is KtIfExpression && body.hasAMultiStatementBranch() ->
@@ -592,7 +601,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
-                                                   index: String): List<Statement>? {
+                                                   index: String, returnValue: Boolean = false): List<Statement>? {
         val elvis = when {
             isControlFlowElvis(statement) -> statement as KtBinaryExpression
             statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer) ->
@@ -609,7 +618,8 @@ internal class KotlinBodyConverter(
         }
         val left = elvis.left ?: return null
         val control = elvis.right ?: return null
-        val isWholeStatement = statement === elvis
+        // [returnValue]: the elvis is a function's EXPRESSION body, `fun f() = x ?: throw E()` -- its value returned
+        val isWholeStatement = statement === elvis && !returnValue
 
         // ⛔ The left operand is needed TWICE -- to test for null, and as the value. Converting it twice
         // EVALUATES it twice, which for `f() ?: return` means two calls where the source has one: a CST that
@@ -646,7 +656,7 @@ internal class KotlinBodyConverter(
             .build()
         statements.add(guard)
         if (isWholeStatement) return statements
-        val raw = when (statement) {
+        val raw = if (returnValue) runtime.newReturnStatement(leftValue()) else when (statement) {
             // each entry reads the (guarded) value: a fresh read of the temporary, or of the stable reference
             is KtDestructuringDeclaration -> destructuringStatement(statement, leftValue, method, locals)
             is KtProperty -> localVariableCreation(statement, method, locals, leftValue())
