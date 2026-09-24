@@ -1239,6 +1239,58 @@ detekt: class literals 89 → 3; `k2-unsupported-expr` 164 → 78; total **444 �
 literals 3); total **358 → 323** (types 160 → 143). 2 reveals (`Show`/`Hidden` under a formerly swallowed annotated
 `try` in `AnalysisFacade`), no new member, no verdict moved; coil unchanged at 283.
 
+### 7.38 Local functions — detekt 323 → 277
+
+A local `fun` is lowered to a local variable of type `FunctionN<boxed parameters, boxed result>` whose value is an
+anonymous implementation with an `invoke` method (an extension local takes `$receiver` first). A call to it is
+`g.invoke(..)` on that variable, and `::g` is the variable itself. That is what kotlinc emits, minus the class name,
+and what a Java programmer writes with a lambda. `LocalFunctionTest` (k2) fails with six placeholders when the change
+is reverted; `TestKotlinLambdaVsJavaLambda` gains `localCaptures` and `localReads`, both agreeing with the Java
+lambda. `FunctionN` is a stdlib type, so without the jar a local function stays a placeholder, and the rows cannot
+live in the stdlib-free `TestLoweredShapesVsJava`.
+
+detekt: all 27 `k2-unsupported-expr:KtNamedFunction` sites, the 5 local callable references and 25 calls to local
+functions go (57); 11 appear, all inside bodies read for the first time (`yield`/`yieldAll` 5, `resolveToCall` 2,
+`getArgumentExpression` 2, a `try` in a hoist-less position, and one `psi` access whose position is `0:0`, owed a
+look). Total **323 → 277** (types 143 → 134, members 190 → 176); coil has no local functions and stays at 159.
+
+**Verdicts: 666 → 667, every move explained**, and it took `FPDUMP`/`FPDUMP_PARAMS` on both sides to explain them.
+Chains that ended in an unread local function had been **undetermined** (`nonModifying=null`); an undetermined
+link never reports a modification, so the verdicts above it were resting on nothing. Now they resolve:
+
+- `FunCoroutineLaunchesTraverseHelper` ↓ `@FinalFields`: its local `checkFunctionAndSaveToCache` writes the field
+  `exploredFunctionsCache`. A reveal.
+- `Analyzer` ↓ `@FinalFields`: `shouldAnalyzeFile` resolves, and its `Config` receiver is modified through
+  `createPathFilters()`, whose receiver was already modified in the base (`Config.valueOrDefault`). A reveal: the
+  type had been held up by a verdict nobody derived.
+- `AnalysisFacade` and the `Detekt` interface ↑ `@Immutable(hc=true)`: `run`/`runAnalysis` go from `null` to
+  non-modifying.
+- `PathFilters` ↑ `@Immutable(hc=true)`, and this one needed a contract first. Its local
+  `fun isIncluded() = includes?.any { it.matches(path) } ?: true` marked `includes` modified. The local function
+  was innocent: the same body written inline gives the same verdict, and Java's `stream().anyMatch(..)` does not.
+  `Iterable.any` had no contract, and an uncontracted receiver is a modified one. `any`, `all` and `none` are now
+  contracted (b1f2a29d6, `TestKotlinPredicatesVsJava`, negative control included).
+
+⚠ **Open, found on the way: invoking a function VALUE with an argument.** `fun p(b: Box, f: (Box) -> Unit) { f(b) }`
+leaves `b` unmodified; Java's `Consumer<Box>.accept(b)` marks it modified. `java.util.function.Consumer.accept` is
+in the JDK annotated API (its `arg0` is not `@NotModified`); `kotlin.jvm.functions.Function1.invoke` has no entry,
+and an unannotated library parameter reads unmodified. It predates local functions (a function-typed PARAMETER
+shows it) and is the next contract to write: `Function0`…`FunctionN.invoke` as the JDK's functional interfaces are.
+
+### 7.39 A corpus pin measured the Gradle cache — coil 283 → 159 with no code change
+
+coil's `inputConfiguration.json` names six jars by absolute path in the shared Gradle cache, and four (okio-jvm,
+kotlinx-coroutines-core-jvm, atomicfu-jvm, skiko-awt) had been evicted. Nothing reports an absent class-path jar:
+its calls just stop resolving. Unchanged code counted 283, then 208 when an unrelated build re-downloaded okio, then
+159 once the rest were re-resolved (the cache paths are content hashes, so they land where the configuration looks).
+The give-away was the kind of site that vanished: okio calls, and `let`/`also`/`use` on okio receivers.
+
+`TestOssCorpus.requireCompleteConfig` now treats a missing jar like a missing corpus (a skip, or a failure under
+`slowTest`), and both Kotlin corpus tests use it (80cfd34fc). Every coil number before 159 in this document was taken
+cache-starved and is **not comparable** with it. detekt's 62 jars were all present, so its history stands. ⚠ It is
+opt-in because the audit of all 20 corpus configurations found elasticsearch* (97 of 151 jars missing) and fernflower
+(24 of 36), which belong to other lanes and whose counts carry the same exposure.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1266,8 +1318,9 @@ literals 3); total **358 → 323** (types 160 → 143). 2 reveals (`Show`/`Hidde
    work, and one the site dump can drive. ✅ Class-file shells and extension references (§7.25) and implicit-receiver members (§7.26) and
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
-   `arrayOf` (§7.35), class literals (§7.36) and jumps in expression position (§7.37) have taken detekt
-   4,701 → 323 and coil 367 → 283 on that dump.
+   `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37) and local functions (§7.38) have taken detekt
+   4,701 → 277 and coil 367 → 283 on that dump (coil is 159 once its class path is complete, §7.39; its
+   earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
 5. ✅ **Make the evidence fail** (§7.16, §7.20). The three `assumeTrue` skips now fail under

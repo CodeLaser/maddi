@@ -67,6 +67,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>⭐ Measured 2026-09-23, all three rows agree on every sensor: the different path is not a different answer
  * for these shapes. {@code higherOrder} sees {@code b} modified through a Kotlin {@code (String) -> Unit} exactly
  * as through a Java {@code Consumer}. Guarded by a zero-placeholder census, so the agreement is not vacuous.
+ *
+ * <p>2026-09-24: two <b>local functions</b>, which maddi lowers to a local of a {@code FunctionN} type whose value is
+ * an anonymous implementation, against the Java lambda a human writes instead. The captured {@code b} is modified
+ * through one and only read through the other, on both sides. They live here rather than in
+ * {@code TestLoweredShapesVsJava} because {@code FunctionN} is a stdlib type: without the jar the local stays a
+ * placeholder.
  */
 public class TestKotlinLambdaVsJavaLambda {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestKotlinLambdaVsJavaLambda.class);
@@ -96,6 +102,8 @@ public class TestKotlinLambdaVsJavaLambda {
                 fun higherOrder(b: Box, t: String) { apply(t) { s -> b.add(s) } }
                 fun samConverted(b: Box, c: Box, t: String) { b.feed({ s -> c.add(s) }, t) }
                 fun readOnly(b: Box, t: String): Int { apply(t) { _ -> }; return b.size() }
+                fun localCaptures(b: Box, t: String) { fun add() = b.add(t); add() }
+                fun localReads(b: Box): Int { fun n(): Int = b.size(); return n() }
             }
             """;
 
@@ -108,10 +116,12 @@ public class TestKotlinLambdaVsJavaLambda {
                 public void higherOrder(Box b, String t) { apply(t, s -> b.add(s)); }
                 public void samConverted(Box b, Box c, String t) { b.feed(s -> c.add(s), t); }
                 public int readOnly(Box b, String t) { apply(t, s -> { }); return b.size(); }
+                public void localCaptures(Box b, String t) { Runnable add = () -> b.add(t); add.run(); }
+                public int localReads(Box b) { java.util.function.IntSupplier n = () -> b.size(); return n.getAsInt(); }
             }
             """;
 
-    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly");
+    private static final List<String> METHODS = List.of("higherOrder", "samConverted", "readOnly", "localCaptures", "localReads");
 
     /**
      * ⛔ <b>The stdlib is what resolves a library call, and the fixture must prove it holds the stdlib.</b> This

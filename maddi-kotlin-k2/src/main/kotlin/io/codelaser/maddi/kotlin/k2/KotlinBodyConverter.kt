@@ -750,6 +750,8 @@ internal class KotlinBodyConverter(
             statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
             method, locals, index, statement.getLabelName())
         statement is KtProperty && statement.isLocal -> localVariableCreation(statement, method, locals, null)
+        statement is KtNamedFunction && statement.isLocal -> convertLocalFunction(statement, method, locals)
+            ?: runtime.newExpressionAsStatement(placeholder("k2-unsupported-expr:KtNamedFunction", statement))
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> assignmentStatement(statement,
             statement.right?.let { convertExpression(it, method, locals) } ?: placeholder("k2-absent-assignment-value", statement),
             method, locals)
@@ -838,6 +840,60 @@ internal class KotlinBodyConverter(
         val builder = runtime.newLocalVariableCreationBuilder().setLocalVariable(variables.first())
         variables.drop(1).forEach { builder.addOtherLocalVariable(it) }
         return builder.setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A LOCAL function, `fun g(x: X): R { … }` in a body, as a local variable holding its function object:
+     * `Function1<X, R> g = x -> { … }`, a lambda over an anonymous type implementing `kotlin.jvm.functions.FunctionN`
+     * -- the shape a function value already has, so `g(x)` is `g.invoke(x)` and `::g` is `g`. A local EXTENSION
+     * takes its receiver as the first parameter, `$receiver`, as a receiver lambda does. The variable is in scope in
+     * its own body (a recursive call). Captured locals stay closure reads, as in any lambda.
+     * (kotlinc compiles a non-capturing one to a synthetic static method `outer$g` instead; both call one body.)
+     */
+    private fun KaSession.convertLocalFunction(fn: KtNamedFunction, method: MethodInfo,
+                                               locals: MutableMap<String, Variable>): Statement? {
+        val symbol = fn.symbol as? KaNamedFunctionSymbol ?: return null
+        val name = fn.name ?: return null
+        val enclosingType = method.typeInfo()
+        val receiverType = symbol.receiverParameter?.let { mapType(it.returnType, enclosingType, method) }
+        val parameters = listOfNotNull(receiverType?.let { "\$receiver" to it }) +
+            symbol.valueParameters.map { it.name.asString() to mapType(it.returnType, enclosingType, method) }
+        val returnType = mapType(symbol.returnType, enclosingType, method)
+        val functionN = (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/functions/Function${parameters.size}"))
+            as? KaNamedClassSymbol)?.let { classTypeInfo(it) } ?: return null
+        val boxedReturn = if (returnType == runtime.voidParameterizedType()) runtime.objectParameterizedType()
+                          else returnType.ensureBoxed(runtime)
+        val functionalType = runtime.newParameterizedType(functionN,
+            parameters.map { it.second.ensureBoxed(runtime) } + boxedReturn)
+
+        val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
+        anonymousType.builder().setAccess(runtime.accessPrivate()).setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+        val sam = runtime.newMethod(anonymousType, "invoke", runtime.methodTypeMethod())
+        val samBuilder = sam.builder()
+        parameters.forEach { (n, t) -> samBuilder.addParameter(n, t) }
+        samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
+
+        // declared first, so the body can call itself
+        val variable = runtime.newLocalVariable(name, functionalType)
+        locals[name] = variable
+        val bodyScope: MutableMap<String, Variable> = locals.toMutableMap()
+        sam.parameters().forEach { bodyScope[it.name()] = it }
+        val body = fn.bodyBlockExpression?.let { statementsToBlock(it.statements, method, bodyScope, "") }
+            ?: fn.bodyExpression?.let { e ->
+                val value = convertExpression(e, method, bodyScope)
+                runtime.newBlockBuilder().addStatement(indexed(
+                    if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(value)
+                    else runtime.newReturnStatement(value), "0")).build()
+            } ?: runtime.emptyBlock()
+        samBuilder.setMethodBody(body).commit()
+        anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
+            .setSingleAbstractMethod(sam).commit()
+        val lambda = runtime.newLambdaBuilder().setMethodInfo(sam)
+            .setOutputVariants(parameters.map { runtime.lambdaOutputVariantEmpty() }).setSource(runtime.noSource()).build()
+        return runtime.newLocalVariableCreationBuilder()
+            .setLocalVariable(runtime.newLocalVariable(name, functionalType, lambda).also { locals[name] = it })
+            .setSource(runtime.noSource()).build()
     }
 
     /**
@@ -2024,7 +2080,11 @@ internal class KotlinBodyConverter(
         val fn = symbol as? KaNamedFunctionSymbol
             ?: return placeholder("k2-callable-ref-unsupported", expression)
         // a local function (`fun f() { fun g() {}; ::g }`) is not modelled by this front end at all
-        if ((fn.psi as? KtNamedFunction)?.isLocal == true) return placeholder("k2-callable-ref-local-function", expression)
+        // a local function is a local variable holding its function object (convertLocalFunction): `::g` is that value
+        if ((fn.psi as? KtNamedFunction)?.isLocal == true) {
+            return locals[fn.name.asString()]?.let { variableExpression(it) }
+                ?: placeholder("k2-callable-ref-local-function", expression)
+        }
         if (fn.receiverParameter != null) return extensionReference(fn, expression, functionalType, method, locals)
 
         val receiver = expression.receiverExpression
@@ -2278,6 +2338,23 @@ internal class KotlinBodyConverter(
         val contexts = contextArguments(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.contextArguments,
             method, locals) ?: return runtime.newEmptyExpression("k2-context-argument-unresolved:$name")
         val arguments = contexts + (ordered?.expressions ?: valueArgs)
+
+        // a call of a LOCAL function, `g(x)` or `x.g()` for a local extension: `g.invoke([x,] args)` on its variable
+        if ((calleeSymbol?.psi as? KtNamedFunction)?.isLocal == true) {
+            val recv = if (calleeSymbol.receiverParameter != null) receiver?.first ?: implicitExtensionReceiver(call, method, locals)
+                       else null
+            if (calleeSymbol.receiverParameter == null || recv != null) {
+                locals[name]?.let { fnValue ->
+                    val invokeArgs = listOfNotNull(recv) + arguments
+                    fnValue.parameterizedType().typeInfo()?.let { resolveCallee(members(it), "invoke", invokeArgs) }?.let { invoke ->
+                        return runtime.newMethodCallBuilder().setObject(variableExpression(fnValue)).setObjectIsImplicit(false)
+                            .setMethodInfo(invoke).setParameterExpressions(invokeArgs)
+                            .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: invoke.returnType())
+                            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                    }
+                }
+            }
+        }
 
         // a member of a primitive (`i.toString()`, `b.not()`, `i.toLong()`): no Java type declares it
         if (receiver != null) primitiveMember(name, receiver.first, arguments, call, method)?.let { return it }
