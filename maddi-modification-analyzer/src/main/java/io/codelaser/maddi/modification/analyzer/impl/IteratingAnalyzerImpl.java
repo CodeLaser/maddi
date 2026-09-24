@@ -634,13 +634,15 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                     .map(Object::toString).sorted()
                                     .forEach(d -> System.out.println("MODREACH_REVERSE " + d));
                         }
-                        // MODREACH_EXPLAIN=<substring>: print the BFS chain (node <- cause <- ... <- seed)
+                        // MODREACH_EXPLAIN=<substring>[,<substring>...]: print the BFS chain (node <- cause <- ... <- seed)
                         // for every reached node (method receiver, parameter, FIELD) whose FQN contains the substring
                         String explain = System.getenv("MODREACH_EXPLAIN");
                         if (explain != null) {
                             for (Object node : report.reached()) {
                                 if (node instanceof io.codelaser.maddi.cst.api.info.Info info
-                                    && info.fullyQualifiedName().contains(explain)) {
+                                    && java.util.Arrays.stream(explain.split(","))
+                                            .anyMatch(part -> !part.isBlank()
+                                                              && info.fullyQualifiedName().contains(part))) {
                                     System.out.println("MODREACH_EXPLAIN " + report.explain(node));
                                 }
                             }

@@ -354,6 +354,19 @@ public class Util {
      * over stays modified, because that is still the one channel that carries a concrete function's modification
      * back to the caller's argument ({@code TestHiddenContentToModifiedArgument}).
      */
+    /**
+     * A real field DECLARED with an unbound type parameter ({@code public final T1 _1}): its object is hidden content
+     * of the owner (road to immutability 045), so the FIELD is never modified, whatever some code does to the object
+     * in one instance's field -- that is exactly what {@code @Immutable(hc=true)} states. The VARIABLE {@code t._1} in
+     * that code is still modified, and so is its scope {@code t}: that is the channel to the code's caller. What must
+     * not happen is the field NODE carrying it to every value ever stored in that field: vavr's
+     * {@code CheckedFunction2.tupled()}, {@code t -> apply(t._1, t._2)}, marked {@code Tuple2._2} modified, and the
+     * field-to-constructor-parameter rule took it through {@code Tuple.of} to {@code List.Cons.tail}.
+     */
+    public static boolean isHiddenContentFieldDeclaration(FieldInfo fieldInfo) {
+        return !virtual(fieldInfo) && fieldInfo.type().isUnboundTypeParameter();
+    }
+
     public static boolean isHiddenContentField(Variable v) {
         return v instanceof FieldReference fr
                && !virtual(fr.fieldInfo())

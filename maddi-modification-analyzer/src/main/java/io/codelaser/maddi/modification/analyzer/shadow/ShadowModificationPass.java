@@ -347,7 +347,7 @@ public class ShadowModificationPass {
             Links links = mlv.ofParameters().get(pi.index());
             for (Link link : links) {
                 FieldReference fr = relevantLinkForModification(link);
-                if (fr != null && !fr.isIgnoreModifications()) addEdge(fr.fieldInfo(), pi);
+                if (fr != null && !fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) addEdge(fr.fieldInfo(), pi);
             }
         }
         // E1/E2: call sites
@@ -423,8 +423,14 @@ public class ShadowModificationPass {
             Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
                     EMPTY_PART_OF_CONSTRUCTION);
             if (poc.infoSet().contains(mi)) continue;
-            seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
+            if (isFieldNode(fieldInfo)) seedWithOrigin(fieldInfo, mi, "statement-level unmodified FALSE on " + fr);
         }
+    }
+
+    /** engine mirror (FieldAnalyzerImpl.computeUnmodified): a hidden-content field is never modified, so it is no
+     *  node -- a node would carry one instance's modification to every value ever stored in the field */
+    private static boolean isFieldNode(FieldInfo fieldInfo) {
+        return !Util.isHiddenContentFieldDeclaration(fieldInfo);
     }
 
     private void seedWithOrigin(Object node, MethodInfo mi, String why) {
@@ -504,7 +510,7 @@ public class ShadowModificationPass {
     private void seedFieldReference(MethodInfo mi, FieldReference fr) {
         // mirror MethodModification's Util.variableAndScopes(...).filter(!isIgnoreModifications):
         // modification through a disclaimed face never implicates the field node itself
-        if (!fr.isIgnoreModifications()) seeds.add(fr.fieldInfo());
+        if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) seeds.add(fr.fieldInfo());
         if (fr.scopeIsRecursivelyThis()) seeds.add(mi);
         // E5: modification of a component this.m.i implicates the containing field this.m
         if (fr.scopeVariable() instanceof FieldReference outer) seedFieldReference(mi, outer);
@@ -770,7 +776,7 @@ public class ShadowModificationPass {
                             }
                         }
                         case FieldReference fr -> {
-                            if (!fr.isIgnoreModifications()) out.add(fr.fieldInfo());
+                            if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) out.add(fr.fieldInfo());
                             if (fr.scopeIsRecursivelyThis()) {
                                 out.addAll(projectReceiverChain(mi, vd, mc.object()));
                             }
@@ -845,7 +851,7 @@ public class ShadowModificationPass {
                 case FieldReference fr -> {
                     // engine mirror: a disclaimed (@IgnoreModifications) face never implicates its
                     // field node; the scope chain still projects (Util.variableAndScopes filter)
-                    if (!fr.isIgnoreModifications()) out.add(fr.fieldInfo());
+                    if (!fr.isIgnoreModifications() && isFieldNode(fr.fieldInfo())) out.add(fr.fieldInfo());
                     if (fr.scopeIsRecursivelyThis()) out.add(mi);
                     push(todo, fr.scopeVariable());
                 }

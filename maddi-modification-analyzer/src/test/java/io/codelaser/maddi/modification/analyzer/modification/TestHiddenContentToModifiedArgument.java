@@ -41,6 +41,11 @@ import static org.junit.jupiter.api.Assertions.*;
  * <ul>
  * <li>{@code Pair.mapFirst}: vavr's {@code Tuple2.map}, {@code f.apply(first)} with {@code first : T1} -- the shape
  *     that, through one {@code Tuple2.map} call, marked {@code List.Cons.tail} modified.</li>
+ * <li>{@code consume}/{@code make}: vavr's {@code CheckedFunction2.tupled()}, {@code t -> apply(t._1, t._2)}. The
+ *     VARIABLE {@code p.first} is modified, and so is {@code p} -- the channel to the caller -- but the FIELD
+ *     {@code Pair.first} is not: it is declared {@code T1}, hidden content. As a field node it carried one pair's
+ *     modification to every value ever stored in the field: {@code Pair.<init>:first}, then {@code make}'s
+ *     {@code sb} (with MODREACH); on vavr, through {@code Tuple.of}, to {@code List.Cons.tail}.</li>
  * <li>{@code Holder.perform}: the control -- a CONCRETE, non-immutable field handed over (vavr's
  *     {@code FutureImpl.perform}); that is accessible content and stays a modification.</li>
  * <li>{@code applyTo}/{@code caller2}/{@code caller3}: a type-parameter PARAMETER handed over stays modified. That is
@@ -117,6 +122,16 @@ public class TestHiddenContentToModifiedArgument extends CommonTest {
                     p.mapFirst(new Append());
                 }
 
+                // vavr's CheckedFunction2.tupled(): t -> apply(t._1, t._2) -- a PARAMETER's hidden-content field
+                static <A> void consume(Pair<A, Integer> p, Fn<A, ?> f) {
+                    f.apply(p.first);
+                }
+
+                // only builds a pair; nothing here modifies sb
+                static Pair<StringBuilder, Integer> make(StringBuilder sb) {
+                    return new Pair<>(sb, 1);
+                }
+
                 static <T> void applyTo(T t, Fn<T, ?> f) {
                     f.apply(t);
                 }
@@ -172,6 +187,12 @@ public class TestHiddenContentToModifiedArgument extends CommonTest {
                            + " caller:sb " + modified(x, "caller") + " caller2:sb " + modified(x, "caller2")
                            + " caller3:sb " + modified(x, "caller3"));
 
+        MethodInfo consume = x.findUniqueMethod("consume", 2);
+        MethodInfo pairInit = pair.findConstructor(2);
+        System.out.println("### consume:p modified=" + consume.parameters().getFirst().isModified()
+                           + " Pair.<init>:first modified=" + pairInit.parameters().getFirst().isModified()
+                           + " make:sb " + modified(x, "make"));
+
         assertTrue(apply.parameters().getFirst().isModified(), "precondition: the contract");
 
         assertTrue(first.isUnmodified(), "first : T1 is hidden content of Pair");
@@ -181,6 +202,12 @@ public class TestHiddenContentToModifiedArgument extends CommonTest {
         assertFalse(sbField.isUnmodified(), "control: a concrete StringBuilder handed over IS modified");
         assertTrue(perform.isModifying());
         assertSame(ValueImpl.ImmutableImpl.FINAL_FIELDS, immutable(holder));
+
+        assertTrue(consume.parameters().getFirst().isModified(), "consume's p: the variable p.first is modified, "
+                                                                  + "and p is the channel to consume's caller");
+        assertFalse(pairInit.parameters().getFirst().isModified(),
+                "the FIELD Pair.first is never modified, so nothing flows back to the constructor parameter");
+        assertFalse(modified(x, "make"), "no teleport: make only builds a pair");
 
         assertTrue(applyTo.parameters().getFirst().isModified(), "a type-parameter parameter stays the channel");
         assertTrue(modified(x, "caller2"), "Append modifies caller2's sb");

@@ -228,6 +228,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
         }
 
         private Value.Bool computeUnmodified(FieldInfo fieldInfo, List<MethodInfo> methodsReferringToField) {
+            // hidden content: the field is never modified, whatever is done to the object in it
+            if (io.codelaser.maddi.modification.prepwork.Util.isHiddenContentFieldDeclaration(fieldInfo)) return TRUE;
             Value.SetOfInfo poc = fieldInfo.owner().analysis().getOrDefault(PART_OF_CONSTRUCTION,
                     EMPTY_PART_OF_CONSTRUCTION);
             boolean undecided = false;
