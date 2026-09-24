@@ -15,6 +15,7 @@
 package io.codelaser.maddi.inspection.kotlin
 
 import io.codelaser.maddi.cst.api.info.MethodInfo
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation
 import io.codelaser.maddi.kotlin.api.ConstructorDelegation
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.info.TypeParameter
@@ -47,8 +48,45 @@ object JavaStubGenerator {
         /** An implementation rather than an abstract declaration: a Kotlin interface's `default` method. */
         fun hasBody(method: MethodInfo): Boolean = runCatching { method.methodBody() }.getOrNull() != null
 
-        /** The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. */
-        fun delegation(constructor: MethodInfo): ConstructorDelegation? = null
+        /**
+         * The `super(...)`/`this(...)` [constructor] calls; null for the implicit `super()`. By default read off the
+         * CST: a converted constructor's first statement is its delegation.
+         *
+         * ⛔ Until 2026-09-24 the default answered null ALWAYS, and only the interleaved flow (a session, before any
+         * body) passed hints. So the ordinary Java-depends-on-Kotlin flow stubbed every constructor with an
+         * implicit `super()`, and a Kotlin class extending one with no no-argument constructor --
+         * `class Sub(e: Env) : Node(e, 4)` -- failed the stub compile, and with it the whole parse.
+         */
+        fun delegation(constructor: MethodInfo): ConstructorDelegation? {
+            val first = runCatching { constructor.methodBody() }.getOrNull()?.statements()?.firstOrNull()
+            val eci = first as? ExplicitConstructorInvocation ?: return null
+            val target = eci.methodInfo() ?: return null
+            if (!isStubbed(target)) return delegationForDefault(target)
+            return ConstructorDelegation(eci.isSuper,
+                target.parameters().map { p -> p.parameterizedType().takeIf { it.typeParameter() == null } },
+                runCatching { target.exceptionTypes() }.getOrDefault(emptyList()))
+        }
+    }
+
+    /**
+     * kotlinc gives a constructor with default values an overload without them, whose body calls the `$default`
+     * constructor (the parameters, an `int` mask per 32 of them, a `DefaultConstructorMarker`) that the stub leaves out. The stub
+     * calls the constructor that `$default` one stands for instead: same owner, its parameters minus the masks and the marker.
+     * The CST does not give the `$default` constructor a delegation of its own to follow. Null when there is none.
+     */
+    private fun delegationForDefault(synthetic: MethodInfo): ConstructorDelegation? {
+        val params = synthetic.parameters()
+        if (params.size < 2 || params.last().name() != "\$marker") return null
+        val types = params.dropLast(1).map { it.parameterizedType() }
+        // one `int` mask per 32 parameters
+        val real = synthetic.typeInfo().constructors().filter { isStubbed(it) }.firstOrNull { c ->
+            val n = c.parameters().size
+            val masks = types.size - n
+            masks >= 1 && masks == (n + 31) / 32 && c.parameters().map { it.parameterizedType() } == types.take(n)
+        } ?: return null
+        return ConstructorDelegation(false,
+            real.parameters().map { p -> p.parameterizedType().takeIf { it.typeParameter() == null } },
+            runCatching { real.exceptionTypes() }.getOrDefault(emptyList()))
     }
 
     private val DEFAULT_HINTS = object : StubHints {}
@@ -180,12 +218,16 @@ object JavaStubGenerator {
     private fun isEnumConstant(f: io.codelaser.maddi.cst.api.info.FieldInfo, enumType: TypeInfo): Boolean =
         f.isStatic && f.type().typeInfo() === enumType
 
+    /** False for a synthetic constructor the stub leaves out (see [appendMethod]). */
+    internal fun isStubbed(m: MethodInfo): Boolean = !(m.isConstructor && m.isSynthetic
+            && (m.methodModifiers().any { it.isPrivate } || m.parameters().lastOrNull()?.name() == "\$marker"))
+
     private fun appendMethod(sb: StringBuilder, owner: TypeInfo, m: MethodInfo, ownerIsInterface: Boolean, indent: String,
                              hints: StubHints, emitted: MutableSet<String> = HashSet()) {
         // a `$default` constructor (the trailing `int` mask and DefaultConstructorMarker) is kotlinc's, called by
         // Kotlin only; it would need a `this(...)` of its own, and nothing in Java can name its marker. A companion's
         // private one is not Java's to call either; an overload kotlinc adds (a no-argument one) is
-        if (m.isConstructor && m.isSynthetic && (m.methodModifiers().any { it.isPrivate } || m.parameters().lastOrNull()?.name() == "\$marker")) return
+        if (m.isConstructor && !isStubbed(m)) return
         val isStatic = m.isStatic
         // a Kotlin interface method WITH an implementation is a Java `default` method (javac needs the keyword,
         // else a Java class relying on it is forced to implement it); one without a body stays abstract.
