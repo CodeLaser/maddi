@@ -152,6 +152,47 @@ class TestMixedProjectInspector {
         assertSame(derived, use.getFieldByName("derived", true).type().typeInfo())
     }
 
+    /**
+     * A callable reference's type is a `KFunctionN`, which the CST carries as `kotlin.reflect.KFunction` with every
+     * argument of the N-ary one; `KFunction` declares a single type parameter, so the stub must not print them all.
+     */
+    @Test
+    fun aCallableReferenceTypeIsStubbed() {
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-kfunction")
+        val kDir = tmp.resolve("proj/src/main/kotlin")
+        val jDir = tmp.resolve("proj/src/main/java")
+        Files.createDirectories(kDir.resolve("a"))
+        Files.createDirectories(jDir.resolve("b"))
+        Files.writeString(kDir.resolve("a/Point.kt"), """
+            package a
+
+            class Point(val lat: Double) {
+                fun twice(k: Int): Double = lat * k
+            }
+
+            val ref = Point::twice
+            fun refOf() = Point::twice
+            """.trimIndent() + "\n")
+        Files.writeString(jDir.resolve("b/UsePoint.java"),
+            "package b;\npublic class UsePoint {\n    public a.Point point;\n}\n")
+        // kotlin-stdlib, for `kotlin.reflect.KFunction` to exist on javac's class path
+        val stdlib = java.nio.file.Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        val stdlibSet = SourceSetImpl.Builder().setName("kotlin-stdlib").setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
+        val kotlinSet = SourceSetImpl.Builder().setName("kotlin/main")
+            .setSourceDirectories(listOf(kDir)).setUri(kDir.toUri()).setDependencies(listOf(stdlibSet)).build()
+        val javaSet = SourceSetImpl.Builder().setName("java/main")
+            .setSourceDirectories(listOf(jDir)).setUri(jDir.toUri())
+            .setDependencies(listOf(kotlinSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet).addSourceSets(kotlinSet).addSourceSets(javaSet).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val point = result.kotlinBySourceSet.getValue(kotlinSet).first { it.simpleName() == "Point" }
+        val use = result.javaTypes.first { it.simpleName() == "UsePoint" }
+        assertSame(point, use.getFieldByName("point", true).type().typeInfo())
+    }
+
     /** The other direction: a Kotlin source set depends on a Java source set (Java-first order). */
     @Test
     fun kotlinSourceSetResolvesUpstreamJavaSourceType() {

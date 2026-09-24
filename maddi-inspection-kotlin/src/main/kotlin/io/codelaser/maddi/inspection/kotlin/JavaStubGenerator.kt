@@ -295,7 +295,12 @@ object JavaStubGenerator {
         val typeInfo = pt.typeInfo()
         val typeParameter = pt.typeParameter()
         val base = typeParameter?.simpleName() ?: typeInfo?.fullyQualifiedName() ?: "java.lang.Object"
-        val arguments = if (typeParameter != null) emptyList() else pt.parameters()
+        // ⛔ a callable reference's type, `KFunction3<Point, String, Int, Point>`, arrives as `kotlin.reflect.KFunction`
+        // with FOUR arguments, and KFunction declares one: javac rejects `KFunction<a.Point, ...>`, and the whole
+        // parse with it. Arguments that do not fit the class's own parameters are dropped, leaving the raw type.
+        val declared = typeInfo?.typeParameters()?.size ?: 0
+        val arguments = if (typeParameter != null || declared > 0 && declared != pt.parameters().size) emptyList()
+        else pt.parameters()
         val rendered = (if (arguments.isEmpty()) base else base + arguments.joinToString(", ", "<", ">", transform = ::typeArgument)) +
                 "[]".repeat(pt.arrays())
         val wildcard = pt.wildcard()
