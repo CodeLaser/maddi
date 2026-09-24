@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * A member of a Kotlin primitive (`i.toString()` 72x on detekt, `b.not()` 17x) has no Java declaration to bind to; each
  * becomes the Java a human writes, which is also what kotlinc compiles (javap, 2.4.0) but for `compareTo`
  * (kotlinc: `Intrinsics.compare`) and `equals` (kotlinc boxes both sides). A nullable receiver is boxed, and keeps
- * binding to the box's own member.
+ * binding to the box's own member. `arrayOf(…)` (an intrinsic, no bytecode) is `new T[]{…}`.
  */
 public class TestPrimitiveMembers {
     @Test
@@ -61,6 +61,8 @@ public class TestPrimitiveMembers {
                     fun sn(i: Int?): String = i.toString()
                     fun cs(c: Char): String = c.toString()
                     fun ci(c: Char): Int = c.code
+                    fun arr(): Array<String> = arrayOf("a", "b")
+                    fun ints(): IntArray = intArrayOf(1, 2)
                 }
                 """);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -98,6 +100,8 @@ public class TestPrimitiveMembers {
                 sn: [return i.toString();] -> java.lang.Integer.toString()
                 cs: [return String.valueOf(c);] -> java.lang.String.valueOf(char)
                 ci: [return CharCodeKt.getCode(c);] -> kotlin.CharCodeKt.getCode(char)
+                arr: [return new String[]{"a","b"};]
+                ints: [return new int[]{1,2};]
                 """, actual.toString());
     }
 }

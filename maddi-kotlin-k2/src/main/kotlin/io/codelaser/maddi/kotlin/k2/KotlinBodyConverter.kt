@@ -169,6 +169,9 @@ internal interface MemberConverter {
  * (and this class reaching `KotlinTypeMapper` the same way). Member-building flows back through the
  * injected [MemberConverter], breaking the bodies<->declarations cycle.
  */
+private val ARRAY_LITERALS = setOf("arrayOf", "intArrayOf", "longArrayOf", "doubleArrayOf", "floatArrayOf",
+    "booleanArrayOf", "charArrayOf", "byteArrayOf", "shortArrayOf")
+
 private val PRIMITIVE_CONVERSIONS =
     setOf("toInt", "toLong", "toDouble", "toFloat", "toShort", "toByte", "toChar")
 
@@ -1766,6 +1769,29 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /**
+     * `arrayOf(a, b)` / `intArrayOf(1, 2)` as `new T[]{a, b}`: an array-creation constructor with one empty dimension
+     * and an initializer, the shape the Java front end gives `new String[]{"a", "b"}`. Only for `kotlin.arrayOf` and
+     * the primitive `…ArrayOf` builders, and not with a spread argument (`arrayOf(*xs)` copies an array).
+     */
+    private fun KaSession.arrayLiteral(call: KtCallExpression, calleeSymbol: KaNamedFunctionSymbol?,
+                                       arguments: List<Expression>, method: MethodInfo): Expression? {
+        val id = calleeSymbol?.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        if (id.callableName.asString() !in ARRAY_LITERALS || call.valueArguments.any { it.getSpreadElement() != null }) return null
+        val arrayType = call.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 } ?: return null
+        val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource())
+            .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1)).setExpressions(arguments).build()
+        return runtime.newConstructorCallBuilder()
+            .setSource(runtime.noSource())
+            .setConstructor(runtime.newArrayCreationConstructor(arrayType))
+            .setConcreteReturnType(arrayType)
+            .setDiamond(runtime.diamondNo())
+            .setParameterExpressions(listOf(runtime.newEmptyExpression()))
+            .setArrayInitializer(initializer)
+            .build()
+    }
+
     /** `!e` as a boolean UnaryOperator. */
     private fun logicalNot(e: Expression): Expression =
         runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(), e, runtime.precedenceUnary())
@@ -2192,6 +2218,22 @@ internal class KotlinBodyConverter(
 
         // a member of a primitive (`i.toString()`, `b.not()`, `i.toLong()`): no Java type declares it
         if (receiver != null) primitiveMember(name, receiver.first, arguments, call, method)?.let { return it }
+
+        // `arrayOf(a, b)`: an intrinsic with no bytecode of its own -- `new T[]{a, b}`, as the Java front end builds it
+        if (receiver == null) arrayLiteral(call, calleeSymbol, arguments, method)?.let { return it }
+
+        // `RuleSet(id, rules)` where RuleSet's COMPANION (or an `object`) declares `operator fun invoke`: not the
+        // constructor, but `RuleSet.Companion.invoke(id, rules)` -- the class name used as a value, then invoked
+        if (receiver == null && calleeSymbol?.name?.asString() == "invoke") {
+            (call.calleeExpression as? KtNameReferenceExpression)?.let { classAsValue(it) }?.let { holder ->
+                holder.parameterizedType().typeInfo()?.let { resolveCallee(members(it), "invoke", arguments) }?.let { callee ->
+                    return runtime.newMethodCallBuilder().setObject(holder).setObjectIsImplicit(false)
+                        .setMethodInfo(callee).setParameterExpressions(arguments)
+                        .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
+                        .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+                }
+            }
+        }
 
         // a SAM constructor, `Runnable { … }`: what it makes IS the lambda, whose anonymous type implements the
         // interface -- so the lambda is the expression, carrying that interface rather than its Kotlin function type.

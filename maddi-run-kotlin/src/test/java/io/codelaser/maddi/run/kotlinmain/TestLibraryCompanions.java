@@ -33,7 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * A library class NAME used as a value is its companion (`ClassId.fromString(…)`, 18× on detekt;
  * `CompilerConfigurationKey.create(…)`, 12×) or, for an `object`, the object itself. The K2-built model of a Kotlin
  * library class had no static `Companion` field to read it through, so the receiver was a placeholder while the
- * companion's member resolved.
+ * companion's member resolved. And a class name CALLED, `RuleSet(id, rules)` (12× on detekt), is its companion's
+ * `operator fun invoke`, not a constructor.
  */
 public class TestLibraryCompanions {
     @Test
@@ -55,6 +56,14 @@ public class TestLibraryCompanions {
                     fun d(): String = Regex.escape("x")
                     fun e(): Regex = Regex.fromLiteral("x")
                     fun f(): Any = Charsets
+                    fun g(): Sized = Sized(listOf("a"))
+                    fun h(): Int = Twice(3)
+                }
+                class Sized(val n: Int) {
+                    companion object { operator fun invoke(items: List<String>): Sized = Sized(items.size) }
+                }
+                object Twice { operator fun invoke(i: Int): Int = i * 2 }
+                class Unused {
                 }
                 """);
         SourceSet javaSet = new SourceSetImpl.Builder().setName("java/main")
@@ -78,6 +87,8 @@ public class TestLibraryCompanions {
                 d: [return Regex.Companion.escape("x");]
                 e: [return Regex.Companion.fromLiteral("x");]
                 f: [return Charsets.INSTANCE;]
+                g: [return Sized.Companion.invoke(CollectionsKt__CollectionsJVMKt.listOf("a"));]
+                h: [return Twice.INSTANCE.invoke(3);]
                 """, actual.toString());
     }
 
