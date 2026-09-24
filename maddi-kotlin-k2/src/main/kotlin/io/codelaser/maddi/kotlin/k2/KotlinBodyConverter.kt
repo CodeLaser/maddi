@@ -769,6 +769,8 @@ internal class KotlinBodyConverter(
     private val MAPPED_PROPERTIES = mapOf("keys" to "keySet", "entries" to "entrySet")
 
     /** The Kotlin classes that ARE JVM arrays (`Array<T>` is `T[]`, `IntArray` is `int[]`, …); not the unsigned ones. */
+    private val KOTLIN_PRIMITIVES = setOf("Int", "Long", "Short", "Byte", "Char", "Boolean", "Float", "Double")
+
     private val JVM_ARRAY_CLASSES = setOf("Array", "IntArray", "LongArray", "ShortArray", "ByteArray", "CharArray",
         "FloatArray", "DoubleArray", "BooleanArray")
 
@@ -1758,6 +1760,27 @@ internal class KotlinBodyConverter(
         return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in JVM_ARRAY_CLASSES
     }
 
+    /**
+     * `a.get(i)` or `a.set(i, v)` spelled as a call, on a Kotlin array class: the JVM array load or store, as `a[i]`
+     * and `a[i] = v` are (see [isJvmArrayAccess]). The receiver may be implicit: `set(c.code, v)` inside an extension
+     * on `ByteArray`. Null for anything else.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.jvmArrayCall(call: KtCallExpression, name: String, callee: KaFunctionSymbol?,
+                                       receiver: Expression?, arguments: List<Expression>, method: MethodInfo,
+                                       locals: Map<String, Variable>): Expression? {
+        val owner = callee?.callableId?.classId ?: return null
+        if (owner.packageFqName.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
+        if (!(name == "get" && arguments.size == 1) && !(name == "set" && arguments.size == 2)) return null
+        val array = receiver ?: implicitReceiverValue(
+            call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver, method, locals)
+            ?: return null
+        val element = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newDependentVariable(array, arguments[0])).setSource(runtime.noSource()).build()
+        if (name == "get") return element
+        return runtime.newAssignmentBuilder().setTarget(element).setValue(arguments[1]).setSource(runtime.noSource()).build()
+    }
+
     /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type); an array element for an array. */
     private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
@@ -2066,8 +2089,14 @@ internal class KotlinBodyConverter(
      * listed here, or a mixed-type one (`i.compareTo(l)`), returns null and keeps its placeholder.
      */
     private fun KaSession.primitiveMember(name: String, receiver: Expression, arguments: List<Expression>,
-                                          call: KtCallExpression, method: MethodInfo): Expression? {
-        val type = receiver.parameterizedType()
+                                          call: KtCallExpression, method: MethodInfo, memberOfPrimitive: Boolean): Expression? {
+        // a BOXED receiver is the primitive when the callee is the primitive class's own MEMBER: `oldValue?.plus(1)`,
+        // `x?.not()` -- a safe call types its receiver `Integer`/`Boolean`, and Kotlin calls a member of `Int` only on
+        // a value that is not null. ⛔ Not for an extension on `Any?`: `i.toString()` on an `Int?` is
+        // `String.valueOf(Object)` and prints "null"; unboxed, it would throw
+        val written = receiver.parameterizedType()
+        val type = if (memberOfPrimitive && written.isBoxedExcludingVoid && written.arrays() == 0)
+            written.typeInfo()?.let { runtime.unboxed(it).asParameterizedType() } ?: written else written
         if (!type.isPrimitiveExcludingVoid || type.arrays() > 0) return null
         val primitive = type.typeInfo() ?: return null
         val resultType = call.expressionType?.let { mapType(it, method.typeInfo()) }
@@ -2095,7 +2124,7 @@ internal class KotlinBodyConverter(
                 if (resultType == type) receiver else runtime.newCast(receiver, resultType)
             sameType && name == "compareTo" -> static(runtime.boxed(primitive), "compare", listOf(receiver, argument!!))
             sameType && name == "equals" -> binary(runtime.equalsOperatorInt(), runtime.precedenceEquality())
-            argument != null && receiver.isNumeric && argument.isNumeric -> when (name) {
+            argument != null && type.isNumeric && argument.isNumeric -> when (name) {
                 "plus" -> binary(runtime.plusOperatorInt(), runtime.precedenceAdditive())
                 "minus" -> binary(runtime.minusOperatorInt(), runtime.precedenceAdditive())
                 "times" -> binary(runtime.multiplyOperatorInt(), runtime.precedenceMultiplicative())
@@ -2664,7 +2693,16 @@ internal class KotlinBodyConverter(
         }
 
         // a member of a primitive (`i.toString()`, `b.not()`, `i.toLong()`): no Java type declares it
-        if (receiver != null) primitiveMember(name, receiver.first, arguments, call, method)?.let { return it }
+        if (receiver != null) primitiveMember(name, receiver.first, arguments, call, method,
+            calleeSymbol?.callableId?.classId?.let { it.packageFqName.asString() == "kotlin" && it.shortClassName.asString() in KOTLIN_PRIMITIVES } == true)
+            ?.let { return it }
+        // `s.plus(x)` on a String: the concatenation `s + x`, as the operator spelling is
+        if (receiver != null && name == "plus" && arguments.size == 1
+            && calleeSymbol?.callableId?.asSingleFqName()?.asString() == "kotlin.String.plus") {
+            return runtime.newStringConcat(receiver.first, arguments.single())
+        }
+        // `a.get(i)` / `a.set(i, v)` written as CALLS on a JVM array: the element load or store, as `a[i]` is
+        jvmArrayCall(call, name, calleeSymbol, receiver?.first, arguments, method, locals)?.let { return it }
 
         // `arrayOf(a, b)`: an intrinsic with no bytecode of its own -- `new T[]{a, b}`, as the Java front end builds it
         if (receiver == null) arrayLiteral(call, calleeSymbol, arguments, method)?.let { return it }

@@ -1523,6 +1523,22 @@ The other causes, for what follows: intrinsics written as calls (`arr.get(i)`, `
 `init()`); `AutoCloseable.use`, whose facade lookup returns nothing; and receivers typed `Object` where a smart
 cast should have narrowed them.
 
+### 7.50 Intrinsics spelled as calls — detekt 85 → 79
+
+The operator spellings converted, and the call spellings did not: `a.get(i)` / `a.set(i, v)` on a JVM array
+(`Array`, `IntArray`, … have no such methods in a class file), `s.plus(x)` on a String, and a primitive member on a
+BOXED receiver, `oldValue?.plus(1)` or `x?.contains("*")?.not()`, where the safe call types the receiver `Integer` or
+`Boolean`. They are now the array load or store (`a[i]`, `a[i] = v`, the receiver implicit inside an extension on
+`ByteArray`), the concatenation `s + x`, and the primitive operation.
+
+⛔ The boxed case unboxes only when the callee is the primitive class's own MEMBER (`kotlin/Int.plus`,
+`kotlin/Boolean.not`), which Kotlin calls only on a non-null value. The first cut unboxed every boxed receiver, and
+`TestPrimitiveMembers`' row `i.toString()` on an `Int?` caught it: that is the `Any?.toString()` extension,
+`String.valueOf(Object)`, which prints "null". Unboxed, it became `String.valueOf(int)`, which throws.
+
+`IntrinsicCallTest` (k2, six shapes). detekt **85 → 79** (6 sites gone, none new) in 47 types / 59 members; **no
+verdict moved**. coil unchanged at 119.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1551,7 +1567,7 @@ cast should have narrowed them.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) and vararg binding (§7.49) have taken detekt 4,701 → 85 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.49; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) and intrinsics spelled as calls (§7.50) have taken detekt 4,701 → 79 and coil 367 → 283 on that dump (coil is 119 once its class path is complete, §7.39, §7.42–§7.50; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
