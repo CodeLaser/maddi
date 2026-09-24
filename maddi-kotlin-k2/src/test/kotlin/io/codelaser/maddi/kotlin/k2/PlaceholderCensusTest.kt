@@ -65,6 +65,33 @@ class PlaceholderCensusTest : KotlinScanTestBase() {
         assertTrue(census.report().startsWith("Kotlin placeholders: none, in"), census.report())
     }
 
+    /**
+     * A placeholder built INSIDE a larger node (a selector, an indexed set, a synthesised delegate accessor) did not
+     * pass through `convertExpression`'s range step and printed `0:0`: ~90 sites across detekt and coil that the
+     * dump could not point at. The kinds are asserted too, so a census that found nothing cannot pass.
+     */
+    @Test
+    fun everyPlaceholderCarriesAPosition() {
+        val types = KotlinScan(runtime, sourceSet).parse("w/W.kt", """
+            package w
+            import kotlin.reflect.KProperty
+            class Q
+            operator fun Q.set(i: Int, v: Int) {}
+            class D
+            operator fun D.getValue(thisRef: Any?, property: KProperty<*>): Int = 1
+            class U {
+                val x: Int by D()
+                fun f(s: String): Int = s.nope
+                fun g(q: Q) { q[0] = 1 }
+            }
+            """.trimIndent() + "\n")
+        val lines = PlaceholderCensus.of(types).dumpLines()
+        val kinds = lines.map { it.substringBefore('\t') }.toSet()
+        assertTrue(kinds.containsAll(setOf("k2-unresolved-access:nope", "k2-indexed-set-unresolved",
+            "k2-delegate-read:x\$delegate")), lines.joinToString("\n"))
+        assertTrue(lines.none { it.endsWith("\t0:0") }, lines.joinToString("\n"))
+    }
+
     @Test
     fun anEmptyParseSaysSoRatherThanReportingClean() {
         val census = PlaceholderCensus.of(listOf())

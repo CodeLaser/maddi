@@ -1306,6 +1306,16 @@ cache-starved and is **not comparable** with it. detekt's 62 jars were all prese
 opt-in because the audit of all 20 corpus configurations found elasticsearch* (97 of 151 jars missing) and fernflower
 (24 of 36), which belong to other lanes and whose counts carry the same exposure.
 
+### 7.41 Every placeholder names its line
+
+About 90 sites across detekt and coil printed `0:0`: `k2-unresolved-access`, `k2-indexed-set-unresolved`,
+`k2-delegate-read` and some calls. A placeholder built inside a larger node (a selector, an indexed set, a
+synthesised delegate accessor) never passed through `convertExpression`'s range step, so the site dump could not
+point at it. They are now built through `placeholder(msg, psi)`; a delegate accessor's placeholder takes the `by`
+expression's range. The one exception is `convertUnary`, whose operand PSI can be null. `PlaceholderCensusTest.
+everyPlaceholderCarriesAPosition` fails on the delegate read and the indexed set when the change is reverted.
+Corpora: 0 sites at `0:0` (from ~90); counts (277 / 159), the detekt site list and every verdict are identical.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.

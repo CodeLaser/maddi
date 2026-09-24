@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.api.element.DetailedSources
 import io.codelaser.maddi.cst.api.element.RecordPattern
 import io.codelaser.maddi.cst.api.element.Source
 import io.codelaser.maddi.cst.api.element.SourceSet
+import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.VariableExpression
@@ -1802,16 +1803,22 @@ class KotlinScan(
         }
         if (!p.getter.hasBeenInspected()) {
             val read = runtime.newReturnBuilder()
-                .setExpression(delegateRead(p.owner, p.field, p.type, p.static)).setSource(runtime.noSource()).build()
+                .setExpression(atDelegate(p, delegateRead(p.owner, p.field, p.type, p.static)))
+                .setSource(runtime.noSource()).build()
             p.getter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(read).build()).commit()
         }
         val setter = p.setter ?: return
         if (!setter.hasBeenInspected()) {
             val value = setter.parameters().first()
-            val write = runtime.newExpressionAsStatement(delegateWrite(p.owner, p.field, value, p.static))
+            val write = runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field, value, p.static)))
             setter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(write).build()).commit()
         }
     }
+
+    /** A delegate placeholder takes the `by` expression's range: the accessor it stands in has no source of its own. */
+    private fun atDelegate(p: PendingDelegate, e: Expression): Expression =
+        if (e is EmptyExpression && e.source() == null && p.delegateExpression != null)
+            e.withSource(sourceOf(runtime, p.delegateExpression, "-")) else e
 
     /**
      * The delegate read. Kotlin's convention is the `getValue(thisRef, property)` operator, which is what a

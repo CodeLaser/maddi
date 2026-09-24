@@ -747,7 +747,7 @@ internal class KotlinBodyConverter(
         // `loop@ for (…) { … }`: a labelled statement -> convert the base and attach the label (so
         // `break@loop`/`continue@loop` have a named target). Any non-loop base just keeps the label too.
         statement is KtLabeledExpression -> rawStatement(
-            statement.baseExpression ?: return runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-empty-label")),
+            statement.baseExpression ?: return runtime.newExpressionAsStatement(placeholder("k2-empty-label", statement)),
             method, locals, index, statement.getLabelName())
         statement is KtProperty && statement.isLocal -> localVariableCreation(statement, method, locals, null)
         statement is KtNamedFunction && statement.isLocal -> convertLocalFunction(statement, method, locals)
@@ -1268,7 +1268,7 @@ internal class KotlinBodyConverter(
         expression.evaluate()?.let { constant ->
             val value = constant.value
             return constantExpression(runtime, value)
-                ?: runtime.newEmptyExpression("k2-unsupported-constant:${value?.let { it::class.simpleName }}")
+                ?: placeholder("k2-unsupported-constant:${value?.let { it::class.simpleName }}", expression)
         }
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
@@ -1277,14 +1277,14 @@ internal class KotlinBodyConverter(
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
             is KtAnnotatedExpression -> expression.baseExpression?.let { convertExpression(it, method, locals) }
-                ?: runtime.newEmptyExpression("k2-unsupported-expr:KtAnnotatedExpression")
+                ?: placeholder("k2-unsupported-expr:KtAnnotatedExpression", expression)
             is KtClassLiteralExpression -> kotlinClassLiteral(expression, method)
-                ?: runtime.newEmptyExpression("k2-unsupported-expr:KtClassLiteralExpression")
+                ?: placeholder("k2-unsupported-expr:KtClassLiteralExpression", expression)
             is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
-                ?: runtime.newEmptyExpression("k2-unresolved-ref:${expression.getReferencedName()}")
+                ?: placeholder("k2-unresolved-ref:${expression.getReferencedName()}", expression)
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
             // construct that is not a language feature at all. Kotlin's parentheses carry no semantics beyond
@@ -1342,7 +1342,7 @@ internal class KotlinBodyConverter(
                     .setSource(runtime.noSource()).build()
             }
             is KtCallableReferenceExpression -> convertCallableReference(expression, method, locals)
-            else -> runtime.newEmptyExpression("k2-unsupported-expr:${expression::class.simpleName}")
+            else -> placeholder("k2-unsupported-expr:${expression::class.simpleName}", expression)
         }
     }
 
@@ -1381,10 +1381,10 @@ internal class KotlinBodyConverter(
                         // on the facade, exactly as an extension FUNCTION compiles to a static function.
                         ?: extensionPropertyAccess(selector, name, receiver, method, locals)
                         ?: memberExtensionPropertyAccess(selector, name, receiver, method, locals)
-                        ?: runtime.newEmptyExpression("k2-unresolved-access:$name")
+                        ?: placeholder("k2-unresolved-access:$name", selector)
                 }
             }
-            else -> runtime.newEmptyExpression("k2-unsupported-selector")
+            else -> placeholder("k2-unsupported-selector", expression)
         }
         // safe call `x?.foo()` -> `if (x == null) null else x.foo()`, marked NULL_SAFE at the `?.` token.
         // The receiver stands in the test as well as in the call, and the CST is a tree: it is converted a second
@@ -1509,10 +1509,10 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertConstructorCall(call: KtCallExpression, arguments: List<Expression>, method: MethodInfo,
                                                  defaults: MethodInfo?): Expression {
         val type = call.expressionType?.let { mapType(it, method.typeInfo()) }
-            ?: return runtime.newEmptyExpression("k2-ctor-type")
+            ?: return placeholder("k2-ctor-type", call)
         val constructor = defaults
             ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
-            ?: return runtime.newEmptyExpression("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}")
+            ?: return placeholder("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}", call)
         return runtime.newConstructorCallBuilder()
             .setConstructor(constructor)
             .setConcreteReturnType(type)
@@ -1528,7 +1528,7 @@ internal class KotlinBodyConverter(
                                                 locals: Map<String, Variable>): Expression {
         val value = convertExpression(expression.left, method, locals)
         val type = expression.right?.type?.let { mapType(it, method.typeInfo()) }
-            ?: return runtime.newEmptyExpression("k2-cast")
+            ?: return placeholder("k2-cast", expression)
         return runtime.newCast(value, type)
     }
 
@@ -1537,7 +1537,7 @@ internal class KotlinBodyConverter(
                                               locals: Map<String, Variable>): Expression {
         val value = convertExpression(expression.leftHandSide, method, locals)
         val testType = expression.typeReference?.type?.let { mapType(it, method.typeInfo()) }
-            ?: return runtime.newEmptyExpression("k2-is")
+            ?: return placeholder("k2-is", expression)
         val instanceOf = runtime.newInstanceOfBuilder().setExpression(value).setTestType(testType)
             .setSource(runtime.noSource()).build()
         return if (expression.isNegated) runtime.newUnaryOperator(listOf(), runtime.noSource(),
@@ -1548,14 +1548,14 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
         val array = expression.arrayExpression?.let { convertExpression(it, method, locals) }
-            ?: return runtime.newEmptyExpression("k2-index")
+            ?: return placeholder("k2-index", expression)
         val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
         val arrayType = expression.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         // Kotlin's indexed get is the `get` operator on most types (List/array/Map/custom), but on a String it
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
         val get = arrayType?.let { resolveCallee(it, "get", indices) ?: resolveCallee(it, "charAt", indices) }
-            ?: return runtime.newEmptyExpression("k2-index-get-unresolved")
+            ?: return placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: get.returnType()
         // marked INDEX_ACCESS at the `[` so the engine knows this get() was written as indexing
@@ -1569,13 +1569,13 @@ internal class KotlinBodyConverter(
     private fun KaSession.convertIndexedSet(arrayAccess: KtArrayAccessExpression, value: Expression,
                                             method: MethodInfo, locals: Map<String, Variable>): Expression {
         val array = arrayAccess.arrayExpression?.let { convertExpression(it, method, locals) }
-            ?: return runtime.newEmptyExpression("k2-indexed-set")
+            ?: return placeholder("k2-indexed-set", arrayAccess)
         val arguments = arrayAccess.indexExpressions.map { convertExpression(it, method, locals) } + value
         val arrayType = arrayAccess.arrayExpression?.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         // `set` on List/arrays is a member; on a Map, Kotlin's `map[k]=v` set-operator is a stdlib extension
         // that delegates to `put`, so fall back to put (same key,value arguments)
         val set = arrayType?.let { resolveCallee(it, "set", arguments) ?: resolveCallee(it, "put", arguments) }
-            ?: return runtime.newEmptyExpression("k2-indexed-set-unresolved")
+            ?: return placeholder("k2-indexed-set-unresolved", arrayAccess)
         return runtime.newMethodCallBuilder().setObject(array).setObjectIsImplicit(false).setMethodInfo(set)
             .setParameterExpressions(arguments).setConcreteReturnType(set.returnType()).setTypeArguments(listOf())
             .setSource(source(arrayAccess, "-").withDetailedSources(marker(DetailedSources.INDEX_ACCESS, arrayAccess.leftBracket)))
@@ -2316,7 +2316,7 @@ internal class KotlinBodyConverter(
         locals: Map<String, Variable>,
     ): Expression {
         val name = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
-            ?: return runtime.newEmptyExpression("k2-unsupported-callee")
+            ?: return placeholder("k2-unsupported-callee", call)
         // `call.valueArguments` already includes a trailing lambda (a KtLambdaArgument IS a KtValueArgument),
         // so it must NOT be appended again from `call.lambdaArguments` (that double-counts the lambda).
         val valueArgs = call.valueArguments.mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, method, locals) } }
@@ -2336,7 +2336,7 @@ internal class KotlinBodyConverter(
         // a callee with context parameters takes them FIRST, ahead of an extension receiver (KotlinScan.contextParameters);
         // K2 names the value each one is bound to. One this converter cannot express leaves a named placeholder.
         val contexts = contextArguments(call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.contextArguments,
-            method, locals) ?: return runtime.newEmptyExpression("k2-context-argument-unresolved:$name")
+            method, locals) ?: return placeholder("k2-context-argument-unresolved:$name", call)
         val arguments = contexts + (ordered?.expressions ?: valueArgs)
 
         // a call of a LOCAL function, `g(x)` or `x.g()` for a local extension: `g.invoke([x,] args)` on its variable
@@ -2436,7 +2436,7 @@ internal class KotlinBodyConverter(
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
-            ?: return runtime.newEmptyExpression("k2-unresolved-call:$name")
+            ?: return placeholder("k2-unresolved-call:$name", call)
         val obj = receiver?.first
             ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
             else self(method)
@@ -2746,7 +2746,7 @@ internal class KotlinBodyConverter(
                                         locals: Map<String, Variable>): Expression {
         val left = expression.left?.let { convertExpression(it, method, locals) }
         val right = expression.right?.let { convertExpression(it, method, locals) }
-        if (left == null || right == null) return runtime.newEmptyExpression("k2-binary-operand")
+        if (left == null || right == null) return placeholder("k2-binary-operand", expression)
         // elvis `a ?: b` -> `if (a == null) b else a`, marked NULL_COALESCING at the `?:` token.
         // The left operand stands in the lowering TWICE, and the CST is a TREE: the same instance in both places
         // makes every consumer that walks it visit its statements twice, and prep then throws "Trying to overwrite
@@ -2761,7 +2761,7 @@ internal class KotlinBodyConverter(
         if (expression.operationToken == KtTokens.IN_KEYWORD || expression.operationToken == KtTokens.NOT_IN) {
             val collectionType = receiverTypeInfo(expression.right, method)
             val contains = collectionType?.let { resolveCallee(it, "contains", listOf(left)) }
-                ?: return runtime.newEmptyExpression("k2-in-unresolved")
+                ?: return placeholder("k2-in-unresolved", expression)
             val call = runtime.newMethodCallBuilder().setObject(right).setObjectIsImplicit(false).setMethodInfo(contains)
                 .setParameterExpressions(listOf(left)).setConcreteReturnType(contains.returnType()).setTypeArguments(listOf())
                 .setSource(runtime.noSource()).build()
@@ -2866,7 +2866,7 @@ internal class KotlinBodyConverter(
             KtTokens.PERC -> "rem"
             KtTokens.IDENTIFIER -> expression.operationReference.getReferencedName() // infix function
             else -> null
-        } ?: return runtime.newEmptyExpression("k2-unsupported-operator:${expression.operationToken}")
+        } ?: return placeholder("k2-unsupported-operator:${expression.operationToken}", expression)
         val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
         left.parameterizedType().typeInfo()?.let { resolveCallee(it, functionName, listOf(right)) }?.let { callee ->
             return runtime.newMethodCallBuilder()
@@ -2882,7 +2882,7 @@ internal class KotlinBodyConverter(
         // ⚠ Measured on detekt: `to` was the single biggest placeholder kind (347) once `mapOf(…)` started
         // resolving and stopped swallowing its arguments.
         extensionOperatorCall(expression, functionName, left, right, returnType)?.let { return it }
-        return runtime.newEmptyExpression("k2-unresolved-operator:$functionName")
+        return placeholder("k2-unresolved-operator:$functionName", expression)
     }
 
     /**
