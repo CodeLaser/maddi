@@ -20,8 +20,17 @@ import org.slf4j.LoggerFactory;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
-public record MethodModification(Runtime runtime, VariableData variableData, Stage stage, MethodCall mc) {
+/**
+ * @param currentMethod           the method whose body contains {@code mc}
+ * @param throughPassedFunction   receives (parameter, entry) when a parameter of {@code currentMethod} is handed to
+ *                                one of its own functional parameters: recorded instead of marked modified, see
+ *                                {@link PassedFunction}
+ */
+public record MethodModification(Runtime runtime, VariableData variableData, Stage stage, MethodCall mc,
+                                 MethodInfo currentMethod,
+                                 BiConsumer<ParameterInfo, String> throughPassedFunction) {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodModification.class);
 
     public Set<Variable> go(Variable objectPrimary, List<Result> params, MethodLinkedVariables methodLinkedVariables) {
@@ -48,6 +57,13 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                         .forEach(modified::add);
             }
         }
+        // the receiver is one of OUR functional parameters and this is its SAM: what it does to its arguments
+        // depends on the function our caller passes (PassedFunction)
+        ParameterInfo functionalReceiver = objectPrimary instanceof ParameterInfo fp
+                                           && fp.methodInfo() == currentMethod
+                                           && methodInfo.isAbstract()
+                                           && fp.parameterizedType().isFunctionalInterface() ? fp : null;
+        Set<Variable> recordedThroughPassedFunction = new HashSet<>();
         if (!receiverDisclaimed) {
             for (ParameterInfo pi : methodInfo.parameters()) {
                 if (pi.isModified() && !pi.isIgnoreModifications()) {
@@ -56,9 +72,21 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                             Result rp = params.get(i);
                             handleModifiedParameter(mc.parameterExpressions().get(i), rp, modified);
                         }
+                    } else if (PassedFunction.unmodifiedAtCallSite(pi, mc.parameterExpressions())) {
+                        LOGGER.debug("Argument {} of {} not modified: the function passed leaves it alone", pi.index(),
+                                methodInfo);
                     } else {
                         Result rp = params.get(pi.index());
-                        handleModifiedParameter(mc.parameterExpressions().get(pi.index()), rp, modified);
+                        if (functionalReceiver != null && throughPassedFunction != null
+                            && rp.links() != null && rp.links().isEmpty()
+                            && rp.links().primary() instanceof ParameterInfo ownParameter
+                            && ownParameter.methodInfo() == currentMethod) {
+                            throughPassedFunction.accept(ownParameter,
+                                    PassedFunction.entry(functionalReceiver.index(), pi.index()));
+                            recordedThroughPassedFunction.add(ownParameter);
+                        } else {
+                            handleModifiedParameter(mc.parameterExpressions().get(pi.index()), rp, modified);
+                        }
                     }
                 }
             }
@@ -70,6 +98,9 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
             TranslationMap tm = new VariableTranslationMap(runtime).put(methodThis, objectPrimary);
             for (Variable mv : methodLinkedVariables.modified()) {
                 Variable translated = tm.translateVariableRecursively(mv);
+                // the SAM's own summary says its argument is modified: for a recorded parameter, that is the same
+                // conditional modification, not a second one
+                if (recordedThroughPassedFunction.contains(translated)) continue;
                 if (translated.equals(mv)
                     || variableData != null && variableData.isKnown(translated.fullyQualifiedName())) {
                     LOGGER.debug("Propagated modification to {}", translated);

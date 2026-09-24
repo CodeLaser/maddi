@@ -76,8 +76,11 @@ public class TestModificationFunctional extends CommonTest {
         assertTrue(go.isModifying());
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
+        // since 2026-09-24 run's s is modified only THROUGH its function parameter (PassedFunction): run records it
+        // instead of listing it, and go passes this::parse, which leaves its argument alone -- so neither go's in nor
+        // run's s is in go's summary (TestModificationThroughPassedFunction)
         assertEquals("""
-                $_fi0, a.b.X.go(String):0:in, a.b.X.run(String,java.util.function.Function):0:s, a.b.X.run(String,java.util.function.Function):1:function, this\
+                $_fi0, a.b.X.run(String,java.util.function.Function):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }
 
@@ -361,10 +364,12 @@ public class TestModificationFunctional extends CommonTest {
         assertTrue(run.isNonModifying());
         MethodLinkedVariables mlvIndirection = indirection.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-, -] --> indirection←$_afi2", mlvIndirection.toString());
+        // indirection forwards a local copy of its function parameter: not a function known at this call site, so its
+        // s stays modified; run's s is recorded as modified through run's function parameter (PassedFunction), not
+        // listed
         assertEquals("""
                 a.b.X.indirection(String,java.util.function.Function):0:s, \
                 a.b.X.indirection(String,java.util.function.Function):1:function, \
-                a.b.X.run(String,java.util.function.Function):0:s, \
                 a.b.X.run(String,java.util.function.Function):1:function\
                 """, mlvIndirection.sortedModifiedString());
 
@@ -372,8 +377,9 @@ public class TestModificationFunctional extends CommonTest {
         assertTrue(go.isModifying());
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
+        // go's in stays modified (indirection's s is, see above); run's s is recorded, not listed (PassedFunction)
         assertEquals("""
-                $_fi0, a.b.X.go(String):0:in, a.b.X.indirection(String,java.util.function.Function):0:s, a.b.X.indirection(String,java.util.function.Function):1:function, a.b.X.run(String,java.util.function.Function):0:s, a.b.X.run(String,java.util.function.Function):1:function, this\
+                $_fi0, a.b.X.go(String):0:in, a.b.X.indirection(String,java.util.function.Function):0:s, a.b.X.indirection(String,java.util.function.Function):1:function, a.b.X.run(String,java.util.function.Function):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }
 

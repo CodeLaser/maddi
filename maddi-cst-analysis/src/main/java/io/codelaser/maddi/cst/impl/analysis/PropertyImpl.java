@@ -117,6 +117,16 @@ public class PropertyImpl implements Property {
      */
     public static final Property EVENTUALLY_UNMODIFIED_PARAMETER = new PropertyImpl("eventuallyUnmodifiedParameter",
             ValueImpl.SetOfStringsImpl.EMPTY_SET);
+    /**
+     * A parameter that is modified ONLY because this method hands it to one of its own functional parameters
+     * ({@code ofAll.apply(value)} in vavr's {@code ValueModule.toTraversable}): one entry
+     * {@code "<functional parameter index>:<SAM argument index>"} per such application. Empty when the parameter is
+     * not modified, or is also modified some other way. A call site passing a function that leaves that argument
+     * alone does not mark its own argument modified (TestModificationThroughPassedFunction). The parameter's own
+     * UNMODIFIED_PARAMETER stays FALSE: for SOME function it is modified.
+     */
+    public static final Property MODIFIED_THROUGH_PASSED_FUNCTION = new PropertyImpl("modifiedThroughPassedFunction",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);

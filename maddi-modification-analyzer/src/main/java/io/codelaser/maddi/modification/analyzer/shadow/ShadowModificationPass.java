@@ -7,6 +7,7 @@ import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
 import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
 import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
 import io.codelaser.maddi.modification.prepwork.Util;
+import io.codelaser.maddi.modification.link.impl.PassedFunction;
 import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl;
@@ -678,6 +679,7 @@ public class ShadowModificationPass {
                 // nodes directly (the seeded callee-parameter node has no E1 edges here)
                 for (ParameterInfo cpi : callee.parameters()) {
                     if (!cpi.isModified() || cpi.isIgnoreModifications()) continue;
+                    if (PassedFunction.unmodifiedAtCallSite(cpi, argumentExpressions)) continue;
                     if (cpi.isVarArgs()) {
                         for (int i = cpi.index(); i < argumentExpressions.size(); i++) {
                             for (Object node : projectReceiverChain(mi, vd, argumentExpressions.get(i))) {
@@ -702,6 +704,8 @@ public class ShadowModificationPass {
             // engine mirror (MethodModification.handleModifiedParameter): a hidden-content field handed to a
             // @Modified parameter is not modified by it, nor is its holder
             if (Util.isHiddenContentField(links.primary())) continue;
+            // engine mirror: the callee modifies this parameter only through a function, and ours leaves it alone
+            if (PassedFunction.unmodifiedAtCallSite(pi, argumentExpressions)) continue;
             if (links.primary() != null) {
                 // the argument OBJECT and its whole-object aliases; links on component faces
                 // (oc.field <- ...) must not widen "argument modified" to "field modified"

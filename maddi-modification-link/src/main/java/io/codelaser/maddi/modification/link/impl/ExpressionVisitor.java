@@ -769,7 +769,8 @@ public record ExpressionVisitor(Runtime runtime,
         Result r = new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
                 currentMethod, variableData, stage)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
-        Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
+        Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc, currentMethod,
+                sourceMethodComputer::recordModifiedThroughPassedFunction)
                 .go(objectPrimary, params, mlvTranslated2);
         // own-field slot assignments propagate transitively: the callee summary's assigned faces were
         // rehomed this->objectPrimary above, so a face that still sits on a recursively-this scope chain
