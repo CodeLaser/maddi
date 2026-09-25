@@ -525,6 +525,7 @@ internal class KotlinBodyConverter(
         val s = unannotated(annotated)
         return controlFlowElvisLowering(s, method, locals, index)
             ?: argumentElvisLowering(s, method, locals, index)
+            ?: arrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index)
@@ -781,6 +782,77 @@ internal class KotlinBodyConverter(
             hoistedReads.remove(elvis)
         }
         return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"), guard, converted)
+    }
+
+    /**
+     * <b>`val a = IntArray(n) { i -> v }`</b>: kotlinc inlines the init lambda into a filling loop, and so does this:
+     * <pre>
+     *   int[] a = new int[n];
+     *   int $i0 = 0;
+     *   while ($i0 < a.length) { a[$i0] = v; $i0++; }
+     * </pre>
+     * with the lambda's parameter (`it`, or its name) read as the index. Only for a local `val`/`var` initialized by
+     * a Kotlin array class's constructor (`Array`, `IntArray`, …) whose lambda is ONE statement: a value, or
+     * `return@Label v`. Any other shape keeps the `k2-array-constructor-with-init` placeholder.
+     */
+    private fun KaSession.arrayInitLowering(statement: KtExpression, method: MethodInfo,
+                                            locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        val property = statement as? KtProperty ?: return null
+        if (!property.isLocal) return null
+        val call = property.initializer as? KtCallExpression ?: return null
+        val constructor = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol ?: return null
+        val owner = constructor.containingClassId ?: return null
+        if (owner.packageFqName.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
+        val arguments = call.valueArguments
+        if (arguments.size != 2) return null
+        val lambda = arguments[1].getArgumentExpression() as? KtLambdaExpression ?: return null
+        val single = lambda.bodyExpression?.statements?.singleOrNull() ?: return null
+        val valueExpression = when (single) {
+            is KtReturnExpression -> single.returnedExpression?.takeIf { single.getLabelName() != null } ?: return null
+            is KtDeclaration -> return null
+            else -> single
+        }
+        val sizeExpression = arguments[0].getArgumentExpression() ?: return null
+        val arrayType = call.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 } ?: return null
+        val name = property.name ?: return null
+
+        val newArray = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+            .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+            .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(convertExpression(sizeExpression, method, locals)))
+            .build()
+        val array = runtime.newLocalVariable(name, arrayType, newArray)
+        localDeclared(property, array)
+        val counter = runtime.newLocalVariable("\$i${elvisTemporaries++}", runtime.intParameterizedType(), runtime.newInt(0))
+        fun read(v: Variable): VariableExpression =
+            runtime.newVariableExpressionBuilder().setVariable(v).setSource(runtime.noSource()).build()
+        // the value is converted with the lambda's parameter bound to the counter
+        val parameterName = lambda.valueParameters.singleOrNull()?.name ?: "it"
+        val bodyScope = locals.toMutableMap().also { it[parameterName] = counter }
+        val value = convertExpression(valueExpression, method, bodyScope)
+        val element = runtime.newVariableExpressionBuilder()
+            .setVariable(runtime.newDependentVariable(read(array), read(counter))).setSource(runtime.noSource()).build()
+        val store = runtime.newAssignmentBuilder().setTarget(element).setValue(value).setSource(runtime.noSource()).build()
+        val increment = runtime.newAssignmentBuilder()
+            .setAssignmentOperator(runtime.assignPlusOperatorInt()).setPrefixPrimitiveOperator(false)
+            .setAssignmentOperatorIsPlus(true).setBinaryOperator(runtime.plusOperatorInt())
+            .setTarget(read(counter)).setValue(runtime.intOne(runtime.noSource())).setSource(runtime.noSource()).build()
+        val condition = runtime.newBinaryOperatorBuilder()
+            .setLhs(read(counter))
+            .setRhs(runtime.newArrayLengthBuilder().setExpression(read(array)).setSource(runtime.noSource()).build())
+            .setOperator(runtime.lessOperatorInt()).setPrecedence(runtime.precedenceRelational())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+        val loop = runtime.newWhileBuilder()
+            .setExpression(condition)
+            .setBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.2.0"))
+                .addStatement(indexed(runtime.newExpressionAsStatement(store), "$index.2.0.0"))
+                .addStatement(indexed(runtime.newExpressionAsStatement(increment), "$index.2.0.1")).build())
+            .setSource(source(call, "$index.2"))
+            .build()
+        locals[name] = array
+        return listOf(
+            indexed(runtime.newLocalVariableCreation(array), "$index.0"),
+            indexed(runtime.newLocalVariableCreation(counter), "$index.1"),
+            loop)
     }
 
     private fun isStableReference(expression: KtExpression?): Boolean = when (expression) {

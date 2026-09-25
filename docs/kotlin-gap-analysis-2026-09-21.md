@@ -1680,6 +1680,19 @@ lambda's, then the function's. A member extension, which also needs its dispatch
 `BoundExtensionReferenceTest` (k2: implicit, explicit, and through `with(n) { }`); `CallableReferenceTest`'s pinned
 refusal becomes the conversion. All three detekt sites gone, none new, **no verdict moved**. coil **103 → 102**.
 
+### 7.61 An array constructor with an init lambda — detekt 28 → 25
+
+§7.43 left `IntArray(n) { … }` a named placeholder: kotlinc inlines a filling loop that no single Java expression
+spells. As a local's initializer, a statement context is available, so the loop is built:
+
+    val dp = IntArray(n) { return@IntArray 1 }   ->   int[] dp = new int[n]; int $i0 = 0;
+                                                      while ($i0 < dp.length) { dp[$i0] = 1; $i0++; }
+
+The lambda's parameter (`it`, or its name) reads the counter. Only for a local `val`/`var` initialized by a Kotlin
+array class's constructor whose lambda is ONE statement, a value or `return@Label v`. Every other shape keeps the
+placeholder. `ArrayInitTest` (k2): the three detekt shapes, `Array(n) { IntArray(m) }` as `new int[n][]`
+included, plus a named parameter. All three detekt sites gone, none new, **no verdict moved**. coil unchanged at 102.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1708,7 +1721,7 @@ refusal becomes the conversion. All three detekt sites gone, none new, **no verd
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) and bound extension references (§7.60) have taken detekt 4,701 → 28 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.60; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) and array constructors with an init lambda (§7.61) have taken detekt 4,701 → 25 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.61; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
