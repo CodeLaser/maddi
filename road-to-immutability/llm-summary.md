@@ -173,6 +173,9 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- `RedundantLinks` drops a link as transitively redundant only through earlier links of its OWN nature group
+  (`←`, `→`, `∈`, `∋`, `⊆/⊇/~`, `∩/≤/≥`, `≺/≻/≈`). Through the union of all groups, a `≈` path dropped the
+  assignment `this.t ← 1:t`, the field's only link to its parameter (since 2026-09).
 - Field independence counts a link to a REAL field of a parameter or return value (`this.f ← 0:p.g`) as a link
   to that variable: the field shares the caller's object. Parts reached through a virtual (`§`) field — the content
   of a copied collection — are judged by the transported-content rules instead (since 2026-09).

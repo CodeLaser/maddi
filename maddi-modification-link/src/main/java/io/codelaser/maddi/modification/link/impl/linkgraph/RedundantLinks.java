@@ -55,7 +55,11 @@ public class RedundantLinks {
         });
         Map<LinkNature, Set<Variable>> startsPerKey = new LinkedHashMap<>();
         lastKeyPerTo.forEach((to, key) -> startsPerKey.computeIfAbsent(key, _ -> new LinkedHashSet<>()).add(to));
-        Set<Variable> redundantTo = new HashSet<>();
+        // redundancy is per nature GROUP: a target reachable through the guard of one group makes only the links of
+        // THAT group redundant. The union over all groups (inherited from the pre-sv engine) dropped
+        // 'this.t ← 1:t' because an earlier 'x ≈ 1:t' made 1:t reachable in the ≈ group (fernflower's
+        // JavacSwitchCandidate.tmpVarInFirstSwitch: the field lost its only link to its parameter, @Independent)
+        Map<LinkNature, Set<Variable>> redundantToPerKey = new HashMap<>();
         startsPerKey.forEach((key, starts) -> {
             Map<Variable, Set<Variable>> completionGuardForLn
                     = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
@@ -63,7 +67,7 @@ public class RedundantLinks {
             for (Variable start : starts) {
                 completion(completionGuardForLn, result, start);
             }
-            redundantTo.addAll(result);
+            redundantToPerKey.put(key, result);
         });
         builder.forEach(link -> {
             if (lastKeyPerTo.containsKey(link.to())) {
@@ -79,7 +83,8 @@ public class RedundantLinks {
                 }
             }
         });
-        builder.removeIf(link -> redundantTo.contains(link.to())
+        builder.removeIf(link -> key(link.linkNature()) instanceof LinkNature key
+                                 && redundantToPerKey.getOrDefault(key, Set.of()).contains(link.to())
                                  // see TestModificationFunctional,2b
                                  && !(link.to() instanceof FunctionalInterfaceVariable)
                                  && !(link.to() instanceof AppliedFunctionalInterfaceVariable));
