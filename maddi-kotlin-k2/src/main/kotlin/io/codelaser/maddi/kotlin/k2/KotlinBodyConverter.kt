@@ -1796,6 +1796,7 @@ internal class KotlinBodyConverter(
                 ?: classAsValue(expression)
                 ?: enumEntryValue(expression)
                 ?: staticPropertyAccess(expression)
+                ?: objectPropertyAccess(expression)
                 ?: placeholder("k2-unresolved-ref:${expression.getReferencedName()}", expression)
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:
             // 349 of detekt's 6,057 and 20 of coil's 437, the second-biggest kind on either corpus, for a
@@ -1867,6 +1868,7 @@ internal class KotlinBodyConverter(
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
+        lateinitCheck(expression, method, locals)?.let { return it }
         // static / companion / nested-object member access `Type.member` (the receiver is a type, not a
         // value): `Color.RED`, `Point.ORIGIN`, `Event.Close`. Value receivers resolve to a variable symbol
         // (not a class) and fall through to the normal `obj.member` handling below.
@@ -2138,6 +2140,44 @@ internal class KotlinBodyConverter(
         return enumType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { staticFieldRef(it, enumType) }
     }
 
+    /**
+     * The constructor K2 resolved, by ITS parameter list: a Java varargs constructor takes any number of arguments
+     * (jetty's `ServerConnector(Server, ConnectionFactory...)` called with five, `ALPNServerConnectionFactory()` with
+     * none), which the arity match cannot see. Same-arity overloads are told apart by erased parameter types. The
+     * arguments stay loose, as the Java front end passes varargs.
+     */
+    private fun KaSession.resolvedConstructor(call: KtCallExpression, type: TypeInfo, method: MethodInfo): MethodInfo? {
+        val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol ?: return null
+        val candidates = type.constructors().filter { !it.isSynthetic && it.parameters().size == symbol.valueParameters.size }
+        if (candidates.size <= 1) return candidates.singleOrNull()
+        // a vararg parameter is typed as its element (a Kotlin symbol) or already as the array (a Java one): either
+        fun erasure(t: ParameterizedType) = t.erasedForFQN().fullyQualifiedName() + "[]".repeat(t.arrays())
+        val wanted = symbol.valueParameters.map { p -> mapType(p.returnType, method.typeInfo()).let { t ->
+            if (p.isVararg) setOf(erasure(t), erasure(t.copyWithArrays(t.arrays() + 1))) else setOf(erasure(t)) } }
+        return candidates.firstOrNull { c -> c.parameters().map { erasure(it.parameterizedType()) }.zip(wanted).all { (have, want) -> have in want } }
+    }
+
+    /**
+     * `::p.isInitialized` / `this::p.isInitialized` on a `lateinit` property is what kotlinc compiles it to, a null
+     * test of the backing field -- no reference, no getter (a `private lateinit var` has none: javalin's
+     * `if (::driver.isInitialized)`).
+     */
+    private fun KaSession.lateinitCheck(expression: KtQualifiedExpression, method: MethodInfo,
+                                        locals: Map<String, Variable>): Expression? {
+        if ((expression.selectorExpression as? KtNameReferenceExpression)?.getReferencedName() != "isInitialized") return null
+        val reference = expression.receiverExpression as? KtCallableReferenceExpression ?: return null
+        val property = reference.callableReference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if ((property as? org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol)?.isLateInit != true) return null
+        val owner = reference.receiverExpression?.let { convertExpression(it, method, locals) } ?: self(method)
+        val type = owner.parameterizedType().typeInfo()?.let { members(it) } ?: return null
+        val field = type.fields().firstOrNull { it.name() == property.name.asString() } ?: inheritedField(type, property.name.asString())
+            ?: return null
+        return runtime.newBinaryOperatorBuilder()
+            .setLhs(variableExpression(runtime.newFieldReference(field, owner, field.type()))).setRhs(runtime.nullConstant())
+            .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+    }
+
     /** The singleton-instance handle for an object/companion type: `Object.INSTANCE`, or `Outer.Companion`. */
     private fun singletonHandle(type: TypeInfo, symbol: KaNamedClassSymbol): Expression? = when (symbol.classKind) {
         KaClassKind.COMPANION_OBJECT -> type.compilationUnitOrEnclosingType().let { if (it.isRight) it.right else null }
@@ -2177,6 +2217,7 @@ internal class KotlinBodyConverter(
         }
         val constructor = defaults
             ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
+            ?: type.typeInfo()?.let { resolvedConstructor(call, members(it), method) }
             ?: return placeholder("k2-ctor-unresolved:${type.typeInfo()?.simpleName()}", call)
         return runtime.newConstructorCallBuilder()
             .setObject(outer)
@@ -2512,6 +2553,26 @@ internal class KotlinBodyConverter(
             .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
             .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A property of an `object` (or companion) named bare after an import, `import kotlin.text.Charsets.UTF_8`: a
+     * `@JvmField`/`const` one is a static field -- on the object's class, or for a companion on its outer class -- and
+     * any other is read through the singleton's getter (javalin's `readBytes().toString(UTF_8)`).
+     */
+    private fun KaSession.objectPropertyAccess(reference: KtNameReferenceExpression): Expression? {
+        val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if (property.receiverParameter != null) return null
+        val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
+        if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
+        val name = reference.getReferencedName()
+        val objectType = classTypeInfo(holder)?.let { members(it) } ?: return null
+        val fieldHolder = if (holder.classKind == KaClassKind.COMPANION_OBJECT)
+            holder.classId?.outerClassId?.let { findClass(it) as? KaNamedClassSymbol }?.let { classTypeInfo(it) }?.let { members(it) }
+        else objectType
+        fieldHolder?.fields()?.firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, fieldHolder) }
+        val getter = resolveAccessor(objectType, name) ?: return null
+        return singletonOf(holder)?.let { accessorCall(it, getter) }
     }
 
     /**
