@@ -62,6 +62,7 @@ about to touch.
 | [dynamic-immutability-feasibility.md](design/dynamic-immutability-feasibility.md) | note | A field's dynamic immutability: materialized (part 1) and consumed (part 3) from a hand-written contract, with a local guard check; inference (part 2) deliberately not built. |
 | [builder-interface-split-impact.md](design/builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
 | [book-vs-support-divergence.md](design/book-vs-support-divergence.md) | note | *The Road to Immutability* chapter 12 against the `maddi-support` code it quotes: two independently maintained lineages, and which side each finding changes. |
+| [independent-type-optimism.md](design/independent-type-optimism.md) | note | **Fixed 2026-09-24.** `INDEPENDENT_TYPE` was frozen at an optimistic value while a type's members were undecided. Kept as the rationale for "no optimistic default for an undecided input", which `DynamicImmutabilityInference` cites; the fix unmasked the SAM false positive in `defects/`. |
 
 ### Other mechanisms
 
@@ -93,9 +94,8 @@ and the document goes.
 
 | Document | Status | What it covers |
 |---|---|---|
-| [independent-type-optimism.md](defects/independent-type-optimism.md) | note | Reproduced defect: `INDEPENDENT_TYPE` can be frozen at an optimistic value; why the obvious fix unmasks a second inconsistency. |
-| [sam-linking-reconciliation.md](defects/sam-linking-reconciliation.md) | note | What actually diverges between the two SAM conventions: contract vs inference, not virtual fields; retires two theories. |
-| [handoff-importcomputer-star-collapse.md](defects/handoff-importcomputer-star-collapse.md) | note | `ImportComputerImpl` star-collapsing changes JLS 6.5.5 name resolution; the consumer never collapses, the upstream defect is open. |
+| [sam-linking-reconciliation.md](defects/sam-linking-reconciliation.md) | note | A custom SAM's parameter (`ThrowingFunction.apply:0:o`) lands in a caller's modified set although nothing modifies it. Live since the independence fix and pinned by two tests; contract vs inference, not virtual fields. The mechanism is disputed between the note and the tests' comments (see its header). |
+| [handoff-importcomputer-star-collapse.md](defects/handoff-importcomputer-star-collapse.md) | note | `ImportComputerImpl` star-collapsing changes JLS 6.5.5 name resolution. Reproduced at maddi level 2026-09-25: the printed unit fails javac when the homonym is in the unit's own source set, or collides with `java.lang`. Downstream consumers pass never-collapse. |
 | [discrepancies-openjdk-maddi-parsers.md](defects/discrepancies-openjdk-maddi-parsers.md) | note | Observed differences between the openjdk (javac) and hand-written (CongoCC) Java front ends. One open item (`source().index()` of methods and formal parameters). |
 
 ## status
