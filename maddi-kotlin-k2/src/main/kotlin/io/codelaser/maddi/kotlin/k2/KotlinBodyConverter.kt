@@ -552,9 +552,15 @@ internal class KotlinBodyConverter(
         if (isStableReference(initializer)) return null
         val type = initializer.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
         val name = "\$destructured${destructuringTemporaries++}"
-        val temporary = runtime.newLocalVariable(name, type, convertExpression(initializer, method, locals))
+        // `val (a, b) = @Suppress(…) if (c) { … } else … ?: return false`: assigned in each branch
+        val valueIf = (unannotated(initializer) as? KtIfExpression)?.takeIf { it.needsStatementForm() }
+        val temporary = runtime.newLocalVariable(name, type,
+            if (valueIf != null) runtime.newEmptyExpression() else convertExpression(initializer, method, locals))
         locals[name] = temporary
         val read = { runtime.newVariableExpressionBuilder().setVariable(temporary).setSource(runtime.noSource()).build() as Expression }
+        if (valueIf != null) return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"),
+            convertValueIf(valueIf, method, locals, "$index.1", returning = false, assignTo = temporary),
+            indexed(destructuringStatement(statement, read, method, locals), "$index.2"))
         return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"),
             indexed(destructuringStatement(statement, read, method, locals), "$index.1"))
     }
@@ -605,7 +611,8 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
-                                                   index: String, returnValue: Boolean = false): List<Statement>? {
+                                                   index: String, returnValue: Boolean = false,
+                                                   assignTo: Variable? = null): List<Statement>? {
         val elvis = when {
             isControlFlowElvis(statement) -> statement as KtBinaryExpression
             // an annotation on the initializer (`= @Suppress("…") if (…) a else null ?: return false`) annotates the
@@ -625,7 +632,8 @@ internal class KotlinBodyConverter(
         val left = elvis.left ?: return null
         val control = elvis.right ?: return null
         // [returnValue]: the elvis is a function's EXPRESSION body, `fun f() = x ?: throw E()` -- its value returned
-        val isWholeStatement = statement === elvis && !returnValue
+        // [assignTo]: the elvis is the tail of a branch of a value `if`, `target = x ?: return false`
+        val isWholeStatement = statement === elvis && !returnValue && assignTo == null
 
         // ⛔ The left operand is needed TWICE -- to test for null, and as the value. Converting it twice
         // EVALUATES it twice, which for `f() ?: return` means two calls where the source has one: a CST that
@@ -662,7 +670,10 @@ internal class KotlinBodyConverter(
             .build()
         statements.add(guard)
         if (isWholeStatement) return statements
-        val raw = if (returnValue) runtime.newReturnStatement(leftValue()) else when (statement) {
+        val raw = if (returnValue) runtime.newReturnStatement(leftValue())
+        else if (assignTo != null) runtime.newExpressionAsStatement(runtime.newAssignment(
+            runtime.newVariableExpressionBuilder().setVariable(assignTo).setSource(runtime.noSource()).build(), leftValue()))
+        else when (statement) {
             // each entry reads the (guarded) value: a fresh read of the temporary, or of the stable reference
             is KtDestructuringDeclaration -> destructuringStatement(statement, leftValue, method, locals)
             is KtProperty -> localVariableCreation(statement, method, locals, leftValue())
@@ -706,7 +717,7 @@ internal class KotlinBodyConverter(
         if (statement !is KtProperty || !statement.isLocal) return null
         val initializer = statement.initializer
         val needsLowering = initializer is KtTryExpression
-                || (initializer is KtIfExpression && initializer.hasAMultiStatementBranch())
+                || (initializer is KtIfExpression && initializer.needsStatementForm())
         if (!needsLowering) return null
         // the declaration, WITHOUT an initializer: a local that is assigned in each branch, as Java writes it
         val declaration = localVariableCreation(statement, method, locals, runtime.newEmptyExpression())
@@ -725,6 +736,16 @@ internal class KotlinBodyConverter(
         return listOf(
             declaration.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)),
             body)
+    }
+
+    /**
+     * A value `if` the expression arm cannot take: a multi-statement branch, or a branch that is a jump elvis. Kotlin
+     * binds `if (a) x else if (b) y else { null } ?: return false` as `else (if (b) y else { null }) ?: return false`,
+     * so the elvis is the outer ELSE branch (detekt MissingUseCall).
+     */
+    private fun KtIfExpression.needsStatementForm(): Boolean = hasAMultiStatementBranch() || listOf(then, `else`).any { branch ->
+        val single = (branch as? KtBlockExpression)?.statements?.singleOrNull() as? KtExpression ?: branch
+        isControlFlowElvis(single) || (single is KtIfExpression && single.needsStatementForm())
     }
 
     /** A branch that is a block of anything but one expression — what §7.12's expression arm cannot take. */
@@ -1303,6 +1324,14 @@ internal class KotlinBodyConverter(
                 return@forEachIndexed convertHoisting(s, method, childLocals, childIndex)
                     .forEach { block.addStatement(it) }
             }
+            // `else inner ?: return false` in a value `if`: the guard, then the assignment
+            if (isControlFlowElvis(s)) controlFlowElvisLowering(s, method, childLocals, childIndex, assignTo = target)
+                ?.let { lowered -> return@forEachIndexed lowered.forEach { block.addStatement(it) } }
+            // `else if (c) t else s ?: return 0`: the nested `if` is a value too, assigned in each of ITS branches
+            if (s is KtIfExpression && s.needsStatementForm()) {
+                block.addStatement(convertValueIf(s, method, childLocals, childIndex, returning = false, assignTo = target))
+                return@forEachIndexed
+            }
             val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
             hoisted.forEach { block.addStatement(it) }
             val stmt = convertStatement(s, method, childLocals, tailIndex)
@@ -1491,6 +1520,27 @@ internal class KotlinBodyConverter(
         return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right)
             .setOperator(opAndPrecedence.first).setPrecedence(opAndPrecedence.second)
             .setParameterizedType(left.parameterizedType()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A property initializer only a statement can hold (`val m = if (c) { val r = …; fun f() = …; ::f } else { … }`,
+     * detekt AbsentOrWrongFileLicense): the field is assigned in each branch, as Java writes it in an initializer
+     * block. Null when the initializer is an expression the field can keep.
+     */
+    internal fun needsStatementInitializer(initializer: KtExpression): Boolean =
+        unannotated(initializer).let { it is KtTryExpression || (it is KtIfExpression && it.needsStatementForm()) }
+
+    internal fun KaSession.statementInitializer(initializer: KtExpression, field: FieldInfo, method: MethodInfo,
+                                                index: String): Statement? {
+        val value = unannotated(initializer)
+        val target = runtime.newFieldReference(field)
+        return when {
+            value is KtIfExpression && value.needsStatementForm() ->
+                convertValueIf(value, method, mutableMapOf(), index, returning = false, assignTo = target)
+            value is KtTryExpression ->
+                convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
+            else -> null
+        }
     }
 
     /** An `init { … }` block, as a nested [Block] at [index] in [method]'s body, with a scope of its own. */

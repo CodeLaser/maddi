@@ -1758,10 +1758,36 @@ none moved. detekt **15 → 10** (five gone, none new), members 7,761 → 7,759 
 coil unchanged at 102.
 
 Refused, and staying counted: UseDataClass's `map { … ?: return }` (a non-local return out of an inlined lambda,
-which no Java lambda can express), `Result.getOrNull()` (§7.63), reified `T::class` ×3. Open: AbsentOrWrongFileLicense's
-property initializer, an `if` whose branch declares a local function (the property's assignment must move into the
-constructor in declaration order); MissingUseCall's `@Suppress(…) if … else if … else { null } ?: return false`,
-where Kotlin binds the elvis to the INNER `if` alone; the three gradle-DSL calls.
+which no Java lambda can express), `Result.getOrNull()` (§7.63), reified `T::class` ×3. The two open shapes are §7.65;
+the gradle-DSL calls, §7.66.
+
+### 7.65 Statements where Kotlin writes a value — detekt 10 → 8
+
+- **A jump elvis as a branch of a value `if`.** Kotlin binds `if (a) x else if (b) y else { null } ?: return false`
+  as `else (if (b) y else { null }) ?: return false`: the elvis is the outer ELSE branch, not the whole initializer
+  (detekt MissingUseCall, in a destructuring under `@Suppress`). Such an `if` now takes the statement form: a
+  temporary assigned in each branch, and the elvis branch `$elvis = inner; if ($elvis == null) return false;
+  target = $elvis`. A nested value `if` in branch position is assigned in each of ITS branches. `ThrowBodyTest` g, h.
+- **A property initializer only a statement can hold** (`val m = if (regex) { val r = …; fun f(…) = …; ::f } else
+  { … }`, detekt AbsentOrWrongFileLicense; also a `try`). The field keeps no initializer. An instance property is
+  assigned in the constructor that runs the init blocks, in source order with them, reading the constructor's
+  parameters: that is where kotlinc puts it. A Java instance initializer would have been simpler and wrong, since it
+  runs before the constructor assigns the properties it reads. A top-level or static one goes into the static
+  initializer. `PropertyStatementInitializerTest`.
+
+detekt **10 → 8** (two gone, none new), **no verdict moved**; coil unchanged at 102. Each fix was made at unit level
+and the two were measured on the corpus together.
+
+### 7.66 The gradle-DSL calls are K2's, not the conversion's
+
+detekt's three remaining build-logic placeholders (`extendsFrom`, `withPropertyName`/`withPathSensitivity`, and
+`generatedConfig.get()(fromProject) { … }`) do not resolve in K2 itself: the symbol and the dispatch receiver are
+null. The class path is complete (gradle-api, gradle-kotlin-dsl 9.6.1 all present). Gradle compiles `kotlin-dsl`
+sources with the **SAM-with-receiver** compiler plugin (`@HasImplicitReceiver`: an `Action<T>` lambda is `T.() -> Unit`)
+and the **assignment** plugin (`prop = v` on a `Property<T>`). maddi's standalone K2 session registers no compiler
+plugin, so inside `configurations.resolvable(…) { extendsFrom(…) }` there is no receiver. The Analysis API has the hook
+(`KotlinCompilerPluginsProvider`); the standalone one is session-wide, so a per-module provider would be needed to
+enable it only for source sets built with `kotlin-dsl`. Not done: it is a new dependency and a new capability.
 
 ## 8. The ordered path to the claim
 
@@ -1791,7 +1817,7 @@ where Kotlin binds the elvis to the INNER `if` alone; the three gradle-DSL calls
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63) and the innermost receiver, the safe index chain and unary operator calls (§7.64) have taken detekt 4,701 → 10 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
