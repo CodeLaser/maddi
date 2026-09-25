@@ -1000,7 +1000,7 @@ internal class KotlinTypeMapper(
     }
 
     /** As [visibilityMethodModifier], for a field. */
-    private fun visibilityFieldModifier(symbol: KaDeclarationSymbol): FieldModifier? = when (symbol.visibility) {
+    internal fun visibilityFieldModifier(symbol: KaDeclarationSymbol): FieldModifier? = when (symbol.visibility) {
         KaSymbolVisibility.PRIVATE -> runtime.fieldModifierPrivate()
         KaSymbolVisibility.PROTECTED, KaSymbolVisibility.PACKAGE_PROTECTED -> runtime.fieldModifierProtected()
         KaSymbolVisibility.INTERNAL -> runtime.fieldModifierInternal()

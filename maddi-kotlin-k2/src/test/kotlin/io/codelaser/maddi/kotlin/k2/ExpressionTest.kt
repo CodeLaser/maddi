@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.expression.StringConcat
 import io.codelaser.maddi.cst.api.expression.StringConstant
 import io.codelaser.maddi.cst.api.expression.SwitchExpression
 import io.codelaser.maddi.cst.api.expression.VariableExpression
+import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.ParameterInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.cst.api.statement.BreakStatement
@@ -717,5 +718,86 @@ class ExpressionTest : KotlinScanTestBase() {
             .map { it.simpleName() }.distinct()
         assertEquals(listOf("Captures"), inner, types.flatMap { it.recursiveSubTypeStream().toList() }
             .joinToString { "${it.fullyQualifiedName()} ${it.typeNature()} static=${it.isStatic} enc=${it.compilationUnitOrEnclosingType().isRight}" })
+    }
+
+    @Test
+    fun aDelegatedMemberIsTypedThroughItsSupertype() {
+        // `: Iterable<String> by values` forwards `iterator(): Iterator<String>`, not the interface's `Iterator<T>`
+        val values = KotlinScan(runtime, sourceSet).parse(
+            "V.kt", """
+            package p
+            class Values(private val values: List<String>) : Iterable<String> by values
+            """.trimIndent() + "\n"
+        ).first { it.simpleName() == "Values" }
+        val iterator = values.findUniqueMethod("iterator", 0)
+        assertEquals("java.util.Iterator<String>", iterator.returnType().detailedString())
+    }
+
+    @Test
+    fun aReadOfASourceConstKeepsItsFieldReference() {
+        // `s == NULL_TEXT` and "$NAME-SNAPSHOT" read the consts: folded to literals, nothing recorded the reads
+        val facade = KotlinScan(runtime, sourceSet).parse(
+            "C.kt", """
+            package p
+            private const val NULL_TEXT = "null"
+            private const val NAME = "main"
+            fun isNull(s: String?) = s == NULL_TEXT
+            fun snapshot() = "${'$'}NAME-SNAPSHOT"
+            fun max() = Int.MAX_VALUE
+            """.trimIndent() + "\n"
+        ).first { it.simpleName() == "CKt" }
+        fun reads(method: String): List<String> {
+            val names = mutableListOf<String>()
+            facade.findUniqueMethod(method, if (method == "isNull") 1 else 0).methodBody().visit { e ->
+                if (e is VariableExpression && e.variable() is FieldReference) names += e.variable().simpleName()
+                true
+            }
+            return names
+        }
+        assertEquals(listOf("NULL_TEXT"), reads("isNull"))
+        assertEquals(listOf("NAME"), reads("snapshot"))
+        assertEquals(listOf<String>(), reads("max")) // a library constant still folds
+    }
+
+    @Test
+    fun aConstFieldHasItsPropertysVisibility() {
+        // a const val or @JvmField has no accessor: the field is what the JVM exposes, with the property's visibility
+        val facade = KotlinScan(runtime, sourceSet).parse(
+            "K.kt", """
+            package p
+            const val PUBLIC_CONST = ","
+            private const val PRIVATE_CONST = ";"
+            val plain = "p"
+            """.trimIndent() + "\n"
+        ).first { it.simpleName() == "KKt" }
+        fun access(name: String) = facade.getFieldByName(name, true).access().toString()
+        assertEquals("PUBLIC", access("PUBLIC_CONST"))
+        assertEquals("PRIVATE", access("PRIVATE_CONST"))
+        assertEquals("PRIVATE", access("plain")) // a backing field; its getter carries `public`
+    }
+
+    @Test
+    fun anInOperatorCallsTheExtensionK2Resolved() {
+        // `name !in patterns` resolves to the private extension, not to Iterable's own contains
+        val facade = KotlinScan(runtime, sourceSet).parse(
+            "I.kt", """
+            package p
+            fun excluded(name: String?, patterns: List<Regex>) = name !in patterns
+            fun member(x: String, xs: List<String>) = x in xs
+            private operator fun Iterable<Regex>.contains(input: String?): Boolean = input != null && any { it.matches(input) }
+            """.trimIndent() + "\n"
+        ).first { it.simpleName() == "IKt" }
+        fun callee(method: String): MethodInfo {
+            var found: MethodInfo? = null
+            facade.findUniqueMethod(method, 2).methodBody().visit { e ->
+                if (found == null && e is MethodCall) found = e.methodInfo()
+                true
+            }
+            return found!!
+        }
+        val extension = callee("excluded")
+        assertEquals("p.IKt", extension.typeInfo().fullyQualifiedName())
+        assertEquals("contains", extension.name())
+        assertEquals("java.util.List", callee("member").typeInfo().fullyQualifiedName()) // a member stays a member
     }
 }

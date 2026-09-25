@@ -83,12 +83,12 @@ public class TestTopLevelPropertyReads {
         TypeInfo use = parsed.getKotlinTypes().stream().filter(t -> t.simpleName().equals("Use")).findFirst().orElseThrow();
         StringBuilder actual = new StringBuilder();
         use.methods().forEach(m -> actual.append(m.name()).append(": ").append(m.methodBody().statements()).append('\n'));
-        // ⚠ a `const` is folded to its value before this route is reached (`MAX`, `PI`): pre-existing, and not a
-        // placeholder either way. ⚠ A library getter binds to the multi-file PART class (`IntrinsicsKt__IntrinsicsKt`)
+        // ⚠ a SOURCE `const` is read as its field (`CoreKt.MAX`), as the Java front end has it, so its reads stay
+        // visible; a LIBRARY const (`PI`) is still folded to its value. ⚠ A library getter binds to the multi-file PART class (`IntrinsicsKt__IntrinsicsKt`)
         // where Java names the facade (`IntrinsicsKt`): the facade locator every library top-level function shares.
         assertEquals("""
                 nl: [return CoreKt.getNL();]
-                max: [return 3;]
+                max: [return CoreKt.MAX;]
                 j: [return CoreKt.J;]
                 pi: [return 3.141592653589793;]
                 suspended: [return IntrinsicsKt__IntrinsicsKt.getCOROUTINE_SUSPENDED();]
