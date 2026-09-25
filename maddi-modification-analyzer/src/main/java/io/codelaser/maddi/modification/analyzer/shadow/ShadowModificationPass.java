@@ -737,18 +737,24 @@ public class ShadowModificationPass {
      */
     // memoization is load-bearing: chained/nested receivers re-walk shared sub-expressions once
     // per return-value link, which is EXPONENTIAL in nesting depth without a cache (jenkins-core
-    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Expressions are shared
-    // immutable CST nodes, each belonging to exactly one statement: identity keying is exact.
-    private final Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>> receiverChainCache =
-            new IdentityHashMap<>();
+    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Keyed by the OBSERVING method as well as by
+    // the expression: the projection's nodes name that method (a `this` receiver projects onto `mi`), and a lambda's
+    // body is walked twice -- as the lambda's own method and inside its enclosing method (handleBlock). Keyed by the
+    // expression alone, whichever walk came first won: the enclosing method got the lambda's receiver node, no edge
+    // reached it, and the cutover wrote `list.forEach(x -> this.items.add(x))` non-modifying (EC work list O1,
+    // TestOptimisticModificationShapes.o1c).
+    private final Map<MethodInfo, Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>>>
+            receiverChainCache = new HashMap<>();
 
     private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
                                              io.codelaser.maddi.cst.api.expression.Expression receiver) {
         if (receiver == null) return Set.of();
-        Set<Object> cached = receiverChainCache.get(receiver);
+        Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>> cache =
+                receiverChainCache.computeIfAbsent(mi, _ -> new IdentityHashMap<>());
+        Set<Object> cached = cache.get(receiver);
         if (cached != null) return cached;
         Set<Object> result = computeReceiverChain(mi, vd, receiver);
-        receiverChainCache.put(receiver, result);
+        cache.put(receiver, result);
         return result;
     }
 
