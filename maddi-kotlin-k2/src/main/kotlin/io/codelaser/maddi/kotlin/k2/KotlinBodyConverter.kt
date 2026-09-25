@@ -144,6 +144,7 @@ import org.jetbrains.kotlin.psi.KtSuperExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
 import org.jetbrains.kotlin.psi.KtTryExpression
+import org.jetbrains.kotlin.psi.KtUnaryExpression
 import org.jetbrains.kotlin.psi.KtWhenConditionInRange
 import org.jetbrains.kotlin.psi.KtWhenConditionIsPattern
 import org.jetbrains.kotlin.psi.KtWhenConditionWithExpression
@@ -607,11 +608,13 @@ internal class KotlinBodyConverter(
                                                    index: String, returnValue: Boolean = false): List<Statement>? {
         val elvis = when {
             isControlFlowElvis(statement) -> statement as KtBinaryExpression
-            statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer) ->
-                statement.initializer as KtBinaryExpression
+            // an annotation on the initializer (`= @Suppress("…") if (…) a else null ?: return false`) annotates the
+            // elvis; it carries nothing the lowering needs, and hid the elvis from it
+            statement is KtProperty && statement.isLocal && isControlFlowElvis(statement.initializer?.let { unannotated(it) }) ->
+                unannotated(statement.initializer!!) as KtBinaryExpression
             // `val (a, b) = f() ?: return`
-            statement is KtDestructuringDeclaration && isControlFlowElvis(statement.initializer) ->
-                statement.initializer as KtBinaryExpression
+            statement is KtDestructuringDeclaration && isControlFlowElvis(statement.initializer?.let { unannotated(it) }) ->
+                unannotated(statement.initializer!!) as KtBinaryExpression
             statement is KtReturnExpression && isControlFlowElvis(statement.returnedExpression) ->
                 statement.returnedExpression as KtBinaryExpression
             // `x = f() ?: return false`
@@ -1577,7 +1580,12 @@ internal class KotlinBodyConverter(
                 ?: placeholder("k2-unsupported-expr:KtAnnotatedExpression", expression)
             is KtClassLiteralExpression -> kotlinClassLiteral(expression, method)
                 ?: placeholder("k2-unsupported-expr:KtClassLiteralExpression", expression)
-            is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
+            // ⛔ K2 first when it names a RECEIVER's member: the innermost implicit receiver wins in Kotlin, so
+            // `languageVersionSettings` in a builder lambda is the builder's, even when the enclosing class has a
+            // property of that name. The class-first lookup below bound it to `this.getLanguageVersionSettings()`,
+            // silently -- a wrong read is no placeholder
+            is KtNameReferenceExpression -> (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
+                ?: resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
@@ -1602,8 +1610,8 @@ internal class KotlinBodyConverter(
                 ?.let { convertExpression(it, method, locals) }
                 ?: placeholder("k2-block-not-a-single-expression", expression)
             is KtBinaryExpression -> convertBinary(expression, method, locals)
-            is KtPostfixExpression -> convertUnary(expression.baseExpression, expression.operationToken, false, method, locals)
-            is KtPrefixExpression -> convertUnary(expression.baseExpression, expression.operationToken, true, method, locals)
+            is KtPostfixExpression -> convertUnary(expression, expression.baseExpression, expression.operationToken, false, method, locals)
+            is KtPrefixExpression -> convertUnary(expression, expression.baseExpression, expression.operationToken, true, method, locals)
             is KtCallExpression -> convertCall(expression, null, true, method, locals) // f(...) on implicit this
             is KtQualifiedExpression -> convertQualified(expression, method, locals) // obj.f(...)/obj.x, incl. obj?.f()
             is KtBinaryExpressionWithTypeRHS -> convertCastOrSafeCast(expression, method, locals) // x as T / x as? T
@@ -2058,6 +2066,20 @@ internal class KotlinBodyConverter(
     /** `a[i]` -> `a.get(i)` method call (when `get` resolves on the receiver type); an array element for an array. */
     private fun KaSession.convertArrayAccess(expression: KtArrayAccessExpression, method: MethodInfo,
                                              locals: Map<String, Variable>): Expression {
+        // `a?.m[k]`: the PSI is `(a?.m)[k]`, but the index belongs to the safe-call chain -- K2 dispatches `get` on
+        // the non-null `m` and types `a?.m` as the chain's result. Guard the whole access, as kotlinc does:
+        // `a == null ? null : a.m.get(k)` (detekt SleepInsteadOfDelay, `…?.valueArgumentMapping[arg]`).
+        val chained = expression.arrayExpression as? KtSafeQualifiedExpression
+        if (chained != null && !unwrappedSafeCalls.containsKey(chained) && chainsTheIndex(expression)) {
+            unwrappedSafeCalls[chained] = true
+            val access = try { convertArrayAccess(expression, method, locals) } finally { unwrappedSafeCalls.remove(chained) }
+            return runtime.newInlineConditionalBuilder()
+                .setCondition(runtime.newEquals(convertExpression(chained.receiverExpression, method, locals),
+                    runtime.nullConstant()))
+                .setIfTrue(runtime.nullConstant()).setIfFalse(access)
+                .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_SAFE, chained.operationTokenNode.psi)))
+                .build(runtime)
+        }
         val array = expression.arrayExpression?.let { convertExpression(it, method, locals) }
             ?: return placeholder("k2-index", expression)
         val indices = expression.indexExpressions.map { convertExpression(it, method, locals) }
@@ -2072,6 +2094,9 @@ internal class KotlinBodyConverter(
         // is an intrinsic that maps to the JVM `charAt(int)` -- java.lang.String has no `get`. Fall back to it so
         // `s[i]` resolves (and its receiver read is tracked) rather than collapsing to a placeholder.
         val get = arrayType?.let { resolveCallee(it, "get", indices) } // String: charAt, in resolveCallee
+            // on detekt K2 types a chained `a?.m` as the ELEMENT (the chain's result); the resolved `get` knows the map
+            ?: expression.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver?.type
+                ?.let { mapType(it, method.typeInfo()).typeInfo() }?.let { resolveCallee(it, "get", indices) }
             ?: return indexOperatorExtension(expression, array, indices, method, locals)
                 ?: placeholder("k2-index-get-unresolved", expression)
         // use-site element type (List<Int>[i] -> Int), falling back to the declared (erased) return type
@@ -2081,6 +2106,13 @@ internal class KotlinBodyConverter(
             .setParameterExpressions(indices).setConcreteReturnType(returnType).setTypeArguments(listOf())
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
             .build()
+    }
+
+    /** Whether the `get` of `a?.m[k]` dispatches on a NON-null receiver: the index is inside the safe chain. */
+    private fun KaSession.chainsTheIndex(expression: KtArrayAccessExpression): Boolean {
+        val receiver = expression.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol
+            ?.let { it.dispatchReceiver ?: it.extensionReceiver } ?: return false
+        return !receiver.type.isMarkedNullable
     }
 
     /** `a[i] = v` -> `a.set(i, v)` method call (when `set` resolves), marked INDEX_ACCESS at the `[`. */
@@ -2197,6 +2229,9 @@ internal class KotlinBodyConverter(
                 // a lambda whose value is an `if` with a multi-statement branch: each branch returns the lambda's value
                 isResult && stmt is KtIfExpression && stmt.hasAMultiStatementBranch() ->
                     block.addStatement(convertValueIf(stmt, method, bodyScope, index, returning = true, assignTo = null))
+                // `runCatching { try { a() } catch (_: E) { b() } }`: each arm returns the lambda's value
+                isResult && stmt is KtTryExpression ->
+                    block.addStatement(indexed(convertTry(stmt, method, bodyScope, index, returning = true), index))
                 isResult -> {
                     val (hoisted, tailIndex) = hoistBefore(stmt, method, bodyScope, index)
                     hoisted.forEach { block.addStatement(it) }
@@ -3462,7 +3497,7 @@ internal class KotlinBodyConverter(
      * Prefix/postfix unary: `++`/`--` become an [io.codelaser.maddi.cst.api.expression.Assignment]
      * (`prefixPrimitiveOperator` distinguishes `++i` from `i++`); `-x` and `!x` become a `UnaryOperator`.
      */
-    private fun KaSession.convertUnary(base: KtExpression?, token: com.intellij.psi.tree.IElementType,
+    private fun KaSession.convertUnary(expression: KtUnaryExpression, base: KtExpression?, token: com.intellij.psi.tree.IElementType,
                                        prefix: Boolean, method: MethodInfo, locals: Map<String, Variable>): Expression {
         val operand = base?.let { convertExpression(it, method, locals) } ?: return runtime.newEmptyExpression("k2-unary")
         return when (token) {
@@ -3481,12 +3516,54 @@ internal class KotlinBodyConverter(
             // `x!!` non-null assertion: transparent for the CST (same value/type), but marked NON_NULL_ASSERTION
             KtTokens.EXCLEXCL -> if (operand is EmptyExpression) operand
             else operand.withSource(operand.source().mergeDetailedSources(marker(DetailedSources.NON_NULL_ASSERTION, base)))
+            // `-v` on a user type is its `unaryMinus()` operator, not Java's `-`
+            KtTokens.MINUS if !isPrimitiveOperator(expression) -> unaryOperatorCall(expression, operand, method, locals)
+                ?: runtime.newEmptyExpression("k2-unsupported-unary:$token")
             KtTokens.MINUS -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
                 runtime.unaryMinusOperatorInt(), operand, runtime.precedenceUnary())
             KtTokens.EXCL -> runtime.newUnaryOperator(listOf(), runtime.noSource(),
                 runtime.logicalNotOperatorBool(), operand, runtime.precedenceUnary())
-            else -> runtime.newEmptyExpression("k2-unsupported-unary:$token")
+            else -> unaryOperatorCall(expression, operand, method, locals)
+                ?: runtime.newEmptyExpression("k2-unsupported-unary:$token")
         }
+    }
+
+    /** Whether [expression]'s operator is a member of a Kotlin primitive (or does not resolve): Java's own operator. */
+    private fun KaSession.isPrimitiveOperator(expression: KtUnaryExpression): Boolean {
+        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return true
+        val owner = symbol.callableId?.classId ?: return false // a top-level extension operator
+        return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in KOTLIN_PRIMITIVES
+    }
+
+    /**
+     * An overloaded unary operator: `+"text"` inside a kotlinx.html builder is `Tag.unaryPlus(String)`, a MEMBER
+     * extension called on the implicit tag; `+x` on a primitive is `x` itself. A member operator is `operand.op()`,
+     * a top-level extension `Facade.op(operand)`.
+     */
+    private fun KaSession.unaryOperatorCall(expression: KtUnaryExpression, operand: Expression, method: MethodInfo,
+                                            locals: Map<String, Variable>): Expression? {
+        val resolved = expression.resolveToCall()?.singleFunctionCallOrNull() ?: return null
+        val symbol = resolved.symbol as? KaNamedFunctionSymbol ?: return null
+        val name = symbol.name.asString()
+        if (name == "unaryPlus" && isPrimitiveOperator(expression)) return operand
+        val returnType = expression.expressionType?.let { mapType(it, method.typeInfo()) }
+        fun call(obj: Expression, implicit: Boolean, callee: MethodInfo, arguments: List<Expression>) =
+            runtime.newMethodCallBuilder().setObject(obj).setObjectIsImplicit(implicit).setMethodInfo(callee)
+                .setParameterExpressions(arguments).setConcreteReturnType(returnType ?: callee.returnType())
+                .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        if (symbol.receiverParameter == null) {
+            val callee = operand.parameterizedType().typeInfo()?.let { resolveCallee(it, name, listOf()) } ?: return null
+            return call(operand, false, callee, listOf())
+        }
+        resolved.partiallyAppliedSymbol.dispatchReceiver?.let { dispatch ->
+            val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+            val type = receiverLookupType(dispatch, obj, method) ?: return null
+            val callee = resolveCallee(type, name, listOf(operand)) ?: return null
+            return call(obj, true, callee, listOf(operand))
+        }
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val callee = resolveCallee(facade, name, listOf(operand)) ?: return null
+        return call(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()), false, callee, listOf(operand))
     }
 
     /**
@@ -3708,6 +3785,15 @@ internal class KotlinBodyConverter(
         method.parameters().firstOrNull()?.takeIf { it.name() == "\$receiver" }
 
     /** Resolve a bare name: a local, else a parameter, else a field (locals shadow params shadow fields). */
+    /** Does K2 resolve [reference] to a member of a lambda's or an extension function's receiver (not a class's `this`)? */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.readsAReceiverMember(reference: KtNameReferenceExpression): Boolean {
+        val access = reference.resolveToCall()?.successfulVariableAccessCall() ?: return false
+        val implicit = generateSequence(access.partiallyAppliedSymbol.dispatchReceiver) { (it as? KaSmartCastedReceiverValue)?.original }
+            .filterIsInstance<KaImplicitReceiverValue>().firstOrNull() ?: return false
+        return implicit.symbol is KaReceiverParameterSymbol
+    }
+
     private fun resolveReference(name: String, method: MethodInfo, locals: Map<String, Variable>): Expression? {
         locals[name]?.let { return variableExpression(it) }
         method.parameters().firstOrNull { it.name() == name }?.let { return variableExpression(it) }

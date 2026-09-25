@@ -1729,6 +1729,40 @@ emits:
 call. No unit fixture: the k2 and mixed worlds build these types from K2, so only the corpus can show this. detekt
 **18 → 15** (three gone, none new), **no verdict moved**; coil unchanged at 102.
 
+### 7.64 The innermost receiver, the safe chain, operator calls — detekt 15 → 10
+
+Five sites, five fixes, each reproduced in a unit fixture first and measured on the corpus once, together:
+
+- **The innermost implicit receiver wins.** A bare name inside a receiver lambda was looked up on the enclosing
+  class first. detekt's `EnvironmentFacade` builder lambda assigns a property its receiver shares a name with, and
+  the conversion READ the class's own property: a silent wrong read, not a placeholder, except where the class's
+  property had no setter (`k2-assign-target`). A name that K2 resolves against an implicit receiver PARAMETER now goes
+  to that receiver first (`readsAReceiverMember`). `ReceiverShadowingTest`.
+- **`a?.m[k]` is guarded whole.** The PSI is `(a?.m)[k]`, but the index belongs to the safe-call chain: K2 dispatches
+  `get` on the non-null `m`, and types `a?.m` as the chain's result (on detekt, the element). It converted to
+  `(a==null?null:a.m).get(k)`, which calls `get` on null. Now `a==null?null:a.m.get(k)`, as kotlinc compiles it.
+  `MemberIndexOperatorTest`.
+- **Unary operators that are calls.** `+"text"` in a kotlinx.html builder is `Tag.unaryPlus(String)`, a member
+  extension called on the implicit tag. `-v` on a user type is its `unaryMinus()`, member or top-level extension;
+  that one used to become Java's `-` silently. `+i` on a primitive is `i`. `UnaryOperatorCallTest`.
+- **A `try` as a lambda's value** (`runCatching { try { … } catch … }`) returns from each arm, as the method-body
+  form already did.
+- **An annotated jump elvis** (`val (x, y) = @Suppress(…) if (b) { … } else { null } ?: return 0`) is lowered like
+  the unannotated one: the annotation is looked through. `ThrowBodyTest`.
+- **An annotation class gets no `$default` constructor.** kotlinc emits none, and the one built here carried the
+  element default `[]` as a collection literal. ⚠ The annotation's primary constructor is still modelled. The JVM
+  has none; its elements are abstract methods. That divergence is open.
+
+The receiver fix is the one that could move verdicts, since it corrects reads rather than filling placeholders, and
+none moved. detekt **15 → 10** (five gone, none new), members 7,761 → 7,759 (the two annotation constructors);
+coil unchanged at 102.
+
+Refused, and staying counted: UseDataClass's `map { … ?: return }` (a non-local return out of an inlined lambda,
+which no Java lambda can express), `Result.getOrNull()` (§7.63), reified `T::class` ×3. Open: AbsentOrWrongFileLicense's
+property initializer, an `if` whose branch declares a local function (the property's assignment must move into the
+constructor in declaration order); MissingUseCall's `@Suppress(…) if … else if … else { null } ?: return false`,
+where Kotlin binds the elvis to the INNER `if` alone; the three gradle-DSL calls.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1757,7 +1791,7 @@ call. No unit fixture: the k2 and mixed worlds build these types from K2, so onl
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) and inline-only stdlib members (§7.63) have taken detekt 4,701 → 15 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63) and the innermost receiver, the safe index chain and unary operator calls (§7.64) have taken detekt 4,701 → 10 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

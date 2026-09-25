@@ -2255,6 +2255,10 @@ class KotlinScan(
         val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
         if (parameters.none { it?.defaultValue != null }) return null
+        // an annotation's defaults are its elements' `default` values; the JVM gives it no constructor to call
+        // (detekt's `annotation class KotlinCoreEnvironmentTest(val paths: Array<String> = [])`)
+        if (com.intellij.psi.util.PsiTreeUtil.getParentOfType(declaration, org.jetbrains.kotlin.psi.KtClass::class.java)
+                ?.isAnnotation() == true) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }

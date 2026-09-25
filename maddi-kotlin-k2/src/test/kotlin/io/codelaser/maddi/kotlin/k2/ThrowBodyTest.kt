@@ -34,6 +34,10 @@ class ThrowBodyTest : KotlinScanTestBase() {
                 fun c(s: String?): String { return s ?: throw IllegalStateException("c") }
                 fun d(s: String?): String { val t = s ?: throw IllegalStateException("d"); return t }
                 fun e(s: String?): Int = s?.hashCode() ?: return 0
+                fun f(s: String?, b: Boolean): Int {
+                    val (x, y) = @Suppress("UNUSED") if (b) { s to s } else { null } ?: return 0
+                    return (x ?: "").hashCode() + (y ?: "").hashCode()
+                }
             }
             """.trimIndent() + "\n")
     }
@@ -57,6 +61,7 @@ class ThrowBodyTest : KotlinScanTestBase() {
             c: if(s==null){throw new IllegalStateException("c");} return s;
             d: if(s==null){throw new IllegalStateException("d");} String t=s; return t;
             e: Integer ${'$'}elvis0=s==null?null:s.hashCode(); if(${'$'}elvis0==null){return 0;} return ${'$'}elvis0;
-            """.trimIndent(), listOf("a", "b", "c", "d", "e").joinToString("\n") { "$it: ${body(it)}" })
+            f: Pair<String,String> ${'$'}elvis1=b?TuplesKt.to(s,s):null; if(${'$'}elvis1==null){return 0;} String x=${'$'}elvis1.component1(),y=${'$'}elvis1.component2(); return (x==null?"":x).hashCode()+(y==null?"":y).hashCode();
+            """.trimIndent(), listOf("a", "b", "c", "d", "e", "f").joinToString("\n") { "$it: ${body(it)}" })
     }
 }
