@@ -524,6 +524,7 @@ internal class KotlinBodyConverter(
                                             index: String): List<Statement>? {
         val s = unannotated(annotated)
         return controlFlowElvisLowering(s, method, locals, index)
+            ?: argumentElvisLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index)
@@ -734,6 +735,54 @@ internal class KotlinBodyConverter(
      * Whether re-evaluating [expression] is free of consequence: a name, `this`, a constant, or a dotted
      * chain of those. Anything else — a call, an index, a constructor — must not be evaluated twice.
      */
+    /**
+     * <b>`f(a, x ?: return)` — a jump in ARGUMENT position</b>, in a call that is the whole statement:
+     * <pre>
+     *   check(p, x?.y() ?: return)   ->   T $elvis0 = x?.y();
+     *                                     if ($elvis0 == null) return;
+     *                                     check(p, $elvis0);
+     * </pre>
+     * The argument becomes a read of the temporary through [hoistedReads], so the call is converted as always.
+     * ⛔ Only when nothing the source evaluates BEFORE that argument can observe the move: the receiver and every
+     * earlier argument (in source order, which is evaluation order, named or not) must be a stable reference or a
+     * constant. Anything else keeps the placeholder, as [controlFlowElvisLowering] refuses what it cannot keep in
+     * order.
+     */
+    private fun KaSession.argumentElvisLowering(statement: KtExpression, method: MethodInfo,
+                                                locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        val call = when (statement) {
+            is KtCallExpression -> statement
+            is KtDotQualifiedExpression -> (statement.selectorExpression as? KtCallExpression)
+                ?.takeIf { isStableReference(statement.receiverExpression) }
+            else -> null
+        } ?: return null
+        val arguments = call.valueArguments
+        val k = arguments.indexOfFirst { isControlFlowElvis(it.getArgumentExpression()) }
+        if (k < 0) return null
+        if (arguments.take(k).any { !isStableReference(it.getArgumentExpression()) }) return null
+        val elvis = arguments[k].getArgumentExpression() as KtBinaryExpression
+        val left = elvis.left ?: return null
+        val control = elvis.right ?: return null
+        val type = left.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+        val name = "\$elvis${elvisTemporaries++}"
+        val temporary = runtime.newLocalVariable(name, type, convertExpression(left, method, locals))
+        locals[name] = temporary
+        val read = { runtime.newVariableExpressionBuilder().setVariable(temporary).setSource(runtime.noSource()).build() }
+        val guard = runtime.newIfElseBuilder()
+            .setExpression(runtime.newEquals(read(), runtime.nullConstant()))
+            .setIfBlock(statementsToBlock(listOf(control), method, locals, "$index.1.0"))
+            .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.1.1")).build())
+            .setSource(source(elvis, "$index.1"))
+            .build()
+        hoistedReads[elvis] = temporary
+        val converted = try {
+            convertStatement(statement, method, locals, "$index.2")
+        } finally {
+            hoistedReads.remove(elvis)
+        }
+        return listOf(indexed(runtime.newLocalVariableCreation(temporary), "$index.0"), guard, converted)
+    }
+
     private fun isStableReference(expression: KtExpression?): Boolean = when (expression) {
         is KtNameReferenceExpression, is KtThisExpression, is KtConstantExpression -> true
         is KtParenthesizedExpression -> isStableReference(expression.expression)

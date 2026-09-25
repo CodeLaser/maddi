@@ -1651,6 +1651,20 @@ reproducing anything.
 
 detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged at 103.
 
+### 7.59 A jump in argument position — detekt 33 → 31
+
+§7.37 excluded `f(a(), x ?: return)`: hoisting the guard would run the check before `a()`. That exclusion is kept,
+and narrowed to what it is about. When the call is the whole statement, and the receiver and every argument before
+the elvis, in SOURCE order, named or not, are stable references or constants, nothing the source evaluates first can
+observe the move. So:
+
+    check(p, x?.y() ?: return)   ->   T $elvis0 = x?.y(); if ($elvis0 == null) return; check(p, $elvis0);
+
+The argument reads the temporary through `hoistedReads`, so the call itself is converted as any other.
+`ArgumentJumpTest` (k2): a positional and a named argument, plus the two refusals (an unstable receiver, an unstable
+earlier argument), which keep their placeholder. detekt **33 → 31** (both sites, none new), **no verdict moved**;
+coil unchanged at 103.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1679,7 +1693,7 @@ detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) have taken detekt 4,701 → 33 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.58; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) and argument-position jumps (§7.59) have taken detekt 4,701 → 31 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.59; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

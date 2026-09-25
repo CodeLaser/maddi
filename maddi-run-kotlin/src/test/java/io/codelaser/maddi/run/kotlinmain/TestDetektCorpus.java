@@ -154,7 +154,10 @@ public class TestDetektCorpus {
         // over a month). Two-sided on purpose — see CensusRatchet: an improvement must be recorded here in
         // the commit that earns it, because a bound nobody tightens stops measuring.
         //
-        // Measured 2026-09-24 (a delegate's `by` expression converted where kotlinc initializes it, so it reads
+        // Measured 2026-09-25 (`f(a, x ?: return)`: a jump in argument position, where nothing before it can observe
+        // the move), on the pinned detekt checkout, in a --rerun slowTest whose roll-call was read: 31 placeholders in
+        // 21 of 1,384 types and 24 of 7,761 members; 641 immutable types, 0 isolated by prep. Previous:
+        // 33 / 23 / 26, measured 2026-09-24 (a delegate's `by` expression converted where kotlinc initializes it, so it reads
         // constructor parameters; implicit receivers typed by a smart cast or a type parameter), on the pinned detekt
         // checkout, in a --rerun slowTest whose roll-call was read: 33 placeholders in 23 of 1,384 types and 26 of
         // 7,761 members (+2: the synthetic instance initializers those delegates are now converted in); 641 immutable
@@ -186,7 +189,7 @@ public class TestDetektCorpus {
         // default constructors, implicit extension properties); 1,045 / 359 / 566 (context parameters); 1,083 / 360 / 586 (nested and
         // smart-cast receivers); 1,351 / 371 / 621 (member extensions); 2,256 / 434 / 864 and 667 (implicit-receiver members); 3,434 / 579 / 1,609 and 668 (class-file shells, extension
         // references); 4,701 (property references); 4,704 at 29e951ea1; 4,744 at fbe6b138a.
-        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 33);
+        CensusRatchet.noWorseThan("detekt placeholders", summary.placeholders(), 31);
         CensusRatchet.noWorseThan("detekt elements isolated by prep", summary.prepErrors(), 0);
         // Re-baselined deliberately, twice, each time because more code was READ, never because a lowering was
         // found wrong (gap doc §7.26, §7.27): 668 -> 667 (three transitive moves), 667 -> 665 (OutputReport and
