@@ -14,7 +14,11 @@
 
 package io.codelaser.maddi.modification.analyzer.impl;
 
+import io.codelaser.maddi.modification.common.AnalysisHelper;
 import io.codelaser.maddi.modification.common.defaults.ContractReader;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
 import io.codelaser.maddi.modification.common.util.TolerantWrite;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.TypeImmutableAnalyzer;
@@ -42,6 +46,7 @@ import static io.codelaser.maddi.cst.api.analysis.Value.Independent;
 import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.*;
 import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
+import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 /*
 Phase 4.1 Primary type independent
@@ -372,7 +377,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 } else if (methodIndependent.isDependent()) {
                     if (!ignoreModificationsAccessor(methodInfo)
                         && !contractedIndependentHc(methodInfo)
-                        && !excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())) {
+                        && !excused(typeInfo, afterMarkMode, beforeMarkOnly, methodInfo.returnType())
+                        && !(afterMarkMode && EventualCluster.ENABLED && sharedContentCommits(typeInfo, methodInfo))) {
                         if (afterMarkMode && ecTypeDebug(typeInfo)) {
                             System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
                                                + " DEPENDENT: method " + methodInfo.name()
@@ -390,7 +396,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                         independent = null;
                     } else if (paramIndependent.isDependent()) {
                         if (!contractedIndependentHcParam(pi)
-                            && !excused(typeInfo, afterMarkMode, beforeMarkOnly, pi.parameterizedType())) {
+                            && !excused(typeInfo, afterMarkMode, beforeMarkOnly, pi.parameterizedType())
+                            && !(afterMarkMode && EventualCluster.ENABLED && sharedContentCommits(typeInfo, pi))) {
                             if (afterMarkMode && ecTypeDebug(typeInfo)) {
                                 System.out.println("ECTYPE " + typeInfo.fullyQualifiedName()
                                                    + " DEPENDENT: parameter " + pi.fullyQualifiedName());
@@ -503,6 +510,76 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         return contractedIndependentCache.computeIfAbsent(methodInfo, mi ->
                         contractReader.contracts(mi).get(INDEPENDENT_METHOD) instanceof Independent i ? i : DEPENDENT)
                 .isAtLeastIndependentHc();
+    }
+
+    private final AnalysisHelper analysisHelper = new AnalysisHelper();
+
+    /**
+     * EVENTUALCLUSTER, the parameter's side of {@link #excused}. A parameter is {@code @Dependent} when the argument
+     * ends up sharing a field of the instance whose type is not at least immutable-hc ({@code worstLinkToFields}).
+     * {@link #excused} asks whether the PARAMETER'S type commits at the mark, which is the right question for a
+     * returned object but the wrong one here: {@code Element.print(Qualification)} hands this element's
+     * {@code TypeInfo}/{@code MethodInfo} to a qualification that is a mutable collector and never commits, while
+     * what it SHARES -- the Info objects -- is eventually immutable. After the mark, such an argument holds committed
+     * content only. So: every implementation's parameter is independent, or each link from it into the instance
+     * reaches a field whose type commits (eventual, unconditionally immutable-hc, or the witnessed cluster seed).
+     * An undecided implementation or link waits (false).
+     */
+    private boolean sharedContentCommits(TypeInfo member, ParameterInfo abstractParameter) {
+        return sharedContentCommits(member, abstractParameter.methodInfo(), abstractParameter.index(),
+                abstractParameter.fullyQualifiedName());
+    }
+
+    /** The same rule for an abstract method's RETURN VALUE ({@code Element.typesReferenced}: a fresh
+     *  {@code Stream<TypeReference>} over the element's TypeInfo fields -- {@code Stream} never commits, the shared
+     *  TypeInfos do). */
+    private boolean sharedContentCommits(TypeInfo member, MethodInfo abstractMethod) {
+        return sharedContentCommits(member, abstractMethod, -1, abstractMethod.fullyQualifiedName());
+    }
+
+    /** @param parameterIndex -1 for the return value */
+    private boolean sharedContentCommits(TypeInfo member, MethodInfo abstractMethod, int parameterIndex,
+                                         String what) {
+        Value.SetOfMethodInfo implementations = abstractMethod.analysis()
+                .getOrDefault(IMPLEMENTATIONS, ValueImpl.SetOfMethodInfoImpl.EMPTY);
+        if (implementations.isEmpty()) return false;
+        for (MethodInfo implementation : implementations.methodInfoSet()) {
+            Independent independent;
+            if (parameterIndex < 0) {
+                independent = implementation.analysis().getOrNull(INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class);
+            } else {
+                if (parameterIndex >= implementation.parameters().size()) return false;
+                independent = implementation.parameters().get(parameterIndex).analysis()
+                        .getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
+            }
+            if (independent == null) return false;
+            if (!independent.isDependent()) continue;
+            MethodLinkedVariables mlv = implementation.analysis().getOrNull(METHOD_LINKS,
+                    MethodLinkedVariablesImpl.class);
+            if (mlv == null || parameterIndex >= mlv.ofParameters().size()) return false;
+            for (Link link : parameterIndex < 0 ? mlv.ofReturnValue() : mlv.ofParameters().get(parameterIndex)) {
+                Value.Immutable reached = LinkToField.immutableOfLinkedField(link, analysisHelper);
+                if (reached == null) {
+                    if (LinkToField.reachesJudgeableField(link)) return false;
+                    continue;
+                }
+                if (!reached.isMutable()) continue;
+                ParameterizedType reachedType = LinkToField.reachedFieldType(link);
+                TypeInfo reachedTypeInfo = reachedType == null ? null : reachedType.bestTypeInfo();
+                if (reachedTypeInfo == null) return false;
+                Value.EventuallyImmutable ev = eventuallyImmutable(reachedTypeInfo);
+                if (!ev.isEventual() && !immutableOf(reachedTypeInfo).isAtLeastImmutableHC()
+                    && !eventualCluster.treatAsEventuallyImmutable(member, reachedTypeInfo, ev)) {
+                    if (ecTypeDebug(member)) {
+                        System.out.println("ECTYPE " + member.fullyQualifiedName() + " " + what
+                                           + " shares non-committing "
+                                           + reachedTypeInfo.fullyQualifiedName() + " in " + implementation);
+                    }
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     // the parameter twin (Expression.translate's translationMap, the quest E cap): an inline

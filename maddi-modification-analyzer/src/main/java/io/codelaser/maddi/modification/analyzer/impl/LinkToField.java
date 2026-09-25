@@ -70,6 +70,16 @@ class LinkToField {
     }
 
     /**
+     * The type whose immutability {@link #immutableOfLinkedField} judges for this link, or {@code null} when the
+     * link does not reach a field of the instance with a judgeable type.
+     */
+    static ParameterizedType reachedFieldType(Link link) {
+        Variable primaryTo = Util.firstRealVariable(link.to());
+        if (!(primaryTo instanceof FieldReference fr) || !fr.scopeIsRecursivelyThis()) return null;
+        return linkedType(link, primaryTo);
+    }
+
+    /**
      * The field's dynamic immutability, but only when the link reaches the field as a WHOLE object: a content-tier
      * link ({@code §es}, {@code ∋}, {@code ∈}) reaches an element, which a container-level promise says nothing
      * about. See {@link DynamicImmutability} for the rule.
