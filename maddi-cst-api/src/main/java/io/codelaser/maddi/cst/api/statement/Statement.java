@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -166,7 +168,7 @@ public interface Statement extends Element {
      * @param infoMap maps old {@code Info} objects to their replacements
      * @return the rewired statement
      */
-    Statement rewire(InfoMapView infoMap);
+    Statement rewire(@Independent(hc = true) InfoMapView infoMap);
 
     /**
      * Helper for implementations: rewire this statement's annotations through the supplied map.

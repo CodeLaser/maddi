@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
@@ -53,7 +55,7 @@ public interface SwitchStatementOldStyle extends Statement {
      * A single {@code case}/{@code default} label, anchored at a position within the switch body block.
      */
     interface SwitchLabel {
-        SwitchLabel rewire(InfoMapView infoMap);
+        SwitchLabel rewire(@Independent(hc = true) InfoMapView infoMap);
 
         /**
          * @return the index, within the switch body {@link Statement#block()}, of the first statement

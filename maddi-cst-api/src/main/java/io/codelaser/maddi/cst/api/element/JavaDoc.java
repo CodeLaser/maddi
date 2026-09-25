@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.element;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -120,7 +122,7 @@ public interface JavaDoc extends MultiLineComment {
         /** Returns the text content of this tag. */
         String content();
 
-        Tag rewire(InfoMapView infoMap);
+        Tag rewire(@Independent(hc = true) InfoMapView infoMap);
 
         Tag translate(TranslationMap translationMap);
 

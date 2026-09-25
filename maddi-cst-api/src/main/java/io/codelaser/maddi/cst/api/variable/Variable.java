@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.variable;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -104,7 +106,7 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
      * Returns a copy of this variable with all cross-references rewritten through {@code infoMap}.
      * Used during the rewiring phase when types and members are cloned.
      */
-    Variable rewire(InfoMapView infoMap);
+    Variable rewire(@Independent(hc = true) InfoMapView infoMap);
 
     @Override
     default Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {

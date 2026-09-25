@@ -125,7 +125,7 @@ public interface Expression extends Comparable<Expression>, Element {
     /**
      * Clone this expression into a new {@code Info} graph, relinking references through the map.
      */
-    Expression rewire(InfoMapView infoMap);
+    Expression rewire(@Independent(hc = true) InfoMapView infoMap);
 
     /**
      * @return an immutable copy of this expression with a different {@link Source}; this instance is

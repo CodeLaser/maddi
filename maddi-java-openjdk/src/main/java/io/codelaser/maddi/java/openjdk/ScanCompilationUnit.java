@@ -2571,14 +2571,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             ParameterizedType type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
             String name = bp.var.name.toString();
             LocalVariable lv = runtime.newLocalVariable(name, type);
+            // the variable's details go in BEFORE sourceForNode builds: a built DetailedSources owns a copy of
+            // the builder's state (#51), so a put after build() no longer reaches this pattern's own source
+            dsb.put(lv, sourceForNode(bp));
+            dsb.put(lv.simpleName(), sourceOfIdentifier(lv.simpleName(), bp.var.pos));
             Source source = sourceForNode(bp, dsb);
             RecordPattern recordPattern = runtime.newRecordPatternBuilder()
                     .setSource(source)
                     .setLocalVariable(lv)
                     .build();
-            dsb.put(recordPattern, source);
-            dsb.put(lv, source);
-            dsb.put(lv.simpleName(), sourceOfIdentifier(lv.simpleName(), bp.var.pos));
+            dsb.put(recordPattern, source); // for the enclosing pattern, whose source is built later
             return new RecordPatternResult(type, recordPattern, List.of(lv));
         }
         if (p instanceof JCTree.JCRecordPattern rp) {
