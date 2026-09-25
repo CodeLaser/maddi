@@ -235,8 +235,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         eventualCluster.noteHierarchy(typeInfo);
         eventualCluster.setDebugContext("typeLevel " + typeInfo.fullyQualifiedName());
         eventualCluster.beginAssumptionBuffer();
+        Value.EventuallyImmutable before = typeInfo.analysis()
+                .getOrNull(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.class);
         computeTypeLevel(typeInfo, activateCycleBreaking);
-        if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) {
+        Value.EventuallyImmutable after = typeInfo.analysis()
+                .getOrNull(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.class);
+        if (after != null && after != before) { // a first write, or a weak verdict's upgrade
             eventualCluster.commitAssumptionBuffer();
         } else {
             eventualCluster.discardAssumptionBuffer();
@@ -254,12 +258,28 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * (old {@code approvedPreconditionsFromParent}); see {@code docs/eventual-immutability.md}.
      */
     private void computeTypeLevel(TypeInfo typeInfo, boolean activateCycleBreaking) {
-        if (typeInfo.analysis().haveAnalyzedValueFor(EVENTUALLY_IMMUTABLE_TYPE)) return;
-        Value.EventuallyImmutable contracted = eventuallyImmutable(typeInfo);
-        if (contracted.isEventual()) {
-            typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, contracted);
-            propertyChanges.incrementAndGet();
-            return; // contracts win
+        // EVENTUALCLUSTER (#51): the verdict is write-once, except that a WEAK one (@FinalFields after the mark)
+        // stays open to an upgrade in the cycle-breaking phase. Its excusals can rest on labels that arrive only
+        // after weak verdicts elsewhere exist: Element's abstract typesReferenced is eventually non-modifying only
+        // once its implementations' hand-on walks see Element.TypeReference's verdict, i.e. AFTER Element's own
+        // weak verdict was frozen -- which capped Info and the whole hierarchy below it. The upgrade is monotone
+        // (strictly higher level only, see EventuallyImmutableImpl.overwriteAllowed), so the fixpoint still exists.
+        Value.EventuallyImmutable existing = typeInfo.analysis()
+                .getOrNull(EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.class);
+        if (existing != null && !(EventualCluster.ENABLED && activateCycleBreaking
+                                  && existing.immutableAfterMark().isFinalFields())) {
+            return;
+        }
+        if (existing == null) {
+            Value.EventuallyImmutable contracted = eventuallyImmutable(typeInfo);
+            if (contracted.isEventual()) {
+                typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, contracted);
+                propertyChanges.incrementAndGet();
+                return; // contracts win
+            }
+        } else if (contractReader.contracts(typeInfo).get(EVENTUALLY_IMMUTABLE_TYPE)
+                instanceof Value.EventuallyImmutable) {
+            return; // a contracted verdict is the author's, never upgraded
         }
         // the mark labels of this type's own @Mark methods, and everything that only changes before the mark
         Set<String> markLabels = new HashSet<>();
@@ -470,7 +490,14 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         }
         String label = markLabels.stream().sorted().collect(Collectors.joining(","));
         Value.EventuallyImmutable value = new ValueImpl.EventuallyImmutableImpl(label, afterMarkLevel);
-        typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, value);
+        if (existing != null) {
+            if (afterMarkLevel.compareTo(existing.immutableAfterMark()) <= 0) return; // no upgrade
+            if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " upgrade " + existing
+                                        + " -> " + value);
+            typeInfo.analysis().setAllowControlledOverwrite(EVENTUALLY_IMMUTABLE_TYPE, value);
+        } else {
+            typeInfo.analysis().set(EVENTUALLY_IMMUTABLE_TYPE, value);
+        }
         DECIDE.debug("TE: Decide eventual immutability of type {} = {}", typeInfo, value);
         propertyChanges.incrementAndGet();
     }
