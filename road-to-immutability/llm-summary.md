@@ -161,6 +161,9 @@ immutability verdicts are derived.
 - **Fault tolerance**: statement/method-level containment (degrade to shallow summary), tight-ceiling
   cycle protection (throw + shallow fallback; generous ceilings cause downstream grind), producer-side
   skip guards for unrepresentable link shapes (e.g. stacked `x.§m.§m` faces).
+  A degraded method (`DEGRADED_ANALYSIS_METHOD`) carries no links, so the field analyzer does not read
+  "no links" from it as independence or non-modification: a field referred to by a degraded method keeps
+  the independence of its type, and a degraded non-constructor method counts as modifying (since 2026-09).
 - **Env gates** (opt-outs/diagnostics): `NOWORKLIST`, `PARALLEL`, `NOCYCLEBREAKING`, `FPDUMP=<file>`
   (per-element verdict dump), `MLTRACE`, many link-module gates (read once via `Gate`).
 - **Golden rule**: engine/performance changes are accepted only with a byte-identical FPDUMP A/B

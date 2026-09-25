@@ -302,6 +302,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             SourceMethodComputer computer = new SourceMethodComputer(methodInfo);
             try {
                 try {
+                    if (DEGRADE_FOR_TESTING != null && DEGRADE_FOR_TESTING.test(methodInfo)) {
+                        throw new DegradedAnalysisException(DegradedAnalysisException.Reason.WORK_CEILING);
+                    }
                     tlv = computer.go();
                     reportWork(methodInfo, computer, false);
                     if (write) {
@@ -355,6 +358,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         return body.statements().stream().anyMatch(s ->
                 !(s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.isSynthetic()));
     }
+
+    /*
+     Tests only: the methods matching this predicate degrade as if they had hit the work ceiling, so that what
+     consumes a degraded method (a shallow summary, variable data without links) can be tested without building
+     a method that is expensive enough to trip it. Null outside such a test.
+     */
+    public static volatile java.util.function.Predicate<MethodInfo> DEGRADE_FOR_TESTING;
 
     private static void markDegraded(MethodInfo methodInfo) {
         if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
