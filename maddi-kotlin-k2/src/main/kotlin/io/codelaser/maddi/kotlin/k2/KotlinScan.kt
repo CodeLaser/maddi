@@ -2114,7 +2114,7 @@ class KotlinScan(
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
         // the KOTLIN return type: a suspend function's JVM one is Object, and `suspend fun f() = g()` still returns nothing
-        method.builder().setMethodBody(convertBody(function,
+        method.builder().setMethodBody(dataClassMemberBody(function, method) ?: convertBody(function,
             if (function.isSuspend) mapType(function.returnType, method.typeInfo(), method) else method.returnType(), method, outerLocals))
         // nor does it host that PSI: references written there are the property's or the class's, not copy()'s (#38)
         commitOrDefer(method, if (isGenerated(function, false)) null else function.psi) { method.builder().commit() }
@@ -2123,6 +2123,45 @@ class KotlinScan(
             defaults.builder().setMethodBody(defaultsBody(defaults, method, pending.parameters))
             commitOrDefer(defaults, null) { defaults.builder().commit() }
         }
+    }
+
+    /**
+     * The body kotlinc generates for a data class's `componentN()` -- `return this.pN;`, the Nth property of the
+     * primary constructor -- and `copy(p1, …)` -- `return new C(p1, …);`. Converted from their "PSI", which is what
+     * they were generated FROM, both came out empty: the analysis read `componentN()` as returning nothing of the
+     * object, and `copy` as creating nothing (ws/object's SARIF thread). Null for any other member.
+     */
+    private fun KaSession.dataClassMemberBody(function: KaNamedFunctionSymbol, method: MethodInfo): Block? {
+        if (!isGenerated(function, false)) return null
+        val classSymbol = function.callableId?.classId?.let { findClass(it) } as? KaNamedClassSymbol ?: return null
+        if (!classSymbol.isData) return null
+        val properties = (classSymbol.psi as? org.jetbrains.kotlin.psi.KtClass)?.primaryConstructorParameters?.filter { it.hasValOrVar() } ?: return null
+        val owner = method.typeInfo()
+        val name = function.name.asString()
+        val returned: Expression = when {
+            name.startsWith("component") -> {
+                val n = name.removePrefix("component").toIntOrNull() ?: return null
+                val field = properties.getOrNull(n - 1)?.name?.let { p -> owner.fields().firstOrNull { it.name() == p } }
+                    ?: return null
+                runtime.newVariableExpressionBuilder().setSource(runtime.noSource())
+                    .setVariable(runtime.newFieldReference(field)).build()
+            }
+            name == "copy" -> {
+                val constructor = owner.constructors().firstOrNull {
+                    !it.isSynthetic && it.parameters().size == properties.size && it.parameters().size == method.parameters().size
+                } ?: return null
+                runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+                    .setConstructor(constructor).setConcreteReturnType(method.returnType()).setDiamond(runtime.diamondNo())
+                    .setParameterExpressions(method.parameters().map {
+                        runtime.newVariableExpressionBuilder().setVariable(it).setSource(runtime.noSource()).build()
+                    }).build()
+            }
+            else -> return null
+        }
+        return runtime.newBlockBuilder().setSource(runtime.noSource())
+            .addStatement(runtime.newReturnBuilder().setExpression(returned)
+                .setSource(runtime.noSource().withIndex("0")).build())
+            .build()
     }
 
     /**

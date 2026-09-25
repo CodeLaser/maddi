@@ -23,7 +23,8 @@ import org.junit.jupiter.api.Test
  * javalin's remaining shapes: a Java varargs CONSTRUCTOR (jetty's `ServerConnector(server, f1, f2)`,
  * `ALPNServerConnectionFactory()`), a Java setter through a receiver lambda (`SslContextFactory.Server().apply {
  * keyStorePath = … }`), `::p.isInitialized` on a `lateinit` property, an imported `@JvmField` of a library object
- * (`import kotlin.text.Charsets.UTF_8`). (`Array(n) { … }` in EXPRESSION position stays open: §7.72.)
+ * (`import kotlin.text.Charsets.UTF_8`), a receiver-typed function value called on a
+ * written receiver (`url?.openConnection()?.getter()`). (`Array(n) { … }` in EXPRESSION position stays open: §7.72.)
  */
 class JavalinTailTest : KotlinScanTestBase() {
 
@@ -42,6 +43,7 @@ class JavalinTailTest : KotlinScanTestBase() {
                 fun ready(): Boolean = ::driver.isInitialized
                 fun readyThis(): Boolean = this::driver.isInitialized
                 fun text(b: ByteArray): String = b.toString(UTF_8)
+                fun <T> conn(s: StringBuilder?, getter: StringBuilder.() -> T): T? = s?.getter()
             }
             """.trimIndent() + "\n")
     }
@@ -66,6 +68,7 @@ class JavalinTailTest : KotlinScanTestBase() {
             readyThis: return this.driver!=null;
             hiddenReady: return this.hidden!=null;
             text: return ArraysKt__ArraysJVMKt.toString(b,Charsets.UTF_8);
-            """.trimIndent(), listOf("none", "two", "date", "calendar", "ready", "readyThis", "hiddenReady", "text").joinToString("\n") { "$it: ${body(it)}" })
+            conn: return s==null?null:getter.invoke(s);
+            """.trimIndent(), listOf("none", "two", "date", "calendar", "ready", "readyThis", "hiddenReady", "text", "conn").joinToString("\n") { "$it: ${body(it)}" })
     }
 }
