@@ -1885,6 +1885,32 @@ not the front end's: every Java type in `javalin/test-classes` and `javalin-test
 source, so the Java front end drops those units, and the Kotlin tests' `SerializableObject`, `TypedException`, … have
 no type. A rebuilt copy (or one with preserved mtimes) removes them.
 
+### 7.71 javalin's witness files cleared — javalin 119 → 63
+
+Continuing §7.70 on the files whose unconverted code held back the 8 vars:
+
+- **A written `this` is the one K2 names.** Inside `Server().apply { … }` it is the lambda's receiver; it had been
+  the enclosing extension's receiver or the class's own `this`, whatever lambdas surrounded it. That was a read of
+  the wrong object, and `this::addConnector` failed outright (JettyServer).
+- **A local `vararg` function**'s value takes the array, and its call packs the arguments (TestSse's
+  `runConcurrently({ … }, { … })`).
+- **An assignment through a safe call** is `if (r != null) r.p = v`, and for `(x as? W)?.p = v` it is
+  `if (x instanceof W) ((W) x).p = v`. A receiver not free to re-read is bound to a temporary first (JettyServer's
+  `(this.unwrap() as? Handler.Wrapper)?.handler = …`). ⚠ The first cut built the guard without statement indices, and
+  prep isolated the method with an NPE: the unit suite cannot see that, the corpus's prep did.
+- **An inherited `@JvmField`** read through an implicit receiver: `@JvmField protected var pluginConfig` is declared on
+  javalin's `Plugin`, and an inner class of a subclass reads it. implicitMemberAccess looked at the lookup type's own
+  fields only. The unit fixture does not discriminate (it resolves by another route, with and without the fix);
+  javalin does.
+
+`JavalinWitnessShapesTest`, `FriendSourceSetTest`. javalin **119 → 63**; detekt unchanged at 8, **no verdict moved**;
+coil unchanged at 4.
+
+**The 8 misses, now.** Six of the eight vars are no longer named in unconverted code. The last two, `onPing`
+(TestWebSocket) and `KotlinApp.app` (TestSse), are held back only by `SerializableObject`, a Java test class the Java
+front end dropped because the copy's class files are older than its sources (§7.70). A copy with fresh class files
+would release them. None of the 8 is still blocked by a front-end gap.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.

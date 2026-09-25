@@ -51,4 +51,38 @@ class FriendSourceSetTest : KotlinScanTestBase() {
         assertEquals("return CorsUtils.INSTANCE.valid(\"x\");", tests.single { it.simpleName() == "TestCors" }
             .methods().single { it.name() == "check" }.methodBody().statements().joinToString(" "))
     }
+
+    /**
+     * javalin's TestPlugins: an inner class of a TEST type reads a `@JvmField` its outer class inherits from MAIN. ⚠ Not a
+     * discriminating test: it passes with and without the inherited-field lookup in implicitMemberAccess, because here
+     * the name resolves by another route; only the javalin corpus showed the failure (§7.71). It guards the shape.
+     */
+    @Test
+    fun anInheritedPropertyThroughTheOuterThis(@TempDir root: Path) {
+        Files.createDirectories(root.resolve("src/main/kotlin/p")).resolve("Plugin.kt").let {
+            Files.writeString(it, "package p\nabstract class Plugin<C>(d: C?) { @JvmField protected var pluginConfig: C = d as C }\n" +
+                "abstract class ContextPlugin<C, E>(d: C?) : Plugin<C>(d) { abstract fun createExtension(context: String): E }\n")
+        }
+        Files.createDirectories(root.resolve("src/test/kotlin/p")).resolve("TestPlugins.kt").let {
+            Files.writeString(it, """
+                package p
+                class TestPlugins {
+                    class Rendy : ContextPlugin<Rendy.Config, Rendy.Extension>(Config()) {
+                        override fun createExtension(context: String) = Extension(context)
+                        class Config(var directory: String = "...")
+                        inner class Extension(var context: String) { fun render(path: String): String = pluginConfig.directory + path }
+                    }
+                }
+                """.trimIndent() + "\n")
+        }
+        val main = SourceSetImpl.Builder().setName("main").setUri(root.toUri())
+            .setSourceDirectories(listOf(root.resolve("src/main/kotlin"))).build()
+        val test = SourceSetImpl.Builder().setName("test").setUri(root.toUri())
+            .setSourceDirectories(listOf(root.resolve("src/test/kotlin"))).setDependencies(listOf(main)).build()
+        val tests = KotlinProjectScan(runtime, InfoByFqn())
+            .parse(listOf(main, test), emptyList(), Paths.get(System.getProperty("java.home")), emptyList(), listOf())
+            .getValue(test)
+        val census = PlaceholderCensus.of(tests)
+        assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+    }
 }

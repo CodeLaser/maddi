@@ -963,29 +963,46 @@ internal class KotlinBodyConverter(
 
     /** `target = value` / `target op= value`, [value] already converted (the control-flow elvis lowering passes its own). */
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
-                                              locals: MutableMap<String, Variable>): Statement {
+                                              locals: MutableMap<String, Variable>, index: String = ""): Statement {
         // `(h as? Wrapper)?.handler = v`: an assignment through a safe call is `if (r != null) r.handler = v`, as
-        // kotlinc compiles it. The receiver is read twice, so only one that is free to re-read: a stable reference,
-        // or a cast of one (JettyServer).
+        // kotlinc compiles it. `(x as? W)?.p = v` tests the TYPE, since the cast only runs when it holds; anything
+        // else tests for null. What is tested is read twice: a value not free to re-read (JettyServer's
+        // `(this.unwrap() as? Handler.Wrapper)?.handler = …`) is bound to a temporary first, as kotlinc does.
         val safe = statement.left?.let { KtPsiUtil.safeDeparenthesize(it) } as? KtSafeQualifiedExpression
-        if (safe != null && statement.operationToken == KtTokens.EQ && freeToReread(safe.receiverExpression)
-            && !unwrappedSafeCalls.containsKey(safe)) {
+        if (safe != null && statement.operationToken == KtTokens.EQ && !unwrappedSafeCalls.containsKey(safe)) {
+            val cast = (KtPsiUtil.safeDeparenthesize(safe.receiverExpression) as? KtBinaryExpressionWithTypeRHS)
+                ?.takeIf { it.operationReference.getReferencedNameElementType() == KtTokens.AS_SAFE }
+            val testType = cast?.right?.let { ref -> ref.type.let { mapType(it, method.typeInfo()) } }
+            val tested = if (testType != null) cast.left else safe.receiverExpression
+            val declaration = if (freeToReread(safe.receiverExpression)) null else {
+                val type = tested.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+                val temporary = runtime.newLocalVariable("\$safe${safeTemporaries++}", type, convertExpression(tested, method, locals))
+                hoistedReads[tested] = temporary
+                runtime.newLocalVariableCreation(temporary)
+            }
             unwrappedSafeCalls[safe] = true
-            val assignment = try { assignmentStatement(statement, value, method, locals) } finally { unwrappedSafeCalls.remove(safe) }
-            // `(h as? W)?.p = v` tests the TYPE (the cast only runs when it holds); anything else tests for null
-            val cast = KtPsiUtil.safeDeparenthesize(safe.receiverExpression) as? KtBinaryExpressionWithTypeRHS
-            val testType = cast?.takeIf { it.operationReference.getReferencedNameElementType() == KtTokens.AS_SAFE }
-                ?.right?.let { ref -> ref.type.let { mapType(it, method.typeInfo()) } }
-            val guard = if (testType != null) runtime.newInstanceOfBuilder()
-                .setExpression(convertExpression(cast.left, method, locals)).setTestType(testType)
-                .setSource(runtime.noSource()).build()
-            else runtime.newBinaryOperatorBuilder()
-                .setLhs(convertExpression(safe.receiverExpression, method, locals)).setRhs(runtime.nullConstant())
-                .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
-                .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
-            return runtime.newIfElseBuilder().setExpression(guard)
-                .setIfBlock(runtime.newBlockBuilder().addStatement(assignment).setSource(runtime.noSource()).build())
-                .setElseBlock(runtime.emptyBlock()).setSource(runtime.noSource()).build()
+            try {
+                // ⚠ every statement carries its index: prep reads one on each (a NO_SOURCE statement threw on javalin)
+                val guardIndex = if (declaration == null) index else "$index.1"
+                val assignment = indexed(assignmentStatement(statement, value, method, locals), "$guardIndex.0.0")
+                val guard = if (testType != null) runtime.newInstanceOfBuilder()
+                    .setExpression(convertExpression(tested, method, locals)).setTestType(testType)
+                    .setSource(runtime.noSource()).build()
+                else runtime.newBinaryOperatorBuilder()
+                    .setLhs(convertExpression(tested, method, locals)).setRhs(runtime.nullConstant())
+                    .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
+                    .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+                val guarded = runtime.newIfElseBuilder().setExpression(guard)
+                    .setIfBlock(runtime.newBlockBuilder().addStatement(assignment).setSource(runtime.noSource().withIndex("$guardIndex.0")).build())
+                    .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$guardIndex.1")).build())
+                    .setSource(source(statement, guardIndex)).build()
+                return if (declaration == null) guarded
+                else runtime.newBlockBuilder().addStatement(indexed(declaration, "$index.0")).addStatement(guarded)
+                    .setSource(source(statement, index)).build()
+            } finally {
+                unwrappedSafeCalls.remove(safe)
+                hoistedReads.remove(tested)
+            }
         }
         val left = statement.left
         // a JVM array element is a variable: `a[i] = v` and `a[i] += v` are assignments to it, as in Java
@@ -1019,6 +1036,8 @@ internal class KotlinBodyConverter(
             }
         }
     }
+
+    private var safeTemporaries = 0
 
     private fun freeToReread(expression: KtExpression): Boolean {
         val bare = KtPsiUtil.safeDeparenthesize(expression)
@@ -1105,7 +1124,7 @@ internal class KotlinBodyConverter(
             ?: runtime.newExpressionAsStatement(placeholder("k2-unsupported-expr:KtNamedFunction", statement))
         statement is KtBinaryExpression && isAssignment(statement.operationToken) -> assignmentStatement(statement,
             statement.right?.let { convertExpression(it, method, locals) } ?: placeholder("k2-absent-assignment-value", statement),
-            method, locals)
+            method, locals, index)
         // `return try { … } catch { … }`: lower the try-as-value to a try statement whose branches `return`
         statement is KtReturnExpression && statement.returnedExpression is KtTryExpression ->
             convertTry(statement.returnedExpression as KtTryExpression, method, locals, index, returning = true)
@@ -3612,7 +3631,9 @@ internal class KotlinBodyConverter(
         val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
         val type = receiverLookupType(dispatch, obj, method, access.partiallyAppliedSymbol.symbol.callableId?.classId)
             ?.let { members(it) } ?: return null
-        type.fields().firstOrNull { it.name() == name }?.let { field ->
+        // an inherited field too: javalin's `@JvmField protected var pluginConfig` is declared on `Plugin`, and read
+        // from an inner class of a subclass has no getter to fall back to
+        (type.fields().firstOrNull { it.name() == name } ?: inheritedField(type, name))?.let { field ->
             return runtime.newVariableExpressionBuilder()
                 .setVariable(runtime.newFieldReference(field, obj, field.type())).setSource(runtime.noSource()).build()
         }

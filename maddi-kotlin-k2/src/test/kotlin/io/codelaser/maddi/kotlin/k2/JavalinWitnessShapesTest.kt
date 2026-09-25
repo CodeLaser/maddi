@@ -33,6 +33,7 @@ class JavalinWitnessShapesTest : KotlinScanTestBase() {
             class Server { fun addConnector(c: String) {} }
             open class Handler
             class Wrapper : Handler() { var handler: Handler? = null }
+            fun Handler.unwrap(): Handler = this
             class K {
                 fun run(a: Runnable, b: Runnable) {
                     fun runConcurrently(vararg tasks: Runnable) { tasks.forEach { it.run() } }
@@ -40,6 +41,7 @@ class JavalinWitnessShapesTest : KotlinScanTestBase() {
                 }
                 fun connect(names: List<String>): Server = Server().apply { names.forEach(this::addConnector) }
                 fun attach(h: Handler, inner: Handler) { (h as? Wrapper)?.handler = inner }
+                fun attachUnwrapped(h: Handler, inner: Handler) { (h.unwrap() as? Wrapper)?.handler = inner }
                 fun self(): Server = Server().apply { this.addConnector("x") }
             }
             """.trimIndent() + "\n")
@@ -61,7 +63,8 @@ class JavalinWitnessShapesTest : KotlinScanTestBase() {
             run: Function1<Runnable[],Object> runConcurrently=tasks->ArraysKt___ArraysKt.forEach(tasks,it->it.run()); runConcurrently.invoke(new Runnable[]{()->a.run(),()->b.run()});
             connect: return StandardKt__StandardKt.apply(new Server(),${'$'}receiver->CollectionsKt___CollectionsKt.forEach(names,${'$'}receiver::addConnector));
             attach: if(h instanceof Wrapper){((Wrapper)h).handler=inner;}
+            attachUnwrapped: {Handler ${'$'}safe0=JwKt.unwrap(h);if(${'$'}safe0 instanceof Wrapper){((Wrapper)${'$'}safe0).handler=inner;}}
             self: return StandardKt__StandardKt.apply(new Server(),${'$'}receiver->${'$'}receiver.addConnector("x"));
-            """.trimIndent(), listOf("run", "connect", "attach", "self").joinToString("\n") { "$it: ${body(it)}" })
+            """.trimIndent(), listOf("run", "connect", "attach", "attachUnwrapped", "self").joinToString("\n") { "$it: ${body(it)}" })
     }
 }
