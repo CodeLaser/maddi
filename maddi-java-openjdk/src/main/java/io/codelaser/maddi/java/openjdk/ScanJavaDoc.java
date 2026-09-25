@@ -33,9 +33,16 @@ public record ScanJavaDoc(Runtime runtime,
 
         StringBuilder comment = new StringBuilder();
         List<JavaDoc.Tag> tags = new ArrayList<>();
-        // the following 2 are needed to compute the gap between the initial text, and the block tags
-        int countBlockTags;
-        int lastTextLine;
+        /*
+         ⛔ THE COMMENT KEEPS THE SOURCE'S LINES: line k of it is source line firstLine + k. A node is padded down to
+         its own line before it is written (padTo). Nodes that write nothing -- an HTML element such as <p> -- used
+         to take their line break with them, so every later word came out a line too high per such line; the text
+         index places comment words in the file by exactly this line count, and rename.field then edited the wrong
+         line (timefold's PartitionedSearchPhaseConfig, rename fuzz, slowTest 2026-09-24). The gap before the first
+         block tag was already padded, by hand, and only there. See TestJavaDocKeepsItsLines.
+         */
+        int firstLine = -1;
+        int linesWritten;
 
         MyScanner(DocCommentTree docCommentTree) {
             this.docCommentTree = docCommentTree;
@@ -47,32 +54,44 @@ public record ScanJavaDoc(Runtime runtime,
                 case null -> {
                 }
                 case BlockTagTree btt -> {
-                    if (countBlockTags == 0 && !comment.isEmpty()) {
-                        Source source = source(node);
-                        int diff = source.endLine() - lastTextLine;
-                        comment.append("\n".repeat(diff));
-                    }
-                    ++countBlockTags;
+                    padTo(node);
                     JavaDoc.Tag tag = convertTag(node);
                     if (tag != null) tags.add(tag);
                     appendBlockTagInfo(btt, comment);
                     // Recurse into children to pick up text via TextTree case
                     super.scan(node, unused);
-                    comment.append("\n");
+                    append("\n");
                 }
                 case InlineTagTree _ -> {
+                    padTo(node);
                     JavaDoc.Tag tag = convertTag(node);
                     if (tag != null) tags.add(tag);
-                    comment.append(node); // e.g. "{@link Foo}"
+                    append(node.toString()); // e.g. "{@link Foo}"
                 }
                 case TextTree tt -> {
-                    comment.append(tt.getBody());
-                    Source source = source(node);
-                    lastTextLine = source.endLine();
+                    padTo(node);
+                    append(tt.getBody());
                 }
                 default -> super.scan(node, unused);
             }
             return null;
+        }
+
+        /** Write line breaks until the comment has reached the node's source line. Never removes any. */
+        private void padTo(DocTree node) {
+            Source source = source(node);
+            if (source == null) return;
+            if (firstLine < 0) {
+                firstLine = source.beginLine();
+                return;
+            }
+            int missing = source.beginLine() - firstLine - linesWritten;
+            if (missing > 0) append("\n".repeat(missing));
+        }
+
+        private void append(String text) {
+            comment.append(text);
+            linesWritten += (int) text.chars().filter(c -> c == '\n').count();
         }
 
         private void appendBlockTagInfo(BlockTagTree btt, StringBuilder comment) {
