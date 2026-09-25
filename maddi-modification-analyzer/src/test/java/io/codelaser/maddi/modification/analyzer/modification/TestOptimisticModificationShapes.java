@@ -20,7 +20,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.modification.analyzer.CommonTest;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -237,6 +236,11 @@ public class TestOptimisticModificationShapes extends CommonTest {
 
     /*
      O4. EC's MutableBooleanCollection.removeIf: a default method removing through an iterator obtained from this.
+     Two causes. java.lang.Iterable's hint was @ImmutableContainer (no §m, so the iterator's except="remove" link
+     it.§m ☷ this.§m was never made): back to @Container. With the link made, the fixpoint read @Modified and the
+     MODREACH cutover overwrote it: ShadowModificationPass now follows a ☷ link whose pass set names the called
+     method. EC's own shape -- AbstractMutableCollection.remove through EC's
+     abstract iterator() -- is a different mechanism (the implementation union of iterator()'s independence).
      */
     @Language("java")
     private static final String O4 = """
@@ -256,10 +260,6 @@ public class TestOptimisticModificationShapes extends CommonTest {
             """;
 
     @DisplayName("O4: removing through an iterator obtained from this modifies the receiver")
-    @Disabled("RED, awaiting a decision: the JDK hint makes java.lang.Iterable @ImmutableContainer(hc = true), so it "
-              + "has no §m modification component and iterator()'s except = \"remove\" link (it.§m ☷ this.§m) is never "
-              + "created; over java.util.Collection the same code is @Modified. Not yet reduced from EC's own shape "
-              + "(MutableBooleanCollection.booleanIterator(), an EC interface), which may be a different mechanism.")
     @Test
     public void o4() {
         TypeInfo X = javaInspector.parse("a.b.O4", O4);

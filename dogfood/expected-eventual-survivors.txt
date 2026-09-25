@@ -151,6 +151,7 @@ io.codelaser.maddi.cst.api.info.MethodInfo
 io.codelaser.maddi.cst.api.info.MethodPrinter
 io.codelaser.maddi.cst.api.info.ParameterInfo
 io.codelaser.maddi.cst.api.info.TypeInfo
+io.codelaser.maddi.cst.api.info.TypeInfo.$2
 io.codelaser.maddi.cst.api.info.TypeParameter
 io.codelaser.maddi.cst.api.info.TypePrinter
 io.codelaser.maddi.cst.api.output.Qualification

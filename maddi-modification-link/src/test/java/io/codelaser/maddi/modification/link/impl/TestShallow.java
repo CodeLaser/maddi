@@ -266,9 +266,9 @@ public class TestShallow extends CommonTest {
 
         MethodInfo iterator = iterable.findUniqueMethod("iterator", 0);
         MethodLinkedVariables mlvIterator = linkComputer.doMethod(iterator);
-        // Iterable is @ImmutableContainer(hc = true) since f8e855ce1: it has no §m, so the mutable Iterator it
-        // returns shares no modification area with it
-        assertEquals("[] --> iterator.§ts⊆this.§ts", mlvIterator.toString());
+        // iterator.§m ☷ this.§m (pass: remove): removing through the iterator modifies the Iterable. Iterable is
+        // @Container again since 2026-09-25; as @ImmutableContainer it had no §m and this link was lost (EC work list O4)
+        assertEquals("[] --> iterator.§ts⊆this.§ts,iterator.§m☷this.§m", mlvIterator.toString());
     }
 
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")

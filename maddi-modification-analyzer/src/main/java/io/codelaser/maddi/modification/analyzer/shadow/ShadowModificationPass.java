@@ -560,6 +560,13 @@ public class ShadowModificationPass {
                     for (Object node : projectReceiverChain(mi, vd, mc.object())) {
                         addEdge(mc.methodInfo(), node);
                     }
+                    // ... and through the receiver's ☷ links: an identical-to link between modification components
+                    // whose pass set contains the called method (WriteLinksAndModification's rule, pass-marked half).
+                    // The iterator of `this`: it.§m ☷(remove) this.§m, so it.remove() modifies this, it.next() not.
+                    // Missing, the cutover overwrote a correct fixpoint @Modified (EC work list O4).
+                    for (Object node : projectModificationIdenticals(mi, vd, mc.object(), mc.methodInfo())) {
+                        addEdge(mc.methodInfo(), node);
+                    }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                     seedBoundaryCalleeParameters(mi, cc.constructor());
                     handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions());
@@ -900,6 +907,33 @@ public class ShadowModificationPass {
                         }
                     }
                 }
+            }
+        }
+        return out;
+    }
+
+    private Set<Object> projectModificationIdenticals(MethodInfo mi, VariableData vd,
+                                                      io.codelaser.maddi.cst.api.expression.Expression receiver,
+                                                      MethodInfo callee) {
+        if (!(receiver instanceof VariableExpression ve) || callee == null) return Set.of();
+        VariableInfoContainer vic = vd.variableInfoContainerOrNull(ve.variable().fullyQualifiedName());
+        if (vic == null) return Set.of();
+        Links links = vic.best().linkedVariables();
+        if (links == null) return Set.of();
+        Set<Object> out = new LinkedHashSet<>();
+        for (Link link : links) {
+            if (!link.linkNature().isIdenticalTo()
+                || !Util.isVirtualModification(link.from()) || !Util.isVirtualModification(link.to())) continue;
+            Set<MethodInfo> pass = link.linkNature().pass();
+            // only a ☷ link (non-empty pass set) that names the called method: the plain ≡ links (empty pass) are
+            // everywhere in the dogfood (1,917 edges, codec.§m ≡ context.§m ...) and following them marked 39 CST
+            // methods modifying the fixpoint does not (Value, Property, ... dropped to eventual)
+            if (pass.isEmpty() || !pass.contains(callee) && callee.overrides().stream().noneMatch(pass::contains)) {
+                continue;
+            }
+            Variable other = Util.firstRealVariable(link.to());
+            if (other != null && !other.fullyQualifiedName().equals(ve.variable().fullyQualifiedName())) {
+                out.addAll(project(mi, vd, other));
             }
         }
         return out;
