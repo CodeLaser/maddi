@@ -140,6 +140,7 @@ import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
 import org.jetbrains.kotlin.psi.KtIsExpression
 import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
+import org.jetbrains.kotlin.psi.KtPsiUtil
 import org.jetbrains.kotlin.psi.KtLabeledExpression
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtSuperExpression
@@ -963,6 +964,29 @@ internal class KotlinBodyConverter(
     /** `target = value` / `target op= value`, [value] already converted (the control-flow elvis lowering passes its own). */
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
                                               locals: MutableMap<String, Variable>): Statement {
+        // `(h as? Wrapper)?.handler = v`: an assignment through a safe call is `if (r != null) r.handler = v`, as
+        // kotlinc compiles it. The receiver is read twice, so only one that is free to re-read: a stable reference,
+        // or a cast of one (JettyServer).
+        val safe = statement.left?.let { KtPsiUtil.safeDeparenthesize(it) } as? KtSafeQualifiedExpression
+        if (safe != null && statement.operationToken == KtTokens.EQ && freeToReread(safe.receiverExpression)
+            && !unwrappedSafeCalls.containsKey(safe)) {
+            unwrappedSafeCalls[safe] = true
+            val assignment = try { assignmentStatement(statement, value, method, locals) } finally { unwrappedSafeCalls.remove(safe) }
+            // `(h as? W)?.p = v` tests the TYPE (the cast only runs when it holds); anything else tests for null
+            val cast = KtPsiUtil.safeDeparenthesize(safe.receiverExpression) as? KtBinaryExpressionWithTypeRHS
+            val testType = cast?.takeIf { it.operationReference.getReferencedNameElementType() == KtTokens.AS_SAFE }
+                ?.right?.let { ref -> ref.type.let { mapType(it, method.typeInfo()) } }
+            val guard = if (testType != null) runtime.newInstanceOfBuilder()
+                .setExpression(convertExpression(cast.left, method, locals)).setTestType(testType)
+                .setSource(runtime.noSource()).build()
+            else runtime.newBinaryOperatorBuilder()
+                .setLhs(convertExpression(safe.receiverExpression, method, locals)).setRhs(runtime.nullConstant())
+                .setOperator(runtime.notEqualsOperatorObject()).setPrecedence(runtime.precedenceEquality())
+                .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+            return runtime.newIfElseBuilder().setExpression(guard)
+                .setIfBlock(runtime.newBlockBuilder().addStatement(assignment).setSource(runtime.noSource()).build())
+                .setElseBlock(runtime.emptyBlock()).setSource(runtime.noSource()).build()
+        }
         val left = statement.left
         // a JVM array element is a variable: `a[i] = v` and `a[i] += v` are assignments to it, as in Java
         val arrayElement = left is KtArrayAccessExpression && isJvmArrayAccess(left)
@@ -996,6 +1020,11 @@ internal class KotlinBodyConverter(
         }
     }
 
+    private fun freeToReread(expression: KtExpression): Boolean {
+        val bare = KtPsiUtil.safeDeparenthesize(expression)
+        return isStableReference(bare) || (bare is KtBinaryExpressionWithTypeRHS && bare.left.let { isStableReference(it) })
+    }
+
     private fun KaSession.augmentedOperatorCall(statement: KtBinaryExpression, left: KtExpression, receiver: Expression,
                                                 value: Expression, method: MethodInfo,
                                                 locals: MutableMap<String, Variable>): Statement? {
@@ -1016,6 +1045,30 @@ internal class KotlinBodyConverter(
         val target = convertExpression(left, method, locals) as? VariableExpression ?: return null
         return runtime.newExpressionAsStatement(runtime.newAssignmentBuilder().setTarget(target).setValue(call)
             .setSource(source(statement, "-")).build())
+    }
+
+    /**
+     * A call of a LOCAL function with a vararg parameter: its value's `invoke` takes the array, so the vararg arguments
+     * are packed as `new T[]{…}` (javalin's `fun runConcurrently(vararg tasks: Runnable)` called with two lambdas).
+     * Null when there is nothing to pack, or a spread or named argument is involved.
+     */
+    private fun KaSession.localVarargs(symbol: KaNamedFunctionSymbol?, call: KtCallExpression, arguments: List<Expression>,
+                                       method: MethodInfo): List<Expression>? {
+        if ((symbol?.psi as? KtNamedFunction)?.isLocal != true) return null
+        val index = symbol.valueParameters.indexOfFirst { it.isVararg }.takeIf { it >= 0 } ?: return null
+        if (call.valueArguments.any { it.getSpreadElement() != null || it.isNamed() }) return null
+        val after = symbol.valueParameters.size - index - 1
+        val packedCount = arguments.size - index - after
+        if (packedCount < 0) return null
+        val element = mapType(symbol.valueParameters[index].returnType, method.typeInfo())
+        val arrayType = element.copyWithArrays(element.arrays() + 1)
+        val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource()).setCommonType(element)
+            .setExpressions(arguments.subList(index, index + packedCount)).build()
+        val array = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+            .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+            .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newEmptyExpression()))
+            .setArrayInitializer(initializer).build()
+        return arguments.subList(0, index) + array + arguments.subList(index + packedCount, arguments.size)
     }
 
     /** `receiver.name(argument)` for a member operator, `Facade.name(receiver, argument)` for a top-level extension. */
@@ -1176,7 +1229,8 @@ internal class KotlinBodyConverter(
         val enclosingType = method.typeInfo()
         val receiverType = symbol.receiverParameter?.let { mapType(it.returnType, enclosingType, method) }
         val parameters = listOfNotNull(receiverType?.let { "\$receiver" to it }) +
-            symbol.valueParameters.map { it.name.asString() to mapType(it.returnType, enclosingType, method) }
+            symbol.valueParameters.map { p -> p.name.asString() to mapType(p.returnType, enclosingType, method)
+                .let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it } } // `vararg t: T` is a T[]
         val returnType = mapType(symbol.returnType, enclosingType, method)
         val functionN = (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/functions/Function${parameters.size}"))
             as? KaNamedClassSymbol)?.let { classTypeInfo(it) } ?: return null
@@ -1703,7 +1757,8 @@ internal class KotlinBodyConverter(
                                                    locals: Map<String, Variable>): Expression {
         return when (expression) {
             // in an extension function body, `this` is the receiver (the synthetic first parameter)
-            is KtThisExpression -> receiverParam(method)?.let { variableExpression(it) } ?: self(method)
+            is KtThisExpression -> thisValue(expression, method, locals)
+                ?: receiverParam(method)?.let { variableExpression(it) } ?: self(method)
             // `super.m()`: `this`, marked writeSuper -> the callee resolves on the parent class (the
             // receiverType in convertQualified comes from `super`'s expressionType = the supertype)
             is KtSuperExpression -> variableExpression(runtime.newThis(method.typeInfo().asParameterizedType(), null, true))
@@ -2897,7 +2952,9 @@ internal class KotlinBodyConverter(
                     facade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
                 } else implicitReferenceScope(expression, method, locals) ?: method.typeInfo().let { self(method) to it }
             }
-            receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
+            // `this::m`: whichever `this` it names -- inside `Server().apply { … }` the lambda's receiver, not the class
+            receiver is KtThisExpression -> convertExpression(receiver, method, locals).let { value ->
+                value to (value.parameterizedType().typeInfo() ?: method.typeInfo()) }
             else -> explicitReceiverScope(receiver, method, locals)
         }
         val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
@@ -3083,7 +3140,9 @@ internal class KotlinBodyConverter(
             receiver == null -> if (property.callableId?.classId == null) {
                 sourceFacade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
             } else method.typeInfo().let { self(method) to it }
-            receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
+            // `this::m`: whichever `this` it names -- inside `Server().apply { … }` the lambda's receiver, not the class
+            receiver is KtThisExpression -> convertExpression(receiver, method, locals).let { value ->
+                value to (value.parameterizedType().typeInfo() ?: method.typeInfo()) }
             else -> explicitReceiverScope(receiver, method, locals)
         }
         val (scope, owner) = scopeAndOwner ?: return placeholder("k2-callable-ref-scope", expression)
@@ -3360,7 +3419,7 @@ internal class KotlinBodyConverter(
         // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
         // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
         if (receiver == null) resolveReference(name, method, locals)?.let { fnValue ->
-            invokeValue(fnValue, arguments, call, method)?.let { return it }
+            invokeValue(fnValue, localVarargs(calleeSymbol, call, arguments, method) ?: arguments, call, method)?.let { return it }
             // a function type WITH a receiver, invoked with that receiver implicit: `init()` for
             // `init: XMLStreamWriter.() -> Unit` is `init.invoke($receiver)`
             implicitExtensionReceiver(call, method, locals)
@@ -3480,6 +3539,22 @@ internal class KotlinBodyConverter(
     private fun KaSession.contextArguments(values: List<KaReceiverValue>?, method: MethodInfo,
                                            locals: Map<String, Variable>): List<Expression>? =
         values.orEmpty().map { implicitReceiverValue(it, method, locals) ?: return null }
+
+    /**
+     * The value a written `this` names, as K2 resolves it: inside `Server().apply { … }` the lambda's receiver, not the
+     * class the method is in -- `this` had been the enclosing extension's receiver or the class's own, whatever the
+     * lambdas around it (javalin's `forEach(this::addConnector)`). A receiver parameter maps as an implicit receiver
+     * does ([implicitReceiverValue]); a class, to its `this`. Null leaves the caller's default.
+     */
+    private fun KaSession.thisValue(expression: KtThisExpression, method: MethodInfo, locals: Map<String, Variable>): Expression? =
+        when (val symbol = expression.instanceReference.mainReference.resolveToSymbol()) {
+            is KaReceiverParameterSymbol -> (symbol.owningCallableSymbol.psi as? KtDeclaration)
+                ?.takeIf { it is KtFunctionLiteral || (it as? KtNamedFunction)?.isLocal == true }
+                ?.let { locals[receiverKey(it)] }?.let { variableExpression(it) }
+            is KaClassSymbol -> symbol.classId?.asFqNameString()?.let { infoByFqn.getType(it, sourceSet) }
+                ?.takeIf { it != method.typeInfo() }?.let { variableExpression(runtime.newThis(it.asParameterizedType())) }
+            else -> null
+        }
 
     /** The scope key under which a receiver lambda's `$receiver` stays reachable from lambdas nested in it. */
     private fun receiverKey(owner: KtDeclaration): String = "\$receiver@${owner.textOffset}"
