@@ -353,7 +353,8 @@ public class TestMap extends CommonTest {
                 """, thisMap2.linkedVariables().toString());
 
         VariableInfo this2 = vd2.variableInfo("a.b.C.this");
-        assertNull(this2.linkedVariables());
+        // decided, and empty: a merge without links is not an undecided one
+        assertTrue(this2.linkedVariables().isEmpty());
         assertFalse(this2.isModified());
 
         VariableInfo entry2 = vd2.variableInfo("entry", Stage.MERGE);

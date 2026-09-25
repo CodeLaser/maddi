@@ -173,6 +173,10 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
+  evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
+  the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
+  an optimistic @Independent (since 2026-09).
 - **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
   Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
   `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by

@@ -1117,7 +1117,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     assert vic.hasMerge();
                     VariableInfoImpl merge = (VariableInfoImpl) vic.best();
                     Links collected = collect.build();
-                    if (!collected.isEmpty()) {
+                    // empty links are a decision too: left null, the merge reads as undecided, and a field only read
+                    // in the condition of a method's last statement stayed undecided until cycle breaking wrote its
+                    // links EMPTY (guava's MoreCollectors.ToOptionalState.element: @Independent, links lost)
+                    if (!collected.isEmpty() || eval != null) {
                         merge.setLinkedVariables(collected);
                     }
                     if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), UNMODIFIED_VARIABLE,
