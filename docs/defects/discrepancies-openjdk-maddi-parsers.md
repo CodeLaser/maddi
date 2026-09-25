@@ -48,6 +48,11 @@ class C {
 Per the agreed convention (method + formal parameters = `"-"`, body = `""`), **openjdk is correct**
 and the **congocc parser is diverging** (uses `""` where it should use `"-"`).
 
+**Re-measured 2026-09-25, unchanged.** On the input above: openjdk method `"-"`, parameter `"-"`, body
+`""`, first statement `"0"`; congocc method `""`, parameter `""`, body `""`, first statement `"0"`.
+Nothing in production code tests a source index against `"-"`, so the mismatch has no observable effect
+today; it matters only to a consumer that compares sources across the two front ends.
+
 ### Suggested fix (not yet applied)
 Localized to `ParseMethodDeclaration`:
 - method: `source("-", md)` instead of `source(md)` (line 244);

@@ -1,6 +1,18 @@
 # `INDEPENDENT_TYPE` can be permanently optimistic
 
-**Status: reproduced defect, not fixed.** The obvious fix is correct but unmasks a second, independent
+**Status: FIXED 2026-09-24 (`5011ecf99`).** `computeIndependentType` now returns `null` (wait) while a
+type's own fields or abstract methods are undecided, in every mode, not only after-mark; cycle breaking
+still decides a type that never settles. The same commit stopped the shallow pass from writing a
+synthesized `INDEPENDENT` that ignored inherited methods. Pinned by
+`TestIndependenceNotWrittenWhileUndecided`. The fallout this note predicted did happen: E7 shape 4 and
+`TestShadowModificationPass.testBuilderCallback` were re-pinned, and both now carry the false positive
+`ThrowingFunction.apply:0:o` described in
+[`../defects/sam-linking-reconciliation.md`](../defects/sam-linking-reconciliation.md). The fix was taken
+anyway, accepting that false positive rather than keeping the wrong type-level verdicts: on the corpus,
+guava independence moved down 345 and up 13, vavr down 75. What follows is the original record,
+kept because code cites it for the rule "no optimistic default for an undecided input".
+
+**Original status: reproduced defect, not fixed.** The obvious fix is correct but unmasks a second, independent
 inconsistency; see "Why the obvious fix is not enough". Found while building eventual immutability
 (`../design/eventual-immutability.md`), which is how the asymmetry became visible.
 
@@ -137,7 +149,7 @@ correct one: `TestModificationFunctionalE7.test4`'s false positive survives, and
 corpus the pinned main-vs-shadow divergence count *rises* (215 → 216) while removing none of the
 existing 215. Details and the revised recommendation (option 3, deriving SAM parameter modification from
 the lambdas actually bound at capture sites) are in
-[`sam-linking-reconciliation.md`](sam-linking-reconciliation.md).
+[`../defects/sam-linking-reconciliation.md`](../defects/sam-linking-reconciliation.md).
 
 So the independence fix here remains **withheld**, for the same reason as before: it is correct, but it
 unmasks a false positive that no currently-available reconciliation removes.

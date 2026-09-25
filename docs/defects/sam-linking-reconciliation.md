@@ -1,7 +1,23 @@
 # The two SAM conventions: what actually diverges
 
+> **Verified 2026-09-25: the false positive is live, and the mechanism below is disputed.** Since the
+> independence fix landed (`5011ecf99`, 2026-09-24), the baseline column of the table below no longer
+> exists: the "independence fixed" column *is* the tree. `TestModificationFunctionalE7.test4` and
+> `TestShadowModificationPass.testBuilderCallback` now pin `ThrowingFunction.apply:0:o` in `run`'s
+> modified set as a known wrong value, and both pass.
+>
+> The comments written into those tests on 2026-09-24 explain it differently from this note. This note
+> says `apply` has no `IMPLEMENTATIONS` (a method reference is not an override), so
+> `doMethodWithoutImplementation`'s optimistic write and the link computer's pessimistic seed contradict
+> each other. The test comments say `apply:0` aggregates `unmodified=TRUE` from its sole implementation,
+> and that `run`'s summary holds a stale entry written while `apply` was still undecided and never
+> revisited. Both accounts cannot be right, since they disagree on whether `apply` has an implementation.
+> The next step is to print `apply`'s `IMPLEMENTATIONS` and the iteration in which `run`'s entry is written;
+> until then treat §"The contradiction" as a hypothesis. The observable defect and the candidate designs
+> are unaffected either way.
+
 **Status: research findings + one measured, rejected repair attempt; no code change.** Follow-on from
-[`independent-type-optimism.md`](independent-type-optimism.md), whose recommended option 1 was
+[`../design/independent-type-optimism.md`](../design/independent-type-optimism.md), whose recommended option 1 was
 "reconcile the two SAM conventions first". This note establishes *what* has to be reconciled, and
 retires two plausible-but-wrong theories about it — including the one this investigation started from.
 
@@ -142,7 +158,7 @@ Option 1 was implemented and evidence-tested. It was scoped as narrowly as the d
 `isSAMOfStandardFunctionalInterface()` because a lambda can target any structurally-functional
 interface, annotated or not, so the narrower test would miss exactly the un-annotated custom SAMs that
 have this problem. `INDEPENDENT_METHOD`, `IMMUTABLE_METHOD` and `INDEPENDENT_PARAMETER` were left alone.
-The independence fix from `independent-type-optimism.md` was applied at the same time, as the two are
+The independence fix from `../design/independent-type-optimism.md` was applied at the same time, as the two are
 entangled.
 
 What it achieved:
@@ -199,4 +215,4 @@ It is the test that decided the option 1 measurement above.
 The three-variant fixture is not checked in (it was scratch). To rebuild it: copy
 `TestModificationFunctionalE7.INPUT4`, and swap `ThrowingFunction` for `java.util.function.Consumer<TryData>`
 (variant B) and for a custom `interface MyConsumer<T> { void accept(T o); }` (variant C). Apply the
-independence fix from `independent-type-optimism.md` and print `mlv(run).sortedModifiedString()`.
+independence fix from `../design/independent-type-optimism.md` and print `mlv(run).sortedModifiedString()`.

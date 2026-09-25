@@ -62,6 +62,7 @@ about to touch.
 | [dynamic-immutability-feasibility.md](design/dynamic-immutability-feasibility.md) | note | A field's dynamic immutability: materialized (part 1) and consumed (part 3) from a hand-written contract, with a local guard check; inference (part 2) deliberately not built. |
 | [builder-interface-split-impact.md](design/builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
 | [book-vs-support-divergence.md](design/book-vs-support-divergence.md) | note | *The Road to Immutability* chapter 12 against the `maddi-support` code it quotes: two independently maintained lineages, and which side each finding changes. |
+| [independent-type-optimism.md](design/independent-type-optimism.md) | note | **Fixed 2026-09-24.** `INDEPENDENT_TYPE` was frozen at an optimistic value while a type's members were undecided. Kept as the rationale for "no optimistic default for an undecided input", which `DynamicImmutabilityInference` cites; the fix unmasked the SAM false positive in `defects/`. |
 
 ### Other mechanisms
 
@@ -80,6 +81,7 @@ What could or should be built next. **The application roadmap for the modificati
 | Document | Status | What it covers |
 |---|---|---|
 | [modification-link-applications.md](roadmap/modification-link-applications.md) | plan | Six candidate applications for the link substrate beyond the three prioritized ones (modification analysis, same-type linking for extract-interface, object tracking). The organizing observation: the link natures are a **relational object-graph algebra**, and the element-level (`∈ ∋ ⊆ ⊇ ~`) and decoration families appear to be computed and not consumed by anything downstream. The criterion that ranks the six is whether a candidate needs a link to be **present** or **absent** — presence is a derived fact, absence is spoiled both by saturation and, more seriously, by degraded summaries, where "they do not interact" can mean "the analysis gave up", which is unsound in the unsafe direction. Five are presence-based and buildable now; disjointness-for-parallelisation is the one to hold back. Nothing built, nothing costed, and no change proposed to what the engine concludes. |
+| [semantic-preconditions-for-relocation.md](roadmap/semantic-preconditions-for-relocation.md) | plan | Design for §3.1 of the applications roadmap: the four ways relocating state changes behaviour (`this` identity, a split monitor, a duplicated reassigned field, re-timed static initialisation), which maddi data decides each, and why every check must return *found / clean / not checked* — presence-based checks are unsafe over degraded summaries too. Corrects §3.1: aliasing survives a split. |
 | [handoff-saturated-closure-collapse.md](roadmap/handoff-saturated-closure-collapse.md) | plan | Why the link engine's per-method work ceiling fires: not length, not a cliff, not a tunable budget — a **saturated closure** (median 55% of all variable pairs linked, some 100%), which is semantically correct. Proposes collapsing such a group to one fact instead of N². Self-contained; reproduction needs no corpus. Includes two negative results and the witness-selection question to settle first. |
 | [formatter-doc-ir-plan.md](roadmap/formatter-doc-ir-plan.md) | plan | Rewrite plan: a Doc IR for `maddi-cst-print`. `Formatter2Impl` is still the renderer. |
 | [prep-analyzer-hardening.md](roadmap/prep-analyzer-hardening.md) | tracked | Robustness hardening roadmap for `maddi-modification-prepwork`. H items are issues (#13). |
@@ -93,9 +95,8 @@ and the document goes.
 
 | Document | Status | What it covers |
 |---|---|---|
-| [independent-type-optimism.md](defects/independent-type-optimism.md) | note | Reproduced defect: `INDEPENDENT_TYPE` can be frozen at an optimistic value; why the obvious fix unmasks a second inconsistency. |
-| [sam-linking-reconciliation.md](defects/sam-linking-reconciliation.md) | note | What actually diverges between the two SAM conventions: contract vs inference, not virtual fields; retires two theories. |
-| [handoff-importcomputer-star-collapse.md](defects/handoff-importcomputer-star-collapse.md) | note | `ImportComputerImpl` star-collapsing changes JLS 6.5.5 name resolution; the consumer never collapses, the upstream defect is open. |
+| [sam-linking-reconciliation.md](defects/sam-linking-reconciliation.md) | note | A custom SAM's parameter (`ThrowingFunction.apply:0:o`) lands in a caller's modified set although nothing modifies it. Live since the independence fix and pinned by two tests; contract vs inference, not virtual fields. The mechanism is disputed between the note and the tests' comments (see its header). |
+| [handoff-importcomputer-star-collapse.md](defects/handoff-importcomputer-star-collapse.md) | note | `ImportComputerImpl` star-collapsing changes JLS 6.5.5 name resolution. Reproduced at maddi level 2026-09-25: the printed unit fails javac when the homonym is in the unit's own source set, or collides with `java.lang`. Downstream consumers pass never-collapse. |
 | [discrepancies-openjdk-maddi-parsers.md](defects/discrepancies-openjdk-maddi-parsers.md) | note | Observed differences between the openjdk (javac) and hand-written (CongoCC) Java front ends. One open item (`source().index()` of methods and formal parameters). |
 
 ## status

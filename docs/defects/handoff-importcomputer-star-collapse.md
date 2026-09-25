@@ -3,6 +3,25 @@
 **Written 2026-08-02.** Found on the closed-core corpus via the jfocus dedup intake; the consumer
 is fixed downstream (never collapse), this note is the upstream defect record. Status: **open**.
 
+> **Verified 2026-09-25, still open, and reproduced at maddi level.** A throwaway test in
+> `maddi-inspection-openjdk` parsed `p.ArrayList` (public, extends `java.util.ArrayList`) plus four more
+> public types of `p`, and a unit `q.U` with single-type imports of five `java.util` types and `p.A`–`p.D`.
+> It printed `q.U` with the default `print2` (star threshold 4), and javac then compiled the output:
+>
+> | shape | printed imports | javac |
+> |---|---|---|
+> | `p` and `q.U` in the **same** source set | `java.util.*`, `p.*` | `reference to ArrayList is ambiguous` |
+> | `p` in a **dependency** source set of `q.U`'s | `java.util.*`, `p.A` … `p.D` | compiles — the guard works |
+> | same, with a public `p.Integer` and a bare `Integer` in `q.U` | `java.util.*`, `p.*` | `reference to Integer is ambiguous` |
+>
+> **Correction to §"Why the existing guard misses it" item 1.** The front end in use is the openjdk one, and
+> its listing is `CompiledTypesManagerImpl.primaryTypesInPackageEnsureLoaded` in `maddi-inspection-openjdk`,
+> which keeps a type only when `sourceSetOfRequest.dependencies()` contains the type's source set. A source
+> set is not among its own dependencies, so a homonym parsed in the unit's **own** source set is missing,
+> while one in a dependency is seen (the second row). `addToTrie` is the `maddi-inspection-integration`
+> front end's code and is not on this path. Item 2, the `java.lang` blind spot, is confirmed as written
+> (third row).
+
 ## The defect
 
 `ImportComputerImpl.go` collapses ≥ `minStar` single-type imports of one package into an on-demand
