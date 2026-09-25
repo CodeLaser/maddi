@@ -88,6 +88,14 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
     /** an @IgnoreModifications field shares content with accessible content, so its disclaimer is not confined
      * to the ignored stratum; see {@link #guardIgnoreModificationsSeparation} and road-to-immutability 050 */
     public static final String IGNORE_MODIFICATIONS_NOT_CONFINED = "ignore-modifications-not-confined";
+    /**
+     * An override modifies where the method it overrides is COMPUTED (not contracted) {@code @NotModified}: a call
+     * through the parent is judged non-modifying and may reach this override. The engine deliberately keeps a
+     * default/concrete method's own body verdict (no dispatch union; a throw-only placeholder is the one exception,
+     * see prepwork's Util.isThrowOnlyPlaceholder), so this is reported, not corrected: it measures the exposure
+     * (engine work list O2, option D). A warning: the code is not wrong, the verdict at such call sites is optimistic.
+     */
+    public static final String OVERRIDE_WEAKENS_COMPUTED = "override-weakens-computed";
 
     private final ContractReader contractReader;
     private final ContractResolution contractResolution;
@@ -98,6 +106,9 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
         this.contractReader = new ContractReader(runtime);
         this.contractResolution = new ContractResolution(runtime);
     }
+
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(GuardAnalyzerImpl.class);
+    private int overridesWeakeningComputed;
 
     @Override
     public void go(List<Info> analysisOrder) {
@@ -110,6 +121,8 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
                     guardOverride(methodInfo);
                 }
             }
+            LOGGER.info("Guard: {} override(s) modify where the overridden method is computed @NotModified ({})",
+                    overridesWeakeningComputed, OVERRIDE_WEAKENS_COMPUTED);
         }
         if (configuration.warnNearMisses()) {
             nearMissPass(analysisOrder);
@@ -836,6 +849,15 @@ public class GuardAnalyzerImpl extends CommonAnalyzerImpl implements GuardAnalyz
             if (parent.isAbstract()) continue; // abstract parent → covered by guardMethod via IMPLEMENTATIONS
             if (parent.typeInfo().compilationUnit().externalLibrary()) continue; // don't police library contracts
             Map<Property, Value> contracts = contractReader.contracts(parent);
+            if (!contracts.containsKey(NON_MODIFYING_METHOD)
+                && !io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(parent)
+                && parent.isNonModifying() && methodInfo.isModifying()) {
+                overridesWeakeningComputed++;
+                analyzerMessages.add(MessageImpl.warn(methodInfo, OVERRIDE_WEAKENS_COMPUTED,
+                        methodInfo.fullyQualifiedName() + " modifies, but it overrides "
+                        + parent.fullyQualifiedName() + ", computed @NotModified: a call through the latter is judged "
+                        + "non-modifying", MessageImpl.cause(parent, "computed @NotModified here")));
+            }
             if (contracts.get(NON_MODIFYING_METHOD) instanceof Value.Bool nm && nm.isTrue()
                 && methodInfo.isModifying()) {
                 reportViolation(methodInfo, blameMethodModifying(methodInfo),

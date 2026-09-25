@@ -240,7 +240,7 @@ public class ShadowModificationPass {
         // stricter than the engine, downgrading e.g. Element.annotations() (default body
         // List.of()) to the dispatch union the engine deliberately does not compute.
         for (MethodInfo overridden : mi.overrides()) {
-            if (!overridden.isAbstract()) continue;
+            if (!io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(overridden)) continue;
             // An OUT-OF-ORDER abstract (jar/aapi) with a decided TRUE is authority, not fixpoint
             // optimism: writeVerdicts never visits it, no union is computed over it, and an E6 edge
             // into it would teleport ONE implementation's evidence to EVERY call site of the
@@ -280,7 +280,8 @@ public class ShadowModificationPass {
             taintUnprojected(mi); // no summary at all: no evidence for this method's own nodes (§10.1)
             return;
         }
-        if (mi.isAbstract()) {
+        if (io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(mi)) {
+            // (a throw-only placeholder too: its body is no evidence for a call that completes, work list O2)
             // no body, no local evidence: the shallow mlv conservatively claims "modified" where the
             // frozen property holds the precise union-over-implementations value. P3 refinement, by
             // evidence class: (a) an explicit source @Modified contract is primitive — always seed;
@@ -582,7 +583,7 @@ public class ShadowModificationPass {
             // getOrDefault FALSE): an abstract in-order callee whose verdict never decides — a SAM
             // whose only implementations are lambdas, never order elements — was treated as modifying
             // at this very call site; the pass must not read that undecidedness as absence of evidence
-            if (callee.isAbstract()) {
+            if (io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(callee)) {
                 if (!callee.isIgnoreModification() && !callee.isFinalizer()
                     && callee.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class) == null) {
                     seedWithOrigin(callee, mi, "undecided abstract callee");

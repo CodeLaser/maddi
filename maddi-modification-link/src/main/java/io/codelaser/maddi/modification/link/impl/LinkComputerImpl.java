@@ -619,6 +619,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void copyModificationsIntoMethod(Set<Variable> modified, Set<Variable> inClosure, MethodLinkedVariables mlv) {
+            // a throw-only placeholder with implementations: its modification is their union, written by the
+            // abstract-method analyzer; the throwing body would claim @NotModified for every call (work list O2)
+            if (!methodInfo.isAbstract() && io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(methodInfo)) {
+                return;
+            }
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {

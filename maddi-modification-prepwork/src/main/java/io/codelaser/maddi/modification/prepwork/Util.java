@@ -17,6 +17,11 @@ package io.codelaser.maddi.modification.prepwork;
 import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ThrowStatement;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -34,6 +39,36 @@ import java.util.stream.Stream;
 import static io.codelaser.maddi.modification.prepwork.StatementIndex.*;
 
 public class Util {
+
+    /**
+     * A PLACEHOLDER: an overridable instance method whose body only throws -- Eclipse Collections'
+     * {@code default MutableByteList sortThis(ByteComparator c) { throw new UnsupportedOperationException(...); }},
+     * overridden by {@code ByteArrayList} with a body that sorts. Its own body says nothing about what a call
+     * through it does: every call that completes reaches an override. So, like an abstract method, it collects its
+     * implementations (prepwork) and its RECEIVER and PARAMETER MODIFICATION is their union (engine work list O2).
+     * Every other default or concrete method keeps its own body's verdict (the engine does not compute a dispatch
+     * union; see ShadowModificationPass E6), and a placeholder keeps its body's verdict on everything else.
+     */
+    public static boolean isThrowOnlyPlaceholder(MethodInfo methodInfo) {
+        if (methodInfo.isAbstract() || methodInfo.isStatic() || methodInfo.isConstructor() || methodInfo.isFinal()
+            || methodInfo.access().isPrivate()) {
+            return false;
+        }
+        Block body = methodInfo.methodBody();
+        return body != null && body.statements().size() == 1
+               && body.statements().getFirst() instanceof ThrowStatement;
+    }
+
+    /**
+     * Whether a method's receiver/parameter modification is the union over its implementations: an abstract method,
+     * or a {@link #isThrowOnlyPlaceholder placeholder} that has at least one (registered by prepwork).
+     */
+    public static boolean unionOverImplementations(MethodInfo methodInfo) {
+        return methodInfo.isAbstract()
+               || isThrowOnlyPlaceholder(methodInfo)
+                  && !methodInfo.analysis().getOrDefault(PropertyImpl.IMPLEMENTATIONS,
+                ValueImpl.SetOfMethodInfoImpl.EMPTY).isEmpty();
+    }
 
     public static boolean acceptModificationLink(Variable from, Variable to) {
         return isVirtualModification(from) == isVirtualModification(to);

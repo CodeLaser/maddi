@@ -75,9 +75,6 @@ public class TestOptimisticModificationShapes extends CommonTest {
             """;
 
     @DisplayName("O2: a throwing default method overridden by a modifying implementation modifies")
-    @Disabled("RED by design, awaiting a rule decision: a default/concrete method's verdict is its OWN body (prepwork "
-              + "records IMPLEMENTATIONS only on abstract overrides, and ShadowModificationPass's E6 mirrors that on "
-              + "purpose). A body that only throws then reads @NotModified although every override modifies.")
     @Test
     public void o2() {
         TypeInfo X = javaInspector.parse("a.b.O2", O2);
@@ -85,6 +82,43 @@ public class TestOptimisticModificationShapes extends CommonTest {
         MethodInfo sortIt = method(X, "sortIt");
         assertTrue(!sortIt.parameters().getFirst().isUnmodified(),
                 "the argument of sortIt(s) reaches Counter.sortThis(), which modifies it");
+    }
+
+    /*
+     O2, option D: a default method with a REAL, non-modifying body overridden by a modifying method keeps its own
+     verdict (no dispatch union, by design); the guard reports it instead.
+     */
+    @Language("java")
+    private static final String O2_D = """
+            package a.b;
+            class O2d {
+                interface Closeable2 {
+                    default void close() { }
+                }
+                static class Counter implements Closeable2 {
+                    private int closes;
+                    @Override public void close() { closes++; }
+                }
+                static void closeIt(Closeable2 c) { c.close(); }
+            }
+            """;
+
+    @DisplayName("O2-D: a real default body keeps its verdict; the weakening override is reported")
+    @Test
+    public void o2d() {
+        TypeInfo X = javaInspector.parse("a.b.O2d", O2_D);
+        List<Info> ao = prepWork(X);
+        var iterating = new IteratingAnalyzerImpl(javaInspector, new IteratingAnalyzerImpl.ConfigurationBuilder()
+                .setMaxIterations(10)
+                .setModificationViaReachability(true)
+                .build());
+        iterating.analyze(ao);
+        MethodInfo close = method(X.findSubType("Closeable2"), "close");
+        assertTrue(close.isNonModifying(), "the default's own body decides its verdict");
+        assertTrue(iterating.messages().stream().anyMatch(m -> m.message().contains("O2d.Counter.close")
+                        && io.codelaser.maddi.modification.analyzer.impl.GuardAnalyzerImpl.OVERRIDE_WEAKENS_COMPUTED
+                        .equals(m.category())),
+                "the override that modifies is reported: " + iterating.messages());
     }
 
     /*

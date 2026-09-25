@@ -370,7 +370,7 @@ public class MethodAnalyzer {
         }
         if (!methodInfo.isAbstract()) {
             methodInfo.overrides().stream()
-                    .filter(MethodInfo::isAbstract)
+                    .filter(override -> override.isAbstract() || Util.isThrowOnlyPlaceholder(override))
                     .forEach(override -> addImplementation(override, methodInfo));
         }
     }

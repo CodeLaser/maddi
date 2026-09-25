@@ -57,6 +57,12 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                     ValueImpl.SetOfMethodInfoImpl.EMPTY);
             if (implementations.isEmpty()) {
                 if (firstIteration) doMethodWithoutImplementation(methodInfo);
+            } else if (!methodInfo.isAbstract()) {
+                // a throw-only placeholder (Util.isThrowOnlyPlaceholder): only MODIFICATION is the union; its body
+                // keeps deciding independence, downcasts and the eventual properties
+                Iterable<MethodInfo> concreteImplementations = implementations.methodInfoSet();
+                for (ParameterInfo pi : methodInfo.parameters()) unmodified(concreteImplementations, pi);
+                methodNonModifying(concreteImplementations, methodInfo);
             } else {
                 Iterable<MethodInfo> concreteImplementations = implementations.methodInfoSet();
                 for (ParameterInfo pi : methodInfo.parameters()) {
