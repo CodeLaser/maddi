@@ -944,6 +944,13 @@ public abstract class ValueImpl implements Value {
             return markLabel.isBlank();
         }
 
+        /** A weak eventual verdict may be upgraded: only a strictly higher after-mark level overwrites (#51). */
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            return newValue instanceof EventuallyImmutableImpl n && !isDefault() && !n.isDefault()
+                   && n.immutableAfterMark.compareTo(immutableAfterMark) > 0;
+        }
+
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             if (markLabel.isBlank()) return null;
