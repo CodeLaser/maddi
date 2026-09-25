@@ -888,6 +888,12 @@ public class ComputeCallGraph {
     the graph was inconsistent about the same direction.
      */
     private void addType(Info from, ParameterizedType pt, long edgeValue) {
+        // a TYPE_USE annotation (jspecify @NonNull, ...) lives on the type since 6d189c44e, no longer on the
+        // declaration, so doAnnotations(pi/mi/fi) does not see it any more: record it here, like typesReferenced
+        for (AnnotationExpression ae : pt.annotations()) {
+            TypeInfo to = ae.typeInfo();
+            if (to != from && accept(to)) builder.mergeEdge(from, to, edgeValue);
+        }
         TypeInfo best = pt.bestTypeInfo();
         if (best != null) {
             if (best != from && !from.typeInfo().isEnclosedIn(best) && accept(best)) {
