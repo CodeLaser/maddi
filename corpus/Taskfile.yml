@@ -425,6 +425,8 @@ tasks:
     desc: 'coil config (coil-core JVM slice) — consumed by maddi TestCoilJvmSlice'
     cmds:
       - 'python3 {{.TASKFILE_DIR}}/scripts/coil-input-configuration.py'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/coil/inputConfiguration.json' }
 
   # --- Maven projects: maddi Maven plugin on the one module each pinned config covers ---
   config:activemq:
@@ -624,6 +626,8 @@ tasks:
       - MAVEN_OPTS="$MADDI_EXPORTS -Xmx6G" mvn {{.MVN_FLAGS}} -pl {{.MODULE}} generate-test-sources io.codelaser:maddi-mvnplugin:{{.MADDI_PLUGIN_VERSION}}:write-input-configuration
       - cp '{{.MODULE}}/target/inputConfiguration.json' inputConfiguration.json
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
 
   # Maven counterpart of _config:gradle-log, for reactors the single-module plugin path cannot
   # cover. `mvn -X` prints "[DEBUG] Command line options:" followed by the javac line for EVERY
@@ -694,6 +698,8 @@ tasks:
       # MADDI_ARGS: extra maddi options for this project's configuration, e.g. ignite-core's `--jre <JDK 17>`.
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json{{if .MADDI_ARGS}} {{.MADDI_ARGS}}{{end}}"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
 
   # The Kotlin sibling of _config:gradle-log. Three differences, all forced by the corpus:
   #   - it keeps BOTH markers, so one log carries the javac and kotlinc invocations and ParseMixedList
@@ -711,6 +717,8 @@ tasks:
       - 'echo ">>> {{.NAME}}: maddi-kotlin --compile-log -> inputConfiguration.json"'
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-kotlin:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
 
   # ⛔ THE COMMAND IS catalogue.py's, NOT A SECOND COPY OF IT. Every other `_config:*` helper spells
   # its route out in YAML, which was fine while the catalogue only described a route and the Taskfile
@@ -745,6 +753,24 @@ tasks:
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
       - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
+
+  # A generated configuration names its class path in the build tools' caches, which are not ours:
+  # Gradle deletes an entry it has not used for 30 days (18 jars on 2026-09-25, three corpora), ~/.m2
+  # gets cleared by hand. Every `_config:*` above therefore ends by copying those jars to
+  # <TEST_OSS_ROOT>/lib/<project>/ and pointing the configuration there. `_config:catalogue` does not
+  # yet: its output path is catalogue.py's to know -- run `task vendor` after it.
+  vendor:
+    desc: 'Move jars a config names out of ~/.gradle / ~/.m2 into TEST_OSS_ROOT/lib/<project>: task vendor [CONFIG=path] [DRY=1]'
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/vendor-libraries.py --corpus "{{.TEST_OSS_ROOT}}" {{if .DRY}}--dry-run{{end}} {{if .CONFIG}}"{{.CONFIG}}"{{else}}--all{{end}}'
+
+  _vendor:
+    internal: true
+    requires: { vars: [CONFIG] }
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/vendor-libraries.py --corpus "{{.TEST_OSS_ROOT}}" "{{.CONFIG}}"'
 
   # ========================= running the analyzer / slow tests ================
   # The consumption side of the corpus: the @Tag("slow") tests, the batch sweep, and ad-hoc

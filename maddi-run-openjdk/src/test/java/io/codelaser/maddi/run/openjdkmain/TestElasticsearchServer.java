@@ -106,7 +106,7 @@ public class TestElasticsearchServer {
                 if (uri.startsWith("file:") && !uri.startsWith("file:/")) {
                     ((ObjectNode) node).put("uri", "file:" + corpus.resolve(uri.substring(5)));
                 } else if (uri.startsWith(GRADLE_CACHE)) {
-                    ((ObjectNode) node).put("uri", "file:" + inGradleCache(uri.substring(GRADLE_CACHE.length())));
+                    ((ObjectNode) node).put("uri", "file:" + inGradleCache(corpus, uri.substring(GRADLE_CACHE.length())));
                 }
             }
         }
@@ -129,8 +129,18 @@ public class TestElasticsearchServer {
      * {@code caches/modules-2/files-2.1/<group>/<artifact>/<version>/<sha1>/<file>}, and that digest
      * differs per resolved artifact. The coordinate above it is identical on every machine, so the
      * committed file carries the coordinate and this globs the single level between.
+     * <p>
+     * The corpus's own copy comes first: {@code corpus/scripts/vendor-libraries.py} moves every jar a
+     * generated configuration names into {@code <TEST_OSS_ROOT>/lib/<project>/}, in Maven layout, because
+     * Gradle deletes a cache entry it has not itself used for 30 days (18 jars, 2026-09-25).
      */
-    private static Path inGradleCache(String coordinate) throws IOException {
+    private static Path inGradleCache(Path corpus, String coordinate) throws IOException {
+        String[] gavf = coordinate.split("/");
+        if (gavf.length == 4) {
+            Path vendored = corpus.getParent().resolve("lib").resolve(corpus.getFileName())
+                    .resolve(gavf[0].replace('.', '/')).resolve(gavf[1]).resolve(gavf[2]).resolve(gavf[3]);
+            if (Files.isRegularFile(vendored)) return vendored;
+        }
         String home = System.getenv("GRADLE_USER_HOME");
         Path modules = (home == null || home.isBlank() ? Path.of(System.getProperty("user.home"), ".gradle")
                 : Path.of(home)).resolve("caches/modules-2/files-2.1");
