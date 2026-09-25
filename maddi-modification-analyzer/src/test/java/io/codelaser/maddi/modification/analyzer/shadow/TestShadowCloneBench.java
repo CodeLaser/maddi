@@ -226,7 +226,22 @@ public class TestShadowCloneBench extends CommonTest {
         // `l == null ? emptyList() : Collections.unmodifiableList(l)` — and what marks them modified is the
         // ARCHIVE (`unmodifiableList` carries @Independent[M] and no @NotModified, so its argument is
         // modified), not the fix. ⚠ If that hint is ever corrected, these ten go away again.
-        org.junit.jupiter.api.Assertions.assertEquals(273, totalRev,
+        // ⭐ Re-baselined 2026-09-24 (issue #51), bisected on this corpus, same 9,319 types:
+        //   aa730a3bf (the pass no longer carries whole-object modification across an assigned-from link with a
+        //   VIRTUAL end -- the engine's own relevantLinkForModification rule):
+        //     divergences 847 -> 718   {nonModifyingMethod 11 -> 7, unmodifiedParameter 810 -> 685}
+        //                              {propagated 803 -> 684, seed 44 -> 34}
+        //     reverse      273 -> 285
+        //   the hidden-content commits after it (acfcba8c6..7db3d7140): divergences 718 -> 708, all
+        //   unmodifiedParameter 685 -> 675 in the seed class (34 -> 24); reverse unchanged.
+        // The 129 closed divergences were the pass's false positives through hidden-content faces. The 12 new
+        // reverse divergences are one shape: an Object/Serializable/Properties argument that reaches a
+        // modification only through a link with a virtual end -- `new Properties(defaults)` then `p.load(in)`,
+        // `oos.writeObject(o)` (no hint for ObjectOutputStream, so its parameter reads @Modified). The pass now
+        // says unmodified, which is the semantically right answer; the engine stays conservative. One of the
+        // twelve, Function17545720.flushIfPossible(Object o) (`((Flushable) o).flush()`), IS a modification: the
+        // pass misses it through the cast, and did so at unit scale before aa730a3bf too (not this change).
+        org.junit.jupiter.api.Assertions.assertEquals(285, totalRev,
                 "reverse divergences are expected since design A (110695ece) retired the "
                 + "walkable-summary seed channel; re-baseline deliberately, and reclassify");
         // Re-baselined 2026-09-22 for the RECEIVER-DISCLAIMER rule (@IgnoreModifications on a parameter now
@@ -241,9 +256,9 @@ public class TestShadowCloneBench extends CommonTest {
         // mirror was found in the first place.
         // Both fixes above apply together, measured on this corpus with both present.
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 11, "unmodifiedField", 26, "unmodifiedParameter", 810),
+                Map.of("nonModifyingMethod", 7, "unmodifiedField", 26, "unmodifiedParameter", 675),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 803, "seed", 44), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 684, "seed", 24), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;

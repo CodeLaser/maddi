@@ -1265,7 +1265,7 @@ class KotlinScan(
         val targetType = (if (isSuper) owner.parentClass()?.typeInfo() else owner)
             ?.let { typeMapper.withMembers(it) } // a class-file parent may be a shell: see KotlinTypeMapper.withMembers
             ?: return unboundInvocation("k2-super-call-no-parent")
-        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)?.takeIf { s -> s.valueParameters.none { it.isVararg } }
+        val ordered = (call.resolveSymbol() as? KaConstructorSymbol)
             ?.let { s -> inBody { with(bodyConverter) { callArguments(call, s, constructor, emptyMap()) } } }
         val argExpressions = ordered?.expressions ?: call.valueArguments
             .mapNotNull { it.getArgumentExpression()?.let { e -> convertExpression(e, constructor, emptyMap()) } }
@@ -1377,6 +1377,9 @@ class KotlinScan(
     private fun KaSession.overloadMethods(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
                                           static: Boolean) {
         val defaults = defaultsMethodOf[target] ?: return
+        // ⚠ not for a suspend function: its overloads would each need the continuation threaded through
+        // (overloadBody); `@JvmOverloads` on one is rare, and a Kotlin call never binds to an overload anyway
+        if (function.isSuspend) return
         val contexts = function.contextParameters
         val offset = contexts.size + if (function.receiverParameter != null) 1 else 0
         overloadParameters(offset, function.valueParameters.map { it.hasDefaultValue },
@@ -1709,6 +1712,9 @@ class KotlinScan(
     private fun KaSession.buildDelegateAccessor(owner: TypeInfo, field: FieldInfo, type: ParameterizedType,
                                       property: KaPropertySymbol, static: Boolean, write: Boolean): MethodInfo {
         val accessor = runtime.newMethod(owner, accessorName(property, write), methodType(static))
+        // an EXTENSION property (`var KtFile.modifiedText: String? by UserDataProperty(…)`): the receiver is the
+        // accessors' first parameter, and the `thisRef` they pass the delegate (see [finishDelegate])
+        property.receiverParameter?.let { accessor.builder().addParameter("\$receiver", mapType(it.returnType, owner)) }
         if (write) annotate(accessor.builder().addParameter("value", type).builder(), property.setter?.parameter, owner)
         annotate(accessor.builder(), if (write) property.setter else property.getter, owner)
         accessor.builder().setReturnType(if (write) runtime.voidParameterizedType() else type)
@@ -1795,7 +1801,10 @@ class KotlinScan(
         // under that type
         pendingDelegatesOf.remove(owner)?.forEach { p ->
             if (p.initialized) return@forEach
-            val initializer = p.delegateExpression?.let { convertExpression(it, p.getter, emptyMap()) }
+            // in the member kotlinc initializes `x$delegate` in, as any property initializer (see [initializerContext]):
+            // the primary constructor, where `by lazy { imports… }` reads a constructor PARAMETER. Converted in the
+            // getter, that parameter was out of scope
+            val initializer = p.delegateExpression?.let { convertExpression(it, initializerContext(p.owner, p.static), emptyMap()) }
                 ?: runtime.newEmptyExpression("k2-delegate-initializer:${p.field.name()}")
             p.field.builder().setInitializer(initializer).computeAccess()
             p.initialized = true
@@ -1813,14 +1822,15 @@ class KotlinScan(
         }
         if (!p.getter.hasBeenInspected()) {
             val read = runtime.newReturnBuilder()
-                .setExpression(atDelegate(p, delegateRead(p.owner, p.field, p.type, p.static)))
+                .setExpression(atDelegate(p, delegateRead(p.owner, p.field, p.type, p.static, receiverOf(p.getter))))
                 .setSource(runtime.noSource()).build()
             p.getter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(read).build()).commit()
         }
         val setter = p.setter ?: return
         if (!setter.hasBeenInspected()) {
-            val value = setter.parameters().first()
-            val write = runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field, value, p.static)))
+            val value = setter.parameters().last()
+            val write = runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field, value, p.static,
+                receiverOf(setter))))
             setter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(write).build()).commit()
         }
     }
@@ -1837,14 +1847,21 @@ class KotlinScan(
      * same shape the explicit form (`private val slot: Lazy<T> = lazy { … }; fun get() = slot.value`) already
      * produces. The `KProperty` argument of the operator form is not modelled; `null` stands in for it.
      */
-    private fun delegateRead(owner: TypeInfo, field: FieldInfo, type: ParameterizedType, static: Boolean): Expression {
+    /** An extension property's accessor reads its receiver, `$receiver`, as the delegate's `thisRef`. */
+    private fun receiverOf(accessor: MethodInfo): Expression? =
+        accessor.parameters().firstOrNull()?.takeIf { it.name() == "\$receiver" }?.let {
+            runtime.newVariableExpressionBuilder().setVariable(it).setSource(runtime.noSource()).build()
+        }
+
+    private fun delegateRead(owner: TypeInfo, field: FieldInfo, type: ParameterizedType, static: Boolean,
+                             receiver: Expression? = null): Expression {
         val delegate = fieldReadExpression(owner, field, static)
         val delegateType = field.type().typeInfo()
         delegateType?.methods()?.firstOrNull { it.name() == "getValue" && it.parameters().size == 2 }?.let { getValue ->
             return runtime.newMethodCallBuilder()
                 .setObject(delegate).setObjectIsImplicit(false)
                 .setMethodInfo(getValue)
-                .setParameterExpressions(listOf(thisRef(owner, static), runtime.nullConstant()))
+                .setParameterExpressions(listOf(receiver ?: thisRef(owner, static), runtime.nullConstant()))
                 .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
         }
         delegateType?.fields()?.firstOrNull { it.name() == "value" }?.let { valueField ->
@@ -1852,18 +1869,29 @@ class KotlinScan(
                 .setVariable(runtime.newFieldReference(valueField, delegate, type))
                 .setSource(runtime.noSource()).build()
         }
+        // ⛔ the CLASS-FILE `kotlin.Lazy` has neither: it is an interface whose `val value` is the abstract getter
+        // `getValue()`, which is what kotlinc calls. Which model a run holds depends on who loaded `Lazy` first, so
+        // on detekt ten `by lazy` reads fell through both branches above
+        (delegateType?.let { typeMapper.withMembers(it) } ?: delegateType)?.methods()
+            ?.firstOrNull { it.name() == "getValue" && it.parameters().isEmpty() }?.let { getValue ->
+                return runtime.newMethodCallBuilder()
+                    .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(getValue)
+                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
+                    .setSource(runtime.noSource()).build()
+            }
         return runtime.newEmptyExpression("k2-delegate-read:${field.name()}")
     }
 
     /** The delegate write, `this.x$delegate.setValue(this, null, value)` — `var` properties only. */
-    private fun delegateWrite(owner: TypeInfo, field: FieldInfo, value: ParameterInfo, static: Boolean): Expression {
+    private fun delegateWrite(owner: TypeInfo, field: FieldInfo, value: ParameterInfo, static: Boolean,
+                              receiver: Expression? = null): Expression {
         val setValue = field.type().typeInfo()?.methods()
             ?.firstOrNull { it.name() == "setValue" && it.parameters().size == 3 }
             ?: return runtime.newEmptyExpression("k2-delegate-write:${field.name()}")
         return runtime.newMethodCallBuilder()
             .setObject(fieldReadExpression(owner, field, static)).setObjectIsImplicit(false)
             .setMethodInfo(setValue)
-            .setParameterExpressions(listOf(thisRef(owner, static), runtime.nullConstant(),
+            .setParameterExpressions(listOf(receiver ?: thisRef(owner, static), runtime.nullConstant(),
                 bodyConverter.variableExpression(value)))
             .setConcreteReturnType(runtime.voidParameterizedType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
@@ -2041,7 +2069,9 @@ class KotlinScan(
     /** The method's body, then commit; call after the signature exists (so forward/self calls resolve). */
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
-        method.builder().setMethodBody(convertBody(function, method.returnType(), method, outerLocals))
+        // the KOTLIN return type: a suspend function's JVM one is Object, and `suspend fun f() = g()` still returns nothing
+        method.builder().setMethodBody(convertBody(function,
+            if (function.isSuspend) mapType(function.returnType, method.typeInfo(), method) else method.returnType(), method, outerLocals))
         // nor does it host that PSI: references written there are the property's or the class's, not copy()'s (#38)
         commitOrDefer(method, if (isGenerated(function, false)) null else function.psi) { method.builder().commit() }
         defaultsMethodOf.remove(method)?.let { defaults ->
@@ -2149,12 +2179,15 @@ class KotlinScan(
             parameter(parameterInfo, if (forwarder) null else p.psi as? KtParameter, elementType)
             if (!forwarder) annotate(parameterInfo.builder(), p, owner)
         }
+        // a suspend function's continuation comes last, and it returns Object (KotlinTypeMapper.continuationParameter)
+        val jvmReturnType = if (function.isSuspend) with(typeMapper) { continuationParameter(builder, returnType) } ?: returnType
+                            else returnType
         // a `by`-delegation forwarder is kotlinc's, and carries none of the interface method's annotations
         if (!forwarder) annotate(builder, function, owner)
         builder.commitParameters() // so method.parameters() is available while converting the body
         val psi = if (forwarder) null else function.psi as? KtNamedFunction
         builder
-            .setReturnType(returnType)
+            .setReturnType(jvmReturnType)
             // name keyed by method.name(), return-type reference keyed by its TypeInfo -- mirroring the Java parser
             .setSource(declarationSource(psi) {
                 putPsi(runtime, method.name(), psi?.nameIdentifier)
@@ -2176,21 +2209,29 @@ class KotlinScan(
      * parameter's default where kotlinc does, in the function's own scope, then calls [target]; a call that omits an
      * argument calls it instead of [target] (KotlinBodyConverter.callArguments). Where kotlinc makes a member's
      * `f$default` static, with the receiver as its first parameter, this one is an instance method, so that the
-     * defaults read `this` as written. Not for a vararg function: a call with a vararg is not ordered.
+     * defaults read `this` as written. A vararg parameter is the array it is on the JVM (kotlinc's `$default` is never
+     * a varargs method: the masks follow it), and a call passes it packed (KotlinBodyConverter.callArguments).
      */
     private fun KaSession.defaultsMethod(owner: TypeInfo, function: KaNamedFunctionSymbol, target: MethodInfo,
                                          static: Boolean, psi: KtNamedFunction) {
-        if (psi.valueParameters.none { it.defaultValue != null } || function.valueParameters.any { it.isVararg }) return
+        if (psi.valueParameters.none { it.defaultValue != null }) return
         val method = runtime.newMethod(owner, target.name() + "\$default",
             if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod())
         val builder = method.builder().setSynthetic(true)
         addTypeParameters(builder, function, owner, method)
         contextParameters(builder, function, owner, method, synthetic = true)
         function.receiverParameter?.let { syntheticParameter(builder, "\$receiver", mapType(it.returnType, owner, method)) }
-        function.valueParameters.forEach { p -> syntheticParameter(builder, p.name.asString(), mapType(p.returnType, owner, method)) }
+        function.valueParameters.forEach { p ->
+            // a vararg's K2 returnType is the element type
+            val type = mapType(p.returnType, owner, method).let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it }
+            syntheticParameter(builder, p.name.asString(), type)
+        }
+        // kotlinc's `f$default(…, $completion, $mask0, …)`: the continuation stays the target's last parameter
+        val continuation = if (function.isSuspend) with(typeMapper) { continuationType(mapType(function.returnType, owner, method)) } else null
+        continuation?.let { syntheticParameter(builder, "\$completion", it) }
         masks(function.valueParameters.size).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
         builder.commitParameters()
-            .setReturnType(mapType(function.returnType, owner, method))
+            .setReturnType(if (continuation != null) runtime.objectParameterizedType() else mapType(function.returnType, owner, method))
             .setSource(runtime.noSource())
         visibilityMethodModifier(function)?.let { builder.addMethodModifier(it) }
         builder.addMethodModifier(when {
@@ -2213,7 +2254,7 @@ class KotlinScan(
     private fun KaSession.defaultsConstructor(owner: TypeInfo, ctor: KaConstructorSymbol, target: MethodInfo): MethodInfo? {
         val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
-        if (parameters.none { it?.defaultValue != null } || ctor.valueParameters.any { it.isVararg }) return null
+        if (parameters.none { it?.defaultValue != null }) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
@@ -2280,7 +2321,9 @@ class KotlinScan(
     private fun KaSession.defaultsBody(defaults: MethodInfo, target: MethodInfo, parameters: List<KtParameter?>): Block {
         val passed = defaults.parameters().subList(0, target.parameters().size)
         val masks = defaults.parameters().subList(passed.size, passed.size + masks(parameters.size).size)
-        val offset = passed.size - parameters.size // an extension's receiver comes first
+        // an extension's receiver (and context parameters) come first; a suspend target's continuation comes last
+        val trailing = if (target.parameters().lastOrNull()?.name() == "\$completion") 1 else 0
+        val offset = passed.size - trailing - parameters.size
         val withDefault = parameters.withIndex().filter { it.value?.defaultValue != null }
         val count = withDefault.size + 1
         val body = runtime.newBlockBuilder()
