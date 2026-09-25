@@ -206,6 +206,10 @@ public class ScanCompilationUnits {
 
     public Result scan() throws IOException {
         Iterable<? extends CompilationUnitTree> units = task.parse();
+        // before anything is attributed or loaded: which files are THIS task's, as opposed to those javac will parse
+        // on demand from the source path under a package restriction (ClassSymbolScanner.isSourceSymbol)
+        classSymbolScanner.setCompilationUnitUris(StreamSupport.stream(units.spliterator(), false)
+                .map(unit -> unit.getSourceFile().toUri()).collect(Collectors.toUnmodifiableSet()));
         // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
         List<CompilationUnitFailure> failures = new ArrayList<>();
         // filled after analyze(), the first moment a symbol exists; one instance, because a scanner built before

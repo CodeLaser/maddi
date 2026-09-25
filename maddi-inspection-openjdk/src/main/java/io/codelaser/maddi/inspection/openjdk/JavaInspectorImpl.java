@@ -1186,7 +1186,8 @@ public class JavaInspectorImpl implements JavaInspector {
         openFileManagers.add(fm);
         {
             Iterable<? extends JavaFileObject> allCompilationUnits = loaderOnly ? List.of()
-                    : computeCompilationUnits(sourceSet, ignoreModule, sources, sourcesByClassName, fm);
+                    : computeCompilationUnits(sourceSet, inputConfiguration == null ? null
+                    : inputConfiguration.workingDirectory(), ignoreModule, sources, sourcesByClassName, fm);
             boolean hasModuleInfo = false;
             boolean haveSources = false;
             for (JavaFileObject jfo : allCompilationUnits) {
@@ -1628,6 +1629,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private static @NotNull Iterable<? extends JavaFileObject> computeCompilationUnits
             (SourceSet sourceSet,
+             Path workingDirectory,
              boolean ignoreModule,
              List<File> sources,
              Map<String, String> sourcesByClassName, StandardJavaFileManager fm) throws IOException {
@@ -1654,7 +1656,7 @@ public class JavaInspectorImpl implements JavaInspector {
         Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
         return Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
                         inMemory.stream())
-                .filter(jfo -> accept(sourceSet, jfo))
+                .filter(jfo -> accept(sourceSet, workingDirectory, jfo))
                 .toList();
     }
 
@@ -1745,14 +1747,14 @@ public class JavaInspectorImpl implements JavaInspector {
 
     Note: code is pretty slow but not expected to be used in large set-ups.
      */
-    private static boolean accept(SourceSet sourceSet, JavaFileObject jfo) {
-        return accept(sourceSet, jfo.toUri());
+    private static boolean accept(SourceSet sourceSet, Path workingDirectory, JavaFileObject jfo) {
+        return accept(sourceSet, workingDirectory, jfo.toUri());
     }
 
-    private static boolean accept(SourceSet sourceSet, URI uri) {
+    private static boolean accept(SourceSet sourceSet, Path workingDirectory, URI uri) {
         Set<String> restrict = sourceSet.restrictToPackages();
         if (restrict == null || restrict.isEmpty()) return true;
-        String fqn = inferFullyQualifiedName(sourceSet, uri);
+        String fqn = inferFullyQualifiedName(sourceSet, workingDirectory, uri);
         if (fqn == null) {
             LOGGER.warn("Cannot infer package of {}; keeping it despite the package restriction", uri);
             return true;
@@ -1769,7 +1771,7 @@ public class JavaInspectorImpl implements JavaInspector {
     sources encode it as the file path below one of the source directories. Returns null when it cannot
     be determined.
      */
-    private static String inferFullyQualifiedName(SourceSet sourceSet, URI uri) {
+    private static String inferFullyQualifiedName(SourceSet sourceSet, Path workingDirectory, URI uri) {
         if ("mem".equals(uri.getScheme())) {
             String path = uri.getPath(); // /<sourceSet>/a/b/C.java
             String prefix = "/" + sourceSet.name() + "/";
@@ -1780,7 +1782,12 @@ public class JavaInspectorImpl implements JavaInspector {
         Path file = Path.of(uri).toAbsolutePath().normalize();
         if (!file.getFileName().toString().endsWith(".java")) return null;
         for (Path dir : sourceSet.sourceDirectories()) {
-            Path abs = dir.toAbsolutePath().normalize();
+            // a relative source directory is relative to the configuration's working directory, exactly as in
+            // createTask -- NOT to this process's. Resolved against the latter, no file ever matched, and every
+            // one was kept "despite the package restriction": TestElasticsearchServer's relative slice analysed
+            // all 4872 types of server/main with restrictToPackages set.
+            Path abs = (workingDirectory == null || dir.isAbsolute() ? dir : workingDirectory.resolve(dir))
+                    .toAbsolutePath().normalize();
             if (file.startsWith(abs)) {
                 Path rel = abs.relativize(file);
                 StringBuilder fqn = new StringBuilder();
@@ -1884,7 +1891,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     String fqn = key.startsWith(TEST_PROTOCOL_PREFIX) ? key.substring(TEST_PROTOCOL_PREFIX.length())
                             : key;
                     URI uri = inMemoryUri(sourceSet, fqn);
-                    if (accept(sourceSet, uri)) {
+                    if (accept(sourceSet, null, uri)) {
                         result.add(new SourceFile(fqn.replace('.', '/') + ".java", uri, sourceSet, null));
                     }
                 }
@@ -1896,8 +1903,8 @@ public class JavaInspectorImpl implements JavaInspector {
                     try (Stream<Path> walk = Files.walk(resolved)) {
                         walk.filter(p -> p.toString().endsWith(".java")).sorted().forEach(p -> {
                             URI uri = p.toUri();
-                            if (accept(sourceSet, uri)) {
-                                String fqn = inferFullyQualifiedName(sourceSet, uri);
+                            if (accept(sourceSet, inputConfiguration.workingDirectory(), uri)) {
+                                String fqn = inferFullyQualifiedName(sourceSet, inputConfiguration.workingDirectory(), uri);
                                 String path = fqn == null ? p.getFileName().toString()
                                         : fqn.replace('.', '/') + ".java";
                                 result.add(new SourceFile(path, uri, sourceSet, null));
@@ -1924,7 +1931,7 @@ public class JavaInspectorImpl implements JavaInspector {
                               List<InitializationProblem> problems) {
         URI uri = sourceFile.uri();
         if ("mem".equals(uri.getScheme())) {
-            String fqn = inferFullyQualifiedName(sourceFile.sourceSet(), uri);
+            String fqn = inferFullyQualifiedName(sourceFile.sourceSet(), null, uri);
             return fqn == null ? null : sourcesByTestProtocolURIString.get(TEST_PROTOCOL_PREFIX + fqn);
         }
         try {

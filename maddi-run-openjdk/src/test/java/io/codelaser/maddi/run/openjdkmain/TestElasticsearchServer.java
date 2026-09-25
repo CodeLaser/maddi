@@ -3,6 +3,7 @@ package io.codelaser.maddi.run.openjdkmain;
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.Assumptions;
@@ -17,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,12 +42,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * un-checkable-in — they rot, and a rotted path is silent. References into them degrade to
  * "unresolved references on the partial classpath" warnings, which do not move the exit code.
  * <p>
- * Historically OOM'd at 8G on this closure: run with TESTXMX=24G or more if it comes back short.
  * <p>
- * ⚠ IT RUNS FOR ~54 MINUTES (53m43s measured 2026-08-25 at the module's 12G), which is inside the
- * memory-aware battery's 1h per-bucket timeout but not by much — and a bucket that times out is
- * recorded as `timeout`, with no verdict at all rather than a red one. If it starts tripping,
- * raise the runner's --timeout rather than assuming the corpus broke.
+ * ⚠ ONLY {@link #ANALYSED_PACKAGES} IS ANALYSED, the rest of server/main is parsed on demand. The whole of
+ * server/main -- 4872 types, 76276 methods -- ran for 54 to 61 minutes at the module's 12G against the battery's
+ * 1h per-bucket timeout: a bucket that times out has no verdict at all, and on 2026-09-25 (sharing the box) this
+ * one did, while a thread on another machine could not get it green either. {@code cluster.routing} is 140 types
+ * and 2581 methods, green in 2.5 minutes, and still the heavy part: it holds
+ * {@code AllocationService.buildResultAndLogHealthChange}, where the link work ceiling trips (35 LINKWORK TRIPPED
+ * in the slice). Widen the slice for a capacity run; keep it narrow here.
+ * <p>
+ * Getting the slice to hold took two inspector fixes (TestRestrictToPackagesRelativeSourceDirectory): the
+ * restriction was ignored for a source directory written relative to workingDirectory, as this one is, and a
+ * source type outside the restriction -- parsed on demand, never scanned -- was committed without its hierarchy.
  */
 @Tag("slow")
 public class TestElasticsearchServer {
@@ -55,6 +63,9 @@ public class TestElasticsearchServer {
 
     /** Scheme for an external artifact named by coordinate rather than path; see {@link #inGradleCache}. */
     static final String GRADLE_CACHE = "gradle-cache:";
+
+    /** Trailing dot: the package and everything below it. See the class comment for why a slice. */
+    static final List<String> ANALYSED_PACKAGES = List.of("org.elasticsearch.cluster.routing.");
 
     @BeforeAll
     public static void beforeAll() {
@@ -99,6 +110,10 @@ public class TestElasticsearchServer {
             root = (ObjectNode) mapper.readTree(in);
         }
         root.put("workingDirectory", corpus.toString());
+        for (JsonNode sourceSet : root.withArray("sourceSets")) {
+            ArrayNode restrict = ((ObjectNode) sourceSet).putArray("restrictToPackages");
+            ANALYSED_PACKAGES.forEach(restrict::add);
+        }
         for (String field : new String[]{"classPathParts", "sourceSets"}) {
             for (JsonNode node : root.withArray(field)) {
                 String uri = node.path("uri").asText("");
