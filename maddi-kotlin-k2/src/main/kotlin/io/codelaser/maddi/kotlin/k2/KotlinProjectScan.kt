@@ -144,7 +144,14 @@ class KotlinProjectScan(
                             addRegularDependency(jdk)
                             addRegularDependency(library)
                             javaModule?.let { addRegularDependency(it) }
-                            ss.dependencies().forEach { dep -> modulesBySourceSet[dep]?.forEach { addRegularDependency(it) } }
+                            // and a FRIEND: kotlinc compiles a test set as its main's friend, which sees `internal`
+                            // (javalin's tests call `internal object CorsUtils`, 21 unresolved refs). Friendship is
+                            // granted to every upstream set: the code compiled, so an `internal` it names was
+                            // visible to it -- no reference can resolve here that kotlinc refused.
+                            ss.dependencies().forEach { dep -> modulesBySourceSet[dep]?.forEach {
+                                addRegularDependency(it)
+                                addFriendDependency(it)
+                            } }
                             // each fragment refines the one before it: an `expect` is matched to its `actual`
                             modules.lastOrNull()?.let { addDependsOnDependency(it) }
                         }

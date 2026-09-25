@@ -54,6 +54,7 @@ import org.jetbrains.kotlin.analysis.api.components.resolveSymbol
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.resolution.KaImplicitReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.KaReceiverValue
+import org.jetbrains.kotlin.analysis.api.resolution.successfulCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.KaSmartCastedReceiverValue
 import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.successfulVariableAccessCall
@@ -975,6 +976,10 @@ internal class KotlinBodyConverter(
                 else convertIndexedSet(left, combined, method, locals))
         } else {
             val leftExpression = left?.let { convertExpression(it, method, locals) }
+            // `s += p` that K2 resolved to an OPERATOR FUNCTION: `plusAssign` (a call, no assignment to `s`) or, on a
+            // `var` of a read-only type, `plus` (`s = s.plus(p)`) -- never Java's numeric `+=` (ws/object SARIF thread)
+            if (statement.operationToken != KtTokens.EQ && left != null && leftExpression != null)
+                augmentedOperatorCall(statement, left, leftExpression, value, method, locals)?.let { return it }
             val target = leftExpression as? VariableExpression
             // a property with no backing field reads as a call of its getter: assigning to it is a call of its
             // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
@@ -983,11 +988,55 @@ internal class KotlinBodyConverter(
             if (target == null) runtime.newExpressionAsStatement(
                 setterCall ?: placeholder("k2-assign-target", statement))
             else {
-                val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(runtime.noSource())
+                // the assignment's own position, not only its statement's: a reader ordering writes by line needs it
+                val builder = runtime.newAssignmentBuilder().setTarget(target).setValue(value).setSource(source(statement, "-"))
                 augmentedOperator(statement.operationToken)?.let { builder.setAssignmentOperator(it) } // x += y
                 runtime.newExpressionAsStatement(builder.build())
             }
         }
+    }
+
+    private fun KaSession.augmentedOperatorCall(statement: KtBinaryExpression, left: KtExpression, receiver: Expression,
+                                                value: Expression, method: MethodInfo,
+                                                locals: MutableMap<String, Variable>): Statement? {
+        // `s += p` on a `val` is ONE call (plusAssign); on a `var` K2 answers a compound access, whose operation is
+        // the operator (`plus`, or a primitive's)
+        val resolved = statement.resolveToCall()
+        val symbol = (resolved?.singleFunctionCallOrNull()?.symbol
+            ?: resolved?.successfulCallOrNull<org.jetbrains.kotlin.analysis.api.resolution.KaCompoundVariableAccessCall>()
+                ?.compoundOperation?.operationPartiallyAppliedSymbol?.symbol) as? KaNamedFunctionSymbol ?: return null
+        val name = symbol.name.asString()
+        val owner = symbol.callableId?.classId
+        // Java's own compound assignment: a primitive's operator, or String's `+`
+        if (owner != null && owner.packageFqName.asString() == "kotlin"
+            && (owner.shortClassName.asString() in KOTLIN_PRIMITIVES || owner.shortClassName.asString() == "String")) return null
+        val call = operatorCallOn(symbol, name, receiver, value, statement, method) ?: return null
+        if (name.endsWith("Assign")) return runtime.newExpressionAsStatement(call)
+        // `list += x` on a `var list: List<X>`: a new list, assigned
+        val target = convertExpression(left, method, locals) as? VariableExpression ?: return null
+        return runtime.newExpressionAsStatement(runtime.newAssignmentBuilder().setTarget(target).setValue(call)
+            .setSource(source(statement, "-")).build())
+    }
+
+    /** `receiver.name(argument)` for a member operator, `Facade.name(receiver, argument)` for a top-level extension. */
+    private fun KaSession.operatorCallOn(symbol: KaNamedFunctionSymbol, name: String, receiver: Expression, argument: Expression,
+                                         statement: KtBinaryExpression, method: MethodInfo): Expression? {
+        val returnType = (if (name.endsWith("Assign")) null else statement.left?.expressionType)
+            ?.let { mapType(it, method.typeInfo()) }
+        if (symbol.receiverParameter == null) {
+            val callee = receiver.parameterizedType().typeInfo()?.let { resolveCallee(it, name, listOf(argument)) } ?: return null
+            return runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(callee)
+                .setParameterExpressions(listOf(argument)).setConcreteReturnType(returnType ?: callee.returnType())
+                .setTypeArguments(listOf()).setSource(source(statement, "-")).build()
+        }
+        if ((symbol.psi as? KtNamedFunction)?.containingClassOrObject != null) return null // a member extension
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val callee = resolveCallee(facade, name, listOf(receiver, argument)) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(receiver, argument))
+            .setConcreteReturnType(returnType ?: callee.returnType()).setTypeArguments(listOf())
+            .setSource(source(statement, "-")).build()
     }
 
     private fun KaSession.rawStatement(statement: KtExpression, method: MethodInfo,
@@ -1775,9 +1824,16 @@ internal class KotlinBodyConverter(
                 val name = selector.getReferencedName()
                 val field = receiverType?.let { members(it) }?.fields()?.firstOrNull { it.name() == name }
                 when {
-                    field != null -> variableExpression(runtime.newFieldReference(field, receiver, field.type())) // obj.x
+                    // obj.x, typed at the use site when the field's type is a type parameter (as for a getter, below)
+                    field != null -> variableExpression(runtime.newFieldReference(field, receiver,
+                        selector.expressionType?.takeIf { field.type().typeParameter() != null }
+                            ?.let { mapType(it, method.typeInfo()) } ?: field.type()))
                     // property idiom backed by an accessor method: `list.size`->size(), `obj.name`->getName()
-                    else -> receiverType?.let { resolveAccessor(it, name) }?.let { accessorCall(receiver, it) }
+                    // the USE-SITE type, as the Java front end gives a call: `lazy.value` on a `Lazy<Entry>` is an Entry,
+                    // not the erased T -- a destructuring of it found no componentN (javalin's JettyServer)
+                    else -> receiverType?.let { resolveAccessor(it, name) }?.let { getter ->
+                        accessorCall(receiver, getter, selector.expressionType?.let { mapType(it, method.typeInfo()) }
+                            ?.takeIf { getter.returnType().typeParameter() != null }) }
                         // an EXTENSION property is not a member of the receiver's type, so neither lookup
                         // above can find it: `o.doubled` failed for a property declared in the same file,
                         // and `c.java`/`s.lastIndex` for every library one. It compiles to a static getter
@@ -2478,9 +2534,9 @@ internal class KotlinBodyConverter(
     private fun members(type: TypeInfo): TypeInfo = typeMapper.withMembers(type)
 
     /** A no-arg getter call `receiver.getter()` (the desugaring of a property idiom). */
-    private fun accessorCall(receiver: Expression, getter: MethodInfo): Expression =
+    private fun accessorCall(receiver: Expression, getter: MethodInfo, concrete: ParameterizedType? = null): Expression =
         runtime.newMethodCallBuilder().setObject(receiver).setObjectIsImplicit(false).setMethodInfo(getter)
-            .setParameterExpressions(listOf()).setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
+            .setParameterExpressions(listOf()).setConcreteReturnType(concrete ?: getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
 
     /**
@@ -2508,7 +2564,9 @@ internal class KotlinBodyConverter(
         fun static(owner: TypeInfo, methodName: String, args: List<Expression>): Expression? {
             val callee = members(owner).methods().firstOrNull { m ->
                 m.isStatic && m.name() == methodName && m.parameters().size == args.size &&
-                    m.parameters().all { it.parameterizedType() == type }
+                    // the receiver as the primitive it is taken for (an `Int?` smart-cast is a boxed Integer to the
+                    // CST); any other argument, a cast say, by its own type
+                    m.parameters().zip(args).all { (p, a) -> p.parameterizedType() == (if (a === receiver) type else a.parameterizedType()) }
             } ?: return null
             return runtime.newMethodCallBuilder()
                 .setObject(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()))
@@ -2521,6 +2579,9 @@ internal class KotlinBodyConverter(
                 .setSource(runtime.noSource()).build()
         return when {
             arguments.isEmpty() && name == "toString" -> static(runtime.stringTypeInfo(), "valueOf", listOf(receiver))
+                // Java has no valueOf(byte)/valueOf(short): kotlinc passes the value as the int it already is
+                ?: if (primitive.isByte || primitive.isShort) static(runtime.stringTypeInfo(), "valueOf",
+                    listOf(runtime.newCast(receiver, runtime.intParameterizedType()))) else null
             arguments.isEmpty() && name == "not" && type.isBooleanOrBoxedBoolean -> logicalNot(receiver)
             arguments.isEmpty() && name == "hashCode" -> static(runtime.boxed(primitive), "hashCode", listOf(receiver))
             arguments.isEmpty() && name in PRIMITIVE_CONVERSIONS && resultType?.isPrimitiveExcludingVoid == true ->
