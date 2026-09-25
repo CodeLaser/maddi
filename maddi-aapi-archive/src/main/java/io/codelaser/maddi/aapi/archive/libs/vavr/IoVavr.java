@@ -39,6 +39,7 @@ import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.method.GetSet;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+import io.codelaser.maddi.annotation.type.UtilityClass;
 @Independent(absent = true)
 public class IoVavr {
     public static final String PACKAGE_NAME = "io.vavr";
@@ -63,7 +64,7 @@ public class IoVavr {
         }
 
         //public static class For1Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For1Future<T1> {
@@ -91,7 +92,7 @@ public class IoVavr {
         }
 
         //public static class For1Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For1Try<T1> {
@@ -128,7 +129,7 @@ public class IoVavr {
         }
 
         //public static class For2Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For2Future<T1, T2> {
@@ -153,7 +154,7 @@ public class IoVavr {
         }
 
         //public static class For2Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For2Try<T1, T2> {
@@ -190,7 +191,7 @@ public class IoVavr {
         }
 
         //public static class For3Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For3Future<T1, T2, T3> {
@@ -221,7 +222,7 @@ public class IoVavr {
         }
 
         //public static class For3Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For3Try<T1, T2, T3> {
@@ -261,7 +262,7 @@ public class IoVavr {
         }
 
         //public static class For4Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For4Future<T1, T2, T3, T4> {
@@ -295,7 +296,7 @@ public class IoVavr {
         }
 
         //public static class For4Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For4Try<T1, T2, T3, T4> {
@@ -346,7 +347,7 @@ public class IoVavr {
         }
 
         //public static class For5Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For5Future<T1, T2, T3, T4, T5> {
@@ -392,7 +393,7 @@ public class IoVavr {
         }
 
         //public static class For5Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For5Try<T1, T2, T3, T4, T5> {
@@ -453,7 +454,7 @@ public class IoVavr {
         }
 
         //public static class For6Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For6Future<T1, T2, T3, T4, T5, T6> {
@@ -502,7 +503,7 @@ public class IoVavr {
         }
 
         //public static class For6Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For6Try<T1, T2, T3, T4, T5, T6> {
@@ -567,7 +568,7 @@ public class IoVavr {
         }
 
         //public static class For7Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For7Future<T1, T2, T3, T4, T5, T6, T7> {
@@ -619,7 +620,7 @@ public class IoVavr {
         }
 
         //public static class For7Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For7Try<T1, T2, T3, T4, T5, T6, T7> {
@@ -688,7 +689,7 @@ public class IoVavr {
         }
 
         //public static class For8Future
-        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent -- downstream of G3: a comprehension over Futures (VAVR.md)
+        //EXPECTED @Immutable(hc = true), once Future is (G3) -- computed @FinalFields @Independent, annotated -- downstream of G3: a comprehension over Futures (VAVR.md)
         @FinalFields
         @Independent
         class For8Future<T1, T2, T3, T4, T5, T6, T7, T8> {
@@ -743,7 +744,7 @@ public class IoVavr {
         }
 
         //public static class For8Try
-        //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent -- downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) (VAVR.md)
         @FinalFields
         @Independent(absent = true)
         class For8Try<T1, T2, T3, T4, T5, T6, T7, T8> {
@@ -5198,7 +5199,7 @@ public class IoVavr {
     }
 
     //public final class Lazy implements Value<T>, Supplier<T>, Serializable
-    //EXPECTED eventually @Immutable(hc = true), after evaluation -- computed mutable @Independent(hc = true) -- G3: memoizes its supplier once (VAVR.md)
+    //EXPECTED eventually @Immutable(hc = true), after evaluation -- computed mutable @Independent(hc = true), annotated -- G3: memoizes its supplier once (VAVR.md)
     @Independent(hc = true)
     class Lazy$<T> {
         //override from io.vavr.Value, java.lang.Object
@@ -5279,14 +5280,14 @@ public class IoVavr {
     }
 
     //public class MatchError extends NoSuchElementException
-    //EXPECTED @FinalFields -- computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
+    //annotated as EXPECTED; computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
     @FinalFields
     @Container
     @Independent(absent = true)
     class MatchError$ {@Independent(hc = true) @NotModified @GetSet("obj") Object getObject() { return null; } }
 
     //public class NotImplementedError extends Error
-    //EXPECTED @FinalFields -- computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
+    //annotated as EXPECTED; computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
     @FinalFields
     @Container
     @Independent(absent = true)
@@ -5309,9 +5310,8 @@ public class IoVavr {
     }
 
     //public final class Patterns
-    //EXPECTED @UtilityClass / @Immutable -- computed @FinalFields @Independent -- G5: static extractors only (VAVR.md)
-    @FinalFields
-    @Independent
+    //annotated as EXPECTED; computed @FinalFields @Independent -- G5: static extractors only (a utility class is immutable) (VAVR.md)
+    @UtilityClass
     class Patterns$ {
         @Independent @NotModified static final API.Match.Pattern0<Tuple0> $Tuple0 = null;
         @Independent @NotModified
@@ -6789,7 +6789,7 @@ public class IoVavr {
     }
 
     //public interface Value implements Iterable<T>
-    //EXPECTED no immutability claim -- computed @FinalFields @Dependent -- root of G1 (computed is right): also implemented by Iterator, Future, Lazy: stateful (VAVR.md)
+    //EXPECTED no immutability claim -- computed @FinalFields @Dependent, annotated -- root of G1 (computed is right): also implemented by Iterator, Future, Lazy: stateful (VAVR.md)
     @FinalFields
     @Independent(absent = true)
     class Value$<T> {

@@ -16,9 +16,15 @@ package io.codelaser.maddi.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
@@ -49,10 +55,12 @@ import java.util.Map;
  *     library, {@code --analysis-results-dir}) to load onto the jar's types first, so that the shadows carry the
  *     COMPUTED verdicts as their starting annotations;</li>
  *     <li>optionally {@code -Pmaddi.compose.notes=../maddi-aapi-archive/.../libs/vavr/VAVR.md} -- the library report,
- *     whose type table ({@code | `type` | computed | expected | gap |}) is written into each shadow as an
- *     {@code // EXPECTED ...} comment.</li>
+ *     whose tables ({@code | `type` | computed | expected | gap |}, and {@code `type#method`} member rows) state the
+ *     library's SEMANTIC verdicts. Where an expected cell is nothing but annotations, it overwrites the computed
+ *     verdict before printing (see {@link #applyExpected}): hints exist so that a client's analysis sees what the
+ *     library means, as the JDK hints do. The computed verdict stays visible in the type's comment.</li>
  * </ul>
- * The output is a starting point to curate, not a finished hint file: see the library's report next to it.
+ * See the library's report next to the output for what the hints state and what they cannot.
  */
 public class ComposeAnalysisHints {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComposeAnalysisHints.class);
@@ -110,11 +118,15 @@ public class ComposeAnalysisHints {
             List<ExpectedRow> rows = readExpectedRows(java.nio.file.Path.of(notes));
             LOGGER.info("Read {} EXPECTED row(s) from {}", rows.size(), notes);
             String report = java.nio.file.Path.of(notes).getFileName().toString();
+            java.util.Set<String> annotatedAsExpected = applyExpected(rows, primaryTypes);
+            LOGGER.info("Annotated {} type(s) with their EXPECTED verdict", annotatedAsExpected.size());
             composer.setTypeNotes(typeInfo -> rows.stream()
-                    .filter(r -> r.matches(typeInfo.fullyQualifiedName()))
+                    .filter(r -> !r.isMemberRow() && r.matches(typeInfo.fullyQualifiedName()))
                     .findFirst()
-                    .map(r -> List.of("EXPECTED " + r.expected() + " -- computed " + r.computed() + " -- " + r.gap()
-                                      + " (" + report + ")"))
+                    .map(r -> List.of(annotatedAsExpected.contains(typeInfo.fullyQualifiedName())
+                            ? "annotated as EXPECTED; computed " + r.computed() + " -- " + r.gap() + " (" + report + ")"
+                            : "EXPECTED " + r.expected() + " -- computed " + r.computed() + ", annotated -- " + r.gap()
+                              + " (" + report + ")"))
                     .orElse(List.of()));
         }
         Collection<TypeInfo> apiTypes = composer.compose(primaryTypes);
@@ -150,6 +162,146 @@ public class ComposeAnalysisHints {
         boolean matches(String fqn) {
             return pattern.endsWith("*") ? fqn.startsWith(pattern.substring(0, pattern.length() - 1))
                     : pattern.equals(fqn);
+        }
+
+        /** {@code type#method} or {@code type#*}: a member row; its expected cell is {@code @Modified} or {@code @NotModified}. */
+        boolean isMemberRow() {
+            return pattern.contains("#");
+        }
+    }
+
+    /**
+     * The expected TYPE verdict of a report row, when its expected cell is nothing but annotations. Anything else
+     * ("no immutability claim", "eventually ... after ...", a verdict conditional on another type) is not a
+     * verdict a hint can state, and the type keeps its computed annotations.
+     */
+    record ExpectedType(Value.Immutable immutable, Boolean container, Value.Independent independent,
+                        boolean utilityClass) {
+    }
+
+    static ExpectedType parseExpectedType(String cell) {
+        String rest = cell.replaceAll("\\s+", " ").trim();
+        Value.Immutable immutable = null;
+        Boolean container = null; // null: not stated, keep the computed value
+        boolean utilityClass = false;
+        Value.Independent independent = null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("^@(\\w+)(?:\\(([^)]*)\\))?\\s*").matcher(rest);
+        while (!rest.isEmpty()) {
+            m.reset(rest);
+            if (!m.find()) return null;
+            String name = m.group(1);
+            boolean hc = m.group(2) != null && m.group(2).replace(" ", "").equals("hc=true");
+            if (m.group(2) != null && !hc) return null;
+            switch (name) {
+                case "ImmutableContainer" -> {
+                    immutable = hc ? ValueImpl.ImmutableImpl.IMMUTABLE_HC : ValueImpl.ImmutableImpl.IMMUTABLE;
+                    container = true;
+                }
+                case "Immutable" -> immutable = hc ? ValueImpl.ImmutableImpl.IMMUTABLE_HC
+                        : ValueImpl.ImmutableImpl.IMMUTABLE;
+                case "FinalFields" -> immutable = ValueImpl.ImmutableImpl.FINAL_FIELDS;
+                case "Container" -> container = true;
+                case "Independent" -> independent = hc ? ValueImpl.IndependentImpl.INDEPENDENT_HC
+                        : ValueImpl.IndependentImpl.INDEPENDENT;
+                case "Dependent" -> independent = ValueImpl.IndependentImpl.DEPENDENT;
+                case "UtilityClass" -> utilityClass = true;
+                default -> {
+                    return null;
+                }
+            }
+            rest = rest.substring(m.end());
+        }
+        if (immutable == null && !utilityClass) return null;
+        if (independent == null && immutable != null && !immutable.isMutable()) {
+            // an immutable type is independent: @Immutable implies @Independent, hc follows hc
+            independent = immutable.isImmutableHC() ? ValueImpl.IndependentImpl.INDEPENDENT_HC
+                    : ValueImpl.IndependentImpl.INDEPENDENT;
+        }
+        if (container == null && immutable != null && !immutable.isMutable()) {
+            container = false; // @Immutable vs @ImmutableContainer: stated either way
+        }
+        return new ExpectedType(immutable, container, independent, utilityClass);
+    }
+
+    /*
+     Overwrite the loaded (computed) values with the report's EXPECTED ones, before the decorator prints them, so
+     that the shadows state what the library MEANS: that is what a client's analysis needs, as with the JDK hints.
+     The members follow the type, as the JDK hints' defaults do: in an immutable type no method modifies the
+     receiver; in a container no method modifies its arguments; an (hc-)independent type's methods and parameters
+     are at least hc-independent. The computed value stays visible in the type's comment.
+     Returns the fully qualified names of the types that got their EXPECTED annotations.
+     */
+    static java.util.Set<String> applyExpected(List<ExpectedRow> rows, List<TypeInfo> primaryTypes) {
+        java.util.Set<String> applied = new java.util.HashSet<>();
+        List<TypeInfo> allTypes = primaryTypes.stream().flatMap(TypeInfo::recursiveSubTypeStream).toList();
+        for (TypeInfo typeInfo : allTypes) {
+            String fqn = typeInfo.fullyQualifiedName();
+            ExpectedRow row = rows.stream().filter(r -> !r.isMemberRow() && r.matches(fqn)).findFirst().orElse(null);
+            ExpectedType expected = row == null ? null : parseExpectedType(row.expected());
+            if (expected != null) {
+                applyExpectedType(typeInfo, expected);
+                applied.add(fqn);
+            }
+            for (MethodInfo methodInfo : typeInfo.methods()) {
+                if (methodInfo.isStatic()) continue;
+                String key = fqn + "#" + methodInfo.name();
+                rows.stream().filter(r -> r.isMemberRow()
+                                          && (r.pattern().equals(key) || r.pattern().equals(fqn + "#*")))
+                        .findFirst()
+                        .ifPresent(r -> {
+                            methodInfo.analysis().overwrite(PropertyImpl.NON_MODIFYING_METHOD,
+                                    r.expected().trim().startsWith("@NotModified") ? ValueImpl.BoolImpl.TRUE
+                                            : ValueImpl.BoolImpl.FALSE);
+                            methodInfo.analysis().removeIf(EVENTUAL_MEMBER_PROPERTIES::contains);
+                        });
+            }
+        }
+        return applied;
+    }
+
+    private static final java.util.Set<io.codelaser.maddi.cst.api.analysis.Property> EVENTUAL_MEMBER_PROPERTIES =
+            java.util.Set.of(PropertyImpl.EVENTUAL_METHOD, PropertyImpl.EVENTUALLY_NON_MODIFYING_METHOD,
+                    PropertyImpl.EVENTUAL_PARAMETER, PropertyImpl.EVENTUALLY_UNMODIFIED_PARAMETER);
+
+    private static void applyExpectedType(TypeInfo typeInfo, ExpectedType expected) {
+        PropertyValueMap analysis = typeInfo.analysis();
+        analysis.removeIf(p -> p == PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE);
+        if (expected.utilityClass()) {
+            analysis.overwrite(PropertyImpl.UTILITY_CLASS, ValueImpl.BoolImpl.TRUE);
+            return;
+        }
+        analysis.overwrite(PropertyImpl.IMMUTABLE_TYPE, expected.immutable());
+        if (expected.container() != null) {
+            analysis.overwrite(PropertyImpl.CONTAINER_TYPE,
+                    expected.container() ? ValueImpl.BoolImpl.TRUE : ValueImpl.BoolImpl.FALSE);
+        }
+        if (expected.independent() != null) analysis.overwrite(PropertyImpl.INDEPENDENT_TYPE, expected.independent());
+        boolean immutable = !expected.immutable().isMutable();
+        boolean independent = expected.independent() != null && !expected.independent().isDependent();
+        boolean container = Boolean.TRUE.equals(expected.container());
+        for (MethodInfo methodInfo : typeInfo.constructorAndMethodStream().toList()) {
+            PropertyValueMap ma = methodInfo.analysis();
+            // an eventual member label ("@NotModified(after = ...)") contradicts the expected verdict of its type
+            if (immutable) ma.removeIf(EVENTUAL_MEMBER_PROPERTIES::contains);
+            if (immutable && !methodInfo.isStatic() && !methodInfo.isConstructor()) {
+                ma.overwrite(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.TRUE);
+            }
+            if (independent && !methodInfo.isConstructor()
+                && ma.getOrDefault(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.DEPENDENT).isDependent()) {
+                ma.overwrite(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
+            }
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                PropertyValueMap pa = pi.analysis();
+                if (container) pa.removeIf(EVENTUAL_MEMBER_PROPERTIES::contains);
+                if (container && !pi.parameterizedType().isPrimitiveStringClass()) {
+                    pa.overwrite(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.TRUE);
+                }
+                if (independent && pa.getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
+                        ValueImpl.IndependentImpl.DEPENDENT).isDependent()) {
+                    pa.overwrite(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT_HC);
+                }
+            }
         }
     }
 

@@ -27,7 +27,7 @@ import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 public class IoVavrConcurrent {
     public static final String PACKAGE_NAME = "io.vavr.concurrent";
     //public interface Future implements Value<T>
-    //EXPECTED eventually @Immutable(hc = true), after completion -- computed @FinalFields @Dependent -- G3: completes once (VAVR.md)
+    //EXPECTED eventually @Immutable(hc = true), after completion -- computed @FinalFields @Dependent, annotated -- G3: completes once (VAVR.md)
     @FinalFields
     @Independent(absent = true)
     class Future$<T> {

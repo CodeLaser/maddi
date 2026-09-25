@@ -4,10 +4,11 @@ Status: 2026-09-25. Covers the four hint files next to this report (`IoVavr`, `I
 `IoVavrControl`, `IoVavrConcurrent`) and their compiled results in
 `src/main/resources/.../analyzedPackageFiles/libs/vavr`.
 
-These hints are **what maddi computes** for vavr, not what vavr means. Every public type whose computed
-verdict differs from the semantically expected one carries an `// EXPECTED ...` comment in its shadow, taken
-from the table at the end of this report. The families of differences (G1–G6) are the engine's worklist
-for vavr.
+These hints state **what vavr means**, as the JDK hints do for the JDK: that is what a client's analysis needs to
+compute immutability in real code. They start from maddi's source analysis of vavr; where the computed verdict
+differs from vavr's semantic contract, the shadow carries the EXPECTED annotations from the table at the end of
+this report, with the computed verdict kept in a comment. The differences (G1–G6) are the engine's worklist: the
+day the analysis computes a row's expected verdict, that row can go.
 
 ## Using the hints
 
@@ -19,7 +20,55 @@ so a maddi run does not load them by default. Preload them explicitly, together 
 ```
 
 where `<archive>` is `maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive`. A consumer then
-sees vavr's public API with maddi's computed verdicts, including their weak spots below (read G6 first).
+sees vavr's public API with its semantic verdicts: the persistent collections as `@ImmutableContainer(hc = true)`,
+`Iterator`'s consuming methods as `@Modified`. Where the table says something a hint cannot state (an eventual
+verdict, or one conditional on another type), the computed verdict stays; see "What the hints do not state".
+
+## Reading a shadow
+
+```java
+    //public final class Array implements IndexedSeq<T>, Serializable
+    //annotated as EXPECTED; computed @FinalFields @Dependent -- G1, G2: persistent collection (VAVR.md)
+    @ImmutableContainer(hc = true)
+    class Array$<T> {
+        //override from io.vavr.collection.IndexedSeq, io.vavr.collection.Seq
+        @Independent(hc = true) @NotModified
+        Array<T> append(@Independent @NotModified T element) { return null; }
+```
+
+- **The declaration comment** is the library type's own header, so a reader sees what the shadow stands for.
+- **The annotations are the only part compiled**, and for this type they are the EXPECTED verdict from the table.
+  As in the JDK hints, `@ImmutableContainer(hc = true)` implies `@Independent(hc = true)`.
+- **The second comment** says so, and keeps what maddi computes (`@FinalFields @Dependent`) and why it differs
+  (gap families G1, G2). It is a comment: the hints compiler ignores it.
+
+The members follow their type, as the JDK hints' defaults do. In a type annotated immutable, every instance method
+is `@NotModified` and its eventual labels are dropped; in a container, no method modifies its arguments; in an
+(hc-)independent type, a computed `@Dependent` method or parameter becomes `@Independent(hc = true)`. Everything
+else on a member is the computed verdict. The rules are in `ComposeAnalysisHints.applyExpected`.
+
+A type whose row has an expected cell in words keeps its computed annotations, and its comment reads
+`//EXPECTED <words> -- computed <verdict>, annotated -- <gap>`. A type without a row is annotated as computed and
+has no comment: its computed verdict is the expected one.
+
+Computed verdicts are stated explicitly, because the hints compiler's default for an unannotated element is not
+the analysis' default: `@FinalFields` is printed (an unannotated type reads back as mutable), and a dependent
+member reads `@Independent(absent = true)`, there being no `@Dependent` annotation.
+
+## What the hints do not state
+
+- **Eventual verdicts (G3):** `Lazy`, `Future` and the `API.For*Future` carriers keep their computed annotations;
+  "eventually immutable after evaluation/completion" needs marks that vavr does not have.
+- **"No immutability claim":** `Value`, `Traversable`, `Foldable` and the functional interfaces keep their
+  computed verdicts, which make no claim.
+- **Inherited members:** a shadow lists the members its type declares. A method a persistent collection inherits
+  without overriding it (a `Traversable` default) keeps the verdict of the interface it is declared in.
+- **44 eventual member labels** (39 in `API`, 3 in `Either`, 1 each in `Value` and `BitSet.Builder`):
+  `@NotModified(after = "...")` named after fields. vavr has no marks, so these are the member-level twin of the
+  ungrounded type verdicts fixed in 2026-09 (`TestEventualNeedsAMark`): not grounded, still computed. Before the
+  expected annotations there were 515, almost all on the persistent collections, where they are now dropped. A
+  consumer reads a remaining one as "modifying until a mark that never comes", the pessimistic reading. Open
+  engine item.
 
 ## Where vavr stands
 
@@ -90,26 +139,33 @@ carriers follow. Listed so that nobody "fixes" them.
 `io.vavr.Patterns` holds only static extractors (`$Cons`, `$Tuple2`, ...) and static final pattern constants.
 It computes `@FinalFields`, not `@UtilityClass`. Untraced.
 
-### G6: computed too optimistic (read this first as a consumer)
+### G6: computed too optimistic on `Iterator`
 
 `Iterator.length()` computes `@NotModified`, but it consumes the iterator: it inherits `Traversable`'s
-`foldLeft`, which iterates `iterator()`, and for an `Iterator` that returns `this`. The hints therefore claim that
-`length()` leaves an iterator untouched. This is the unsafe direction. It is likely a family (every
-`Traversable` default that iterates `iterator()`, as seen on an `Iterator`), not yet traced. Treat any
-`@NotModified` on a method of `io.vavr.collection.Iterator` with suspicion until this is resolved.
+`foldLeft`, which iterates `iterator()`, and for an `Iterator` that returns `this`. That is the unsafe direction,
+and likely a family (every `Traversable` default that iterates `iterator()`, as seen on an `Iterator`), not yet
+traced in the engine. The hints no longer depend on it: the member table at the end annotates every instance
+method of `Iterator` `@Modified`, except eleven pure inspections (`hasNext`, `isEmpty`, the `is*` constants,
+`stringPrefix`, `iterator`). The lazy operations (`map`, `filter`, ...) are stated `@Modified` too: they consume
+the iterator through their result, and the conservative statement is the safe one for a client.
 
 ## How faithful the hint files are
 
-The hint files are generated from a maddi source analysis of vavr and compiled back to results. On the public
-API, the compiled hints reproduce the computed verdicts except for 144 elements:
+The compiled hints compared with the source analysis, on the public API:
 
-- about 90 are encoding-equivalent: methods returning `String`, a primitive or `void`, parameters of primitive,
-  `String` or `Class` type, and constructors, where one side stores a value the other treats as implied;
-- about 50 are the extractor methods of `io.vavr.Patterns` (`$Cons`, `$Tuple2`, ...), which lose their
-  `@NotModified` in compilation (untraced, see "Tooling defects").
+- **On the 46 types annotated as expected (and `Iterator`'s member rows): 2,511 differences, by design.** They
+  are the upgrades the table asks for: 33 types raised to `@Immutable(hc = true)` or `@Immutable`, 1,129 methods to
+  `@NotModified`, 1,028 parameters to `@NotModified` (containers), about 200 independence values to
+  `@Independent(hc = true)`, and `Iterator.length()`/`groupBy()` down to `@Modified` (G6). Two things there are not
+  by design: the 29 second parameters of `Patterns`' extractors (`$Cons`, `$Tuple2`, ...), printed `@NotModified`
+  but compiled without it (untraced, the pessimistic direction), and `toString`/`stringPrefix`, whose `String`
+  result compiles as `@Independent(hc = true)` rather than `@Independent` (equivalent for an immutable result).
+- **On every other type: 37 differences, all encoding-equivalent:** methods returning `String`, a primitive or
+  `void`, and parameters of primitive, `String` or `Class` type, where one side stores a value the other treats
+  as implied.
 
-Before this was made explicit, the round trip lost 1,254 verdicts, most of them in the optimistic direction; see
-"Tooling defects".
+Before the decorator was made explicit, the round trip lost 1,254 computed verdicts, most of them in the
+optimistic direction; see "Tooling defects".
 
 ## Regenerating
 
@@ -121,8 +177,8 @@ Before this was made explicit, the round trip lost 1,254 verdicts, most of them 
      <archive>/analyzedPackageFiles/libs/test,<archive>/analyzedPackageFiles/libs/log --analysis-steps prep,modification \
      --analysis-results-dir <vavr-results>"
    ```
-2. Compose the hint sources from the vavr jar, with the computed verdicts loaded and this report's table as
-   `// EXPECTED` comments:
+2. Compose the hint sources from the vavr jar: the computed verdicts are loaded, then this report's tables
+   overwrite them where they state an expected verdict (the type table and the member table):
    ```
    ./gradlew :maddi-aapi-parser:composeAnalysisHints \
      -Pmaddi.compose.anchor=io.vavr.Value,io.vavr.match.annotation.Patterns -Pmaddi.compose.packages=io.vavr \
@@ -161,9 +217,10 @@ Open:
 
 ## Types that need an explanation
 
-`computed` is maddi's verdict in these hints; `expected` is vavr's semantic intent; `gap` names the family above.
-The first column is read by `ComposeAnalysisHints` (`-Pmaddi.compose.notes`): keep one type per row, fully
-qualified, in backticks.
+`computed` is maddi's verdict; `expected` is vavr's semantic intent, and it is what the hints ANNOTATE whenever the
+cell is nothing but annotations (see "Reading a shadow"); `gap` names the family above. The table is read by
+`ComposeAnalysisHints` (`-Pmaddi.compose.notes`): keep one type per row, fully qualified, in backticks. An expected
+cell in words ("no immutability claim", "eventually ...", "once Future is") leaves the computed annotations in place.
 
 | type | computed | expected | gap |
 |---|---|---|---|
@@ -225,4 +282,25 @@ qualified, in backticks.
 | `io.vavr.API.For6Try` | @FinalFields @Dependent | @FinalFields | downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) |
 | `io.vavr.API.For7Try` | @FinalFields @Dependent | @FinalFields | downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) |
 | `io.vavr.API.For8Try` | @FinalFields @Dependent | @FinalFields | downstream of G4 (computed is right): a comprehension over Try (Failure holds a Throwable) |
-| `io.vavr.Patterns` | @FinalFields @Independent | @UtilityClass / @Immutable | G5: static extractors only |
+| `io.vavr.Patterns` | @FinalFields @Independent | @UtilityClass | G5: static extractors only (a utility class is immutable) |
+
+### Member expectations (G6)
+
+Read the same way; `type#method` names every instance method of that name, `type#*` every other instance method
+of the type's shadow (the first matching row wins, so the exceptions come first). Expected is `@Modified` or
+`@NotModified` on the receiver.
+
+| member | computed | expected | gap |
+|---|---|---|---|
+| `io.vavr.collection.Iterator#hasNext` | @NotModified | @NotModified | inspects, does not consume |
+| `io.vavr.collection.Iterator#isEmpty` | @NotModified | @NotModified | inspects, does not consume |
+| `io.vavr.collection.Iterator#hasDefiniteSize` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isAsync` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isDistinct` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isLazy` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isOrdered` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isSequential` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#isTraversableAgain` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#stringPrefix` | @NotModified | @NotModified | a constant of the type |
+| `io.vavr.collection.Iterator#iterator` | @NotModified | @NotModified | returns `this` |
+| `io.vavr.collection.Iterator#*` | mostly @NotModified | @Modified | G6: consumes the iterator (the lazy operations, `map`, `filter`, ..., consume it through their result: stated conservatively) |
