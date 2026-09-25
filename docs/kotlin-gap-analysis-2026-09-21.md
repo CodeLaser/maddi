@@ -1579,6 +1579,78 @@ detekt **74 → 67** (7 gone, none new) in 40 types / 50 members; **no verdict m
 Still open from this family: `visitFile` on an IMPLICIT `this` typed by a two-bound type parameter (the implicit
 receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `extendsFrom`).
 
+### 7.53 `by lazy`, read against the class-file `Lazy` — detekt 67 → 57, coil 113 → 106
+
+The third time today that one library type has two models (§7.47, §7.48). A delegated property's getter reads its
+delegate. A hand-written delegate declares the `getValue(thisRef, property)` operator, and `kotlin.Lazy` declares
+`val value`. The K2-built `Lazy` carries that as a field, and the read was `this.x$delegate.value`. The CLASS-FILE
+`Lazy` is an interface whose `val value` is the abstract getter `getValue()`, which is what kotlinc calls. It has
+neither the operator nor the field, so every read against it fell through to `k2-delegate-read`. Which model a
+run holds depends on which side loaded `Lazy` first: on detekt it was the class file for ten properties, `by lazy`
+and `by lazy(NONE)` alike. The read now calls `getValue()` when that is what the type has.
+
+All ten detekt sites gone, none new, **no verdict moved**. detekt **67 → 57** in 35 types / 40 members, coil
+**113 → 106** in 40 / 69. `TestKotlinLazyVsJavaLazy` still agrees.
+
+### 7.54 A member extension index operator — detekt 57 → 49
+
+`escapeLevels[c] = 4` in detekt's `Xml10EscapeSymbolsInitializer` (eight sites) goes through
+`private operator fun ByteArray.set(c: Char, value: Byte)`, declared inside the `object` itself. The index route
+knew a top-level extension operator (a facade static, §7.43) and not this one. On the JVM it is an instance method
+of the declaring type with the array first, called on the implicit dispatch receiver, and that is what K2's
+`dispatchReceiver` now builds, for `get` and `set` alike. `MemberIndexOperatorTest` (k2). All eight gone, none new,
+**no verdict moved**. coil unchanged at 106.
+
+### 7.55 A jump as a function's expression body — detekt 49 → 45
+
+§7.37 lowered `return x ?: throw E()` in a block. The EXPRESSION body `fun f(): R = x ?: throw E()` was converted as
+one value, and `throw` is none, so it stayed a placeholder. So did `fun f(): Nothing = throw E()`. The first is now
+lowered as its block-bodied spelling is (`controlFlowElvisLowering(returnValue = true)`), and the second is a
+`throw` statement. `ThrowBodyTest` (k2) shows the two spellings give the same tree, and `= s?.f() ?: return 0` binds
+a temporary, so the left side is evaluated once. detekt **49 → 45** (four gone, none new), **no verdict moved**;
+coil unchanged at 106.
+
+Still open in this family, each needing an evaluation order the lowering cannot keep without hoisting the
+arguments before it: `?: return` as a call ARGUMENT (2), `?: return` inside an inlined lambda (a non-local return,
+1), an `if` expression's `?: return false` (1), and `try` as a lambda's result (1).
+
+### 7.56 A delegated extension property — detekt 45 → 39
+
+detekt's `var KtFile.modifiedText: String? by UserDataProperty(Key("modifiedText"))` is an EXTENSION property with a
+delegate. kotlinc gives it a static `modifiedText$delegate` on the file facade and accessors
+`getModifiedText(KtFile)` / `setModifiedText(KtFile, String)`, which pass the receiver to the delegate as `thisRef`.
+The delegate accessors were built as if for a plain property: no receiver parameter, and `null` as `thisRef`. So
+`it.modifiedText` found no one-argument getter, `ktFile.modifiedText = null` no setter, and a bare `modifiedText` inside
+another extension on `KtFile` neither. The accessors take `$receiver` first now and pass it on.
+`DelegatedExtensionPropertyTest` (k2: read, write, a bare read in an extension, and both accessor bodies). All six
+detekt sites gone, none new, **no verdict moved**; coil unchanged at 106.
+
+### 7.57 A primitive's infix members — detekt 39 → 37, coil 106 → 103
+
+`a xor b`, `i shl 2`, `(i and 3) or (i ushr 1)`: infix MEMBERS of `kotlin.Boolean`/`Int`/…, which kotlinc compiles to
+the JVM operators. They were looked up as methods and found none. They are now the Java operators `^ & | << >> >>>`,
+mapped as the Java front end maps them (`…OperatorInt` whatever the operand type, `^` on booleans included), with
+Java's precedences. `IntrinsicCallTest` gains the row. **No verdict moved.**
+
+### 7.58 A delegate initializer's scope, and implicit narrowed receivers — detekt 37 → 33
+
+Found by one probe run printing, at each surviving unresolved call and reference, the receivers K2 names (dispatch and
+extension, with their kinds and types). Two fixtures written from reading the source had both passed without
+reproducing anything.
+
+- A delegate's `by` expression was converted in the delegated property's GETTER, where a primary-constructor
+  parameter is not in scope: `private val resolvedNames by lazy(NONE) { imports… }` with `imports` a constructor
+  parameter (two sites). It is converted where kotlinc initializes `x$delegate` now, in the same member as every
+  other property initializer (`initializerContext`). Members 7,759 → 7,761 are the synthetic instance initializers
+  this creates for two types. `DelegatedExtensionPropertyTest` gains the row, which fails on the previous code.
+- The IMPLICIT-receiver twin of §7.52. `text` inside `containsNewline()`, after a `when (this)` whose other branches
+  return, has a smart-cast implicit receiver, `KtExpression & KtResolvableCall`. `visitFile(…)` has an implicit
+  `this` typed `T : Rule, T : RequiresAnalysisApi`. `receiverLookupType` takes the component declaring the member now,
+  as the written-receiver path does. And matching an extension function's `$receiver` compares ERASED types: `this`
+  is `T`, with no TypeInfo, and the parameter carries T's first bound. `NarrowedReceiverTest` gains five rows.
+
+detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged at 103.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1607,7 +1679,7 @@ receiver takes another route), and Gradle's Kotlin DSL (`withPathSensitivity`, `
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) and narrowed receivers (§7.52) have taken detekt 4,701 → 67 and coil 367 → 283 on that dump (coil is 113 once its class path is complete, §7.39, §7.42–§7.52; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) have taken detekt 4,701 → 33 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.58; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

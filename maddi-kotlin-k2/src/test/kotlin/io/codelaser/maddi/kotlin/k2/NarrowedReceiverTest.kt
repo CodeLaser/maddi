@@ -41,6 +41,10 @@ class NarrowedReceiverTest : KotlinScanTestBase() {
                 fun <T> twoA(t: T): Int where T : Config, T : Validatable = t.validate(3)
                 fun <T> twoB(t: T): String where T : Config, T : Validatable = t.name()
                 fun <T : Validatable> loaded(l: java.util.ArrayList<T>): Int = l.get(0).prio
+                fun <T> T.implicitBound(): Int where T : Config, T : Validatable = validate(4) + prio
+                fun <T> T.ib1(): Int where T : Config, T : Validatable = validate(4)
+                fun <T> T.ib2(): Int where T : Config, T : Validatable = prio
+                fun Config.implicitSmart(): Int = if (this is Validatable) listOf(1).sumOf { prio + it } else 0
                 fun inLambda(xs: List<Config>): Boolean = xs.any { it is Validatable && it.prio > 0 }
             }
             """.trimIndent() + "\n")
@@ -59,7 +63,7 @@ class NarrowedReceiverTest : KotlinScanTestBase() {
 
     @Test
     fun theShapes() {
-        val actual = listOf("smart", "smartAccess", "smartOther", "bound", "twoBounds", "twoA", "twoB", "loaded", "inLambda")
+        val actual = listOf("smart", "smartAccess", "smartOther", "bound", "twoBounds", "twoA", "twoB", "loaded", "implicitBound", "ib1", "ib2", "implicitSmart", "inLambda")
             .joinToString("\n") { "$it: ${body(it)}" }
         assertEquals("""
             smart: return switch(c){case Validatable it->{c.validate(1);}default->{0;}};
@@ -70,6 +74,10 @@ class NarrowedReceiverTest : KotlinScanTestBase() {
             twoA: return t.validate(3);
             twoB: return t.name();
             loaded: return l.get(0).getPrio();
+            implicitBound: return ${'$'}receiver.validate(4)+${'$'}receiver.getPrio();
+            ib1: return ${'$'}receiver.validate(4);
+            ib2: return ${'$'}receiver.getPrio();
+            implicitSmart: return ${'$'}receiver instanceof Validatable?CollectionsKt___CollectionsKt.sumOf(CollectionsKt__CollectionsJVMKt.listOf(1),it->${'$'}receiver.getPrio()+it):0;
             inLambda: return CollectionsKt___CollectionsKt.any(xs,it->it instanceof Validatable&&it.getPrio()>0);
             """.trimIndent(), actual)
     }
