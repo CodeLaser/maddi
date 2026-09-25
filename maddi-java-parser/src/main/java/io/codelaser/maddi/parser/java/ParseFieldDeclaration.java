@@ -147,6 +147,9 @@ public class ParseFieldDeclaration extends CommonParse {
             Source declarationSource = source(fd);
             Source merged = builder.comments().stream().map(Comment::source).reduce(declarationSource, Source::max);
             detailedSourcesBuilder.put(DetailedSources.FIELD_DECLARATION, merged);
+            // the source was set above, before the comments were known; a built DetailedSources owns a copy of
+            // the builder's state (#51), so the late put only reaches the field through a fresh build
+            builder.setSource(source.withDetailedSources(detailedSourcesBuilder.build()));
         }
 
         // now that there is a builder, we can parse the annotations
