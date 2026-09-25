@@ -61,6 +61,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaAnonymousObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
@@ -236,6 +237,15 @@ internal class KotlinBodyConverter(
      * bare selector call rather than wrap it in a ternary. See [safeCallAsStatementLowering].
      */
     private val unwrappedSafeCalls = java.util.IdentityHashMap<KtExpression, Boolean>()
+
+    /**
+     * The anonymous type [convertObjectLiteral] built for each `object : … { … }`, by its declaration. K2 types a local
+     * holding one as the anonymous object itself, and a member of it is reachable only through that type; mapped,
+     * it is its supertype, which has no such member. javalin's `pipedInputStream.exception = e` (a property of an
+     * `object : PipedInputStream(..)`, assigned from a lambda) was a `k2-assign-target`, and the write it hid made a
+     * `var` look like a `val` to fieldCouldBeFinal.
+     */
+    private val objectLiteralTypes = java.util.IdentityHashMap<KtObjectDeclaration, TypeInfo>()
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
@@ -1623,6 +1633,12 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /** The anonymous type of [receiver] when K2 types it as an `object : …` converted here: see [objectLiteralTypes]. */
+    private fun KaSession.objectLiteralType(receiver: KtExpression): TypeInfo? {
+        val symbol = (receiver.expressionType as? KaClassType)?.symbol as? KaAnonymousObjectSymbol ?: return null
+        return (symbol.psi as? KtObjectDeclaration)?.let { objectLiteralTypes[it] }
+    }
+
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
@@ -1646,6 +1662,7 @@ internal class KotlinBodyConverter(
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = superDispatchType(expression, method)
             ?: narrowedReceiverType(expression.receiverExpression, expression.selectorExpression, method)
+            ?: objectLiteralType(expression.receiverExpression)
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
@@ -2907,6 +2924,7 @@ internal class KotlinBodyConverter(
         val symbol = expression.objectDeclaration.symbol as? KaClassSymbol
         val enclosing = method.typeInfo()
         val anon = runtime.newAnonymousType(enclosing, enclosing.builder().getAndIncrementAnonymousTypes())
+        objectLiteralTypes[expression.objectDeclaration] = anon
         val builder = anon.builder()
             .setTypeNature(runtime.typeNatureClass())
             .setAccess(runtime.accessPrivate())
