@@ -1202,10 +1202,27 @@ internal class KotlinBodyConverter(
                 runtime.newMethodCallBuilder().setObject(value).setObjectIsImplicit(false).setMethodInfo(callee)
                     .setParameterExpressions(arguments).setConcreteReturnType(type).setTypeArguments(listOf())
                     .setSource(runtime.noSource()).build()
-            } ?: sourceType?.let { destructuredGroup(value, it, i, type) }
+            } ?: extensionComponent(entry, value, type)
+                ?: sourceType?.let { destructuredGroup(value, it, i, type) }
                 ?: placeholder("k2-component${i + 1}", psi)
             runtime.newLocalVariable(name, type, init).also { locals[name] = it; localDeclared(entry, it) }
         }
+
+    /**
+     * A `componentN` declared as a top-level EXTENSION operator, called on its facade with the value as argument 0:
+     * coil's `inline operator fun IntPair.component1() = first` for a value class that declares none of its own.
+     */
+    private fun KaSession.extensionComponent(entry: KtDestructuringDeclarationEntry, value: Expression,
+                                             type: ParameterizedType): Expression? {
+        val symbol = entry.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaNamedFunctionSymbol ?: return null
+        if (symbol.receiverParameter == null || (symbol.psi as? KtNamedFunction)?.containingClassOrObject != null) return null
+        val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
+        val callee = resolveCallee(facade, symbol.name.asString(), listOf(value)) ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(value))
+            .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
 
     /**
      * A stdlib `componentN` extension, `@InlineOnly` and so absent from bytecode, as the call kotlinc inlines --
@@ -1943,6 +1960,11 @@ internal class KotlinBodyConverter(
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
     private fun KaSession.classAsValue(expression: KtNameReferenceExpression): Expression? {
         val symbol = expression.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        return singletonOf(symbol)
+    }
+
+    /** The static field holding [symbol]'s instance -- `Outer.Companion`, `Object.INSTANCE` -- or its class's companion. */
+    private fun KaSession.singletonOf(symbol: KaNamedClassSymbol): Expression? {
         // the companion's holder: its outer class, reached through K2 -- a LIBRARY companion is loaded as a type of
         // its own, with no enclosing type to walk up to
         val (holderSymbol, fieldName) = when (symbol.classKind) {
@@ -2795,7 +2817,7 @@ internal class KotlinBodyConverter(
                 if ((fn.psi as? KtNamedFunction)?.containingClassOrObject == null) {
                     val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) }
                     facade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
-                } else method.typeInfo().let { self(method) to it }
+                } else implicitReferenceScope(expression, method, locals) ?: method.typeInfo().let { self(method) to it }
             }
             receiver is KtThisExpression -> method.typeInfo().let { self(method) to it }
             else -> explicitReceiverScope(receiver, method, locals)
@@ -2804,6 +2826,30 @@ internal class KotlinBodyConverter(
         val callee = resolveCalleeByArity(owner, fn.name.asString(), fn.valueParameters.size)
             ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
         return methodReference(scope, callee, functionalType, expression)
+    }
+
+    /**
+     * `::draw` naming a member of an implicit receiver other than the class's own `this`: coil's
+     * `fun Image.toBitmap(…) = Canvas(bitmap).apply(::draw)` binds `draw` to the extension's `Image`. K2 names the
+     * receiver; the reference is bound to it (`$receiver::draw`), as a written `this::draw` would be.
+     */
+    private fun KaSession.implicitReferenceScope(expression: KtCallableReferenceExpression, method: MethodInfo,
+                                                 locals: Map<String, Variable>): Pair<Expression, TypeInfo>? {
+        val dispatch = (expression.callableReference.resolveToCall() ?: expression.resolveToCall())
+            ?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
+        if (dispatch != null) {
+            val receiver = generateSequence(dispatch) { (it as? KaSmartCastedReceiverValue)?.original }
+                .filterIsInstance<KaImplicitReceiverValue>().firstOrNull() ?: return null
+            if (receiver.symbol !is KaReceiverParameterSymbol) return null // the class's own `this`: the default path
+            val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
+            return receiverLookupType(dispatch, obj, method)?.let { obj to it }
+        }
+        // no resolved call for a reference: the enclosing extension's receiver, when its type declares the member
+        val fn = expression.callableReference.mainReference.resolveToSymbol() as? KaNamedFunctionSymbol ?: return null
+        val receiverParameter = receiverParam(method) ?: return null
+        val type = receiverParameter.parameterizedType().typeInfo() ?: return null
+        if (resolveCalleeByArity(type, fn.name.asString(), fn.valueParameters.size) == null) return null
+        return variableExpression(receiverParameter) to type
     }
 
     /**
@@ -3456,15 +3502,29 @@ internal class KotlinBodyConverter(
                                               method: MethodInfo, locals: Map<String, Variable>): Expression? {
         val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
             ?: return null
-        val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
-        val type = receiverLookupType(dispatch, obj, method) ?: return null
+        // a member extension of an `object` or companion, called from outside it through an import (okio's
+        // `ByteString.Companion.encodeUtf8`): the dispatch receiver is the singleton, not a lexical `this`
+        val singleton = objectDispatch(dispatch, method)
+        val (obj, type) = singleton
+            ?: implicitReceiverValue(dispatch, method, locals)?.let { o -> receiverLookupType(dispatch, o, method)?.let { o to it } }
+            ?: return null
         val memberArgs = contexts + listOf(receiverExpr) + arguments
         val callee = resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(obj).setObjectIsImplicit(true)
+            .setObject(obj).setObjectIsImplicit(singleton == null)
             .setMethodInfo(callee).setParameterExpressions(memberArgs)
             .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    private fun KaSession.objectDispatch(dispatch: KaReceiverValue, method: MethodInfo): Pair<Expression, TypeInfo>? {
+        val symbol = (dispatch.type as? KaClassType)?.symbol as? KaNamedClassSymbol ?: return null
+        if (symbol.classKind != KaClassKind.OBJECT && symbol.classKind != KaClassKind.COMPANION_OBJECT) return null
+        val type = classTypeInfo(symbol) ?: return null
+        // written inside the object (or a type nested in it): its own `this` is the receiver, the default path
+        if (generateSequence(method.typeInfo()) { t -> t.compilationUnitOrEnclosingType().let { if (it.isRight) it.right else null } }
+                .any { it == type }) return null
+        return singletonOf(symbol)?.let { it to members(type) }
     }
 
     /**

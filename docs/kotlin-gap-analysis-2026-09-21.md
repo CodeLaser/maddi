@@ -1835,6 +1835,22 @@ coil **29 → 8** (none new); detekt unchanged at 8, **no verdict moved**. coil'
 on detekt), `encodeUtf8` (a `@JvmStatic` member extension of `ByteString.Companion`), the `component1`/`component2` of a
 value class in a destructuring, and `Canvas(bitmap).apply(::draw)`.
 
+### 7.69 coil's last three — coil 8 → 4
+
+- **An extension `componentN`.** coil's value class `IntPair` declares no components; `inline operator fun
+  IntPair.component1() = first` is top-level. Destructuring looked for members only; an extension `componentN` is
+  now called on its facade with the value as argument 0.
+- **A member extension of an `object` or companion, called through its import** (okio's
+  `import okio.ByteString.Companion.encodeUtf8` then `encodeUtf8()`). The dispatch receiver is the singleton. It was
+  converted as `this.enc(s)`, with the companion's method and the CALLING class's `this`: well formed and wrong,
+  invisible to the census, and the reason the class-file case (`encodeUtf8`) failed outright. Now
+  `Bs.Companion.enc(s)`; written inside the object, its own `this` is still the receiver.
+- **A reference to a member of the enclosing extension's receiver.** `fun Image.toBitmap(…) = Canvas(b).apply(::draw)`
+  binds `draw` to the extension's `Image`, not to a `this` the facade does not have: `$receiver::draw`.
+
+`CoilLastShapesTest`. coil **8 → 4**, and the 4 are reified `T::class` (refused, as on detekt). detekt unchanged at 8,
+**no verdict moved**, although the companion fix corrects a receiver.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1863,7 +1879,7 @@ value class in a destructuring, and `Canvas(bitmap).apply(::draw)`.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) and calls by the JVM name (§7.68) took coil 102 → 8 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) calls by the JVM name (§7.68) and coil's last three (§7.69) took coil 102 → 4 (all reified `T::class`) and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
