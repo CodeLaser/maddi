@@ -101,7 +101,8 @@ class KotlinProjectScan(
     inner class Session internal constructor(private val disposable: Disposable, orderedSourceSets: List<SourceSet>,
                                              libraryRoots: List<Path>, jdkHome: Path,
                                              javaSourceRoots: List<Path>) : KotlinSession {
-        private val moduleBySourceSet = LinkedHashMap<SourceSet, KaSourceModule>()
+        // a source set is one K2 module, or -- a Kotlin-multiplatform target's fragments -- a dependsOn chain of them
+        private val modulesBySourceSet = LinkedHashMap<SourceSet, List<KaSourceModule>>()
         private val session = buildStandaloneAnalysisAPISession(disposable) {
             val jvm = JvmPlatforms.defaultJvmPlatform
             buildKtModuleProvider {
@@ -131,17 +132,26 @@ class KotlinProjectScan(
                 javaModule?.let { addModule(it) }
                 // dependency order => a dependent finds its already-built upstream module in the map
                 orderedSourceSets.forEach { ss ->
-                    val module = buildKtSourceModule {
-                        moduleName = ss.name()
-                        platform = jvm
-                        ss.sourceDirectories().filter { Files.exists(it) }.forEach { addSourceRoot(it) }
-                        addRegularDependency(jdk)
-                        addRegularDependency(library)
-                        javaModule?.let { addRegularDependency(it) }
-                        ss.dependencies().forEach { dep -> moduleBySourceSet[dep]?.let { addRegularDependency(it) } }
+                    val directories = ss.sourceDirectories().filter { Files.exists(it) }
+                    val fragments = multiplatformFragments(directories)
+                    val modules = ArrayList<KaSourceModule>()
+                    (fragments?.map { listOf(it) } ?: listOf(directories)).forEachIndexed { i, roots ->
+                        val module = buildKtSourceModule {
+                            moduleName = if (fragments == null) ss.name() else "${ss.name()}#${roots.single().parent.fileName}"
+                            platform = jvm
+                            if (fragments != null) languageVersionSettings = MULTIPLATFORM
+                            roots.forEach { addSourceRoot(it) }
+                            addRegularDependency(jdk)
+                            addRegularDependency(library)
+                            javaModule?.let { addRegularDependency(it) }
+                            ss.dependencies().forEach { dep -> modulesBySourceSet[dep]?.forEach { addRegularDependency(it) } }
+                            // each fragment refines the one before it: an `expect` is matched to its `actual`
+                            modules.lastOrNull()?.let { addDependsOnDependency(it) }
+                        }
+                        addModule(module)
+                        modules += module
                     }
-                    addModule(module)
-                    moduleBySourceSet[ss] = module
+                    modulesBySourceSet[ss] = modules
                 }
             }
         }.also { it.registerKDocResolution() }
@@ -156,8 +166,8 @@ class KotlinProjectScan(
         override val result = LinkedHashMap<SourceSet, List<TypeInfo>>()
 
         private fun ktFiles(ss: SourceSet): List<KtFile> {
-            val module = checkNotNull(moduleBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }
-            return (session.modulesWithFiles[module] ?: emptyList()).filterIsInstance<KtFile>()
+            val modules = checkNotNull(modulesBySourceSet[ss]) { "source set ${ss.name()} is not in this session" }
+            return modules.flatMap { session.modulesWithFiles[it] ?: emptyList() }.filterIsInstance<KtFile>()
         }
 
         /**
@@ -224,3 +234,28 @@ class KotlinProjectScan(
         override fun close() = Disposer.dispose(disposable)
     }
 }
+
+/**
+ * A Kotlin-multiplatform target's source directories, when [directories] are its fragments: each `src/<fragment>/kotlin`,
+ * `commonMain` (or `commonTest`) first, listed in refinement order -- `commonMain`, `nonAndroidMain`, …, `jvmMain` for
+ * coil-core's JVM target. Each becomes its own K2 module depending on the one before, so an `expect` in one is matched
+ * to its `actual` in a later one, as kotlinc matches them. Flattened into one module, the two are rival declarations
+ * of one name and K2 resolves neither (51 of coil's 102 placeholders). Null for anything else: splitting an ordinary
+ * multi-directory set would hide the later directories from the earlier ones.
+ */
+internal fun multiplatformFragments(directories: List<Path>): List<Path>? {
+    if (directories.size < 2) return null
+    val fragments = directories.map { dir ->
+        dir.parent?.fileName?.toString()?.takeIf { dir.fileName?.toString() == "kotlin" && dir.parent?.parent?.fileName?.toString() == "src" }
+            ?: return null
+    }
+    val common = fragments.first()
+    if (common != "commonMain" && common != "commonTest") return null
+    val suffix = common.removePrefix("common")
+    return directories.takeIf { fragments.all { it.endsWith(suffix) } }
+}
+
+private val MULTIPLATFORM = org.jetbrains.kotlin.config.LanguageVersionSettingsImpl(
+    org.jetbrains.kotlin.config.LanguageVersion.LATEST_STABLE, org.jetbrains.kotlin.config.ApiVersion.LATEST,
+    specificFeatures = mapOf(org.jetbrains.kotlin.config.LanguageFeature.MultiPlatformProjects
+            to org.jetbrains.kotlin.config.LanguageFeature.State.ENABLED))

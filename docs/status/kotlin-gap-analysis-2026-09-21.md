@@ -1711,6 +1711,146 @@ The shapes from §7.58's probe that were still open, three causes and seven site
 `TestLibraryCompanions` gains `Character.UnicodeBlock.of('a')` and `toHexString(5)`. All seven gone, none new, **no
 verdict moved**. coil unchanged at 102.
 
+### 7.63 Inline-only stdlib members, against the class file — detekt 18 → 15
+
+Two models of one library type again (§7.47, §7.48, §7.53). A mixed-pipeline probe converted `runCatching { }.isSuccess`,
+`.getOrNull()` and `val (x, y) = m.destructured` without a placeholder: there the stdlib types were K2-built,
+with every member the Kotlin view declares. On detekt they are CLASS-FILE types, and the class file has what kotlinc
+emits:
+
+- `kotlin.Result` is a VALUE class. Its members are statics taking the unboxed value, `isSuccess-impl(Object)`, and
+  there is no property or getter. A member of a value class, called or read, is now that static when the class file
+  has it (`valueClassMember`).
+- `MatchResult.Destructured.componentN()` is `@InlineOnly`, absent from the class file, which has `getMatch()` and
+  `toList()`. kotlinc inlines its body, `match.groupValues[N]`, and so does this:
+  `d.getMatch().getGroupValues().get(N)`, as `Map.Entry`'s inline components already were.
+
+`Result.getOrNull()` stays a placeholder: its inline body reads the receiver twice, and the one site's receiver is a
+call. No unit fixture: the k2 and mixed worlds build these types from K2, so only the corpus can show this. detekt
+**18 → 15** (three gone, none new), **no verdict moved**; coil unchanged at 102.
+
+### 7.64 The innermost receiver, the safe chain, operator calls — detekt 15 → 10
+
+Five sites, five fixes, each reproduced in a unit fixture first and measured on the corpus once, together:
+
+- **The innermost implicit receiver wins.** A bare name inside a receiver lambda was looked up on the enclosing
+  class first. detekt's `EnvironmentFacade` builder lambda assigns a property its receiver shares a name with, and
+  the conversion READ the class's own property: a silent wrong read, not a placeholder, except where the class's
+  property had no setter (`k2-assign-target`). A name that K2 resolves against an implicit receiver PARAMETER now goes
+  to that receiver first (`readsAReceiverMember`). `ReceiverShadowingTest`.
+- **`a?.m[k]` is guarded whole.** The PSI is `(a?.m)[k]`, but the index belongs to the safe-call chain: K2 dispatches
+  `get` on the non-null `m`, and types `a?.m` as the chain's result (on detekt, the element). It converted to
+  `(a==null?null:a.m).get(k)`, which calls `get` on null. Now `a==null?null:a.m.get(k)`, as kotlinc compiles it.
+  `MemberIndexOperatorTest`.
+- **Unary operators that are calls.** `+"text"` in a kotlinx.html builder is `Tag.unaryPlus(String)`, a member
+  extension called on the implicit tag. `-v` on a user type is its `unaryMinus()`, member or top-level extension;
+  that one used to become Java's `-` silently. `+i` on a primitive is `i`. `UnaryOperatorCallTest`.
+- **A `try` as a lambda's value** (`runCatching { try { … } catch … }`) returns from each arm, as the method-body
+  form already did.
+- **An annotated jump elvis** (`val (x, y) = @Suppress(…) if (b) { … } else { null } ?: return 0`) is lowered like
+  the unannotated one: the annotation is looked through. `ThrowBodyTest`.
+- **An annotation class gets no `$default` constructor.** kotlinc emits none, and the one built here carried the
+  element default `[]` as a collection literal. ⚠ The annotation's primary constructor is still modelled. The JVM
+  has none; its elements are abstract methods. That divergence is open.
+
+The receiver fix is the one that could move verdicts, since it corrects reads rather than filling placeholders, and
+none moved. detekt **15 → 10** (five gone, none new), members 7,761 → 7,759 (the two annotation constructors);
+coil unchanged at 102.
+
+Refused, and staying counted: UseDataClass's `map { … ?: return }` (a non-local return out of an inlined lambda,
+which no Java lambda can express), `Result.getOrNull()` (§7.63), reified `T::class` ×3. The two open shapes are §7.65;
+the gradle-DSL calls, §7.66.
+
+### 7.65 Statements where Kotlin writes a value — detekt 10 → 8
+
+- **A jump elvis as a branch of a value `if`.** Kotlin binds `if (a) x else if (b) y else { null } ?: return false`
+  as `else (if (b) y else { null }) ?: return false`: the elvis is the outer ELSE branch, not the whole initializer
+  (detekt MissingUseCall, in a destructuring under `@Suppress`). Such an `if` now takes the statement form: a
+  temporary assigned in each branch, and the elvis branch `$elvis = inner; if ($elvis == null) return false;
+  target = $elvis`. A nested value `if` in branch position is assigned in each of ITS branches. `ThrowBodyTest` g, h.
+- **A property initializer only a statement can hold** (`val m = if (regex) { val r = …; fun f(…) = …; ::f } else
+  { … }`, detekt AbsentOrWrongFileLicense; also a `try`). The field keeps no initializer. An instance property is
+  assigned in the constructor that runs the init blocks, in source order with them, reading the constructor's
+  parameters: that is where kotlinc puts it. A Java instance initializer would have been simpler and wrong, since it
+  runs before the constructor assigns the properties it reads. A top-level or static one goes into the static
+  initializer. `PropertyStatementInitializerTest`.
+
+detekt **10 → 8** (two gone, none new), **no verdict moved**; coil unchanged at 102. Each fix was made at unit level
+and the two were measured on the corpus together.
+
+### 7.66 The gradle-DSL calls are K2's, not the conversion's
+
+detekt's three remaining build-logic placeholders (`extendsFrom`, `withPropertyName`/`withPathSensitivity`, and
+`generatedConfig.get()(fromProject) { … }`) do not resolve in K2 itself: the symbol and the dispatch receiver are
+null. The class path is complete (gradle-api, gradle-kotlin-dsl 9.6.1 all present). Gradle compiles `kotlin-dsl`
+sources with the **SAM-with-receiver** compiler plugin (`@HasImplicitReceiver`: an `Action<T>` lambda is `T.() -> Unit`)
+and the **assignment** plugin (`prop = v` on a `Property<T>`). maddi's standalone K2 session registers no compiler
+plugin, so inside `configurations.resolvable(…) { extendsFrom(…) }` there is no receiver. The Analysis API has the hook
+(`KotlinCompilerPluginsProvider`); the standalone one is session-wide, so a per-module provider would be needed to
+enable it only for source sets built with `kotlin-dsl`. Not done: it is a new dependency and a new capability.
+
+### 7.67 A multiplatform target as a dependsOn chain — coil 102 → 29
+
+Half of coil's placeholders (51 of 102) were K2 resolving nothing: symbol and receiver both null. The JVM slice lists
+coil-core's six KMP fragments (`commonMain`, `nonAndroidMain`, `nonJsCommonMain`, `nonAppleMain`, `jvmCommonMain`,
+`jvmMain`) as one source set, and KotlinProjectScan made that ONE K2 module. There an `expect` and its `actual` are two
+declarations of one name. K2 resolved neither, and everything typed through them failed with them (`request.data`,
+`.listener`, … in `RealImageLoader.execute`).
+
+- **The fragments are a dependsOn chain.** A source set whose directories are all `src/<fragment>/kotlin`, with
+  `commonMain` (or `commonTest`) first, becomes one K2 module per directory, each depending on the one before, with
+  `MultiPlatformProjects` enabled. K2 then matches an `expect` to its `actual` as kotlinc does. A linear chain in the
+  listed order is a valid refinement for a single target. Anything else stays one module: splitting an ordinary
+  multi-directory set would hide its later directories from the earlier ones (`multiplatformFragments`).
+- **A call to an `expect` fun goes to its actual's facade.** In `commonMain`, K2 resolves the call to the `expect`,
+  for which kotlinc emits nothing. The top-level `actual` functions are indexed by package, name, receiver and arity
+  (`registerActuals`), so `ioCoroutineDispatcher()` is `Coroutines_nonJsCommonKt.ioCoroutineDispatcher()`. An
+  `expect class` was already dropped in favour of its `actual` (KotlinScan, `TestExpectActual`).
+- **A typealias expansion is resolved in the alias's own module.** `actual typealias Bitmap = org.jetbrains.skia.Bitmap`
+  sits in `nonAndroidMain`; analysing it from a `commonMain` use site throws `KaBaseIllegalPsiException`. The
+  expansion's `ClassId` is now taken when the aliases are registered and rebuilt in the use-site session.
+
+`MultiplatformFragmentsTest`. coil **102 → 29** (18 of 186 types, 26 of 1,458 members); coil runs prep only, so
+there is no verdict to compare. detekt, which has no fragments, is unchanged at 8 with **no verdict moved**. The
+stdlib parse (`commonMain` + `jvmMain` with `generated`/`jdkN` roots) is not a fragment set and is unaffected.
+
+### 7.68 Called by the JVM name — coil 29 → 8
+
+- **`@JvmName`.** A callee renamed for the JVM is called by that name: okio's `operator fun Path.div(child: String)` is
+  `resolve` in the class file, `fun String.toPath()` is `get`, and its inline `FileSystem.read`/`write` are renamed too.
+  A source function already carried its `@JvmName` as its CST name, but its callers looked it up by the Kotlin name.
+  The call's conversion names the JVM name (from the declaration's PSI, else the symbol's annotations) for
+  `resolveCallee` to try FIRST, then the written name. Both are needed: the unit world's stdlib is built from K2
+  and keeps Kotlin names (`sum`), while the class file has `sumOfInt`. The rename is scoped to one call's resolution,
+  so an argument's call never inherits an enclosing call's rename. `JvmNameCallTest`.
+- **`x in 0.0..1.0`** is `0.0 <= x && x <= 1.0`, as kotlinc compiles it: a floating-point range has no class to
+  construct. Only for a stable `x`, which is then read twice at no cost.
+- **Arithmetic on a boxed primitive** (`pair.second + 1` with `Pair<*, Int>`): K2 resolved `Int.plus`, so it is Java's
+  `+`, which unboxes.
+- **A `try` alone in a value-`if` branch** takes the statement form (§7.65), each arm assigning.
+- **`MutableList.removeAt(i)`** is `java.util.List.remove(int)`; the argument's type picks that overload.
+  `CoilTailShapesTest`.
+
+coil **29 → 8** (none new); detekt unchanged at 8, **no verdict moved**. coil's 8: reified `T::class` ×4 (refused, as
+on detekt), `encodeUtf8` (a `@JvmStatic` member extension of `ByteString.Companion`), the `component1`/`component2` of a
+value class in a destructuring, and `Canvas(bitmap).apply(::draw)`.
+
+### 7.69 coil's last three — coil 8 → 4
+
+- **An extension `componentN`.** coil's value class `IntPair` declares no components; `inline operator fun
+  IntPair.component1() = first` is top-level. Destructuring looked for members only; an extension `componentN` is
+  now called on its facade with the value as argument 0.
+- **A member extension of an `object` or companion, called through its import** (okio's
+  `import okio.ByteString.Companion.encodeUtf8` then `encodeUtf8()`). The dispatch receiver is the singleton. It was
+  converted as `this.enc(s)`, with the companion's method and the CALLING class's `this`: well formed and wrong,
+  invisible to the census, and the reason the class-file case (`encodeUtf8`) failed outright. Now
+  `Bs.Companion.enc(s)`; written inside the object, its own `this` is still the receiver.
+- **A reference to a member of the enclosing extension's receiver.** `fun Image.toBitmap(…) = Canvas(b).apply(::draw)`
+  binds `draw` to the extension's `Image`, not to a `this` the facade does not have: `$receiver::draw`.
+
+`CoilLastShapesTest`. coil **8 → 4**, and the 4 are reified `T::class` (refused, as on detekt). detekt unchanged at 8,
+**no verdict moved**, although the companion fix corrects a receiver.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1739,7 +1879,7 @@ verdict moved**. coil unchanged at 102.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) and the last implicit-receiver and static-call shapes (§7.62) have taken detekt 4,701 → 18 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.62; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) calls by the JVM name (§7.68) and coil's last three (§7.69) took coil 102 → 4 (all reified `T::class`) and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

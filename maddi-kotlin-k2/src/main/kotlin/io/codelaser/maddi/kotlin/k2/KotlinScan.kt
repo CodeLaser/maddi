@@ -441,6 +441,8 @@ class KotlinScan(
         // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
         // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
         typeMapper.registerTypeAliases(ktFiles)
+        // …and the top-level `actual` functions, so a call K2 resolves to the `expect` goes to the actual's facade
+        bodyConverter.registerActuals(ktFiles)
         // bootstrap: populate the predefined java.lang.Object with its real members (equals/hashCode/toString/
         // …) once, so source types resolve inherited-from-Object calls (mirrors openjdk's ScanCompilationUnits)
         ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject(); bootstrapString() } }
@@ -741,7 +743,12 @@ class KotlinScan(
     // and scanning it per type made the kotlin-stdlib parse quadratic: 26 s became 189 s and then a heap failure.
     private val pendingInitializers = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
     private class PendingInitializer(val owner: TypeInfo, val field: FieldInfo, val expression: KtExpression,
-                                     val static: Boolean)
+                                     val static: Boolean) {
+        var converted = false
+    }
+
+    // instance properties whose initializer only a statement can hold, per type: converted with its init blocks
+    private val statementInitializersOf = java.util.IdentityHashMap<TypeInfo, MutableList<PendingInitializer>>()
 
     // the constructor an instance property's initializer and an init block run in, per type: the primary one, else
     // the first that calls super rather than this(...)
@@ -1211,7 +1218,10 @@ class KotlinScan(
      * expression) gets them as the body of its instance initializer.
      */
     private fun KaSession.convertInitBlocks(declaration: KtClassOrObject, owner: TypeInfo) {
-        val inits = declaration.getAnonymousInitializers()
+        val properties = statementInitializersOf.remove(owner).orEmpty()
+        // init blocks and statement-form property initializers, in source order: kotlinc runs them so
+        val inits: List<org.jetbrains.kotlin.psi.KtElement> = (declaration.getAnonymousInitializers() + properties.map { it.expression })
+            .sortedBy { it.textOffset }
         if (inits.isEmpty()) return
         val ctor = runsInitOf[owner]
         if (ctor == null) {
@@ -1219,7 +1229,9 @@ class KotlinScan(
                 it.isInstanceInitializer
             }
             val body = runtime.newBlockBuilder()
-            inits.forEachIndexed { j, init -> body.addStatement(convertInitBlock(init, initializer, bodyConverter.pad(j, inits.size))) }
+            inits.filterIsInstance<KtAnonymousInitializer>().let { blocks ->
+                blocks.forEachIndexed { j, init -> body.addStatement(convertInitBlock(init, initializer, bodyConverter.pad(j, blocks.size))) }
+            }
             initializer.builder().setMethodBody(body.build())
             return
         }
@@ -1228,7 +1240,14 @@ class KotlinScan(
         val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
         val prefix = invocation + ctor.parameters().count { p -> owner.fields().any { it.name() == p.name() } }
         val total = prefix + inits.size
-        val blocks = inits.mapIndexed { j, init -> convertInitBlock(init, ctor, bodyConverter.pad(prefix + j, total)) }
+        val blocks = inits.mapIndexed { j, init ->
+            val index = bodyConverter.pad(prefix + j, total)
+            if (init is KtAnonymousInitializer) convertInitBlock(init, ctor, index)
+            else properties.first { it.expression === init }.let { p ->
+                inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, ctor, index) } }
+                    ?: runtime.newExpressionAsStatement(runtime.newEmptyExpression("k2-property-initializer"))
+            }
+        }
         initBlocksOf[ctor] = PlannedInitBlocks(prefix, total, blocks)
     }
 
@@ -1754,8 +1773,33 @@ class KotlinScan(
         convertDelegateInitializers(owner)
         // an `object :` expression in an initializer queues its own properties under its own type, which its
         // conversion finishes (finishAnonMembers)
-        pendingInitializers.remove(owner)?.forEach { p ->
+        val pending = pendingInitializers.remove(owner) ?: return
+        // An initializer only a statement can hold. An INSTANCE property's is code of the constructor that runs init
+        // blocks, in source order with them (convertInitBlocks), reading the constructor's parameters as kotlinc's
+        // does; a Java instance initializer would run before the constructor had assigned the properties it reads.
+        // A static one (a facade's, a companion's) goes into the static initializer.
+        val blocks = java.util.IdentityHashMap<MethodInfo, MutableList<Statement>>()
+        pending.forEach { p ->
+            if (!bodyConverter.needsStatementInitializer(p.expression)) return@forEach
+            if (!p.static && runsInitOf[owner] != null) {
+                statementInitializersOf.getOrPut(owner) { mutableListOf() } += p
+                return@forEach
+            }
+            if (!p.static) return@forEach
+            val block = initializerContext(owner, true)
+            val statements = blocks.getOrPut(block) { mutableListOf() }
+            inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10)) } }
+                ?.let { statements += it; p.converted = true }
+        }
+        pending.forEach { p ->
+            if (p.converted || statementInitializersOf[owner]?.contains(p) == true) return@forEach
             p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(owner, p.static), emptyMap()))
+        }
+        blocks.forEach { (method, statements) ->
+            if (statements.isEmpty()) return@forEach
+            val body = runtime.newBlockBuilder()
+            statements.forEach { body.addStatement(it) }
+            method.builder().setMethodBody(body.build())
         }
     }
 
@@ -2255,6 +2299,10 @@ class KotlinScan(
         val declaration = ctor.psi ?: return null
         val parameters = ctor.valueParameters.map { it.psi as? KtParameter }
         if (parameters.none { it?.defaultValue != null }) return null
+        // an annotation's defaults are its elements' `default` values; the JVM gives it no constructor to call
+        // (detekt's `annotation class KotlinCoreEnvironmentTest(val paths: Array<String> = [])`)
+        if (com.intellij.psi.util.PsiTreeUtil.getParentOfType(declaration, org.jetbrains.kotlin.psi.KtClass::class.java)
+                ?.isAnnotation() == true) return null
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder().setSynthetic(true)
         target.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }

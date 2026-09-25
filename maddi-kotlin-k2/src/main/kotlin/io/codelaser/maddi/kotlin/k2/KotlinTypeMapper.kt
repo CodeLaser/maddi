@@ -252,14 +252,21 @@ internal class KotlinTypeMapper(
     // `actual typealias Handle` are, to a plain JVM module, two declarations of one FQN, and the CLASS wins —
     // `findTypeAlias(classId)` returns null and `findClassLike(classId)` returns the class. So the alias is
     // only reachable through the declaration itself. Populated by KotlinScan before conversion.
-    private val typeAliasByFqn = mutableMapOf<String, KtTypeAlias>()
+    // Stored as the expansion's ClassId, resolved in the ALIAS's own module: with a multiplatform target split into
+    // fragment modules, an `actual typealias` in nonAndroidMain cannot be analysed from a commonMain use site.
+    private val typeAliasByFqn = mutableMapOf<String, ClassId>()
 
     /** Register every top-level `typealias` in [ktFiles], so an `expect` type can resolve to its expansion. */
     internal fun registerTypeAliases(ktFiles: List<KtFile>) {
         ktFiles.forEach { ktFile ->
             val packageName = ktFile.packageFqName.asString()
-            ktFile.declarations.filterIsInstance<KtTypeAlias>().forEach { alias ->
-                alias.name?.let { typeAliasByFqn[if (packageName.isEmpty()) it else "$packageName.$it"] = alias }
+            val aliases = ktFile.declarations.filterIsInstance<KtTypeAlias>()
+            if (aliases.isEmpty()) return@forEach
+            analyze(ktFile) {
+                aliases.forEach { alias ->
+                    val expanded = (alias.symbol.expandedType as? KaClassType)?.classId ?: return@forEach
+                    alias.name?.let { typeAliasByFqn[if (packageName.isEmpty()) it else "$packageName.$it"] = expanded }
+                }
             }
         }
     }
@@ -315,7 +322,7 @@ internal class KotlinTypeMapper(
         // JVM class has. Resolve through the alias to what it expands to, which is the type that really exists.
         // Guarded by isExpect, so the overwhelmingly common path does not pay for the lookup.
         if ((type.symbol as? KaNamedClassSymbol)?.isExpect == true) {
-            val expanded = typeAliasByFqn[type.classId.asFqNameString()]?.symbol?.expandedType as? KaClassType
+            val expanded = typeAliasByFqn[type.classId.asFqNameString()]?.let { buildClassType(it) } as? KaClassType
             if (expanded != null && expanded.classId != type.classId) {
                 val target = mapClassType(expanded, owner, method)
                 // Re-apply the USE-SITE type arguments. The expansion's own arguments name the ALIAS's type
