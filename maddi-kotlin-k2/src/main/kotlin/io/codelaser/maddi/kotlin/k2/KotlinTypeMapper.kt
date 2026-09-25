@@ -163,6 +163,21 @@ internal class KotlinTypeMapper(
      */
     private val shells = java.util.IdentityHashMap<TypeInfo, KaSymbolPointer<KaNamedClassSymbol>>()
 
+    /**
+     * The library types whose members [loadLibraryMembers] is loading right now: see [nestedInLoading].
+     */
+    private val loadingMembers = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
+
+    /**
+     * Whether [jvmFqn] is nested in a type whose members this mapper is loading, so that the shared CompiledTypesManager
+     * must not be asked for it: loading a nested class loads its enclosing class, which the class scanner found in the
+     * registry -- this mapper's half-built instance -- filled from the class file and committed, and the member load's
+     * own closing commit threw. MEASURED 2026-09-25: jetty's `Request` reaching `Request.Content` from one of its own
+     * signatures failed the whole javalin parse. The nested type is built here instead, like its enclosing type.
+     */
+    private fun nestedInLoading(jvmFqn: String): Boolean =
+        loadingMembers.any { jvmFqn.startsWith(it.fullyQualifiedName() + ".") }
+
     /** Give a [shells] type its members, when reached from where its first visit could not. */
     private fun KaSession.deepen(typeInfo: TypeInfo) {
         if (memberDepth >= maxMemberDepth) return
@@ -348,7 +363,7 @@ internal class KotlinTypeMapper(
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            compiledTypesManager?.type(jvmFqn, librarySourceSet)?.also {
+            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet))?.also {
                 // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
                 // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
                 // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
@@ -614,6 +629,7 @@ internal class KotlinTypeMapper(
     private fun KaSession.loadLibraryMembers(typeInfo: TypeInfo, symbol: KaNamedClassSymbol) {
         val builder = typeInfo.builder()
         memberDepth++
+        loadingMembers.add(typeInfo)
         try {
             // Static fields FIRST (`System.out`, `Integer.MAX_VALUE`, `Math.PI`, …): they live in the static
             // member scope as KaJavaFieldSymbols (not properties), and are commonly used as call receivers
@@ -691,6 +707,7 @@ internal class KotlinTypeMapper(
                 .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
         } finally {
             memberDepth--
+            loadingMembers.remove(typeInfo)
         }
     }
 
