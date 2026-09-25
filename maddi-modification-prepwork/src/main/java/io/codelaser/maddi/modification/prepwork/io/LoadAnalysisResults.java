@@ -66,10 +66,21 @@ public class LoadAnalysisResults {
     private static final Logger LOGGER = LoggerFactory.getLogger(LoadAnalysisResults.class);
     private final SourceSet sourceSetOfRequest; // for loading types
     private final Runtime runtime;
+    // which property keys to decode; all by default. A SOURCE analysis' results carry internal properties (links,
+    // methodLinks, ...) the prepwork codec has no decoder for, and a few whose decoding needs types still being
+    // loaded (downcastParameter); a consumer that only wants the published verdicts -- ComposeAnalysisHints, which
+    // writes hint sources from a source run -- restricts the load to those.
+    private java.util.function.Predicate<String> propertyKeyFilter = _ -> true;
 
     public LoadAnalysisResults(Runtime runtime, SourceSet sourceSetOfRequest) {
         this.runtime = runtime;
         this.sourceSetOfRequest = Objects.requireNonNull(sourceSetOfRequest);
+    }
+
+    /** Decode only the properties whose key passes {@code filter}; the rest of each results file is skipped. */
+    public LoadAnalysisResults setPropertyKeyFilter(java.util.function.Predicate<String> filter) {
+        this.propertyKeyFilter = Objects.requireNonNull(filter);
+        return this;
     }
 
     public int go(List<String> directories) throws IOException {
@@ -256,7 +267,7 @@ public class LoadAnalysisResults {
         }
         context.push(info);
         try {
-            processData(codec, context, info, dataJo);
+            processData(codec, context, info, dataJo, propertyKeyFilter);
             if (jo.size() > 5) {
                 KeyValuePair subs = (KeyValuePair) jo.get(5);
                 String subKey = subs.get(0).getSource();
@@ -286,11 +297,13 @@ public class LoadAnalysisResults {
         return true;
     }
 
-    private static void processData(Codec codec, Codec.Context context, Info info, JSONObject dataJo) {
+    private static void processData(Codec codec, Codec.Context context, Info info, JSONObject dataJo,
+                                    java.util.function.Predicate<String> keyFilter) {
         List<Codec.EncodedPropertyValue> epvs = new ArrayList<>();
         for (int i = 1; i < dataJo.size(); i += 2) {
             if (dataJo.get(i) instanceof KeyValuePair kvp2) {
                 String key = CodecImpl.unquote(kvp2.get(0).getSource());
+                if (!keyFilter.test(key)) continue;
                 epvs.add(new Codec.EncodedPropertyValue(key, new CodecImpl.D(kvp2.get(2))));
             }
         }

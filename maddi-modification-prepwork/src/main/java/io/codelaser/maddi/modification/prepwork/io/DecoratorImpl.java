@@ -77,6 +77,12 @@ public class DecoratorImpl implements Qualification.Decorator {
     private final AnnotationExpression staticSideEffectsAnnotation;
 
     private final Set<Class<?>> importsNeeded = new HashSet<>();
+    // EXPLICIT mode: print every computed verdict, including the ones this decorator otherwise leaves to a default.
+    // The defaults assumed here are not the hints compiler's: an unannotated parameter reads back @NotModified when
+    // its type is @Immutable(hc) (a T), an unannotated @FinalFields type reads back mutable. Hints written from a
+    // source analysis (ComposeAnalysisHints) must round-trip to the computed verdicts, so they use this mode: on vavr
+    // the default mode turned 731 computed-modified parameters and 143 dependent ones into optimistic claims.
+    private final boolean explicit;
 
     private final Map<Element, Element> translationMap;
 
@@ -85,6 +91,13 @@ public class DecoratorImpl implements Qualification.Decorator {
     }
 
     public DecoratorImpl(Runtime runtime, SourceSet sourceSetOfRequest, Map<Element, Element> translationMap) {
+        this(runtime, sourceSetOfRequest, translationMap, false);
+    }
+
+    /** {@code explicit}: print every computed verdict, not only the ones that differ from this decorator's defaults. */
+    public DecoratorImpl(Runtime runtime, SourceSet sourceSetOfRequest, Map<Element, Element> translationMap,
+                         boolean explicit) {
+        this.explicit = explicit;
         this.runtime = runtime;
         notModifiedTi = runtime.getFullyQualified(NotModified.class, true, sourceSetOfRequest);
         notModifiedAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(notModifiedTi).build();
@@ -192,6 +205,9 @@ public class DecoratorImpl implements Qualification.Decorator {
                 propertyImmutable = IMMUTABLE_METHOD;
                 propertyUnmodified = !methodInfo.isConstructor() && analysis.getOrDefault(NON_MODIFYING_METHOD, FALSE).isTrue()
                         ? NON_MODIFYING_METHOD : null;
+                if (explicit && !methodInfo.isConstructor() && propertyUnmodified == null) {
+                    propertyModifiedAnnotated = NON_MODIFYING_METHOD;
+                }
                 propertyIdentity = methodInfo.isIdentity() ? IDENTITY_METHOD : null;
                 propertyFluent = methodInfo.isFluent() ? FLUENT_METHOD : null;
                 propertyIgnoreModifications = methodInfo.isIgnoreModification() ? IGNORE_MODIFICATION_METHOD : null;
@@ -229,7 +245,8 @@ public class DecoratorImpl implements Qualification.Decorator {
                                      && isUnmodified ? UNMODIFIED_PARAMETER : null;
                 propertyModifiedAnnotated = !pi.parameterizedType().isPrimitiveStringClass()
                                             && !isUnmodified
-                                            && isAnnotated(pi, UNMODIFIED_PARAMETER) ? UNMODIFIED_PARAMETER : null;
+                                            && (explicit || isAnnotated(pi, UNMODIFIED_PARAMETER))
+                        ? UNMODIFIED_PARAMETER : null;
                 immutable = immutable(analysis.getOrDefault(IMMUTABLE_PARAMETER, MUTABLE), pi.parameterizedType());
                 propertyImmutable = IMMUTABLE_PARAMETER;
                 Value.Independent independentValue = analysis.getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
@@ -311,6 +328,16 @@ public class DecoratorImpl implements Qualification.Decorator {
                 b.addKeyValuePair("hc", runtime.constantTrue());
             }
             list.add(new AnnotationProperty(b.build(), propertyImmutable));
+        } else if (explicit && propertyImmutable == IMMUTABLE_TYPE && immutable != null && immutable.isFinalFields()) {
+            // isMutable() counts @FinalFields as mutable, so the default mode prints nothing here, and the hints
+            // compiler then reads the type as MUTABLE
+            importsNeeded.add(FinalFields.class);
+            list.add(new AnnotationProperty(runtime.newAnnotationExpressionBuilder().setTypeInfo(finalFieldsTi)
+                    .build(), propertyImmutable));
+            if (propertyContainer != null) {
+                importsNeeded.add(Container.class);
+                list.add(new AnnotationProperty(containerAnnotation, propertyContainer));
+            }
         } else if (propertyContainer != null) {
             importsNeeded.add(Container.class);
             list.add(new AnnotationProperty(containerAnnotation, propertyContainer));
@@ -347,6 +374,12 @@ public class DecoratorImpl implements Qualification.Decorator {
                 b.addKeyValuePair("hc", runtime.constantTrue());
             }
             list.add(new AnnotationProperty(b.build(), propertyIndependent));
+        } else if (explicit && !(info instanceof TypeParameter)
+                   && propertyIndependent != null && independent != null && independent.isDependent()) {
+            // no @Dependent annotation exists; absent=true reads back as DEPENDENT (AnnotationToProperty)
+            importsNeeded.add(Independent.class);
+            list.add(new AnnotationProperty(runtime.newAnnotationExpressionBuilder().setTypeInfo(independentTi)
+                    .addKeyValuePair("absent", runtime.constantTrue()).build(), propertyIndependent));
         }
         if (propertyUnmodified != null) {
             importsNeeded.add(NotModified.class);

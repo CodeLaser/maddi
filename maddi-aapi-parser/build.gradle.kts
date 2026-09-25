@@ -90,6 +90,22 @@ tasks.register<JavaExec>("compileAnalysisHints") {
     providers.gradleProperty("maddi.aapi.moveJdkRelease").orNull?.let { systemProperty("maddi.aapi.moveJdkRelease", it) }
 }
 
+// Write first-cut hint sources for a whole library from its jar (ComposeAnalysisHints' javadoc has the -P flags):
+// ./gradlew :maddi-aapi-parser:composeAnalysisHints -Pmaddi.compose.anchor=io.vavr.Value ...
+tasks.register<JavaExec>("composeAnalysisHints") {
+    group = "maddi"
+    description = "Compose first-cut analysis hint sources for a library from its jar"
+    dependsOn(tasks.named("testClasses"))
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("io.codelaser.maddi.aapi.parser.ComposeAnalysisHints")
+    workingDir = projectDir
+    maxHeapSize = "4G"
+    jvmArgs(javacAddExports)
+    listOf("anchor", "packages", "target", "out", "preload", "notes").forEach { key ->
+        providers.gradleProperty("maddi.compose.$key").orNull?.let { systemProperty("maddi.compose.$key", it) }
+    }
+}
+
 tasks.withType<Test> {
     maxHeapSize = "2G"
 

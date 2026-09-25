@@ -80,6 +80,9 @@ public class AnalysisHintsComposer {
     private final Function<SourceSet, String> destinationPackage;
     private final Predicate<Info> predicate;
     private final Map<Element, Element> translateFromDollarToReal = new HashMap<>();
+    // extra comment lines per library type, printed under the type's declaration comment: the curated EXPECTED
+    // verdicts of a library report (ComposeAnalysisHints reads them from e.g. libs/vavr/VAVR.md)
+    private Function<TypeInfo, List<String>> typeNotes = _ -> List.of();
 
     public AnalysisHintsComposer(JavaInspector javaInspector,
                                  Function<SourceSet, String> destinationPackage,
@@ -88,6 +91,11 @@ public class AnalysisHintsComposer {
         this.javaInspector = javaInspector;
         this.destinationPackage = destinationPackage;
         this.predicate = predicate;
+    }
+
+    public AnalysisHintsComposer setTypeNotes(Function<TypeInfo, List<String>> typeNotes) {
+        this.typeNotes = Objects.requireNonNull(typeNotes);
+        return this;
     }
 
     public Collection<TypeInfo> compose(Collection<TypeInfo> primaryTypes) {
@@ -115,6 +123,9 @@ public class AnalysisHintsComposer {
         translateFromDollarToReal.put(newType, typeInfo);
 
         newType.builder().addComment(addCommentLine(typeInfo));
+        for (String note : typeNotes.apply(typeInfo)) {
+            newType.builder().addComment(runtime.newSingleLineComment(null, note));
+        }
 
         for (TypeInfo subType : typeInfo.subTypes()) {
             appendType(newType, subType, newTypeTm.tm);
@@ -144,6 +155,10 @@ public class AnalysisHintsComposer {
         for (MethodInfo methodInfo : methodsSorted) {
             if (methodInfo.isPublic()
                 && !methodInfo.isSynthetic()
+                // an INTERFACE's <clinit> (vavr's Future, which has static fields) loads from byte code as a public
+                // method that isStaticInitializer() does not recognise; printed as 'static void <clinit>() { }' it
+                // makes the hint file uncompilable
+                && !methodInfo.isStaticInitializer() && !methodInfo.name().startsWith("<")
                 && predicate.test(methodInfo)
                 && validJavaName(methodInfo.name()) != null
                 && methodInfo.parameters().stream().allMatch(p -> validJavaName(p.name()) != null)
@@ -359,6 +374,20 @@ public class AnalysisHintsComposer {
     public void write(Collection<TypeInfo> apiTypes,
                       File base,
                       Qualification.Decorator decorator) throws IOException {
+        write(apiTypes, base, decorator, null);
+    }
+
+    /**
+     * As {@link #write(Collection, File, Qualification.Decorator)}, with the source set the import computer resolves
+     * packages from. {@code null} keeps the default, the hint's own compilation unit's source set -- which, for a
+     * library composed from its JAR, is the jar's source set with no dependencies: it sees NO type in any package, so
+     * star-import conflicts go undetected (vavr: java.util.* and io.vavr.collection.* both hold a BitSet, an
+     * Iterator, a TreeSet, a SortedSet -- 200 compile errors). Pass a source set that sees the whole class path.
+     */
+    public void write(Collection<TypeInfo> apiTypes,
+                      File base,
+                      Qualification.Decorator decorator,
+                      SourceSet importSourceSet) throws IOException {
         int count = 0;
         for (TypeInfo apiType : apiTypes) {
             assert apiType.isPrimaryType() && apiType.hasBeenInspected();
@@ -373,7 +402,8 @@ public class AnalysisHintsComposer {
                 File outputFile = new File(directory, apiType.simpleName() + ".java");
                 try (OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(outputFile),
                         StandardCharsets.UTF_8)) {
-                    SourceSet sourceSetOfRequest = Objects.requireNonNull(apiType.compilationUnit().sourceSet());
+                    SourceSet sourceSetOfRequest = importSourceSet != null ? importSourceSet
+                            : Objects.requireNonNull(apiType.compilationUnit().sourceSet());
                     ImportComputer importComputer = javaInspector.importComputer(4,
                             sourceSetOfRequest);
                     outputStreamWriter.write(javaInspector.print2(apiType.compilationUnit(), decorator, importComputer));
