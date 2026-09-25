@@ -79,6 +79,26 @@ public class TestEventualRatchet {
     private static final Path ACTUAL = Path.of("build/eventual-survivors-actual.txt");
 
     /**
+     * Membership is not enough: a survivor can keep its name in the list while its after-mark LEVEL drops. That
+     * happened in #51 -- the whole Info/Element family slid from {@code @Immutable(hc=true)} to {@code @FinalFields}
+     * after the mark and the survivor list did not move. These keystones must stay at least immutable-hc after the
+     * mark; each one caps everything that reads it as a super, so a drop here is never local.
+     */
+    private static final List<String> HC_KEYSTONES = List.of(
+            "io.codelaser.maddi.cst.api.element.Element",
+            "io.codelaser.maddi.cst.api.expression.Expression",
+            "io.codelaser.maddi.cst.api.statement.Statement",
+            "io.codelaser.maddi.cst.api.variable.Variable",
+            "io.codelaser.maddi.cst.api.type.ParameterizedType",
+            "io.codelaser.maddi.cst.api.info.Info",
+            "io.codelaser.maddi.cst.api.info.FieldInfo",
+            "io.codelaser.maddi.cst.api.info.MethodInfo",
+            "io.codelaser.maddi.cst.api.info.ParameterInfo",
+            "io.codelaser.maddi.cst.api.info.TypeInfo",
+            "io.codelaser.maddi.cst.impl.info.MethodInfoImpl",
+            "io.codelaser.maddi.cst.impl.info.TypeInfoImpl");
+
+    /**
      * Without these three the annotated-API results are not loaded, {@code List.copyOf} has no
      * {@code immutableMethod}, and the survivor count reads far too low — the trap documented in
      * {@code dogfood/README.md}. A missing directory is a hard failure, not a warning: the whole point
@@ -112,7 +132,8 @@ public class TestEventualRatchet {
         }
         assertCoverage();
 
-        Set<String> survivors = runDogfoodAndCollectSurvivors();
+        java.util.Map<String, Value.EventuallyImmutable> verdicts = runDogfoodAndCollectSurvivors();
+        Set<String> survivors = new TreeSet<>(verdicts.keySet());
 
         Files.createDirectories(ACTUAL.getParent());
         Files.write(ACTUAL, survivors);
@@ -130,8 +151,13 @@ public class TestEventualRatchet {
         added.removeAll(expected);
         added.removeAll(wobble);
 
-        if (!missing.isEmpty() || !added.isEmpty()) {
-            StringBuilder sb = new StringBuilder("The eventual survivor set changed.\n");
+        List<String> belowHc = HC_KEYSTONES.stream()
+                .filter(t -> verdicts.get(t) == null || !verdicts.get(t).immutableAfterMark().isAtLeastImmutableHC())
+                .map(t -> t + " = " + verdicts.get(t))
+                .toList();
+
+        if (!missing.isEmpty() || !added.isEmpty() || !belowHc.isEmpty()) {
+            StringBuilder sb = new StringBuilder("The eventual ratchet moved: survivor set and/or keystone levels.\n");
             if (!missing.isEmpty()) {
                 sb.append("LOST (").append(missing.size()).append(") — a commit has cost these types their")
                         .append(" eventual verdict. This is the regression the ratchet exists to catch; diagnose")
@@ -146,9 +172,17 @@ public class TestEventualRatchet {
                         .append(WOBBLE).append(":\n");
                 added.forEach(t -> sb.append("    ").append(t).append('\n'));
             }
+            if (!belowHc.isEmpty()) {
+                sb.append("LEVEL DROP (").append(belowHc.size()).append(") -- keystone(s) below @Immutable(hc=true)")
+                        .append(" after the mark; membership alone does not see this (the #51 shape). Diagnose with")
+                        .append(" EC_TYPE_DEBUG=<fqn>: the ECTYPE 'MUTABLE: ... not excused' / 'DEPENDENT: ...'")
+                        .append(" lines name the blocker:\n");
+                belowHc.forEach(t -> sb.append("    ").append(t).append('\n'));
+            }
             fail(sb.toString());
         }
-        LOGGER.info("Eventual ratchet holds: {} surviving type(s)", expected.size());
+        LOGGER.info("Eventual ratchet holds: {} surviving type(s), {} keystone(s) at hc", expected.size(),
+                HC_KEYSTONES.size());
     }
 
     /**
@@ -192,7 +226,7 @@ public class TestEventualRatchet {
      * surviving {@code EVENTUALLY_IMMUTABLE_TYPE} verdicts read straight off the analysis — not parsed
      * back out of an {@code FPDUMP}, whose format is a diagnostic and free to change.
      */
-    private Set<String> runDogfoodAndCollectSurvivors() throws IOException {
+    private java.util.Map<String, Value.EventuallyImmutable> runDogfoodAndCollectSurvivors() throws IOException {
         boolean eventualClusterWasEnabled = EventualCluster.ENABLED;
         EventualCluster.ENABLED = true;
         try {
@@ -237,13 +271,13 @@ public class TestEventualRatchet {
             // methods, dogfood/README.md); the verdicts are still computed, so we do not assert on messages
             new IteratingAnalyzerImpl(javaInspector, modConfig).analyze(order, ccg.graph());
 
-            Set<String> survivors = new TreeSet<>();
+            java.util.Map<String, Value.EventuallyImmutable> survivors = new java.util.TreeMap<>();
             for (Info info : order) {
                 if (!(info instanceof TypeInfo typeInfo)) continue;
                 Value.EventuallyImmutable ev = info.analysis().getOrNull(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
                         ValueImpl.EventuallyImmutableImpl.class);
                 if (ev != null && !ev.isDefault()) {
-                    survivors.add(typeInfo.fullyQualifiedName());
+                    survivors.put(typeInfo.fullyQualifiedName(), ev);
                 }
             }
             return survivors;
