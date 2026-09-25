@@ -6,6 +6,19 @@ design. It is still a *proposal*: nothing here is built, and nothing here asks t
 anything different. §1 and §2 are survey results and reproductions, measured against the trees on the date
 above. §3 onwards is design.
 
+> **PARKED 2026-09-25 by the maintainer.** Reasons and state at parking:
+> - **Frequency:** rare per move, and concentrated. About 470 moved non-constant statics across six campaigns
+>   produced 8 defects, all in OpenSearch and all one pattern (appending into an existing holder). The monitor
+>   hazard had 0 realized cases, and unqualified `wait`/`notify` appear in about 0.04% to 2% of source files.
+>   The other hazards had 0 cases.
+> - **Cheaper cover already exists:** the optional test gate (atomic writes, 2026-09-23) plus the relevant
+>   tests would have caught all 8 (3 test classes, about 20 s).
+> - **If resumed:** contain it in one place instead of spreading it over the DSL methods. The editor's per-file
+>   before/after oracle hook (where the conformance oracle runs) fits both evidenced checks, §3.1 and §3.2, as a
+>   second oracle, with refusal through the existing rollback. The link-based checks (§3.4, §3.5) do not fit
+>   that hook and have no evidence; drop them. The OpenSearch defects of §2.1/§2.2 were fixed in the campaign
+>   tree.
+
 **The short version.**
 
 - The downstream levers that relocate state validate only name and accessibility facts. Their one
