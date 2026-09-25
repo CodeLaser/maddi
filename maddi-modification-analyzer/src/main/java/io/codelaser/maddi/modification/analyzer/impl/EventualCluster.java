@@ -138,6 +138,62 @@ public class EventualCluster {
         }
     }
 
+    // positive cache only, like directCandidateCache: marks appear monotonically within an epoch
+    private final Set<TypeInfo> groundedCache = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Is there a real transition behind this type's labels? True when a {@code @Mark}/{@code @Only}/{@code @TestMark}
+     * method (an {@code EVENTUAL_METHOD} verdict, computed or loaded from hints) is reachable from {@code start} over
+     * the edges the labels travel: supertypes, analyzed subtypes and implementors, the types of instance fields
+     * (type arguments included), and the enclosing type of a non-static nested, anonymous or lambda type. Labels are field names, and the enm walks, label inheritance and markless carriers
+     * mint them whether or not anything ever commits. The #51 relaxations (an FF==FF verdict is still written; an
+     * unconditional @FinalFields discharges in the contraction) must only apply to grounded types: on vavr, which has
+     * no mark at all, they certified 119 eventual verdicts over labels such as {@code HashMap}'s {@code trie}
+     * (already unconditionally hc: no transition) or {@code List}'s {@code front,rear} (Queue's fields).
+     */
+    public boolean isGroundedInMark(TypeInfo start) {
+        if (!ENABLED || groundedCache.contains(start)) return true;
+        java.util.ArrayDeque<TypeInfo> todo = new java.util.ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        todo.add(start);
+        seen.add(start);
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.poll();
+            if (groundedCache.contains(t) || hasMark(t)) {
+                groundedCache.add(start);
+                return true;
+            }
+            java.util.List<TypeInfo> next = new java.util.ArrayList<>();
+            ParameterizedType parent = t.parentClass();
+            if (parent != null && parent.typeInfo() != null) next.add(parent.typeInfo());
+            for (ParameterizedType itf : t.interfacesImplemented()) {
+                if (itf.typeInfo() != null) next.add(itf.typeInfo());
+            }
+            next.addAll(knownSubclasses(t));
+            next.addAll(knownImplementors(t));
+            t.fields().stream().filter(f -> !f.isStatic()).forEach(f -> addTypeInfos(f.type(), next));
+            // an inner, anonymous or lambda type holds its enclosing instance: Eval's 'e -> sortAndSimplify(true, e)'
+            // is eventually immutable exactly when the Eval it captures is
+            if (!t.isStatic() && t.compilationUnitOrEnclosingType().isRight()) {
+                next.add(t.compilationUnitOrEnclosingType().getRight());
+            }
+            for (TypeInfo n : next) {
+                if (!n.isJavaLangObject() && seen.add(n)) todo.add(n);
+            }
+        }
+        return false;
+    }
+
+    private static void addTypeInfos(ParameterizedType pt, java.util.List<TypeInfo> out) {
+        if (pt.typeInfo() != null) out.add(pt.typeInfo());
+        for (ParameterizedType p : pt.parameters()) addTypeInfos(p, out);
+    }
+
+    private static boolean hasMark(TypeInfo t) {
+        return t.methods().stream().anyMatch(m -> m.analysis()
+                .getOrDefault(PropertyImpl.EVENTUAL_METHOD, ValueImpl.EventualImpl.NOT_EVENTUAL).isEventual());
+    }
+
     // interface -> the analyzed types directly implementing it (Part A''); reset with the hierarchy map
     private final Map<TypeInfo, Set<TypeInfo>> implementorsByInterface = new ConcurrentHashMap<>();
 
@@ -432,6 +488,7 @@ public class EventualCluster {
         settersCache.clear();
         subclassesByParent.clear();
         implementorsByInterface.clear();
+        groundedCache.clear();
         opaqueSignatureCache.clear();
     }
 

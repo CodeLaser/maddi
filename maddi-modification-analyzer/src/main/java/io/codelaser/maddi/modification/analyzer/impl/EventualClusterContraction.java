@@ -117,14 +117,16 @@ public class EventualClusterContraction {
                     assumptions.remove(t);
                 } else if (t.analysis()
                         .getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE)
-                        .isFinalFields()) {
+                        .isFinalFields() && cluster.isGroundedInMark(t)) {
                     // an eventual @FinalFields(after=...) discharges (above), so an UNCONDITIONAL @FinalFields does
                     // a fortiori. Since #34 (a @FinalFields supertype caps its subtypes instead of sinking them to
                     // @Mutable) this is where Statement, Block, CompilationUnit, ... land: their after-mark level
                     // equals the unconditional one, so TypeEventualAnalyzerImpl writes no eventual verdict ("buys
                     // nothing"), and without this branch every member that leaned on them was retracted -- 105
                     // eventual @Immutable(hc) verdicts on the dogfood (#51). Unlike the hc branch, its own
-                    // assumptions stay: they may still be what the members leaning on it rest on.
+                    // assumptions stay: they may still be what the members leaning on it rest on. Only for a type
+                    // with a real transition behind it (EventualCluster.isGroundedInMark): on a markless library
+                    // (vavr) this branch certified 119 eventual verdicts over labels that name no transition.
                     discharged.add(t);
                 }
             }

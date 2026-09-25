@@ -55,6 +55,9 @@ dependencies {
     // Test-only, and reached only by CompileAnalysisHints' own kotlin factory -- the shared
     // javaInspectorFactory is deliberately left alone, so no other test's class path changes.
     testImplementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
+    // the same for the side-loaded vavr hints (libs/vavr): ComposeAnalysisHints and CompileAnalysisHints load
+    // io.vavr types from this jar, through their own inspector factory only
+    testImplementation("io.vavr:vavr:1.0.1")
 
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")
@@ -88,6 +91,22 @@ tasks.register<JavaExec>("compileAnalysisHints") {
     // -Pmaddi.aapi.moveJdkRelease=true regenerates the jdk results on a JDK other than the recorded one
     // (analyzedPackageFiles/jdk/jdk-release.txt); without it only the libs/* results are rewritten there
     providers.gradleProperty("maddi.aapi.moveJdkRelease").orNull?.let { systemProperty("maddi.aapi.moveJdkRelease", it) }
+}
+
+// Write first-cut hint sources for a whole library from its jar (ComposeAnalysisHints' javadoc has the -P flags):
+// ./gradlew :maddi-aapi-parser:composeAnalysisHints -Pmaddi.compose.anchor=io.vavr.Value ...
+tasks.register<JavaExec>("composeAnalysisHints") {
+    group = "maddi"
+    description = "Compose first-cut analysis hint sources for a library from its jar"
+    dependsOn(tasks.named("testClasses"))
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("io.codelaser.maddi.aapi.parser.ComposeAnalysisHints")
+    workingDir = projectDir
+    maxHeapSize = "4G"
+    jvmArgs(javacAddExports)
+    listOf("anchor", "packages", "target", "out", "preload", "notes").forEach { key ->
+        providers.gradleProperty("maddi.compose.$key").orNull?.let { systemProperty("maddi.compose.$key", it) }
+    }
 }
 
 tasks.withType<Test> {

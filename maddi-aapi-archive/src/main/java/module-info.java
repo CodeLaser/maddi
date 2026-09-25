@@ -9,6 +9,9 @@ module io.codelaser.maddi.aapi.archive {
     requires org.slf4j;
     // the Kotlin contracts name kotlin.Pair in a signature; nothing here runs, so it is optional
     requires static kotlin.stdlib;
+    // the side-loaded vavr hints (libs/vavr) name vavr types in their signatures; parsed, never run. Not
+    // exported and not packed into libs.jar: consumers preload analyzedPackageFiles/libs/vavr explicitly
+    requires static io.vavr;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;
