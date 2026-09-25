@@ -78,11 +78,11 @@ closure-collapse work, and should never consume a degraded summary without knowi
 
 *Needs:* `≈` `∩` `≺`, plus `staticSideEffectsMethod`. **Presence-based.**
 
-> **Expanded 2026-09-25 in [`semantic-preconditions-for-relocation.md`](semantic-preconditions-for-relocation.md).**
-> That design corrects this section in three places. The aliasing example below does not change behaviour by
-> itself, because a split moves references, not objects. `∩` is off in production, and `staticSideEffectsMethod`
-> is gated and may only be read as TRUE. And presence-based checks are *not* safe over degraded summaries, so
-> every check needs a third value, *not checked*.
+> **Expanded 2026-09-25 in [`semantic-preconditions-for-relocation.md`](semantic-preconditions-for-relocation.md),**
+> with real cases. That document finds the need confirmed but ranks the hazards differently from this section.
+> The changes that broke real code were a static read-before-init after move static members, and a
+> `wait()` bound to the wrong object after method object. Both are decidable without link analysis. The aliasing
+> example below does not change behaviour by itself, because a split moves references, not objects.
 
 Downstream refactoring levers (move type, move types to a sub-project, extract companion, split class) each
 validate their proposals, and the validation is good at what it does: it reports members that cannot move,
