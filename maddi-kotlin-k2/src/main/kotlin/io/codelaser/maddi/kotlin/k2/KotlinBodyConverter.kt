@@ -2578,6 +2578,70 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * A BOUND extension reference, `::printRule` inside an extension on `YamlNode` or `node::printRule`: no Java method
+     * reference binds a static method's first argument, but a lambda does, and it is what kotlinc compiles the bound
+     * reference to in effect: `rule -> YamlNodeKt.printRule($receiver, rule)`, over an anonymous `FunctionN` exactly
+     * as a local function's value is ([convertLocalFunction]). ⚠ Only for a receiver the lambda may read again at
+     * each call: an implicit one K2 names, or an explicit stable reference -- kotlinc evaluates the receiver ONCE, at
+     * the reference. And only for a top-level extension (a facade static); a member extension also needs its
+     * dispatch receiver, and keeps the placeholder.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.boundExtensionReference(fn: KaNamedFunctionSymbol, expression: KtCallableReferenceExpression,
+                                                  method: MethodInfo, locals: Map<String, Variable>): Expression? {
+        val written = expression.receiverExpression
+        val receiver = if (written != null) {
+            if (!isStableReference(written)) return null
+            convertExpression(written, method, locals)
+        } else {
+            if ((fn.psi as? KtNamedFunction)?.containingClassOrObject != null) return null // a member extension
+            // K2 names no receivers for a callable reference the way it does for a call: the innermost implicit
+            // receiver in scope whose type the extension accepts -- a receiver lambda's `$receiver`, then the
+            // extension function's own
+            innermostReceiverOf(fn, method, locals) ?: return null
+        }
+        val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) } ?: return null
+        val enclosingType = method.typeInfo()
+        val parameters = fn.valueParameters.map { it.name.asString() to mapType(it.returnType, enclosingType, method) }
+        val returnType = mapType(fn.returnType, enclosingType, method)
+        val functionN = (findClass(ClassId.fromString("kotlin/jvm/functions/Function${parameters.size}"))
+            as? KaNamedClassSymbol)?.let { classTypeInfo(it) } ?: return null
+        val boxedReturn = if (returnType == runtime.voidParameterizedType()) runtime.objectParameterizedType()
+                          else returnType.ensureBoxed(runtime)
+        val functionalType = runtime.newParameterizedType(functionN, parameters.map { it.second.ensureBoxed(runtime) } + boxedReturn)
+
+        val anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes())
+        anonymousType.builder().setAccess(runtime.accessPrivate()).setTypeNature(runtime.typeNatureClass())
+            .setParentClass(runtime.objectParameterizedType())
+        val sam = runtime.newMethod(anonymousType, "invoke", runtime.methodTypeMethod())
+        val samBuilder = sam.builder()
+        parameters.forEach { (n, t) -> samBuilder.addParameter(n, t) }
+        samBuilder.setReturnType(returnType).setAccess(runtime.accessPublic()).setSynthetic(true).commitParameters()
+        val arguments = listOf(receiver) + sam.parameters().map { variableExpression(it) }
+        val callee = resolveCallee(facade, fn.name.asString(), arguments) ?: return null
+        val call = runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
+            .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        val body = runtime.newBlockBuilder().addStatement(indexed(
+            if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(call)
+            else runtime.newReturnStatement(call), "0")).build()
+        samBuilder.setMethodBody(body).commit()
+        anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
+            .setSingleAbstractMethod(sam).commit()
+        return runtime.newLambdaBuilder().setMethodInfo(sam)
+            .setOutputVariants(parameters.map { runtime.lambdaOutputVariantEmpty() }).setSource(runtime.noSource()).build()
+    }
+
+    /** The innermost `$receiver` in scope (a receiver lambda's, then the function's) that [fn]'s receiver accepts. */
+    private fun KaSession.innermostReceiverOf(fn: KaNamedFunctionSymbol, method: MethodInfo,
+                                              locals: Map<String, Variable>): Expression? {
+        val wanted = fn.receiverParameter?.let { mapType(it.returnType, method.typeInfo(), method) } ?: return null
+        return listOfNotNull(locals["\$receiver"], method.parameters().firstOrNull { it.name() == "\$receiver" })
+            .firstOrNull { wanted.isAssignableFrom(runtime, it.parameterizedType()) }?.let { variableExpression(it) }
+    }
+
+    /**
      * `String::toRegex`, `Q::ext` -- an EXTENSION function referenced through its receiver type is the static method
      * kotlinc compiles it to, on its file facade, with the receiver as parameter 0: `(String) -> Regex` is what a Java
      * author writes `StringsKt::toRegex`. So the scope is the facade TYPE (unbound) and the callee has one parameter
@@ -2593,7 +2657,8 @@ internal class KotlinBodyConverter(
                                              locals: Map<String, Variable>): Expression {
         val receiver = expression.receiverExpression
         val unbound = receiver != null && explicitReceiverScope(receiver, method, locals)?.first is TypeExpression
-        if (!unbound) return placeholder("k2-callable-ref-bound-extension", expression)
+        if (!unbound) return boundExtensionReference(fn, expression, method, locals)
+            ?: placeholder("k2-callable-ref-bound-extension", expression)
         val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) }
             ?: return placeholder("k2-callable-ref-extension-facade", expression)
         val callee = resolveCalleeByArity(facade, fn.name.asString(), fn.valueParameters.size + 1)

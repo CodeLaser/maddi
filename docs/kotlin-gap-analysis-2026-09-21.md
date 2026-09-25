@@ -1665,6 +1665,21 @@ The argument reads the temporary through `hoistedReads`, so the call itself is c
 earlier argument), which keep their placeholder. detekt **33 → 31** (both sites, none new), **no verdict moved**;
 coil unchanged at 103.
 
+### 7.60 A bound extension reference, as a lambda — detekt 31 → 28, coil 103 → 102
+
+`rules.forEach(::printRule)` inside `fun YamlNode.printRuleSet(…)`, where `printRule` is an extension on `YamlNode`, was
+a deliberate refusal. A BOUND extension reference binds the facade method's first argument, and no Java method
+reference can spell that. A lambda can: `r -> YamlNodeKt.printRule($receiver, r)`, over an anonymous `FunctionN`,
+built as a local function's value is (§7.38). That is what the bound reference is in effect.
+
+⚠ Only where the lambda may read the receiver again at each call, since kotlinc evaluates it once, at the reference:
+an explicit stable reference (`n::printRule`), or an implicit receiver. K2 names no receivers for a callable reference
+as it does for a call, so the innermost `$receiver` in scope whose type the extension accepts is taken: a receiver
+lambda's, then the function's. A member extension, which also needs its dispatch receiver, keeps the placeholder.
+
+`BoundExtensionReferenceTest` (k2: implicit, explicit, and through `with(n) { }`); `CallableReferenceTest`'s pinned
+refusal becomes the conversion. All three detekt sites gone, none new, **no verdict moved**. coil **103 → 102**.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1693,7 +1708,7 @@ coil unchanged at 103.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) and argument-position jumps (§7.59) have taken detekt 4,701 → 31 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.59; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) and bound extension references (§7.60) have taken detekt 4,701 → 28 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.60; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
