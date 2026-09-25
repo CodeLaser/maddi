@@ -90,4 +90,25 @@ class DataClassTest : KotlinScanTestBase() {
                 "${g.name()} is generated: no text names it")
         }
     }
+
+    /**
+     * The BODIES kotlinc generates: `componentN()` returns the Nth primary-constructor property, `copy(…)` constructs
+     * from its parameters. Both were empty -- converted from the PSI they were generated from -- so the analysis read
+     * `val (a, b) = p` as reading nothing of `p` (ws/object's SARIF thread). A body property is no component.
+     */
+    @Test
+    fun componentAndCopyBodies() {
+        val types = KotlinScan(runtime, sourceSet).parse("Q.kt", """
+            data class Pair2<A>(val first: A, var second: Int, val flag: Boolean = false) { val extra: Int = 3 }
+            """.trimIndent() + "\n").associateBy { it.simpleName() }
+        val pair = types.getValue("Pair2")
+        assertEquals("""
+            component1: [return this.first;]
+            component2: [return this.second;]
+            component3: [return this.flag;]
+            copy: [return new Pair2(first,second,flag);]
+            """.trimIndent(), listOf("component1", "component2", "component3", "copy").joinToString("\n") { n ->
+            "$n: ${pair.methods().single { it.name() == n }.methodBody().statements()}"
+        })
+    }
 }

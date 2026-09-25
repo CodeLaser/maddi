@@ -1911,6 +1911,45 @@ coil unchanged at 4.
 front end dropped because the copy's class files are older than its sources (§7.70). A copy with fresh class files
 would release them. None of the 8 is still blocked by a front-end gap.
 
+### 7.72 javalin's tail — javalin 63 → 14, everything left is refused
+
+`52b0efbd0` (63 → 50):
+- **A Java varargs constructor** binds as a Java one does (jetty's `ServerConnector(server, f1, f2)`), through K2's own
+  parameter list.
+- **`::p.isInitialized`** on a `lateinit` property is `this.p != null`.
+- **An imported `@JvmField` of a library object** (`import kotlin.text.Charsets.UTF_8`) is a static field read.
+
+Then 50 → 24 without a line of front-end code: ws/object rebuilt the copy's test classes, so the 24 sites that the
+stale class files cost (§7.70) are gone. Then 24 → 14:
+- **javac's default constructor.** A Java class that declares none (`WsConfig`) has only the SYNTHETIC_CONSTRUCTOR the
+  Java front end builds for it, and every constructor lookup filtered synthetics out.
+- **An overloaded Java setter.** `keyStorePath = …` on jetty's `SslContextFactory` has `setKeyStorePath(String)` and
+  `setKeyStorePath(Path)`: the one taking the getter's type is Kotlin's. The same fixture found a **silent wrong read**:
+  a Java class with a private field of the property's name had `f.path = v` written to the FIELD, where Kotlin calls
+  `setPath` (and reads `getPath()`). Now a `KaSyntheticJavaPropertySymbol` never resolves to a field.
+- **A Java static imported under an alias** (`import java.lang.Enum.valueOf as enumValueOf`) is looked up by its
+  declared name.
+- **A receiver-typed function value called on a written receiver**, `url?.openConnection()?.getter()`, is
+  `getter.invoke(connection)`.
+- **A jump inside a larger expression** (`spineElvisLowering`): `(l.find { … } ?: throw E()) as T`, `a ?: if (c) f
+  else null ?: throw E()` (Kotlin binds the inner elvis to the else branch, so the right operand is a value `if`), and
+  `v = a ?: try { f() } catch (e: E) { return@l w }`. The value goes to a temporary assigned in each branch, and the
+  statement reads it. Only on the statement's spine, the part evaluated first, so nothing moves across an evaluation.
+- **A data class's `componentN()` and `copy()`** have kotlinc's bodies, `return this.pN` and `return new C(p1, …)`.
+  Converted from the PSI they were generated from, both were empty (ws/object's SARIF thread). The synthesized
+  `equals`/`hashCode`/`toString` are still empty. They share `RecordSynthetics` with Java records, so filling them is
+  an engine decision, not a Kotlin one.
+
+The Java-interop rows are in `TestJavaSetterOverloads` (run-kotlin, class-file world). In the k2 fixture a JDK type's
+property is a field, so it cannot tell the fix from its absence; the alias row has a negative control. The rest are in
+`JumpInExpressionTest`, `JavalinTailTest` and `DataClassTest.componentAndCopyBodies`. javalin **24 → 14**, none new;
+detekt unchanged at 8, **no verdict moved**; coil unchanged at 4.
+
+**What is left on javalin (14):** reified `T::class` ×9 and mockk's reified `any()`, `Result.getOrNull()` ×3
+(`@InlineOnly`, so kotlinc leaves no method to call). These are refused, as on detekt and coil. One is open:
+`Array(n) { … }.joinToString()`, an init-lambda array in EXPRESSION position (§7.61 lowers it as a statement only). It
+needs indices for hoisted statements.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
