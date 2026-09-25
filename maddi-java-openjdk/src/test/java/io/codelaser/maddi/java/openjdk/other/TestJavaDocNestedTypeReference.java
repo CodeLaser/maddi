@@ -179,4 +179,42 @@ public class TestJavaDocNestedTypeReference extends CommonTest {
         assertNotNull(tag.resolvedReference(), "the member reference lost its type part");
         assertEquals("25-19:25-30", tag.source().detailedSources().detail(nested).compact2());
     }
+
+    @Language("java")
+    String aOuter2 = """
+            package a;
+            public class Outer2 {
+                public static class Mid {
+                    public static class Inner {
+                        /**
+                         * see {@link Mid} and {@link Mid.Inner#go()}
+                         */
+                        public void go() {}
+                    }
+                }
+            }
+            """;
+
+    /**
+     * Inside {@code Inner}, {@code Mid} is in scope as a member of {@code Outer2} -- two enclosing levels up. The
+     * resolver looked at the current type's member types and its DIRECT enclosing type's, and no further, so both
+     * references came out unresolved: no reference, no token, invisible to every consumer. Found renaming a type
+     * three levels deep in place (jfocus-refactor-service TestMoveTypeRenameNestedInPlace, 2026-09-25), where
+     * {@code {@link Two.Three#make()}} in {@code Three}'s own javadoc was the one spelling the rename left stale.
+     */
+    @DisplayName("a member type of an enclosing type further out than the direct one resolves")
+    @Test
+    public void memberTypeOfAnOuterEnclosingType() {
+        Map<String, TypeInfo> pr = scan(false, "a.Outer2", aOuter2);
+        TypeInfo mid = pr.get("a.Outer2").findSubType("Mid", true);
+        TypeInfo inner = mid.findSubType("Inner", true);
+        JavaDoc javaDoc = inner.findUniqueMethod("go", 0).javaDoc();
+
+        JavaDoc.Tag midTag = javaDoc.tags().getFirst();
+        assertEquals(mid, midTag.resolvedReference());
+        JavaDoc.Tag memberTag = javaDoc.tags().get(1);
+        assertEquals(inner.findUniqueMethod("go", 0), memberTag.resolvedReference());
+        // "             * see {@link Mid} and {@link Mid.Inner#go()}" -- 'Mid.Inner' occupies columns 43..51
+        assertEquals("6-43:6-51", memberTag.source().detailedSources().detail(inner).compact2());
+    }
 }
