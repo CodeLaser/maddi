@@ -357,9 +357,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     }
 
     private static void markDegraded(MethodInfo methodInfo) {
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-            methodInfo.analysis().set(PropertyImpl.DEGRADED_ANALYSIS_METHOD, ValueImpl.BoolImpl.TRUE);
-        }
+        // atomic: two worker threads can degrade the same method (see writeOutMethodCallAnalysis)
+        methodInfo.analysis().getOrCreate(PropertyImpl.DEGRADED_ANALYSIS_METHOD, () -> ValueImpl.BoolImpl.TRUE);
     }
 
     /**
@@ -949,20 +948,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
                 addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject,
                         contributionCache);
-                if (!variablesLinkedToObject.isEmpty()
-                    // only write once, no point because actual variables in links will not change
-                    && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
-                    try {
-                        wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
-                                new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                if (!variablesLinkedToObject.isEmpty()) {
+                    // only write once, no point because actual variables in links will not change. ATOMICALLY:
+                    // two worker threads may link the same method at once (ExpressionVisitor's LOCK branch), and
+                    // a haveAnalyzedValueFor-then-set let both pass the check; the second set threw "Trying to
+                    // overwrite" and isolated the method (Eclipse Collections, 2 of 4 runs;
+                    // TestConcurrentMethodCallWrite). getOrCreate keeps the first writer's value, as before.
+                    ValueImpl.VariableBooleanMapImpl value =
+                            new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject));
+                    if (wmc.methodCall().analysis().getOrCreate(VARIABLES_LINKED_TO_OBJECT, () -> value) == value) {
                         TolerantWrite.count("set:variablesLinkedToObject@LCI");
                         // deliberately NOT counted in propertiesChanged: the method body is re-materialized every
                         // iteration, so this "write-once" lands on a fresh expression each time (measured: exactly
                         // 635/iteration on timefold) — it recomputes an output for this iteration's consumers, it
                         // is not a converging property. Counting it kept the iteration loop running to the max.
-                    } catch (IllegalArgumentException iae) {
-                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
-                        throw iae;
                     }
                 }
             }
