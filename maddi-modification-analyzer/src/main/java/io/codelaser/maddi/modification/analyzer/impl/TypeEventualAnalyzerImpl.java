@@ -459,7 +459,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // @FinalFields; skipping their verdict as "buys nothing" retracted every type that leaned on them (#51).
         if (afterMarkLevel.compareTo(unconditional) < 0
             || afterMarkLevel.compareTo(unconditional) == 0
-               && !(EventualCluster.ENABLED && afterMarkLevel.isFinalFields())) {
+               && !(EventualCluster.ENABLED && afterMarkLevel.isFinalFields()
+                    && eventualCluster.isGroundedInMark(typeInfo))) {
             if (dbg) System.out.println("ECTYPE " + typeInfo.fullyQualifiedName() + " buys nothing: afterMark="
                                         + afterMarkLevel + " <= unconditional=" + unconditional);
             return; // the mark buys nothing; do not claim eventuality the type does not need
