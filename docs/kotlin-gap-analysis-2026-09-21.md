@@ -1789,6 +1789,31 @@ plugin, so inside `configurations.resolvable(…) { extendsFrom(…) }` there is
 (`KotlinCompilerPluginsProvider`); the standalone one is session-wide, so a per-module provider would be needed to
 enable it only for source sets built with `kotlin-dsl`. Not done: it is a new dependency and a new capability.
 
+### 7.67 A multiplatform target as a dependsOn chain — coil 102 → 29
+
+Half of coil's placeholders (51 of 102) were K2 resolving nothing: symbol and receiver both null. The JVM slice lists
+coil-core's six KMP fragments (`commonMain`, `nonAndroidMain`, `nonJsCommonMain`, `nonAppleMain`, `jvmCommonMain`,
+`jvmMain`) as one source set, and KotlinProjectScan made that ONE K2 module. There an `expect` and its `actual` are two
+declarations of one name. K2 resolved neither, and everything typed through them failed with them (`request.data`,
+`.listener`, … in `RealImageLoader.execute`).
+
+- **The fragments are a dependsOn chain.** A source set whose directories are all `src/<fragment>/kotlin`, with
+  `commonMain` (or `commonTest`) first, becomes one K2 module per directory, each depending on the one before, with
+  `MultiPlatformProjects` enabled. K2 then matches an `expect` to its `actual` as kotlinc does. A linear chain in the
+  listed order is a valid refinement for a single target. Anything else stays one module: splitting an ordinary
+  multi-directory set would hide its later directories from the earlier ones (`multiplatformFragments`).
+- **A call to an `expect` fun goes to its actual's facade.** In `commonMain`, K2 resolves the call to the `expect`,
+  for which kotlinc emits nothing. The top-level `actual` functions are indexed by package, name, receiver and arity
+  (`registerActuals`), so `ioCoroutineDispatcher()` is `Coroutines_nonJsCommonKt.ioCoroutineDispatcher()`. An
+  `expect class` was already dropped in favour of its `actual` (KotlinScan, `TestExpectActual`).
+- **A typealias expansion is resolved in the alias's own module.** `actual typealias Bitmap = org.jetbrains.skia.Bitmap`
+  sits in `nonAndroidMain`; analysing it from a `commonMain` use site throws `KaBaseIllegalPsiException`. The
+  expansion's `ClassId` is now taken when the aliases are registered and rebuilt in the use-site session.
+
+`MultiplatformFragmentsTest`. coil **102 → 29** (18 of 186 types, 26 of 1,458 members); coil runs prep only, so
+there is no verdict to compare. detekt, which has no fragments, is unchanged at 8 with **no verdict moved**. The
+stdlib parse (`commonMain` + `jvmMain` with `generated`/`jdkN` roots) is not a fragment set and is unaffected.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1817,7 +1842,7 @@ enable it only for source sets built with `kotlin-dsl`. Not done: it is a new de
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) took coil 102 → 29 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

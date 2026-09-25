@@ -168,9 +168,12 @@ public class TestCoilJvmSlice {
         // and receiver-typed parameters invoked; vararg binding and intrinsic calls left coil at 119); 106 in 40 / 69
         // (`by lazy` read through the class-file `Lazy.getValue()`; narrowed receivers left coil at 113); 103 in 39 / 66
         // (infix primitive members as Java operators); 102 in 38 / 65 (bound extension references as lambdas).
+        // Re-measured 2026-09-25 with the six fragment directories as a dependsOn chain of K2 modules instead of one
+        // flat module (an `expect` and its `actual` had been rival declarations K2 resolved neither of; a call to an
+        // `expect` fun now goes to its actual's facade): 29 placeholders in 18 of 186 types, 26 of 1,458 members.
         // ⚠ coil is the SECOND corpus for a reason — it and detekt have no overlap in what they call, so a change
         // that helps one and hurts the other shows up here.
-        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 102);
+        CensusRatchet.noWorseThan("coil placeholders", summary.placeholders(), 29);
         CensusRatchet.noWorseThan("coil elements isolated by prep", summary.prepErrors(), 0);
     }
 }

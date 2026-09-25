@@ -3535,8 +3535,30 @@ internal class KotlinBodyConverter(
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
+    // top-level `actual` functions by package, name, receiver and arity: see [registerActuals]
+    private val actualFileOf = HashMap<String, KtFile>()
+
+    private fun actualKey(pkg: String, name: String?, extension: Boolean, arity: Int) = "$pkg/$name/$extension/$arity"
+
+    /**
+     * Index [ktFiles]' top-level `actual` functions. K2 resolves a call written in `commonMain` to the `expect`, for
+     * which kotlinc emits nothing: on the JVM the callee is the `actual`, on ITS file's facade (coil's
+     * `internal expect fun ioCoroutineDispatcher()` in `coroutines.kt`, actual in `coroutines.nonJsCommon.kt`).
+     */
+    internal fun registerActuals(ktFiles: List<KtFile>) {
+        ktFiles.forEach { f ->
+            f.declarations.filterIsInstance<KtNamedFunction>().filter { it.hasModifier(KtTokens.ACTUAL_KEYWORD) }.forEach { fn ->
+                actualFileOf[actualKey(f.packageFqName.asString(), fn.name, fn.receiverTypeReference != null,
+                    fn.valueParameters.size)] = f
+            }
+        }
+    }
+
     private fun extensionFacade(symbol: KaNamedFunctionSymbol): TypeInfo? {
-        val ktFile = (symbol.psi as? KtNamedFunction)?.containingKtFile ?: return null
+        val declaration = symbol.psi as? KtNamedFunction ?: return null
+        val ktFile = (if (symbol.isExpect) actualFileOf[actualKey(declaration.containingKtFile.packageFqName.asString(),
+            declaration.name, declaration.receiverTypeReference != null, declaration.valueParameters.size)] else null)
+            ?: declaration.containingKtFile
         val pkg = ktFile.packageFqName
         val fqn = (if (pkg.isRoot) "" else pkg.asString() + ".") + facadeSimpleName(ktFile)
         return infoByFqn.getType(fqn, sourceSet)

@@ -441,6 +441,8 @@ class KotlinScan(
         // before anything resolves: index the `typealias` declarations, so an `expect` type realised by an
         // `actual typealias` maps to its expansion rather than minting a shell for a name no JVM class has
         typeMapper.registerTypeAliases(ktFiles)
+        // …and the top-level `actual` functions, so a call K2 resolves to the `expect` goes to the actual's facade
+        bodyConverter.registerActuals(ktFiles)
         // bootstrap: populate the predefined java.lang.Object with its real members (equals/hashCode/toString/
         // …) once, so source types resolve inherited-from-Object calls (mirrors openjdk's ScanCompilationUnits)
         ktFiles.firstOrNull()?.let { analyze(it) { bootstrapObject(); bootstrapString() } }
