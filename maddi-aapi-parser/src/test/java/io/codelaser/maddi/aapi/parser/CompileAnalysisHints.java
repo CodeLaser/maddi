@@ -55,6 +55,15 @@ public class CompileAnalysisHints {
     // nothing regenerates and nothing loads (it is not in LoadAnalysisResults.ANALYZED_RESULTS either). The
     // pre-rename file name is the giveaway.
     static final List<String> LIBRARIES = List.of("jdk", "libs/test", "libs/log", "libs/kotlin");
+    /**
+     * Compiled like {@link #LIBRARIES}, but NOT packed into {@code libs.jar} and NOT in
+     * {@code LoadAnalysisResults.ANALYZED_RESULTS}: campaign hints for third-party libraries (the analysis-hints
+     * campaign) that a consumer preloads explicitly with {@code --preload-analysis-results-dirs
+     * .../analyzedPackageFiles/libs/vavr}. {@code libs.jar} goes to every maddi user; a library moves there only on
+     * evidence of universal value. Each has a report next to its hints ({@code libs/vavr/VAVR.md}).
+     */
+    static final List<String> SIDE_LOADED_LIBRARIES = List.of("libs/vavr");
+    static final String VAVR_LIBRARY = "libs/vavr";
     /** {@link #RESULTS_BASE} as a path; the directory the committed results live in. */
     static final Path RESULTS_BASE_DIR = Path.of(RESULTS_BASE);
     static final String KOTLIN_LIBRARY = "libs/kotlin";
@@ -138,6 +147,16 @@ public class CompileAnalysisHints {
                 compile(compiler, library, resultsBase);
             }
         }
+        for (String library : SIDE_LOADED_LIBRARIES) {
+            // the library's jar must be LOADABLE (the parser decorates types it can load): its own factory, as
+            // for kotlin, so that no other library's class path changes
+            if (VAVR_LIBRARY.equals(library)) {
+                // vavr-match too: io.vavr.Patterns is annotated with io.vavr.match.annotation.Patterns, and without
+                // that class file a stub is created and Patterns' $Cons/$Tuple2/... lose their verdicts
+                compile(new AnalysisHintsCompiler(libraryJavaInspectorFactory("io.vavr.",
+                        io.vavr.Value.class, io.vavr.match.annotation.Patterns.class)), library, resultsBase);
+            }
+        }
     }
 
     /**
@@ -165,6 +184,39 @@ public class CompileAnalysisHints {
                 javaInspector.preload("java.base::java.util.");
                 javaInspector.preload("java.base::java.lang.annotation");
                 javaInspector.preload("io.codelaser.maddi.annotation.");
+                javaInspector.initialize(new InputConfigurationImpl.Builder()
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(classPath.toArray(new SourceSet[0]))
+                        .build());
+                return javaInspector;
+            }
+        };
+    }
+
+    /** As {@link #kotlinJavaInspectorFactory()}, for a library given by its package prefix and one class of each of
+     *  its jars (the library's own, and any jar its class files refer to). */
+    private static JavaInspectorFactory libraryJavaInspectorFactory(String packagePrefix, Class<?>... anchors) {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet maddiAnnotation = SourceSetImpl.sourceSetOf(Immutable.class);
+        List<SourceSet> libraries = java.util.Arrays.stream(anchors).map(SourceSetImpl::sourceSetOf).toList();
+        List<SourceSet> classPath = new ArrayList<>(List.of(javaBase, maddiAnnotation));
+        classPath.addAll(libraries);
+        List<SourceSet> dependencies = new ArrayList<>(List.of(maddiAnnotation));
+        dependencies.addAll(libraries);
+
+        return new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return dependencies;
+            }
+
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new JavaInspectorImpl();
+                javaInspector.preload("java.base::java.util.");
+                javaInspector.preload("java.base::java.lang.annotation");
+                javaInspector.preload("io.codelaser.maddi.annotation.");
+                javaInspector.preload(packagePrefix);
                 javaInspector.initialize(new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
                         .addClassPathParts(classPath.toArray(new SourceSet[0]))

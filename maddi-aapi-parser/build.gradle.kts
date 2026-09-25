@@ -55,6 +55,9 @@ dependencies {
     // Test-only, and reached only by CompileAnalysisHints' own kotlin factory -- the shared
     // javaInspectorFactory is deliberately left alone, so no other test's class path changes.
     testImplementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
+    // the same for the side-loaded vavr hints (libs/vavr): ComposeAnalysisHints and CompileAnalysisHints load
+    // io.vavr types from this jar, through their own inspector factory only
+    testImplementation("io.vavr:vavr:1.0.1")
 
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")

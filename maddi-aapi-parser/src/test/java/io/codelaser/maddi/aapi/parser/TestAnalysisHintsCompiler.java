@@ -92,6 +92,10 @@ public class TestAnalysisHintsCompiler extends CommonTest {
             compareJson(CompileAnalysisHints.RESULTS_BASE_DIR.resolve(library), tempDirectory.resolve(library),
                     library, complaints);
         }
+        for (String library : CompileAnalysisHints.SIDE_LOADED_LIBRARIES) {
+            compareJson(CompileAnalysisHints.RESULTS_BASE_DIR.resolve(library), tempDirectory.resolve(library),
+                    library, complaints);
+        }
         // the two archives packageJars writes, packed here from the freshly compiled JSON
         for (String jar : withJdk ? List.of("openjdk.jar", "libs.jar") : List.of("libs.jar")) {
             compareJar(CompileAnalysisHints.RESULTS_BASE_DIR.resolve(jar), tempDirectory.resolve(jar), complaints);
