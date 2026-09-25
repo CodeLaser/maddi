@@ -26,7 +26,7 @@ public class IoVavrControl {
     class Either$<L, R> {
         static final long serialVersionUID = 0L;
         //static class Failure extends Exception
-        //EXPECTED @FinalFields -- computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
         @FinalFields
         @Container
         @Independent(absent = true)
@@ -704,13 +704,13 @@ public class IoVavrControl {
     }
 
     //public interface Try implements Value<T>, Serializable
-    //EXPECTED @FinalFields -- computed @FinalFields @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
+    //annotated as EXPECTED; computed @FinalFields @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
     @FinalFields
     @Independent(absent = true)
     class Try$<T> {
         static final long serialVersionUID = 0L;
         //static final class Failure implements Try<T>, Serializable
-        //EXPECTED @FinalFields -- computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
+        //annotated as EXPECTED; computed @FinalFields @Container @Dependent -- G4 (computed is right): holds a Throwable, which is mutable (VAVR.md)
         @FinalFields
         @Container
         @Independent(absent = true)

@@ -320,7 +320,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         // derived rather than collected during the loop: same content as before, in deterministic
         // analysisOrder order, independent of parallel completion order
         List<MethodInfo> abstractMethods = analysisOrder.stream()
-                .filter(info -> info instanceof MethodInfo mi && mi.isAbstract() && !failed.contains(info))
+                .filter(info -> info instanceof MethodInfo mi && !failed.contains(info)
+                                && io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(mi))
                 .map(info -> (MethodInfo) info)
                 .toList();
         List<TypeInfo> typesInOrder = analysisOrder.stream()

@@ -240,7 +240,7 @@ public class ShadowModificationPass {
         // stricter than the engine, downgrading e.g. Element.annotations() (default body
         // List.of()) to the dispatch union the engine deliberately does not compute.
         for (MethodInfo overridden : mi.overrides()) {
-            if (!overridden.isAbstract()) continue;
+            if (!io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(overridden)) continue;
             // An OUT-OF-ORDER abstract (jar/aapi) with a decided TRUE is authority, not fixpoint
             // optimism: writeVerdicts never visits it, no union is computed over it, and an E6 edge
             // into it would teleport ONE implementation's evidence to EVERY call site of the
@@ -280,7 +280,8 @@ public class ShadowModificationPass {
             taintUnprojected(mi); // no summary at all: no evidence for this method's own nodes (§10.1)
             return;
         }
-        if (mi.isAbstract()) {
+        if (io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(mi)) {
+            // (a throw-only placeholder too: its body is no evidence for a call that completes, work list O2)
             // no body, no local evidence: the shallow mlv conservatively claims "modified" where the
             // frozen property holds the precise union-over-implementations value. P3 refinement, by
             // evidence class: (a) an explicit source @Modified contract is primitive — always seed;
@@ -559,6 +560,13 @@ public class ShadowModificationPass {
                     for (Object node : projectReceiverChain(mi, vd, mc.object())) {
                         addEdge(mc.methodInfo(), node);
                     }
+                    // ... and through the receiver's ☷ links: an identical-to link between modification components
+                    // whose pass set contains the called method (WriteLinksAndModification's rule, pass-marked half).
+                    // The iterator of `this`: it.§m ☷(remove) this.§m, so it.remove() modifies this, it.next() not.
+                    // Missing, the cutover overwrote a correct fixpoint @Modified (EC work list O4).
+                    for (Object node : projectModificationIdenticals(mi, vd, mc.object(), mc.methodInfo())) {
+                        addEdge(mc.methodInfo(), node);
+                    }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                     seedBoundaryCalleeParameters(mi, cc.constructor());
                     handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions());
@@ -582,7 +590,7 @@ public class ShadowModificationPass {
             // getOrDefault FALSE): an abstract in-order callee whose verdict never decides — a SAM
             // whose only implementations are lambdas, never order elements — was treated as modifying
             // at this very call site; the pass must not read that undecidedness as absence of evidence
-            if (callee.isAbstract()) {
+            if (io.codelaser.maddi.modification.prepwork.Util.unionOverImplementations(callee)) {
                 if (!callee.isIgnoreModification() && !callee.isFinalizer()
                     && callee.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class) == null) {
                     seedWithOrigin(callee, mi, "undecided abstract callee");
@@ -737,18 +745,24 @@ public class ShadowModificationPass {
      */
     // memoization is load-bearing: chained/nested receivers re-walk shared sub-expressions once
     // per return-value link, which is EXPONENTIAL in nesting depth without a cache (jenkins-core
-    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Expressions are shared
-    // immutable CST nodes, each belonging to exactly one statement: identity keying is exact.
-    private final Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>> receiverChainCache =
-            new IdentityHashMap<>();
+    // hung >50 min in this recursion, thread-dump-confirmed 2026-07-19). Keyed by the OBSERVING method as well as by
+    // the expression: the projection's nodes name that method (a `this` receiver projects onto `mi`), and a lambda's
+    // body is walked twice -- as the lambda's own method and inside its enclosing method (handleBlock). Keyed by the
+    // expression alone, whichever walk came first won: the enclosing method got the lambda's receiver node, no edge
+    // reached it, and the cutover wrote `list.forEach(x -> this.items.add(x))` non-modifying (EC work list O1,
+    // TestOptimisticModificationShapes.o1c).
+    private final Map<MethodInfo, Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>>>
+            receiverChainCache = new HashMap<>();
 
     private Set<Object> projectReceiverChain(MethodInfo mi, VariableData vd,
                                              io.codelaser.maddi.cst.api.expression.Expression receiver) {
         if (receiver == null) return Set.of();
-        Set<Object> cached = receiverChainCache.get(receiver);
+        Map<io.codelaser.maddi.cst.api.expression.Expression, Set<Object>> cache =
+                receiverChainCache.computeIfAbsent(mi, _ -> new IdentityHashMap<>());
+        Set<Object> cached = cache.get(receiver);
         if (cached != null) return cached;
         Set<Object> result = computeReceiverChain(mi, vd, receiver);
-        receiverChainCache.put(receiver, result);
+        cache.put(receiver, result);
         return result;
     }
 
@@ -893,6 +907,33 @@ public class ShadowModificationPass {
                         }
                     }
                 }
+            }
+        }
+        return out;
+    }
+
+    private Set<Object> projectModificationIdenticals(MethodInfo mi, VariableData vd,
+                                                      io.codelaser.maddi.cst.api.expression.Expression receiver,
+                                                      MethodInfo callee) {
+        if (!(receiver instanceof VariableExpression ve) || callee == null) return Set.of();
+        VariableInfoContainer vic = vd.variableInfoContainerOrNull(ve.variable().fullyQualifiedName());
+        if (vic == null) return Set.of();
+        Links links = vic.best().linkedVariables();
+        if (links == null) return Set.of();
+        Set<Object> out = new LinkedHashSet<>();
+        for (Link link : links) {
+            if (!link.linkNature().isIdenticalTo()
+                || !Util.isVirtualModification(link.from()) || !Util.isVirtualModification(link.to())) continue;
+            Set<MethodInfo> pass = link.linkNature().pass();
+            // only a ☷ link (non-empty pass set) that names the called method: the plain ≡ links (empty pass) are
+            // everywhere in the dogfood (1,917 edges, codec.§m ≡ context.§m ...) and following them marked 39 CST
+            // methods modifying the fixpoint does not (Value, Property, ... dropped to eventual)
+            if (pass.isEmpty() || !pass.contains(callee) && callee.overrides().stream().noneMatch(pass::contains)) {
+                continue;
+            }
+            Variable other = Util.firstRealVariable(link.to());
+            if (other != null && !other.fullyQualifiedName().equals(ve.variable().fullyQualifiedName())) {
+                out.addAll(project(mi, vd, other));
             }
         }
         return out;
