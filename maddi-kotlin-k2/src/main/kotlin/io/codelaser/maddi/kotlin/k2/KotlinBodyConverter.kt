@@ -1554,7 +1554,8 @@ internal class KotlinBodyConverter(
                 ?: placeholder("k2-unsupported-expr:KtAnnotatedExpression", expression)
             is KtClassLiteralExpression -> kotlinClassLiteral(expression, method)
                 ?: placeholder("k2-unsupported-expr:KtClassLiteralExpression", expression)
-            is KtNameReferenceExpression -> resolveReference(expression.getReferencedName(), method, locals)
+            is KtNameReferenceExpression -> receiverLambdaMember(expression, method, locals)
+                ?: resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
@@ -3227,6 +3228,22 @@ internal class KotlinBodyConverter(
             .setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * Inside a lambda WITH A RECEIVER, a bare name is K2's to resolve, after locals and parameters: the innermost
+     * implicit receiver wins, and the name-based lookup tries the enclosing extension function's receiver and the
+     * class's own fields first. ⛔ detekt's `fun CliArgs.createSpec()` writes `compiler { jvmTarget = ... }`, which
+     * is CompilerSpecBuilder's jvmTarget; by name it bound to CliArgs.jvmTarget -- a write to the wrong object, and
+     * CompilerSpecBuilder's var looked never assigned (diagnose.sarif called it a val, and detekt then did not
+     * compile). Outside a receiver lambda the name-based order stands.
+     */
+    private fun KaSession.receiverLambdaMember(expression: KtNameReferenceExpression, method: MethodInfo,
+                                               locals: Map<String, Variable>): Expression? {
+        if (!locals.containsKey("\$receiver")) return null
+        val name = expression.getReferencedName()
+        if (locals.containsKey(name) || method.parameters().any { it.name() == name }) return null
+        return implicitMemberAccess(expression, method, locals)
     }
 
     /**
