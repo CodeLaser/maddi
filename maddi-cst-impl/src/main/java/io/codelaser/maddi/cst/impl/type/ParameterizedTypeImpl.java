@@ -240,8 +240,13 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public String descriptor() {
+        // printAnnotations = false: a descriptor is a NAME too, like printFqn below. It kept them when TYPE-USE
+        // annotations started being carried (6d189c44e), and MethodInfo.descriptor() builds a method's parameter
+        // list from it -- so '@NonNull java.lang.String' appeared where 'java.lang.String' is written, and every
+        // lookup of such a method by signature missed: demoteDeclaredTypes offered rows its apply half then called
+        // "Unknown method" (slowTest 2026-09-25, timefold's ConfigUtils.resolvePoolSize and two more).
         return ParameterizedTypePrinter.print(QualificationImpl.DESCRIPTORS,
-                this, false, DiamondEnum.SHOW_ALL, false, true).toString();
+                this, false, DiamondEnum.SHOW_ALL, false, true, false).toString();
     }
 
     private String printFqn(Diamond diamond) {
