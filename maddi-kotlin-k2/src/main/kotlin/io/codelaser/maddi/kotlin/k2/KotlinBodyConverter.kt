@@ -745,7 +745,7 @@ internal class KotlinBodyConverter(
      */
     private fun KtIfExpression.needsStatementForm(): Boolean = hasAMultiStatementBranch() || listOf(then, `else`).any { branch ->
         val single = (branch as? KtBlockExpression)?.statements?.singleOrNull() as? KtExpression ?: branch
-        isControlFlowElvis(single) || (single is KtIfExpression && single.needsStatementForm())
+        isControlFlowElvis(single) || single is KtTryExpression || (single is KtIfExpression && single.needsStatementForm())
     }
 
     /** A branch that is a block of anything but one expression — what §7.12's expression arm cannot take. */
@@ -1327,6 +1327,11 @@ internal class KotlinBodyConverter(
             // `else inner ?: return false` in a value `if`: the guard, then the assignment
             if (isControlFlowElvis(s)) controlFlowElvisLowering(s, method, childLocals, childIndex, assignTo = target)
                 ?.let { lowered -> return@forEachIndexed lowered.forEach { block.addStatement(it) } }
+            // `if (c) { try { … } catch … { … } } else …`: each arm of the try assigns
+            if (s is KtTryExpression) {
+                block.addStatement(convertTry(s, method, childLocals, childIndex, assignTo = target).withSource(source(s, childIndex)))
+                return@forEachIndexed
+            }
             // `else if (c) t else s ?: return 0`: the nested `if` is a value too, assigned in each of ITS branches
             if (s is KtIfExpression && s.needsStatementForm()) {
                 block.addStatement(convertValueIf(s, method, childLocals, childIndex, returning = false, assignTo = target))
@@ -2564,9 +2569,12 @@ internal class KotlinBodyConverter(
         // Kotlin's `String.get(i)` (and `s[i]`) is `charAt(i)` on the JVM, so that is tried FIRST. ⚠ Not only as a
         // fallback: depending on where java.lang.String was built it may carry kotlin.String's `get(int)`, which the
         // class file does not have (a String built from K2 has `get` and no `charAt`, whence the second lookup).
+        renamed?.takeIf { it.first == name }?.let { collectMethods(type, it.second, arguments.size, mutableSetOf(), all) }
         val jvmName = if (name == "get" && arguments.size == 1 && type == runtime.stringTypeInfo()) "charAt" else name
-        collectMethods(type, jvmName, arguments.size, mutableSetOf(), all)
+        if (all.isEmpty()) collectMethods(type, jvmName, arguments.size, mutableSetOf(), all)
         if (all.isEmpty() && jvmName != name) collectMethods(type, name, arguments.size, mutableSetOf(), all)
+        // Kotlin's `MutableList.removeAt(i)` is `java.util.List.remove(int)`; the argument's type picks that overload
+        if (all.isEmpty() && name == "removeAt" && arguments.size == 1) collectMethods(type, "remove", 1, mutableSetOf(), all)
         if (all.size <= 1) return all.firstOrNull()
         // an overload kotlinc adds (KotlinScan.overloadMethods) is Java's to call: a Kotlin call binds to a declaration
         // of the same type. (Not to an inherited one: a data class's synthesized `equals` is the callee, not Object's.)
@@ -3068,6 +3076,46 @@ internal class KotlinBodyConverter(
      */
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.convertCall(
+        call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
+        locals: Map<String, Variable>,
+    ): Expression {
+        val written = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
+        return withJvmName(written, call.resolveSymbol() as? KaCallableSymbol) {
+            convertResolvedCall(call, receiver, implicitThis, method, locals)
+        }
+    }
+
+    // A call's callee renamed for the JVM by `@JvmName` (written name to JVM name), for [resolveCallee] to try first;
+    // set for exactly one call's resolution at a time -- see [withJvmName].
+    private var renamed: Pair<String, String>? = null
+
+    /**
+     * Run [block] with [renamed] naming [symbol]'s JVM name, when `@JvmName` gives it one other than [written]. okio's
+     * `operator fun Path.div(child: String)` is `resolve` in the class file, `fun String.toPath()` is `get`; a source
+     * function carries its `@JvmName` as its CST name. Both names are tried, the JVM one first: a library type BUILT
+     * from K2 (the unit world's stdlib) keeps the Kotlin name. Every call resets it, so an argument's call never
+     * inherits an enclosing call's rename.
+     */
+    private inline fun <T> KaSession.withJvmName(written: String?, symbol: KaCallableSymbol?, block: () -> T): T {
+        val saved = renamed
+        renamed = jvmNameOf(symbol)?.takeIf { written != null && it != written }?.let { written!! to it }
+        try {
+            return block()
+        } finally {
+            renamed = saved
+        }
+    }
+
+    private fun KaSession.jvmNameOf(symbol: KaCallableSymbol?): String? {
+        if (symbol == null) return null
+        (symbol.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }?.let { return it }
+        val annotation = symbol.annotations.firstOrNull { it.classId == JVM_NAME } ?: return null
+        return ((annotation.arguments.firstOrNull()?.expression as? org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue.ConstantValue)
+            ?.value?.value as? String)
+    }
+
+    @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
+    private fun KaSession.convertResolvedCall(
         call: KtCallExpression, receiver: Pair<Expression, TypeInfo?>?, implicitThis: Boolean, method: MethodInfo,
         locals: Map<String, Variable>,
     ): Expression {
@@ -3659,6 +3707,10 @@ internal class KotlinBodyConverter(
             .setIfTrue(right).setIfFalse(expression.left!!.let { convertExpression(it, method, locals) })
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.NULL_COALESCING, expression.operationReference)))
             .build(runtime)
+        // `x in 0.0..1.0`: a floating-point range has no class to construct (ClosedDoubleRange is internal); kotlinc
+        // compiles the membership as two comparisons, and so does this -- for a stable `x`, read twice at no cost
+        // (coil's `require(percent in 0.0..1.0)`)
+        floatingRangeMembership(expression, left, method, locals)?.let { return it }
         // `a in coll` -> `coll.contains(a)`; `a !in coll` -> `!coll.contains(a)` (receiver is the RIGHT operand)
         if (expression.operationToken == KtTokens.IN_KEYWORD || expression.operationToken == KtTokens.NOT_IN) {
             // ⛔ WHAT K2 RESOLVED FIRST: an extension `contains` wins over the member lookup by name, which cannot see
@@ -3777,6 +3829,25 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource()).build()
     }
 
+    private fun KaSession.floatingRangeMembership(expression: KtBinaryExpression, value: Expression, method: MethodInfo,
+                                                  locals: Map<String, Variable>): Expression? {
+        if (expression.operationToken != KtTokens.IN_KEYWORD && expression.operationToken != KtTokens.NOT_IN) return null
+        val range = (expression.right?.let { unannotated(it) } as? KtBinaryExpression)
+            ?.takeIf { it.operationToken == KtTokens.RANGE } ?: return null
+        if (!isStableReference(expression.left ?: return null)) return null
+        val low = range.left?.let { convertExpression(it, method, locals) } ?: return null
+        val high = range.right?.let { convertExpression(it, method, locals) } ?: return null
+        if (listOf(value, low, high).any { !it.parameterizedType().let { t -> t.isDouble || t.isFloat } }) return null
+        fun compare(l: Expression, r: Expression) = runtime.newBinaryOperatorBuilder().setLhs(l).setRhs(r)
+            .setOperator(runtime.lessEqualsOperatorInt()).setPrecedence(runtime.precedenceRelational())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+        val within = runtime.newBinaryOperatorBuilder()
+            .setLhs(compare(low, value)).setRhs(compare(convertExpression(expression.left!!, method, locals), high))
+            .setOperator(runtime.andOperatorBool()).setPrecedence(runtime.precedenceLogicalAnd())
+            .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build()
+        return if (expression.operationToken == KtTokens.NOT_IN) logicalNot(within) else within
+    }
+
     /**
      * Fallback for a binary expression that is not a built-in operator: an overloaded operator
      * (`a + b` → `a.plus(b)`) or a named infix call (`a foo b` → `a.foo(b)`). The Kotlin operator-function
@@ -3784,6 +3855,14 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.operatorFunctionCall(expression: KtBinaryExpression, left: Expression, right: Expression,
                                                method: MethodInfo): Expression {
+        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+        return withJvmName(symbol?.callableId?.callableName?.asString(), symbol) {
+            resolvedOperatorFunctionCall(expression, left, right, method)
+        }
+    }
+
+    private fun KaSession.resolvedOperatorFunctionCall(expression: KtBinaryExpression, left: Expression, right: Expression,
+                                                       method: MethodInfo): Expression {
         val functionName = when (expression.operationToken) {
             KtTokens.PLUS -> "plus"
             KtTokens.MINUS -> "minus"
@@ -3805,6 +3884,12 @@ internal class KotlinBodyConverter(
                 "shl" -> runtime.leftShiftOperatorInt() to runtime.precedenceShift()
                 "shr" -> runtime.signedRightShiftOperatorInt() to runtime.precedenceShift()
                 "ushr" -> runtime.unsignedRightShiftOperatorInt() to runtime.precedenceShift()
+                // `pair.second + 1` with `Pair<*, Int>`: the operand is a boxed Integer to the CST, and Java unboxes
+                "plus" -> runtime.plusOperatorInt() to runtime.precedenceAdditive()
+                "minus" -> runtime.minusOperatorInt() to runtime.precedenceAdditive()
+                "times" -> runtime.multiplyOperatorInt() to runtime.precedenceMultiplicative()
+                "div" -> runtime.divideOperatorInt() to runtime.precedenceMultiplicative()
+                "rem" -> runtime.remainderOperatorInt() to runtime.precedenceMultiplicative()
                 else -> null
             }?.let { (operator, precedence) ->
                 return runtime.newBinaryOperatorBuilder().setLhs(left).setRhs(right).setOperator(operator)
@@ -3936,3 +4021,5 @@ internal class KotlinBodyConverter(
     internal fun variableExpression(variable: Variable): Expression =
         runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()
 }
+
+private val JVM_NAME = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/JvmName")

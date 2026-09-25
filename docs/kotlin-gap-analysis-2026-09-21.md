@@ -1814,6 +1814,27 @@ declarations of one name. K2 resolved neither, and everything typed through them
 there is no verdict to compare. detekt, which has no fragments, is unchanged at 8 with **no verdict moved**. The
 stdlib parse (`commonMain` + `jvmMain` with `generated`/`jdkN` roots) is not a fragment set and is unaffected.
 
+### 7.68 Called by the JVM name — coil 29 → 8
+
+- **`@JvmName`.** A callee renamed for the JVM is called by that name: okio's `operator fun Path.div(child: String)` is
+  `resolve` in the class file, `fun String.toPath()` is `get`, and its inline `FileSystem.read`/`write` are renamed too.
+  A source function already carried its `@JvmName` as its CST name, but its callers looked it up by the Kotlin name.
+  The call's conversion names the JVM name (from the declaration's PSI, else the symbol's annotations) for
+  `resolveCallee` to try FIRST, then the written name. Both are needed: the unit world's stdlib is built from K2
+  and keeps Kotlin names (`sum`), while the class file has `sumOfInt`. The rename is scoped to one call's resolution,
+  so an argument's call never inherits an enclosing call's rename. `JvmNameCallTest`.
+- **`x in 0.0..1.0`** is `0.0 <= x && x <= 1.0`, as kotlinc compiles it: a floating-point range has no class to
+  construct. Only for a stable `x`, which is then read twice at no cost.
+- **Arithmetic on a boxed primitive** (`pair.second + 1` with `Pair<*, Int>`): K2 resolved `Int.plus`, so it is Java's
+  `+`, which unboxes.
+- **A `try` alone in a value-`if` branch** takes the statement form (§7.65), each arm assigning.
+- **`MutableList.removeAt(i)`** is `java.util.List.remove(int)`; the argument's type picks that overload.
+  `CoilTailShapesTest`.
+
+coil **29 → 8** (none new); detekt unchanged at 8, **no verdict moved**. coil's 8: reified `T::class` ×4 (refused, as
+on detekt), `encodeUtf8` (a `@JvmStatic` member extension of `ByteString.Companion`), the `component1`/`component2` of a
+value class in a destructuring, and `Canvas(bitmap).apply(::draw)`.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1842,7 +1863,7 @@ stdlib parse (`commonMain` + `jvmMain` with `generated`/`jdkN` roots) is not a f
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) took coil 102 → 29 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) inline-only stdlib members (§7.63), the innermost receiver, the safe index chain and unary operator calls (§7.64) and statements where Kotlin writes a value (§7.65) have taken detekt 4,701 → 8; a multiplatform target as a dependsOn chain (§7.67) and calls by the JVM name (§7.68) took coil 102 → 8 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
