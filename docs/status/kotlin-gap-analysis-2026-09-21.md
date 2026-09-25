@@ -1851,6 +1851,66 @@ value class in a destructuring, and `Canvas(bitmap).apply(::draw)`.
 `CoilLastShapesTest`. coil **8 → 4**, and the 4 are reified `T::class` (refused, as on detekt). detekt unchanged at 8,
 **no verdict moved**, although the companion fix corrects a receiver.
 
+### 7.70 javalin: why fieldCouldBeFinal missed 8 vals — javalin 119 → 69
+
+The ws/object thread's fieldCouldBeFinal port holds back a `var` whose name appears in unconverted code (verdict
+`UNREAD_CODE`). On javalin that cost 8 vars that compile as `val`. Its copy's census: 119 placeholders in 40 of 542
+types. ws/object's `f6e78a39c` and `b56721512` are cherry-picked here, since without the first the javalin parse
+fails on jetty's `Request.Content`.
+
+- **A test source set is its main set's friend.** kotlinc compiles tests as a friend of main, which sees `internal`.
+  KotlinProjectScan gave a source-set dependency only as a regular one, so `internal object CorsUtils`,
+  `internal data class OriginParts`, `LoomUtil` and `ReentrantLazy` resolved nowhere from the tests (~45 sites). Every
+  upstream set is now a friend too: the code compiled, so any `internal` it names was visible to it.
+  `FriendSourceSetTest`, with a negative control.
+- **A getter or field typed by a type parameter carries its use-site type.** `cfg.servlet.value` on a
+  `Lazy<ServletEntry>` was the erased `T`, so the destructuring `val (initializer, servlet) = …` found no `componentN`
+  (JettyServer).
+- **`Byte.toString()`** is `String.valueOf((int) b)`: Java has no `valueOf(byte)`. The primitive-member helper matched
+  overloads against the receiver's type for every argument; it now matches each argument by its own type, except the
+  receiver itself, which stays the primitive it is taken for (an `Int?` smart-cast is a boxed Integer to the CST).
+- From the ws/object SARIF thread: an **assignment has its own source position** (it had `noSource()`, and a write
+  sorted to line 0), and **`s += p` on a collection is the operator call** kotlinc compiles:
+  `CollectionsKt.plusAssign(s, p)`, or `s = CollectionsKt.plus(s, p)` on a `var` of a read-only type. A primitive's and
+  `String`'s `+=` stay Java's compound assignment. `AugmentedAssignmentTest`.
+
+javalin **119 → 69** (none new); detekt unchanged at 8, **no verdict moved**; coil unchanged at 4.
+
+Of the 8 misses: `Cookie.name` (TestMultipartForms) no longer has a placeholder, and `HttpClient.origin`
+(TestCorsUtils) is freed by the friend fix. The others are still named in unconverted code: `Cookie.value`
+(JettyServer: `this::addConnector`, `(x as? Handler.Wrapper)?.handler = …`), `Cookie.path` / `TestPlugins.context` /
+`HelloWorldPlugin.context` (TestPlugins' `pluginConfig`, which a K2-built unit fixture converts, so a class-file
+difference), and `KotlinApp.app` (TestSse's `runConcurrently` and `SerializableObject`). ⚠ 25 of the 69 are the COPY's,
+not the front end's: every Java type in `javalin/test-classes` and `javalin-testtools` has a class file older than its
+source, so the Java front end drops those units, and the Kotlin tests' `SerializableObject`, `TypedException`, … have
+no type. A rebuilt copy (or one with preserved mtimes) removes them.
+
+### 7.71 javalin's witness files cleared — javalin 119 → 63
+
+Continuing §7.70 on the files whose unconverted code held back the 8 vars:
+
+- **A written `this` is the one K2 names.** Inside `Server().apply { … }` it is the lambda's receiver; it had been
+  the enclosing extension's receiver or the class's own `this`, whatever lambdas surrounded it. That was a read of
+  the wrong object, and `this::addConnector` failed outright (JettyServer).
+- **A local `vararg` function**'s value takes the array, and its call packs the arguments (TestSse's
+  `runConcurrently({ … }, { … })`).
+- **An assignment through a safe call** is `if (r != null) r.p = v`, and for `(x as? W)?.p = v` it is
+  `if (x instanceof W) ((W) x).p = v`. A receiver not free to re-read is bound to a temporary first (JettyServer's
+  `(this.unwrap() as? Handler.Wrapper)?.handler = …`). ⚠ The first cut built the guard without statement indices, and
+  prep isolated the method with an NPE: the unit suite cannot see that, the corpus's prep did.
+- **An inherited `@JvmField`** read through an implicit receiver: `@JvmField protected var pluginConfig` is declared on
+  javalin's `Plugin`, and an inner class of a subclass reads it. implicitMemberAccess looked at the lookup type's own
+  fields only. The unit fixture does not discriminate (it resolves by another route, with and without the fix);
+  javalin does.
+
+`JavalinWitnessShapesTest`, `FriendSourceSetTest`. javalin **119 → 63**; detekt unchanged at 8, **no verdict moved**;
+coil unchanged at 4.
+
+**The 8 misses, now.** Six of the eight vars are no longer named in unconverted code. The last two, `onPing`
+(TestWebSocket) and `KotlinApp.app` (TestSse), are held back only by `SerializableObject`, a Java test class the Java
+front end dropped because the copy's class files are older than its sources (§7.70). A copy with fresh class files
+would release them. None of the 8 is still blocked by a front-end gap.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
