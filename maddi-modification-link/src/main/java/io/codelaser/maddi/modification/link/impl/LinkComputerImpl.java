@@ -103,7 +103,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return true;
         }
 
-        // NO strictlyRicherThan here, deliberately (docs/eventual-info-hierarchy.md §"The edge hunt"):
+        // NO strictlyRicherThan here, deliberately (docs/design/eventual-info-hierarchy.md §"The edge hunt"):
         // record equality delegates to List.equals over Links (PRIMARY-ONLY), so re-derived call-site
         // argument links with the same primaries are "equal" — but canonical-max retention has the
         // WRONG POLARITY for this value: a smeared conservative fallback (derived while the callee
@@ -207,7 +207,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         doType(primaryType);
     }
 
-    // NOT getOrCreate (docs/eventual-info-hierarchy.md §"The retention round"): getOrCreate SKIPS
+    // NOT getOrCreate (docs/design/eventual-info-hierarchy.md §"The retention round"): getOrCreate SKIPS
     // the slot computation when an on-demand recursion already wrote this method's links — but that
     // early value was computed in a DIFFERENT context (callees in-progress fell back to shallow), and
     // WHICH methods get computed on-demand varies run-to-run with the engine's exploration noise (a
@@ -265,8 +265,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         if (!shallow && missingPrepData(methodInfo)) {
             // A source method without prep data would die on doStatement's 'assert vd != null' — and the
             // exception aborts not just this method but every caller whose computation recursed into it,
-            // which downstream loses whole families of methods (closed-core: 208, see
-            // docs/handoff-linkcomputer-recursion-vd-null.md). Prepwork can leave a reachable method
+            // which downstream loses whole families of methods (closed-core: 208 methods, 2026-08-02;
+            // pinned by TestLinkUnpreppedCallee). Prepwork can leave a reachable method
             // without VariableData: a fault-tolerant prep isolates a failing type or method and carries on
             // (PrepAnalyzer.doType / doMethodIsolated), and a caller prepping one primary type at a time may
             // never have prepped this one. Degrade EXPLICITLY: shallow summary, degradation marker, WARN.
@@ -291,7 +291,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
             // LINKTRACE=<fqn substring>: full event trace (seeds, propagation, witness decisions) of this
-            // method's fixpoint engine, for the bistability forensics (docs/eventual-info-hierarchy.md
+            // method's fixpoint engine, for the bistability forensics (docs/design/eventual-info-hierarchy.md
             // §"The bistability investigation"). Off (null) => zero overhead.
             String linkTrace = System.getenv("LINKTRACE");
             boolean trace = linkTrace != null && methodInfo.fullyQualifiedName().contains(linkTrace);

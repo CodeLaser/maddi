@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * The pessimistic-bootstrap shape behind the dogfood's reverse-divergence class (PLAN-modification-
- * reachability §14; docs/handoff-verification-residue.md): a pure read accessor that recurses through
+ * reachability §14; docs/design/handoff-verification-residue.md): a pure read accessor that recurses through
  * an ABSTRACT declaration. At the first evaluation of the call site the abstract callee is undecided,
  * {@code MethodInfo.isNonModifying()} defaults undecided to modifying, the receiver field lands in the
  * summary's modified set, the abstract batch aggregates the impl's FALSE — and the pessimism is a

@@ -400,7 +400,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                         java.util.Set<Info> initialDirty, java.util.function.Consumer<Info> beforeFirstRecompute) {
         // incremental (early-cutoff) mode: seed the worklist with initialDirty and stop the moment it runs dry,
         // WITHOUT the full verification / cycle-breaking passes — those re-touch the untouched (carried) elements
-        // and would defeat the skip. See docs/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
+        // and would defeat the skip. See docs/design/analysis-rewiring.md and IteratingAnalyzer#analyze(List,G,Set).
         boolean incremental = initialDirty != null;
         // the freeze is JVM-wide static state from a previous analyze() under modificationViaReachability
         // (tests run several analyses per JVM): always start unfrozen
@@ -696,7 +696,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                                      + "fixpoint values (unfrozen)", e);
                     }
                 }
-                // The DEFERRAL round (docs/eventual-info-hierarchy.md §"The deferral round"): the eventual
+                // The DEFERRAL round (docs/design/eventual-info-hierarchy.md §"The deferral round"): the eventual
                 // walks' outputs are write-once, so WHICH iteration a walk first succeeds in is frozen into
                 // the verdicts and the assumption ledger — and that timing is sensitive to any run-to-run
                 // perturbation while its inputs (links, enm state) are still settling (the measured 39↔53

@@ -96,7 +96,8 @@ Two traps it now covers, both of which have cost verdicts before:
   be named — write `closed-core` and `com.example.*` instead. Quoting a stack trace, a package or a
   class name from it into a defect write-up is the way this gets leaked; a commit hook refuses it
   (`CONTRIBUTING.md` §Names that must not appear).
-- New cross-module design notes go in `docs/` and get an entry in
+- New cross-module design notes go in the fitting `docs/` subdirectory (`design/`, `roadmap/`,
+  `defects/`, `status/`, `project/`) and get an entry in
   [`docs/README.md`](docs/README.md); module-local bug notes go in the module's `notes/`.
 - **Open work items go to GitHub issues, not to new checkbox files.** The documents are the
   reasoning record — measurements, design forks, negative results — and they stay. What gets

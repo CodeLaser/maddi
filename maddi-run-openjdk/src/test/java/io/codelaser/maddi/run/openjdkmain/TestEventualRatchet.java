@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * This exists because every regression in the 2026-07/08 certification arc was found by dogfood
  * archaeology days after the commit that caused it — {@code ProvidesImpl.addImplementationResolved}
  * turned a resolve-once field into a mutable {@code ArrayList} and sank the whole {@code Element}
- * hierarchy for a week without a single red test. See {@code docs/eventual-design-improvements.md} §1.
+ * hierarchy for a week without a single red test. See {@code docs/design/eventual-design-improvements.md} §1.
  * <p>
  * The run is built here rather than through {@link RunAnalyzer} so that both gates are set
  * programmatically: {@code MODREACH} and {@code EVENTUALCLUSTER} are environment opt-outs on the CLI
@@ -135,7 +135,7 @@ public class TestEventualRatchet {
             if (!missing.isEmpty()) {
                 sb.append("LOST (").append(missing.size()).append(") — a commit has cost these types their")
                         .append(" eventual verdict. This is the regression the ratchet exists to catch; diagnose")
-                        .append(" with the recipe in docs/eventual-info-hierarchy.md §\"The drift round\"")
+                        .append(" with the recipe in docs/design/eventual-info-hierarchy.md §\"The drift round\"")
                         .append(" (re-run with EC_RETRACT_DEBUG=1 and rank the ECRETRACT broken-lists):\n");
                 missing.forEach(t -> sb.append("    ").append(t).append('\n'));
             }

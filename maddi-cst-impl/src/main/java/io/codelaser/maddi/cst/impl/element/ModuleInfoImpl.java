@@ -458,7 +458,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         private final SetOnce<TypeInfo> apiResolved = new SetOnce<>();
         // commit-once, like apiResolved: a plain ArrayList filled by an adder made this type mutable and
         // cost it (and, through the Element.typesReferenced abstract union, the whole Element hierarchy)
-        // its eventual-immutability verdict -- see docs/eventual-info-hierarchy.md
+        // its eventual-immutability verdict -- see docs/design/eventual-info-hierarchy.md
         private final SetOnce<List<TypeInfo>> implementationsResolved = new SetOnce<>();
 
         ProvidesImpl(Source source, List<Comment> comments, String api, List<String> implementations) {

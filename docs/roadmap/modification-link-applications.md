@@ -160,7 +160,7 @@ built object mutates when the builder is reused, and nothing about the code look
 it, because it is an aliasing fact.
 
 It is also the sharpest available demonstration, since maddi's own CST is builder-heavy — see
-`builder-interface-split-impact.md` and `handoff-builder-leans.md` — so the detector can be evaluated on
+`../design/builder-interface-split-impact.md` and `../design/handoff-builder-leans.md` — so the detector can be evaluated on
 this repository without any external corpus.
 
 ### 3.6 Disjointness → parallelisation and statement reordering

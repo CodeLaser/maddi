@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * (2) on correctly-analyzed code (the functional-capture shapes), the shadow must agree with the
  * frozen properties in both directions.
  * <p>
- * P3 (primitive seeding, docs/handoff-verification-residue.md §7.5): reverse divergences are no
+ * P3 (primitive seeding, docs/design/handoff-verification-residue.md §7.5): reverse divergences are no
  * longer categorically "a bug in the pass" — with summary-fold seeding gone, they are the class
  * of frozen pessimism the cutover repairs (recursion through abstract declarations, stale early-
  * iteration conservatism the monotone write discipline cannot revisit). Each pinned reverse below

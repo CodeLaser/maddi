@@ -70,7 +70,7 @@ occasional red in that suite as a real failure without re-running the specific t
 
 Guidance: keep a single `JavaInspector` (and its javac task) to one thread; run inspector-heavy suites
 serially / single-fork if you need determinism. A proper fix is a parallel-mode audit of the shared javac
-usage (related: the shared-`MethodAnalyzer` / non-atomic-counter notes in `docs/prep-analyzer hardening.md` §8).
+usage (related: the shared-`MethodAnalyzer` / non-atomic-counter notes in `docs/roadmap/prep-analyzer-hardening.md` §8).
 
 ### 2. Tests need the javac `--add-exports` JVM flags
 
@@ -154,7 +154,7 @@ no build state involved, and no re-parsing of the dependency's sources either. T
   source set and class path, zero compilation units, never generated, built on the first load that needs it.
   A zero-unit task resolves class-path symbols fine; it just must never be `parse()`d. With generation off
   nothing changes — the retained scan serves those loads exactly as before. Full account:
-  `docs/partial-reparse-rewire.md` §10.
+  `docs/design/partial-reparse-rewire.md` §10.
 
 Reference: `TestGeneratedClassOutput` covers missing output, stale output, the implicit-source-path case, and
 the wipe.

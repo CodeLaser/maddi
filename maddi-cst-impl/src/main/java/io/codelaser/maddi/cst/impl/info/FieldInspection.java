@@ -31,7 +31,7 @@ public interface FieldInspection extends Inspection {
 
     Expression initializer();
 
-    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): the committed face is Set.copyOf-backed
+    // TRUSTED LEAF (docs/design/eventual-design-improvements.md §4): the committed face is Set.copyOf-backed
     // (FieldInspectionImpl's constructor), so the exposed wrapper shares only hidden content -- a fact the
     // analyzer cannot compute from the declared java.util.Set. The Builder is the before-state face, as
     // everywhere in the eventual style.

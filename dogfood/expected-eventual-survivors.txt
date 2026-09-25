@@ -2,8 +2,8 @@
 # on the composed dogfood run (maddi analysing its own CST).
 #
 # One fully-qualified type name per line, sorted. Blank lines and '#' comments are ignored.
-# Maintained by TestEventualRatchet (maddi-run-openjdk, slowTest). See docs/eventual-design-improvements.md
-# section 1, and docs/eventual-info-hierarchy.md for the diagnosis recipe when a type disappears.
+# Maintained by TestEventualRatchet (maddi-run-openjdk, slowTest). See docs/design/eventual-design-improvements.md
+# section 1, and docs/design/eventual-info-hierarchy.md for the diagnosis recipe when a type disappears.
 #
 # A type LOST from this list means a commit has cost it its eventual verdict -- that is the regression
 # the ratchet exists to catch (the ProvidesImpl incident went undetected for a week).
@@ -16,7 +16,7 @@
 # else -- the JDK, slf4j, the annotated-API archive -- is background, and a change there reads as a move
 # in this baseline with no commit in this repo to explain it.
 #
-# Baseline re-derived 2026-08-03 under the DEFERRAL round (docs/eventual-info-hierarchy.md section
+# Baseline re-derived 2026-08-03 under the DEFERRAL round (docs/design/eventual-info-hierarchy.md section
 # "The deferral round"): the eventual family is cleared and re-derived at the terminal certification
 # point over the settled state, so the walks and the assumption ledger are a function of the fixpoint
 # alone.

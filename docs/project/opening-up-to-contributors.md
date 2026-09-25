@@ -32,9 +32,9 @@ point, and the result has to be replanted onto `devel`. Decide one of:
 A wholesale conversion would destroy value. Three reasons, all measured on the tree:
 
 1. **The documents are cited from production code.** 38 distinct `.md` filenames are referenced from
-   `.java`/`.kt` sources — `rewiring.md` 27×, `analysis-rewiring.md` 23×, `eventual-info-hierarchy.md`
+   `.java`/`.kt` sources — `../design/rewiring.md` 27×, `../design/analysis-rewiring.md` 23×, `../design/eventual-info-hierarchy.md`
    21× — and `IsolationCore`, `FieldAnalyzerImpl` and `TypeEventualAnalyzerImpl` name their rationale
-   documents directly. `doc-audit-2026-07-30.md` §2 already settled the principle: a comment pointing
+   documents directly. The documentation audit of 2026-07-30 already settled the principle: a comment pointing
    at a deleted file is worse than a closed document sitting in the tree. An issue number is worse
    still — a file travels with the checkout, is greppable and readable offline; an issue is none of
    those.
@@ -45,8 +45,8 @@ A wholesale conversion would destroy value. Three reasons, all measured on the t
    these files by path.
 
 And the issue-shaped material is far smaller than 89 files suggests: **only three files contain
-checkbox TODOs at all** — 34 open boxes in `prep-analyzer hardening.md`, 19 in
-`landing-surface-checklist.md`, 15 in `modification-link-analyzer hardening.md`. Everything else's
+checkbox TODOs at all** — 34 open boxes in `../roadmap/prep-analyzer-hardening.md`, 19 in
+`landing-surface-checklist.md`, 15 in `../roadmap/modification-link-analyzer-hardening.md`. Everything else's
 "openness" is prose inside a design document.
 
 **The rule, then:** documents stay and remain the reasoning record; the discrete open items *inside*
@@ -85,7 +85,7 @@ before filing it as an issue.
 - [x] #3 — acronym expansion still in the manual and book intros.
 - [x] Social preview image — **already done**; the checklist was stale, now corrected.
 - [x] #4 — javadoc warnings on the clean CI run. Also filed #5, the undeclared Gradle toolchain.
-- [x] #6 — `eclipse-plugin-state.md` and `maddi-eclipse/README.md` contradict each other.
+- [x] #6 — `eclipse-plugin-state.md` and `maddi-eclipse/README.md` contradict each other (the former has since been removed).
 - [x] #7, #8, #9, #10 — the four release legs. Also #11 (the manual is still the 2021 edition) and
       #12 (link the book from the README and codelaser.io).
 
@@ -93,12 +93,12 @@ before filing it as an issue.
 
 Sixteen issues, #13–#28. The two hardening documents stay documents. Each gets **one tracking issue** plus **one issue per
 `H` item** (~10 total). Filing 49 fine-grained M/L items on a repository with zero issues buries the
-ones a newcomer could act on. `ide-todo.md` §4's five bullets are individually issue-shaped; §§1–3
+ones a newcomer could act on. `../roadmap/ide-todo.md` §4's five bullets are individually issue-shaped; §§1–3
 are design and stay prose.
 
 - [x] #13 tracking, #15–#19 the five H items.
 - [x] #14 tracking, #20–#23 the four H items (§2's two H bullets are one change, so one issue).
-- [x] #24–#28 — the five `ide-todo.md` §4 items.
+- [x] #24–#28 — the five `../roadmap/ide-todo.md` §4 items.
 - [x] Fourth status label in `docs/README.md`: **tracked** — the document explains, the issues track.
 
 ### Phase 4 — write the rule down — DONE 2026-08-04
@@ -141,7 +141,7 @@ fixtures.
 Removed in two passes (84 occurrences of the customer/corpus names, then a second wave of ~20
 type and method identifiers that contained neither word). The stand-ins are **`closed-core`** for
 the corpus and **`com.example.*`** for its packages; see
-[CONTRIBUTING.md §Names that must not appear](../CONTRIBUTING.md#names-that-must-not-appear).
+[CONTRIBUTING.md §Names that must not appear](../../CONTRIBUTING.md#names-that-must-not-appear).
 
 A commit hook enforces it: `.githooks/` holds a scanner and `pre-commit` / `commit-msg` /
 `pre-merge-commit` hooks. **The term list is not in the repository** — a list of the names to redact

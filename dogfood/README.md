@@ -3,7 +3,7 @@ maddi on maddi
 
 A **standalone** Gradle build — deliberately not listed in the root `settings.gradle.kts`, so nothing
 here can affect the normal maddi build. It exists to run the analyzer on maddi's own code, which is
-where eventual immutability (`docs/eventual-immutability.md`) has to prove itself: maddi is written in
+where eventual immutability (`docs/design/eventual-immutability.md`) has to prove itself: maddi is written in
 that style throughout.
 
 One subproject per maddi module, each pointing at that module's real source directory:

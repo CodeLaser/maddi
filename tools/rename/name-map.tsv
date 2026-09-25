@@ -110,9 +110,9 @@ org.e2immu.something	io.codelaser.maddi.something
 #   maddi-gradleplugin/build.gradle.kts:79  "relocating org.e2immu.* would break it"
 #
 # CORRECT AS-IS, leave alone — genuine references to the OLD e2immu project:
-#   docs/eventual-immutability.md:179       "in the e2immu analyzer (analyzer/src/...)"
+#   docs/design/eventual-immutability.md:179       "in the e2immu analyzer (analyzer/src/...)"
 #   testmvnplugin-export/README.md:15       old published Maven coordinates
-#   docs/eventual-info-hierarchy.md:1885    EC_ASSUME_DEBUG=org.e2immu ledger note
+#   docs/design/eventual-info-hierarchy.md:1885    EC_ASSUME_DEBUG=org.e2immu ledger note
 
 ## SECTION 9	acknowledged prose — substituted, then its residue is not a gap
 # These files mention `org.e2immu` on purpose: they explain that the root package
@@ -137,8 +137,8 @@ org.e2immu.something	io.codelaser.maddi.something
 ARCHITECTURE.md	ACKNOWLEDGED
 README.md	ACKNOWLEDGED
 AGENTS.md	ACKNOWLEDGED
-docs/eventual-immutability.md	ACKNOWLEDGED
-docs/eventual-info-hierarchy.md	ACKNOWLEDGED
+docs/design/eventual-immutability.md	ACKNOWLEDGED
+docs/design/eventual-info-hierarchy.md	ACKNOWLEDGED
 # Added at the cutover, 2026-08-17. PUBLISHING.md records that neither `io.codelaser` nor
 # `org.e2immu` exists on the Gradle Plugin Portal, and that the old plugin id could not have been
 # approved under group io.codelaser. Both are claims about the old name — and the second was
@@ -174,8 +174,8 @@ PUBLISHING.md	ACKNOWLEDGED
 #   eventual-immu. -- paths and class names in the OLD, SEPARATE e2immu analyser repo, which
 #                     was never renamed: `org/e2immu/analyser/...`, `ComputingTypeAnalyser`.
 #                     Rewritten, they point at files that exist nowhere.
-docs/release-notes-0.9.1.md	FROZEN
-docs/eventual-immutability.md	FROZEN
+docs/project/release-notes-0.9.1.md	FROZEN
+docs/design/eventual-immutability.md	FROZEN
 
 ## SECTION 4b	`org.e2immu.analyser` outside the .gml (~300) — kept deliberately
 # Parser test-input snippets: `package org.e2immu.analyser.resolver.testexample;`

@@ -95,7 +95,7 @@ Independence is relaxed after the mark only when the leaked object is ITSELF eve
 Mark labels are field *names* (a mark is often inherited). Eventuality is deliberately kept OUT of the
 `IMMUTABLE_TYPE` lattice for now. `@BeforeMark` is not read yet. The analyzer's own code follows the
 pattern heavily (builder-commit CST, write-once property maps).
-Plan and staging: `docs/eventual-immutability.md`.
+Plan and staging: `docs/design/eventual-immutability.md`.
 
 ## The link system (chapter 105; module maddi-modification-link)
 
@@ -194,7 +194,7 @@ immutability verdicts are derived.
   through it (`this.store.getOrDefault(...)`) is conservatively `@Modified`, which caps the enclosing
   type's immutability. The shallow/annotated-API path under-approximates the immutable side; source does
   not. (Concretely: `ParameterInfoImpl.analysis` was capped only because `PropertyValueMap.getOrDefault`
-  lived in a jar — see `docs/eventual-info-hierarchy.md`.)
+  lived in a jar — see `docs/design/eventual-info-hierarchy.md`.)
 - javac is not thread-safe: all JavacTask access must be single-threaded
   (`-XDuseUnsharedTable=true`, synchronized lazy `getOrLoad`).
 

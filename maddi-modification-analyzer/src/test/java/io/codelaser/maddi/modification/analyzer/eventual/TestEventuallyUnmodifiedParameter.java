@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * {@code EVENTUALLY_UNMODIFIED_PARAMETER} (spec: {@code docs/spec-eventually-unmodified-parameter.md}), the
+ * {@code EVENTUALLY_UNMODIFIED_PARAMETER} (spec: {@code docs/design/spec-eventually-unmodified-parameter.md}), the
  * parameter twin of {@code @NotModified(after=)}: a static helper that reads the argument through the
  * argument's own eventual field is honestly {@code @Modified} on that parameter, but leaves the argument
  * unmodified once the argument's marks have fired. The property is computed by the commit walk rooted in the

@@ -40,7 +40,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression for the anonymous-types rewire gap (see {@code docs/handoff-anonymous-types-rewire.md}). Anonymous and
+ * Regression for the anonymous-types rewire gap (found 2026-07-23 by the refactor server's Tier 2 reparse). Anonymous and
  * lambda types are not part of {@code subTypes()}, so neither the structural rewire phases nor
  * {@code InfoMapImpl.seed} walk their members. A carried analysis value (e.g. {@code METHOD_LINKS}) can name such a
  * member, and looking it up used to fail hard in {@code InfoMapImpl} ("Cannot find ...$0...").

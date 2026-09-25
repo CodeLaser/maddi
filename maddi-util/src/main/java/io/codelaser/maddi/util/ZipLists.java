@@ -29,7 +29,7 @@ public class ZipLists {
 
     // zip only iterates its inputs, and the returned stream shares nothing but their elements (hidden
     // content). Contracted like ListUtil: as a jar on maddi's own dogfood, an unannotated zip() blocks
-    // every withBlocks-style walk that hands a container field to it (docs/eventual-info-hierarchy.md).
+    // every withBlocks-style walk that hands a container field to it (docs/design/eventual-info-hierarchy.md).
     @NotModified
     @Independent(hc = true)
     public static <X, Y> Stream<Z<X, Y>> zip(@NotModified @Independent(hc = true) List<X> lx,

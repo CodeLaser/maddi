@@ -65,7 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Each row carries the book's claim beside the computed value, and is tagged {@code agrees}, {@code STRONGER} or
  * {@code DIFFERS}, so the assertion diff is the finding rather than a lookup into another document.
  * <p>
- * See {@code docs/book-vs-support-divergence.md}, findings 2, 5 and 8.
+ * See {@code docs/design/book-vs-support-divergence.md}, findings 2, 5 and 8.
  */
 public class TestBookIndependenceOfSupportTypes extends CommonTest {
 

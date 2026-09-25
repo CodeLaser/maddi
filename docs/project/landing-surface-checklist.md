@@ -205,7 +205,7 @@ runner it finally executed for real, and **passed** (6.8s, run 29921482346). Swi
 jmods-shipping distribution (zulu, oracle, …) would make that test skip again and take the coverage
 away. The instinct to "fix" CI by changing the JDK was wrong; the jmod-less runner is an asset.
 
-Note this is *distinct* from `regression-jdk-preload-jmodless-alternative-jre.md`, which is about a
+Note this is *distinct* from the 2026-07-19 JDK-preload regression (fixed in `JavaInspectorImpl.createTask`, guarded by `WarmAnalysisServiceTest`), which was about a
 jmod-less **`alternativeJREDirectory`** — the third branch above, which deliberately refuses
 (`"a jmod-less non-running JDK is not supported"`). The running-JDK path works; the alternative-JRE
 path does not. Do not conflate them.

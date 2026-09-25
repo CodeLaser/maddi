@@ -167,7 +167,7 @@ The **IntelliJ plugin** is not in the Taskfile — it is a regular Gradle module
 IntelliJ Platform plugin: `./gradlew :maddi-intellij:runIde` starts a sandboxed IDE with the
 plugin and the freshly built daemon.
 
-Status and open items: `docs/eclipse-plugin-state.md`, `docs/ide-todo.md`.
+State of the plugin: `maddi-eclipse/README.md`; open items: `docs/roadmap/ide-todo.md`.
 
 ## Releasing
 
@@ -180,7 +180,8 @@ zips when the time comes.
 
 - Maintained references live next to what they document (module `README.md`s, the linking
   manual, `parsing-stability.md`) or at the root (`README.md`, `ARCHITECTURE.md`, this file).
-- Cross-module working notes, plans and investigation reports go in `docs/` — add new ones to
+- Cross-module working notes, plans and investigation reports go in `docs/`, in the subdirectory that
+  fits (`design/`, `roadmap/`, `defects/`, `status/`, `project/` — see `docs/README.md`) — add new ones to
   the index in [`docs/README.md`](docs/README.md) with a status label.
 - Module-local bug notes go in the module's `notes/` directory.
 - `AGENTS.md` and `CLAUDE.md` carry the LLM-assistant entry points; keep them short and

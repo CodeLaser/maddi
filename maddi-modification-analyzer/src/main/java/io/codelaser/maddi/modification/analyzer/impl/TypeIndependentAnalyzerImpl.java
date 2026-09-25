@@ -337,7 +337,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 // a ride-along container is skippable when its wrapper is PROVABLY an immutable copy
                 // (every write a copyOf/of-family call -- the cst-impl constructor discipline): no escape
                 // can mutate such a wrapper, contract or no contract. The verification arm of
-                // docs/eventual-design-improvements.md §4, syntactic and cheap.
+                // docs/design/eventual-design-improvements.md §4, syntactic and cheap.
                 if (typeCommits || fieldWrapperProvablyImmutable(fieldInfo)) continue;
             }
             // an @IgnoreModifications field is manual hidden content (road §050): what is reachable through
@@ -493,7 +493,7 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
 
     /**
      * A hand-written {@code @Independent(hc=true)} on the accessor — the TRUSTED-LEAF compromise
-     * (docs/eventual-design-improvements.md §4): the runtime immutability of a {@code Set.copyOf}-backed
+     * (docs/design/eventual-design-improvements.md §4): the runtime immutability of a {@code Set.copyOf}-backed
      * exposure ({@code FieldInspection.fieldModifiers()}) is not computable from the declared type, so the
      * contract states it, and contracts win — read through the {@link ContractReader}, as everywhere.
      */

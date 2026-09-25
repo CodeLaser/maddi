@@ -1,7 +1,7 @@
 # Eventual immutability: design improvements for cst-api/cst-impl
 
 > **Status update (2026-08-01, later the same day): §§1–3 are IMPLEMENTED.** Read
-> `docs/eventual-info-hierarchy.md` §"The enforcement round" for what was built and, more usefully,
+> `docs/design/eventual-info-hierarchy.md` §"The enforcement round" for what was built and, more usefully,
 > for the three places where the specification below turned out to be wrong when measured:
 > the ratchet baseline is **24, not 254** (this note predates the ungating); rules 3 and 4 need a
 > computed **scope** or they produce ~20 violations on deliberately mutable services; and rule 4's
@@ -9,7 +9,7 @@
 > the **call-site/Builder end**. §4 (asserted contracts) and §6 (named transitions) are still proposals.
 
 **Status: proposal (2026-08-01), ready for implementation.** Distilled from the 2026-07-31/08-01
-certification arc (`docs/eventual-info-hierarchy.md`, commits `1e020b39..54b895ab`): the composed
+certification arc (`docs/design/eventual-info-hierarchy.md`, commits `1e020b39..54b895ab`): the composed
 dogfood went from 26 to 254 surviving eventual verdicts, and every regression and blocker along the
 way was catalogued. This note turns that experience into concrete work items. Sections 1–3 are
 specified for another thread to implement without further context; section 4 answers the
@@ -65,7 +65,7 @@ re-derives the survivor set and diffs.
      contraction — read the property, do not parse an FPDUMP), subtracts the allowlist from both
      sides, and asserts equality with the baseline. On failure print the missing and the new names
      separately; the message for a MISSING type should say "a commit has cost this type its eventual
-     verdict — see docs/eventual-info-hierarchy.md §the drift round for the diagnosis recipe".
+     verdict — see docs/design/eventual-info-hierarchy.md §the drift round for the diagnosis recipe".
   5. New survivors are progress: the failure message for ADDED types should say "update the
      baseline".
 - **Runtime budget:** one composed dogfood run, ~60–90 s — fine for `slowTest`.

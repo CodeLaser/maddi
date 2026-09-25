@@ -492,7 +492,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         //     registered (same FQN, same source set), so what it deposited has to go before we refill from source.
         // That is the linear DEFINED_BY_CLASS_SCANNER/DEFINED_IN_SOURCE state ClassSymbolScanner's own STOPGAP
         // note asks for, held on the shared registry rather than on either scanner.
-        // See docs/handoff-source-and-jar-duplicate-interfaces.md and TestPreloadBeforeSourceSymbols.
+        // See TestPreloadBeforeSourceSymbols.
         if (!typeData.markClassScannerSetupDone(typeInfo)) {
             builder.clearInterfacesImplemented();
             builder.clearAnnotations();

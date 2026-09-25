@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * On a flat classpath the first jar with a class wins, so those copies shadow the real libraries: measured on
  * a consumer's classpath, 174 of ANTLR's 215 classes, 787 of guava's 1,962 and 115 of JNA's 124. Checkstyle
  * then died on a {@code CharStreams} with one method left. Full diagnosis in
- * {@code docs/kotlin-classloader-isolation.md}.
+ * {@code docs/design/kotlin-classloader-isolation.md}.
  *
  * <p>Here those jars go in a realm instead of on the classpath, and the only things that cross are the
  * contracts in {@code maddi-kotlin-api} and the CST they speak in.

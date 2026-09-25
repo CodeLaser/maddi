@@ -32,7 +32,7 @@ once Part A also lands), **and** the gate-OFF corpus A/B (Fernflower FPDUMP) sta
 
 ## 1. Background: the greatest-fixpoint arc (what's already in place)
 
-Read `docs/eventual-info-hierarchy.md` first — it's the running record. Short version of the pieces already
+Read `docs/design/eventual-info-hierarchy.md` first — it's the running record. Short version of the pieces already
 committed on this branch:
 
 - **The `Info` cluster is a mutual-reference SCC.** `MethodInfoImpl.typeInfo : TypeInfo`,
@@ -395,7 +395,7 @@ Part B alone will **not** take the retraction to 0. Remaining, in order:
    `inspection` field and `@Mark` methods live on each concrete subclass, all marking a field named `inspection`).
    Give an abstract class with no mark of its own, all of whose concrete subclasses carry an eventual verdict with
    a **common mark label** `L`, the inherited verdict `@Immutable(hc, after=L)`. This is the historical
-   `approvedPreconditionsFromParent` in its subclass→parent direction (see `docs/eventual-immutability.md` §"Not
+   `approvedPreconditionsFromParent` in its subclass→parent direction (see `docs/design/eventual-immutability.md` §"Not
    done"). Implementation notes: there is no built-in "who extends me", so scan the analysis order for
    `t.parentClass() == InfoImpl`; it is circular with `immutableSuper` (subclasses lean on `InfoImpl`, `InfoImpl`
    inherits from subclasses), which the existing seed+contraction machinery already resolves — implement it as a
@@ -428,7 +428,7 @@ Part B alone will **not** take the retraction to 0. Remaining, in order:
   `NON_MODIFYING_METHOD`, `IMMUTABLE_TYPE` — in
   `maddi-cst-analysis/.../analysis/PropertyImpl.java`. Value types in `ValueImpl.java`
   (`EventuallyImmutableImpl`, `SetOfStringsImpl`, `EventualImpl`, `BoolImpl`, `ImmutableImpl`).
-- Docs: `docs/eventual-info-hierarchy.md` (running record — update it), `docs/eventual-immutability.md` (stage-2
+- Docs: `docs/design/eventual-info-hierarchy.md` (running record — update it), `docs/design/eventual-immutability.md` (stage-2
   design + §"Interfaces" + `approvedPreconditionsFromParent`), `road-to-immutability/llm-summary.md` and
   `road-to-immutability/src/docs/asciidoc/sections/050-immutability.adoc` (§060 eventual immutability, §050
   ignore-modifications).
@@ -444,4 +444,4 @@ Part B alone will **not** take the retraction to 0. Remaining, in order:
   the per-test roll-call; verify the FPDUMP was actually written and non-empty.
 - Compare dogfood **aggregate counts / the eventual set** only — never a per-file JSON diff (non-deterministic).
 - Keep the change gated; the gate-OFF corpus A/B byte-identity is the acceptance gate.
-- Commit each landed piece with a clear message; update `docs/eventual-info-hierarchy.md` as you go.
+- Commit each landed piece with a clear message; update `docs/design/eventual-info-hierarchy.md` as you go.

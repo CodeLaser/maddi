@@ -6,8 +6,8 @@ guaranteed to be true. See "Part 2: why it was not built" below.**
 The measurements below were the spike that sized it; the "what it moved" and coupling sections have been updated
 to what the implemented version actually does.
 
-Originally a sizing exercise for a three-part feature. Companion notes: `independent-type-optimism.md` (the optimism
-defect, which turns out to be coupled to this), `sam-linking-reconciliation.md`.
+Originally a sizing exercise for a three-part feature. Companion notes: `../defects/independent-type-optimism.md` (the optimism
+defect, which turns out to be coupled to this), `../defects/sam-linking-reconciliation.md`.
 
 ## Why anyone cares
 
@@ -102,7 +102,7 @@ So **the consumption path can be closed**, and cheaply: one read in one place ta
 The interface variant (`I` declaring `items()`, `Impl` implementing it) is the shape the CST actually has.
 With the spike, `Impl` lifts to independent-HC/immutable-HC. But measuring the same fixture with the spike
 **reverted** shows `I` is *already* `@Independent` / `@Immutable(hc=true)` while its own abstract `items()` is
-`@Dependent` — that is `independent-type-optimism.md`'s defect, not an effect of this change.
+`@Dependent` — that is `../defects/independent-type-optimism.md`'s defect, not an effect of this change.
 
 Here that defect happens to **help**: an interface honestly graded `@FinalFields` would cap `Impl` at MUTABLE
 through the hierarchy rule. So:
@@ -130,7 +130,7 @@ the optimism fix (`return null` in `computeIndependentType`) and re-measuring th
 | `Impl` | `@Independent(hc=true)` / `@Immutable(hc=true)` | `@Independent(hc=true)` / `@Immutable(hc=true)` |
 
 `I` drops to its honest value and nothing breaks. So the two pieces of work no longer have to be sequenced
-together — fixing `independent-type-optimism.md` will not re-break this shape.
+together — fixing `../defects/independent-type-optimism.md` will not re-break this shape.
 
 ### Whole object only
 
@@ -297,7 +297,7 @@ implements the same interface as the immutable product. The Builder's modificati
 `TypeInfo.parentClass()`/`interfacesImplemented()`, which go through `EventuallyFinalOnDemand.get()`, and that
 runs the on-demand loader. (`TypeInfoImpl.superTypesExcludingJavaLangObject` is modifying for the same reason.)
 
-So it is neither a convergence gap nor `independent-type-optimism.md` in a third disguise. Independence is
+So it is neither a convergence gap nor `../defects/independent-type-optimism.md` in a third disguise. Independence is
 fully resolved here (`independentType:2` = `@Independent`); the cap is the shared interface.
 
 ### `test9BuilderSplitIsNotTheBlocker` is narrower than it reads

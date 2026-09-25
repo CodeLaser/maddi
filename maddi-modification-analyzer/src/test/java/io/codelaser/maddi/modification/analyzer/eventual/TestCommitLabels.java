@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * The {@code commitLabels} reframe of "eventually non-modifying" (EVENTUALCLUSTER only; handoff spec in
- * {@code docs/handoff-eventual-interface-nonmodification.md} §5): a call is non-modifying-of-{@code this} after
+ * {@code docs/design/handoff-eventual-interface-nonmodification.md} §5): a call is non-modifying-of-{@code this} after
  * mark M iff every {@code this}-derived value it touches -- receiver <em>and</em> arguments -- is committed by M.
  * These are the cross-reference accessor shapes ({@code returnType().typeInfo().isEnclosedIn(this.typeInfo)},
  * {@code compilationUnitOrEnclosingType.getRight().primaryType()}) that keep the {@code *Info} interfaces from

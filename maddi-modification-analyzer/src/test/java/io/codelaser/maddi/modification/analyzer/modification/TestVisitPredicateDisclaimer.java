@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * CALL SITE whose lambda modifies the element it receives. The disclaimer exists precisely to keep
  * that evidence from reaching {@code visit}: without the cut, one modifying lambda anywhere makes
  * every visit implementation modifying, which sinks the whole owner family's immutability
- * (the api statement family's visit/reject/typesReferenced, docs/eventual-info-hierarchy.md).
+ * (the api statement family's visit/reject/typesReferenced, docs/design/eventual-info-hierarchy.md).
  */
 public class TestVisitPredicateDisclaimer extends CommonTest {
 

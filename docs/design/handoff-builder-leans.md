@@ -5,8 +5,8 @@
 > fixes are recorded in §4c. The Builder interfaces no longer appear among the retraction roots.
 
 **Audience:** a fresh model (or Bart) deciding and implementing the Builder mechanism without the
-2026-07-23 session context. Companion to `docs/spec-eventually-unmodified-parameter.md` §8–§9 and the
-running record in `docs/eventual-info-hierarchy.md` (read "The interface clique round" first).
+2026-07-23 session context. Companion to `docs/design/spec-eventually-unmodified-parameter.md` §8–§9 and the
+running record in `docs/design/eventual-info-hierarchy.md` (read "The interface clique round" first).
 **Status: CHARACTERIZED, design decision open.** Ring 2 already named this a modeling decision
 ("exclude builder-natured types from candidacy, or give builders their own eventual story"); this
 handoff adds the measured evidence and the constraint that rules out the easy answers.

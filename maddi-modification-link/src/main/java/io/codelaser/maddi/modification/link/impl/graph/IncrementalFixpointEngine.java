@@ -247,7 +247,7 @@ public final class IncrementalFixpointEngine<V, L> {
         // natural-orientation-first order here was literally a coin flip per run. Seed order decides
         // which derivation paths fire first, and derived-fact survival is order-sensitive (see
         // completeSymmetrically's history), so this flip was a run-to-run bistability seed
-        // (docs/eventual-info-hierarchy.md §"The seed-order round").
+        // (docs/design/eventual-info-hierarchy.md §"The seed-order round").
         return incrementalUpdate(List.of(new Fact<>(from, to, label), new Fact<>(to, from, reverseLabel)),
                 statementIndex);
     }

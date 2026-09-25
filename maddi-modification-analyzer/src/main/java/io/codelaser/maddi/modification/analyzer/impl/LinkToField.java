@@ -95,7 +95,7 @@ class LinkToField {
             // seen from the other side, and the link engine's combination lattice emits either variant
             // for the same pair depending on combination order (run-to-run): judging one while skipping
             // the other manufactured a verdict fork out of a cosmetic emission choice
-            // (docs/eventual-info-hierarchy.md §"The independence sampling round").
+            // (docs/design/eventual-info-hierarchy.md §"The independence sampling round").
             return link.to().parameterizedType().copyWithoutArrays();
         }
         if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {

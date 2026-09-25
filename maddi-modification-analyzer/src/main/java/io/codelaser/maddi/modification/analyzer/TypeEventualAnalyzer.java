@@ -18,7 +18,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 /**
  * Phase 4.3: eventual immutability by <em>propagation</em> (road to immutability §060; plan in
- * {@code docs/eventual-immutability.md}).
+ * {@code docs/design/eventual-immutability.md}).
  * <p>
  * A type that holds a field of eventually immutable type — overwhelmingly one of the {@code io.codelaser.maddi.support}
  * classes — is itself eventually immutable, and its methods inherit the mark: a method calling a {@code @Mark}

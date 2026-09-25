@@ -55,7 +55,7 @@ import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STATIC_SIDE_EFFE
  *       information: the declared type is {@code List<X>} while the object actually held or returned is
  *       immutable. Nothing in the declared type says so, and no source-level inference computes it today, so
  *       the contract is the only possible source. (Inferring it is a separate, inter-procedural problem — see
- *       {@code docs/dynamic-immutability-feasibility.md}.)</li>
+ *       {@code docs/design/dynamic-immutability-feasibility.md}.)</li>
  *   <li>Everything the analyzer <em>does</em> compute — the {@code INDEPENDENT_*} and {@code CONTAINER_*}
  *       family, {@code FINAL_FIELD}, … — is deliberately NOT materialized <b>on a method with a body</b>.
  *       Trusting a wrong contract there would silently replace a derived verdict with an assertion, and
