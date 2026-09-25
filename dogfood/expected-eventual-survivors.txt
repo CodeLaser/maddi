@@ -44,33 +44,38 @@
 # not a non-event -- it says the contracts those two modules carry are load-bearing nowhere the
 # certification arc had not already established, and it is the first run in which a change to either
 # module can move this file at all.
-io.codelaser.maddi.cst.api.analysis.Value
+#
+# BASELINE 2026-09-25 (#51): 313 types (314 survivors minus the ImportDetails wobble), byte-identical over two
+# runs. 24 LOST vs the 08-17 pin (#51): 16 are @Immutable(hc) UNCONDITIONALLY now (Value, BoolImpl, ...,
+# CompilationUnitStub -- an eventual verdict would buy nothing). 8 stay @FinalFields with no eventual verdict:
+# Predefined, whose only label (isAssignableFrom2) no longer exists, and Value.ParameterParSeq, SetOfInfo,
+# SetOfMethodInfo, VariableToTypeInfoSet, ValueImpl, SetOfMethodInfoImpl, VariableToTypeInfoSetImpl --
+# ParameterParSeq traced: its only label was inherited from Value, which is unconditionally hc now and so carries
+# none; the other six not individually traced. 52 NEW, the proof-token repair after #34 (the eventual verdict is written
+# for FF==FF under the gate, the contraction discharges unconditional FF). From this pin on, TestEventualRatchet
+# also asserts LEVELS: its HC_KEYSTONES (Element, Expression, Statement, Info, MethodInfo, TypeInfo, ...) must stay
+# @Immutable(hc=true) after the mark -- #51 showed the whole family sliding to @FinalFields with this list unmoved.
+
+io.codelaser.maddi.cst.api.analysis.Codec.TypeAndSorted
+io.codelaser.maddi.cst.api.analysis.Message
 io.codelaser.maddi.cst.api.analysis.Value.AssignedToField
-io.codelaser.maddi.cst.api.analysis.Value.Bool
-io.codelaser.maddi.cst.api.analysis.Value.CommutableData
 io.codelaser.maddi.cst.api.analysis.Value.Eventual
-io.codelaser.maddi.cst.api.analysis.Value.EventuallyImmutable
 io.codelaser.maddi.cst.api.analysis.Value.FieldBooleanMap
 io.codelaser.maddi.cst.api.analysis.Value.FieldValue
 io.codelaser.maddi.cst.api.analysis.Value.GetSetEquivalent
-io.codelaser.maddi.cst.api.analysis.Value.Immutable
 io.codelaser.maddi.cst.api.analysis.Value.Independent
 io.codelaser.maddi.cst.api.analysis.Value.IndicesOfEscapes
-io.codelaser.maddi.cst.api.analysis.Value.Message
-io.codelaser.maddi.cst.api.analysis.Value.NotNullProperty
-io.codelaser.maddi.cst.api.analysis.Value.ParameterParSeq
 io.codelaser.maddi.cst.api.analysis.Value.PostConditions
 io.codelaser.maddi.cst.api.analysis.Value.Precondition
-io.codelaser.maddi.cst.api.analysis.Value.Scope
-io.codelaser.maddi.cst.api.analysis.Value.SetOfInfo
-io.codelaser.maddi.cst.api.analysis.Value.SetOfMethodInfo
 io.codelaser.maddi.cst.api.analysis.Value.SetOfStrings
 io.codelaser.maddi.cst.api.analysis.Value.SetOfTypeInfo
 io.codelaser.maddi.cst.api.analysis.Value.VariableBooleanMap
-io.codelaser.maddi.cst.api.analysis.Value.VariableToTypeInfoSet
 io.codelaser.maddi.cst.api.element.Comment
 io.codelaser.maddi.cst.api.element.CompilationUnit
+io.codelaser.maddi.cst.api.element.DetailedSources
+io.codelaser.maddi.cst.api.element.DetailedSources.Builder.TypeInfoSource
 io.codelaser.maddi.cst.api.element.Element
+io.codelaser.maddi.cst.api.element.Element.TypeReference
 io.codelaser.maddi.cst.api.element.ImportStatement
 io.codelaser.maddi.cst.api.element.JavaDoc
 io.codelaser.maddi.cst.api.element.JavaDoc.Tag
@@ -83,6 +88,7 @@ io.codelaser.maddi.cst.api.element.ModuleInfo.Uses
 io.codelaser.maddi.cst.api.element.MultiLineComment
 io.codelaser.maddi.cst.api.element.RecordPattern
 io.codelaser.maddi.cst.api.element.SingleLineComment
+io.codelaser.maddi.cst.api.element.Source
 io.codelaser.maddi.cst.api.expression.And
 io.codelaser.maddi.cst.api.expression.AnnotationExpression
 io.codelaser.maddi.cst.api.expression.AnnotationExpression.KV
@@ -105,8 +111,10 @@ io.codelaser.maddi.cst.api.expression.EmptyExpression
 io.codelaser.maddi.cst.api.expression.EnclosedExpression
 io.codelaser.maddi.cst.api.expression.Equals
 io.codelaser.maddi.cst.api.expression.Expression
+io.codelaser.maddi.cst.api.expression.ExpressionWrapper
 io.codelaser.maddi.cst.api.expression.FloatConstant
 io.codelaser.maddi.cst.api.expression.GreaterThanZero
+io.codelaser.maddi.cst.api.expression.GreaterThanZero.XB
 io.codelaser.maddi.cst.api.expression.InlineConditional
 io.codelaser.maddi.cst.api.expression.Instance
 io.codelaser.maddi.cst.api.expression.InstanceOf
@@ -131,16 +139,28 @@ io.codelaser.maddi.cst.api.expression.TypeExpression
 io.codelaser.maddi.cst.api.expression.UnaryOperator
 io.codelaser.maddi.cst.api.expression.VariableExpression
 io.codelaser.maddi.cst.api.info.CompilationUnitPrinter
+io.codelaser.maddi.cst.api.info.CompilationUnitPrinter.ImportData
+io.codelaser.maddi.cst.api.info.ComputeMethodOverrides
 io.codelaser.maddi.cst.api.info.FieldInfo
 io.codelaser.maddi.cst.api.info.FieldPrinter
+io.codelaser.maddi.cst.api.info.ImportComputer.Result
 io.codelaser.maddi.cst.api.info.Info
+io.codelaser.maddi.cst.api.info.InfoMap
+io.codelaser.maddi.cst.api.info.InfoMapView
 io.codelaser.maddi.cst.api.info.MethodInfo
 io.codelaser.maddi.cst.api.info.MethodPrinter
 io.codelaser.maddi.cst.api.info.ParameterInfo
 io.codelaser.maddi.cst.api.info.TypeInfo
 io.codelaser.maddi.cst.api.info.TypeParameter
 io.codelaser.maddi.cst.api.info.TypePrinter
-io.codelaser.maddi.cst.api.runtime.Predefined
+io.codelaser.maddi.cst.api.output.Qualification
+io.codelaser.maddi.cst.api.output.element.Text
+io.codelaser.maddi.cst.api.output.element.TextBlockFormatting
+io.codelaser.maddi.cst.api.runtime.Eval
+io.codelaser.maddi.cst.api.runtime.Eval.$0
+io.codelaser.maddi.cst.api.runtime.Eval.$1
+io.codelaser.maddi.cst.api.runtime.Runtime
+io.codelaser.maddi.cst.api.runtime.Types
 io.codelaser.maddi.cst.api.statement.AssertStatement
 io.codelaser.maddi.cst.api.statement.Block
 io.codelaser.maddi.cst.api.statement.BreakOrContinueStatement
@@ -168,6 +188,7 @@ io.codelaser.maddi.cst.api.statement.TryStatement
 io.codelaser.maddi.cst.api.statement.TryStatement.CatchClause
 io.codelaser.maddi.cst.api.statement.WhileStatement
 io.codelaser.maddi.cst.api.statement.YieldStatement
+io.codelaser.maddi.cst.api.translate.TranslationMap
 io.codelaser.maddi.cst.api.type.NamedType
 io.codelaser.maddi.cst.api.type.ParameterizedType
 io.codelaser.maddi.cst.api.variable.DependentVariable
@@ -175,32 +196,24 @@ io.codelaser.maddi.cst.api.variable.FieldReference
 io.codelaser.maddi.cst.api.variable.LocalVariable
 io.codelaser.maddi.cst.api.variable.This
 io.codelaser.maddi.cst.api.variable.Variable
-io.codelaser.maddi.cst.impl.analysis.ValueImpl
+io.codelaser.maddi.cst.impl.analysis.MessageImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.AssignedToFieldImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.CommutableDataImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.EventualImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.EventuallyImmutableImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.FieldBooleanMapImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.GetSetEquivalentImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.GetSetValueImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndicesOfEscapesImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.MessageImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.NotNullImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.PostConditionsImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.PreconditionImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.ScopeImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.SetOfMethodInfoImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.SetOfStringsImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.SetOfTypeInfoImpl
 io.codelaser.maddi.cst.impl.analysis.ValueImpl.VariableBooleanMapImpl
-io.codelaser.maddi.cst.impl.analysis.ValueImpl.VariableToTypeInfoSetImpl
 io.codelaser.maddi.cst.impl.element.CompilationUnitImpl
-io.codelaser.maddi.cst.impl.element.CompilationUnitStub
+io.codelaser.maddi.cst.impl.element.DetailedSourcesImpl
 io.codelaser.maddi.cst.impl.element.DetailedSourcesImpl.Prefix
 io.codelaser.maddi.cst.impl.element.ElementImpl
+io.codelaser.maddi.cst.impl.element.ElementImpl.TypeReference
 io.codelaser.maddi.cst.impl.element.JavaDocImpl
 io.codelaser.maddi.cst.impl.element.JavaDocImpl.TagImpl
 io.codelaser.maddi.cst.impl.element.MaddiAnnotationsImpl
@@ -213,6 +226,7 @@ io.codelaser.maddi.cst.impl.element.ModuleInfoImpl.UsesImpl
 io.codelaser.maddi.cst.impl.element.MultiLineCommentImpl
 io.codelaser.maddi.cst.impl.element.RecordPatternImpl
 io.codelaser.maddi.cst.impl.element.SingleLineCommentImpl
+io.codelaser.maddi.cst.impl.element.SourceImpl
 io.codelaser.maddi.cst.impl.expression.AndImpl
 io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl
 io.codelaser.maddi.cst.impl.expression.AnnotationExpressionImpl.KVI
@@ -262,7 +276,9 @@ io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl
 io.codelaser.maddi.cst.impl.expression.eval.EvalAnd
 io.codelaser.maddi.cst.impl.expression.eval.EvalBinaryOperator
 io.codelaser.maddi.cst.impl.expression.eval.EvalBoolean
+io.codelaser.maddi.cst.impl.expression.eval.EvalBoolean.$0
 io.codelaser.maddi.cst.impl.expression.eval.EvalCast
+io.codelaser.maddi.cst.impl.expression.eval.EvalConstant
 io.codelaser.maddi.cst.impl.expression.eval.EvalDivide
 io.codelaser.maddi.cst.impl.expression.eval.EvalEquals
 io.codelaser.maddi.cst.impl.expression.eval.EvalInequality
@@ -270,13 +286,18 @@ io.codelaser.maddi.cst.impl.expression.eval.EvalInlineConditional
 io.codelaser.maddi.cst.impl.expression.eval.EvalInstanceOf
 io.codelaser.maddi.cst.impl.expression.eval.EvalNegation
 io.codelaser.maddi.cst.impl.expression.eval.EvalOr
+io.codelaser.maddi.cst.impl.expression.eval.EvalOr.R
 io.codelaser.maddi.cst.impl.expression.eval.EvalProduct
 io.codelaser.maddi.cst.impl.expression.eval.EvalRemainder
 io.codelaser.maddi.cst.impl.expression.eval.EvalSum
 io.codelaser.maddi.cst.impl.expression.eval.EvalSum.Factor
 io.codelaser.maddi.cst.impl.expression.eval.EvalUnaryOperator
 io.codelaser.maddi.cst.impl.expression.util.ExpressionComparator.Unwrapped
+io.codelaser.maddi.cst.impl.expression.util.ExtractComponentsOfTooComplex
+io.codelaser.maddi.cst.impl.expression.util.InequalitySolver
+io.codelaser.maddi.cst.impl.expression.util.LhsRhs
 io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl
+io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl.ImportDataImpl
 io.codelaser.maddi.cst.impl.info.ComputeMethodOverridesImpl
 io.codelaser.maddi.cst.impl.info.FieldInfoImpl
 io.codelaser.maddi.cst.impl.info.FieldInspection
@@ -284,14 +305,29 @@ io.codelaser.maddi.cst.impl.info.FieldInspectionImpl
 io.codelaser.maddi.cst.impl.info.FieldPrinterImpl
 io.codelaser.maddi.cst.impl.info.ImportComputerImpl.PerPackage
 io.codelaser.maddi.cst.impl.info.InfoImpl
+io.codelaser.maddi.cst.impl.info.InfoMapImpl
+io.codelaser.maddi.cst.impl.info.InspectionImpl
 io.codelaser.maddi.cst.impl.info.MethodInfoImpl
+io.codelaser.maddi.cst.impl.info.MethodInspection
+io.codelaser.maddi.cst.impl.info.MethodInspectionImpl
+io.codelaser.maddi.cst.impl.info.MethodInspectionImpl.MissingDataImpl
 io.codelaser.maddi.cst.impl.info.MethodPrinterImpl
 io.codelaser.maddi.cst.impl.info.ParameterInfoImpl
+io.codelaser.maddi.cst.impl.info.ParameterInspection
+io.codelaser.maddi.cst.impl.info.ParameterInspectionImpl
 io.codelaser.maddi.cst.impl.info.TypeInfoImpl
+io.codelaser.maddi.cst.impl.info.TypeInspection
+io.codelaser.maddi.cst.impl.info.TypeInspectionImpl
+io.codelaser.maddi.cst.impl.info.TypeParameterInspection
+io.codelaser.maddi.cst.impl.info.TypeParameterInspectionImpl
 io.codelaser.maddi.cst.impl.info.TypePrinterImpl
 io.codelaser.maddi.cst.impl.output.QualificationImpl
+io.codelaser.maddi.cst.impl.output.TextBlockFormattingImpl
+io.codelaser.maddi.cst.impl.output.TextImpl
+io.codelaser.maddi.cst.impl.runtime.EvalImpl
 io.codelaser.maddi.cst.impl.runtime.FactoryImpl
 io.codelaser.maddi.cst.impl.runtime.PredefinedImpl
+io.codelaser.maddi.cst.impl.runtime.RuntimeImpl
 io.codelaser.maddi.cst.impl.statement.AssertStatementImpl
 io.codelaser.maddi.cst.impl.statement.BlockImpl
 io.codelaser.maddi.cst.impl.statement.BreakOrContinueStatementImpl
@@ -319,10 +355,14 @@ io.codelaser.maddi.cst.impl.statement.TryStatementImpl
 io.codelaser.maddi.cst.impl.statement.TryStatementImpl.CatchClauseImpl
 io.codelaser.maddi.cst.impl.statement.WhileStatementImpl
 io.codelaser.maddi.cst.impl.statement.YieldStatementImpl
+io.codelaser.maddi.cst.impl.translate.TranslationMapImpl
 io.codelaser.maddi.cst.impl.type.CommonType
+io.codelaser.maddi.cst.impl.type.IsAssignableFrom
 io.codelaser.maddi.cst.impl.type.IsAssignableFrom2
+io.codelaser.maddi.cst.impl.type.IsAssignableFrom2.Pair
 io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl
 io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl.$0
+io.codelaser.maddi.cst.impl.type.ParameterizedTypePrinter.TypeAndParameters
 io.codelaser.maddi.cst.impl.type.TypeParameterImpl
 io.codelaser.maddi.cst.impl.variable.DependentVariableImpl
 io.codelaser.maddi.cst.impl.variable.FieldReferenceImpl
