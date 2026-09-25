@@ -849,7 +849,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
                 // when already known, a number of source details are missed out! (e.g. return type)
                 if (!methodInfo.isConstructor()) {
-                    ParameterizedType treeBuiltReturnType = convertType.convertTree(jcMethod.getReturnType(), dsb);
+                    // ⛔ ROUTED BY @Target, AS ON THE FRESH-METHOD BRANCH. The symbol-built return type carries no
+                    // type-use annotation (attribution had not run when the symbol was read), so a TYPE_USE-only
+                    // '@NonNull X m()' lost its annotation outright when something called m() before this
+                    // declaration was reached. Copy the declaration's annotations onto the existing instance,
+                    // leaving its structure alone. See TestTypeUseAnnotationOnACalledMethod.
+                    List<AnnotationExpression> declFromType = new ArrayList<>();
+                    ParameterizedType treeBuiltReturnType = convertTypeWithAnnotations(jcMethod.getReturnType(),
+                            dsb, declFromType::add);
+                    ParameterizedType returnType = transplantAnnotations(methodInfo.returnType(),
+                            withExtraAnnotations(treeBuiltReturnType,
+                                    typeOnlyModifierAnnotations(jcMethod.getModifiers())));
+                    if (returnType != methodInfo.returnType()) builder.setReturnType(returnType);
+                    declFromType.forEach(builder::addAnnotation);
                     // Exactly the parameter situation handled below, for the return type. This method was created
                     // earlier from its symbol -- e.g. via a method reference scanned before this declaration is
                     // reached -- so methodInfo.returnType() is a symbol-built instance, while convertTree just
@@ -860,12 +872,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     // See TestReturnTypeSource.
                     Source returnTypeSource = sourceForNode(jcMethod.getReturnType());
                     if (returnTypeSource != null && !returnTypeSource.isNoSource()) {
-                        dsb.put(methodInfo.returnType(), returnTypeSource);
+                        dsb.put(returnType, returnTypeSource);
                     }
                     // ...and the same for every NESTED TYPE ARGUMENT, which the line above reaches only at the
                     // outer level. See keyNestedTypeArguments.
-                    keyNestedTypeArguments(dsb, methodInfo.returnType(), treeBuiltReturnType,
-                            jcMethod.getReturnType());
+                    keyNestedTypeArguments(dsb, returnType, treeBuiltReturnType, jcMethod.getReturnType());
                 }
                 jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
 
@@ -880,9 +891,26 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     if (parameterInfo.source() == null) {
                         JCTree.JCVariableDecl jcVariableDecl = jcParameters.get(pIndex);
                         DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                        List<AnnotationExpression> paramDeclFromType = new ArrayList<>();
                         ParameterizedType treeBuiltParamType =
-                                convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, ignored -> {
-                                });
+                                convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam,
+                                        paramDeclFromType::add);
+                        // ⛔ The symbol-built parameter type has no type-use annotation either (see the return
+                        // type above), and a parameter's type is fixed at construction: replace the still
+                        // uncommitted parameter by one carrying the declaration's annotations, in the builder
+                        // AND in parameterMap, which the body resolves against. Nothing else holds it yet.
+                        ParameterizedType annotated = transplantAnnotations(parameterInfo.parameterizedType(),
+                                withExtraAnnotations(treeBuiltParamType,
+                                        typeOnlyModifierAnnotations(jcVariableDecl.getModifiers())));
+                        if (annotated != parameterInfo.parameterizedType()) {
+                            ParameterInfo replacement = parameterInfo.withParameterizedType(annotated);
+                            replacement.builder().setVarArgs(parameterInfo.isVarArgs())
+                                    .setIsFinal(parameterInfo.isFinal());
+                            parameterInfo.annotations().forEach(replacement.builder()::addAnnotation);
+                            builder.parameters().set(pIndex, replacement);
+                            parameterMap.put(replacement.name(), replacement);
+                            parameterInfo = replacement;
+                        }
                         // This method (and hence its parameters) was created earlier from its symbol -- e.g. via a
                         // method reference scanned before this declaration is reached -- so parameterInfo has a
                         // symbol-built type instance, distinct from the tree-built instance convertTypeWithAnnotations
@@ -906,10 +934,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         // silently absent from every symbol-created method while the fresh-method path kept
                         // it. Add them here exactly as that path does; guarded on emptiness so a symbol that
                         // DID carry annotations is never duplicated.
+                        // Filtered by @Target exactly as on the fresh-method branch: a TYPE_USE-only annotation went
+                        // onto the DECLARATION here, where javac never puts it.
                         if (parameterInfo.annotations().isEmpty()) {
                             for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                                if (!targetsDeclaration(annotation)) continue;
                                 parameterInfo.builder().addAnnotation(convertAnnotation(annotation));
                             }
+                            paramDeclFromType.forEach(parameterInfo.builder()::addAnnotation);
                         }
                         setParameterSource(jcVariableDecl, parameterInfo, dsbParam,
                                 methodInfo.isConstructor(), methodInfo, currentType);
@@ -1254,6 +1286,29 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (!targetsDeclaration(annotation)) result.add(convertAnnotation(annotation));
         }
         return result;
+    }
+
+    /**
+     * {@code target} with the annotations {@code source} carries, at every level of type arguments that the two
+     * have in common. The target's own structure is kept: it is the symbol-built instance, and replacing it by
+     * the tree-built one would change more than the annotations. Returns {@code target} itself when nothing is
+     * added.
+     */
+    private static ParameterizedType transplantAnnotations(ParameterizedType target, ParameterizedType source) {
+        ParameterizedType result = target;
+        List<ParameterizedType> targetArgs = target.parameters();
+        List<ParameterizedType> sourceArgs = source.parameters();
+        if (!targetArgs.isEmpty() && targetArgs.size() == sourceArgs.size()) {
+            List<ParameterizedType> merged = new ArrayList<>(targetArgs.size());
+            boolean changed = false;
+            for (int i = 0; i < targetArgs.size(); i++) {
+                ParameterizedType arg = transplantAnnotations(targetArgs.get(i), sourceArgs.get(i));
+                changed |= arg != targetArgs.get(i);
+                merged.add(arg);
+            }
+            if (changed) result = result.withParameters(List.copyOf(merged));
+        }
+        return withExtraAnnotations(result, source.annotations());
     }
 
     /** Adds {@code extra} to the type's own annotations, skipping any annotation type already present. */
