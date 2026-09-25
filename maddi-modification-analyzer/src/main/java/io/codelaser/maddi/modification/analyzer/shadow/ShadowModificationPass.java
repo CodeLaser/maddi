@@ -51,7 +51,7 @@ import static io.codelaser.maddi.modification.prepwork.callgraph.ComputePartOfCo
  * Nodes: ParameterInfo, FieldInfo, and MethodInfo standing for the method's receiver
  * ("this method modifies its receiver object graph" = !NON_MODIFYING_METHOD).
  * <p>
- * Seeds (P3, "primitive seeding" — see docs/handoff-verification-residue.md §7.5 design A): the
+ * Seeds (P3, "primitive seeding" — see docs/design/handoff-verification-residue.md §7.5 design A): the
  * converged METHOD_LINKS modified sets seed — EXCEPT, for methods whose body the walk can fully
  * see (no method references, anonymous classes, or local type declarations; lambda bodies ARE
  * walked), the receiver-rooted entries (This, this-scoped FieldReferences, own parameters). Those
@@ -193,7 +193,7 @@ public class ShadowModificationPass {
                 callSitesWithoutArgumentLinks, unprojectedReceivers,
                 Map.copyOf(missingArgLinkAnalyzedCallees), Set.copyOf(frontierIncomplete),
                 immutableGuardedDivergences);
-        // gate EDGEDUMP=1 (docs/eventual-info-hierarchy.md §"The deferral round"): print the full edge
+        // gate EDGEDUMP=1 (docs/design/eventual-info-hierarchy.md §"The deferral round"): print the full edge
         // set, sorted. The last dogfood nondeterminism is ONE extra shadow edge (18783 vs 18784 at
         // MODREACH round 1, 1-in-6, cascading to the statement family); diffing two runs' dumps names it.
         if (System.getenv("EDGEDUMP") != null) {
@@ -359,7 +359,7 @@ public class ShadowModificationPass {
         seedStatementLevelFieldModifications(mi);
     }
 
-    // gate VDDUMP=<fqn substrings, comma-separated> (docs/eventual-info-hierarchy.md §"The
+    // gate VDDUMP=<fqn substrings, comma-separated> (docs/design/eventual-info-hierarchy.md §"The
     // argument-links round"): dump matching methods' statement-level VariableData links at
     // shadow-pass time — the in-memory state the E1/E3 projections read. The persisted summaries
     // are proven identical across runs while the projected edges vary; diffing two runs' VD dumps

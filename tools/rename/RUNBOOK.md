@@ -199,7 +199,7 @@ These are not scriptable and each breaks the build if forgotten:
 - **Hand-review every `.md` the substitution touched** — the diff above, not the file list.
   A document that *mentions* the old prefix on purpose cannot be protected by a per-file
   marker unless the whole file is about the old name (then: section 4, FROZEN). The mixed
-  ones — `PUBLISHING.md`, `docs/eventual-info-hierarchy.md` — carry live maddi packages that
+  ones — `PUBLISHING.md`, `docs/design/eventual-info-hierarchy.md` — carry live maddi packages that
   must be renamed **and** claims about the old name that must not, in the same document, and
   only a reader can tell them apart. Of `PUBLISHING.md`'s three substitutions, two were right
   and one turned a true sentence into a self-contradiction
@@ -237,8 +237,8 @@ compound token; the four bare-word cases (`"e2immu"` as extension name and as ta
 and two AsciiDoc spellings) were listed individually. A blanket rule would have rewritten the very
 fixtures section 4 exists to freeze.
 
-Excluded by hand, and why: `docs/doc-audit-2026-07-30.md` (a dated audit that QUOTES the old task
-name as its finding), `docs/eventual-info-hierarchy.md` and `eventual-design-improvements.md`
+Excluded by hand, and why: `docs/doc-audit-2026-07-30.md` (since removed; a dated audit that QUOTED the old task
+name as its finding), `docs/design/eventual-info-hierarchy.md` and `eventual-design-improvements.md`
 (design prose), `TestWriteAnalysis` and `TestTypeDependencies` (fixtures whose data IS the old
 package), `TestExtractBuildProjectNames` (assertions over a recorded build log),
 `OrgE2immuSupport.java` (the AAPI class name mirrors a package that moved -- cosmetic, and its

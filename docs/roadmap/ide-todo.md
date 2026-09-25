@@ -1,7 +1,7 @@
 # IDE front-ends — TODO
 
 Work queued for the IntelliJ and Eclipse plugins and the daemon they share. Current state of what exists is
-in `eclipse-plugin-state.md` (Eclipse) and the plugin sources; this file is only what is *not* done.
+in `maddi-eclipse/README.md` (Eclipse) and the plugin sources; this file is only what is *not* done.
 
 Ordered by what a user on a large project would feel first.
 
@@ -12,10 +12,10 @@ Ordered by what a user on a large project would feel first.
 **Why:** on larger projects the analysis is slow, and today *every* trigger re-analyses the whole project
 from scratch. A one-line edit costs a full run. This is the single biggest win available.
 
-**Blocked on:** the rewiring work (`rewiring.md`). That is what makes it possible to rebuild only the changed
+**Blocked on:** the rewiring work (`../design/rewiring.md`). That is what makes it possible to rebuild only the changed
 type and what is downstream of it, keeping everything upstream as the *same objects*. Status there:
 openjdk inspector complete and running end to end; Kotlin inspector not started. Also relevant:
-`partial-reparse-rewire.md`.
+`../design/partial-reparse-rewire.md`.
 
 **What has to change in the daemon.** `WarmAnalysisService.analyze` constructs a **fresh**
 `JavaInspectorImpl(true, false)` per request and re-parses everything. Partial re-analysis means the opposite:
@@ -180,8 +180,8 @@ Each of these is a GitHub issue (#24–#28); this section stays the reasoning.
   `ClassSymbolScanner.loadType: …StatementImpl.Builder COMPLETE_SUB` → `addMemberToType:913` →
   `TypeInspectionImpl$Builder.commit:350`. So a type that is *also* a source type in the same parse is
   being loaded from a class file and comes out with no parent class — the shape
-  [`handoff-source-and-jar-duplicate-interfaces.md`](handoff-source-and-jar-duplicate-interfaces.md)
-  fixed for the *preload* path in these same files, and whose table predicts verbatim that a pre-source
+  the 2026-08-21 preload fix (`TestPreloadBeforeSourceSymbols`)
+  closed for the *preload* path in these same files, and whose write-up predicted verbatim that a pre-source
   lazy load "would be left with no parent class and no type parameters".
   **Why the IDE hits it and the CLI never does.** `MaddiConfigBuilder` puts every module's compiler
   output dir on one flat classpath ("the crucial mapping is compiler output dirs → classpath … hot class
@@ -200,7 +200,7 @@ Each of these is a GitHub issue (#24–#28); this section stays the reasoning.
   source-and-bytecode precondition held): **0 null-parent commits**, and 165 through-class-files warnings
   against CodeLaser's 3,677. So the `ClassSymbolScanner` route needs maddi's own bytecode meeting maddi's
   own source — the same self-analysis requirement
-  [`handoff-source-and-jar-duplicate-interfaces.md`](handoff-source-and-jar-duplicate-interfaces.md)
+  the 2026-08-21 preload fix (`TestPreloadBeforeSourceSymbols`)
   states for the preload route. Third-party projects do not hit this one.
 - **(#31) Whole-project classpath union is quadratic, and OOMs before parsing.** Same `MaddiConfigBuilder`
   flattening: `OrderEnumerator.orderEntries(project).librariesOnly()` unions every library in the project,

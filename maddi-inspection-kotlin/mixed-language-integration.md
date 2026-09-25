@@ -298,12 +298,12 @@ the file facade `…Kt`), a **vararg** function, and a **bounded generic** metho
 | Phase 4 hardening | `maddi-inspection-mixed/.../TestMixedHardening.kt` (enum/nested/generic/void/extends/multi) |
 | Kotlin-only: warmup source set + class path | `maddi-inspection-mixed/.../MixedProjectInspector.kt` (§11.1–11.2, `TEST_PROTOCOL` warmup, `javaConfig`) |
 | Kotlin-only: explicit library load | `maddi-kotlin-k2/.../KotlinTypeMapper.kt` (`loadLibraryClass`, §11.3) |
-| Corpora, verdicts and open tails | [`docs/kotlin-corpora.md`](../docs/kotlin-corpora.md) |
+| Corpora, verdicts and open tails | [`docs/status/kotlin-corpora.md`](../docs/status/kotlin-corpora.md) |
 
 ## 11. Kotlin-only projects (added 2026-08-03)
 
 A project with **no Java source sets** is not an edge case — it is what a Kotlin corpus normally looks like,
-and both `coil` and `detekt` are one (see [`docs/kotlin-corpora.md`](../docs/kotlin-corpora.md)). It had never
+and both `coil` and `detekt` are one (see [`docs/status/kotlin-corpora.md`](../docs/status/kotlin-corpora.md)). It had never
 really been run, and three things were wrong, each visible only once the one before it was fixed.
 
 ### 11.1 The shared core was not shared
@@ -346,7 +346,7 @@ Stub generation is now **skipped** when there are no Java source sets. A stub ex
 javac cannot read Kotlin, so Java *source* referencing a Kotlin type needs something to resolve against — and
 with no Java source there is no consumer. Generating them anyway made every `JavaStubGenerator` fidelity gap a
 hard failure on a parse that was otherwise complete: detekt parsed all 31 source sets and then aborted
-compiling stubs nothing would read. The known gaps are listed in `docs/kotlin-corpora.md` §5.5; they matter
+compiling stubs nothing would read. The known gaps are listed in `docs/status/kotlin-corpora.md` §5.5; they matter
 again as soon as a corpus mixes Java *and* Kotlin source.
 
 ## 12. One source set, both languages (added 2026-09-17)

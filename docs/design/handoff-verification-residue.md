@@ -9,7 +9,7 @@
 **Audience:** a fresh model implementing this without the 2026-07-22 session context.
 **Status:** diagnosed at the symptom level only; the iterating-analyzer internals were NOT dug into.
 **Base commit:** `e4bea61a` on branch `ws/eventual`. Tree clean.
-**Gate: NONE.** Unlike the Part B work (see `docs/handoff-eventual-interface-nonmodification.md`), this is
+**Gate: NONE.** Unlike the Part B work (see `docs/design/handoff-eventual-interface-nonmodification.md`), this is
 ungated engine-core work in `IteratingAnalyzerImpl` — every change affects default behavior, so the corpus
 byte-identity rule (§5) applies to the change itself, not to a gated no-op.
 
@@ -22,7 +22,7 @@ On the dogfood run (maddi analyzing its own CST), the iterating analyzer certifi
 absent values. Among them: the whole `Codec` family, `Element`'s anonymous types, and — critically — enough
 of the `Expression`/printing machinery that **71 methods end with `nonModifying=null` (undecided)**.
 
-The eventual-immutability arc (Part B, complete at method level — see `docs/eventual-info-hierarchy.md`
+The eventual-immutability arc (Part B, complete at method level — see `docs/design/eventual-info-hierarchy.md`
 §"Part B" through §"Ring 3") is now blocked exclusively by this: a method with undecided `NON_MODIFYING`
 can never be excused, the types holding such methods never obtain eventual verdicts, and the greatest-
 fixpoint contraction (correctly) retracts everything that leaned on them. **Fix the residue → the
@@ -348,7 +348,7 @@ override-inheritance in `SourceContractMaterializer`, and `Predicate.test:0`'s l
 — §9 item 2's shape). Three-corpus A/B: Fernflower = the known `StatEdge.EdgeType.<init>` flake only,
 Langchain4j 0 lines, Timefold 6 lines proven inside the base-vs-base flake envelope (A-vs-A2 flips the
 same `CustomPhase`/`Testdata*` lines). All four module suites green.
-**§9 item 2 SPEC'D:** `docs/spec-eventually-unmodified-parameter.md` — implement next session.
+**§9 item 2 SPEC'D:** `docs/design/spec-eventually-unmodified-parameter.md` — implement next session.
 
 **§9 item 2 IMPLEMENTED (2026-07-23, next session):** `EVENTUALLY_UNMODIFIED_PARAMETER` landed —
 the commit walk parameterized by root (`WalkRoot`), computation/consumption/propagation gated

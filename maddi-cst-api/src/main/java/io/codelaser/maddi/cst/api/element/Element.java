@@ -56,7 +56,7 @@ import java.util.stream.Stream;
 public interface Element {
     int complexity();
 
-    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every committed face is List.copyOf-backed
+    // TRUSTED LEAF (docs/design/eventual-design-improvements.md §4): every committed face is List.copyOf-backed
     // or List.of() (the cst-impl constructor discipline, swept 2026-08-03); the Builders are the
     // before-state face, as everywhere in the eventual style.
     @NotNull

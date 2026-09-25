@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 public record LinkedVariablesImpl(Map<Variable, Links> links) implements LinkedVariables {
 
-    // NOTE (2026-08-01, bistability investigation, docs/eventual-info-hierarchy.md): an FQN-sorted
+    // NOTE (2026-08-01, bistability investigation, docs/design/eventual-info-hierarchy.md): an FQN-sorted
     // canonical constructor was tried here and REVERTED — it deterministically re-labels the §-face
     // indices and fails TestForEachLambda's ~/∩ pairing pins (and did not resolve the 24↔10 dogfood
     // bistability). If iteration order is canonicalized here again, those pins must be re-derived

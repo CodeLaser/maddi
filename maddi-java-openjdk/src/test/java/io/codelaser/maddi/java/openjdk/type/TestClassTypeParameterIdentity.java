@@ -37,7 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  * {@code typeParameters()}, every occurrence in its signatures, and the key its written positions are filed under
  * in {@code DetailedSources} (an identity map).
  * <p>
- * The third route of docs/method-type-parameter-source-loss.md. When the CALLER is scanned first, resolving
+ * The third route by which a type parameter loses its source to the symbol scanner (the first two are pinned by
+ * {@code TestMethodTypeParameterSource} and {@code TestClassTypeParameterSource}). When the CALLER is scanned first, resolving
  * {@code list.add(t)} loads {@code A} from its symbol: that builds a {@code T} with no source and the bound widened
  * to {@code ? extends Tuple}, and builds {@code add} and {@code next} on it. The source scan of {@code A} then
  * created a second {@code T} and put it in place with {@code addOrSetTypeParameter}, which reaches the type's list

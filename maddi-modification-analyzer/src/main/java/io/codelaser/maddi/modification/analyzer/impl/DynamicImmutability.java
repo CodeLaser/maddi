@@ -45,7 +45,7 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
  * Nothing infers the property yet — only a hand-written annotation, via {@code SourceContractMaterializer}. On
  * unannotated code every method here returns null and the declared type decides exactly as before, which is why
  * this whole feature is inert on the corpus. Inferring it is inter-procedural; see
- * {@code docs/dynamic-immutability-feasibility.md}.
+ * {@code docs/design/dynamic-immutability-feasibility.md}.
  */
 final class DynamicImmutability {
 

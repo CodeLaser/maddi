@@ -1000,7 +1000,7 @@ public class TestIsolateClass4Compiles {
         // isolated type with the original's throws clause. Nothing referenced SinkBase's own members, so its stub
         // is empty, and the dummy pass — reading 'implements Sink' off the ORIGINAL and the method list off the
         // STUB — concludes the obligation is unmet and invents 'public void write() { }'. Deliberately without a
-        // throws clause, and rightly so (§6 of docs/isolate-class.md: giving the dummy path the interface's
+        // throws clause, and rightly so (§6 of docs/design/isolate-class.md: giving the dummy path the interface's
         // exceptions costs 24 trees). But SinkBase declares that method itself, WITH its exceptions, so the
         // invention contradicts the real thing in the one direction the language forbids:
         //

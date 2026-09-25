@@ -69,7 +69,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * unproven contributor and nothing is written. Since properties are write-once and absence means "undecided,
  * revisited next pass", declining to write is how this participates in the fixpoint: an input that is merely
  * not decided YET costs an iteration, never a wrong answer. There is no optimistic default anywhere in here —
- * that is the defect {@code docs/independent-type-optimism.md} records, and re-introducing it in a new place
+ * that is the defect {@code docs/defects/independent-type-optimism.md} records, and re-introducing it in a new place
  * would be worse than not having the feature.
  *
  * <h2>What counts as proof</h2>

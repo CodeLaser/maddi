@@ -247,7 +247,7 @@ public class ScanCompilationUnits {
         // hierarchy -- which ScanCompilationUnit.visitClass then adopts and builds a second time, so commit()
         // died on "Extending multiple identical interfaces". Five of maddi-annotation's twenty-seven types, in
         // the FIRST source set of the whole-CodeLaser-tree parse, because the preload runs only there.
-        // See TestPreloadBeforeSourceSymbols and docs/handoff-source-and-jar-duplicate-interfaces.md.
+        // See TestPreloadBeforeSourceSymbols.
         IdentityHashMap<Symbol.ClassSymbol, Boolean> symbols = StreamSupport.stream(units.spliterator(), false)
                 .flatMap(unit -> unit.getTypeDecls().stream()
                         .filter(td -> td instanceof JCTree.JCClassDecl)

@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * {@code @Immutable(hc=true)} marker on the method. This generation keeps the property slot
  * ({@link PropertyImpl#IMMUTABLE_METHOD}, commented "dynamic return type") but still computes nothing into it
  * from a method body: inferring dynamic immutability is inter-procedural and is not done
- * ({@code docs/dynamic-immutability-feasibility.md}). Only a hand-written contract supplies it.
+ * ({@code docs/design/dynamic-immutability-feasibility.md}). Only a hand-written contract supplies it.
  * <p>
  * {@code SourceContractMaterializer} (part 1) brings a hand-written contract into {@code analysis()}, and
  * {@code DynamicImmutability} (part 3) consumes it where dependence is decided. Only the FIELD-side contract is

@@ -260,10 +260,10 @@ Settings-search entry for our configurable) and `untilBuild = null`, which match
 * ⛔ **The JDK wall.** `MaddiAnalysisService` requires `settings.jdkHome` to be set by hand; empty means
   a warning balloon and no analysis at all. Every Marketplace user's first run hits it. Detect the JDK
   (project SDK, `ProjectJdkTable`, `JAVA_HOME`) and keep the setting as an override.
-* The input-configuration gaps in `docs/handoff-ide-daemon-2026-08-25.md` — a modular source set cannot
+* The input-configuration gaps (`docs/roadmap/ide-todo.md` §4b) — a modular source set cannot
   read a class-path jar (314 -> 153 dropped units when fixed). A dropped unit reads to a user as "maddi
   has no opinion about this type", not as a failure.
-* Whole-project re-analysis on every trigger (`docs/ide-todo.md` §1) on a large project.
+* Whole-project re-analysis on every trigger (`docs/roadmap/ide-todo.md` §1) on a large project.
 
 === Order of operations
 

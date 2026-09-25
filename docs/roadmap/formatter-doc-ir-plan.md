@@ -2,7 +2,7 @@
 
 A concrete plan to replace the token-stream + greedy renderer (`Formatter2Impl` / `BlockPrinter`)
 with a Wadler/Leijen–Prettier style **document IR** (`Doc`). Written 2026-07-11, grounded in the
-bug fixes F1–F8 (see `formatter-analysis.md`) — most of which are direct taxes on the current
+bug fixes F1–F8 (see `../design/formatter-analysis.md`) — most of which are direct taxes on the current
 model's loss of separator/structure information.
 
 ## 1. Goal and non-goals

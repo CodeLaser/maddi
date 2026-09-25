@@ -844,7 +844,7 @@ public record ExpressionVisitor(Runtime runtime,
                     // enclosed (lambda/anonymous-class) method: NOT an analysis-order element, so the
                     // doType SLOT never recomputes it — getOrCreate here froze the FIRST on-demand
                     // computation, in whatever context that toucher had. Arrival-order dependent: the
-                    // λ-target residue of docs/eventual-info-hierarchy.md §"The seed-order round"
+                    // λ-target residue of docs/design/eventual-info-hierarchy.md §"The seed-order round"
                     // (which caller's lambda carries the value-mediated edge varied per run).
                     // Recompute and let canonical retention decide — the slot rule (LinkComputerImpl.
                     // doType) extended to non-order methods; the stored value is yielded, so caller

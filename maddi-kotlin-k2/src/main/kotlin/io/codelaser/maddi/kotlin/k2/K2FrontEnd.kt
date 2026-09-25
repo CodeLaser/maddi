@@ -26,7 +26,7 @@ import io.codelaser.maddi.kotlin.api.KotlinSourceScan
 /**
  * <b>The K2 front end, as a service.</b> The single class a host names — everything else in this module is
  * reached through the contracts in {@code maddi-kotlin-api}, so the compiler and the 62 MB of libraries it
- * bundles can live behind a classloader of their own (docs/kotlin-classloader-isolation.md).
+ * bundles can live behind a classloader of their own (docs/design/kotlin-classloader-isolation.md).
  *
  * <p>⚠ Found by {@link java.util.ServiceLoader} rather than by name, and that is deliberate: the host passes
  * the realm's classloader to {@code KotlinFrontEnd.load(loader)}, and the same lookup then finds this class

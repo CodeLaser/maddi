@@ -100,7 +100,7 @@ public final class TolerantWrite {
     // settled state, blocking certification); the value diff shows which slot/face is unstable.
     private static final boolean MLTRACE = System.getenv("MLTRACE") != null;
 
-    // gate RETAINTRACE=1 (bistability forensics, docs/eventual-info-hierarchy.md §"The trace round"):
+    // gate RETAINTRACE=1 (bistability forensics, docs/design/eventual-info-hierarchy.md §"The trace round"):
     // the composed dogfood's 24↔10 flip happens with byte-identical engine event traces — the divergence
     // is WHICH equals()-equal value/instance is RETAINED. Log, for methodLinks: (a) every FIRST write
     // per element ("RT first"), because presence/absence of methodLinks on the statement translate()
@@ -165,7 +165,7 @@ public final class TolerantWrite {
                     // an all-empty placeholder) overwrites it, so the retained content is a function of the
                     // value SET, not the arrival order. Without this, whichever equal value arrives first
                     // freezes — the measured fork of the composed-dogfood 24↔10 bistability
-                    // (docs/eventual-info-hierarchy.md §"The retention round").
+                    // (docs/design/eventual-info-hierarchy.md §"The retention round").
                     if (RETAINTRACE) System.out.println("RT upgrade " + context);
                     boolean upgraded = analysis.overwrite(property, value);
                     if (upgraded) {

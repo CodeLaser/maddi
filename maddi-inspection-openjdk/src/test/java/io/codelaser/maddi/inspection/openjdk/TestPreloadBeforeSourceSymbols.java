@@ -30,7 +30,7 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_P
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * <b>The source-and-jar duplicate-interfaces defect</b> — {@code docs/handoff-source-and-jar-duplicate-interfaces.md}.
+ * <b>The source-and-jar duplicate-interfaces defect</b> (2026-08-21).
  * Found by parsing the whole CodeLaser tree as one project: five of {@code maddi-annotation}'s twenty-seven types
  * died at {@code commit()} with {@code "Extending multiple identical interfaces"}.
  * <p>

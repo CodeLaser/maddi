@@ -363,7 +363,7 @@ public class JavaInspectorImpl implements JavaInspector {
      * Only generation makes the difference. Without it the retained scan task lives until
      * {@link #invalidateAllSources()} and this is exactly the historical path. With it, that task has been torn down
      * by {@code generate()}, and reusing it throws {@code IllegalStateException} from {@code getElements()} — which
-     * is precisely the risk {@code docs/partial-reparse-rewire.md} §7.1 flagged, and what a caller experienced as
+     * is precisely the risk {@code docs/design/partial-reparse-rewire.md} §7.1 flagged, and what a caller experienced as
      * on-demand library loading breaking the moment generation was switched on.
      * <p>
      * Called under {@code CompiledTypesManagerImpl.getOrLoad}'s monitor, which is what makes the lazy build safe

@@ -97,7 +97,7 @@ Convention assumed throughout: pure **surface-syntax** differences are recorded 
   helper or accept a small new node if it actually shows up. **It has shown up** (2026-08-03): coil's
   `coil3.util.getCompletedOrNull` is `return try { getCompleted() } catch (_: Throwable) { null }`. The
   statement is built without a `Source`, so `MethodAnalyzer` NPEs on `statement.source().index()`; prep
-  isolates it and continues. See [`docs/kotlin-corpora.md`](../docs/kotlin-corpora.md) §5.2.
+  isolates it and continues. See [`docs/status/kotlin-corpora.md`](../docs/status/kotlin-corpora.md) §5.2.
 
 ---
 

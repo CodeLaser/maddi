@@ -1,8 +1,8 @@
 # Spec — `EVENTUALLY_UNMODIFIED_PARAMETER` (`@NotModified(after=…)` on parameters)
 
 **Audience:** a fresh model implementing this without the 2026-07-23 session context. Companion to
-`docs/handoff-eventual-interface-nonmodification.md` (Part B, the receiver twin) and
-`docs/handoff-verification-residue.md` §7–§9 (why the honest modification state makes this the next
+`docs/design/handoff-eventual-interface-nonmodification.md` (Part B, the receiver twin) and
+`docs/design/handoff-verification-residue.md` §7–§9 (why the honest modification state makes this the next
 mechanism). **Status: IMPLEMENTED (2026-07-23, same session) — §8 below records what landed, the
 measured outcome against §6, and the follow-on quests the measurements exposed.**
 **Gate:** everything is behind `EVENTUALCLUSTER` (computation, consumption, propagation). The golden

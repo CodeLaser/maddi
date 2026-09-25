@@ -59,7 +59,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
 
     // private: the Builder is the only construction route, so every caller of this constructor is inside
     // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
-    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    // stores are immutable. See docs/design/dynamic-immutability-feasibility.md.
     private MethodInspectionImpl(Inspection inspection,
                                 ParameterizedType returnType,
                                 List<TypeParameter> typeParameters,
@@ -105,7 +105,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
      * Deliberately NOT on {@link MethodInspection}: here it returns a NEW inspection, while the Builder mutated
      * itself and returned {@code this} — one signature, two contracts, which made the read-only interface's
      * method modifying. The Builder's variant is gone; callers on the variable path use {@code setSynthetic}
-     * directly. See {@code docs/builder-interface-split-impact.md}.
+     * directly. See {@code docs/design/builder-interface-split-impact.md}.
      */
     public MethodInspection withSynthetic(boolean synthetic) {
         return new MethodInspectionImpl(this, synthetic, returnType, typeParameters, parameters,

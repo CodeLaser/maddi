@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * assumed. {@code Lazy} now uses shape F, with a comment saying why. G is {@code Memo}'s shape and is
  * <em>unaffected</em>: it never reassigns the local after the field read.
  * <p>
- * See {@code docs/book-vs-support-divergence.md}, finding 12.
+ * See {@code docs/design/book-vs-support-divergence.md}, finding 12.
  */
 public class TestLazyShapeIndependence extends CommonTest {
 

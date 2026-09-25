@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * EXPERIMENTAL, gated on {@code EVENTUALCLUSTER=1}. Breaks the circular recognition that stops the {@code Info}
- * family from being certified eventually immutable (see {@code docs/eventual-info-hierarchy.md}).
+ * family from being certified eventually immutable (see {@code docs/design/eventual-info-hierarchy.md}).
  * <p>
  * The {@code Info} types mutually reference each other ({@code MethodInfoImpl.typeInfo},
  * {@code ParameterInfoImpl.methodInfo}, …) and share the abstract base {@code InfoImpl}, which has no mark of
@@ -69,7 +69,7 @@ public class EventualCluster {
     // non-final so a test can flip it. UNGATED 2026-08-01 (the roadmap's step 3): the greatest fixpoint is
     // the default -- the witnessed contraction stays as the standing soundness backstop -- and
     // EVENTUALCLUSTER=0 is the opt-out for A/B archaeology. Ungating record and the three-corpus A/B in
-    // docs/eventual-info-hierarchy.md.
+    // docs/design/eventual-info-hierarchy.md.
     public static boolean ENABLED = !"0".equals(System.getenv("EVENTUALCLUSTER"));
 
     // supertypes of direct candidates: the only members with no eventual method of their own

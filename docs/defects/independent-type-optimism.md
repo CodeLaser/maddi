@@ -2,7 +2,7 @@
 
 **Status: reproduced defect, not fixed.** The obvious fix is correct but unmasks a second, independent
 inconsistency; see "Why the obvious fix is not enough". Found while building eventual immutability
-(`eventual-immutability.md`), which is how the asymmetry became visible.
+(`../design/eventual-immutability.md`), which is how the asymmetry became visible.
 
 ## The defect
 
@@ -126,7 +126,7 @@ fields are — does not help. In `TryData` the undecided element *is* the abstra
    main-vs-shadow inconsistency by editing the invariant that exists to catch it.
 3. **Make the optimistic value revisable** rather than frozen — i.e. let this particular write escape
    `TolerantWrite`'s monotonicity. Rejected: monotonic overwrite is a deliberate engine invariant
-   (`analysis-rewiring.md`); subverting it locally trades a wrong value for an unstable one.
+   (`../design/analysis-rewiring.md`); subverting it locally trades a wrong value for an unstable one.
 
 Option 1 is the recommendation.
 

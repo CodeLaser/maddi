@@ -1,7 +1,7 @@
 # Modification link + analyzer hardening roadmap (real-world robustness)
 
 How we harden `maddi-modification-link` and `maddi-modification-analyzer` against **real-world code**, from a
-two-part code audit on 2026-07-14. Companion to `prep-analyzer hardening.md` (same house style) — read that first;
+two-part code audit on 2026-07-14. Companion to `prep-analyzer-hardening.md` (same house style) — read that first;
 the prep stage is already hardened and is the **template** for what follows.
 
 > **The H items are tracked as GitHub issues** — see the tracking issue #14. This document

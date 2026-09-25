@@ -82,7 +82,7 @@ To certify the family, in dependency order:
 6. **Inherited mark at the type level (subclass → abstract superclass).** `InfoImpl` also has no
    mark of its own (the `inspection` field is in its subclasses), so it needs the subclass's
    eventual verdict propagated onto the abstract base — the inverse of the old
-   `approvedPreconditionsFromParent`, the piece `docs/eventual-immutability.md` lists as not ported.
+   `approvedPreconditionsFromParent`, the piece `docs/design/eventual-immutability.md` lists as not ported.
    Without it, `immutableSuper(InfoImpl, afterMark)` returns `@Mutable` and line 124 keeps dragging
    every concrete impl down.
 
@@ -550,7 +550,7 @@ contraction retracts nothing, and the 17 survive *soundly* — which is what ear
 `this`-accessor chains (`returnType()`, `enclosingMethod()`) the real accessors use. Fix = reframe
 `nonModifyingLabels`/`receiverAfterLabels` into a unified `commitLabels(owner, expr)` (commit every `this`-derived
 receiver **and** arg, not just root the receiver in a committed field). **Fully specified for handoff in
-`docs/handoff-eventual-interface-nonmodification.md`.** (2) **subclass→superclass mark inheritance (Part A)** —
+`docs/design/handoff-eventual-interface-nonmodification.md`.** (2) **subclass→superclass mark inheritance (Part A)** —
 give `InfoImpl` its own eventual verdict from the subclasses' shared `inspection` mark (also in the handoff, §9).
 (3) re-run the dogfood → contraction retracts 0. (4) **Step 3 — ungate** behind a byte-identical corpus A/B.
 
@@ -725,7 +725,7 @@ on the full certified proving ground.
 
 **Gate-ON stability (2026-07-22, two consecutive dogfoods at `e4bea61a`):** the surviving core of **8** is
 identical across runs; ONE type flips in/out — `CompilationUnitPrinterImpl`, a printer-family type, i.e.
-exactly the verification-residue boundary (`docs/handoff-verification-residue.md`) — and the
+exactly the verification-residue boundary (`docs/design/handoff-verification-residue.md`) — and the
 `eventuallyNonMod` method count wobbles (414 vs 402) for the same reason. Full stability is an ungate
 criterion and is expected to come with the residue fix, not before.
 
@@ -784,13 +784,13 @@ semantics. Tests to extend: `TestWriteAnalysis2`, `TestAnalysisHintsComposer`.
 4. **Round-trip is already done** — `WriteAnalysisResults` + `PropertyProviderImpl` + `ValueImpl` codecs
    serialize/deserialize every eventual property, so a file-consuming tool needs no new work.
 
-No LSP is involved; the transport is the daemon's NDJSON. See `docs/ide-todo.md` for the separately-tracked IDE
+No LSP is involved; the transport is the daemon's NDJSON. See `docs/roadmap/ide-todo.md` for the separately-tracked IDE
 work (partial re-analysis, streaming).
 
 ## The residue quest, characterized: recursion pessimism is the fulcrum (2026-07-22, night)
 
 The verification-residue handoff was executed as a characterization pass; the full record now lives in
-`docs/handoff-verification-residue.md` §7. The essentials for this arc:
+`docs/design/handoff-verification-residue.md` §7. The essentials for this arc:
 
 - The assumed buckets dissolved: no crashes anywhere; the "587-element residue" is the expected summary
   fallout of cycle breaking activating mid-verification (genuine residue: 2 elements, a
@@ -818,7 +818,7 @@ divergence dump), `MODREACH_EXPLAIN=<substring>` (BFS chain from a reached recei
 ## Design A landed: the shadow pass repairs the recursion pessimism (2026-07-22, night, commit 110695ec)
 
 Bart approved handoff §7.5 design A; it is implemented, tested, and recorded in
-`docs/handoff-verification-residue.md` §8. In brief: primitive seeding (walkable bodies no longer seed
+`docs/design/handoff-verification-residue.md` §8. In brief: primitive seeding (walkable bodies no longer seed
 receiver-rooted summary entries; assignments, boundary contracts, the undecided-abstract-callee mirror and
 the E1/E2/E6 edges carry the evidence), E6-aware abstract seeding, the FALSE→TRUE reverse upgrade at the
 cutover, the `@IgnoreModifications` mirror + immutable-variable cut in the projections, and `@NotModified`
@@ -841,7 +841,7 @@ jdk aapi (suspected per-sourceSet Info identity mismatch; `MODREACH_EXPLAIN` cha
 
 ## EVENTUALLY_UNMODIFIED_PARAMETER lands: the static-helper hop closes (2026-07-23, follow-up session)
 
-The `docs/spec-eventually-unmodified-parameter.md` mechanism is implemented end-to-end — the commit walk
+The `docs/design/spec-eventually-unmodified-parameter.md` mechanism is implemented end-to-end — the commit walk
 parameterized by a `WalkRoot` (this-walk unchanged; a `ParameterInfo` root computes the parameter twin of
 `@NotModified(after=)`), the abstract-accessor bridge through IMPLEMENTATIONS (interface-typed roots
 resolve `p.typeInfo()` to implementation field labels), consumption at bare-root argument sites (with the
@@ -861,7 +861,7 @@ front.
 
 ## The container ride-along lands: ParameterizedTypeImpl forms its verdict (2026-07-23, same day)
 
-Spec §8.3 item 1 is implemented (record: `docs/spec-eventually-unmodified-parameter.md` §9, gated
+Spec §8.3 item 1 is implemented (record: `docs/design/spec-eventually-unmodified-parameter.md` §9, gated
 `EVENTUALCLUSTER`): the §060 ride-along one indirection deeper, granted per SITE — read position
 (non-modifying, non-dependent calls on final container fields of committable content, wrapper
 stability proven syntactically), argument position (callee provably neither mutates nor accessibly
@@ -921,7 +921,7 @@ ROOTS are precisely measured:
 
 ## The Builder-lean quest, round 1 (2026-07-23, continued): 10 -> 4 edges, @Only via preconditions
 
-`docs/handoff-builder-leans.md` carries the full characterization and record. Implemented (gated):
+`handoff-builder-leans.md` carries the full characterization and record. Implemented (gated):
 the precondition shapes -- leading `assert <state test>` and both if-throw guards -- classify a
 method `@Only` on the side the live path requires (23 methods on the dogfood, the `builder()`
 family among them, excused at type level through the `@Only(before)` route instead of mislabeled
@@ -1707,7 +1707,7 @@ rested substantially on two optimisms that bypassed the witnessed ledger**:
    (`independentAfterMark(NONE, false)`), null meaning no floor.
 
 Also landed: `contractedIndependentHc` — the TRUSTED-LEAF route
-(docs/eventual-design-improvements.md §4): a hand-written `@Independent(hc=true)` on
+(docs/design/eventual-design-improvements.md §4): a hand-written `@Independent(hc=true)` on
 `FieldInspection.fieldModifiers()` (Set.copyOf-backed, uncomputable from the declared type) is read
 through the ContractReader in the independence loop; and `ignoreModificationsAccessor`, the
 independence twin of the eventual walk's disclaimed-store excusal. One legitimate re-pin: a leading
@@ -1736,7 +1736,7 @@ considered fully validated.
 
 ## The enforcement round (2026-08-01): the ratchet, the conformance rules, and what they caught
 
-Implements `docs/eventual-design-improvements.md` §§1–3. The headline is not the machinery — it is
+Implements `docs/design/eventual-design-improvements.md` §§1–3. The headline is not the machinery — it is
 that the machinery earned its keep within an hour of existing, twice.
 
 ### The ratchet (§1)

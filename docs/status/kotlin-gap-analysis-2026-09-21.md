@@ -94,7 +94,7 @@ Verified in code (zero occurrences / absent from the dispatch), not read in a do
    default `TypeInfo.print()` emits Java syntax for a Kotlin-parsed CST.
 6. **`maddi-cst-print-kotlin` has nine printer classes and no `src/test` directory at all.**
 7. Read-only collections collapsing to `java.util.List` is real but **measured small** — 5 types / 7 fields
-   = 0.4% on detekt (`docs/kotlin-corpora.md` §5.5). Do not spend Tier-1 effort on it.
+   = 0.4% on detekt (`docs/status/kotlin-corpora.md` §5.5). Do not spend Tier-1 effort on it.
 
 ## 6. Tier 4 — evidence and record
 
@@ -108,7 +108,7 @@ Verified in code (zero occurrences / absent from the dispatch), not read in a do
 - **Stale documents that would flatter the claim**, each to fix or retract:
   `maddi-cst-api/kotlin-stdlib-extension-facades.md` still says "blocked, parked 2026-07-01" (superseded by
   `44999b60e`); `maddi-cst-api/kotlin-parser-plan.md` closes with "Next action: M2" while its own §5 marks
-  M2–M5b done; `docs/kotlin-corpora.md` §2/§5.6 carry 2026-08-03 numbers (and `TestDetektCorpus.java:132`
+  M2–M5b done; `docs/status/kotlin-corpora.md` §2/§5.6 carry 2026-08-03 numbers (and `TestDetektCorpus.java:132`
   copies them); `RunMixedPrepAnalyzer`'s javadoc said it "stops after prep" while its body runs the
   modification analysis; `mixed-language-integration.md` §7 still reads "in progress" against its own §5.
 - **README tension**: the headline says "Java (and Kotlin, via a shared syntax tree)" while the status table
@@ -433,7 +433,7 @@ refused at all — they were in a list the lowering never visited.
 detekt `k2-unsupported-expr:KtTryExpression` **4 → 0**, `k2-block-not-a-single-expression` 17 → 11, total
 5,565 → **5,525**, types holding one 791 (unchanged), members 2,163 → **2,160**; coil 381 → **379**. 17 new
 sites, all in a member that already held one, and **no member newly dirty**. ⭐ **0 elements isolated by
-prep** on both corpora — which retires `docs/kotlin-corpora.md` §5.1 (the `variableData` overwrite, 8
+prep** on both corpora — which retires `docs/status/kotlin-corpora.md` §5.1 (the `variableData` overwrite, 8
 elements on detekt) as well as §5.2, its cause.
 
 ### 7.13 One entry point — `maddi-kotlin` is now a superset of `maddi`, not a second tool
@@ -1760,7 +1760,7 @@ unqualified claim.
 
 ### 8b. Not on the ladder, but done since — the front end stopped poisoning its hosts
 
-`docs/kotlin-classloader-isolation.md` (G46). The K2 front end's 62 MB fat compiler jar carries 8,235
+`docs/design/kotlin-classloader-isolation.md` (G46). The K2 front end's 62 MB fat compiler jar carries 8,235
 non-Kotlin classes under their original package names and was reaching every consumer's *runtime* classpath
 through an `implementation` dependency; downstream it shadowed 174 of ANTLR's classes, 787 of guava's and
 115 of JNA's, and killed a conformance oracle. It now loads in a plexus-classworlds realm behind the

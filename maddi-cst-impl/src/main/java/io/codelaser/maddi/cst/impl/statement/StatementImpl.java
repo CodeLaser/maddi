@@ -42,7 +42,7 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     private final String label;
     // the analysis overlay is manual hidden content (road §050), exactly as on InfoImpl and the expression
     // trio -- this was the ONE statement-side store without the annotation, and it held the whole statement
-    // family at FinalFields-after-mark through the independence loop (docs/eventual-info-hierarchy.md)
+    // family at FinalFields-after-mark through the independence loop (docs/design/eventual-info-hierarchy.md)
     @IgnoreModifications
     private final PropertyValueMap propertyValueMap = new PropertyValueMapImpl();
 

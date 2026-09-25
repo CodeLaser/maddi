@@ -57,11 +57,11 @@ must not be published.
 ## Do not do this twice
 
 The rewrite is a one-off, justified by the repository being unforked and unstarred. The commit hook
-in [`.githooks/`](../.githooks/) exists so that a second one is never needed: it refuses the names at
+in [`.githooks/`](../../.githooks/) exists so that a second one is never needed: it refuses the names at
 commit time, in file content and in the commit message. Enable it per clone and per worktree —
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-— and see [CONTRIBUTING.md §Names that must not appear](../CONTRIBUTING.md#names-that-must-not-appear).
+— and see [CONTRIBUTING.md §Names that must not appear](../../CONTRIBUTING.md#names-that-must-not-appear).

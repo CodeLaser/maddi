@@ -159,7 +159,7 @@ worth keeping: the generics are what the *symptom* is made of, not what the defe
 subtype the declaring type's parameter is out of scope and `eraseOutOfScope` does what it is supposed to do. The
 fix is one helper, `IsolationCore.MyVisitor.declaringOwner`, mirroring what the `FieldReference` branch had been
 doing for inherited fields all along; it took the corpus to **100 of 100 trees and 21452 of 21452 units parsing
-back**. See `handoff-isolateclass-enum-and-generic-stubs.md` §3 and §7a.
+back**. See the comment on `IsolationCore.eraseOutOfScope` and the drivers in `TestIsolateClass4Compiles`.
 
 The judgement call that followed — "six units in 21,305 … worth fixing?" — was therefore also answered wrongly,
 for the same reason: the cost was mis-estimated because the cause was.
@@ -564,8 +564,8 @@ Measured 2026-07-28, top 100 closed-core types by total statement count:
 | `IsolateMethod` + `IsolateClass` unit tests | 63, 0 failures |
 | whole maddi `test` | green |
 
-Re-measured 2026-07-30, same knobs, after §5 and the two defects of
-`handoff-isolateclass-enum-and-generic-stubs.md`. The unit total differs from the row above because closed-core
+Re-measured 2026-07-30, same knobs, after §5 and the two stub defects fixed on
+2026-07-30 (an enum stubbed as a class; an inherited generic method erased on the scope type). The unit total differs from the row above because closed-core
 itself has moved on, so read the *ratios*, not the deltas — and note that **parsing back is the weaker of the two
 gates**: the corpus below parses whole and 34 of its trees still do not compile, which is what
 `TestIsolateClosedCoreClasses.MAX_TREES_NOT_COMPILING` is for.

@@ -205,7 +205,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 eventualCluster.discardAssumptionBuffer();
             }
         }
-        // EVENTUALLY_UNMODIFIED_PARAMETER (spec: docs/spec-eventually-unmodified-parameter.md): the parameter
+        // EVENTUALLY_UNMODIFIED_PARAMETER (spec: docs/design/spec-eventually-unmodified-parameter.md): the parameter
         // twin of the loop above -- the same commit walk, rooted in a parameter instead of this. Entirely under
         // the gate: nothing here runs, and nothing is written, without EVENTUALCLUSTER.
         if (EventualCluster.ENABLED) {
@@ -255,7 +255,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * <p>
      * Only marks on the type's <em>own</em> fields are handled. A type inheriting its mark (a {@code Freezable}
      * subclass) gets its methods annotated, but its own type-level verdict waits for the parent-inheritance step
-     * (old {@code approvedPreconditionsFromParent}); see {@code docs/eventual-immutability.md}.
+     * (old {@code approvedPreconditionsFromParent}); see {@code docs/design/eventual-immutability.md}.
      */
     private void computeTypeLevel(TypeInfo typeInfo, boolean activateCycleBreaking) {
         // EVENTUALCLUSTER (#51): the verdict is write-once, except that a WEAK one (@FinalFields after the mark)
@@ -885,7 +885,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     /**
      * EVENTUALCLUSTER only. The labels after which a call leaves the ARGUMENT for {@code pi} unmodified
-     * ({@code EVENTUALLY_UNMODIFIED_PARAMETER}, spec: {@code docs/spec-eventually-unmodified-parameter.md}):
+     * ({@code EVENTUALLY_UNMODIFIED_PARAMETER}, spec: {@code docs/design/spec-eventually-unmodified-parameter.md}):
      * the same commit walk as {@link #computeEventuallyNonModifying}, rooted in the parameter instead of
      * {@code this}. Labels are field names in the parameter type's label space. Only meaningful when the plain
      * verdict is an honest FALSE; the empty set is never written (it would coincide with plain
@@ -999,7 +999,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     /**
      * EVENTUALCLUSTER reframe of the per-call excusal (handoff: {@code
-     * docs/handoff-eventual-interface-nonmodification.md} §5): a call cannot modify {@code this} after mark M iff
+     * docs/design/handoff-eventual-interface-nonmodification.md} §5): a call cannot modify {@code this} after mark M iff
      * every {@code this}-derived value it touches -- its receiver <em>and</em> its arguments -- is committed by M.
      * Replaces both the receiver-only rooting of {@link #nonModifyingLabels} and the all-or-nothing parameter
      * guard, which bail on the real cross-reference accessors ({@code returnType().typeInfo().isEnclosedIn(this

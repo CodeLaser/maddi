@@ -517,7 +517,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 // Measured before the guard: 37 of guava's 698 generic types and 74 of timefold's 1469 -- all
                 // of them types with a nested type, which is the shape that reaches here (Equivalence, HashBiMap,
                 // BloomFilter, Invokable). The mirror of the method-type-parameter case, where the symbol view
-                // came FIRST and could not be replaced; see docs/method-type-parameter-source-loss.md.
+                // came FIRST and could not be replaced; see TestMethodTypeParameterSource and TestClassTypeParameterSource.
                 //
                 // Conservative: only when every one of them is source-built, and only when the counts agree.
                 // Anything else falls through to the symbol path exactly as before.
@@ -547,7 +547,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // already built, so a caller scanned first left one type with TWO instances of its T: the
                     // signatures' had no source and the bound widened to '? extends', and their positions, filed
                     // under the declared instance in an identity-keyed DetailedSources, could not be found from them.
-                    // The third route of docs/method-type-parameter-source-loss.md (§9); TestClassTypeParameterIdentity.
+                    // The third route to the same loss (2026-09-14); TestClassTypeParameterIdentity.
                     // Same condition as deferCommitToDeclaration in addMethodToType, for the same reason.
                     boolean deferToDeclaration = !fromClassFile(cs)
                                                  && newTypeInfo.compilationUnit() != null
@@ -1101,7 +1101,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      * 2026-08-23 this loop took "already in the map" for "already handled" and SKIPPED it, then committed the
      * type around it: a committed type holding an uncommitted method whose {@code access()} is null forever.
      * Measured on maddi-as-one-project in the IDE daemon: 18 such methods, every one of them the method in which
-     * the scan threw, 104 null reads, fatal in the guard phase (see docs/handoff-uninspected-methods-null-access.md).
+     * the scan threw, 104 null reads, fatal in the guard phase (2026-08-23; pinned by TestDroppedUnitMethodAccess).
      * <p>
      * Finish it the way a compiled member is built: the access from its modifiers (the scan set the modifiers
      * first), no source, an empty body, the overrides from the symbol. Whatever the scan DID complete
@@ -1388,7 +1388,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // Nothing is set here at all when deferring, not even the bounds: the declaration supplies annotations,
         // bounds and source together, so there is no half-built state for a reader to see and nothing added
         // twice. ScanCompilationUnit.visitMethod recognises the deferral by hasBeenInspected() being false.
-        // See TestMethodTypeParameterSource, and docs/method-type-parameter-source-loss.md for how it was found.
+        // See TestMethodTypeParameterSource.
         if (!deferCommitToDeclaration) {
             int i = 0;
             for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
