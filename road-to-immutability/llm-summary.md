@@ -173,6 +173,9 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- Field independence counts a link to a REAL field of a parameter or return value (`this.f ← 0:p.g`) as a link
+  to that variable: the field shares the caller's object. Parts reached through a virtual (`§`) field — the content
+  of a copied collection — are judged by the transported-content rules instead (since 2026-09).
 - A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,

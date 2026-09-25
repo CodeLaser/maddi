@@ -324,10 +324,14 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             if (degradedReferrer) return independentOfType;
             Value.Independent independent = INDEPENDENT;
             for (Link link : links) {
-                if (link.to() instanceof ParameterInfo pi
+                // a real field of a parameter or return value counts as the variable itself: the field holding
+                // 'holder.list' (this.element ← 0:holder.list) shares the caller's object as much as one holding
+                // 'holder' (activemq's SchedulerBroker.systemUsage = brokerService.getSystemUsage())
+                Variable toPrimary = realFieldPathRoot(link.to());
+                if (toPrimary instanceof ParameterInfo pi
                     && (!pi.methodInfo().access().isPrivate() || escapesAsFunctionalInterface(pi.methodInfo()))
                     && owner.inHierarchyOf(pi.typeInfo())
-                    || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
+                    || toPrimary instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
                        && owner.inHierarchyOf(rv.methodInfo().typeInfo())) {
                     Value.Independent toIndependent;
                     if (link.from().equals(links.primary()) && link.linkNature().isIdenticalToOrAssignedFromTo()) {
@@ -368,6 +372,21 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 }
             }
             return independentOfType.max(independent);
+        }
+
+        /*
+         The variable a chain of REAL fields hangs from ('0:holder.list.x' -> '0:holder'), or null when the chain
+         passes a virtual field ('0:input.§$s', the content of a copied collection: the transported-content rules of
+         computeIndependent judge those) or an array element.
+         */
+        private static Variable realFieldPathRoot(Variable variable) {
+            Variable current = variable;
+            while (current instanceof FieldReference fr && fr.scopeVariable() != null
+                   && !(fr.scopeVariable() instanceof io.codelaser.maddi.cst.api.variable.This)) {
+                if (Util.virtual(fr.fieldInfo())) return null;
+                current = fr.scopeVariable();
+            }
+            return current instanceof io.codelaser.maddi.cst.api.variable.DependentVariable ? null : current;
         }
 
         /**
