@@ -47,7 +47,8 @@ class DestructuringValueTest : KotlinScanTestBase() {
 
     @Test
     fun theValueIsEvaluatedOnce() {
-        assertEquals(listOf("k2-array-constructor-with-init"), PlaceholderCensus.of(types).dumpLines().map { it.substringBefore('\t') })
+        // an init lambda is a filling loop now, as an expression body too (ArrayInitTest)
+        assertEquals(listOf<String>(), PlaceholderCensus.of(types).dumpLines().map { it.substringBefore('\t') })
         assertEquals("{Pair<Integer,String> \$elvis0=pair();if(\$elvis0==null){return 0;}" +
             "int a=\$elvis0.component1(),b=\$elvis0.component2();return a;}", body("elvis", 0))
         assertEquals("{Pair<Integer,Integer> \$destructured0=switch(true){case c->{x;}default->{y;}};" +

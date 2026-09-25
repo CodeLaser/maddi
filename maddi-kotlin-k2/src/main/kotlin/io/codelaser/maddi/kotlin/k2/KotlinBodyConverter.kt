@@ -303,7 +303,8 @@ internal class KotlinBodyConverter(
                 }
             }
             // `fun f() = (x ?: throw E()) as T`
-            if (returning) spineElvisLowering(body, method, locals, "0", expressionBody = true)?.let { lowered ->
+            if (returning) (spineElvisLowering(body, method, locals, "0", expressionBody = true)
+                ?: spineArrayInitLowering(body, method, locals, "0", expressionBody = true))?.let { lowered ->
                 lowered.forEach { block.addStatement(it) }
                 return block.build()
             }
@@ -549,6 +550,7 @@ internal class KotlinBodyConverter(
             ?: argumentElvisLowering(s, method, locals, index)
             ?: spineElvisLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
+            ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index)
@@ -938,6 +940,61 @@ internal class KotlinBodyConverter(
         val property = statement as? KtProperty ?: return null
         if (!property.isLocal) return null
         val call = property.initializer as? KtCallExpression ?: return null
+        val name = property.name ?: return null
+        return arrayFill(call, name, method, locals, index)?.let { (array, statements) ->
+            localDeclared(property, array)
+            locals[name] = array
+            statements
+        }
+    }
+
+    /**
+     * <b>`Array(n) { … }.joinToString()`</b>: the same filling loop, when the array is not a local's initializer but
+     * sits on the statement's SPINE (a receiver, a cast, parentheses: evaluated first, unconditionally). The loop
+     * fills a temporary, which the statement then reads through [hoistedReads] (javalin's TestResponse).
+     */
+    private fun KaSession.spineArrayInitLowering(statement: KtExpression, method: MethodInfo,
+                                                 locals: MutableMap<String, Variable>, index: String,
+                                                 expressionBody: Boolean = false): List<Statement>? {
+        val root = when {
+            expressionBody -> statement
+            statement is KtProperty -> if (statement.isLocal) statement.initializer else null
+            statement is KtReturnExpression -> statement.returnedExpression
+            statement is KtBinaryExpression && statement.operationToken == KtTokens.EQ ->
+                statement.right?.takeIf { isStableReference(statement.left) }
+            else -> statement
+        } ?: return null
+        var e: KtExpression = root
+        while (true) e = when (e) {
+            is KtAnnotatedExpression -> e.baseExpression ?: return null
+            is KtParenthesizedExpression -> e.expression ?: return null
+            is KtBinaryExpressionWithTypeRHS -> e.left
+            is KtDotQualifiedExpression -> e.receiverExpression
+            else -> break
+        }
+        val call = e as? KtCallExpression ?: return null
+        // a temporary's number only for a Kotlin array constructor: every other call passes through here
+        val owner = (call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol)?.containingClassId
+        if (owner?.packageFqName?.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
+        val (array, fill) = arrayFill(call, "\$array${elvisTemporaries++}", method, locals, index) ?: return null
+        locals[array.simpleName()] = array
+        val tailIndex = "$index.${fill.size}"
+        hoistedReads[call] = array
+        val tail = try {
+            if (expressionBody) indexed(runtime.newReturnStatement(convertExpression(statement, method, locals)), tailIndex)
+            else convertStatement(statement, method, locals, tailIndex)
+        } finally {
+            hoistedReads.remove(call)
+        }
+        return fill + tail
+    }
+
+    /**
+     * The declaration of [name] as a new array, its counter, and the loop filling it from [call]'s init lambda; null
+     * when [call] is no Kotlin array class constructor with a one-statement lambda. See [arrayInitLowering].
+     */
+    private fun KaSession.arrayFill(call: KtCallExpression, name: String, method: MethodInfo,
+                                    locals: Map<String, Variable>, index: String): Pair<LocalVariable, List<Statement>>? {
         val constructor = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol ?: return null
         val owner = constructor.containingClassId ?: return null
         if (owner.packageFqName.asString() != "kotlin" || owner.shortClassName.asString() !in JVM_ARRAY_CLASSES) return null
@@ -952,14 +1009,12 @@ internal class KotlinBodyConverter(
         }
         val sizeExpression = arguments[0].getArgumentExpression() ?: return null
         val arrayType = call.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 } ?: return null
-        val name = property.name ?: return null
 
         val newArray = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
             .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
             .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(convertExpression(sizeExpression, method, locals)))
             .build()
         val array = runtime.newLocalVariable(name, arrayType, newArray)
-        localDeclared(property, array)
         val counter = runtime.newLocalVariable("\$i${elvisTemporaries++}", runtime.intParameterizedType(), runtime.newInt(0))
         fun read(v: Variable): VariableExpression =
             runtime.newVariableExpressionBuilder().setVariable(v).setSource(runtime.noSource()).build()
@@ -986,8 +1041,7 @@ internal class KotlinBodyConverter(
                 .addStatement(indexed(runtime.newExpressionAsStatement(increment), "$index.2.0.1")).build())
             .setSource(source(call, "$index.2"))
             .build()
-        locals[name] = array
-        return listOf(
+        return array to listOf(
             indexed(runtime.newLocalVariableCreation(array), "$index.0"),
             indexed(runtime.newLocalVariableCreation(counter), "$index.1"),
             loop)

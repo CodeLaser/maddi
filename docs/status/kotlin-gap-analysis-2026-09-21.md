@@ -1946,9 +1946,24 @@ property is a field, so it cannot tell the fix from its absence; the alias row h
 detekt unchanged at 8, **no verdict moved**; coil unchanged at 4.
 
 **What is left on javalin (14):** reified `T::class` ×9 and mockk's reified `any()`, `Result.getOrNull()` ×3
-(`@InlineOnly`, so kotlinc leaves no method to call). These are refused, as on detekt and coil. One is open:
-`Array(n) { … }.joinToString()`, an init-lambda array in EXPRESSION position (§7.61 lowers it as a statement only). It
-needs indices for hoisted statements.
+(`@InlineOnly`, so kotlinc leaves no method to call). These are refused, as on detekt and coil. The one open site, `Array(n) { … }.joinToString()`
+(TestResponse), is closed in §7.73.
+
+### 7.73 An init-lambda array in expression position — javalin 14 → 13
+
+§7.61 lowered `IntArray(n) { … }` only as a local's whole initializer. `spineArrayInitLowering` takes it on the
+statement's spine (a receiver, a cast, parentheses, a function's expression body). The same filling loop fills a
+temporary `$arrayN`, and the statement reads the temporary through `hoistedReads`:
+`Array(n) { "0" }.joinToString()` → `String[] $array4 = new String[n]; int $i5 = 0; while (…) { … }` followed by
+`joinToString($array4, …)`. The indices the hoisted statements need are stamped explicitly, as for the elvis
+temporaries of §7.72, so no rework was needed. ⚠ The first cut took a temporary's number before knowing the call was
+an array constructor. Every call on a spine passes through there, so it shifted the `$elvisN` names of unrelated
+lowerings (ArgumentJumpTest, JumpInExpressionTest caught it).
+
+`ArrayInitTest` rows e–g; `DestructuringValueTest`'s pinned placeholder (`fun withInit(n) = IntArray(n) { it * 2 }`)
+is gone. javalin **14 → 13**, none new, and **every remaining site is a refused one**: reified `T::class` ×9, mockk's
+reified `any()`, and `@InlineOnly` `Result.getOrNull()` ×3. detekt unchanged at 8, **no verdict moved**; coil
+unchanged at 4.
 
 ## 8. The ordered path to the claim
 

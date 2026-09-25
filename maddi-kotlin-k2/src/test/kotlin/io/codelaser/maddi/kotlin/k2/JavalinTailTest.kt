@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test
  * `ALPNServerConnectionFactory()`), a Java setter through a receiver lambda (`SslContextFactory.Server().apply {
  * keyStorePath = … }`), `::p.isInitialized` on a `lateinit` property, an imported `@JvmField` of a library object
  * (`import kotlin.text.Charsets.UTF_8`), a receiver-typed function value called on a
- * written receiver (`url?.openConnection()?.getter()`). (`Array(n) { … }` in EXPRESSION position stays open: §7.72.)
+ * written receiver (`url?.openConnection()?.getter()`). (`Array(n) { … }` in EXPRESSION position: ArrayInitTest.)
  */
 class JavalinTailTest : KotlinScanTestBase() {
 

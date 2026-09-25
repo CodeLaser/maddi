@@ -22,7 +22,8 @@ import org.junit.jupiter.api.Test
 /**
  * `val a = IntArray(n) { v }` as the filling loop kotlinc inlines: `new int[n]`, a counter, and `a[i] = v` in a
  * `while`. detekt's `IntArray(size) { return@IntArray 1 }`, `IntArray(size) { return@IntArray it }` and
- * `Array(a.length + 1) { IntArray(b.length + 1) }`.
+ * `Array(a.length + 1) { IntArray(b.length + 1) }`. In EXPRESSION position too, on the statement's spine: javalin's
+ * `Array(n) { "0" }.joinToString()` fills a temporary first.
  */
 class ArrayInitTest : KotlinScanTestBase() {
 
@@ -33,6 +34,9 @@ class ArrayInitTest : KotlinScanTestBase() {
             fun b(n: Int): IntArray { val bt = IntArray(n) { it }; return bt }
             fun c(n: Int, m: Int): Array<IntArray> { val dp = Array(n) { IntArray(m) }; return dp }
             fun d(n: Int): IntArray { val x = IntArray(n) { i -> i * 2 }; return x }
+            fun e(n: Int): String { val s = Array(n) { "0" }.joinToString(); return s }
+            fun f(n: Int): Int = IntArray(n) { it }.sum()
+            fun g(n: Int): Any { return (Array(n) { "x" }) as Any }
             """.trimIndent() + "\n")
     }
 
@@ -52,6 +56,9 @@ class ArrayInitTest : KotlinScanTestBase() {
             b: int[] bt=new int[n]; int ${'$'}i1=0; while(${'$'}i1<bt.length){bt[${'$'}i1]=${'$'}i1;${'$'}i1++;} return bt;
             c: int[][] dp=new int[n][]; int ${'$'}i2=0; while(${'$'}i2<dp.length){dp[${'$'}i2]=new int[m];${'$'}i2++;} return dp;
             d: int[] x=new int[n]; int ${'$'}i3=0; while(${'$'}i3<x.length){x[${'$'}i3]=${'$'}i3*2;${'$'}i3++;} return x;
-            """.trimIndent(), listOf("a", "b", "c", "d").joinToString("\n") { "$it: ${body(it)}" })
+            e: String[] ${'$'}array4=new String[n]; int ${'$'}i5=0; while(${'$'}i5<${'$'}array4.length){${'$'}array4[${'$'}i5]="0";${'$'}i5++;} String s=ArraysKt___ArraysKt.joinToString(${'$'}array4,null,null,null,0,null,null); return s;
+            f: int[] ${'$'}array6=new int[n]; int ${'$'}i7=0; while(${'$'}i7<${'$'}array6.length){${'$'}array6[${'$'}i7]=${'$'}i7;${'$'}i7++;} return ArraysKt___ArraysKt.sum(${'$'}array6);
+            g: String[] ${'$'}array8=new String[n]; int ${'$'}i9=0; while(${'$'}i9<${'$'}array8.length){${'$'}array8[${'$'}i9]="x";${'$'}i9++;} return (Object)${'$'}array8;
+            """.trimIndent(), listOf("a", "b", "c", "d", "e", "f", "g").joinToString("\n") { "$it: ${body(it)}" })
     }
 }
