@@ -61,6 +61,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaAnonymousObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
@@ -237,6 +238,15 @@ internal class KotlinBodyConverter(
      * bare selector call rather than wrap it in a ternary. See [safeCallAsStatementLowering].
      */
     private val unwrappedSafeCalls = java.util.IdentityHashMap<KtExpression, Boolean>()
+
+    /**
+     * The anonymous type [convertObjectLiteral] built for each `object : … { … }`, by its declaration. K2 types a local
+     * holding one as the anonymous object itself, and a member of it is reachable only through that type; mapped,
+     * it is its supertype, which has no such member. javalin's `pipedInputStream.exception = e` (a property of an
+     * `object : PipedInputStream(..)`, assigned from a lambda) was a `k2-assign-target`, and the write it hid made a
+     * `var` look like a `val` to fieldCouldBeFinal.
+     */
+    private val objectLiteralTypes = java.util.IdentityHashMap<KtObjectDeclaration, TypeInfo>()
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
@@ -1655,8 +1665,10 @@ internal class KotlinBodyConverter(
             // ⛔ K2 first when it names a RECEIVER's member: the innermost implicit receiver wins in Kotlin, so
             // `languageVersionSettings` in a builder lambda is the builder's, even when the enclosing class has a
             // property of that name. The class-first lookup below bound it to `this.getLanguageVersionSettings()`,
-            // silently -- a wrong read is no placeholder
+            // silently -- a wrong read is no placeholder. receiverLambdaMember is the same rule reached from the
+            // lambda side (a bare name inside a lambda with a receiver, not shadowed by a local or parameter).
             is KtNameReferenceExpression -> (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
+                ?: receiverLambdaMember(expression, method, locals)
                 ?: resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
@@ -1725,6 +1737,12 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /** The anonymous type of [receiver] when K2 types it as an `object : …` converted here: see [objectLiteralTypes]. */
+    private fun KaSession.objectLiteralType(receiver: KtExpression): TypeInfo? {
+        val symbol = (receiver.expressionType as? KaClassType)?.symbol as? KaAnonymousObjectSymbol ?: return null
+        return (symbol.psi as? KtObjectDeclaration)?.let { objectLiteralTypes[it] }
+    }
+
     /** `obj.f(...)` (method call) or `obj.x` (property/field access). */
     private fun KaSession.convertQualified(expression: KtQualifiedExpression, method: MethodInfo,
                                            locals: Map<String, Variable>): Expression {
@@ -1748,6 +1766,7 @@ internal class KotlinBodyConverter(
         val receiver = convertExpression(expression.receiverExpression, method, locals)
         val receiverType = superDispatchType(expression, method)
             ?: narrowedReceiverType(expression.receiverExpression, expression.selectorExpression, method)
+            ?: objectLiteralType(expression.receiverExpression)
             ?: expression.receiverExpression.expressionType?.let { mapType(it, method.typeInfo()).typeInfo() }
         val selectorResult = when (val selector = expression.selectorExpression) {
             is KtCallExpression -> convertCall(selector, receiver to receiverType, false, method, locals)
@@ -3071,6 +3090,7 @@ internal class KotlinBodyConverter(
         val symbol = expression.objectDeclaration.symbol as? KaClassSymbol
         val enclosing = method.typeInfo()
         val anon = runtime.newAnonymousType(enclosing, enclosing.builder().getAndIncrementAnonymousTypes())
+        objectLiteralTypes[expression.objectDeclaration] = anon
         val builder = anon.builder()
             .setTypeNature(runtime.typeNatureClass())
             .setAccess(runtime.accessPrivate())
@@ -3433,6 +3453,22 @@ internal class KotlinBodyConverter(
             .setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * Inside a lambda WITH A RECEIVER, a bare name is K2's to resolve, after locals and parameters: the innermost
+     * implicit receiver wins, and the name-based lookup tries the enclosing extension function's receiver and the
+     * class's own fields first. ⛔ detekt's `fun CliArgs.createSpec()` writes `compiler { jvmTarget = ... }`, which
+     * is CompilerSpecBuilder's jvmTarget; by name it bound to CliArgs.jvmTarget -- a write to the wrong object, and
+     * CompilerSpecBuilder's var looked never assigned (diagnose.sarif called it a val, and detekt then did not
+     * compile). Outside a receiver lambda the name-based order stands.
+     */
+    private fun KaSession.receiverLambdaMember(expression: KtNameReferenceExpression, method: MethodInfo,
+                                               locals: Map<String, Variable>): Expression? {
+        if (!locals.containsKey("\$receiver")) return null
+        val name = expression.getReferencedName()
+        if (locals.containsKey(name) || method.parameters().any { it.name() == name }) return null
+        return implicitMemberAccess(expression, method, locals)
     }
 
     /**
