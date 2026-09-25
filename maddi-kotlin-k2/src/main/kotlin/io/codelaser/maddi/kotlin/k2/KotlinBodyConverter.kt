@@ -1140,6 +1140,28 @@ internal class KotlinBodyConverter(
      * declares nothing. The component is the source type's `componentN()`, or, when K2 resolves it to the stdlib's
      * `Map.Entry` extension (`@InlineOnly`, absent from bytecode), the `getKey()`/`getValue()` kotlinc inlines.
      */
+    /**
+     * `val (a, b) = match.destructured`: `MatchResult.Destructured`'s `componentN()` is `@InlineOnly`, absent from the
+     * class file (which has `getMatch()` and `toList()` only), and kotlinc inlines its body, `match.groupValues[N]`:
+     * `d.getMatch().getGroupValues().get(N)`. Null for any other type, or when a link of that chain does not resolve.
+     */
+    private fun destructuredGroup(value: Expression, sourceType: TypeInfo, i: Int, type: ParameterizedType): Expression? {
+        if (sourceType.fullyQualifiedName() != "kotlin.text.MatchResult.Destructured") return null
+        fun call(obj: Expression, callee: MethodInfo, arguments: List<Expression>, returnType: ParameterizedType) =
+            runtime.newMethodCallBuilder().setObject(obj).setObjectIsImplicit(false).setMethodInfo(callee)
+                .setParameterExpressions(arguments).setConcreteReturnType(returnType).setTypeArguments(listOf())
+                .setSource(runtime.noSource()).build()
+        val getMatch = resolveCallee(sourceType, "getMatch", listOf()) ?: return null
+        val match = call(value, getMatch, listOf(), getMatch.returnType())
+        val getGroupValues = getMatch.returnType().typeInfo()?.let { members(it) }
+            ?.let { resolveCallee(it, "getGroupValues", listOf()) } ?: return null
+        val groups = call(match, getGroupValues, listOf(), getGroupValues.returnType())
+        val index = listOf(runtime.newInt(i + 1))
+        val get = getGroupValues.returnType().typeInfo()?.let { members(it) }?.let { resolveCallee(it, "get", index) }
+            ?: return null
+        return call(groups, get, index, type)
+    }
+
     private fun KaSession.destructure(entries: List<KtDestructuringDeclarationEntry>, source: () -> Expression,
                                       psi: PsiElement, method: MethodInfo,
                                       locals: MutableMap<String, Variable>): List<LocalVariable> =
@@ -1156,7 +1178,8 @@ internal class KotlinBodyConverter(
                 runtime.newMethodCallBuilder().setObject(value).setObjectIsImplicit(false).setMethodInfo(callee)
                     .setParameterExpressions(arguments).setConcreteReturnType(type).setTypeArguments(listOf())
                     .setSource(runtime.noSource()).build()
-            } ?: placeholder("k2-component${i + 1}", psi)
+            } ?: sourceType?.let { destructuredGroup(value, it, i, type) }
+                ?: placeholder("k2-component${i + 1}", psi)
             runtime.newLocalVariable(name, type, init).also { locals[name] = it; localDeclared(entry, it) }
         }
 
@@ -1667,6 +1690,9 @@ internal class KotlinBodyConverter(
                         // a field the receiver's type inherits: `o.modCount`, `this.actual`
                         ?: receiverType?.let { inheritedField(it, name) }
                             ?.let { variableExpression(runtime.newFieldReference(it, receiver, it.type())) }
+                        ?: valueClassMember(selector.mainReference.resolveToSymbol() as? KaCallableSymbol,
+                            listOf(if (name.startsWith("is")) name else "get" + name.replaceFirstChar { it.uppercaseChar() }),
+                            receiver, listOf(), selector, method)
                         ?: placeholder("k2-unresolved-access:$name", selector)
                 }
             }
@@ -3112,7 +3138,8 @@ internal class KotlinBodyConverter(
 
         val ownerType = receiver?.second ?: method.typeInfo()
         val callee = defaults ?: resolveCallee(ownerType, name, arguments, callReturnFqn(call, method))
-            ?: return placeholder("k2-unresolved-call:$name", call)
+            ?: return receiver?.let { valueClassMember(calleeSymbol, listOf(name), it.first, arguments, call, method) }
+                ?: placeholder("k2-unresolved-call:$name", call)
         val obj = receiver?.first
             ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
             else self(method)
@@ -3397,6 +3424,29 @@ internal class KotlinBodyConverter(
             .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
             .setObjectIsImplicit(false).setMethodInfo(method0).setParameterExpressions(arguments)
             .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: method0.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * A member of a VALUE class (`kotlin.Result`): kotlinc compiles it to a static on the class taking the unboxed value
+     * first, `Result.isSuccess-impl(Object)`. The class-file model has those statics, and neither the property nor a
+     * getter, so `runCatching { … }.isSuccess` found nothing. Null when [symbol]'s class is no value class, or has no
+     * such static -- an `@InlineOnly` member (`Result.getOrNull()`) is inlined by kotlinc and has none.
+     */
+    private fun KaSession.valueClassMember(symbol: KaCallableSymbol?, jvmNames: List<String>, receiver: Expression,
+                                           arguments: List<Expression>, psi: KtExpression, method: MethodInfo): Expression? {
+        val classId = symbol?.callableId?.classId ?: return null
+        val cls = findClass(classId) as? KaNamedClassSymbol ?: return null
+        if (!cls.isInline) return null
+        val type = (infoByFqn.getType(classId.asFqNameString(), sourceSet) ?: with(typeMapper) { loadLibraryClass(cls) })
+            ?.let { members(it) } ?: return null
+        val all = listOf(receiver) + arguments
+        val callee = jvmNames.firstNotNullOfOrNull { n -> resolveCallee(type, "$n-impl", all)?.takeIf { it.isStatic } }
+            ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(all)
+            .setConcreteReturnType(psi.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 

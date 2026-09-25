@@ -1711,6 +1711,24 @@ The shapes from §7.58's probe that were still open, three causes and seven site
 `TestLibraryCompanions` gains `Character.UnicodeBlock.of('a')` and `toHexString(5)`. All seven gone, none new, **no
 verdict moved**. coil unchanged at 102.
 
+### 7.63 Inline-only stdlib members, against the class file — detekt 18 → 15
+
+Two models of one library type again (§7.47, §7.48, §7.53). A mixed-pipeline probe converted `runCatching { }.isSuccess`,
+`.getOrNull()` and `val (x, y) = m.destructured` without a placeholder: there the stdlib types were K2-built,
+with every member the Kotlin view declares. On detekt they are CLASS-FILE types, and the class file has what kotlinc
+emits:
+
+- `kotlin.Result` is a VALUE class. Its members are statics taking the unboxed value, `isSuccess-impl(Object)`, and
+  there is no property or getter. A member of a value class, called or read, is now that static when the class file
+  has it (`valueClassMember`).
+- `MatchResult.Destructured.componentN()` is `@InlineOnly`, absent from the class file, which has `getMatch()` and
+  `toList()`. kotlinc inlines its body, `match.groupValues[N]`, and so does this:
+  `d.getMatch().getGroupValues().get(N)`, as `Map.Entry`'s inline components already were.
+
+`Result.getOrNull()` stays a placeholder: its inline body reads the receiver twice, and the one site's receiver is a
+call. No unit fixture: the k2 and mixed worlds build these types from K2, so only the corpus can show this. detekt
+**18 → 15** (three gone, none new), **no verdict moved**; coil unchanged at 102.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1739,7 +1757,7 @@ verdict moved**. coil unchanged at 102.
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) and the last implicit-receiver and static-call shapes (§7.62) have taken detekt 4,701 → 18 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.62; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) the last implicit-receiver and static-call shapes (§7.62) and inline-only stdlib members (§7.63) have taken detekt 4,701 → 15 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.63; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.
