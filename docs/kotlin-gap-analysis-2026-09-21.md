@@ -1693,6 +1693,24 @@ array class's constructor whose lambda is ONE statement, a value or `return@Labe
 placeholder. `ArrayInitTest` (k2): the three detekt shapes, `Array(n) { IntArray(m) }` as `new int[n][]`
 included, plus a named parameter. All three detekt sites gone, none new, **no verdict moved**. coil unchanged at 102.
 
+### 7.62 The last implicit receivers and Java statics — detekt 25 → 18
+
+The shapes from §7.58's probe that were still open, three causes and seven sites:
+
+- A LOCAL extension function's receiver, read inside a receiver lambda nested in its body: detekt's
+  `fun KtValueArgument.isNearestParentForSuspension()` calls `getArgumentExpression()` inside `with(session) { }`, where
+  the innermost `$receiver` is the session's. A receiver lambda's `$receiver` was already reachable by key from lambdas
+  nested in it; a local function's now is too, and `implicitReceiverValue` looks it up by the function K2 names as its
+  owner. The same fix covers `resolveToCall()`, a member extension of the session applied to the local function's
+  receiver. `LocalExtensionReceiverTest` (k2) asserts by IDENTITY, since both receivers print as `$receiver`.
+- A Java static reached through a NESTED class, `ExtensionContext.Namespace.create(…)`: `staticCall` took a one-name
+  receiver only, the limit §7.48 lifted for static fields.
+- A Java static imported by name and called unqualified, `getLineAndColumnInPsiFile(…)`: a static call on the
+  declaring class, as Java's static import is.
+
+`TestLibraryCompanions` gains `Character.UnicodeBlock.of('a')` and `toHexString(5)`. All seven gone, none new, **no
+verdict moved**. coil unchanged at 102.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1721,7 +1739,7 @@ included, plus a named parameter. All three detekt sites gone, none new, **no ve
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) and array constructors with an init lambda (§7.61) have taken detekt 4,701 → 25 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.61; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) and the last implicit-receiver and static-call shapes (§7.62) have taken detekt 4,701 → 18 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.62; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

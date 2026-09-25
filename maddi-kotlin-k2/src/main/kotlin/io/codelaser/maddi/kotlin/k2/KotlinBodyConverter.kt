@@ -1114,6 +1114,8 @@ internal class KotlinBodyConverter(
         locals[name] = variable
         val bodyScope: MutableMap<String, Variable> = locals.toMutableMap()
         sam.parameters().forEach { bodyScope[it.name()] = it }
+        // reachable from lambdas nested in the body, whose own `$receiver` shadows the name (`with(session) { … }`)
+        if (receiverType != null) bodyScope[receiverKey(fn)] = sam.parameters()[0]
         val body = fn.bodyBlockExpression?.let { statementsToBlock(it.statements, method, bodyScope, "") }
             ?: fn.bodyExpression?.let { e ->
                 val value = convertExpression(e, method, bodyScope)
@@ -1723,8 +1725,13 @@ internal class KotlinBodyConverter(
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtNameReferenceExpression)
     private fun KaSession.staticCall(receiverExpression: KtExpression, call: KtCallExpression, method: MethodInfo,
                                      locals: Map<String, Variable>): Expression? {
-        val receiverClass = (receiverExpression as? KtNameReferenceExpression)
-            ?.resolveSymbol() as? KaNamedClassSymbol ?: return null
+        // the type in any spelling: `TestUtil`, or `ExtensionContext.Namespace` (a nested Java class)
+        val receiverName = when (receiverExpression) {
+            is KtNameReferenceExpression -> receiverExpression
+            is KtDotQualifiedExpression -> receiverExpression.selectorExpression as? KtNameReferenceExpression
+            else -> null
+        }
+        val receiverClass = receiverName?.resolveSymbol() as? KaNamedClassSymbol ?: return null
         if ((call.resolveSymbol() as? KaNamedFunctionSymbol)?.isStatic != true) return null
         val fqn = receiverClass.classId?.asFqNameString() ?: return null
         val type = infoByFqn.getType(fqn, sourceSet) ?: with(typeMapper) { loadLibraryClass(receiverClass) } ?: return null
@@ -3030,6 +3037,10 @@ internal class KotlinBodyConverter(
         if (receiver != null) objectCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
         // a top-level function `f(args)` called from another type -> the file facade's static `<File>Kt.f(args)`
         if (receiver == null) facadeCall(name, calleeSymbol, arguments, call, method, defaults)?.let { return it }
+        // an imported Java STATIC called by its simple name (`import …DiagnosticUtils.getLineAndColumnInPsiFile`):
+        // a static call on the declaring class, as Java's own static import is
+        if (receiver == null && calleeSymbol?.isStatic == true) importedStaticCall(name, calleeSymbol, arguments, call, method)
+            ?.let { return it }
 
         // invoking a function-typed value `action()` -> `action.invoke(args)` (Kotlin's invoke-operator
         // sugar): the callee is a variable in scope, not a method. Resolve `invoke` on its functional type.
@@ -3129,7 +3140,10 @@ internal class KotlinBodyConverter(
             // `with(a) { with(b) { … } }` the innermost is not always the one meant), or the extension function's
             // own `$receiver`. Failing an exact owner, the innermost in scope -- only when its type is the one wanted.
             is KaReceiverParameterSymbol -> {
-                (symbol.owningCallableSymbol.psi as? KtFunctionLiteral)?.let { locals[receiverKey(it)] }
+                // ...or a LOCAL extension function's, keyed the same way (convertLocalFunction)
+                (symbol.owningCallableSymbol.psi as? KtDeclaration)
+                    ?.takeIf { it is KtFunctionLiteral || (it as? KtNamedFunction)?.isLocal == true }
+                    ?.let { locals[receiverKey(it)] }
                     ?.let { return variableExpression(it) }
                 // ⚠ compared ERASED: `this` of `fun <T : Rule> T.f()` is typed `T`, whose typeInfo is null, while the
                 // `$receiver` parameter carries T's erasure (its first bound)
@@ -3152,7 +3166,7 @@ internal class KotlinBodyConverter(
         values.orEmpty().map { implicitReceiverValue(it, method, locals) ?: return null }
 
     /** The scope key under which a receiver lambda's `$receiver` stays reachable from lambdas nested in it. */
-    private fun receiverKey(literal: KtFunctionLiteral): String = "\$receiver@${literal.textOffset}"
+    private fun receiverKey(owner: KtDeclaration): String = "\$receiver@${owner.textOffset}"
 
     /**
      * The type to look a member up in, for an implicit receiver [value] standing for [obj]: a SMART-CAST receiver's
@@ -3337,6 +3351,22 @@ internal class KotlinBodyConverter(
             .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /** A static method of a class, called unqualified after a static import: `Declaring.f(args)`. */
+    private fun KaSession.importedStaticCall(name: String, callee: KaNamedFunctionSymbol, arguments: List<Expression>,
+                                             call: KtCallExpression, method: MethodInfo): Expression? {
+        val classId = callee.callableId?.classId ?: return null
+        val symbol = findClass(classId) as? KaNamedClassSymbol ?: return null
+        val type = infoByFqn.getType(classId.asFqNameString(), sourceSet) ?: with(typeMapper) { loadLibraryClass(symbol) }
+            ?: return null
+        val method0 = resolveCallee(members(type), name, arguments, callReturnFqn(call, method))?.takeIf { it.isStatic }
+            ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
+            .setObjectIsImplicit(false).setMethodInfo(method0).setParameterExpressions(arguments)
+            .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: method0.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     private fun extensionFacade(symbol: KaNamedFunctionSymbol): TypeInfo? {

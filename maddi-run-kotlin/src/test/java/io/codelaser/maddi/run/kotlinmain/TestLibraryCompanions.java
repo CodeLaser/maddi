@@ -38,7 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>A companion's `const val` or `@JvmField` (`LanguageVersion.LATEST_STABLE`) is a static field of the OUTER class,
  * which K2 reaches through the companion; and `String.format(…)` is an inline-only extension on `String.Companion`
- * that kotlinc turns into `java.lang.String.format(…)`.
+ * that kotlinc turns into `java.lang.String.format(…)`. A Java static reached through a nested class
+ * (`Character.UnicodeBlock.of(…)`) or by a static import (`toHexString(5)`) is a static call on its class.
  */
 public class TestLibraryCompanions {
     @Test
@@ -55,6 +56,7 @@ public class TestLibraryCompanions {
                 import org.jetbrains.kotlin.config.CompilerConfigurationKey
                 import org.jetbrains.kotlin.config.JvmTarget
                 import org.jetbrains.kotlin.config.LanguageVersion
+                import java.lang.Integer.toHexString
                 class K {
                     fun a(): ClassId = ClassId.fromString("a/B")
                     fun b(): ClassId = ClassId.topLevel(FqName("a.B"))
@@ -68,6 +70,8 @@ public class TestLibraryCompanions {
                     fun j(): JvmTarget = JvmTarget.DEFAULT
                     fun k(): String = String.format("%s", "x")
                     fun l(): String = String.format(java.util.Locale.ROOT, "%s-%s", "x", 1)
+                    fun m(): Character.UnicodeBlock? = Character.UnicodeBlock.of('a')
+                    fun n(): String = toHexString(5)
                 }
                 class Sized(val n: Int) {
                     companion object { operator fun invoke(items: List<String>): Sized = Sized(items.size) }
@@ -103,6 +107,8 @@ public class TestLibraryCompanions {
                 j: [return JvmTarget.DEFAULT;]
                 k: [return String.format("%s","x");]
                 l: [return String.format(Locale.ROOT,"%s-%s","x",1);]
+                m: [return UnicodeBlock.of('a');]
+                n: [return Integer.toHexString(5);]
                 """, actual.toString());
     }
 
