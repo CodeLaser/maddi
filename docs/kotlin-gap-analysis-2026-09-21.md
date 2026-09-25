@@ -1651,6 +1651,66 @@ reproducing anything.
 
 detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged at 103.
 
+### 7.59 A jump in argument position — detekt 33 → 31
+
+§7.37 excluded `f(a(), x ?: return)`: hoisting the guard would run the check before `a()`. That exclusion is kept,
+and narrowed to what it is about. When the call is the whole statement, and the receiver and every argument before
+the elvis, in SOURCE order, named or not, are stable references or constants, nothing the source evaluates first can
+observe the move. So:
+
+    check(p, x?.y() ?: return)   ->   T $elvis0 = x?.y(); if ($elvis0 == null) return; check(p, $elvis0);
+
+The argument reads the temporary through `hoistedReads`, so the call itself is converted as any other.
+`ArgumentJumpTest` (k2): a positional and a named argument, plus the two refusals (an unstable receiver, an unstable
+earlier argument), which keep their placeholder. detekt **33 → 31** (both sites, none new), **no verdict moved**;
+coil unchanged at 103.
+
+### 7.60 A bound extension reference, as a lambda — detekt 31 → 28, coil 103 → 102
+
+`rules.forEach(::printRule)` inside `fun YamlNode.printRuleSet(…)`, where `printRule` is an extension on `YamlNode`, was
+a deliberate refusal. A BOUND extension reference binds the facade method's first argument, and no Java method
+reference can spell that. A lambda can: `r -> YamlNodeKt.printRule($receiver, r)`, over an anonymous `FunctionN`,
+built as a local function's value is (§7.38). That is what the bound reference is in effect.
+
+⚠ Only where the lambda may read the receiver again at each call, since kotlinc evaluates it once, at the reference:
+an explicit stable reference (`n::printRule`), or an implicit receiver. K2 names no receivers for a callable reference
+as it does for a call, so the innermost `$receiver` in scope whose type the extension accepts is taken: a receiver
+lambda's, then the function's. A member extension, which also needs its dispatch receiver, keeps the placeholder.
+
+`BoundExtensionReferenceTest` (k2: implicit, explicit, and through `with(n) { }`); `CallableReferenceTest`'s pinned
+refusal becomes the conversion. All three detekt sites gone, none new, **no verdict moved**. coil **103 → 102**.
+
+### 7.61 An array constructor with an init lambda — detekt 28 → 25
+
+§7.43 left `IntArray(n) { … }` a named placeholder: kotlinc inlines a filling loop that no single Java expression
+spells. As a local's initializer, a statement context is available, so the loop is built:
+
+    val dp = IntArray(n) { return@IntArray 1 }   ->   int[] dp = new int[n]; int $i0 = 0;
+                                                      while ($i0 < dp.length) { dp[$i0] = 1; $i0++; }
+
+The lambda's parameter (`it`, or its name) reads the counter. Only for a local `val`/`var` initialized by a Kotlin
+array class's constructor whose lambda is ONE statement, a value or `return@Label v`. Every other shape keeps the
+placeholder. `ArrayInitTest` (k2): the three detekt shapes, `Array(n) { IntArray(m) }` as `new int[n][]`
+included, plus a named parameter. All three detekt sites gone, none new, **no verdict moved**. coil unchanged at 102.
+
+### 7.62 The last implicit receivers and Java statics — detekt 25 → 18
+
+The shapes from §7.58's probe that were still open, three causes and seven sites:
+
+- A LOCAL extension function's receiver, read inside a receiver lambda nested in its body: detekt's
+  `fun KtValueArgument.isNearestParentForSuspension()` calls `getArgumentExpression()` inside `with(session) { }`, where
+  the innermost `$receiver` is the session's. A receiver lambda's `$receiver` was already reachable by key from lambdas
+  nested in it; a local function's now is too, and `implicitReceiverValue` looks it up by the function K2 names as its
+  owner. The same fix covers `resolveToCall()`, a member extension of the session applied to the local function's
+  receiver. `LocalExtensionReceiverTest` (k2) asserts by IDENTITY, since both receivers print as `$receiver`.
+- A Java static reached through a NESTED class, `ExtensionContext.Namespace.create(…)`: `staticCall` took a one-name
+  receiver only, the limit §7.48 lifted for static fields.
+- A Java static imported by name and called unqualified, `getLineAndColumnInPsiFile(…)`: a static call on the
+  declaring class, as Java's static import is.
+
+`TestLibraryCompanions` gains `Character.UnicodeBlock.of('a')` and `toHexString(5)`. All seven gone, none new, **no
+verdict moved**. coil unchanged at 102.
+
 ## 8. The ordered path to the claim
 
 1. ✅ Refuse loudly (§7.1) — converts a silently wrong answer into a stated scope.
@@ -1679,7 +1739,7 @@ detekt **37 → 33** (four gone, none new), **no verdict moved**; coil unchanged
    member extensions (§7.27) and receiver nesting and smart casts (§7.28) context parameters (§7.29), `super` dispatch (§7.30), primitive members (§7.31), top-level
    properties (§7.32), library companions (§7.33), lambda destructuring (§7.34), companion `invoke` /
    `arrayOf` (§7.35), class literals (§7.36), jumps in expression position (§7.37), local functions (§7.38) and the three
-   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) have taken detekt 4,701 → 33 and coil 367 → 283 on that dump (coil is 103 once its class path is complete, §7.39, §7.42–§7.58; its
+   unresolved-access causes of §7.42, arrays (§7.43) the operator shapes of §7.44 blocks as values (§7.45) single-evaluation destructuring (§7.46), suspend signatures (§7.47), values named through a type (§7.48) vararg binding (§7.49) intrinsics spelled as calls (§7.50) function values invoked (§7.51) narrowed receivers (§7.52) `by lazy` against the class-file `Lazy` (§7.53) member index operators (§7.54) jumps as expression bodies (§7.55) delegated extension properties (§7.56) infix primitive members (§7.57), delegate initializers and implicit narrowed receivers (§7.58) argument-position jumps (§7.59) bound extension references (§7.60) array constructors with an init lambda (§7.61) and the last implicit-receiver and static-call shapes (§7.62) have taken detekt 4,701 → 18 and coil 367 → 283 on that dump (coil is 102 once its class path is complete, §7.39, §7.42–§7.62; its
    earlier numbers were cache-starved).
    ⭐ Both corpora agree (81% and 74%) with no overlap in what they call, which is as close to a sample as
    two projects get.

@@ -242,12 +242,13 @@ class CallableReferenceTest : KotlinScanTestBase() {
     }
 
     /**
-     * ⛔ A BOUND extension reference stays a NAMED placeholder: it binds the facade method's first argument, which no
-     * Java method reference spells. A LOCAL function's reference converts since local functions are modelled (a
-     * local variable holding the function object): `::inc` is that variable.
+     * A BOUND extension reference binds the facade method's first argument, which no Java method reference spells: it
+     * is the lambda `() -> Facade.twice(q)` (BoundExtensionReferenceTest; it was a named placeholder until then). A
+     * LOCAL function's reference converts since local functions are modelled (a local variable holding the function
+     * object): `::inc` is that variable.
      */
     @Test
-    fun boundExtensionsKeepANamedPlaceholderAndALocalFunctionIsItsVariable() {
+    fun boundExtensionsAreLambdasAndALocalFunctionIsItsVariable() {
         val types = parse("""
             class Q(val i: Int)
             fun Q.twice(): Int = i * 2
@@ -256,7 +257,7 @@ class CallableReferenceTest : KotlinScanTestBase() {
                 fun g(l: List<Int>): List<Int> { fun inc(i: Int) = i + 1; return l.map(::inc) }
             }
             """)
-        assertEquals(setOf("k2-callable-ref-bound-extension"), PlaceholderCensus.of(types).byKind.keys)
+        assertEquals(setOf<String>(), PlaceholderCensus.of(types).byKind.keys)
         val g = types.first { it.simpleName() == "P" }.findUniqueMethod("g", 1)
         val refs = mutableListOf<VariableExpression>()
         g.methodBody().visit { e: io.codelaser.maddi.cst.api.element.Element ->
