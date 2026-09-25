@@ -63,7 +63,15 @@ public interface Element {
     @Independent(hc = true)
     List<Comment> comments();
 
-    Element rewire(InfoMapView infoMap);
+    /**
+     * A copy of this element with every {@code Info} it references replaced by its counterpart in the map. The map
+     * is a read-only lookup: it receives this element's parts as KEYS (hidden content), never as mutable state to
+     * link -- the {@code @Independent(hc = true)} contract on the parameter, as on
+     * {@link io.codelaser.maddi.cst.api.expression.Expression#translate}. Without it the parameter computes
+     * {@code @Dependent} once {@code InfoMapView}'s own independence is honest, and after the mark that caps
+     * {@code Element}, and with it the whole {@code Info} family, at {@code @FinalFields} (#51).
+     */
+    Element rewire(@Independent(hc = true) InfoMapView infoMap);
 
     default List<Comment> rewireComments(InfoMapView infoMap) {
         return comments().stream().map(c -> c.rewire(infoMap)).toList();

@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.InfoMap;
@@ -48,7 +50,7 @@ public interface TryStatement extends Statement {
          */
         boolean isFinal();
 
-        CatchClause rewire(InfoMapView infoMap);
+        CatchClause rewire(@Independent(hc = true) InfoMapView infoMap);
 
         CatchClause translate(TranslationMap translationMap);
 

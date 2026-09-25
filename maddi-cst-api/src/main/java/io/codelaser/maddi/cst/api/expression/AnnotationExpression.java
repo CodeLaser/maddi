@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.expression;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -46,7 +48,7 @@ public interface AnnotationExpression extends Expression {
          */
         boolean keyIsDefault();
 
-        KV rewire(InfoMapView infoMap);
+        KV rewire(@Independent(hc = true) InfoMapView infoMap);
 
         KV translate(TranslationMap translationMap);
 

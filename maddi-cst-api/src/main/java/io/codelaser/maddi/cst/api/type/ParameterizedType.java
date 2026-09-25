@@ -80,7 +80,7 @@ public interface ParameterizedType {
 
     boolean isReferenceType();
 
-    ParameterizedType rewire(InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
+    ParameterizedType rewire(@Independent(hc = true) InfoMapView infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
 
     /**
      * Starts a rewire traversal with a fresh, <b>mutable</b> map of already-rewired type parameters. It has

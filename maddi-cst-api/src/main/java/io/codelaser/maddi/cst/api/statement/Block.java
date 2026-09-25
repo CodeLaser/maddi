@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.statement;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.info.InfoMap;
@@ -116,5 +118,5 @@ public interface Block extends Statement {
     Statement findStatementByIndex(String index);
 
     @Override
-    Block rewire(InfoMapView infoMap);
+    Block rewire(@Independent(hc = true) InfoMapView infoMap);
 }

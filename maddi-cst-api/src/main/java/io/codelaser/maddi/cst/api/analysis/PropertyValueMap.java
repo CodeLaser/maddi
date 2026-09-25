@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.api.analysis;
 
+import io.codelaser.maddi.annotation.Independent;
+
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 
@@ -24,7 +26,7 @@ public interface PropertyValueMap {
 
     boolean isEmpty();
 
-    PropertyValueMap rewire(InfoMapView infoMap);
+    PropertyValueMap rewire(@Independent(hc = true) InfoMapView infoMap);
 
     /**
      * A filtered carry: keep only the properties matching {@code filter}, re-pointing their values through the
@@ -33,7 +35,7 @@ public interface PropertyValueMap {
      * {@code VARIABLE_DATA}, which is recomputed anyway) — see {@code docs/analysis-rewiring.md}. Requires each kept
      * property's value to implement {@code rewire}.
      */
-    PropertyValueMap rewire(InfoMapView infoMap, java.util.function.Predicate<Property> filter);
+    PropertyValueMap rewire(@Independent(hc = true) InfoMapView infoMap, java.util.function.Predicate<Property> filter);
 
     /**
      * Remove every property matching {@code filter}. The early-cutoff skip's clear-before-recompute: a type carried
