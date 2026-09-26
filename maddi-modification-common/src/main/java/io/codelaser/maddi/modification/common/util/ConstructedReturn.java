@@ -127,6 +127,12 @@ final class ConstructedReturn {
                     }
                 });
             } else if (statement instanceof ReturnStatement rs) {
+                // a Kotlin non-local return inside a lambda leaves a method other than the lambda: which one this
+                // walk does not track, so it makes no claim
+                if (rs.isNonLocal()) {
+                    refused = true;
+                    return false;
+                }
                 Expression e = rs.expression();
                 if (e == null || e.isEmpty()) {
                     refused = true;

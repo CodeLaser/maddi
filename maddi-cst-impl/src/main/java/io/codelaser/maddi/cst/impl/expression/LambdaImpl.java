@@ -206,6 +206,8 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
              expression() does not reach: for an if it is the CONDITION. Returning it claimed the lambda
              was `() -> condition` and the body vanished, silently, from both print() and visit().
              */
+            // `{ return x }` returning from an ENCLOSING method (Kotlin, non-local) is not the lambda `{ x }`
+            if (statement instanceof ReturnStatement rs && rs.isNonLocal()) return null;
             if (statement instanceof ReturnStatement || statement instanceof ExpressionAsStatement) {
                 Expression expression = statement.expression();
                 // `() -> { return; }` has a return with nothing to return; that is not the single-expression form

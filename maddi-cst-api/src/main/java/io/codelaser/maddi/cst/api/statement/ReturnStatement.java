@@ -42,9 +42,42 @@ public interface ReturnStatement extends Statement {
      */
     ReturnStatement withSource(Source newSource);
 
+    /**
+     * @return how many enclosing LAMBDAS this {@code return} leaves before it returns: {@code 0}, the only value
+     * Java can express, returns from the innermost method or lambda body that contains it. A Kotlin lambda passed
+     * to an {@code inline} function can return from an enclosing function: {@code xs.forEach { if (p(it)) return
+     * it }} leaves the lambda AND returns from the enclosing function, {@code exitLevels() == 1}; nested
+     * lambdas count one level each, and {@code return@outer} from an inner lambda returns from the outer one.
+     * The method that is returned from is the {@code exitLevels()}-th {@link
+     * io.codelaser.maddi.cst.api.info.TypeInfo#enclosingMethod()} of the lambda that contains this statement.
+     * A count rather than a reference, so that it survives translation and rewiring of the enclosing method.
+     */
+    int exitLevels();
+
+    /**
+     * @return {@code true} when this statement returns from a method other than the one whose body contains it;
+     * see {@link #exitLevels()}.
+     */
+    default boolean isNonLocal() {
+        return exitLevels() > 0;
+    }
+
+    /**
+     * @return the label of a Kotlin qualified return ({@code forEach} in {@code return@forEach}), or {@code null};
+     * informative, for printing: {@link #exitLevels()} alone decides where the return goes. Distinct from
+     * {@link Statement#label()}, which is the label attached <em>to</em> this statement.
+     */
+    String goToLabel();
+
     interface Builder extends Statement.Builder<Builder> {
         @Fluent
         Builder setExpression(Expression expression);
+
+        @Fluent
+        Builder setExitLevels(int exitLevels);
+
+        @Fluent
+        Builder setGoToLabel(String goToLabel);
 
         ReturnStatement build();
     }
