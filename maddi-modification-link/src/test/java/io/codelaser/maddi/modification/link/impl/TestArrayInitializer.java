@@ -96,9 +96,12 @@ public class TestArrayInitializer extends CommonTest {
         MethodInfo get = B.findUniqueMethod("add", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = tlc.doMethod(get);
+        // no 'add[1]→add[0]' (nor its §m companion): 'add[0] ← item' holds for the array returned by the
+        // else-if, 'add[1] ← item' for the one returned by the else; no returned array has both. Linked into
+        // one graph, the two branches combined into that relation (LinkComputerImpl.linkAlternatives).
         assertEquals("""
                 [-, -] --> add←0:list,add←$_v,add[0]←1:item,add[0].§m≡1:item.§m,add[0]←this.base,add[1]←1:item,\
-                add[1]→add[0],add[0].§m≡this.base.§m,add[1].§m≡1:item.§m,add[1].§m≡add[0].§m\
+                add[0].§m≡this.base.§m,add[1].§m≡1:item.§m\
                 """, mlv.toString());
     }
 }

@@ -101,8 +101,10 @@ public class TestIndependentOfByteArray extends CommonTest {
                 """, readFully.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         MethodInfo read = B.findUniqueMethod("read", 3);
+        // b[off] (then-branch of 'if (len == 1)') and b[off++] (its else-branch) are not linked to each other: both
+        // are assigned from 'back', but in alternatives, and no execution runs both
         assertEquals("""
-                [0:b*∋this*.back,0:b*[1:off]←this*.back,0:b*[1:off]→0:b*[off++],0:b*[off++]←this*.back,\
+                [0:b*∋this*.back,0:b*[1:off]←this*.back,0:b*[off++]←this*.back,\
                 0:b*.§$←this*.arrayIn.§$, 1:off←$_ce7, 2:len←$_ce8,2:len→this*.arrayInPtr] --> -\
                 """, read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
@@ -113,14 +115,14 @@ public class TestIndependentOfByteArray extends CommonTest {
             VariableData vd312 = VariableDataImpl.of(s312);
             VariableInfo viB = vd312.variableInfo(b);
             assertEquals("""
-                    0:b∋this.back,0:b[1:off]←this.back,0:b[1:off]→0:b[off++],0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
+                    0:b∋this.back,0:b[1:off]←this.back,0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
                     """, viB.linkedVariables().toString());
         }
         {
             VariableData vd3 = VariableDataImpl.of(s3);
             VariableInfo viB = vd3.variableInfo(b);
             assertEquals("""
-                    0:b∋this.back,0:b[1:off]←this.back,0:b[1:off]→0:b[off++],0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
+                    0:b∋this.back,0:b[1:off]←this.back,0:b[off++]←this.back,0:b.§$←this.arrayIn.§$\
                     """, viB.linkedVariables().toString());
         }
         assertTrue(b.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT).isIndependent());

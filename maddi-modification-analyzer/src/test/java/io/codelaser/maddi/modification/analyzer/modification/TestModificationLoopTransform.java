@@ -18,6 +18,7 @@ import io.codelaser.maddi.modification.analyzer.CommonTest;
 import io.codelaser.maddi.modification.common.getset.ApplyGetSetTranslation;
 import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
 import io.codelaser.maddi.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
 import io.codelaser.maddi.modification.prepwork.variable.Links;
 import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
 import io.codelaser.maddi.modification.prepwork.variable.VariableData;
@@ -808,7 +809,12 @@ public class TestModificationLoopTransform extends CommonTest {
         ParameterInfo initial = run.parameters().getFirst();
         assertTrue(initial.isModified());
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        Variable to = mlvRun.ofReturnValue().link(0).to();
+        // the first return link into a field of an applied functional interface ('run.§$←$_afi3.§$'); links on
+        // 'run.body' ('run.body↗$_afi3': the loop may return 'initial', whose body produced $_afi3) sort before it
+        Variable to = mlvRun.ofReturnValue().stream().map(Link::to)
+                .filter(v -> v instanceof FieldReference fr
+                             && fr.scopeVariable() instanceof AppliedFunctionalInterfaceVariable)
+                .findFirst().orElse(null);
         if (to instanceof FieldReference fr && fr.scopeVariable() instanceof AppliedFunctionalInterfaceVariable afi) {
             assertEquals(1, afi.params().size());
             Links links = afi.params().getFirst().links();

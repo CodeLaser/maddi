@@ -611,7 +611,10 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableInfo rVi1 = vd1.variableInfo(r);
             // code of ExpressionAnalyzer.checkCaseForBuilder
             assertEquals("""
-                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,\
+                    r.variables→b.variables,r.variables∋b.variables[0],r.variables∋0:in,r.variables[0]≡b.variables[0],\
+                    r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,\
+                    r.variables[0].§m≡r.variables.§m,r≈b\
                     """, rVi1.linkedVariables().toString());
         }
         assertEquals("[-] --> method3∋0:in*,method3[0]←0:in*", mlvMethod3.toString());
@@ -649,7 +652,10 @@ public class TestStaticValuesRecord extends CommonTest {
             Statement s1 = method4.methodBody().statements().get(1);
             VariableInfo vi1r = VariableDataImpl.of(s1).variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[1],r.variables[1]≡b.variables[1],r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[1].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,\
+                    r.variables→b.variables,r.variables∋b.variables[1],r.variables∋0:t,r.variables[1]≡b.variables[1],\
+                    r.variables[1]←b.variables[1],r.variables[1]∈r.variables,r.variables.§m≡b.variables.§m,\
+                    r.variables[1].§m≡r.variables.§m,r≈b\
                     """, vi1r.linkedVariables().toString());
         }
         assertEquals("[-] --> -", mlvMethod4.toString());
@@ -744,7 +750,10 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(rLvc);
             VariableInfo rVi2 = vd2.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi1,r.function←Λb.function,r.function→Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables[0]∈b.variables,r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables.§m≡0:s.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.function→Λb.function,r.variables~b.variables,\
+                    r.variables←b.variables,r.variables∋b.variables[0],r.variables∋0:s,r.variables[0]∈b.variables,\
+                    r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,\
+                    r.variables.§m≡0:s.§m,r≈b\
                     """, rVi2.linkedVariables().toString());
         }
         // example of the use of VariableTranslationAllowHierarchy
@@ -772,7 +781,10 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData v1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo vi2Rv = v1.variableInfo("r");
             assertEquals("""
-                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,r.variables→b.variables,r.variables∋b.variables[0],r.variables[0]≡b.variables[0],r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,r.variables[0].§m≡r.variables.§m,r≈b\
+                    r.function←Λ$_fi1,r.function←Λb.function,r.variables~b.variables,r.variables←b.variables,\
+                    r.variables→b.variables,r.variables∋b.variables[0],r.variables∋0:s,r.variables[0]≡b.variables[0],\
+                    r.variables[0]←b.variables[0],r.variables[0]∈r.variables,r.variables.§m≡b.variables.§m,\
+                    r.variables[0].§m≡r.variables.§m,r≈b\
                     """, vi2Rv.linkedVariables().toString());
         }
         {

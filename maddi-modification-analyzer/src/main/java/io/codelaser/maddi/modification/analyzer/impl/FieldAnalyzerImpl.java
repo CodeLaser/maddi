@@ -111,7 +111,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 propertyChanges.incrementAndGet();
             }
             if (!currentIndependent.isIndependent()) {
-                Value.Independent independent = computeIndependent(fieldInfo, linkedVariables);
+                Value.Independent independent = computeIndependent(fieldInfo, linkedVariables,
+                        methodsReferringToField.stream().anyMatch(InternalFieldAnalyzer::isDegraded));
                 if (independent != null) {
                     if (TolerantWrite.setAllowControlledOverwrite(fieldInfo.analysis(), PropertyImpl.INDEPENDENT_FIELD, independent, fieldInfo)) {
                         DECIDE.debug("FI: Decide independent of field {} = {}", fieldInfo, independent);
@@ -153,12 +154,21 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             return fieldValue.field() == fieldInfo;
         }
 
+        private static boolean isDegraded(MethodInfo methodInfo) {
+            Value.Bool degraded = methodInfo.analysis().getOrNull(PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                    ValueImpl.BoolImpl.class);
+            return degraded != null && degraded.isTrue();
+        }
+
         private Links computeLinkedVariables(FieldInfo fieldInfo, List<MethodInfo> methodsReferringToField) {
             FieldReference primary = runtime.newFieldReference(fieldInfo);
             Links.Builder builder = new LinksImpl.Builder(primary);
             boolean undecided = false;
             for (MethodInfo methodInfo : methodsReferringToField) {
-                if (!methodInfo.methodBody().isEmpty()) {
+                // a degraded method's variable data holds no links past the point where linking gave up: it
+                // decides nothing here (and computeIndependent goes pessimistic for it); waiting for it kept the
+                // field undecided until cycle breaking wrote its links EMPTY -- an optimistic @Independent
+                if (!methodInfo.methodBody().isEmpty() && !isDegraded(methodInfo)) {
                     VariableData vd = VariableDataImpl.of(methodInfo.methodBody().lastStatement());
                     for (VariableInfo vi : vd.variableInfoIterable()) {
                         if (vi.variable() instanceof FieldReference fr && fr.fieldInfo() == fieldInfo) {
@@ -239,6 +249,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 if (fieldInfo == fieldValue.field()) {
                     LOGGER.debug("Getters/setters cannot modify the field {}", fieldInfo);
                 } else if (!methodInfo.isConstructor() && !poc.infoSet().contains(methodInfo)) {
+                    // a degraded method may have modified the field: its variable data cannot tell
+                    if (isDegraded(methodInfo)) return FALSE;
                     Statement lastStatement = methodInfo.methodBody().lastStatement();
                     assert lastStatement != null;
                     VariableData vd = VariableDataImpl.of(lastStatement);
@@ -298,7 +310,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             return undecided ? null : TRUE;
         }
 
-        private Value.Independent computeIndependent(FieldInfo fieldInfo, Links links) {
+        private Value.Independent computeIndependent(FieldInfo fieldInfo, Links links, boolean degradedReferrer) {
             TypeInfo owner = fieldInfo.owner();
             Value.Independent independentOfType = independentOfFieldContent(owner, fieldInfo);
             if (independentOfType == null) {
@@ -306,12 +318,20 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 return null;
             }
             if (independentOfType.isIndependent()) return INDEPENDENT;
+            // a method referring to the field degraded (work ceiling, crash): whatever it did with the field is
+            // unknown, so grade as if it linked the field directly to a parameter or return value: the content's
+            // own independence, and no better
+            if (degradedReferrer) return independentOfType;
             Value.Independent independent = INDEPENDENT;
             for (Link link : links) {
-                if (link.to() instanceof ParameterInfo pi
+                // a real field of a parameter or return value counts as the variable itself: the field holding
+                // 'holder.list' (this.element ← 0:holder.list) shares the caller's object as much as one holding
+                // 'holder' (activemq's SchedulerBroker.systemUsage = brokerService.getSystemUsage())
+                Variable toPrimary = realFieldPathRoot(link.to());
+                if (toPrimary instanceof ParameterInfo pi
                     && (!pi.methodInfo().access().isPrivate() || escapesAsFunctionalInterface(pi.methodInfo()))
                     && owner.inHierarchyOf(pi.typeInfo())
-                    || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
+                    || toPrimary instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
                        && owner.inHierarchyOf(rv.methodInfo().typeInfo())) {
                     Value.Independent toIndependent;
                     if (link.from().equals(links.primary()) && link.linkNature().isIdenticalToOrAssignedFromTo()) {
@@ -352,6 +372,21 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 }
             }
             return independentOfType.max(independent);
+        }
+
+        /*
+         The variable a chain of REAL fields hangs from ('0:holder.list.x' -> '0:holder'), or null when the chain
+         passes a virtual field ('0:input.§$s', the content of a copied collection: the transported-content rules of
+         computeIndependent judge those) or an array element.
+         */
+        private static Variable realFieldPathRoot(Variable variable) {
+            Variable current = variable;
+            while (current instanceof FieldReference fr && fr.scopeVariable() != null
+                   && !(fr.scopeVariable() instanceof io.codelaser.maddi.cst.api.variable.This)) {
+                if (Util.virtual(fr.fieldInfo())) return null;
+                current = fr.scopeVariable();
+            }
+            return current instanceof io.codelaser.maddi.cst.api.variable.DependentVariable ? null : current;
         }
 
         /**

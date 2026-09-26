@@ -26,14 +26,84 @@ public class SharedVariables {
     private final Runtime runtime;
     // LinkedHashMaps: derivedFaceKeyed/faceKeyed take the FIRST match while iterating — insertion order
     // (statement-deterministic) must decide, not hash order (TestModificationBasics m∩copy flickered)
-    private final Map<String, SharedVariable> sharedVariablesByName = new LinkedHashMap<>();
-    private final Map<Variable, SharedVariable> memberToGroup = new LinkedHashMap<>();
-    private final VariableTranslationMap variableTranslationMap;
+    private Map<String, SharedVariable> sharedVariablesByName = new LinkedHashMap<>();
+    private Map<Variable, SharedVariable> memberToGroup = new LinkedHashMap<>();
+    private VariableTranslationMap variableTranslationMap;
 
     public SharedVariables(Runtime runtime) {
         this.runtime = runtime;
         variableTranslationMap = new VariableTranslationMap(runtime);
     }
+
+    /*
+     The groups as they stand at one point of the method, detached from this object: a branch of an if/else (or
+     a switch case, a loop body) is linked from a copy of the state before the statement, so that one branch's
+     reassignment cannot evict what a sibling branch recorded. The reps are shared by every copy (a rep is a
+     name: a graph vertex, equal by name); each copy owns its own Data, which restore() points the reps at.
+     */
+    public record State(Map<String, SharedVariable> sharedVariablesByName,
+                        Map<Variable, SharedVariable> memberToGroup,
+                        VariableTranslationMap variableTranslationMap,
+                        Map<Variable, java.util.Set<Variable>> membersByPrefix,
+                        Map<SharedVariable, SharedVariable.Data> data,
+                        Map<Variable, java.util.Set<SharedVariable>> detachedIn,
+                        Map<Variable, java.util.Set<SharedVariable>> evictedFrom) {
+        public State copy() {
+            Map<Variable, java.util.Set<SharedVariable>> detached = new HashMap<>();
+            detachedIn.forEach((k, v) -> detached.put(k, new java.util.LinkedHashSet<>(v)));
+            Map<Variable, java.util.Set<SharedVariable>> evicted = new HashMap<>();
+            evictedFrom.forEach((k, v) -> evicted.put(k, new java.util.LinkedHashSet<>(v)));
+            Map<Variable, java.util.Set<Variable>> prefixes = new HashMap<>();
+            membersByPrefix.forEach((k, v) -> prefixes.put(k, new java.util.LinkedHashSet<>(v)));
+            Map<SharedVariable, SharedVariable.Data> dataCopy = new LinkedHashMap<>();
+            data.forEach((sv, d) -> dataCopy.put(sv, d.copy()));
+            return new State(new LinkedHashMap<>(sharedVariablesByName), new LinkedHashMap<>(memberToGroup),
+                    variableTranslationMap.copy(), prefixes, dataCopy, detached, evicted);
+        }
+    }
+
+    /** An independent copy of the current groups. */
+    public State snapshot() {
+        Map<SharedVariable, SharedVariable.Data> data = new LinkedHashMap<>();
+        sharedVariablesByName.values().forEach(sv -> data.put(sv, sv.data()));
+        return new State(sharedVariablesByName, memberToGroup, variableTranslationMap, membersByPrefix, data,
+                detachedIn, evictedFrom).copy();
+    }
+
+    /** The current state itself, not a copy: this object must not be used again before the next restore. */
+    public State detach() {
+        Map<SharedVariable, SharedVariable.Data> data = new LinkedHashMap<>();
+        sharedVariablesByName.values().forEach(sv -> data.put(sv, sv.data()));
+        return new State(sharedVariablesByName, memberToGroup, variableTranslationMap, membersByPrefix, data,
+                detachedIn, evictedFrom);
+    }
+
+    /** Install a state; it is owned by this object from now on (pass a copy to keep using it). */
+    public void restore(State state) {
+        assert lastMergedAway == null;
+        sharedVariablesByName = state.sharedVariablesByName();
+        memberToGroup = state.memberToGroup();
+        variableTranslationMap = state.variableTranslationMap();
+        membersByPrefix = state.membersByPrefix();
+        detachedIn = state.detachedIn();
+        evictedFrom = state.evictedFrom();
+        state.data().forEach(SharedVariable::setData);
+    }
+
+    /*
+     DETACHED records: a member evicted by a join (planJoin) is no member of any group any more -- it holds no
+     identity with the group -- but the assignments it received in an alternative stay in that group's records,
+     so that its own extraction still reconstructs them ('0:p ← 0:p.impliedBy' after 'p = p.impliedBy' in a loop
+     body; assignmentEdgeStream). Indexed per variable: its next reassignment (remove) drops them.
+     */
+    private Map<Variable, java.util.Set<SharedVariable>> detachedIn = new HashMap<>();
+
+    /*
+     EVICTED members, recipients and sources alike, with the groups they were members of in some alternative of a
+     join: they may still hold that group's object, so a modification of one reaches the others
+     (detachedAliases). Unlike detachedIn, nothing is extracted from it. Dropped at the variable's next assignment.
+     */
+    private Map<Variable, java.util.Set<SharedVariable>> evictedFrom = new HashMap<>();
 
     public Collection<Variable> allShared(Variable variable) {
         SharedVariable sv = memberToGroup.get(variable);
@@ -177,7 +247,13 @@ public class SharedVariables {
                     bwdU.computeIfAbsent(a.to(), k -> new java.util.ArrayList<>()).add(a.from());
                 }
             }
-            for (Variable m : sv.variables()) {
+            java.util.Collection<Variable> emitters = sv.variables();
+            java.util.Set<Variable> detachedHere = detachedFroms(sv, primary);
+            if (!detachedHere.isEmpty()) {
+                emitters = new java.util.LinkedHashSet<>(sv.variables());
+                emitters.addAll(detachedHere);
+            }
+            for (Variable m : emitters) {
                 // emitM is 'm' keyed onto the primary: 'm' itself when part of the primary, or the sibling-rehomed
                 // form ('p.f' -> 'create2.f') when 'm' is a proper field/element of a sibling face.
                 Variable emitM = faceKeyed(m, primary, primaryFaces);
@@ -306,6 +382,15 @@ public class SharedVariables {
             }
         }
         return builder.build();
+    }
+
+    // the detached recipients of 'sv' (see detachedIn) that are part of 'primary'
+    private java.util.Set<Variable> detachedFroms(SharedVariable sv, Variable primary) {
+        java.util.Set<Variable> result = new java.util.LinkedHashSet<>();
+        detachedIn.forEach((v, reps) -> {
+            if (reps.contains(sv) && Util.isPartOf(primary, v)) result.add(v);
+        });
+        return result;
     }
 
     // variables reachable from 'start' along the adjacency map (excluding 'start'). Recurse THROUGH a node that is
@@ -464,7 +549,7 @@ public class SharedVariables {
     (asprof 2026-08-05); membership mutations are rare, per-statement drains are not. Maintained in
     add() (first-time membership only — a member's prefixes never change) and remove().
      */
-    private final Map<Variable, java.util.Set<Variable>> membersByPrefix = new HashMap<>();
+    private Map<Variable, java.util.Set<Variable>> membersByPrefix = new HashMap<>();
 
     public java.util.Set<Variable> membersRootedAt(Variable prefix) {
         return membersByPrefix.getOrDefault(prefix, java.util.Set.of());
@@ -546,13 +631,189 @@ public class SharedVariables {
                 .collect(Collectors.joining("\n"));
     }
 
+    // the reps of the groups 'variable' was evicted from by a join (empty when none): see detachedIn
+    public java.util.Set<SharedVariable> detachedReps(Variable variable) {
+        return detachedIn.getOrDefault(variable, java.util.Set.of());
+    }
+
+    /*
+     The variables that hold the same object as 'variable' in SOME alternative of an earlier join, but are no
+     member of its group any more (see detachedIn): the members detached from 'variable''s group, and when
+     'variable' was itself detached, the members of the groups it was detached from. A modification of 'variable'
+     may be a modification of each of them: 'if (pred == null) first = succ; ... succ.pred = pred;' modifies the
+     object 'first' holds on the path through the then-block (guava's LinkedHashMultimap.MultimapIterationChain).
+     */
+    public java.util.Set<Variable> detachedAliases(Variable variable) {
+        if (evictedFrom.isEmpty()) return java.util.Set.of();
+        // the groups 'variable' belongs to, now or in some alternative
+        java.util.Set<SharedVariable> groups = new java.util.HashSet<>(evictedFrom.getOrDefault(variable, java.util.Set.of()));
+        SharedVariable sv = memberToGroup.get(variable);
+        if (sv != null) groups.add(sv);
+        if (groups.isEmpty()) return java.util.Set.of();
+        java.util.Set<Variable> result = new java.util.LinkedHashSet<>();
+        for (SharedVariable group : groups) {
+            if (group != sv) result.addAll(group.variables());
+        }
+        // and every variable evicted from one of those groups ('first' and 'succ' both left {first, succ} when
+        // the else-block put 'succ' in another group)
+        evictedFrom.forEach((v, reps) -> {
+            for (SharedVariable rep : reps) {
+                if (groups.contains(rep)) {
+                    result.add(v);
+                    break;
+                }
+            }
+        });
+        result.remove(variable);
+        return result;
+    }
+
+    // 'variable' is (re)assigned: the assignments it received in earlier alternatives no longer describe it
+    public void dropDetached(Variable variable) {
+        if (!evictedFrom.isEmpty()) evictedFrom.remove(variable);
+        if (detachedIn.isEmpty()) return;
+        java.util.Set<SharedVariable> detached = detachedIn.remove(variable);
+        if (detached != null) {
+            for (SharedVariable sv : detached) {
+                if (sv.assignments().removeIf(a -> variable.equals(a.from()))) sv.invalidateMemos();
+            }
+        }
+    }
+
     public void remove(Variable variable) {
+        dropDetached(variable);
         if (memberToGroup.remove(variable) != null) {
             unindexMember(variable);
             sharedVariablesByName.values().forEach(g -> g.remove(variable));
             boolean removed = variableTranslationMap.remove(variable);
             assert removed;
         }
+    }
+
+    /*
+     The JOIN of the groups the alternatives of a statement end with. A group is an identity claim: its members
+     hold the same object. So a member keeps its group only when it is in that same group at the end of EVERY
+     alternative (a pure source -- a member that was only ever assigned FROM -- also when it sits in one group
+     wherever it is grouped at all: 'this.f = in' in one branch does not make 'in' anything else in another).
+     Any other member is EVICTED from its groups: merging the groups instead ('m = c ? a : b' does that within
+     one statement) claimed that the values of different alternatives are one object -- false identities that
+     reach the callers through summaries (fernflower's SwitchHelper.JavacSwitchCandidate lost the constructor's
+     own assignments to them). An evicted member keeps what each alternative knew through a plain graph edge to
+     that alternative's rep: 'x ← rep' where it was assigned from the group, 'rep ← x' where it was a source (the
+     shape mergeEdgeBi already uses for a source assigned at another statement). Pure: the caller adds each
+     alternative's edges to THAT alternative's graph (composed with the other alternatives' facts, an edge would
+     derive what no execution does) and then installs the joined groups (restore).
+     */
+    public record JoinEdge(Variable from, Variable to) { // from ← to
+    }
+
+    public record JoinPlan(List<List<JoinEdge>> edgesPerAlternative, State joined) {
+    }
+
+    public JoinPlan planJoin(List<State> alternatives) {
+        int n = alternatives.size();
+        Map<Variable, SharedVariable[]> repsOf = new LinkedHashMap<>();
+        for (int i = 0; i < n; i++) {
+            int ii = i;
+            alternatives.get(i).memberToGroup().forEach((member, rep) ->
+                    repsOf.computeIfAbsent(member, _ -> new SharedVariable[n])[ii] = rep);
+        }
+        List<List<JoinEdge>> edges = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) edges.add(new java.util.ArrayList<>());
+        Map<Variable, SharedVariable> kept = new LinkedHashMap<>();
+        java.util.Set<Variable> evicted = new java.util.HashSet<>();
+        repsOf.forEach((member, reps) -> {
+            java.util.Set<SharedVariable> distinct = new java.util.LinkedHashSet<>();
+            boolean everywhere = true;
+            boolean pureSource = true;
+            for (int i = 0; i < n; i++) {
+                if (reps[i] == null) {
+                    everywhere = false;
+                } else {
+                    distinct.add(reps[i]);
+                    if (isRecipient(alternatives.get(i), reps[i], member)) pureSource = false;
+                }
+            }
+            if (distinct.size() == 1 && (everywhere || pureSource)) {
+                kept.put(member, distinct.iterator().next());
+            } else {
+                evicted.add(member);
+                for (int i = 0; i < n; i++) {
+                    if (reps[i] == null) continue;
+                    edges.get(i).add(isRecipient(alternatives.get(i), reps[i], member)
+                            ? new JoinEdge(member, reps[i]) : new JoinEdge(reps[i], member));
+                }
+            }
+        });
+        // the joined groups: every rep of any alternative (an emptied rep stays known; its vertices still carry
+        // what its members established), the kept members, and the records that mention no evicted member
+        Map<String, SharedVariable> byName = new LinkedHashMap<>();
+        Map<SharedVariable, SharedVariable.Data> data = new LinkedHashMap<>();
+        Map<Variable, java.util.Set<SharedVariable>> detached = new HashMap<>();
+        // detached records the alternatives already carried stay detached (their variable is no member)
+        Map<Variable, java.util.Set<SharedVariable>> evictedFrom = new HashMap<>();
+        for (State alternative : alternatives) {
+            alternative.detachedIn().forEach((v, reps) -> {
+                if (!kept.containsKey(v)) detached.computeIfAbsent(v, _ -> new java.util.LinkedHashSet<>()).addAll(reps);
+            });
+            alternative.evictedFrom().forEach((v, reps) ->
+                    evictedFrom.computeIfAbsent(v, _ -> new java.util.LinkedHashSet<>()).addAll(reps));
+        }
+        repsOf.forEach((member, reps) -> {
+            if (!evicted.contains(member)) return;
+            for (SharedVariable rep : reps) {
+                if (rep != null) evictedFrom.computeIfAbsent(member, _ -> new java.util.LinkedHashSet<>()).add(rep);
+            }
+        });
+        for (State alternative : alternatives) {
+            alternative.sharedVariablesByName().forEach((name, rep) -> {
+                byName.putIfAbsent(name, rep);
+                SharedVariable.Data joined = data.computeIfAbsent(rep, _ -> new SharedVariable.Data());
+                SharedVariable.Data d = alternative.data().get(rep);
+                if (d == null) return;
+                for (Variable v : d.variables()) {
+                    if (kept.get(v) == rep) joined.variables().add(v);
+                }
+                for (SharedVariable.Assignment a : d.assignments()) {
+                    if (!joined.assignments().contains(a)) joined.assignments().add(a);
+                    if (evicted.contains(a.from())) {
+                        detached.computeIfAbsent(a.from(), _ -> new java.util.LinkedHashSet<>()).add(rep);
+                    }
+                }
+            });
+        }
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+        Map<Variable, java.util.Set<Variable>> prefixes = new HashMap<>();
+        kept.forEach((member, rep) -> {
+            vtm.put(member, rep);
+            prefixes.computeIfAbsent(member, _ -> new java.util.LinkedHashSet<>()).add(member);
+            for (Variable pv : Util.scopeVariables(member)) {
+                prefixes.computeIfAbsent(pv, _ -> new java.util.LinkedHashSet<>()).add(member);
+            }
+        });
+        return new JoinPlan(edges, new State(byName, new LinkedHashMap<>(kept), vtm, prefixes, data, detached,
+                evictedFrom));
+    }
+
+    private static boolean isRecipient(State state, SharedVariable rep, Variable member) {
+        SharedVariable.Data d = state.data().get(rep);
+        return d != null && d.assignments().stream().anyMatch(a -> a.from().equals(member));
+    }
+
+    /*
+     Names of reps created while an alternative was linked. Not part of a State: two alternatives start from the
+     same state and would otherwise pick the same fresh name for two different groups, which a join (whose graph
+     vertices are keyed by name) would then confuse.
+     */
+    private final java.util.Set<String> reservedNames = new java.util.HashSet<>();
+    private int alternativeDepth;
+
+    public void enterAlternatives() {
+        alternativeDepth++;
+    }
+
+    public void leaveAlternatives() {
+        alternativeDepth--;
     }
 
     private SharedVariable create(Variable referenceVariable, Variable firstAssignedTo) {
@@ -567,10 +828,12 @@ public class SharedVariables {
 
     private String makeName(String s) {
         int i = 0;
-        while (sharedVariablesByName.containsKey(name(s, i))) {
+        while (sharedVariablesByName.containsKey(name(s, i)) || reservedNames.contains(name(s, i))) {
             ++i;
         }
-        return name(s, i);
+        String name = name(s, i);
+        if (alternativeDepth > 0) reservedNames.add(name);
+        return name;
     }
 
     private static String name(String s, int i) {

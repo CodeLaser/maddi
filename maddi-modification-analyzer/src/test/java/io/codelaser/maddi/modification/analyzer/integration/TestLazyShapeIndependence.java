@@ -26,31 +26,24 @@ import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.DEP
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Seven ways to write "return the lazily initialised value", and two of them get a different answer.
+ * Seven ways to write "return the lazily initialised value", all with the same answer.
  * <p>
- * All seven hand the caller the object the field holds. Five are computed {@code INDEPENDENT_HC} — independent
- * of the object's fields <em>except through hidden content</em>, which is the honest answer for a method that
- * returns a {@code T} held in a field. Two are computed fully {@code INDEPENDENT}, which says the caller cannot
- * reach anything the object holds, and that is not true of any of them.
+ * All seven hand the caller the object the field holds, and all seven are computed {@code INDEPENDENT_HC} —
+ * independent of the object's fields <em>except through hidden content</em>, the honest answer for a method that
+ * returns a {@code T} held in a field.
  * <p>
- * ⛔ <b>THIS TEST ASSERTS THE WRONG ANSWER ON PURPOSE.</b> D and E are pinned as {@code INDEPENDENT} so that the
- * discrepancy is recorded rather than rediscovered. When the analyzer improves, this test fails and points at
- * itself. It is not a specification.
- * <p>
- * <b>What separates them.</b> D and E end in {@code return value}, where {@code value} is a local that first read
- * the field and was then REASSIGNED from the supplier before {@code t = value} published it. F is D with its last
- * statement written {@code return t} instead — the same object, at the same instant — and lands back on
- * {@code INDEPENDENT_HC}. So the link survives {@code local = field} (B, G), and survives being returned through
- * the field (A, C, F), and is lost through {@code field = local} once the local has been reassigned. E is the
- * sharper case: it contains a literal {@code return t} on one branch and is still called {@code INDEPENDENT}, so
- * the method's verdict is not the join over its return statements either.
+ * Until 2026-09, D and E were computed fully {@code INDEPENDENT}, and this test pinned that wrong answer so that
+ * the discrepancy stayed recorded. D and E end in {@code return value}, where {@code value} is a local that first
+ * read the field, was returned on one branch ({@code if (value != null) return value;}), and was then REASSIGNED
+ * from the supplier. The then-block was linked into the one graph of the method, so the return value was
+ * already grouped with {@code value} when its reassignment dropped the group's records, and the final
+ * {@code return value} recorded nothing: {@code get()} had no link to {@code t} at all. The branches of an
+ * if/else are now linked apart and joined (see {@code LinkComputerImpl.linkAlternatives}).
  * <p>
  * <b>Why it is not academic.</b> D/E is the natural way to write the idiom, and E is exactly what
  * {@code io.codelaser.maddi.support.Lazy} was rewritten to when it was aligned with {@code kotlin.Lazy}. That
- * rewrite would have shipped a support type whose own body makes the analyzer state something too strong about
- * it — which is how this was found, and only because the rewrite was checked against the analyzer rather than
- * assumed. {@code Lazy} now uses shape F, with a comment saying why. G is {@code Memo}'s shape and is
- * <em>unaffected</em>: it never reassigns the local after the field read.
+ * rewrite would have shipped a support type whose own body made the analyzer state something too strong about
+ * it. {@code Lazy} uses shape F. G is {@code Memo}'s shape.
  * <p>
  * See {@code docs/design/book-vs-support-divergence.md}, finding 12.
  */
@@ -112,7 +105,7 @@ public class TestLazyShapeIndependence extends CommonTest {
               }
             """;
 
-    /** Publish through the local, then return the local. The first shape that loses the link. */
+    /** Publish through the local, then return the local. Lost the link until 2026-09. */
     @Language("java")
     private static final String D_LOCAL_RETURN = """
               public T get() {
@@ -124,7 +117,7 @@ public class TestLazyShapeIndependence extends CommonTest {
               }
             """;
 
-    /** D plus the supplier read once and dropped: the NPE-free alignment, and still {@code INDEPENDENT}. */
+    /** D plus the supplier read once and dropped: the NPE-free alignment. */
     @Language("java")
     private static final String E_LOCAL_RETURN_SAFE = """
               public T get() {
@@ -187,7 +180,7 @@ public class TestLazyShapeIndependence extends CommonTest {
         return String.format("%-22s %s%n", label, independent(typeInfo, "get", 0));
     }
 
-    @DisplayName("seven ways to return a lazily initialised value; two are called INDEPENDENT and should not be")
+    @DisplayName("seven ways to return a lazily initialised value, all INDEPENDENT_HC")
     @Test
     public void shapes() {
         TypeInfo memo = javaInspector.parse("MemoG", G_MEMO);
@@ -197,8 +190,8 @@ public class TestLazyShapeIndependence extends CommonTest {
                 A original             INDEPENDENT_HC
                 B local read           INDEPENDENT_HC
                 C clear only           INDEPENDENT_HC
-                D local return         INDEPENDENT
-                E local return safe    INDEPENDENT
+                D local return         INDEPENDENT_HC
+                E local return safe    INDEPENDENT_HC
                 F publish then read    INDEPENDENT_HC
                 G Memo shape           INDEPENDENT_HC
                 """,

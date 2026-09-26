@@ -127,6 +127,22 @@ immutability verdicts are derived.
   (whole-object assignment chains). The graph stores edges on group representatives; **reconstruction**
   projects facts back onto real params/fields/return at summary extraction, governed by assignment
   DIRECTION (source→recipient only), field-level mirroring, and a transitive-redundancy pass.
+- **Alternatives are linked apart, then joined** (since 2026-09): the then- and else-blocks of an if/else
+  are each linked from their own copy of the method's graph as it stood before the statement; the graph
+  after the statement is the UNION of the states the blocks end in, plus the state before when there is no
+  else. An assignment is a strong update (it erases its target's edges), and linked into one shared graph
+  the else-block erased what the then-block established — a parameter stored in one branch read as
+  `@Independent` once any statement followed. The union is not re-closed (a then∘else composition describes
+  no execution). Assignment groups are identity claims, so a variable stays a member of a group only when
+  every alternative puts it there; otherwise it is EVICTED (`SharedVariables.planJoin`): the alternative
+  it was a member in gets an assignment edge to the group's rep instead, and its records stay as DETACHED
+  provenance, inherited at extraction and dropped when the variable is next assigned. An evicted member
+  still holds the group's object in one alternative, so a later modification of the group reaches it, and
+  the reverse (`detachedAliases`); and the member's field faces are copied onto the rep (`rep.value ←
+  h.value`), which a membership gave for free -- never the rep's onto the member, whose name after the join
+  also stands for what it held elsewhere (a reassigned parameter: the caller's object). A branch that exits (return, throw) is still joined into
+  what follows; switches, loops and `try` are still linked sequentially. Gate `NOFORK` restores sequential
+  linking.
 - Authoritative technical refs (in `maddi-modification-link/`): `linking-manual.md` (start at §5
   LinkMethodCall + §6 worked examples; TestLinkMethodCall is the spec-by-example), `README.md` (nature
   combination table), `vf/virtual-fields.md`, `sv-reconstruction-techniques.md`.
@@ -161,6 +177,9 @@ immutability verdicts are derived.
 - **Fault tolerance**: statement/method-level containment (degrade to shallow summary), tight-ceiling
   cycle protection (throw + shallow fallback; generous ceilings cause downstream grind), producer-side
   skip guards for unrepresentable link shapes (e.g. stacked `x.§m.§m` faces).
+  A degraded method (`DEGRADED_ANALYSIS_METHOD`) carries no links, so the field analyzer does not read
+  "no links" from it as independence or non-modification: a field referred to by a degraded method keeps
+  the independence of its type, and a degraded non-constructor method counts as modifying (since 2026-09).
 - **Env gates** (opt-outs/diagnostics): `NOWORKLIST`, `PARALLEL`, `NOCYCLEBREAKING`, `FPDUMP=<file>`
   (per-element verdict dump), `MLTRACE`, many link-module gates (read once via `Gate`).
 - **Golden rule**: engine/performance changes are accepted only with a byte-identical FPDUMP A/B
@@ -170,6 +189,19 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- Assigning a field of an EXPRESSION's result (`requireNonNull(tail).next = node`, `self().next = x`) modifies that
+  result, and through its links what it stands for, exactly as a modifying call on it would; the scope-chain rule
+  only saw scope VARIABLES (since 2026-09).
+- `RedundantLinks` drops a link as transitively redundant only through earlier links of its OWN nature group
+  (`←`, `→`, `∈`, `∋`, `⊆/⊇/~`, `∩/≤/≥`, `≺/≻/≈`). Through the union of all groups, a `≈` path dropped the
+  assignment `this.t ← 1:t`, the field's only link to its parameter (since 2026-09).
+- Field independence counts a link to a REAL field of a parameter or return value (`this.f ← 0:p.g`) as a link
+  to that variable: the field shares the caller's object. Parts reached through a virtual (`§`) field — the content
+  of a copied collection — are judged by the transported-content rules instead (since 2026-09).
+- A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
+  evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
+  the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
+  an optimistic @Independent (since 2026-09).
 - **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
   Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
   `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by

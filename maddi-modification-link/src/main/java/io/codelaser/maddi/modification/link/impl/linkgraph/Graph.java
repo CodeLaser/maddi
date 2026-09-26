@@ -29,27 +29,190 @@ import static io.codelaser.maddi.modification.link.impl.LinkNatureImpl.CONTAINS_
 
 public class Graph {
     private final Runtime runtime;
-    private final IncrementalFixpointEngine<Variable, LinkNature> engine;
-    private final VirtualModificationIdenticals virtualModificationIdenticals = new VirtualModificationIdenticals();
+    private IncrementalFixpointEngine<Variable, LinkNature> engine;
+    private VirtualModificationIdenticals virtualModificationIdenticals = new VirtualModificationIdenticals();
     private final SharedVariables sharedVariables;
+    private final LabeledGraph.VertexListener<Variable> vertexListener = new LabeledGraph.VertexListener<>() {
+        @Override
+        public void vertexAdded(Variable v) {
+            indexVertex(v);
+        }
+
+        @Override
+        public void vertexRemoved(Variable v) {
+            unindexVertex(v);
+        }
+    };
 
     public Graph(Runtime runtime, IncrementalFixpointEngine<Variable, LinkNature> engine) {
         this.engine = engine;
         this.sharedVariables = new SharedVariables(runtime);
         this.runtime = runtime;
         // the engine's graph is still empty here, so the index sees every vertex from the start
-        engine.setVertexListener(new LabeledGraph.VertexListener<>() {
-            @Override
-            public void vertexAdded(Variable v) {
-                indexVertex(v);
-            }
-
-            @Override
-            public void vertexRemoved(Variable v) {
-                unindexVertex(v);
-            }
-        });
+        engine.setVertexListener(vertexListener);
     }
+
+    /*
+     Everything the graph knows at one point of the method, detached from this object. A statement with
+     alternative sub-blocks (if/else, switch cases, a loop body that may not run) links each alternative from its
+     own copy of the state before the statement, so that one alternative's strong update (an assignment erases
+     what was known about its target) cannot destroy what a sibling alternative established. The Graph object
+     itself stays: FollowGraph, MakeGraph and LinkGraph hold it, so a state is installed in place (restore).
+     Caches and dirt tracking are not part of a state; restore drops the former and declares the latter global.
+     */
+    public record State(IncrementalFixpointEngine<Variable, LinkNature> engine,
+                        VirtualModificationIdenticals virtualModificationIdenticals,
+                        SharedVariables.State sharedVariables,
+                        Map<Variable, Set<Variable>> verticesByScopePart,
+                        Set<Variable> verticesWithRepInScope,
+                        Set<Variable> verticesWithReturnPrimary,
+                        Set<Variable> freshObjectReturns,
+                        Map<Variable, Set<Variable>> patternBindings,
+                        Set<Set<Variable>> mediatedPairs) {
+        public State copy() {
+            return copyWith(sharedVariables.copy());
+        }
+
+        // a copy of everything but the groups, which the caller has copied already
+        private State copyWith(SharedVariables.State sharedVariablesCopy) {
+            Map<Variable, Set<Variable>> byScopePart = new HashMap<>();
+            verticesByScopePart.forEach((k, v) -> byScopePart.put(k, new LinkedHashSet<>(v)));
+            Map<Variable, Set<Variable>> bindings = new HashMap<>();
+            patternBindings.forEach((k, v) -> bindings.put(k, new HashSet<>(v)));
+            return new State(engine.copy(), virtualModificationIdenticals.copy(), sharedVariablesCopy, byScopePart, new LinkedHashSet<>(verticesWithRepInScope),
+                    new LinkedHashSet<>(verticesWithReturnPrimary), new HashSet<>(freshObjectReturns), bindings,
+                    new HashSet<>(mediatedPairs));
+        }
+    }
+
+    /** An independent copy of the current state. */
+    public State snapshot() {
+        return new State(engine, virtualModificationIdenticals, null, verticesByScopePart, verticesWithRepInScope,
+                verticesWithReturnPrimary, freshObjectReturns, patternBindings, mediatedPairs)
+                .copyWith(sharedVariables.snapshot());
+    }
+
+    /**
+     * The current state itself, not a copy, for a join: this graph must not be used again before the next
+     * restore or join.
+     */
+    public State detach() {
+        return new State(engine, virtualModificationIdenticals, sharedVariables.detach(), verticesByScopePart,
+                verticesWithRepInScope, verticesWithReturnPrimary, freshObjectReturns, patternBindings,
+                mediatedPairs);
+    }
+
+    /** Install a state; it is owned by this graph from now on (pass a copy to keep using it). */
+    public void restore(State state) {
+        engine = state.engine();
+        engine.setVertexListener(vertexListener);
+        virtualModificationIdenticals = state.virtualModificationIdenticals();
+        sharedVariables.restore(state.sharedVariables());
+        verticesByScopePart = state.verticesByScopePart();
+        verticesWithRepInScope = state.verticesWithRepInScope();
+        verticesWithReturnPrimary = state.verticesWithReturnPrimary();
+        freshObjectReturns = state.freshObjectReturns();
+        patternBindings = state.patternBindings();
+        mediatedPairs = state.mediatedPairs();
+        clearRepExpansionCache();
+        touchedVariables.clear();
+        dirtyEverything = true;
+    }
+
+    /*
+     The JOIN of the alternatives of a statement (each linked from its own copy of the state before it): their
+     union. The engines are united without re-closing (IncrementalFixpointEngine.unionWith); the assignment groups
+     keep only the memberships all alternatives agree on (SharedVariables.joinAll), and an evicted member is
+     linked to each alternative's rep by a plain edge. The alternatives are owned by this graph from now on.
+     */
+    public void join(List<State> alternatives, String statementIndex) {
+        SharedVariables.JoinPlan plan = sharedVariables.planJoin(alternatives.stream()
+                .map(State::sharedVariables).toList());
+        List<State> linked = new java.util.ArrayList<>(alternatives.size());
+        for (int i = 0; i < alternatives.size(); i++) {
+            List<SharedVariables.JoinEdge> edges = plan.edgesPerAlternative().get(i);
+            if (edges.isEmpty()) {
+                linked.add(alternatives.get(i));
+            } else {
+                restore(alternatives.get(i));
+                for (SharedVariables.JoinEdge edge : edges) {
+                    engine.addSymmetricEdge(edge.from(), edge.to(), LinkNatureImpl.IS_ASSIGNED_FROM, statementIndex);
+                    mirrorFaces(edge.from(), edge.to(), statementIndex);
+                }
+                linked.add(detach());
+            }
+        }
+        restore(linked.getFirst());
+        for (State other : linked.subList(1, linked.size())) {
+            engine.unionWith(other.engine());
+            virtualModificationIdenticals.unionWith(other.virtualModificationIdenticals());
+            freshObjectReturns.addAll(other.freshObjectReturns());
+            other.patternBindings().forEach((k, v) -> patternBindings.computeIfAbsent(k, _ -> new HashSet<>())
+                    .addAll(v));
+            mediatedPairs.addAll(other.mediatedPairs());
+        }
+        sharedVariables.restore(plan.joined());
+        clearRepExpansionCache();
+        dirtyEverything = true;
+    }
+
+    /*
+     A member of a group shares the group's field faces ('h.value' IS the rep's 'value'); the join edge that replaces
+     an evicted membership ('h ← rep', or 'rep ← h') does not carry them. So, inside the alternative, the member's
+     faces -- graph vertices, or members of their own group -- are copied edge by edge onto the rep ('rep.f ← h.f').
+     Without them, 'h = new H(v)' in one branch and 'return h' after the statement lost 'add.value ← 0:v' (timefold's
+     ToMapPerKeyCounter.add). Not the other way round: after the join the member's name also stands for what it held
+     in the other alternatives -- for a reassigned parameter, the caller's object -- so the rep's faces copied onto
+     it ('broker.b ← rep.b') read as facts about THAT object's fields (activemq's BrokerService.addInterceptors,
+     where 'plugins' then lost its modification).
+     */
+    private void mirrorFaces(Variable from, Variable to, String statementIndex) {
+        if (from instanceof SharedVariable) mirrorFacesOf(to, from, statementIndex);
+        else if (to instanceof SharedVariable) mirrorFacesOf(from, to, statementIndex);
+    }
+
+    // for each face 'owner.f' (a vertex, or a group member), add 'other.f ← vertex of owner.f'
+    private void mirrorFacesOf(Variable owner, Variable other, String statementIndex) {
+        Set<Variable> faces = new LinkedHashSet<>();
+        Set<Variable> vertices = verticesByScopePart.get(owner);
+        if (vertices != null) faces.addAll(vertices);
+        faces.addAll(sharedVariables.membersRootedAt(owner));
+        if (faces.isEmpty()) return;
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime).put(owner, other);
+        for (Variable face : List.copyOf(faces)) {
+            if (face.equals(owner)) continue;
+            Variable mirrored = vtm.translateVariableRecursively(face);
+            if (mirrored == null || mirrored.equals(face)) continue;
+            Variable vertex = sharedVariables.translateForward(face);
+            if (vertex == null || vertex.equals(mirrored)) continue;
+            engine.addSymmetricEdge(mirrored, vertex, LinkNatureImpl.IS_ASSIGNED_FROM, statementIndex);
+        }
+    }
+
+    public Set<SharedVariable> detachedReps(Variable variable) {
+        return sharedVariables.detachedReps(variable);
+    }
+
+    // see SharedVariables.detachedAliases
+    public Set<Variable> detachedAliases(Variable variable) {
+        return sharedVariables.detachedAliases(variable);
+    }
+
+    // the variables a statement assigns: see SharedVariables.dropDetached
+    public void dropDetached(Set<Variable> assigned) {
+        assigned.forEach(sharedVariables::dropDetached);
+    }
+
+    public void enterAlternatives() {
+        sharedVariables.enterAlternatives();
+    }
+
+    public void leaveAlternatives() {
+        sharedVariables.leaveAlternatives();
+    }
+
+    // set by restore: every variable's next extraction may differ from its previous one
+    private boolean dirtyEverything;
 
     /*
     Vertex indexes, maintained through the engine's vertex listener. They replace full vertex scans that ran
@@ -66,9 +229,9 @@ public class Graph {
     relative order the replaced graph.variables() scans produced for the matching subset — emission order
     feeds rank-stable sorts downstream.
      */
-    private final Map<Variable, Set<Variable>> verticesByScopePart = new HashMap<>();
-    private final Set<Variable> verticesWithRepInScope = new LinkedHashSet<>();
-    private final Set<Variable> verticesWithReturnPrimary = new LinkedHashSet<>();
+    private Map<Variable, Set<Variable>> verticesByScopePart = new HashMap<>();
+    private Set<Variable> verticesWithRepInScope = new LinkedHashSet<>();
+    private Set<Variable> verticesWithReturnPrimary = new LinkedHashSet<>();
 
     private void indexVertex(Variable v) {
         boolean[] rep = {false};
@@ -158,12 +321,17 @@ public class Graph {
     public void drainRaw() {
         engine.drainTouched();
         touchedVariables.clear();
+        dirtyEverything = false;
     }
 
     public Set<Variable> drainDirtyVariables() {
         Set<Variable> seeds = engine.drainTouched();
         seeds.addAll(touchedVariables);
         touchedVariables.clear();
+        if (dirtyEverything) {
+            dirtyEverything = false;
+            return null;
+        }
         if (seeds.isEmpty()) return Set.of();
         // dedup at PUSH time: the queue stays bounded by the dirty set — a dense closure component
         // otherwise queues O(k^2) duplicate entries (heap blow-up on the bench shapes)
@@ -242,12 +410,12 @@ public class Graph {
 
     // return variables that were assigned a fresh, unanalyzable object ('return new URL(...)') whose
     // reduced intermediate never entered the graph; handleReturnVariable adds the '← $_v' marker for them
-    private final Set<Variable> freshObjectReturns = new HashSet<>();
+    private Set<Variable> freshObjectReturns = new HashSet<>();
 
     // side-band, like freshObjectReturns: record-pattern bindings ('i instanceof R(Object o)' ⟹ o is a
     // genuine component of i). The containment filter (isInvalidFieldContainment) cannot distinguish a
     // pattern binding from an accessor-copy expansion — the distinction is made HERE, at the binding site.
-    private final Map<Variable, Set<Variable>> patternBindings = new HashMap<>();
+    private Map<Variable, Set<Variable>> patternBindings = new HashMap<>();
 
     public void markPatternBinding(Variable container, Variable binding) {
         patternBindings.computeIfAbsent(container, _ -> new HashSet<>()).add(binding);
@@ -286,7 +454,7 @@ public class Graph {
     // rebuilt — both the engine's facts and the shared-variable collapse erase the flag. Unordered pairs:
     // the engine stores both orientations of an edge. Direct pairs only; a chain composed ACROSS a
     // mediated hop is not (yet) tainted — record before consuming this for declared-type decisions.
-    private final Set<Set<Variable>> mediatedPairs = new HashSet<>();
+    private Set<Set<Variable>> mediatedPairs = new HashSet<>();
 
     public void markMediated(Variable a, Variable b) {
         if (!a.equals(b)) {

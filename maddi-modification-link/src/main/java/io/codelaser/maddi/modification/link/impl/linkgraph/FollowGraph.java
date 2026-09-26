@@ -64,6 +64,12 @@ public record FollowGraph(Graph graph) {
                 // The !e.equals(v) guard keeps ordinary vertices on the fast path (expandRepToMembers rebuilds
                 // equal-but-distinct FieldReferences, which must not replace the original).
                 graph.expandRepToMembers(v).filter(e -> !e.equals(v)).forEach(e -> {
+                    // a member spelled on the primary rep itself ('$__sv_return add.value', a face group formed
+                    // after a join edge 'h ← $__sv_h' carried h's faces onto the rep)
+                    if (primary instanceof SharedVariable && Util.isPartOf(primary, e)) {
+                        fromList.add(new FromPair(v, e));
+                        return;
+                    }
                     for (Variable face : faces) {
                         if (Util.isPartOf(face, e)) {
                             Variable emit = face.equals(primary) ? e : graph.rehome(e, face, primary);
