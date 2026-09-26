@@ -15,7 +15,13 @@
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
 import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import kotlin.sequences.Sequence;
+import kotlin.ranges.IntRange;
+import kotlin.text.MatchGroup;
+import kotlin.text.MatchGroupCollection;
 import kotlin.text.MatchResult;
 
 import java.util.List;
@@ -75,5 +81,78 @@ public class KotlinText {
         public String toString() {
             return null;
         }
+    }
+
+    /*
+    public fun CharSequence.split(vararg delimiters: String, ignoreCase: Boolean = false, limit: Int = 0): List<String>
+
+    Only the ARRAY parameters need a contract. A String or CharSequence argument is already unmodified by default
+    (CharSequence is @Immutable(hc=true) in jdk/JavaLang), which is why most StringsKt calls the library-call census
+    lists as uncontracted are harmless. A vararg is an array, and an array argument the defaults call MODIFIED.
+    */
+    class StringsKt__StringsKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static List<String> split(@NotModified CharSequence receiver, @NotModified String[] delimiters,
+                                  boolean ignoreCase, int limit) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static List<String> split(@NotModified CharSequence receiver, @NotModified char[] delimiters,
+                                  boolean ignoreCase, int limit) {
+            return null;
+        }
+
+        /* a lazy view over the receiver: dependent, so no @Independent */
+        @NotNull
+        static Sequence<String> splitToSequence(@NotModified CharSequence receiver, @NotModified String[] delimiters,
+                                                boolean ignoreCase, int limit) {
+            return null;
+        }
+
+        @NotNull
+        static String trim(String receiver, @NotModified char... chars) {
+            return null;
+        }
+
+        @NotNull
+        static String trimStart(String receiver, @NotModified char... chars) {
+            return null;
+        }
+
+        @NotNull
+        static String trimEnd(String receiver, @NotModified char... chars) {
+            return null;
+        }
+    }
+
+    /* public fun ByteArray.decodeToString(): String -- reads the array */
+    class StringsKt__StringsJVMKt$ {
+        @NotNull
+        static String decodeToString(@NotModified byte[] receiver) {
+            return null;
+        }
+    }
+
+    /* a regex match is a finished value: every accessor only reads it (next() finds the NEXT match, a new object) */
+    interface MatchResult$ {
+        @NotModified
+        IntRange getRange();
+
+        @NotModified
+        String getValue();
+
+        @NotModified
+        MatchGroupCollection getGroups();
+
+        @NotModified
+        List<String> getGroupValues();
+    }
+
+    interface MatchGroupCollection$ {
+        @NotModified
+        MatchGroup get(int index);
     }
 }

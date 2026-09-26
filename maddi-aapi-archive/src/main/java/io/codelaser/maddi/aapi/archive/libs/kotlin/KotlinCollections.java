@@ -20,7 +20,12 @@ import io.codelaser.maddi.annotation.NotNull;
 import kotlin.Pair;
 import kotlin.Unit;
 import kotlin.jvm.functions.Function1;
+import kotlin.jvm.functions.Function2;
+import kotlin.ranges.IntRange;
+import kotlin.sequences.Sequence;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -121,6 +126,382 @@ public class KotlinCollections {
         static <T> boolean contains(@NotModified Iterable<? extends T> receiver, T element) {
             return false;
         }
+
+        /*
+        THE READ-ONLY EXTENSIONS, ranked by the library-call census (-Dmaddi.libraryCallDump over detekt, coil and
+        javalin): the calls into kotlin.collections that pass a receiver the defaults would call MODIFIED. Measured
+        before these existed (TestKotlinCollectionReadsVsJava): a field only read through `s.joinToString()`,
+        `l.firstOrNull()`, `s.mapNotNull { .. }` and 17 more was reported modified, where the Java twin -- the same
+        read -- is not.
+
+        Each reads its receiver and writes nothing. A fresh collection is @Independent(hc=true): it shares the
+        receiver's elements and nothing else. An ELEMENT returned is @Independent(hc=true) too, as java.util.List.get
+        is. A VIEW over the receiver (asSequence, withIndex) is dependent, so it carries no @Independent; nor does
+        fold, which returns its accumulator. What a lambda argument does is its own contract's business, as for map.
+
+        ⛔ Not here: the @InlineOnly members (isNotEmpty, orEmpty, find, error, require, ...). kotlinc inlines them and
+        emits no method, so there is nothing for a contract to name; the front end lowers them instead.
+        */
+        @NotNull
+        static <T> String joinToString(@NotModified Iterable<? extends T> receiver, @NotModified CharSequence separator,
+                                       @NotModified CharSequence prefix, @NotModified CharSequence postfix, int limit,
+                                       @NotModified CharSequence truncated,
+                                       Function1<? super T, ? extends CharSequence> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T first(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T first(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T first(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T last(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T last(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T single(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T single(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified List<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T elementAt(@NotModified Iterable<? extends T> receiver, int index) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T getOrNull(@NotModified List<? extends T> receiver, int index) {
+            return null;
+        }
+
+        static <T> int count(@NotModified Iterable<? extends T> receiver) {
+            return 0;
+        }
+
+        static <T> int count(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return 0;
+        }
+
+        static <T> int indexOf(@NotModified Iterable<? extends T> receiver, @NotModified T element) {
+            return 0;
+        }
+
+        static <T> int indexOf(@NotModified List<? extends T> receiver, @NotModified T element) {
+            return 0;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> mapNotNull(@NotModified Iterable<? extends T> receiver,
+                                         Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> flatMap(@NotModified Iterable<? extends T> receiver,
+                                      Function1<? super T, ? extends Iterable<? extends R>> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filterNot(@NotModified Iterable<? extends T> receiver,
+                                     Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toList(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> toSet(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toMutableList(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toMutableList(@NotModified Collection<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> toMutableSet(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> distinct(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> reversed(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> take(@NotModified Iterable<? extends T> receiver, int n) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> drop(@NotModified Iterable<? extends T> receiver, int n) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> takeWhile(@NotModified Iterable<? extends T> receiver,
+                                     Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> sortedWith(@NotModified Iterable<? extends T> receiver,
+                                      @NotModified Comparator<? super T> comparator) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R extends Comparable<? super R>> List<T> sortedBy(@NotModified Iterable<? extends T> receiver,
+                                                                     Function1<? super T, ? extends R> selector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R extends Comparable<? super R>> List<T> sortedByDescending(
+                @NotModified Iterable<? extends T> receiver, Function1<? super T, ? extends R> selector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T extends Comparable<? super T>> List<T> sorted(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, K> Map<K, List<T>> groupBy(@NotModified Iterable<? extends T> receiver,
+                                              Function1<? super T, ? extends K> keySelector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, K> Map<K, T> associateBy(@NotModified Iterable<? extends T> receiver,
+                                            Function1<? super T, ? extends K> keySelector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, K, V> Map<K, V> associate(@NotModified Iterable<? extends T> receiver,
+                                             Function1<? super T, ? extends Pair<? extends K, ? extends V>> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Pair<List<T>, List<T>> partition(@NotModified Iterable<? extends T> receiver,
+                                                   Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> plus(@NotModified Iterable<? extends T> receiver, @NotModified T element) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> plus(@NotModified Collection<? extends T> receiver, @NotModified T element) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> plus(@NotModified Iterable<? extends T> receiver,
+                                @NotModified Iterable<? extends T> elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> plus(@NotModified Collection<? extends T> receiver,
+                                @NotModified Iterable<? extends T> elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> minus(@NotModified Iterable<? extends T> receiver, @NotModified T element) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> minus(@NotModified Iterable<? extends T> receiver,
+                                 @NotModified Iterable<? extends T> elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> union(@NotModified Iterable<? extends T> receiver, @NotModified Iterable<? extends T> other) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> intersect(@NotModified Iterable<? extends T> receiver,
+                                    @NotModified Iterable<? extends T> other) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> subtract(@NotModified Iterable<? extends T> receiver,
+                                   @NotModified Iterable<? extends T> other) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<Pair<T, R>> zip(@NotModified Iterable<? extends T> receiver,
+                                           @NotModified Iterable<? extends R> other) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<List<T>> chunked(@NotModified Iterable<? extends T> receiver, int size) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T extends Comparable<? super T>> T maxOrNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T extends Comparable<? super T>> T minOrNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        /* the accumulator comes back: dependent on `initial`, so no @Independent */
+        static <T, R> R fold(@NotModified Iterable<? extends T> receiver, R initial,
+                             Function2<? super R, ? super T, ? extends R> operation) {
+            return null;
+        }
+
+        /* VIEWS over the receiver: they read it later, so they are dependent on it -- no @Independent */
+        @NotNull
+        static <T> Sequence<T> asSequence(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        /* the tail ranked by the census after the Sequence/Array round: each only reads the receiver */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filterNotNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        static <T> int indexOfFirst(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return 0;
+        }
+
+        static <T> int indexOfFirst(@NotModified List<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return 0;
+        }
+
+        @Independent
+        @NotNull
+        static byte[] toByteArray(@NotModified Collection<Byte> receiver) {
+            return null;
+        }
     }
 
     /*
@@ -136,9 +517,23 @@ public class KotlinCollections {
             return null;
         }
 
+        /* a fresh mutable copy: shares the receiver's keys and values, nothing else */
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> toMutableMap(@NotModified Map<? extends K, ? extends V> receiver) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         static <K, V> Map<K, V> emptyMap() {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> Map<K, R> mapValues(@NotModified Map<? extends K, ? extends V> receiver,
+                                             Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
             return null;
         }
     }
@@ -162,6 +557,67 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         static <T> List<T> emptyList() {
+            return null;
+        }
+
+        /* `collection.indices`: a fresh IntRange, reading only the size */
+        @Independent
+        @NotNull
+        static IntRange getIndices(@NotModified Collection<?> receiver) {
+            return null;
+        }
+
+        /* `list.lastIndex` */
+        static <T> int getLastIndex(@NotModified List<? extends T> receiver) {
+            return 0;
+        }
+
+        /* vararg builders: they copy the array, never write it */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> listOfNotNull(@NotModified T... elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> mutableListOf(@NotModified T... elements) {
+            return null;
+        }
+    }
+
+    /*
+    public fun <K, V> mapOf(pair: Pair<K, V>): Map<K, V>
+
+    The single-pair overload lives in the JVM part class, like listOf(element); 96 calls over the three corpora
+    reached it uncontracted while the vararg one was contracted.
+    */
+    class MapsKt__MapsJVMKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> mapOf(@NotModified Pair<? extends K, ? extends V> pair) {
+            return null;
+        }
+    }
+
+    /*
+    The read-only extensions on a Map: the receiver is read, never written.
+    */
+    class MapsKt___MapsKt$ {
+        static <K, V> void forEach(@NotModified Map<? extends K, ? extends V> receiver,
+                                   Function1<? super Map.Entry<? extends K, ? extends V>, Unit> action) {
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> List<Pair<K, V>> toList(@NotModified Map<? extends K, ? extends V> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> List<R> map(@NotModified Map<? extends K, ? extends V> receiver,
+                                     Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
             return null;
         }
     }
@@ -195,5 +651,199 @@ public class KotlinCollections {
         static <T> Set<T> setOf(@NotModified T element) {
             return null;
         }
+    }
+
+    /*
+    public fun <T> Array<out T>.firstOrNull(predicate: (T) -> Boolean): T?
+
+    An array is mutable, so the defaults call every array argument MODIFIED. These only read it. `find` is
+    @InlineOnly (`firstOrNull(predicate)` by another name); the front end lowers it to the call below.
+    ⛔ No filterIsInstance here or on Iterable/Sequence: a REIFIED inline function is ACC_SYNTHETIC in the class
+    file, so javac does not see it and the contract is dropped ("Ignoring method … not found in target type").
+    */
+    class ArraysKt___ArraysKt$ {
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> T first(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> T first(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T getOrNull(@NotModified T[] receiver, int index) {
+            return null;
+        }
+
+        static <T> boolean contains(@NotModified T[] receiver, T element) {
+            return false;
+        }
+
+        static <T> int indexOf(@NotModified T[] receiver, T element) {
+            return 0;
+        }
+
+        static <T> boolean any(@NotModified T[] receiver) {
+            return false;
+        }
+
+        static <T> boolean any(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean all(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified T[] receiver) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> void forEach(@NotModified T[] receiver, Function1<? super T, Unit> action) {
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filter(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> map(@NotModified T[] receiver, Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> mapNotNull(@NotModified T[] receiver, Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toList(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toMutableList(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> toSet(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @NotNull
+        static <T> String joinToString(@NotModified T[] receiver, @NotModified CharSequence separator,
+                                       @NotModified CharSequence prefix, @NotModified CharSequence postfix, int limit,
+                                       @NotModified CharSequence truncated,
+                                       Function1<? super T, ? extends CharSequence> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+    }
+
+    /* public fun <T> Iterable<Iterable<T>>.flatten(): List<T> -- a fresh list of the inner elements */
+    class CollectionsKt__IterablesKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> flatten(@NotModified Iterable<? extends Iterable<? extends T>> receiver) {
+            return null;
+        }
+    }
+
+    /*
+    public fun <R> Iterable<*>.filterIsInstance(klass: Class<R>): List<R>
+
+    The JVM overloads taking a Class. The reified `filterIsInstance<R>()` is ACC_SYNTHETIC and cannot carry a
+    contract; the front end lowers it to these.
+    */
+    class CollectionsKt___CollectionsJvmKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <R> List<R> filterIsInstance(@NotModified Iterable<?> receiver, Class<R> klass) {
+            return null;
+        }
+    }
+
+    class ArraysKt___ArraysJvmKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <R> List<R> filterIsInstance(@NotModified Object[] receiver, Class<R> klass) {
+            return null;
+        }
+    }
+
+    /* public operator fun <T> Set<T>.plus(element: T): Set<T> -- a fresh LinkedHashSet */
+    class SetsKt___SetsKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> plus(@NotModified Set<? extends T> receiver, T element) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> plus(@NotModified Set<? extends T> receiver, @NotModified Iterable<? extends T> elements) {
+            return null;
+        }
+    }
+
+    /* kotlin.collections.ArrayDeque: the reading members (add/remove* modify, as the defaults say) */
+    class ArrayDeque$<E> {
+        @NotModified
+        E first() { return null; }
+
+        @NotModified
+        E firstOrNull() { return null; }
+
+        @NotModified
+        E last() { return null; }
+
+        @NotModified
+        E lastOrNull() { return null; }
+
+        @NotModified
+        E get(int index) { return null; }
+
+        @NotModified
+        boolean isEmpty() { return false; }
     }
 }
