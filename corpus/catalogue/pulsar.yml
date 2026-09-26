@@ -8,6 +8,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/apache/pulsar.git
+  rev: 8576283da4ad3f3742168fc4bf4a527f31923297
 
 build:
   # ⛔ -PskipJavaVersionCheck OR THE BUILD REFUSES TO CONFIGURE. pulsar's settings script rejects

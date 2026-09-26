@@ -7,6 +7,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/fesh0r/fernflower.git
+  rev: f59df9036d6b0627a6d346934622a8e902c790b4
 
 build:
   cmd: ./gradlew compileTestJava

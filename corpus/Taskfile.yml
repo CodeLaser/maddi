@@ -840,10 +840,23 @@ tasks:
     requires: { vars: [NAME] }
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py show {{.NAME}}']
 
+  catalogue:obtain:
+    desc: 'Clone one corpus if absent and check out its pinned source.rev: task catalogue:obtain NAME=camel'
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py obtain {{.NAME}}']
+
+  catalogue:pin:
+    desc: "Record the checkout's HEAD (or REV=...) as source.rev, then re-record the baseline: task catalogue:pin NAME=camel"
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py pin {{.NAME}} {{if .REV}}--rev {{.REV}}{{end}}']
+
   catalogue:build:
     desc: 'Build one corpus, then assert build.provides: task catalogue:build NAME=langchain4j'
     requires: { vars: [NAME] }
     cmds:
+      # Before anything slow: a build of the wrong commit costs the full build and then a baseline
+      # diff that is about upstream, not about maddi.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-rev {{.NAME}}'
       # JDK first: trino's enforcer fails 30s in with a stack trace, and sonarqube simply will not
       # build on 26. Checking up front costs nothing and the message says what to install.
       - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-jdk {{.NAME}}'
@@ -865,9 +878,14 @@ tasks:
         vars: { NAME: '{{.NAME}}' }
 
   catalogue:parse:
-    desc: 'Run the maddi test that consumes this corpus'
+    desc: 'Parse-only run (--analysis-steps=none) over the configuration parse.config names'
     requires: { vars: [NAME] }
     cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: parse } }]
+
+  catalogue:analyse:
+    desc: "The analyzer over one corpus: its parse.test if it has one, else a run at parse.steps"
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: analyse } }]
 
   catalogue:tests:
     desc: "Run the corpus project's own reachable tests (those in the config's test source sets)"
@@ -881,8 +899,9 @@ tasks:
       - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} {{if .RECORD}}--record{{end}}'
 
   catalogue:provision:
-    desc: 'One corpus, end to end: build -> assert provides -> config -> inventory diff'
+    desc: 'One corpus, end to end: obtain at its pin -> build -> assert provides -> config -> inventory diff'
     requires: { vars: [NAME] }
     cmds:
+      - { task: catalogue:obtain, vars: { NAME: '{{.NAME}}' } }
       - { task: catalogue:build,  vars: { NAME: '{{.NAME}}' } }
       - { task: catalogue:config, vars: { NAME: '{{.NAME}}' } }

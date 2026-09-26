@@ -14,14 +14,34 @@ THE IDEA IT IS BUILT ON
     partially-building project (langchain4j, hive) an ordinary entry rather than an exception.
 
 CATALOGUE DIRECTORIES
-    $CORPUS_CATALOGUE is a colon-separated list; later directories win on a name collision, so a
-    private overlay can add entries (and override one) without this repo knowing it exists.
-    Default: the catalogue/ next to this script's parent.
+    $CORPUS_CATALOGUE is a colon-separated list, in precedence order, so a private overlay can add
+    entries without this repo knowing it exists. Default: the catalogue/ next to this script's parent.
+
+    A later file relates to an earlier entry of the same name in one of two EXPLICIT ways; two files
+    with one name and neither key is an error, because an accidental collision would otherwise hide
+    an entry without a word:
+      extends: <name>   holds only the fields it adds or overrides. Merged field by field: mappings
+                        recursively, lists and scalars replaced whole. `show` names each field's file.
+      replaces: true    the whole entry, as before.
+
+    ⛔ WHAT WE WRITE GOES BESIDE THE FILE THAT DECLARED THE FIELD, never beside the entry's first
+    file. A private overlay may extend a public entry; a baseline or pin derived from the overlay's
+    fields must land in the overlay's directory, not in this public repo. See `origin_of`.
+
+PINNING
+    `source.rev` is the commit the corpus is measured at. Baselines are checked in and shared by every
+    machine, so a checkout at another commit makes the diff about upstream rather than about maddi --
+    and two machines at different commits re-record over each other. `build` and `baseline` refuse an
+    off-pin checkout; `doctor` reports it. An entry without `source` that shares a checkout
+    (fernflower-plugin) is pinned by the entry that owns that checkout.
 
     catalogue.py list   [--status active]     one line per entry
-    catalogue.py show   <name>                the resolved entry, as parsed
-    catalogue.py doctor [<name>...]           obtained? built? configured? per corpus
+    catalogue.py show   <name>                the resolved entry, and which file each field came from
+    catalogue.py doctor [<name>...]           obtained? at its pin? built? configured? per corpus
     catalogue.py plan   <phase> <name>        print the shell command a phase would run
+    catalogue.py obtain <name>                clone if absent, check out source.rev
+    catalogue.py pin    <name> [--rev REV]    write the checkout's HEAD (or REV) as source.rev
+    catalogue.py check-rev <name>             assert the checkout is at source.rev (exit 1 if not)
     catalogue.py check-provides <name>        assert build.provides exists  (exit 1 if not)
     catalogue.py check-jdk <name>             assert build.jdk is satisfied (exit 1 if not)
     catalogue.py baseline <name> [--record]   source-set inventory: diff against the recorded one
@@ -33,6 +53,7 @@ CATALOGUE DIRECTORIES
 code is Task's, and so that `--dry` shows something real.
 """
 import argparse
+import copy
 import json
 import os
 import re
@@ -108,17 +129,67 @@ def catalogue_dirs():
     return out
 
 
+def _record_origin(origin, value, file, path):
+    origin[path] = file
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _record_origin(origin, v, file, path + (k,))
+
+
+def _merge(base, over, origin, file, prefix=()):
+    """Merge `over` into `base` in place, noting in `origin` which file each field now comes from.
+    Mappings merge recursively; anything else replaces whole, and so forgets the origins below it."""
+    for k, v in over.items():
+        path = prefix + (k,)
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            origin[path] = file
+            _merge(base[k], v, origin, file, path)
+            continue
+        for p in [p for p in origin if p[:len(path)] == path]:
+            del origin[p]
+        base[k] = copy.deepcopy(v)
+        _record_origin(origin, v, file, path)
+
+
+def origin_of(entry, dotted):
+    """The catalogue file that declared `dotted` (e.g. 'config.baseline'), or that declared its nearest
+    enclosing mapping when the field itself is absent -- which is where a NEW value for it belongs."""
+    path = tuple(dotted.split('.'))
+    origin = entry.get('_origin') or {}
+    while path:
+        if path in origin:
+            return Path(origin[path])
+        path = path[:-1]
+    return Path(entry['_file'])
+
+
 def load_all():
-    """-> {name: entry}. Later catalogue dirs override earlier ones, by name."""
+    """-> {name: entry}. See CATALOGUE DIRECTORIES for how a later file relates to an earlier one."""
     out = {}
     for d in catalogue_dirs():
         if not d.is_dir():
             continue
         for f in sorted(d.glob('*.yml')) + sorted(d.glob('*.yaml')):
             e = parse_yaml(f.read_text(), str(f)) or {}
-            e.setdefault('name', f.stem)
-            e['_file'] = str(f)
-            out[e['name']] = e
+            base = e.pop('extends', None)
+            replaces = e.pop('replaces', False)
+            if base is not None:
+                if base not in out:
+                    sys.exit(f"{f}: extends '{base}', which no earlier catalogue file defines")
+                if e.pop('name', base) != base:
+                    sys.exit(f"{f}: `extends: {base}` and a different `name`; drop the name")
+                _merge(out[base], e, out[base]['_origin'], str(f))
+                out[base]['_files'].append(str(f))
+                continue
+            name = e.get('name') or f.stem
+            if name in out and not replaces:
+                sys.exit(f"{f}: '{name}' is already defined by {out[name]['_file']}. Say "
+                         f"`extends: {name}` to add fields to it, or `replaces: true` to replace it")
+            entry, origin = {}, {}
+            _merge(entry, e, origin, str(f))
+            entry['name'] = name
+            entry.update(_file=str(f), _files=[str(f)], _origin=origin)
+            out[name] = entry
     return out
 
 
@@ -140,9 +211,162 @@ def project_dir(entry):
     return Path(d) if os.path.isabs(d) else oss_root() / d
 
 
+# ---------------------------------------------------------------- pinning
+
+def checkout_owner(entry, all_=None):
+    """The entry whose `source` this entry's checkout comes from: itself, or -- for an entry with no
+    `source` that shares a `dir` (fernflower-plugin, pulsar-plugin) -- the one that clones that tree.
+    None when nobody owns it (a copy-only tree). A shared tree has ONE pin, the owner's."""
+    if entry.get('source'):
+        return entry
+    d = project_dir(entry)
+    for other in (all_ if all_ is not None else load_all()).values():
+        if other.get('source') and project_dir(other) == d:
+            return other
+    return None
+
+
+def _git(d, *args):
+    """-> stdout stripped, or None when git fails (not a repo, unknown rev, ...)."""
+    p = subprocess.run(['git', '-C', str(d), *args], capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def rev_state(entry, all_=None):
+    """-> {owner, pinned, head, at_pin, dirty}, all computed on THIS machine.
+
+    `dirty` counts TRACKED modifications only: every corpus carries untracked files of ours
+    (inputConfiguration.json, compile.log -- see `generates`), and those do not change what is parsed.
+    `at_pin` is None when there is nothing to compare (unpinned, absent, or not a git checkout).
+    """
+    owner = checkout_owner(entry, all_)
+    pinned = ((owner or {}).get('source') or {}).get('rev')
+    d = project_dir(entry)
+    head = _git(d, 'rev-parse', 'HEAD') if d.is_dir() else None
+    at_pin = None
+    if pinned and head:
+        # rev-parse rather than string equality, so an abbreviated or tag-valued rev still compares;
+        # `pin` itself always writes the full SHA.
+        at_pin = _git(d, 'rev-parse', '--verify', '--quiet', f'{pinned}^{{commit}}') == head
+    dirty = bool(head) and bool(_git(d, 'status', '--porcelain', '--untracked-files=no'))
+    return {'owner': (owner or {}).get('name'), 'pinned': pinned, 'head': head,
+            'at_pin': at_pin, 'dirty': dirty}
+
+
+def check_rev(entry, all_=None, require_pin=False):
+    """0 when the checkout is at its pin. An UNPINNED entry passes with a warning -- unless
+    `require_pin`, which recording a baseline asks for: a number recorded at no known commit is one
+    the next machine cannot reproduce."""
+    r = rev_state(entry, all_)
+    name = entry['name']
+    if not r['pinned']:
+        if r['owner'] is None:
+            print(f'{name}: no source owns this checkout -- nothing to pin', file=sys.stderr)
+            return 1 if require_pin else 0
+        print(f"{name}: UNPINNED -- `catalogue.py pin {r['owner']}` records the current commit",
+              file=sys.stderr)
+        return 1 if require_pin else 0
+    if r['head'] is None:
+        print(f'{name}: {project_dir(entry)} is not a git checkout -- `catalogue.py obtain '
+              f"{r['owner']}`", file=sys.stderr)
+        return 1
+    if not r['at_pin']:
+        print(f"{name}: checkout is at {r['head'][:12]}, pinned at {r['pinned'][:12]} "
+              f"(by {r['owner']}) -- `catalogue.py obtain {r['owner']}`, or move the pin with "
+              f'`catalogue.py pin {r["owner"]}` and re-record the baseline', file=sys.stderr)
+        return 1
+    if r['dirty']:
+        print(f'{name}: at its pin, but tracked files are modified -- `git -C {project_dir(entry)} '
+              f'status`', file=sys.stderr)
+    return 0
+
+
+def obtain(entry):
+    """Clone if absent, then check out `source.rev`. Runs git itself rather than printing a plan:
+    there is no build tool output to stream and no exit code worth handing to Task."""
+    name = entry['name']
+    s = entry.get('source') or {}
+    if s.get('kind') != 'git':
+        print(f"{name}: source.kind is {s.get('kind')!r}, not git -- obtain it by hand "
+              f'(copy-only: rsync from a machine that has it)', file=sys.stderr)
+        return 1
+    d = project_dir(entry)
+    if not d.exists():
+        # A FULL clone, whatever the rev: Maven version plugins read history (langchain4j).
+        print(f">>> {name}: cloning {s['url']} into {d}", file=sys.stderr)
+        if subprocess.run(['git', 'clone', s['url'], str(d)]).returncode != 0:
+            return 1
+    rev = s.get('rev')
+    if not rev:
+        print(f'{name}: UNPINNED -- left at whatever the clone checked out. Pin it with '
+              f'`catalogue.py pin {name}` once a baseline is recorded against it', file=sys.stderr)
+        return 0
+    if _git(d, 'rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}') is None:
+        print(f'>>> {name}: fetching {rev}', file=sys.stderr)
+        subprocess.run(['git', '-C', str(d), 'fetch', 'origin', rev])
+        if _git(d, 'rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}') is None:
+            print(f'{name}: {rev} is not in {s["url"]}', file=sys.stderr)
+            return 1
+    if _git(d, 'status', '--porcelain', '--untracked-files=no'):
+        # Never discard someone's edits to a checkout; a reset is theirs to decide.
+        print(f'{name}: tracked files are modified in {d}; refusing to check out {rev[:12]} over '
+              f'them', file=sys.stderr)
+        return 1
+    if subprocess.run(['git', '-C', str(d), 'checkout', '--quiet', '--detach', rev]).returncode:
+        return 1
+    print(f'{name}: at {rev[:12]}', file=sys.stderr)
+    return 0
+
+
+_SOURCE_BLOCK = re.compile(r'^source:[ \t]*(#.*)?$', re.M)
+
+
+def pin(entry, rev=None):
+    """Write the checkout's HEAD (or `rev`, resolved to a full SHA) as `source.rev`, into the file
+    that declared `source` -- a private overlay's source is pinned in the overlay.
+
+    A text edit, not a YAML round-trip: the entries are mostly comments, and they are the point.
+    """
+    name = entry['name']
+    if not entry.get('source'):
+        print(f'{name}: no `source` -- pin the entry that owns the checkout', file=sys.stderr)
+        return 1
+    d = project_dir(entry)
+    sha = _git(d, 'rev-parse', '--verify', '--quiet', f"{rev or 'HEAD'}^{{commit}}")
+    if not sha:
+        print(f"{name}: cannot resolve {rev or 'HEAD'} in {d}", file=sys.stderr)
+        return 1
+    f = origin_of(entry, 'source.rev' if 'rev' in entry['source'] else 'source.url')
+    lines = f.read_text().splitlines(keepends=True)
+    m = _SOURCE_BLOCK.search(''.join(lines))
+    if not m:
+        print(f'{f}: no block-style `source:` to edit -- add `rev: {sha}` by hand', file=sys.stderr)
+        return 1
+    start = ''.join(lines).count('\n', 0, m.start()) + 1       # first line after `source:`
+    end = start
+    while end < len(lines) and (lines[end].startswith((' ', '\t')) or not lines[end].strip()):
+        end += 1
+    block = range(start, end)
+    rev_line = next((i for i in block if re.match(r'\s+rev:', lines[i])), None)
+    if rev_line is not None:
+        indent = re.match(r'\s+', lines[rev_line]).group(0)
+        lines[rev_line] = f'{indent}rev: {sha}\n'
+    else:
+        url_line = next((i for i in block if re.match(r'\s+url:', lines[i])), None)
+        anchor = url_line if url_line is not None else start - 1
+        indent = re.match(r'\s*', lines[url_line]).group(0) if url_line is not None else '  '
+        lines.insert(anchor + 1, f'{indent}rev: {sha}\n')
+    f.write_text(''.join(lines))
+    # Trust nothing about the edit until the file says so.
+    if ((parse_yaml(f.read_text(), str(f)) or {}).get('source') or {}).get('rev') != sha:
+        sys.exit(f'{f}: wrote source.rev but it does not read back as {sha} -- check the file')
+    print(f'{name}: pinned at {sha} in {f}', file=sys.stderr)
+    return 0
+
+
 # ---------------------------------------------------------------- state
 
-def state(entry):
+def state(entry, all_=None):
     """What is true on THIS machine — always computed, never stored in the entry."""
     d = project_dir(entry)
     provides = (entry.get('build') or {}).get('provides') or []
@@ -152,6 +376,7 @@ def state(entry):
         'configured': config_path(entry).is_file(),
         'buildable': bool((entry.get('build') or {}).get('cmd')),
         'obtainable': (entry.get('source') or {}).get('kind') in ('git',),
+        'rev': rev_state(entry, all_),
     }
 
 
@@ -175,9 +400,23 @@ def config_path(entry):
     return project_dir(entry) / 'inputConfiguration.json'
 
 
-def source_sets(entry):
-    """-> [(name, is_test)] from the generated config, or [] when there is none."""
-    f = config_path(entry)
+def parse_config_path(entry):
+    """The configuration the parse and analyse phases read: `parse.config` when the entry names one
+    (resolved like `config.output`), else the one the config phase writes.
+
+    vavr is the case: its route writes inputConfiguration.json with a test source set that cannot
+    parse, and a script derives inputConfiguration.main.json from it. The parse is of the derived one.
+    """
+    p = (entry.get('parse') or {}).get('config')
+    if not p:
+        return config_path(entry)
+    out = _path(p)
+    return out if out.is_absolute() else project_dir(entry) / out
+
+
+def source_sets(entry, path=None):
+    """-> [(name, is_test)] from the generated config (or `path`), or [] when there is none."""
+    f = path or config_path(entry)
     if not f.is_file():
         return []
     try:
@@ -230,6 +469,17 @@ def generates(entry):
 def _mvn_exclusions(cfg):
     ex = cfg.get('exclude_modules') or []
     return f" -pl '{','.join(ex)}'" if ex else ''
+
+
+def _runner_module(entry):
+    return {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
+            'main': 'maddi-run-main'}[(entry.get('parse') or {}).get('runner', 'openjdk')]
+
+
+def _run_maddi(entry, steps):
+    maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
+    return (f'{maddi}/gradlew -q -p {maddi} :{_runner_module(entry)}:run '
+            f'--args="--input-configuration={parse_config_path(entry)} --analysis-steps={steps}"')
 
 
 def plan(entry, phase):
@@ -340,7 +590,10 @@ def plan(entry, phase):
                     f'--write-input-configuration {out}"')
         if route in ('gradle-log', 'gradle-log-kotlin'):
             target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
-            grep = ("grep -aE 'Compiler arguments:|\\[KOTLIN] compiler arguments:'"
+            # The kotlinc marker is ParseKotlincList.GRADLE_PATTERN's -- test_catalogue.py holds the
+            # two together. This line once read `[KOTLIN] compiler arguments:`, which occurs 0 times in
+            # detekt's real --debug log against 32 of the right one: a javac-only config, silently.
+            grep = ("grep -aE 'Compiler arguments:|Kotlin compiler args:'"
                     if route.endswith('kotlin') else "grep -a 'Compiler arguments:'")
             extra = ' --no-configuration-cache -Dorg.gradle.warning.mode=summary' if route.endswith('kotlin') else ''
             return mk + (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
@@ -358,25 +611,21 @@ def plan(entry, phase):
         # here instead conflates that with "is the analyzer working", so a red says nothing
         # about which of the two broke -- and it costs 60x more: fernflower is 13s parse-only
         # against 13m under `modification`, timefold 25m. The analyzer run is `analyse`, below.
-        p = entry.get('parse') or {}
-        cfg = config_path(entry)
-        maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-        mod = {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
-               'main': 'maddi-run-main'}[p.get('runner', 'openjdk')]
-        return (f'{maddi}/gradlew -q -p {maddi} :{mod}:run '
-                f'--args="--input-configuration={cfg} --analysis-steps=none"')
+        return _run_maddi(entry, 'none')
 
     if phase == 'analyse':
-        # The maddi corpus test: the ANALYZER's regression check over this corpus, at whatever
-        # --analysis-steps the test itself declares. Expensive, and separate on purpose.
+        # The ANALYZER's regression check over this corpus. Expensive, and separate on purpose.
+        # With a `parse.test`, that maddi corpus test, at whatever --analysis-steps it declares. Without
+        # one, `parse.steps` run directly -- the field every entry declares and, until 2026-09-26,
+        # nothing read: vavr, camel and the -plugin entries had no analyse phase at all.
         p = entry.get('parse') or {}
-        if not p.get('test'):
-            return None
-        maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-        mod = {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
-               'main': 'maddi-run-main'}[p.get('runner', 'openjdk')]
-        return (f'{maddi}/gradlew -p {maddi} :{mod}:slowTest '
-                f"--tests '*{p['test']}' --rerun-tasks")
+        if p.get('test'):
+            maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
+            return (f'{maddi}/gradlew -p {maddi} :{_runner_module(entry)}:slowTest '
+                    f"--tests '*{p['test']}' --rerun-tasks")
+        if p.get('steps'):
+            return _run_maddi(entry, ','.join(p['steps']))
+        return None
 
     if phase == 'tests':
         return (entry.get('tests') or {}).get('cmd')
@@ -419,7 +668,7 @@ def measure_parse(entry):
     # holds a single module-info.java and nothing else -- so without the seed its row would simply
     # be absent, and "this source set is empty" would be indistinguishable from "this source set
     # is gone". One is normal; the other is a config that lost a module.
-    counts = {name: 0 for name, _ in source_sets(entry)}
+    counts = {name: 0 for name, _ in source_sets(entry, parse_config_path(entry))}
     unknown = sorted(set(reported) - set(counts))
     if unknown:
         # The parse saw a source set the config does not declare: either the regex drifted or the
@@ -493,13 +742,33 @@ _TYPES_RE = re.compile(r'^\s*(?P<set>\S+?)\s*:\s*(?P<n>\d+)\s+primary types?\s*$
 
 
 def baseline_path(entry):
+    """Resolved beside the file that DECLARED `config.baseline`, not beside the entry's first file:
+    a private overlay's baseline lives in the private catalogue."""
     b = (entry.get('config') or {}).get('baseline')
     if not b:
         return None
-    return (Path(entry['_file']).parent / b).resolve()
+    return (origin_of(entry, 'config.baseline').parent / b).resolve()
 
 
-def baseline_cmd(entry, record):
+def record_refusal(entry):
+    """Why recording this entry's baseline would put private data in the wrong place, or None.
+
+    ⛔ The measured numbers depend on every field the entry has, and an overlay that `extends` it may
+    have changed any of them (config.output, parse.config, the route). A baseline declared in an
+    EARLIER catalogue directory than the entry's last file would then carry numbers derived from a
+    private overlay into a public repo. So the baseline must be declared by the last file to touch
+    the entry. Comparing is read-only and stays allowed.
+    """
+    last = Path(entry['_files'][-1]).parent.resolve()
+    declared = origin_of(entry, 'config.baseline').parent.resolve()
+    if declared == last:
+        return None
+    return (f"{entry['name']}: config.baseline is declared in {declared}, but {entry['_files'][-1]} "
+            f'extends the entry, so what it measures may depend on that overlay. Declare '
+            f'config.baseline in the overlay and record there')
+
+
+def baseline_cmd(entry, record, all_=None):
     """Primary types PER SOURCE SET, from a parse-only run: diff against the recorded table.
 
     Per source set rather than one total, because a total hides coverage moving BETWEEN modules,
@@ -514,8 +783,16 @@ def baseline_cmd(entry, record):
     if not p:
         print(f"{entry['name']}: no config.baseline declared", file=sys.stderr)
         return 1
-    if not config_path(entry).is_file():
-        print(f"{entry['name']}: no config on disk -- run the config phase first", file=sys.stderr)
+    if record and (why := record_refusal(entry)):
+        print(why, file=sys.stderr)
+        return 1
+    # Off the pin, the diff describes upstream, not maddi -- and a record there is one no other
+    # machine can reproduce, so recording also insists that there IS a pin.
+    if check_rev(entry, all_, require_pin=record):
+        return 1
+    if not parse_config_path(entry).is_file():
+        print(f"{entry['name']}: no {parse_config_path(entry)} -- run the config phase first",
+              file=sys.stderr)
         return 1
     try:
         got = measure_parse(entry)
@@ -560,19 +837,36 @@ def baseline_cmd(entry, record):
 
 # ---------------------------------------------------------------- commands
 
+def _pin_word(r):
+    """A short verdict on rev_state(): ok, OFF (at another commit), unpinned, or n/a."""
+    if r['at_pin'] is None:
+        return 'unpinned' if r['owner'] and not r['pinned'] else 'n/a' if not r['pinned'] else 'absent'
+    return ('ok' if r['at_pin'] else 'OFF') + ('+dirty' if r['dirty'] else '')
+
+
 def cmd_list(args):
-    for name, e in sorted(load_all().items()):
+    all_ = load_all()
+    for name, e in sorted(all_.items()):
         if args.status and e.get('status') != args.status:
             continue
-        s = state(e)
+        s = state(e, all_)
         flags = ''.join(c if v else '-' for c, v in
-                        (('P', s['present']), ('B', s['built']), ('C', s['configured'])))
+                        (('P', s['present']), ('R', s['rev']['at_pin']), ('B', s['built']),
+                         ('C', s['configured'])))
         print(f"{name:22} {e.get('status', '?'):10} {flags}  {e.get('summary', '')[:60]}")
 
 
 def cmd_show(args):
     e = load_one(args.name)
-    print(dump_yaml({k: v for k, v in e.items() if k != '_file'}))
+    print(dump_yaml({k: v for k, v in e.items() if not k.startswith('_')}))
+    if len(e['_files']) > 1:
+        # Which file each top-level field (or, where it was merged, each leaf) came from -- the
+        # question an overlay makes worth asking.
+        print('# fields by origin:')
+        leaves = sorted(p for p in e['_origin']
+                        if not any(q != p and q[:len(p)] == p for q in e['_origin']))
+        for p in leaves:
+            print(f"#   {'.'.join(p):32} {e['_origin'][p]}")
     sets = source_sets(e)
     if sets:
         print(f'# source sets on disk: {len(sets)} '
@@ -582,8 +876,8 @@ def cmd_show(args):
 def cmd_doctor(args):
     all_ = load_all()
     names = args.names or sorted(all_)
-    print(f"{'corpus':22} {'status':10} {'present':>8} {'built':>7} {'config':>7}  notes")
-    print('-' * 86)
+    print(f"{'corpus':22} {'status':10} {'present':>8} {'pin':>9} {'built':>7} {'config':>7}  notes")
+    print('-' * 96)
     rc = 0
     for n in names:
         e = all_[n] if n in all_ else None
@@ -591,8 +885,14 @@ def cmd_doctor(args):
             print(f'{n:22} NOT IN CATALOGUE')
             rc = 1
             continue
-        s = state(e)
+        s = state(e, all_)
         notes = []
+        r = s['rev']
+        if r['at_pin'] is False:
+            notes.append(f"!! at {r['head'][:12]}, pinned {r['pinned'][:12]}")
+            rc = 1
+        if r['dirty']:
+            notes.append('!! tracked files modified')
         if not s['present']:
             notes.append('clone it' if s['obtainable'] else 'COPY-ONLY: rsync from a machine that has it')
         elif s['buildable'] and not s['built']:
@@ -606,7 +906,7 @@ def cmd_doctor(args):
             if not t and (e.get('tests') or {}).get('cmd'):
                 notes.append('!! tests.cmd declared but config has NO test source sets')
                 rc = 1
-        print(f"{n:22} {e.get('status', '?'):10} {str(s['present']):>8} {str(s['built']):>7} "
+        print(f"{n:22} {e.get('status', '?'):10} {str(s['present']):>8} {_pin_word(r):>9} {str(s['built']):>7} "
               f"{str(s['configured']):>7}  {'; '.join(notes)}")
     return rc
 
@@ -662,6 +962,12 @@ def main():
     p = sub.add_parser('doctor'); p.add_argument('names', nargs='*'); p.set_defaults(f=cmd_doctor)
     p = sub.add_parser('plan'); p.add_argument('phase', choices=PHASES); p.add_argument('name')
     p.set_defaults(f=cmd_plan)
+    p = sub.add_parser('obtain'); p.add_argument('name')
+    p.set_defaults(f=lambda a: obtain(load_one(a.name)))
+    p = sub.add_parser('pin'); p.add_argument('name'); p.add_argument('--rev')
+    p.set_defaults(f=lambda a: pin(load_one(a.name), a.rev))
+    p = sub.add_parser('check-rev'); p.add_argument('name')
+    p.set_defaults(f=lambda a: check_rev(load_one(a.name)))
     p = sub.add_parser('check-provides'); p.add_argument('name')
     p.set_defaults(f=lambda a: check_provides(load_one(a.name)))
     p = sub.add_parser('check-jdk'); p.add_argument('name')

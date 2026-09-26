@@ -6,6 +6,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/jenkinsci/jenkins.git
+  rev: ff6ce687149c2f8e60141b6bbdeed41c2a9fe771
 
 build:
   # ⚠ THE SAME FLAGS ARE NEEDED TWICE. jenkins ships a `.mvn/maven.config` that activates a profile

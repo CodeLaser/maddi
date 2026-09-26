@@ -7,6 +7,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/TimefoldAI/timefold-solver.git
+  rev: 9adba5acf54790ea9ec04b1e3489f883f853b79b
 
 build:
   cmd: ./mvnw clean install -DskipTests

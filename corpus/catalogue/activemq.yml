@@ -8,6 +8,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/apache/activemq.git
+  rev: 984c9ba0bfe6e2a6f5fecb1e288eb556a24a97a3
 
 build:
   cmd: mvn install -DskipTests

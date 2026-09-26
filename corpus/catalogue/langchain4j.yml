@@ -7,6 +7,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/langchain4j/langchain4j.git
+  rev: dab06ac180dcd1a95f6f6212a5d17dacc8c0d7e6
   # No --depth. Maven's version plugins read history, and a shallow clone makes them misbehave in
   # ways that surface much later, during the build, as version-resolution errors.
 
