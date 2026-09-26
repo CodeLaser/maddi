@@ -104,7 +104,8 @@ public class GetSetHelper {
             java.util.List<Statement> statements = methodBody.statements();
             if (guards >= statements.size()) return null; // only guards, no return/assignment: not an accessor
             Statement s0 = statements.get(guards);
-            if (s0 instanceof ReturnStatement rs) {
+            // a non-local return (a Kotlin lambda's) does not return this method's value: not a getter
+            if (s0 instanceof ReturnStatement rs && !rs.isNonLocal()) {
                 // a getter is exactly [inert guards] return this.field; -- unreachable code after a return is a
                 // compile error, so the return is necessarily the last statement, but assert it to be explicit
                 if (guards != statements.size() - 1) return null;
@@ -177,6 +178,7 @@ public class GetSetHelper {
         } else if (rest == 2
                    && methodBody.statements().get(guards) instanceof ExpressionAsStatement
                    && methodBody.statements().get(guards + 1) instanceof ReturnStatement rs
+                   && !rs.isNonLocal()
                    && rs.expression() instanceof VariableExpression veThis
                    && veThis.variable() instanceof This) {
             fluent = ValueImpl.BoolImpl.TRUE;
@@ -256,6 +258,7 @@ public class GetSetHelper {
         }
         return !mi.methodBody().isEmpty()
                && mi.methodBody().lastStatement() instanceof ReturnStatement rs
+               && !rs.isNonLocal()
                && rs.expression() instanceof VariableExpression ve && ve.variable() instanceof This;
     }
 

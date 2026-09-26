@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.api.info.Variance
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.cst.api.statement.Block
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
+import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
 import io.codelaser.maddi.cst.api.statement.SwitchEntry
 import io.codelaser.maddi.cst.api.variable.LocalVariable
@@ -108,6 +109,7 @@ import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtCallableReferenceExpression
 import org.jetbrains.kotlin.psi.KtDeclarationWithBody
 import org.jetbrains.kotlin.psi.KtLambdaArgument
+import org.jetbrains.kotlin.psi.KtValueArgument
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtContinueExpression
 import org.jetbrains.kotlin.psi.KtDoWhileExpression
@@ -700,7 +702,7 @@ internal class KotlinBodyConverter(
             // each entry reads the (guarded) value: a fresh read of the temporary, or of the stable reference
             is KtDestructuringDeclaration -> destructuringStatement(statement, leftValue, method, locals)
             is KtProperty -> localVariableCreation(statement, method, locals, leftValue())
-            is KtReturnExpression -> runtime.newReturnStatement(leftValue())
+            is KtReturnExpression -> returnStatement(statement, leftValue())
             is KtBinaryExpression -> assignmentStatement(statement, leftValue(), method, locals)
             else -> return null
         }
@@ -1055,6 +1057,63 @@ internal class KotlinBodyConverter(
         else -> false
     }
 
+    /**
+     * <b>A source `return`, with where it returns to.</b> Inside a lambda passed to an `inline` function, a bare
+     * `return` returns from the enclosing FUNCTION, and `return@outer` from an outer lambda; the CST records how
+     * many lambdas that leaves ([ReturnStatement.exitLevels]). Converting every `return` to a plain one made
+     * `xs.forEach { if (p(it)) return it }` a return from the lambda: a different program, and silently so
+     * (the analyzer then linked the value to the lambda's result, and the enclosing function's never saw it).
+     * A label that names nothing this walk can find keeps a counted placeholder rather than a guess.
+     */
+    private fun returnStatement(statement: KtReturnExpression, value: Expression): Statement {
+        val levels = returnExitLevels(statement)
+            ?: return runtime.newExpressionAsStatement(placeholder("k2-return-target-unresolved", statement))
+        return runtime.newReturnBuilder().setExpression(value).setExitLevels(levels)
+            .setGoToLabel(statement.getLabelName()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * How many lambdas (each a [KtFunctionLiteral], each a CST lambda) lie between [statement] and the body it
+     * returns from: for a bare `return`, the nearest function (named, local or anonymous, or an accessor); for
+     * `return@L`, the nearest lambda labelled `L` (explicitly, `L@ { … }`, or implicitly by the function it is
+     * passed to) or function named `L`. Null when there is no such target.
+     */
+    private fun returnExitLevels(statement: KtReturnExpression): Int? {
+        val label = statement.getLabelName()
+        var levels = 0
+        var element: PsiElement? = statement.parent
+        while (element != null) {
+            when (element) {
+                is KtFunctionLiteral -> {
+                    if (label != null && label in lambdaLabels(element)) return levels
+                    levels++
+                }
+                is KtDeclarationWithBody ->
+                    return if (label == null || (element as? KtNamedFunction)?.name == label) levels else null
+                is KtClassOrObject, is KtFile -> return null
+            }
+            element = element.parent
+        }
+        return null
+    }
+
+    /** The labels a `return@…` can use for this lambda: an explicit `L@`, and the name of the called function. */
+    private fun lambdaLabels(literal: KtFunctionLiteral): Set<String> {
+        val labels = HashSet<String>()
+        var parent: PsiElement? = literal.parent?.parent // KtFunctionLiteral -> KtLambdaExpression -> …
+        while (parent is KtLabeledExpression) {
+            parent.getLabelName()?.let { labels.add(it) }
+            parent = parent.parent
+        }
+        val call = when (parent) {
+            is KtLambdaArgument -> parent.parent as? KtCallExpression
+            is KtValueArgument -> parent.parent?.parent as? KtCallExpression
+            else -> null
+        }
+        call?.calleeExpression?.text?.let { labels.add(it) }
+        return labels
+    }
+
     private fun isControlFlowElvis(expression: KtExpression?): Boolean {
         if (expression !is KtBinaryExpression || expression.operationToken != KtTokens.ELVIS) return false
         // `?: return`, `?: return@label v` (from the lambda, as a lambda's return statement is), `?: throw`,
@@ -1281,11 +1340,13 @@ internal class KotlinBodyConverter(
             statement.right?.let { convertExpression(it, method, locals) } ?: placeholder("k2-absent-assignment-value", statement),
             method, locals, index)
         // `return try { … } catch { … }`: lower the try-as-value to a try statement whose branches `return`
+        // ⛔ convertTry's branches return from the innermost body; a non-local `return try …` keeps a placeholder
         statement is KtReturnExpression && statement.returnedExpression is KtTryExpression ->
-            convertTry(statement.returnedExpression as KtTryExpression, method, locals, index, returning = true)
-        statement is KtReturnExpression -> runtime.newReturnStatement(
-            statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression()
-        )
+            if (returnExitLevels(statement) == 0)
+                convertTry(statement.returnedExpression as KtTryExpression, method, locals, index, returning = true)
+            else runtime.newExpressionAsStatement(placeholder("k2-non-local-return-of-try", statement))
+        statement is KtReturnExpression -> returnStatement(statement,
+            statement.returnedExpression?.let { convertExpression(it, method, locals) } ?: runtime.newEmptyExpression())
         statement is KtIfExpression -> runtime.newIfElseBuilder()
             .setExpression(statement.condition?.let { convertExpression(it, method, locals) }
                 ?: placeholder("k2-absent-condition", statement))
@@ -1986,6 +2047,10 @@ internal class KotlinBodyConverter(
             is KtIsExpression -> convertIsExpression(expression, method, locals) // x is T / x !is T
             is KtArrayAccessExpression -> convertArrayAccess(expression, method, locals) // a[i] -> a.get(i)
             is KtLambdaExpression -> convertLambda(expression, method, locals)
+            // `outer@{ x -> … }`: the label is only a target for `return@outer`, which returnExitLevels reads off
+            // the PSI; the value is the lambda
+            is KtLabeledExpression -> expression.baseExpression?.let { convertExpression(it, method, locals) }
+                ?: placeholder("k2-empty-label", expression)
             is KtObjectLiteralExpression -> convertObjectLiteral(expression, method, locals)
             is KtIfExpression -> runtime.newInlineConditionalBuilder() // if as an expression: a ? b : c
                 .setCondition(expression.condition?.let { convertExpression(it, method, locals) }

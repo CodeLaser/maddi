@@ -35,7 +35,14 @@ public class KotlinStatementPrinter {
         return switch (s) {
             case Block block -> block(block, q);
             case ReturnStatement rs -> {
+                /*
+                 `return@forEach` keeps its label: without it a return inside a lambda prints as a bare `return`,
+                 which in Kotlin is a NON-LOCAL return. A non-local return (exitLevels > 0) is exactly the bare
+                 form, or `return@outer`. A local return in a lambda that carries no label (one that did not come
+                 from Kotlin source) still prints bare; this printer does not track whether it is inside a lambda.
+                 */
                 OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.RETURN);
+                if (rs.goToLabel() != null) b.add(new TextImpl("@" + rs.goToLabel()));
                 if (!rs.hasNoValue()) {
                     b.add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(rs.expression(), q));
                 }

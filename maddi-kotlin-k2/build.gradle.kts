@@ -76,6 +76,8 @@ dependencies {
 
     // Test-only: a concrete Runtime, and SourceSet construction.
     testImplementation(project(":maddi-cst-impl"))
+    // NonLocalReturnTest prints the CST back as Kotlin: a `return@forEach` must survive the round trip
+    testImplementation(project(":maddi-cst-print-kotlin"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
