@@ -13,6 +13,18 @@ public final class WitnessIndex<V, L> {
         this.vertexComparator = vertexComparator;
     }
 
+    /** An independent copy of the index; witnesses are immutable (a composite's support is a memo) and shared. */
+    public WitnessIndex<V, L> copy() {
+        WitnessIndex<V, L> copy = new WitnessIndex<>(scoreFunction, vertexComparator);
+        copy.witnesses.putAll(witnesses);
+        return copy;
+    }
+
+    // the other index's witnesses offered here, under the usual choice (putIfBetter)
+    public void unionWith(WitnessIndex<V, L> other) {
+        other.witnesses.forEach(this::putIfBetter);
+    }
+
     public String print(Fact<V, L> fact) {
         return print(Object::toString, fact);
     }

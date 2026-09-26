@@ -34,7 +34,35 @@ public class VirtualModificationIdenticals {
 
     private static final Group EMPTY = new Group(null, Set.of());
 
-    private final AtomicInteger groupIdProvider = new AtomicInteger();
+    // shared by every copy (see copy()): group ids stay unique across the branches of a statement
+    private final AtomicInteger groupIdProvider;
+
+    public VirtualModificationIdenticals() {
+        this(new AtomicInteger());
+    }
+
+    private VirtualModificationIdenticals(AtomicInteger groupIdProvider) {
+        this.groupIdProvider = groupIdProvider;
+    }
+
+    // the join of two alternatives: every group of the other joined in here (overlapping groups merge)
+    public void unionWith(VirtualModificationIdenticals other) {
+        other.groups.values().forEach(g -> {
+            java.util.Iterator<Variable> it = g.members().iterator();
+            if (!it.hasNext()) return;
+            Variable first = it.next();
+            while (it.hasNext()) add(first, g.linkNature(), it.next());
+        });
+    }
+
+    /** An independent copy, for linking one branch of a statement (see Graph.snapshot). */
+    public VirtualModificationIdenticals copy() {
+        VirtualModificationIdenticals copy = new VirtualModificationIdenticals(groupIdProvider);
+        groups.forEach((id, g) -> copy.groups.put(id, new Group(g.linkNature(), new LinkedHashSet<>(g.members()))));
+        memberToGroup.forEach((v, ids) -> copy.memberToGroup.put(v, new LinkedHashSet<>(ids)));
+        membersByPrefix.forEach((v, ms) -> copy.membersByPrefix.put(v, new LinkedHashSet<>(ms)));
+        return copy;
+    }
     private final Map<Integer, Group> groups = new HashMap<>();
     // a member can sit in SEVERAL groups, one per ≡-nature: the ☷ pass set is a property of the EDGE
     // ('identical except via remove()' between an iterator and its collection), and folding a pass-marked

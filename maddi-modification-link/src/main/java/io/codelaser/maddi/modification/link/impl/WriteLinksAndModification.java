@@ -112,6 +112,10 @@ class WriteLinksAndModification {
         for (Map.Entry<Variable, Set<MethodInfo>> entry : modifiedDuringEvaluation.entrySet()) {
             for (Variable v : followGraph.graph().allShared(entry.getKey())) {
                 expandedModifiedDuringEvaluation.put(v, entry.getValue());
+                // a join detached them from the group, but in one alternative they hold this very object
+                for (Variable alias : followGraph.graph().detachedAliases(v)) {
+                    expandedModifiedDuringEvaluation.putIfAbsent(alias, entry.getValue());
+                }
             }
             // a modified key that never existed as a graph vertex (ldIn.variables[1], marked through a
             // functional-interface call) still denotes the same runtime slot as its source-chain group faces
@@ -235,7 +239,10 @@ class WriteLinksAndModification {
         // recompute (handleReturnVariable's marker prepend is not idempotent; return dirt is global
         // anyway); parameters recompute at the LAST statement, where the summary needs them complete
         // while cached links carry the redundancy suppression (see the NORL guard below).
+        java.util.Set<io.codelaser.maddi.modification.link.impl.localvar.SharedVariable> detachedReps =
+                followGraph.graph().detachedReps(variable);
         if (reuse != null
+            && detachedReps.isEmpty() // what they carry changes without touching the variable
             && !(variable instanceof ReturnVariable)
             && !(lastStatement && variable instanceof io.codelaser.maddi.cst.api.info.ParameterInfo)
             && !reuse.dirty.contains(variable)) {
@@ -273,6 +280,25 @@ class WriteLinksAndModification {
             });
         } else {
             builder2 = builder1;
+        }
+        /*
+         A variable a join evicted from its groups (SharedVariables.planJoin: its alternatives disagreed on its
+         group) no longer reaches the facts on those groups' reps through translateForward, but in the alternative
+         it came from it held that value. It gets the reps' facts, translated onto itself -- what membership gave
+         it, without the identity with the other members. The plain join edge 'x ← rep' does not carry them: the
+         engine derives no composite TARGETING a return value (a return evicted by a loop join lost 'm ∈ 0:g[0]').
+         */
+        for (io.codelaser.maddi.modification.link.impl.localvar.SharedVariable rep : detachedReps) {
+            Links.Builder repLinks = followGraph.followGraph(virtualFieldComputer, rep);
+            VariableTranslationMap repToVariable = new VariableTranslationMap(runtime);
+            repToVariable.put(rep, variable);
+            for (Link link : repLinks.linkSet()) {
+                Link translated = link.translateFrom(repToVariable);
+                if (translated.to().equals(variable) || translated.to().equals(translated.from())) continue;
+                if (!builder2.contains(translated.from(), translated.linkNature(), translated.to())) {
+                    builder2.add(translated.from(), translated.linkNature(), translated.to(), translated.mediated());
+                }
+            }
         }
 
         Links.Builder builder = new LinksImpl.Builder(builder2.primary());

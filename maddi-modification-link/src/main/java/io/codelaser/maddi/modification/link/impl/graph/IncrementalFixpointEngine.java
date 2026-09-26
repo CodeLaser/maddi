@@ -108,9 +108,23 @@ public final class IncrementalFixpointEngine<V, L> {
                                      Function<V, String> vertexPrinter,
                                      Comparator<V> vertexComparator,
                                      Predicate<V> acceptForComposite) {
-        this.graph = new LabeledGraph<>();
-        this.closure = new Closure<>(best);
-        this.witnessIndex = new WitnessIndex<>(scoreFunction, vertexComparator);
+        this(new LabeledGraph<>(), new Closure<>(best), new WitnessIndex<>(scoreFunction, vertexComparator),
+                combine, best, valid, reverse, vertexPrinter, vertexComparator, acceptForComposite);
+    }
+
+    private IncrementalFixpointEngine(LabeledGraph<V, L> graph,
+                                      Closure<V, L> closure,
+                                      WitnessIndex<V, L> witnessIndex,
+                                      BinaryOperator<L> combine,
+                                      BinaryOperator<L> best,
+                                      Predicate<L> valid,
+                                      UnaryOperator<L> reverse,
+                                      Function<V, String> vertexPrinter,
+                                      Comparator<V> vertexComparator,
+                                      Predicate<V> acceptForComposite) {
+        this.graph = graph;
+        this.closure = closure;
+        this.witnessIndex = witnessIndex;
         this.combine = Objects.requireNonNull(combine);
         this.valid = Objects.requireNonNull(valid);
         this.best = Objects.requireNonNull(best);
@@ -118,6 +132,33 @@ public final class IncrementalFixpointEngine<V, L> {
         this.vertexPrinter = vertexPrinter;
         this.vertexComparator = vertexComparator;
         this.acceptForComposite = acceptForComposite;
+    }
+
+    /*
+     An independent copy of the state: base edges, closure, witnesses, the work count and the touched set. The
+     copy has no vertex listener; its owner registers one (and rebuilds whatever index the listener maintains).
+     */
+    public IncrementalFixpointEngine<V, L> copy() {
+        IncrementalFixpointEngine<V, L> copy = new IncrementalFixpointEngine<>(graph.copy(), closure.copy(),
+                witnessIndex.copy(), combine, best, valid, reverse, vertexPrinter, vertexComparator,
+                acceptForComposite);
+        copy.work = work;
+        copy.touched.addAll(touched);
+        return copy;
+    }
+
+    /*
+     The JOIN of two alternatives: base edges, closure facts and witnesses of 'other' added to this engine, without
+     propagation. Both engines are closed; their union is deliberately NOT re-closed, because a composition of a
+     fact of one alternative with a fact of another describes no execution. A pair present in both gets the best
+     label, which is also what linking the alternatives one after the other into one engine produced.
+     */
+    public void unionWith(IncrementalFixpointEngine<V, L> other) {
+        graph.unionWith(other.graph, best);
+        closure.unionWith(other.closure);
+        witnessIndex.unionWith(other.witnessIndex);
+        touched.addAll(other.touched);
+        touched.addAll(other.graph.vertices());
     }
 
     // register BEFORE the first edge/vertex enters the engine: the listener only sees mutations from
