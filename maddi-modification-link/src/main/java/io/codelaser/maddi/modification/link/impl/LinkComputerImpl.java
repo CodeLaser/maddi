@@ -366,10 +366,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
      */
     public static volatile java.util.function.Predicate<MethodInfo> DEGRADE_FOR_TESTING;
 
-    private static void markDegraded(MethodInfo methodInfo) {
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-            methodInfo.analysis().set(PropertyImpl.DEGRADED_ANALYSIS_METHOD, ValueImpl.BoolImpl.TRUE);
-        }
+    // atomically: another thread linking the same callee may mark it too, and 'set' refuses any overwrite
+    static void markDegraded(MethodInfo methodInfo) {
+        methodInfo.analysis().getOrCreate(PropertyImpl.DEGRADED_ANALYSIS_METHOD, () -> ValueImpl.BoolImpl.TRUE);
     }
 
     /**

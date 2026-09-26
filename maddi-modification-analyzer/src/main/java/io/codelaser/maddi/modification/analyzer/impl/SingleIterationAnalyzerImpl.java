@@ -506,11 +506,9 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             failed.add(info);
             // degradation marker (task #36): consumers relying on per-call data must go pessimistic here
             if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
-                if (!mi.analysis().haveAnalyzedValueFor(
-                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-                    mi.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
-                }
+                // atomically: a linker thread may be marking it at the same time
+                mi.analysis().getOrCreate(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                        () -> io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
             }
             messages.add(crashFinding(info, e));
         } finally {
