@@ -190,6 +190,7 @@ public class RunMixedPrepAnalyzer {
             // every SOURCE type, not the primaries: a verdict that moves between runs may well be a nested
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+            writeMemberVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         writeAnalysisResults(options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
                 inputConfiguration);
@@ -243,7 +244,7 @@ public class RunMixedPrepAnalyzer {
 
     /**
      * Every library member the source calls under a {@code kotlin.} package, one
-     * {@code <calls> <contracted|DEFAULT> <member>} line, most-called first, to the file named by
+     * {@code <calls> <contracted|DEFAULT> <member> <parameter types>} line, most-called first, to the file named by
      * {@code -Dmaddi.libraryCallDump} (absent: no file, no cost). ⭐ An uncontracted library method is a MODIFYING
      * one — it modifies its receiver and every non-trivial argument (ShallowMethodAnalyzer) — so this is the
      * worklist for the Kotlin archive: the calls the analysis currently reads as writes. "contracted" means the
@@ -262,7 +263,12 @@ public class RunMixedPrepAnalyzer {
                         .thenComparing(e -> e.getKey().fullyQualifiedName()))
                 .map(e -> e.getValue() + "\t"
                           + (e.getKey().analysis().haveAnalyzedValueFor(PropertyImpl.ANNOTATED_API)
-                        ? "contracted" : "DEFAULT") + "\t" + e.getKey().fullyQualifiedName())
+                        ? "contracted" : "DEFAULT") + "\t" + e.getKey().fullyQualifiedName()
+                          // the UNERASED parameter types: an erased Object is a bare T (unmodified by default) or a
+                          // real Object (modified), and only these tell them apart
+                          + "\t" + e.getKey().parameters().stream()
+                                  .map(p -> p.parameterizedType().toString().replaceFirst("^Type ", ""))
+                                  .collect(Collectors.joining(", ")))
                 .toList();
         Path path = Path.of(target);
         if (path.getParent() != null) Files.createDirectories(path.getParent());
@@ -306,6 +312,43 @@ public class RunMixedPrepAnalyzer {
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);
         LOGGER.info("Wrote {} type verdict(s) to {}", lines.size(), path);
+    }
+
+    /**
+     * The member-level verdicts, to the file named by {@code -Dmaddi.memberVerdictDump} (absent: no file, no cost):
+     * {@code F <unmodified> <field>}, {@code M <non-modifying> <method>} and {@code P <unmodified> <method>#<i>}, one per
+     * line, sorted. ⭐ The type-level {@link #writeVerdicts} dump did not move when library contracts turned 20 field
+     * reads from modified to unmodified in a fixture: a detekt type blocked by something else keeps its level, so
+     * the improvement is visible only here. An instrument, never asserted.
+     */
+    private static void writeMemberVerdicts(List<TypeInfo> types) throws IOException {
+        String target = System.getProperty("maddi.memberVerdictDump");
+        if (target == null || target.isBlank()) return;
+        List<String> lines = new java.util.ArrayList<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : types) memberVerdicts(type, lines, seen);
+        java.util.Collections.sort(lines);
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} member verdict(s) to {}", lines.size(), path);
+    }
+
+    private static void memberVerdicts(TypeInfo type, List<String> lines, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> memberVerdicts(sub, lines, seen));
+        type.fields().forEach(f -> lines.add("F " + bool(f.analysis().getOrNull(PropertyImpl.UNMODIFIED_FIELD,
+                ValueImpl.BoolImpl.class)) + " " + f.fullyQualifiedName()));
+        type.methodStream().forEach(m -> {
+            lines.add("M " + bool(m.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class))
+                      + " " + m.fullyQualifiedName());
+            m.parameters().forEach(p -> lines.add("P " + bool(p.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER,
+                    ValueImpl.BoolImpl.class)) + " " + m.fullyQualifiedName() + "#" + p.index()));
+        });
+    }
+
+    private static String bool(Value.Bool value) {
+        return value == null ? "NONE" : String.valueOf(value.isTrue());
     }
 
     /** The name of a type's {@code IMMUTABLE_TYPE} value, or {@code NONE} when the analysis concluded nothing. */
