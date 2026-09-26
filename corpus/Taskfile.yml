@@ -835,6 +835,10 @@ tasks:
     desc: 'Per corpus: obtained? built? configured? how many source sets, how many are tests'
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.CLI_ARGS}}']
 
+  catalogue:machine:
+    desc: "Check this host's profile in $CORPUS_MACHINES; INIT=1 drafts one from what is installed here"
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py machine {{if .INIT}}--init{{end}}']
+
   catalogue:show:
     desc: 'The resolved entry: task catalogue:show NAME=timefold-solver'
     requires: { vars: [NAME] }

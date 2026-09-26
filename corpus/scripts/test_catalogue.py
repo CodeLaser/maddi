@@ -4,7 +4,10 @@ Tests for catalogue.py. No network, no build: catalogues and checkouts are made 
 
     python3 -m unittest discover -s corpus/scripts -p 'test_*.py'
 """
+import argparse
+import contextlib
 import importlib.util
+import io
 import os
 import re
 import subprocess
@@ -255,6 +258,117 @@ class TestPinning(CatalogueTest):
         self.assertEqual('edited', (d / 'f').read_text())
 
 
+class TestMachineProfile(CatalogueTest):
+
+    def setUp(self):
+        super().setUp()
+        self.machines = self.private.parent / 'machines'
+        self.machines.mkdir()
+        for k in ('CORPUS_MACHINES', 'CORPUS_HOST', 'BUILD_JAVA_HOME'):
+            self._env.setdefault(k, os.environ.get(k))
+            os.environ.pop(k, None)
+        os.environ['CORPUS_MACHINES'] = str(self.machines)
+        os.environ['CORPUS_HOST'] = 'box'
+
+    def profile(self, text, host='box'):
+        (self.machines / f'{host}.yml').write_text(textwrap.dedent(text))
+
+    def fake_jdk(self, version):
+        home = self.private.parent / f'jdk{version}'
+        (home / 'bin').mkdir(parents=True)
+        java = home / 'bin' / 'java'
+        java.write_text(f'#!/bin/sh\necho "    java.specification.version = {version}" >&2\n')
+        java.chmod(0o755)
+        return home
+
+    def doctor(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = catalogue.cmd_doctor(argparse.Namespace(names=[]))
+        return rc, out.getvalue()
+
+    def test_no_profile_changes_nothing(self):
+        os.environ['CORPUS_HOST'] = 'elsewhere'
+        self.assertIsNone(catalogue.machine_profile())
+        self.entry(self.public, 'gone', 'status: active\n')
+        rc, out = self.doctor()
+        self.assertEqual(0, rc)
+        self.assertIn('no machine profile for elsewhere', out)
+
+    def test_a_held_entry_that_is_absent_fails_doctor_and_a_skipped_one_does_not(self):
+        self.entry(self.public, 'gone', 'status: active\n')
+        self.entry(self.public, 'big', 'status: active\n')
+        self.entry(self.public, 'old', 'status: dormant\n')
+        self.profile('''
+            host: box
+            holds: active
+            skip:
+              big: too large for this disk
+            ''')
+        rc, out = self.doctor()
+        self.assertEqual(1, rc)
+        self.assertRegex(out, r'gone .*!! HELD HERE; COPY-ONLY')
+        self.assertRegex(out, r'big .*not held here: too large for this disk')
+        self.assertRegex(out, r'old .*not held here')
+
+    def test_holds_can_be_a_list(self):
+        self.entry(self.public, 'a', 'status: active\n')
+        self.entry(self.public, 'b', 'status: active\n')
+        self.profile('holds: [a]\n')
+        p = catalogue.machine_profile()
+        self.assertEqual((True, None), catalogue.expected_here(catalogue.load_one('a'), p))
+        self.assertEqual((False, None), catalogue.expected_here(catalogue.load_one('b'), p))
+
+    def test_a_profile_for_another_host_is_refused(self):
+        self.profile('host: other\n')
+        with self.assertRaises(SystemExit):
+            catalogue.machine_profile()
+
+    def test_build_runs_on_the_profiles_jdk_for_build_jdk_version(self):
+        self.entry(self.public, 'old', '''
+            build:
+              cmd: ./gradlew build
+              jdk: {version: 21}
+            ''')
+        self.entry(self.public, 'new', 'build:\n  cmd: ./gradlew build\n')
+        self.profile('jdks:\n  - {version: 21, home: /opt/jdk21}\n')
+        self.assertEqual('JAVA_HOME=/opt/jdk21 ./gradlew build',
+                         catalogue.plan(catalogue.load_one('old'), 'build'))
+        self.assertEqual('./gradlew build', catalogue.plan(catalogue.load_one('new'), 'build'))
+        os.environ['BUILD_JAVA_HOME'] = '/opt/override'
+        self.assertEqual('JAVA_HOME=/opt/override ./gradlew build',
+                         catalogue.plan(catalogue.load_one('old'), 'build'))
+
+    def test_check_jdk_uses_the_profiles_jdk(self):
+        home = self.fake_jdk(21)
+        self.entry(self.public, 'old', 'build:\n  cmd: make\n  jdk: {version: 21}\n')
+        self.profile(f'jdks:\n  - {{version: 21, home: {home}}}\n')
+        self.assertEqual(0, catalogue.check_jdk(catalogue.load_one('old')))
+
+    def test_machine_checks_jdks_root_and_names(self):
+        good, bad = self.fake_jdk(21), self.fake_jdk(17)
+        osname = {'Darwin': 'macos', 'Linux': 'linux'}[os.uname().sysname]
+        self.entry(self.public, 'a', 'status: active\n')
+        self.profile(f'''
+            os: {osname}
+            test_oss_root: {self.oss}
+            jdks:
+              - {{version: 21, home: {good}}}
+              - {{version: 25, home: {bad}}}
+            skip:
+              nosuch: typo
+            ''')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = catalogue.cmd_machine(argparse.Namespace(init=False))
+        self.assertEqual(1, rc)
+        text = out.getvalue()
+        self.assertRegex(text, r'jdk  21  \S+jdk21\n')
+        self.assertIn('!! reports 17', text)
+        self.assertIn("!! names 'nosuch'", text)
+        self.assertIn('holds 1 of 1 entries: a', text)
+
+
 class TestPhases(CatalogueTest):
 
     def test_parse_reads_parse_config_when_given(self):
@@ -279,6 +393,21 @@ class TestPhases(CatalogueTest):
                       catalogue.plan(catalogue.load_one('a'), 'analyse'))
         self.assertIn("slowTest --tests '*TestB'", catalogue.plan(catalogue.load_one('b'), 'analyse'))
         self.assertIsNone(catalogue.plan(catalogue.load_one('c'), 'analyse'))
+
+    def test_plugin_routes_default_to_the_checkouts_version(self):
+        """`_cat` never exported MADDI_PLUGIN_VERSION, so the plugin coordinate came out versionless."""
+        saved = os.environ.pop('MADDI_PLUGIN_VERSION', None)
+        try:
+            self.entry(self.public, 'g', 'config:\n  route: gradle-plugin\n')
+            want = re.search(r'^version=(\S+)', (HERE.parent.parent / 'gradle.properties').read_text(),
+                             re.M).group(1)
+            self.assertIn(f'-Dmaddi.pluginVersion={want} ', catalogue.plan(catalogue.load_one('g'), 'config'))
+            os.environ['MADDI_PLUGIN_VERSION'] = '9.9'
+            self.assertIn('-Dmaddi.pluginVersion=9.9 ', catalogue.plan(catalogue.load_one('g'), 'config'))
+        finally:
+            os.environ.pop('MADDI_PLUGIN_VERSION', None)
+            if saved is not None:
+                os.environ['MADDI_PLUGIN_VERSION'] = saved
 
     def test_the_kotlin_route_greps_for_what_ParseKotlincList_parses(self):
         """The route once grepped `[KOTLIN] compiler arguments:`, which no Gradle log contains."""

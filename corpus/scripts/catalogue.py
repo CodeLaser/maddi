@@ -28,6 +28,10 @@ CATALOGUE DIRECTORIES
     file. A private overlay may extend a public entry; a baseline or pin derived from the overlay's
     fields must land in the overlay's directory, not in this public repo. See `origin_of`.
 
+MACHINE PROFILES
+    $CORPUS_MACHINES is a colon-separated list of directories holding <hostname -s>.yml, one per
+    machine: what it must hold, where its JDKs are. See machine_profile(). This repo ships none.
+
 PINNING
     `source.rev` is the commit the corpus is measured at. Baselines are checked in and shared by every
     machine, so a checkout at another commit makes the diff about upstream rather than about maddi --
@@ -37,7 +41,9 @@ PINNING
 
     catalogue.py list   [--status active]     one line per entry
     catalogue.py show   <name>                the resolved entry, and which file each field came from
-    catalogue.py doctor [<name>...]           obtained? at its pin? built? configured? per corpus
+    catalogue.py doctor [<name>...]           obtained? at its pin? built? configured? per corpus --
+                                              and, with a machine profile, is what it holds complete
+    catalogue.py machine [--init]             check this host's profile; --init drafts one
     catalogue.py plan   <phase> <name>        print the shell command a phase would run
     catalogue.py obtain <name>                clone if absent, check out source.rev
     catalogue.py pin    <name> [--rev REV]    write the checkout's HEAD (or REV) as source.rev
@@ -54,6 +60,7 @@ code is Task's, and so that `--dry` shows something real.
 """
 import argparse
 import copy
+import datetime
 import json
 import os
 import re
@@ -202,6 +209,112 @@ def load_one(name):
 
 def oss_root():
     return _path(os.environ.get('TEST_OSS_ROOT') or (Path.home() / 'git' / 'test-oss'))
+
+
+# ---------------------------------------------------------------- machine profiles
+
+def host_name():
+    """CORPUS_HOST, else `hostname -s` -- the same name the gate records in last-green.json."""
+    h = os.environ.get('CORPUS_HOST')
+    if h:
+        return h
+    p = subprocess.run(['hostname', '-s'], capture_output=True, text=True)
+    return p.stdout.strip() or os.uname().nodename.split('.')[0]
+
+
+def machine_profile():
+    """This host's profile, or None: <host>.yml in the first $CORPUS_MACHINES directory that has one.
+
+    A profile says what THIS machine is supposed to hold and where its JDKs are. It is the third kind
+    of fact next to the entry (what the project is) and `state()` (what is here): the machine's own
+    declaration. Profiles name hosts and home-directory paths, so they belong with the private
+    catalogue; this repo carries the reader and no profile.
+
+        host: laser1                      # must match the file name
+        os: linux                         # linux | macos -- informational, and checked
+        role: gate                        # gate | devel -- informational
+        test_oss_root: ~/git/test-oss     # checked against the effective TEST_OSS_ROOT
+        jdks:                             # build.jdk.version picks one. A list, not a mapping
+          - {version: 21, home: /usr/lib/jvm/java-21-openjdk-amd64}   # keyed by version: YAML reads
+          - {version: 26, home: /usr/lib/jvm/java-26-openjdk-amd64}   # `21:` as an int, miniyaml not at all
+        holds: active                     # every `status: active` entry, or a list of names
+        skip:                             # exceptions to `holds`, each with its reason
+          vavr: not checked out here yet
+    """
+    raw = os.environ.get('CORPUS_MACHINES') or ''
+    host = host_name()
+    for d in raw.split(':'):
+        if not d:
+            continue
+        f = _path(d) / f'{host}.yml'
+        if f.is_file():
+            prof = parse_yaml(f.read_text(), str(f)) or {}
+            if prof.get('host', host) != host:
+                sys.exit(f"{f}: host is {prof.get('host')!r} but the file is this host's ({host})")
+            prof['host'] = host
+            prof['_file'] = str(f)
+            jdks = prof.get('jdks') or []
+            if not isinstance(jdks, list) or not all(isinstance(j, dict) and {'version', 'home'} <= set(j)
+                                                     for j in jdks):
+                sys.exit(f'{f}: jdks must be a list of {{version: N, home: PATH}}')
+            prof['jdks'] = {str(j['version']): str(_path(j['home'])) for j in jdks}
+            return prof
+    return None
+
+
+def expected_here(entry, profile):
+    """-> (expected, reason). Without a profile every entry is expected, as before profiles existed."""
+    if profile is None:
+        return True, None
+    skip = profile.get('skip') or {}
+    if entry['name'] in skip:
+        return False, skip[entry['name']]
+    holds = profile.get('holds', 'active')
+    if holds == 'active':
+        return entry.get('status') == 'active', None
+    return entry['name'] in (holds or []), None
+
+
+def build_java_home(entry, profile=None):
+    """The JDK this entry's BUILD runs on, or None for the ambient one. BUILD_JAVA_HOME wins; else the
+    profile's JDK for `build.jdk.version`. maddi itself always runs on the ambient JDK."""
+    if os.environ.get('BUILD_JAVA_HOME'):
+        return os.environ['BUILD_JAVA_HOME']
+    want = ((entry.get('build') or {}).get('jdk') or {}).get('version')
+    if want is None:
+        return None
+    return ((profile if profile is not None else machine_profile() or {}).get('jdks') or {}).get(str(want))
+
+
+def _java_props(home):
+    try:
+        p = subprocess.run([str(Path(home) / 'bin' / 'java'), '-XshowSettings:properties', '-version'],
+                           capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    return p.stderr + p.stdout
+
+
+def _java_version(home):
+    m = re.search(r'java\.specification\.version = (\d+)', _java_props(home) or '')
+    return m.group(1) if m else None
+
+
+def discover_jdks():
+    """-> {major: home} over the usual install locations, first found per version. For `machine --init`."""
+    globs = ['/usr/lib/jvm/*', '/Library/Java/JavaVirtualMachines/*/Contents/Home',
+             '~/Library/Java/JavaVirtualMachines/*/Contents/Home', '~/.sdkman/candidates/java/*',
+             '~/.gradle/jdks/*']
+    found = {}
+    for g in globs:
+        base = Path(os.path.expanduser(g))
+        for home in sorted(Path(base.anchor).glob(str(base.relative_to(base.anchor)))):
+            if home.is_symlink() or not (home / 'bin' / 'java').is_file():
+                continue
+            v = _java_version(home)
+            if v and v not in found:
+                found[v] = str(home)
+    return dict(sorted(found.items(), key=lambda kv: int(kv[0])))
 
 
 def project_dir(entry):
@@ -466,6 +579,24 @@ def generates(entry):
 
 # ---------------------------------------------------------------- phases
 
+def plugin_version():
+    """MADDI_PLUGIN_VERSION, else the `version=` of the maddi checkout's gradle.properties -- the same
+    default the Taskfile computes, and what `config:plugin` publishes.
+
+    ⛔ It used to be the environment variable or ''. `_cat` never exported it, so `catalogue:config` on
+    a plugin route asked Gradle for `io.codelaser:maddi-gradleplugin:` -- no version -- and died in
+    four seconds on "Could not find". Reading the file here removes the dependency on who invoked us.
+    """
+    v = os.environ.get('MADDI_PLUGIN_VERSION')
+    if v:
+        return v
+    props = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent) / 'gradle.properties'
+    m = re.search(r'^version=(\S+)', props.read_text(), re.M) if props.is_file() else None
+    if not m:
+        sys.exit(f'no MADDI_PLUGIN_VERSION and no version= in {props}')
+    return m.group(1)
+
+
 def _mvn_exclusions(cfg):
     ex = cfg.get('exclude_modules') or []
     return f" -pl '{','.join(ex)}'" if ex else ''
@@ -489,7 +620,10 @@ def plan(entry, phase):
 
     if phase == 'build':
         b = entry.get('build') or {}
-        return b.get('cmd')
+        if not b.get('cmd'):
+            return None
+        jh = build_java_home(entry)
+        return f'JAVA_HOME={jh} {b["cmd"]}' if jh else b['cmd']
 
     if phase == 'config':
         c = entry.get('config') or {}
@@ -516,7 +650,7 @@ def plan(entry, phase):
         # jdk.compiler); without them those modules are simply absent from the classpath.
         jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
         if route == 'maven-plugin':
-            ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
+            ver = plugin_version()
             # A project's build may force switches on us that this invocation has to repeat: it is a
             # separate `mvn` run from the build phase and inherits nothing from it. jenkins is the case
             # -- its maven.config activates a profile carrying an enforcer rule that the pinned enforcer
@@ -541,7 +675,7 @@ def plan(entry, phase):
             #
             # The plugin is applied by an init script rather than by editing the checkout -- see
             # scripts/maddi-plugin.init.gradle.kts for why that matters to `generates`.
-            ver = os.environ.get('MADDI_PLUGIN_VERSION', '')
+            ver = plugin_version()
             init = HERE / 'maddi-plugin.init.gradle.kts'
             # A Gradle PROJECT PATH (':libs:core'), not a directory: absent or ':' is the root
             # project, which is what a single-project build like fernflower has.
@@ -704,10 +838,11 @@ def check_jdk(entry):
     req = (entry.get('build') or {}).get('jdk')
     if not req:
         return 0
-    home = os.environ.get('BUILD_JAVA_HOME') or os.environ.get('JAVA_HOME')
+    # The home the build phase will actually use (see build_java_home), else the ambient one.
+    home = build_java_home(entry) or os.environ.get('JAVA_HOME')
     if not home:
-        print(f"{entry['name']}: needs JDK {req} but neither BUILD_JAVA_HOME nor JAVA_HOME is set",
-              file=sys.stderr)
+        print(f"{entry['name']}: needs JDK {req} but neither BUILD_JAVA_HOME, this machine's profile "
+              f'(jdks: {req.get("version")}) nor JAVA_HOME names one', file=sys.stderr)
         return 1
     try:
         out = subprocess.run([str(Path(home) / 'bin' / 'java'), '-XshowSettings:properties',
@@ -802,7 +937,12 @@ def baseline_cmd(entry, record, all_=None):
 
     if record:
         p.parent.mkdir(parents=True, exist_ok=True)
+        # WHERE it was measured, so a disagreement between machines has an explanation to start from.
+        r = rev_state(entry, all_)
+        maddi = _git(Path(os.environ.get('MADDI_REPO') or HERE.parent.parent), 'rev-parse', 'HEAD')
         p.write_text('# source set\tprimary types -- `catalogue.py baseline <name> --record`\n'
+                     f"# recorded {datetime.date.today()} on {host_name()}, corpus "
+                     f"{(r['head'] or '?')[:12]}, maddi {(maddi or '?')[:12]}\n"
                      + ''.join(f'{k}\t{v}\n' for k, v in sorted(got.items())))
         total = sum(got.values())
         print(f'recorded {len(got)} source sets, {total} primary types -> {p}', file=sys.stderr)
@@ -826,6 +966,9 @@ def baseline_cmd(entry, record, all_=None):
     for k in changed:
         print(f'~ {k}\t{want[k]} -> {got[k]}', file=sys.stderr)
     if added or removed or changed:
+        recorded = next((l for l in p.read_text().splitlines() if l.startswith('# recorded ')), None)
+        if recorded:
+            print(recorded, file=sys.stderr)
         print(f"{entry['name']}: parse drifted ({len(want)} source sets/{sum(want.values())} types "
               f'-> {len(got)}/{sum(got.values())}). Read the diff, then accept it with RECORD=1.',
               file=sys.stderr)
@@ -876,6 +1019,12 @@ def cmd_show(args):
 def cmd_doctor(args):
     all_ = load_all()
     names = args.names or sorted(all_)
+    profile = machine_profile()
+    if profile:
+        print(f"# {profile['host']} ({profile.get('role', '?')}, {profile['_file']}): "
+              f'an entry this machine holds must be present, at its pin, built and configured')
+    else:
+        print(f'# no machine profile for {host_name()} in $CORPUS_MACHINES: nothing is required here')
     print(f"{'corpus':22} {'status':10} {'present':>8} {'pin':>9} {'built':>7} {'config':>7}  notes")
     print('-' * 96)
     rc = 0
@@ -887,6 +1036,19 @@ def cmd_doctor(args):
             continue
         s = state(e, all_)
         notes = []
+        expected, why_not = expected_here(e, profile)
+        if profile and not expected:
+            print(f"{n:22} {e.get('status', '?'):10} {'':>8} {'':>9} {'':>7} {'':>7}  "
+                  f"not held here{': ' + why_not if why_not else ''}")
+            continue
+        if profile:
+            # What the profile says this machine holds, it must actually hold. Without a profile the
+            # same gaps are notes, as they always were: nothing says they should be filled here.
+            gap = (not s['present'] or (s['buildable'] and not s['built'])
+                   or (not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none')))
+            if gap:
+                notes.append('!! HELD HERE')
+                rc = 1
         r = s['rev']
         if r['at_pin'] is False:
             notes.append(f"!! at {r['head'][:12]}, pinned {r['pinned'][:12]}")
@@ -898,7 +1060,7 @@ def cmd_doctor(args):
         elif s['buildable'] and not s['built']:
             notes.append('build incomplete: build.provides missing')
         elif not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none'):
-            notes.append('no inputConfiguration.json')
+            notes.append(f'no {config_path(e).name}: `catalogue:config NAME={n}`')
         if s['present'] and s['configured']:
             sets = source_sets(e)
             t = sum(1 for _, is_t in sets if is_t)
@@ -909,6 +1071,52 @@ def cmd_doctor(args):
         print(f"{n:22} {e.get('status', '?'):10} {str(s['present']):>8} {_pin_word(r):>9} {str(s['built']):>7} "
               f"{str(s['configured']):>7}  {'; '.join(notes)}")
     return rc
+
+
+def cmd_machine(args):
+    """Show and check this host's profile; --init drafts one from what is installed here."""
+    if args.init:
+        jdks = discover_jdks()
+        osname = {'Darwin': 'macos', 'Linux': 'linux'}.get(os.uname().sysname, os.uname().sysname)
+        print(f'# Draft profile for {host_name()} -- review, then save as <private catalogue>/../machines/'
+              f'{host_name()}.yml')
+        print(f'host: {host_name()}\nos: {osname}\nrole: devel\ntest_oss_root: {oss_root()}')
+        print('jdks:' + ('' if jdks else ' []'))
+        for v, home in jdks.items():
+            print(f'  - {{version: {v}, home: {home}}}')
+        print('holds: active\nskip: {}')
+        return 0
+    prof = machine_profile()
+    if not prof:
+        print(f'no profile for {host_name()} in $CORPUS_MACHINES '
+              f"({os.environ.get('CORPUS_MACHINES') or 'unset'}); `machine --init` drafts one",
+              file=sys.stderr)
+        return 1
+    rc = 0
+    print(f"{prof['host']}: {prof.get('role', '?')} on {prof.get('os', '?')} -- {prof['_file']}")
+    want_os = {'Darwin': 'macos', 'Linux': 'linux'}.get(os.uname().sysname)
+    if prof.get('os') and prof['os'] != want_os:
+        print(f"  !! profile says os {prof['os']}, this is {want_os}")
+        rc = 1
+    if prof.get('test_oss_root'):
+        declared, effective = _path(prof['test_oss_root']).resolve(), oss_root().resolve()
+        ok = declared == effective
+        print(f"  test_oss_root {declared}{'' if ok else f'  !! but TEST_OSS_ROOT resolves to {effective}'}")
+        rc |= not ok
+    for v, home in prof['jdks'].items():
+        got = _java_version(home)
+        ok = got == v
+        bad = f"  !! reports {got or 'nothing (no bin/java?)'}"
+        print(f"  jdk {v:>3}  {home}{'' if ok else bad}")
+        rc |= not ok
+    all_ = load_all()
+    for n in [*(prof.get('skip') or {}), *([] if prof.get('holds', 'active') == 'active' else prof['holds'])]:
+        if n not in all_:
+            print(f'  !! names {n!r}, which no catalogue entry defines')
+            rc = 1
+    held = [n for n, e in sorted(all_.items()) if expected_here(e, prof)[0]]
+    print(f'  holds {len(held)} of {len(all_)} entries: {" ".join(held)}')
+    return int(bool(rc))
 
 
 def cmd_dir(args):
@@ -962,6 +1170,8 @@ def main():
     p = sub.add_parser('doctor'); p.add_argument('names', nargs='*'); p.set_defaults(f=cmd_doctor)
     p = sub.add_parser('plan'); p.add_argument('phase', choices=PHASES); p.add_argument('name')
     p.set_defaults(f=cmd_plan)
+    p = sub.add_parser('machine'); p.add_argument('--init', action='store_true')
+    p.set_defaults(f=cmd_machine)
     p = sub.add_parser('obtain'); p.add_argument('name')
     p.set_defaults(f=lambda a: obtain(load_one(a.name)))
     p = sub.add_parser('pin'); p.add_argument('name'); p.add_argument('--rev')
