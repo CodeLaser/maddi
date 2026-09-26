@@ -108,6 +108,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
     private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
+    // the files this task was GIVEN to compile, as opposed to those javac parsed on demand from the source path;
+    // null until ScanCompilationUnits.scan() knows them. See isSourceSymbol.
+    private Set<URI> compilationUnitUris;
     // source-file URI -> its CompilationUnit, built up front by ScanCompilationUnits before any body is scanned;
     // lets a source type referenced before its own scan load onto its real (source-bearing) CU (see
     // lazilyLoadPrimaryTypeFromClassFile) instead of a source-less twin
@@ -728,12 +731,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      * <p>
      * Asked of the PRIMARY type, like the map lookup below it: a member's own {@code sourcefile}/{@code classfile}
      * are the enclosing top-level type's.
+     * <p>
+     * ⚠ <b>BUT NOT EVERY SOURCE-ENTERED SYMBOL IS SCANNED.</b> Under a package restriction
+     * ({@code SourceSet.restrictToPackages}) only the accepted files are compilation units; the rest of the source
+     * directory is on javac's source path and parsed ON DEMAND. Such a symbol comes from a {@code .java} too, yet
+     * no {@code ScanCompilationUnit} ever visits it -- so nothing else would give it its hierarchy, and an
+     * annotation type committed without {@code java.lang.annotation.Annotation} (elasticsearch's
+     * {@code injection.guice.Inject}, TestElasticsearchServer). Once the task's own files are known, javac's answer
+     * counts only for them.
      */
     private boolean isSourceSymbol(Symbol symbol) {
         Symbol.ClassSymbol enclosing = symbol.enclClass();
         if (enclosing == null) return false;
         Symbol.ClassSymbol top = primary(enclosing);
-        if (!fromClassFile(top) && top.sourcefile != null) return true;
+        if (!fromClassFile(top) && top.sourcefile != null
+            && (compilationUnitUris == null || compilationUnitUris.contains(top.sourcefile.toUri()))) {
+            return true;
+        }
         return topLevelClassSymbolsOfSources != null && topLevelClassSymbolsOfSources.containsKey(top);
     }
 
@@ -1461,6 +1475,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
         this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+    }
+
+    /** The files this task compiles, known right after {@code task.parse()}; see {@link #isSourceSymbol}. */
+    public void setCompilationUnitUris(Set<URI> compilationUnitUris) {
+        this.compilationUnitUris = compilationUnitUris;
     }
 
     /**
