@@ -173,6 +173,9 @@ immutability verdicts are derived.
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
 - `unmodifiedField` is content-only by design; do not "fix" it to include assignment.
+- Assigning a field of an EXPRESSION's result (`requireNonNull(tail).next = node`, `self().next = x`) modifies that
+  result, and through its links what it stands for, exactly as a modifying call on it would; the scope-chain rule
+  only saw scope VARIABLES (since 2026-09).
 - `RedundantLinks` drops a link as transitively redundant only through earlier links of its OWN nature group
   (`←`, `→`, `∈`, `∋`, `⊆/⊇/~`, `∩/≤/≥`, `≺/≻/≈`). Through the union of all groups, a `≈` path dropped the
   assignment `this.t ← 1:t`, the field's only link to its parameter (since 2026-09).
