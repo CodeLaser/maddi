@@ -70,7 +70,7 @@ public final class TestOssCorpus {
     /** The input configuration of {@code project}; skips the test when absent, or fails under {@link #REQUIRED_PROPERTY}. */
     public static Path requireConfig(String project) {
         return require(project, config(project), "input configuration",
-                "generate it with `task corpus:config:" + project + "` at the repo root");
+                "generate it with `task corpus:catalogue:config NAME=" + project + "` at the repo root");
     }
 
     private static final Pattern JAR_URI = Pattern.compile("\"uri\"\\s*:\\s*\"(file:[^\"]+?\\.jar)\"");

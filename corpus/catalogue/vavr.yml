@@ -10,6 +10,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/vavr-io/vavr.git
+  rev: ee2a57b3bdbe17de3e95f4b97b7800c8d06ea325
   # v1.0.1 (released 2026-03-01), the first 1.0 after nine years of 0.10.x. A `--depth 1 --branch
   # v1.0.1` clone builds fine: unlike langchain4j, nothing in this build reads history.
 
@@ -45,6 +46,12 @@ config:
   route: maven-plugin
   module: vavr
   generates: [inputConfiguration.json, inputConfiguration.main.json]
+  # What must follow the route, in order -- the Taskfile's config:vavr, as data. Derive the main-only
+  # configuration (see the ⛔ below and the script), then REBUILD: the route's own generate-sources has
+  # just deleted vavr/target, and the parse needs target/generated-sources/annotations back.
+  then:
+    - python3 {scripts}/vavr-main-config.py .
+    - mvn clean install -DskipTests
 
   # ⛔ THE ROUTE'S OWN PHASE DESTROYS A SOURCE ROOT IT IS SUPPOSED TO RECORD, AND THE LOSS IS
   # SILENT. Because generate-sources wipes target/ (see `build` above), the mojo runs in a tree

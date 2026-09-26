@@ -60,7 +60,7 @@ public class TestCorpusRequirement {
                     "under -D" + TestOssCorpus.REQUIRED_PROPERTY + " an absent corpus is a failure, not a skip");
             assertTrue(failed.getMessage().contains(ABSENT), failed.getMessage());
             // the remedy must travel with the failure: whoever sees this in CI is not the person who set it up
-            assertTrue(failed.getMessage().contains("corpus:config:"), failed.getMessage());
+            assertTrue(failed.getMessage().contains("corpus:catalogue:config"), failed.getMessage());
         } finally {
             restore(previous);
         }

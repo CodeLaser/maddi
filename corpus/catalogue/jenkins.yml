@@ -13,7 +13,21 @@ build:
   # carrying an enforcer rule the pinned enforcer cannot load; the build phase and the config phase
   # are separate `mvn` invocations and neither inherits the other's switches.
   cmd: mvn install -DskipTests -Dlicense.disableCheck -Denforcer.skip=true
-  expect: complete
+  # ⚠ Partial, and deliberately tolerated: jenkins-core packages, then maven-hpi-plugin's
+  # record-core-location fails ("No implementation for PluginWorkspaceMap was bound"), so war /
+  # core-tests / coverage never run. Maven installs per module, so parent, bom,
+  # websocket-{spi,jetty12-ee9} and cli are all in ~/.m2 by then -- everything `mvn -pl core` needs.
+  # Revisit if a corpus test ever wants the war.
+  #
+  # Why -Denforcer.skip and not -P'!might-produce-incrementals', which also gets past the enforcer: that
+  # profile also runs `flatten`, which resolves ${changelist} into concrete versions in the INSTALLED
+  # POMs. Without it ~/.m2 gets broken sibling versions. Skipping enforcement changes no build output;
+  # deactivating the profile does. (The rule that fails: requireExtensionVersion from
+  # incrementals-enforcer-rules 1.13, a pre-3.x class the pinned maven-enforcer-plugin 3.6.3 cannot
+  # load. It dies in `validate` on jenkins-parent, before anything compiles.)
+  expect: partial
+  known_failures: >-
+    maven-hpi-plugin:record-core-location after jenkins-core; war, core-tests and coverage are not built.
   provides:
     - core/target/classes
 

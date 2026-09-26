@@ -30,9 +30,10 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
   and built next to this repo. Without it they *skip silently* (JUnit assumptions): a green
   `slowTest` does not mean the proving ground ran. Setup lives in **`corpus/`** in this repo:
   run `task corpus:install:wired` (from the repo root; needs [go-task](https://taskfile.dev))
-  to clone + build the projects the tests consume, plus `corpus:config:*` tasks to generate
-  each project's `inputConfiguration.json` — see `corpus/Taskfile.yml` for the full menu,
-  including `corpus:test:slow` and `corpus:sweep`.
+  to obtain every corpus at its pinned commit, build it and generate its `inputConfiguration.json`,
+  and `task corpus:verify` to see what is present. Each corpus is one file in `corpus/catalogue/`;
+  `task corpus:catalogue:config NAME=<corpus>` regenerates one. See `corpus/Taskfile.yml` for the
+  full menu, including `corpus:test:slow` and `corpus:sweep`.
   Discovery: `TestOssCorpus` (in `maddi-run-openjdk`'s tests)
   defaults to `../../test-oss`, i.e. a sibling of the maddi checkout; override with
   `-Dtest.oss.root=/path/to/test-oss`. `TestCorpusSweep` sweeps whatever projects are present.

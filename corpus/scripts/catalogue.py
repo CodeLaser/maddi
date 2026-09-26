@@ -39,7 +39,8 @@ PINNING
     off-pin checkout; `doctor` reports it. An entry without `source` that shares a checkout
     (fernflower-plugin) is pinned by the entry that owns that checkout.
 
-    catalogue.py list   [--status active]     one line per entry
+    catalogue.py list   [--status active] [--held] [--names]
+                                              one line per entry; --held: what this machine holds
     catalogue.py show   <name>                the resolved entry, and which file each field came from
     catalogue.py doctor [<name>...]           obtained? at its pin? built? configured? per corpus --
                                               and, with a machine profile, is what it holds complete
@@ -643,6 +644,124 @@ _REWRITE_REACTOR_JARS = (
     'test "$after" -eq 0 && ')
 
 
+def _route_cmd(entry, c, route):
+    """The config phase's command for `route`, before any `config.then`."""
+    name = entry['name']
+    d = project_dir(entry)
+    maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
+    # A corpus project's config sits beside its sources, where TestOssCorpus.config() looks.
+    # A private project's belongs in the refactor server's work dir, which is what
+    # ProjectServiceImpl.load reads -- so `config.output` overrides.
+    # ⛔ config_path(), NOT a second copy of its rule. This line WAS that second copy, and it
+    # diverged the moment `output` learned to be relative: it produced `mkdir -p .` and handed the
+    # build tool a relative -D property, so the file landed wherever the tool's cwd happened to be
+    # while every other reader looked for it beside the sources. One rule, one function.
+    out = config_path(entry)
+    # Nothing else creates the output's directory. maddi's Main opens the file and dies with a
+    # bare `FileNotFoundException: ... (No such file or directory)` -- after the full -X rebuild,
+    # so the whole cost of the phase is paid before the failure. It never bit while every config
+    # sat beside its sources (that directory necessarily exists); the first PRIVATE entry writes
+    # into the refactor server's work/<name>/, which the SERVER creates when it registers a
+    # project and nobody creates when the corpus driver gets there first.
+    mk = f'mkdir -p {out.parent} && '
+    # project.yml records extra_jmods per project (closed-core needs jdk.javadoc +
+    # jdk.compiler); without them those modules are simply absent from the classpath.
+    jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
+    if route == 'maven-plugin':
+        ver = plugin_version()
+        # A project's build may force switches on us that this invocation has to repeat: it is a
+        # separate `mvn` run from the build phase and inherits nothing from it. jenkins is the case
+        # -- its maven.config activates a profile carrying an enforcer rule that the pinned enforcer
+        # cannot load, so without -Denforcer.skip=true the run dies before the mojo is reached. The
+        # Gradle counterpart of this field is `gradle_args`.
+        flags = f' {c["mvn_flags"]}' if c.get('mvn_flags') else ''
+        return mk + (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
+                f'mvn{flags} -pl {c["module"]} generate-test-sources '
+                f'io.codelaser:maddi-mvnplugin:{ver}:write-input-configuration'
+                f' && cp {c["module"]}/target/inputConfiguration.json {out}')
+    if route == 'gradle-plugin':
+        # The Gradle counterpart of `maven-plugin`, and the ONLY route that exercises
+        # maddi-gradleplugin against a real project -- everything else about that plugin is
+        # tested by `dogfood`, which is maddi's own code.
+        #
+        # ⚠ WHAT THIS ROUTE IS FOR. Run it on a project that also has a `gradle-log` entry and
+        # diff the two configurations: that is the A/B which found the plugin's source-set `uri`
+        # defect (2026-08-19, fernflower -- one dropped compilation unit that --compile-log did
+        # not lose). The plugins are invoked per module and see siblings as jars, while the log
+        # route sees a whole reactor at once, so the two are expected to differ in SHAPE; what
+        # the A/B checks is that they agree on what PARSES.
+        #
+        # The plugin is applied by an init script rather than by editing the checkout -- see
+        # scripts/maddi-plugin.init.gradle.kts for why that matters to `generates`.
+        ver = plugin_version()
+        init = HERE / 'maddi-plugin.init.gradle.kts'
+        # A Gradle PROJECT PATH (':libs:core'), not a directory: absent or ':' is the root
+        # project, which is what a single-project build like fernflower has.
+        module = (c.get('module') or '').strip().strip(':')
+        prefix = f':{module}' if module else ''
+        # Every other route states extra_jmods as ADDITIONS to the java.se closure
+        # (`--extra-jmod` adds to it). The plugin takes one list instead, so the default has to
+        # be named alongside them or asking for an extra would silently drop the rest.
+        extra = c.get('extra_jmods') or []
+        jmods_prop = f' -Dmaddi.jmods=java.se,{",".join(extra)}' if extra else ''
+        # ⚠ A CORPUS'S BUILD MAY REFUSE TO CONFIGURE WITHOUT ITS OWN FLAGS, and this route builds
+        # the task name itself, so there is nowhere for them to ride along -- `gradle-log` smuggles
+        # them through `tasks`, which is a string it interpolates whole. pulsar is the case:
+        # `-PskipJavaVersionCheck` or its settings script rejects JDK 26 before any task exists.
+        args = f' {c["gradle_args"]}' if c.get('gradle_args') else ''
+        # Which projects the init script applies the plugin to -- `all` (its default, the dogfood
+        # pattern: siblings publish SOURCES and are co-parsed) or one project path (siblings arrive
+        # as ordinary class-path artifacts). Two different tests; see the init script's comment.
+        apply_to = f' -Dmaddi.applyTo={c["apply_to"]}' if c.get('apply_to') else ''
+        # --refresh-dependencies: the plugin's version does not change from one publication to
+        # the next, so Gradle otherwise serves the cached jar and this silently runs the
+        # PREVIOUS plugin (the same trap dogfood's GradleBuild task documents).
+        return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
+                f'--init-script {init}{args} '
+                f'-Dmaddi.pluginVersion={ver}{jmods_prop}{apply_to} -Dmaddi.outputFile={out} '
+                f'{prefix}:maddi-write-input-configuration')
+    if route == 'maven-log':
+        jh = f'JAVA_HOME={c["build_java_home"]} ' if c.get('build_java_home') else ''
+        # `clean` is mandatory: maven-compiler-plugin skips an up-to-date module and a skipped
+        # module emits no "Command line options:" line at all, so capturing over an already
+        # built reactor yields a SILENTLY PARTIAL config -- measured on timefold, 22 source
+        # sets instead of 65, missing core/main. Nothing downstream reveals the loss.
+        # `cmd` verbatim when the project supplies one -- private projects carry their own in
+        # project.yml, and it is not always `clean`: callforpapers uses
+        # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
+        # same guarantee by a different means. Composing a command over that would break it.
+        build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
+        # Extra maddi options for this configuration -- ignite-core's `--jre <JDK 17>`, because
+        # nothing in a javac line says which JDK compiled it (see the Taskfile's config:ignite-core).
+        margs = f' {c["maddi_args"]}' if c.get('maddi_args') else ''
+        return mk + (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
+                f'{build} > compile.log 2>&1; '
+                # Filter BEFORE maddi reads it: ParseJavacList does readString on the whole
+                # file, and a >2GB log dies on the JVM's max array size, which no -Xmx fixes.
+                # Equivalent input, not a shortcut -- these are exactly the lines it keeps.
+                f"grep -aE '^\\[DEBUG] -d ' compile.log > compile.javac.log && "
+                + (_REWRITE_REACTOR_JARS if c.get('rewrite_reactor_jars') else '')
+                + f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
+                f'--args="--compile-log {d}/compile.javac.log{jmods}{margs} '
+                f'--write-input-configuration {out}"')
+    if route in ('gradle-log', 'gradle-log-kotlin'):
+        target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
+        # The kotlinc marker is ParseKotlincList.GRADLE_PATTERN's -- test_catalogue.py holds the
+        # two together. This line once read `[KOTLIN] compiler arguments:`, which occurs 0 times in
+        # detekt's real --debug log against 32 of the right one: a javac-only config, silently.
+        grep = ("grep -aE 'Compiler arguments:|Kotlin compiler args:'"
+                if route.endswith('kotlin') else "grep -a 'Compiler arguments:'")
+        extra = ' --no-configuration-cache -Dorg.gradle.warning.mode=summary' if route.endswith('kotlin') else ''
+        return mk + (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
+                f'{grep} > compile.log; '
+                f'{maddi}/gradlew -p {maddi} :{target}:run '
+                f'--args="--compile-log {d}/compile.log{jmods} '
+                f'--write-input-configuration {out}"')
+    if route == 'script':
+        return f'python3 {HERE / Path(c["script"]).name}'
+    sys.exit(f'{name}: unknown config.route {route!r}')
+
+
 def plan(entry, phase):
     """-> the shell command for one phase, or None when the entry does not define it."""
     name = entry['name']
@@ -660,118 +779,12 @@ def plan(entry, phase):
         route = c.get('route')
         if not route or route == 'none':
             return None
-        maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-        # A corpus project's config sits beside its sources, where TestOssCorpus.config() looks.
-        # A private project's belongs in the refactor server's work dir, which is what
-        # ProjectServiceImpl.load reads -- so `config.output` overrides.
-        # ⛔ config_path(), NOT a second copy of its rule. This line WAS that second copy, and it
-        # diverged the moment `output` learned to be relative: it produced `mkdir -p .` and handed the
-        # build tool a relative -D property, so the file landed wherever the tool's cwd happened to be
-        # while every other reader looked for it beside the sources. One rule, one function.
-        out = config_path(entry)
-        # Nothing else creates the output's directory. maddi's Main opens the file and dies with a
-        # bare `FileNotFoundException: ... (No such file or directory)` -- after the full -X rebuild,
-        # so the whole cost of the phase is paid before the failure. It never bit while every config
-        # sat beside its sources (that directory necessarily exists); the first PRIVATE entry writes
-        # into the refactor server's work/<name>/, which the SERVER creates when it registers a
-        # project and nobody creates when the corpus driver gets there first.
-        mk = f'mkdir -p {out.parent} && '
-        # project.yml records extra_jmods per project (closed-core needs jdk.javadoc +
-        # jdk.compiler); without them those modules are simply absent from the classpath.
-        jmods = ''.join(f' --extra-jmod {j}' for j in (c.get('extra_jmods') or []))
-        if route == 'maven-plugin':
-            ver = plugin_version()
-            # A project's build may force switches on us that this invocation has to repeat: it is a
-            # separate `mvn` run from the build phase and inherits nothing from it. jenkins is the case
-            # -- its maven.config activates a profile carrying an enforcer rule that the pinned enforcer
-            # cannot load, so without -Denforcer.skip=true the run dies before the mojo is reached. The
-            # Gradle counterpart of this field is `gradle_args`.
-            flags = f' {c["mvn_flags"]}' if c.get('mvn_flags') else ''
-            return mk + (f'MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
-                    f'mvn{flags} -pl {c["module"]} generate-test-sources '
-                    f'io.codelaser:maddi-mvnplugin:{ver}:write-input-configuration'
-                    f' && cp {c["module"]}/target/inputConfiguration.json {out}')
-        if route == 'gradle-plugin':
-            # The Gradle counterpart of `maven-plugin`, and the ONLY route that exercises
-            # maddi-gradleplugin against a real project -- everything else about that plugin is
-            # tested by `dogfood`, which is maddi's own code.
-            #
-            # ⚠ WHAT THIS ROUTE IS FOR. Run it on a project that also has a `gradle-log` entry and
-            # diff the two configurations: that is the A/B which found the plugin's source-set `uri`
-            # defect (2026-08-19, fernflower -- one dropped compilation unit that --compile-log did
-            # not lose). The plugins are invoked per module and see siblings as jars, while the log
-            # route sees a whole reactor at once, so the two are expected to differ in SHAPE; what
-            # the A/B checks is that they agree on what PARSES.
-            #
-            # The plugin is applied by an init script rather than by editing the checkout -- see
-            # scripts/maddi-plugin.init.gradle.kts for why that matters to `generates`.
-            ver = plugin_version()
-            init = HERE / 'maddi-plugin.init.gradle.kts'
-            # A Gradle PROJECT PATH (':libs:core'), not a directory: absent or ':' is the root
-            # project, which is what a single-project build like fernflower has.
-            module = (c.get('module') or '').strip().strip(':')
-            prefix = f':{module}' if module else ''
-            # Every other route states extra_jmods as ADDITIONS to the java.se closure
-            # (`--extra-jmod` adds to it). The plugin takes one list instead, so the default has to
-            # be named alongside them or asking for an extra would silently drop the rest.
-            extra = c.get('extra_jmods') or []
-            jmods_prop = f' -Dmaddi.jmods=java.se,{",".join(extra)}' if extra else ''
-            # ⚠ A CORPUS'S BUILD MAY REFUSE TO CONFIGURE WITHOUT ITS OWN FLAGS, and this route builds
-            # the task name itself, so there is nowhere for them to ride along -- `gradle-log` smuggles
-            # them through `tasks`, which is a string it interpolates whole. pulsar is the case:
-            # `-PskipJavaVersionCheck` or its settings script rejects JDK 26 before any task exists.
-            args = f' {c["gradle_args"]}' if c.get('gradle_args') else ''
-            # Which projects the init script applies the plugin to -- `all` (its default, the dogfood
-            # pattern: siblings publish SOURCES and are co-parsed) or one project path (siblings arrive
-            # as ordinary class-path artifacts). Two different tests; see the init script's comment.
-            apply_to = f' -Dmaddi.applyTo={c["apply_to"]}' if c.get('apply_to') else ''
-            # --refresh-dependencies: the plugin's version does not change from one publication to
-            # the next, so Gradle otherwise serves the cached jar and this silently runs the
-            # PREVIOUS plugin (the same trap dogfood's GradleBuild task documents).
-            return mk + (f'./gradlew --no-build-cache --refresh-dependencies '
-                    f'--init-script {init}{args} '
-                    f'-Dmaddi.pluginVersion={ver}{jmods_prop}{apply_to} -Dmaddi.outputFile={out} '
-                    f'{prefix}:maddi-write-input-configuration')
-        if route == 'maven-log':
-            jh = f'JAVA_HOME={c["build_java_home"]} ' if c.get('build_java_home') else ''
-            # `clean` is mandatory: maven-compiler-plugin skips an up-to-date module and a skipped
-            # module emits no "Command line options:" line at all, so capturing over an already
-            # built reactor yields a SILENTLY PARTIAL config -- measured on timefold, 22 source
-            # sets instead of 65, missing core/main. Nothing downstream reveals the loss.
-            # `cmd` verbatim when the project supplies one -- private projects carry their own in
-            # project.yml, and it is not always `clean`: callforpapers uses
-            # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
-            # same guarantee by a different means. Composing a command over that would break it.
-            build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
-            # Extra maddi options for this configuration -- ignite-core's `--jre <JDK 17>`, because
-            # nothing in a javac line says which JDK compiled it (see the Taskfile's config:ignite-core).
-            margs = f' {c["maddi_args"]}' if c.get('maddi_args') else ''
-            return mk + (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
-                    f'{build} > compile.log 2>&1; '
-                    # Filter BEFORE maddi reads it: ParseJavacList does readString on the whole
-                    # file, and a >2GB log dies on the JVM's max array size, which no -Xmx fixes.
-                    # Equivalent input, not a shortcut -- these are exactly the lines it keeps.
-                    f"grep -aE '^\\[DEBUG] -d ' compile.log > compile.javac.log && "
-                    + (_REWRITE_REACTOR_JARS if c.get('rewrite_reactor_jars') else '')
-                    + f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
-                    f'--args="--compile-log {d}/compile.javac.log{jmods}{margs} '
-                    f'--write-input-configuration {out}"')
-        if route in ('gradle-log', 'gradle-log-kotlin'):
-            target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
-            # The kotlinc marker is ParseKotlincList.GRADLE_PATTERN's -- test_catalogue.py holds the
-            # two together. This line once read `[KOTLIN] compiler arguments:`, which occurs 0 times in
-            # detekt's real --debug log against 32 of the right one: a javac-only config, silently.
-            grep = ("grep -aE 'Compiler arguments:|Kotlin compiler args:'"
-                    if route.endswith('kotlin') else "grep -a 'Compiler arguments:'")
-            extra = ' --no-configuration-cache -Dorg.gradle.warning.mode=summary' if route.endswith('kotlin') else ''
-            return mk + (f'./gradlew --no-build-cache --rerun-tasks {c["tasks"]}{extra} --debug 2>&1 | '
-                    f'{grep} > compile.log; '
-                    f'{maddi}/gradlew -p {maddi} :{target}:run '
-                    f'--args="--compile-log {d}/compile.log{jmods} '
-                    f'--write-input-configuration {out}"')
-        if route == 'script':
-            return f'python3 {HERE / Path(c["script"]).name}'
-        sys.exit(f'{name}: unknown config.route {route!r}')
+        cmd = _route_cmd(entry, c, route)
+        # `config.then`: commands that must follow the route, in the project dir, each only if the one
+        # before succeeded. `{scripts}` is this directory. vavr is the case: derive the main-only
+        # configuration, then REBUILD, because the route's own generate-sources wiped target/.
+        then = [t.format(scripts=HERE) for t in (c.get('then') or [])]
+        return ' && '.join([f'( {cmd} )', *then]) if then else cmd
 
     if phase == 'parse':
         if (entry.get('parse') or {}).get('runner') == 'kotlin':
@@ -1030,8 +1043,16 @@ def _pin_word(r):
 
 def cmd_list(args):
     all_ = load_all()
+    profile = machine_profile() if args.held else None
     for name, e in sorted(all_.items()):
         if args.status and e.get('status') != args.status:
+            continue
+        if args.held and not expected_here(e, profile)[0]:
+            continue
+        if args.names:
+            # For the Taskfiles' `for:` loops: the per-project tasks are gone, and what replaces a
+            # hand-kept list of names is this one, which the catalogue and the machine's profile agree on.
+            print(name)
             continue
         s = state(e, all_)
         flags = ''.join(c if v else '-' for c, v in
@@ -1233,7 +1254,10 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
 
-    p = sub.add_parser('list'); p.add_argument('--status'); p.set_defaults(f=cmd_list)
+    p = sub.add_parser('list'); p.add_argument('--status')
+    p.add_argument('--held', action='store_true', help="only what this machine's profile holds")
+    p.add_argument('--names', action='store_true', help='names only, one per line')
+    p.set_defaults(f=cmd_list)
     p = sub.add_parser('show'); p.add_argument('name'); p.set_defaults(f=cmd_show)
     p = sub.add_parser('doctor'); p.add_argument('names', nargs='*'); p.set_defaults(f=cmd_doctor)
     p = sub.add_parser('plan'); p.add_argument('phase', choices=PHASES); p.add_argument('name')

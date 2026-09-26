@@ -394,6 +394,13 @@ class TestPhases(CatalogueTest):
         self.assertIn("slowTest --tests '*TestB'", catalogue.plan(catalogue.load_one('b'), 'analyse'))
         self.assertIsNone(catalogue.plan(catalogue.load_one('c'), 'analyse'))
 
+    def test_config_then_follows_the_route_in_order(self):
+        self.entry(self.public, 'v', 'config:\n  route: maven-plugin\n  module: v\n  then:\n'
+                                     '    - python3 {scripts}/derive.py .\n    - mvn install\n')
+        cmd = catalogue.plan(catalogue.load_one('v'), 'config')
+        self.assertTrue(cmd.startswith('( mkdir -p '), cmd)
+        self.assertTrue(cmd.endswith(f') && python3 {catalogue.HERE}/derive.py . && mvn install'), cmd)
+
     def test_reactor_jars_are_rewritten_to_output_dirs_and_m2_is_left_alone(self):
         d = self.oss / 'guava'
         d.mkdir()

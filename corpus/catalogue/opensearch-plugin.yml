@@ -21,6 +21,7 @@ summary: >-
 source:
   kind: git
   url: https://github.com/opensearch-project/OpenSearch.git
+  rev: 76669318d09a65603091156cba3602ef9f05ff36
 
 dir: OpenSearch
 

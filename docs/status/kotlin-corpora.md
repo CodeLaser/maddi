@@ -32,7 +32,7 @@ Neither documented route reaches a multiplatform project:
 - **`--compile-log`** needs the build to run, and coil applies the Android Gradle plugin, so its build
   cannot even configure without an Android SDK.
 
-`corpus/scripts/coil-input-configuration.py` (`task corpus:config:coil`) therefore assembles the
+`corpus/scripts/coil-input-configuration.py` (`task corpus:catalogue:config NAME=coil`) therefore assembles the
 configuration directly, resolving the slice's compile classpath from Maven Central so nothing has to build
 coil at all.
 
