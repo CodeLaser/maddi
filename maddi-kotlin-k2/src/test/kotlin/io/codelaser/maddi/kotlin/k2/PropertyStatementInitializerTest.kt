@@ -65,7 +65,7 @@ class PropertyStatementInitializerTest : KotlinScanTestBase() {
                     .joinToString(" ") { "${it.name()}: ${it.methodBody().statements().joinToString(" ")}" }
         }
         assertEquals("""
-            regex=<empty> template=<empty> matches=<empty> parsed=<empty> plain=3 late=<empty> | <init>: this.regex=regex; this.template=template; if(regex){String prefix=template+"!";Function1<String,Boolean> matcher=text->text.equals(prefix);this.matches=matcher;}else{this.matches=(it->it.equals(template));} try{this.parsed=StringsKt__StringNumberConversionsJVMKt.toInt(template);}catch(NumberFormatException _){this.parsed=0;} {PreconditionsKt__PreconditionsKt.check(this.plain>0);} if(regex){int x=this.plain;this.late=x*2;}else{this.late=this.plain;}
+            regex=<empty> template=<empty> matches=<empty> parsed=<empty> plain=3 late=<empty> | <init>: this.regex=regex; this.template=template; if(regex){String prefix=template+"!";Function1<String,Boolean> matcher=text->text.equals(prefix);this.matches=matcher;}else{this.matches=(it->it.equals(template));} try{this.parsed=StringsKt__StringNumberConversionsJVMKt.toInt(template);}catch(NumberFormatException _){this.parsed=0;} {if(!(this.plain>0)){throw new IllegalStateException("Check failed.");}} if(regex){int x=this.plain;this.late=x*2;}else{this.late=this.plain;}
             top=<empty> | <static_0>: if(System.nanoTime()>0L){int a=1;PsKt.top=a+1;}else{PsKt.top=0;}
             """.trimIndent(), shape("K") + "\n" + shape("PsKt"))
     }

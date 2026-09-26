@@ -51,7 +51,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * calls that hurt: 604 of the 1,739 uncontracted calls with a mutable argument, over detekt/coil/javalin, are in
  * {@code CollectionsKt___CollectionsKt} alone.
  *
- * <p>MEASURED before the contracts: 20 of these 22 read rows said modified. After: 20 unmodified, as Java.
+ * <p>MEASURED before the contracts: 20 of these 22 read rows said modified. After: 20 unmodified, as Java; the
+ * last two, @InlineOnly, once the front end lowered them.
  *
  * <p>Guarded as TestKotlinPredicatesVsJava is: a zero-placeholder census, and a control that does modify.
  */
@@ -137,13 +138,12 @@ public class TestKotlinCollectionReadsVsJava {
                 .map(fqn -> fqn + " " + unmodified(type(primaryTypes, fqn)))
                 .collect(Collectors.joining("\n"));
         LOGGER.info("field verdicts:\n{}", verdicts);
-        // ⚠ KNOWN WRONG, two rows: isNotEmpty and orEmpty are @InlineOnly -- kotlinc inlines them and emits no method,
-        // so there is nothing for a contract to name. They wait for the front end to lower them to their bodies, and
-        // flip to true when it does.
+        // isNotEmpty and orEmpty are @InlineOnly: no method for a contract to name. They were the two rows left wrong by
+        // the contracts, and the front end's lowering to the call kotlinc inlines (TestInlineOnlyLowering) fixed them.
         assertEquals("""
                 b.J true
                 a.JoinToString true
-                a.IsNotEmpty false
+                a.IsNotEmpty true
                 a.SingleOrNull true
                 a.FirstOrNull true
                 a.First true
@@ -156,7 +156,7 @@ public class TestKotlinCollectionReadsVsJava {
                 a.Count true
                 a.CountPredicate true
                 a.FlatMap true
-                a.OrEmpty false
+                a.OrEmpty true
                 a.Plus true
                 a.Distinct true
                 a.SortedBy true

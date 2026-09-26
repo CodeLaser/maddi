@@ -168,16 +168,30 @@ class FacadeAndExtensionTest : KotlinScanTestBase() {
     @Test
     fun libraryTopLevelCall() {
         val scan = KotlinScan(runtime, sourceSet)
-        // a call to a stdlib top-level function (`kotlin.io.println`) resolves to its JVM file facade
-        // `kotlin.io.ConsoleKt`, so it becomes a real MethodCall and its argument (its read) is tracked --
-        // rather than collapsing to an unresolved placeholder (which drops the argument).
-        val x = scan.parse("X.kt", "package a.b\nclass X {\n  fun m(c: Char) {\n    println(c)\n  }\n}\n").first()
+        // a call to a stdlib top-level function resolves to its JVM file facade, so it becomes a real MethodCall and its
+        // argument (its read) is tracked -- rather than collapsing to an unresolved placeholder (which drops the argument).
+        // `kotlin.text.trimIndent` lives in `StringsKt__IndentKt`. (`println` was the example here until the front end
+        // started lowering @InlineOnly members: kotlinc inlines it to `System.out.println(c)`, asserted below.)
+        val x = scan.parse("X.kt", "package a.b\nclass X {\n  fun m(c: String): String {\n    return c.trimIndent()\n  }\n}\n").first()
+        val ret = x.findUniqueMethod("m", 1).methodBody().statements().first() as ReturnStatement
+        val call = ret.expression() as MethodCall
+        assertEquals("kotlin.text.StringsKt__IndentKt", call.methodInfo().typeInfo().fullyQualifiedName())
+        assertEquals("trimIndent", call.methodInfo().name())
+        assertTrue(call.methodInfo().isStatic)
+        // the receiver `c` survives as the first argument, so the analyzer sees the read
+        val arg = call.parameterExpressions().single() as VariableExpression
+        assertEquals("c", arg.variable().simpleName())
+    }
+
+    @Test
+    fun inlineOnlyPrintlnIsSystemOut() {
+        // `kotlin.io.println(Any?)` is @InlineOnly: it has no class-file method, kotlinc inlines `System.out.println(c)`
+        val x = KotlinScan(runtime, sourceSet)
+            .parse("X.kt", "package a.b\nclass X {\n  fun m(c: Char) {\n    println(c)\n  }\n}\n").first()
         val body = x.findUniqueMethod("m", 1).methodBody().statements().first() as ExpressionAsStatement
         val call = body.expression() as MethodCall
-        assertEquals("kotlin.io.ConsoleKt", call.methodInfo().typeInfo().fullyQualifiedName())
+        assertEquals("java.io.PrintStream", call.methodInfo().typeInfo().fullyQualifiedName())
         assertEquals("println", call.methodInfo().name())
-        assertTrue(call.methodInfo().isStatic)
-        // the argument `c` survives, so the analyzer sees the read
         val arg = call.parameterExpressions().single() as VariableExpression
         assertEquals("c", arg.variable().simpleName())
     }
