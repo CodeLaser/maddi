@@ -64,7 +64,10 @@ public class TestKotlinCollectionReadsVsJava {
             "MapNotNull", "Find", "FilterNot", "ToSet", "Count", "CountPredicate", "FlatMap", "OrEmpty", "Plus",
             "Distinct", "SortedBy", "GroupBy", "FirstPredicate", "FilterIsInstance", "Fold", "SeqFilterToList", "SeqAny",
             "SplitArr", "TrimChars", "ArrFirstOrNull", "ArrFind", "SiblingString",
-            "SiblingBuilder", "Control");
+            "SiblingBuilder",
+            "FilterNotNull", "Flatten", "IndexOfFirst", "SetPlus", "MapValues",
+            "FilterIsInstanceArr", "SeqPlus", "OrEmptyCall", "Decode", "StringBytes",
+            "RangeContains", "MatchValues", "KClassName", "FileExt", "DequeFirst", "Control");
 
     private static final String KOTLIN = """
             package a
@@ -98,6 +101,21 @@ public class TestKotlinCollectionReadsVsJava {
             class ArrFind(private val s: Array<String>) { fun f(): String? = s.find { it.isEmpty() } }
             class SiblingString(private val s: String) { fun f(x: String): String = x.removeSurrounding(s) }
             class SiblingBuilder(private val s: StringBuilder) { fun f(x: String): String = x.removeSurrounding(s) }
+            class FilterNotNull(private val s: List<String?>) { fun f(): List<String> = s.filterNotNull() }
+            class Flatten(private val s: List<List<String>>) { fun f(): List<String> = s.flatten() }
+            class IndexOfFirst(private val s: List<String>) { fun f(): Int = s.indexOfFirst { it.isEmpty() } }
+            class SetPlus(private val s: Set<String>) { fun f(): Set<String> = s + "x" }
+            class MapValues(private val s: Map<String, String>) { fun f(): Map<String, Int> = s.mapValues { it.value.length } }
+            class FilterIsInstanceArr(private val s: Array<Any>) { fun f(): List<String> = s.filterIsInstance<String>() }
+            class SeqPlus(private val s: Sequence<String>) { fun f(): List<String> = (s + "x").toList() }
+            class OrEmptyCall(private val s: List<String>?) { fun g(): List<String>? = s; fun f(): List<String> = g().orEmpty() }
+            class Decode(private val s: ByteArray) { fun f(): String = s.decodeToString() }
+            class StringBytes(private val s: ByteArray) { fun f(): String = String(s) }
+            class RangeContains(private val s: IntRange) { fun f(x: Int): Boolean = x in s }
+            class MatchValues(private val s: MatchResult) { fun f(): List<String> = s.groupValues }
+            class KClassName(private val s: kotlin.reflect.KClass<*>) { fun f(): String? = s.simpleName }
+            class FileExt(private val s: java.io.File) { fun f(): String = s.extension }
+            class DequeFirst(private val s: ArrayDeque<String>) { fun f(): String = s.first() }
             class Control(private val s: MutableList<String>) { fun f() { s.clear() } }
             """;
 
@@ -148,6 +166,11 @@ public class TestKotlinCollectionReadsVsJava {
                 .map(fqn -> fqn + " " + unmodified(type(primaryTypes, fqn)))
                 .collect(Collectors.joining("\n"));
         LOGGER.info("field verdicts:\n{}", verdicts);
+        // Negative control, run against the archive BEFORE each row's contract: SeqFilterToList, SeqAny, TrimChars,
+        // ArrFirstOrNull, ArrFind, MapValues, FilterIsInstanceArr, Decode, RangeContains, FileExt and DequeFirst were
+        // false, so they prove their contract. FilterNotNull, Flatten, IndexOfFirst, SetPlus, SeqPlus, OrEmptyCall,
+        // MatchValues and KClassName were already true (the jdk preload below makes Iterable/Set parameters
+        // unmodified by default): they guard parity, not a contract.
         // The Sibling rows call removeSurrounding, which has NO contract but lives in a part class that has some: the
         // hints compiler used to ship defaults for such a sibling computed without the jdk results (String and
         // CharSequence mutable), so both fields read false. AnalysisHintsCompiler's preloadResults fixed it.
@@ -185,6 +208,21 @@ public class TestKotlinCollectionReadsVsJava {
                 a.ArrFind true
                 a.SiblingString true
                 a.SiblingBuilder true
+                a.FilterNotNull true
+                a.Flatten true
+                a.IndexOfFirst true
+                a.SetPlus true
+                a.MapValues true
+                a.FilterIsInstanceArr true
+                a.SeqPlus true
+                a.OrEmptyCall true
+                a.Decode true
+                a.StringBytes true
+                a.RangeContains true
+                a.MatchValues true
+                a.KClassName true
+                a.FileExt true
+                a.DequeFirst true
                 a.Control false""", verdicts);
     }
 

@@ -19,6 +19,9 @@ import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import kotlin.sequences.Sequence;
+import kotlin.ranges.IntRange;
+import kotlin.text.MatchGroup;
+import kotlin.text.MatchGroupCollection;
 import kotlin.text.MatchResult;
 
 import java.util.List;
@@ -123,5 +126,33 @@ public class KotlinText {
         static String trimEnd(String receiver, @NotModified char... chars) {
             return null;
         }
+    }
+
+    /* public fun ByteArray.decodeToString(): String -- reads the array */
+    class StringsKt__StringsJVMKt$ {
+        @NotNull
+        static String decodeToString(@NotModified byte[] receiver) {
+            return null;
+        }
+    }
+
+    /* a regex match is a finished value: every accessor only reads it (next() finds the NEXT match, a new object) */
+    interface MatchResult$ {
+        @NotModified
+        IntRange getRange();
+
+        @NotModified
+        String getValue();
+
+        @NotModified
+        MatchGroupCollection getGroups();
+
+        @NotModified
+        List<String> getGroupValues();
+    }
+
+    interface MatchGroupCollection$ {
+        @NotModified
+        MatchGroup get(int index);
     }
 }

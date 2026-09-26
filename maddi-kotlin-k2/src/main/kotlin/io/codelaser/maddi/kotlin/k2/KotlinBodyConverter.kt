@@ -1401,13 +1401,33 @@ internal class KotlinBodyConverter(
                     runtime.newBinaryOperatorBuilder().setLhs(runtime.newEquals(receiver, runtime.nullConstant()))
                         .setRhs(empty).setOperator(runtime.orOperatorBool()).setPrecedence(runtime.precedenceLogicalOr())
                         .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build() }
-            id == "kotlin.collections.orEmpty" && receiver != null && n == 0 && rereadable(receiver) -> when (on) {
+            // `x ?: emptyList()`; a receiver that cannot be read twice (`f().orEmpty()`) evaluates once through
+            // Objects.requireNonNullElse, which the jdk archive contracts as @Identity
+            (id == "kotlin.collections.orEmpty" || id == "kotlin.sequences.orEmpty") && receiver != null && n == 0 -> when (on) {
                 "kotlin.collections.List", "kotlin.collections.Collection" ->
                     stdlibStatic("kotlin.collections", "emptyList", null, listOf())
                 "kotlin.collections.Set" -> stdlibStatic("kotlin.collections", "emptySet", null, listOf())
                 "kotlin.collections.Map" -> stdlibStatic("kotlin.collections", "emptyMap", null, listOf())
+                "kotlin.sequences.Sequence" -> stdlibStatic("kotlin.sequences", "emptySequence", null, listOf())
                 else -> null
-            }?.let { empty -> orElse(receiver, empty) }
+            }?.let { empty -> if (rereadable(receiver)) orElse(receiver, empty)
+                              else staticCallOn("java.util.Objects", "requireNonNullElse", listOf(receiver, empty)) }
+            // REIFIED, so ACC_SYNTHETIC: `s.filterIsInstance<X>()` has no callable method; the JVM overload taking
+            // X's Class (CollectionsKt___CollectionsJvmKt & co.) does exactly the same
+            (id == "kotlin.collections.filterIsInstance" || id == "kotlin.sequences.filterIsInstance")
+                && receiver != null && n == 0 && call != null ->
+                reifiedClassLiteral(call, method)?.let { klass ->
+                    stdlibStatic(id.substringBeforeLast('.'), "filterIsInstance", on, listOf(receiver, klass)) }
+            // `String(bytes)` / `bytes.toString(charset)`: kotlinc inlines `new String(bytes, charset)`
+            id == "kotlin.text.String" && receiver == null && n in 1..2
+                && arguments[0].parameterizedType().arrays() == 1
+                && arguments[0].parameterizedType().typeInfo()?.fullyQualifiedName() == "byte" -> {
+                val charset = if (n == 2) arguments[1] else typeNamed("java.nio.charset.StandardCharsets")
+                    ?.let { t -> t.fields().firstOrNull { it.name() == "UTF_8" }?.let { staticFieldRef(it, t) } } ?: return null
+                newInstance("java.lang.String", listOf(arguments[0], charset))
+            }
+            id == "kotlin.collections.toString" && on == "kotlin.ByteArray" && receiver != null && n == 1 ->
+                newInstance("java.lang.String", listOf(receiver, arguments[0]))
             id == "kotlin.collections.contains" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
                 instanceCall(receiver, "containsKey", arguments)
             // `find` is `firstOrNull(predicate)` by another name
@@ -1471,6 +1491,15 @@ internal class KotlinBodyConverter(
             }
             else -> null
         }
+    }
+
+    /** `X.class` for the single reified type argument of [call]; null when it is itself a type parameter. */
+    private fun KaSession.reifiedClassLiteral(call: KtCallExpression, method: MethodInfo): Expression? {
+        val argument = call.resolveToCall()?.singleFunctionCallOrNull()?.typeArgumentsMapping?.values?.singleOrNull()
+            ?: return null
+        if (argument is KaTypeParameterType) return null
+        val type = mapType(argument, method.typeInfo()).takeIf { it.typeInfo() != null }?.erased() ?: return null
+        return runtime.newClassExpressionBuilder(type).setSource(runtime.noSource()).build()
     }
 
     private fun lengthIsZero(receiver: Expression): Expression? =

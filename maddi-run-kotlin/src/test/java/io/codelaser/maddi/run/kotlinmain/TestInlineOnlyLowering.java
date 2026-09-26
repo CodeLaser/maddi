@@ -78,6 +78,13 @@ public class TestInlineOnlyLowering {
                     fun ci(r: Regex, x: CharSequence): Boolean = r in x
                     fun cs(r: Regex, x: String?): Boolean = x?.contains(r) ?: false
                     fun af(a: Array<String>): String? = a.find { it.length > 1 }
+                    fun oc(f: () -> List<String>?): List<String> = f().orEmpty()
+                    fun os(s: Sequence<String>?): Sequence<String> = s.orEmpty()
+                    fun fl(l: List<Any>): List<String> = l.filterIsInstance<String>()
+                    fun fr(a: Array<Any>): List<String> = a.filterIsInstance<String>()
+                    fun fq(s: Sequence<Any>): Sequence<String> = s.filterIsInstance<String>()
+                    fun sb(b: ByteArray): String = String(b)
+                    fun sc(b: ByteArray, c: java.nio.charset.Charset): String = b.toString(c)
                     fun eb() { error("boom") }
                     fun td(): Int = TODO()
                 }
@@ -124,6 +131,13 @@ public class TestInlineOnlyLowering {
                 ci: [return r.containsMatchIn(x);]
                 cs: [Boolean $nullSafe0=x==null?null:r.containsMatchIn(x);, return $nullSafe0==null?false:$nullSafe0;]
                 af: [return ArraysKt___ArraysKt.firstOrNull(a,it->it.length()>1);]
+                oc: [return Objects.requireNonNullElse(f.invoke(),CollectionsKt__CollectionsKt.emptyList());]
+                os: [return s==null?SequencesKt__SequencesKt.emptySequence():s;]
+                fl: [return CollectionsKt___CollectionsJvmKt.filterIsInstance(l,String.class);]
+                fr: [return ArraysKt___ArraysJvmKt.filterIsInstance(a,String.class);]
+                fq: [return SequencesKt___SequencesJvmKt.filterIsInstance(s,String.class);]
+                sb: [return new String(b,StandardCharsets.UTF_8);]
+                sc: [return new String(b,c);]
                 eb: [throw new IllegalStateException(String.valueOf("boom"));]
                 td: [throw new NotImplementedError("An operation is not implemented.");]
                 """, actual.toString());

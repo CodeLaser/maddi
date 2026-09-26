@@ -481,6 +481,27 @@ public class KotlinCollections {
         static <T> Sequence<T> asSequence(@NotModified Iterable<? extends T> receiver) {
             return null;
         }
+
+        /* the tail ranked by the census after the Sequence/Array round: each only reads the receiver */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filterNotNull(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        static <T> int indexOfFirst(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return 0;
+        }
+
+        static <T> int indexOfFirst(@NotModified List<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return 0;
+        }
+
+        @Independent
+        @NotNull
+        static byte[] toByteArray(@NotModified Collection<Byte> receiver) {
+            return null;
+        }
     }
 
     /*
@@ -506,6 +527,13 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         static <K, V> Map<K, V> emptyMap() {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> Map<K, R> mapValues(@NotModified Map<? extends K, ? extends V> receiver,
+                                             Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
             return null;
         }
     }
@@ -542,6 +570,19 @@ public class KotlinCollections {
         /* `list.lastIndex` */
         static <T> int getLastIndex(@NotModified List<? extends T> receiver) {
             return 0;
+        }
+
+        /* vararg builders: they copy the array, never write it */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> listOfNotNull(@NotModified T... elements) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> mutableListOf(@NotModified T... elements) {
+            return null;
         }
     }
 
@@ -732,5 +773,77 @@ public class KotlinCollections {
                                        Function1<? super T, ? extends CharSequence> transform) {
             return null;
         }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+    }
+
+    /* public fun <T> Iterable<Iterable<T>>.flatten(): List<T> -- a fresh list of the inner elements */
+    class CollectionsKt__IterablesKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> flatten(@NotModified Iterable<? extends Iterable<? extends T>> receiver) {
+            return null;
+        }
+    }
+
+    /*
+    public fun <R> Iterable<*>.filterIsInstance(klass: Class<R>): List<R>
+
+    The JVM overloads taking a Class. The reified `filterIsInstance<R>()` is ACC_SYNTHETIC and cannot carry a
+    contract; the front end lowers it to these.
+    */
+    class CollectionsKt___CollectionsJvmKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <R> List<R> filterIsInstance(@NotModified Iterable<?> receiver, Class<R> klass) {
+            return null;
+        }
+    }
+
+    class ArraysKt___ArraysJvmKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <R> List<R> filterIsInstance(@NotModified Object[] receiver, Class<R> klass) {
+            return null;
+        }
+    }
+
+    /* public operator fun <T> Set<T>.plus(element: T): Set<T> -- a fresh LinkedHashSet */
+    class SetsKt___SetsKt$ {
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> plus(@NotModified Set<? extends T> receiver, T element) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> plus(@NotModified Set<? extends T> receiver, @NotModified Iterable<? extends T> elements) {
+            return null;
+        }
+    }
+
+    /* kotlin.collections.ArrayDeque: the reading members (add/remove* modify, as the defaults say) */
+    class ArrayDeque$<E> {
+        @NotModified
+        E first() { return null; }
+
+        @NotModified
+        E firstOrNull() { return null; }
+
+        @NotModified
+        E last() { return null; }
+
+        @NotModified
+        E lastOrNull() { return null; }
+
+        @NotModified
+        E get(int index) { return null; }
+
+        @NotModified
+        boolean isEmpty() { return false; }
     }
 }

@@ -1,4 +1,453 @@
 [
+{"name": "Tkotlin.collections.ArrayDeque", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "FCompanion(0)", "data":{"containerField":1,"finalField":1,"independentField":2}},
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "C<init>(1,int)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PinitialCapacity(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "C<init>(2,java.util.Collection)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1}}},
+ {"name": "Madd(1,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Madd(2,int,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddAll(3,int,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddAll(4,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MaddFirst(5,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MaddLast(6,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mclear(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mcontains(8,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mfirst(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MfirstOrNull(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "Mget(11,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,true,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSize(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MindexOf(13,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MinternalStructure$kotlin_stdlib(14,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisEmpty(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mlast(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MlastIndexOf(17,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MlastOrNull(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "Mremove(19,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveAll(20,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveAt(21,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveFirst(22)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MremoveFirstOrNull(23)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MremoveLast(24)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MremoveLastOrNull(25)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MretainAll(27,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mset(28,int,E)", "data":{"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtestRemoveRange$kotlin_stdlib(29,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PfromIndex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtestToArray$kotlin_stdlib(30)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}},
+ {"name": "MtestToArray$kotlin_stdlib(31,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}, "sub":
+  {"name": "Parray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoArray(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}},
+ {"name": "MtoArray(33,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}, "sub":
+  {"name": "Parray(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
+
+{"name": "Tkotlin.collections.ArraysKt___ArraysJvmKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MasList(0,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(1,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(2,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(3,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(4,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(5,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(6,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(7,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasList(8,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$asList(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MbinarySearch(9,T[],T,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(10,T[],T,java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(2)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(11,byte[],byte,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(12,char[],char,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(13,double[],double,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(14,float[],float,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(15,int[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(16,long[],long,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbinarySearch(17,short[],short,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(18,T[],T[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(19,boolean[],boolean[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(20,byte[],byte[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(21,char[],char[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(22,double[],double[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(23,float[],float[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(24,int[],int[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(25,long[],long[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyInto(26,short[],short[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyInto(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PdestinationOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(27,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(28,boolean[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(29,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(30,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(31,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(32,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(33,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(34,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyOfRange(35,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$copyOfRangeImpl(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(36,T[],T,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(37,boolean[],boolean,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(38,byte[],byte,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(39,char[],char,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(40,double[],double,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(41,float[],float,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(42,int[],int,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(43,long[],long,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfill(44,short[],short,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$fill(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MfilterIsInstance(45,java.lang.Object[],java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "P$this$filterIsInstance(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pklass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MfilterIsInstanceTo(46,java.lang.Object[],C,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$filterIsInstanceTo(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
+  {"name": "Pklass(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(47,T[],T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(48,T[],T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(49,T[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(50,boolean[],boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(51,boolean[],boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(52,boolean[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(53,byte[],byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(54,byte[],byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(55,byte[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(56,char[],char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(57,char[],char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(58,char[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(59,double[],double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(60,double[],double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(61,double[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(62,float[],float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(63,float[],float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(64,float[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(65,int[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(66,int[],int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(67,int[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(68,long[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(69,long[],long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(70,long[],long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(71,short[],java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(72,short[],short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelement(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(73,short[],short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Msort(74,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(75,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(76,T[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(77,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(78,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(79,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(80,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(81,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(82,double[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(83,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(84,float[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(85,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(86,int[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(87,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(88,long[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msort(89,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Msort(90,short[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sort(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PfromIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsortWith(91,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sortWith(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsortWith(92,T[],java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$sortWith(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoSortedSet(93,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(94,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoSortedSet(95,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(96,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(97,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(98,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(99,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(100,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(101,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoSortedSet(102,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(103,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(104,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(105,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(106,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(107,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(108,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(109,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoTypedArray(110,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toTypedArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}}]},
+
 {"name": "Tkotlin.collections.ArraysKt___ArraysKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mall(0,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
@@ -2178,8 +2627,9 @@
   {"name": "P$this$single(0)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MsingleOrNull(901,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$singleOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsingleOrNull(902,T[],kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$singleOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MsingleOrNull(902,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "P$this$singleOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
  {"name": "MsingleOrNull(903,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
   {"name": "P$this$singleOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MsingleOrNull(904,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
@@ -3057,16 +3507,45 @@
   {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlistOfNotNull(12,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MlistOfNotNull(13,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
- {"name": "MmutableListOf(14,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MlistOfNotNull(13,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MmutableListOf(14,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MoptimizeReadOnlyList(15,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$optimizeReadOnlyList(0)", "data":{"containerParameter":1}}},
  {"name": "Mshuffled(16,java.lang.Iterable,kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$shuffled(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MthrowCountOverflow(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
  {"name": "MthrowIndexOverflow(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Tkotlin.collections.CollectionsKt__IterablesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "McollectionSizeOrDefault(0,java.lang.Iterable,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$collectionSizeOrDefault(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdefault(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McollectionSizeOrNull(1,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$collectionSizeOrNull(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mflatten(2,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "P$this$flatten(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Munzip(3,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$unzip(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]},
+
+{"name": "Tkotlin.collections.CollectionsKt___CollectionsJvmKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MfilterIsInstance(0,java.lang.Iterable,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "P$this$filterIsInstance(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pklass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MfilterIsInstanceTo(1,java.lang.Iterable,C,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$filterIsInstanceTo(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
+  {"name": "Pklass(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mreverse(2,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$reverse(0)", "data":{"containerParameter":1}}},
+ {"name": "MtoSortedSet(3,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtoSortedSet(4,java.lang.Iterable,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Tkotlin.collections.CollectionsKt___CollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
@@ -3162,8 +3641,8 @@
  {"name": "MfilterNot(35,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
   {"name": "P$this$filterNot(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
- {"name": "MfilterNotNull(36,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$filterNotNull(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MfilterNotNull(36,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "P$this$filterNotNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MfilterNotNullTo(37,java.lang.Iterable,C)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$filterNotNullTo(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
@@ -3238,10 +3717,12 @@
  {"name": "MindexOf(63,java.util.List,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "P$this$indexOf(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MindexOfFirst(64,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
-  {"name": "P$this$indexOfFirst(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MindexOfFirst(65,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
-  {"name": "P$this$indexOfFirst(0)", "data":{"containerParameter":1}}]},
+ {"name": "MindexOfFirst(64,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$indexOfFirst(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MindexOfFirst(65,java.util.List,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$indexOfFirst(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
  {"name": "MindexOfLast(66,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "P$this$indexOfLast(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MindexOfLast(67,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
@@ -3522,8 +4003,8 @@
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1}}]},
  {"name": "MtoBooleanArray(180,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
   {"name": "P$this$toBooleanArray(0)", "data":{"containerParameter":1}}},
- {"name": "MtoByteArray(181,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toByteArray(0)", "data":{"containerParameter":1}}},
+ {"name": "MtoByteArray(181,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$toByteArray(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoCharArray(182,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
   {"name": "P$this$toCharArray(0)", "data":{"containerParameter":1}}},
  {"name": "MtoCollection(183,java.lang.Iterable,C)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
@@ -3659,8 +4140,9 @@
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
  {"name": "MmapOf(15,kotlin.Pair[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "sub":
   {"name": "Ppairs(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MmapValues(16,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$mapValues(0)", "data":{"containerParameter":1}}]},
+ {"name": "MmapValues(16,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "P$this$mapValues(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1}}]},
  {"name": "MmapValuesTo(17,java.util.Map,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$mapValuesTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
@@ -3800,5 +4282,30 @@
  {"name": "MsetOfNotNull(6,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsetOfNotNull(7,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}}]}
+  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}}]},
+
+{"name": "Tkotlin.collections.SetsKt___SetsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mminus(0,java.util.Set,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mminus(1,java.util.Set,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"containerParameter":1}},
+  {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mminus(2,java.util.Set,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mminus(3,java.util.Set,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"containerParameter":1}}]},
+ {"name": "Mplus(4,java.util.Set,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(5,java.util.Set,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(6,java.util.Set,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mplus(7,java.util.Set,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"containerParameter":1}}]}]}
 ]

@@ -25,6 +25,8 @@ import io.codelaser.maddi.util.Trie;
 import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.modification.common.defaults.ShallowMethodAnalyzer;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -45,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -161,7 +164,7 @@ public class RunMixedPrepAnalyzer {
         }
         // after the archive is loaded, before anything is concluded: which library members the source calls, and
         // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
-        writeLibraryCallDump(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        writeLibraryCallDump(runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
@@ -252,12 +255,19 @@ public class RunMixedPrepAnalyzer {
      * contracted extension function never carries one); written after the load and before prep, so nothing
      * computed can pass for a contract. A constructor counts as its type's {@code <init>}.
      */
-    private static void writeLibraryCallDump(List<TypeInfo> sourceTypes) throws IOException {
+    private static void writeLibraryCallDump(Runtime runtime, List<TypeInfo> sourceTypes) throws IOException {
         String target = System.getProperty("maddi.libraryCallDump");
         if (target == null || target.isBlank()) return;
         Map<MethodInfo, Integer> calls = new HashMap<>();
         Map<Object, Boolean> seen = new IdentityHashMap<>();
         for (TypeInfo type : sourceTypes) countLibraryCalls(type, calls, seen);
+        // The 5th column is what the analysis WILL read: "this" for a modifying instance method, the index of each
+        // parameter it takes as modified, "-" for none. A member the archive does not list gets its defaults here,
+        // from the same ShallowMethodAnalyzer the link computer would run on it later with the same (loaded) jdk
+        // data -- so the values are the ones the analysis uses, only computed earlier. ⛔ Guessing harm from a type
+        // NAME overcounts: jdk/JavaLang makes Iterable and CharSequence @Immutable(hc=true), unmodified by default.
+        ShallowMethodAnalyzer shallow = new ShallowMethodAnalyzer(runtime, Element::annotations);
+        calls.keySet().forEach(shallow::analyze);
         List<String> lines = calls.entrySet().stream()
                 .sorted(Map.Entry.<MethodInfo, Integer>comparingByValue().reversed()
                         .thenComparing(e -> e.getKey().fullyQualifiedName()))
@@ -268,13 +278,26 @@ public class RunMixedPrepAnalyzer {
                           // real Object (modified), and only these tell them apart
                           + "\t" + e.getKey().parameters().stream()
                                   .map(p -> p.parameterizedType().toString().replaceFirst("^Type ", ""))
-                                  .collect(Collectors.joining(", ")))
+                                  .collect(Collectors.joining(", "))
+                          + "\t" + modifies(e.getKey()))
                 .toList();
         Path path = Path.of(target);
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);
         LOGGER.info("Wrote {} library member(s), {} call(s), to {}", lines.size(),
                 calls.values().stream().mapToInt(Integer::intValue).sum(), path);
+    }
+
+    private static String modifies(MethodInfo m) {
+        List<String> out = new ArrayList<>();
+        if (!m.isStatic() && !m.isConstructor()
+            && !m.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue()) {
+            out.add("this");
+        }
+        m.parameters().stream()
+                .filter(p -> !p.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue())
+                .forEach(p -> out.add(String.valueOf(p.index())));
+        return out.isEmpty() ? "-" : String.join(",", out);
     }
 
     private static void countLibraryCalls(TypeInfo type, Map<MethodInfo, Integer> calls, Map<Object, Boolean> seen) {

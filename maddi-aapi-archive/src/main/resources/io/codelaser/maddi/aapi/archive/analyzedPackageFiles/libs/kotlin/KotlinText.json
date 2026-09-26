@@ -1,4 +1,16 @@
 [
+{"name": "Tkotlin.text.MatchGroupCollection", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "Mget(0,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}}},
+
+{"name": "Tkotlin.text.MatchResult", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MgetDestructured(0)", "data":{"defaultsAnalyzer":1}},
+ {"name": "MgetGroupValues(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MgetGroups(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MgetRange(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MgetValue(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mnext(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1}}]},
+
 {"name": "Tkotlin.text.Regex", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
  {"name": "FCompanion(0)", "data":{"finalField":1,"immutableField":3,"unmodifiedField":1}},
  {"name": "C<init>(0,java.lang.String)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
@@ -13,7 +25,7 @@
   {"name": "PnativePattern(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "McontainsMatchIn(1,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mfind(2,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mfind(2,java.lang.CharSequence,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pinput(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MfindAll(3,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
@@ -21,10 +33,10 @@
   {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MgetOptions(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MgetPattern(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MmatchAt(6,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MmatchAt(6,java.lang.CharSequence,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pinput(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MmatchEntire(7,java.lang.CharSequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MmatchEntire(7,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mmatches(8,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -48,6 +60,113 @@
   {"name": "Plimit(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MtoPattern(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoString(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+
+{"name": "Tkotlin.text.StringsKt__StringsJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mcapitalize(0,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$capitalize(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mcapitalize(1,java.lang.String,java.util.Locale)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$capitalize(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plocale(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McompareTo(2,java.lang.String,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$compareTo(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pother(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MconcatToString(3,char[])", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$concatToString(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MconcatToString(4,char[],int,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$concatToString(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McontentEquals(5,java.lang.CharSequence,java.lang.CharSequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$contentEquals(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pother(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McontentEquals(6,java.lang.CharSequence,java.lang.CharSequence,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$contentEquals(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pother(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mdecapitalize(7,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$decapitalize(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mdecapitalize(8,java.lang.String,java.util.Locale)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$decapitalize(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plocale(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MdecodeToString(9,byte[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$decodeToString(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdecodeToString(10,byte[],int,int,boolean)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$decodeToString(0)", "data":{"containerParameter":1,"immutableParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PthrowOnInvalidSequence(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MencodeToByteArray(11,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "P$this$encodeToByteArray(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MencodeToByteArray(12,java.lang.String,int,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$encodeToByteArray(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PthrowOnInvalidSequence(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MendsWith(13,java.lang.String,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$endsWith(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Psuffix(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mequals(14,java.lang.String,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$equals(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pother(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetCASE_INSENSITIVE_ORDER(15,kotlin.jvm.internal.StringCompanionObject)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MregionMatches(16,java.lang.CharSequence,int,java.lang.CharSequence,int,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$regionMatches(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PthisOffset(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pother(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PotherOffset(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plength(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(5)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MregionMatches(17,java.lang.String,int,java.lang.String,int,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$regionMatches(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PthisOffset(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pother(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PotherOffset(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plength(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(5)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mrepeat(18,java.lang.CharSequence,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$repeat(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mreplace(19,java.lang.String,java.lang.String,java.lang.String,boolean)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$replace(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PoldValue(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PnewValue(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mreplace(20,java.lang.String,char,char,boolean)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$replace(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PoldChar(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnewChar(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MreplaceFirst(21,java.lang.String,java.lang.String,java.lang.String,boolean)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$replaceFirst(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PoldValue(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PnewValue(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MreplaceFirst(22,java.lang.String,char,char,boolean)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "P$this$replaceFirst(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PoldChar(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnewChar(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Msplit(23,java.lang.CharSequence,java.util.regex.Pattern,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$split(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pregex(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plimit(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MstartsWith(24,java.lang.String,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$startsWith(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pprefix(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MstartsWith(25,java.lang.String,java.lang.String,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$startsWith(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pprefix(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PignoreCase(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoCharArray(26,java.lang.String,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$toCharArray(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PendIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Tkotlin.text.StringsKt__StringsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
