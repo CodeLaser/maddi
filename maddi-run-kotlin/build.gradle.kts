@@ -95,6 +95,14 @@ tasks.withType<Test> {
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
 
+// `run` goes through the realm as the tests and the shipped CLI do. Without this, `:maddi-run-kotlin:run` on any
+// input with Kotlin sources died in K2Realm.discover ("cannot find the Kotlin front end's jars") -- found when
+// the corpus catalogue's parse phase first ran a Kotlin entry (coil, 2026-09-26).
+tasks.named<JavaExec>("run") {
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
+}
+
 // the realm's jars ship beside lib/, not in it: present in the distribution, absent from the CLASSPATH
 distributions {
     main {
