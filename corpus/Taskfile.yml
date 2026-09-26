@@ -742,6 +742,7 @@ tasks:
         cd "$(python3 {{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" &&
         MADDI_PLUGIN_VERSION='{{.MADDI_PLUGIN_VERSION}}' \
         env -u GRADLE_USER_HOME bash -c "$(MADDI_PLUGIN_VERSION='{{.MADDI_PLUGIN_VERSION}}' python3 {{.TASKFILE_DIR}}/scripts/catalogue.py plan config {{.NAME}})"
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py vendor {{.NAME}}'
 
   _config:gradle-log:
     internal: true
@@ -759,8 +760,9 @@ tasks:
   # A generated configuration names its class path in the build tools' caches, which are not ours:
   # Gradle deletes an entry it has not used for 30 days (18 jars on 2026-09-25, three corpora), ~/.m2
   # gets cleared by hand. Every `_config:*` above therefore ends by copying those jars to
-  # <TEST_OSS_ROOT>/lib/<project>/ and pointing the configuration there. `_config:catalogue` does not
-  # yet: its output path is catalogue.py's to know -- run `task vendor` after it.
+  # <TEST_OSS_ROOT>/lib/<project>/ and pointing the configuration there; `_config:catalogue` and
+  # `catalogue:config` do the same through `catalogue.py vendor`, which knows where the entry's
+  # configuration is.
   vendor:
     desc: 'Move jars a config names out of ~/.gradle / ~/.m2 into TEST_OSS_ROOT/lib/<project>: task vendor [CONFIG=path] [DRY=1]'
     cmds:
@@ -878,8 +880,11 @@ tasks:
     cmds:
       - task: _cat
         vars: { NAME: '{{.NAME}}', PHASE: config }
-      - task: catalogue:baseline
-        vars: { NAME: '{{.NAME}}' }
+      # As every `_config:*` above does: the configuration must stop naming the build tools' caches.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py vendor {{.NAME}}'
+      # Only where one is declared: an entry without a baseline has nothing to diff, and that is not
+      # a failed configuration.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} --if-declared'
 
   catalogue:parse:
     desc: 'Parse-only run (--analysis-steps=none) over the configuration parse.config names'

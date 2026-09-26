@@ -39,7 +39,7 @@ config:
   module: libs:opensearch-common
   # Relative, so this entry owns its own file rather than overwriting a future `opensearch` entry's.
   output: inputConfiguration.plugin.json
-  generates: [inputConfiguration.plugin.json]
+  generates: [inputConfiguration.json]   # the alias for this entry's own config.output
   # Siblings as ARTIFACTS, the user-facing path, as pulsar-plugin explains.
   apply_to: ':libs:opensearch-common'
   baseline: baselines/opensearch-plugin.tsv

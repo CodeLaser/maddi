@@ -47,6 +47,7 @@ PINNING
     catalogue.py plan   <phase> <name>        print the shell command a phase would run
     catalogue.py obtain <name>                clone if absent, check out source.rev
     catalogue.py pin    <name> [--rev REV]    write the checkout's HEAD (or REV) as source.rev
+    catalogue.py vendor <name> [--dry-run]    move the jars its configuration names into lib/<project>
     catalogue.py check-rev <name>             assert the checkout is at source.rev (exit 1 if not)
     catalogue.py check-provides <name>        assert build.provides exists  (exit 1 if not)
     catalogue.py check-jdk <name>             assert build.jdk is satisfied (exit 1 if not)
@@ -613,6 +614,35 @@ def _run_maddi(entry, steps):
             f'--args="--input-configuration={parse_config_path(entry)} --analysis-steps={steps}"')
 
 
+# ⛔ The Kotlin driver's `--analysis-steps=none` logs "nothing to do" and returns BEFORE parsing
+# (maddi-run-kotlin Main.runMixed), so a parse phase for a Kotlin entry would pass having read nothing,
+# and a baseline would have nothing to count -- the Java side's per-source-set line comes from
+# ScanCompilationUnits, which the mixed path does not print. Refused rather than run vacuously.
+KOTLIN_NO_PARSE_ONLY = ("{name}: runner kotlin has no parse-only mode yet -- `--analysis-steps=none` stops "
+                        "before parsing, so this phase would pass having read nothing. Use the analyse "
+                        "phase (its parse.test), which parses and asserts its floors.")
+
+
+# `rewrite_reactor_jars: true` on a maven-log route captured under `install` (guava, ignite-core): once a
+# module is packaged, Maven hands its siblings the JAR, so the captured -classpath names
+# <module>/target/<a>.jar and maddi would find those types twice -- as a parsed source set and in the jar.
+# ⛔ DELETING the entries is wrong: it is the only link from a module to its sibling (guava-testlib stops
+# seeing guava; TestGuava dies in 17 s). REWRITING to target/classes and target/test-classes is what
+# `test-compile` would have emitted. -tests first, the more specific pattern. Anchored at the project dir so
+# ~/.m2 jars are untouched; `realpath` because the root may hold ../.. while the log is normalised. Fails
+# if any reactor jar survives, since a pattern that silently rewrote nothing looks exactly like success.
+# The same shell as the Taskfile's _config:maven-log REWRITE_REACTOR_JARS, of which this is the port.
+_REWRITE_REACTOR_JARS = (
+    'd=$(realpath .) && '
+    'before=$(grep -oE "$d/[^:]*/target/[^:]*\\.jar" compile.javac.log | wc -l) && '
+    'sed -E "s#($d/[^:]*)/target/[^:]*-tests\\.jar#\\1/target/test-classes#g; '
+    's#($d/[^:]*)/target/[^:]*\\.jar#\\1/target/classes#g" '
+    'compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log && '
+    'after=$(grep -cE "$d/[^:]*/target/[^:]*\\.jar" compile.javac.log || true) && '
+    'echo ">>> rewrote $before reactor-jar classpath entries to output dirs (remaining: $after)" && '
+    'test "$after" -eq 0 && ')
+
+
 def plan(entry, phase):
     """-> the shell command for one phase, or None when the entry does not define it."""
     name = entry['name']
@@ -713,14 +743,18 @@ def plan(entry, phase):
             # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
             # same guarantee by a different means. Composing a command over that would break it.
             build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
+            # Extra maddi options for this configuration -- ignite-core's `--jre <JDK 17>`, because
+            # nothing in a javac line says which JDK compiled it (see the Taskfile's config:ignite-core).
+            margs = f' {c["maddi_args"]}' if c.get('maddi_args') else ''
             return mk + (f'{jh}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{c.get("mem", "6G")}" '
                     f'{build} > compile.log 2>&1; '
                     # Filter BEFORE maddi reads it: ParseJavacList does readString on the whole
                     # file, and a >2GB log dies on the JVM's max array size, which no -Xmx fixes.
                     # Equivalent input, not a shortcut -- these are exactly the lines it keeps.
                     f"grep -aE '^\\[DEBUG] -d ' compile.log > compile.javac.log && "
-                    f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
-                    f'--args="--compile-log {d}/compile.javac.log{jmods} '
+                    + (_REWRITE_REACTOR_JARS if c.get('rewrite_reactor_jars') else '')
+                    + f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
+                    f'--args="--compile-log {d}/compile.javac.log{jmods}{margs} '
                     f'--write-input-configuration {out}"')
         if route in ('gradle-log', 'gradle-log-kotlin'):
             target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
@@ -740,6 +774,8 @@ def plan(entry, phase):
         sys.exit(f'{name}: unknown config.route {route!r}')
 
     if phase == 'parse':
+        if (entry.get('parse') or {}).get('runner') == 'kotlin':
+            sys.exit(KOTLIN_NO_PARSE_ONLY.format(name=name))
         # PARSE ONLY -- `--analysis-steps=none`. This phase answers "does the config load, and
         # does everything in it parse", which is a property of the CONFIG. Running the analyzer
         # here instead conflates that with "is the analyzer working", so a red says nothing
@@ -903,7 +939,7 @@ def record_refusal(entry):
             f'config.baseline in the overlay and record there')
 
 
-def baseline_cmd(entry, record, all_=None):
+def baseline_cmd(entry, record, all_=None, if_declared=False):
     """Primary types PER SOURCE SET, from a parse-only run: diff against the recorded table.
 
     Per source set rather than one total, because a total hides coverage moving BETWEEN modules,
@@ -916,7 +952,12 @@ def baseline_cmd(entry, record, all_=None):
     """
     p = baseline_path(entry)
     if not p:
+        # `catalogue:config` asks with --if-declared: an entry without a baseline has nothing to diff,
+        # and that is not a failed configuration.
         print(f"{entry['name']}: no config.baseline declared", file=sys.stderr)
+        return 0 if if_declared else 1
+    if (entry.get('parse') or {}).get('runner') == 'kotlin':
+        print(KOTLIN_NO_PARSE_ONLY.format(name=entry['name']), file=sys.stderr)
         return 1
     if record and (why := record_refusal(entry)):
         print(why, file=sys.stderr)
@@ -1119,6 +1160,33 @@ def cmd_machine(args):
     return int(bool(rc))
 
 
+def vendor(entry, dry_run=False):
+    """Copy the jars this entry's configuration(s) name out of the build tools' caches, into
+    TEST_OSS_ROOT/lib/<project>/ -- what every Taskfile `_config:*` does after writing a config, and
+    what `catalogue:config` did NOT do until 2026-09-26: its configurations kept naming ~/.gradle and
+    ~/.m2, which Gradle's 30-day cleanup and a hand-cleared ~/.m2 take away. See vendor-libraries.py.
+
+    A configuration outside the corpus root (a private entry writing to the refactor server's work
+    dir) is not vendored: lib/ is the corpus's, and that file belongs to another lifecycle.
+    """
+    root = oss_root().resolve()
+    cfgs = []
+    for c in (config_path(entry), parse_config_path(entry)):
+        if c not in cfgs and c.is_file():
+            cfgs.append(c)
+    if not cfgs:
+        print(f"{entry['name']}: no configuration on disk to vendor", file=sys.stderr)
+        return 1
+    rc = 0
+    for c in cfgs:
+        if root not in c.resolve().parents:
+            print(f"{entry['name']}: {c} is outside {root}; not vendored", file=sys.stderr)
+            continue
+        cmd = [sys.executable, str(HERE / 'vendor-libraries.py'), '--corpus', str(root), str(c)]
+        rc |= subprocess.run(cmd + (['--dry-run'] if dry_run else [])).returncode
+    return rc
+
+
 def cmd_dir(args):
     """Where a phase has to run, absolute.
 
@@ -1172,6 +1240,8 @@ def main():
     p.set_defaults(f=cmd_plan)
     p = sub.add_parser('machine'); p.add_argument('--init', action='store_true')
     p.set_defaults(f=cmd_machine)
+    p = sub.add_parser('vendor'); p.add_argument('name'); p.add_argument('--dry-run', action='store_true')
+    p.set_defaults(f=lambda a: vendor(load_one(a.name), a.dry_run))
     p = sub.add_parser('obtain'); p.add_argument('name')
     p.set_defaults(f=lambda a: obtain(load_one(a.name)))
     p = sub.add_parser('pin'); p.add_argument('name'); p.add_argument('--rev')
@@ -1186,7 +1256,8 @@ def main():
     p = sub.add_parser('generates'); p.add_argument('names', nargs='*')
     p.set_defaults(f=cmd_generates)
     p = sub.add_parser('baseline'); p.add_argument('name'); p.add_argument('--record', action='store_true')
-    p.set_defaults(f=lambda a: baseline_cmd(load_one(a.name), a.record))
+    p.add_argument('--if-declared', action='store_true')
+    p.set_defaults(f=lambda a: baseline_cmd(load_one(a.name), a.record, if_declared=a.if_declared))
 
     a = ap.parse_args()
     sys.exit(a.f(a) or 0)

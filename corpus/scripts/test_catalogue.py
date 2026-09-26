@@ -394,6 +394,49 @@ class TestPhases(CatalogueTest):
         self.assertIn("slowTest --tests '*TestB'", catalogue.plan(catalogue.load_one('b'), 'analyse'))
         self.assertIsNone(catalogue.plan(catalogue.load_one('c'), 'analyse'))
 
+    def test_reactor_jars_are_rewritten_to_output_dirs_and_m2_is_left_alone(self):
+        d = self.oss / 'guava'
+        d.mkdir()
+        m2 = '/home/u/.m2/repository/x/x/1/x-1.jar'
+        (d / 'compile.javac.log').write_text(
+            f'[DEBUG] -d {d}/guava-testlib/target/classes -classpath {d}/guava/target/guava-33.jar:'
+            f'{d}/guava/target/guava-33-tests.jar:{m2}\n')
+        p = subprocess.run(['bash', '-c', catalogue._REWRITE_REACTOR_JARS + 'true'], cwd=d,
+                           capture_output=True, text=True)
+        self.assertEqual(0, p.returncode, p.stderr)
+        self.assertIn('rewrote 2 reactor-jar classpath entries', p.stdout)
+        self.assertEqual(f'[DEBUG] -d {d}/guava-testlib/target/classes -classpath {d}/guava/target/classes:'
+                         f'{d}/guava/target/test-classes:{m2}\n', (d / 'compile.javac.log').read_text())
+
+    def test_the_maven_log_route_carries_rewrite_and_maddi_args(self):
+        self.entry(self.public, 'g', 'config:\n  route: maven-log\n  tasks: install -DskipTests\n'
+                                     '  rewrite_reactor_jars: true\n  maddi_args: --jre /opt/jdk17\n')
+        cmd = catalogue.plan(catalogue.load_one('g'), 'config')
+        self.assertIn('compile.javac.log > compile.javac.log.tmp', cmd)
+        self.assertIn('/compile.javac.log --jre /opt/jdk17 --write-input-configuration', cmd)
+
+    def test_baseline_if_declared_passes_without_a_baseline(self):
+        self.entry(self.public, 'n', 'parse:\n  runner: openjdk\n')
+        e = catalogue.load_one('n')
+        self.assertEqual(1, catalogue.baseline_cmd(e, record=False))
+        self.assertEqual(0, catalogue.baseline_cmd(e, record=False, if_declared=True))
+
+    def test_a_kotlin_entry_refuses_parse_only_and_baseline(self):
+        self.entry(self.public, 'k', 'config:\n  baseline: b.tsv\nparse:\n  runner: kotlin\n  test: TestK\n')
+        e = catalogue.load_one('k')
+        with self.assertRaises(SystemExit) as cm:
+            catalogue.plan(e, 'parse')
+        self.assertIn('no parse-only mode', str(cm.exception))
+        self.assertEqual(1, catalogue.baseline_cmd(e, record=False))
+        self.assertIn("slowTest --tests '*TestK'", catalogue.plan(e, 'analyse'))
+
+    def test_vendor_skips_a_configuration_outside_the_corpus(self):
+        out = self.private.parent / 'server-work' / 'build.inputConfiguration.json'
+        out.parent.mkdir()
+        out.write_text('{}')
+        self.entry(self.private, 'priv', f'dir: {self.private.parent}\nconfig:\n  output: {out}\n')
+        self.assertEqual(0, catalogue.vendor(catalogue.load_one('priv')))
+
     def test_plugin_routes_default_to_the_checkouts_version(self):
         """`_cat` never exported MADDI_PLUGIN_VERSION, so the plugin coordinate came out versionless."""
         saved = os.environ.pop('MADDI_PLUGIN_VERSION', None)

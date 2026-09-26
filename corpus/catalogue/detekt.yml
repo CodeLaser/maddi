@@ -1,0 +1,30 @@
+name: detekt
+status: active
+summary: >-
+  Kotlin/JVM, a plain multi-module Gradle build — the Kotlin corpus that exercises the compile-log
+  route: 32 kotlinc invocations become 31 source sets linked by output identity. MAIN ONLY (`classes`).
+  Consumed by TestDetektCorpus and TestDetektReferenceRecall.
+
+source:
+  kind: git
+  url: https://github.com/detekt/detekt.git
+  rev: 6fa04a63c8ad9056706852ea7cf6560385fef2fd
+
+# No `build`: the config route IS the build. `--rerun-tasks classes` compiles every module and its log is
+# what the configuration is made from, so a separate build would only be discarded. detekt's own build
+# asks for a JDK 17 TOOLCHAIN; Gradle provisions that itself (~/.gradle/jdks), which is why there is no
+# `build.jdk` here: maddi's side still runs on 26.
+
+config:
+  route: gradle-log-kotlin
+  # `classes`, so MAIN ONLY -- and therefore no reachable tests, by construction (PROPOSAL.md in the
+  # private overlay, "Reachable tests are derived"). `testClasses` would change both.
+  tasks: classes
+
+parse:
+  runner: kotlin
+  test: TestDetektCorpus
+  steps: [prep, modification]
+  # ⚠ NO config.baseline, and `catalogue:parse` refuses this entry: the Kotlin driver's
+  # --analysis-steps=none returns before parsing, so there is nothing to count. The tests' floors
+  # (>= 25 source sets, >= 1,000 primary types) are the only instrument until it can.
