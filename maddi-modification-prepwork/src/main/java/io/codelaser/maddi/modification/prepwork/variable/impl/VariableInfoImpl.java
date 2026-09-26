@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.modification.prepwork.variable.impl;
 
+import io.codelaser.maddi.modification.prepwork.variable.Link;
 import io.codelaser.maddi.modification.prepwork.variable.Links;
 import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
 import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
@@ -54,13 +55,33 @@ public class VariableInfoImpl implements VariableInfo {
         assert linkedVariables != null;
         if (this.linkedVariables == null) {
             this.linkedVariables = linkedVariables;
-        } else if (!this.linkedVariables.equals(linkedVariables)) {
+        } else if (this.linkedVariables.equals(linkedVariables)) {
+            // Links equality is primary-only: with the same primary, a recomputed value that differs in CONTENT
+            // replaced nothing, so a variable's statement-level links stayed at the method's FIRST link computation
+            // for the rest of the run -- every later pass computed and discarded the settled links, and the
+            // statement-data readers (ShadowModificationPass, FieldAnalyzerImpl, the link computer's own
+            // previous-statement reads) worked from the first pass (EC O4: 'iterator ↦ -' kept over
+            // 'iterator.§m ☷{remove} this.§m'). The last computation wins.
+            if (!sameContent(this.linkedVariables, linkedVariables)) this.linkedVariables = linkedVariables;
+        } else {
             if (this.linkedVariables.overwriteAllowed(linkedVariables)) {
                 this.linkedVariables = linkedVariables;
             } else {
                 throw new UnsupportedOperationException("Not allowed to overwrite");
             }
         }
+    }
+
+    private static boolean sameContent(Links l1, Links l2) {
+        return contentKey(l1).equals(contentKey(l2));
+    }
+
+    private static java.util.Set<java.util.List<Object>> contentKey(Links links) {
+        java.util.Set<java.util.List<Object>> set = new java.util.HashSet<>();
+        for (Link link : links) {
+            set.add(java.util.List.of(link.from(), link.linkNature(), link.to(), link.mediated()));
+        }
+        return set;
     }
 
     @Override

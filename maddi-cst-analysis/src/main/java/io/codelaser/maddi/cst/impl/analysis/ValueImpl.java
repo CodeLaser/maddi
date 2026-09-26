@@ -511,8 +511,37 @@ public abstract class ValueImpl implements Value {
         @Override
         public Independent min(Independent other) {
             if (other == null) return this;
-            int otherValue = ((IndependentImpl) other).value;
-            return value <= otherValue ? this : other;
+            IndependentImpl o = (IndependentImpl) other;
+            IndependentImpl lower = value <= o.value ? this : o;
+            // the dependent-exception methods of both sides survive the meet unless it is dependent outright: an
+            // abstract iterator() over one implementation whose remove() reaches the collection is 'except remove'
+            if (lower.value <= 0 || dependentExceptions.isEmpty() && o.dependentExceptions.isEmpty()) return lower;
+            List<MethodInfo> union = unionOfExceptions(dependentExceptions, o.dependentExceptions);
+            if (union.equals(lower.dependentExceptions)) return lower;
+            return new IndependentImpl(lower.value, lower.linkToParametersReturnValue, union);
+        }
+
+        private static List<MethodInfo> unionOfExceptions(List<MethodInfo> l1, List<MethodInfo> l2) {
+            Set<MethodInfo> set = new HashSet<>(l1);
+            set.addAll(l2);
+            return set.stream().sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        }
+
+        /*
+        Value semantics: a recomputed @Independent(except=...) must compare equal to the stored one, or every
+        iteration reads as a refused downgrade.
+         */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof IndependentImpl that)) return false;
+            return value == that.value && linkToParametersReturnValue.equals(that.linkToParametersReturnValue)
+                   && Set.copyOf(dependentExceptions).equals(Set.copyOf(that.dependentExceptions));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value, linkToParametersReturnValue, Set.copyOf(dependentExceptions));
         }
 
         @Override
@@ -568,14 +597,21 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public boolean overwriteAllowed(Value newValue) {
-            return value < ((IndependentImpl) newValue).value;
+            IndependentImpl n = (IndependentImpl) newValue;
+            // at the same level, the dependent-exception set may only grow (monotone: a computed 'except' whose
+            // inner-class summaries arrive one iteration late)
+            return value < n.value
+                   || value == n.value && linkToParametersReturnValue.equals(n.linkToParametersReturnValue)
+                      && n.dependentExceptions.size() > dependentExceptions.size()
+                      && n.dependentExceptions.containsAll(dependentExceptions);
         }
 
         /*
         Not quite a plain lattice level, despite the name: value and the parameter map are plain, but
-        dependentExceptions holds MethodInfo. It is written from the annotated API only (AnnotationToProperty), never
-        by the modification analyzer, and in practice for a single case: the remove() of the Iterator returned by
-        java.lang.Iterable, which enhanced for-loops depend on. Those live in a library type, which is never rewired,
+        dependentExceptions holds MethodInfo. It is written from the annotated API (AnnotationToProperty: the
+        remove() of the Iterator returned by java.lang.Iterable, which enhanced for-loops depend on), and since
+        2026-09-26 also computed: a method returning an inner-class instance whose methods modify the outer 'this'
+        (TypeModIndyAnalyzerImpl.doIndependentMethod, from the ☷ link ExpressionVisitor puts on 'new Inner()'). Those live in a library type, which is never rewired,
         so infoMap hands them back unchanged -- but map them anyway: nothing here says the return type cannot be a
         source type. Empty is the overwhelmingly common case, and returning this keeps the singletons intact.
          */

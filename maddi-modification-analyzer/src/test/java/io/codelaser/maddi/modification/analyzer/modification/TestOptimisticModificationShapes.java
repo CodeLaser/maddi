@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -45,6 +46,14 @@ public class TestOptimisticModificationShapes extends CommonTest {
         new IteratingAnalyzerImpl(javaInspector, new IteratingAnalyzerImpl.ConfigurationBuilder()
                 .setMaxIterations(10)
                 .setModificationViaReachability(true)
+                .build()).analyze(ao);
+    }
+
+    private void analyze(TypeInfo typeInfo, boolean modReach) {
+        List<Info> ao = prepWork(typeInfo);
+        new IteratingAnalyzerImpl(javaInspector, new IteratingAnalyzerImpl.ConfigurationBuilder()
+                .setMaxIterations(10)
+                .setModificationViaReachability(modReach)
                 .build()).analyze(ao);
     }
 
@@ -265,5 +274,90 @@ public class TestOptimisticModificationShapes extends CommonTest {
         TypeInfo X = javaInspector.parse("a.b.O4", O4);
         analyze(X);
         assertTrue(method(X, "removeIf2").isModifying(), "iterator.remove() modifies the collection it came from");
+    }
+
+    /*
+     O4, EC's own shape: Mutable<P>Collection.removeIf, a default method removing through the collection's OWN abstract
+     iterator method (no hint states its except="remove"). The implementation returns an inner-class iterator whose
+     remove() modifies the outer instance and whose next() only moves its own cursor. Four engine steps make it work:
+     'new Iter()' links 'oc.§m ☷{remove} this.§m' (ExpressionVisitor), the implementation is computed
+     @Independent(except = remove) and the abstract union keeps it, the abstract method's shallow links carry the ☷,
+     and statement-level links are no longer frozen at the method's first link computation (VariableInfoImpl).
+     sum() iterates with next() only and must stay non-modifying: a plain ≡ would have charged next() to the
+     collection.
+     */
+    @Language("java")
+    private static final String O4_EC = """
+            package a.b;
+            import java.util.function.IntPredicate;
+            class O4ec {
+                interface IntIter { boolean hasNext(); int next(); void remove(); }
+                interface IntColl {
+                    boolean add(int x);
+                    IntIter intIterator();
+                    default boolean removeIf(IntPredicate predicate) {
+                        boolean changed = false;
+                        IntIter iterator = this.intIterator();
+                        while (iterator.hasNext()) {
+                            if (predicate.test(iterator.next())) { iterator.remove(); changed = true; }
+                        }
+                        return changed;
+                    }
+                    default int sum() {
+                        int s = 0;
+                        IntIter iterator = this.intIterator();
+                        while (iterator.hasNext()) { s += iterator.next(); }
+                        return s;
+                    }
+                }
+                static class IntArrayColl implements IntColl {
+                    private int[] items = new int[10];
+                    private int size;
+                    void removeAt(int index) {
+                        System.arraycopy(items, index + 1, items, index, size - index - 1);
+                        size--;
+                    }
+                    @Override public boolean add(int x) { items[size++] = x; return true; }
+                    @Override public IntIter intIterator() { return new Iter(); }
+                    class Iter implements IntIter {
+                        private int cursor;
+                        @Override public boolean hasNext() { return cursor < size; }
+                        @Override public int next() { return items[cursor++]; }
+                        @Override public void remove() { REMOVE }
+                    }
+                }
+            }
+            """;
+
+    private TypeInfo parseO4ec(String name, String removeBody, boolean modReach) {
+        TypeInfo X = javaInspector.parse("a.b." + name, O4_EC.replace("O4ec", name).replace("REMOVE", removeBody));
+        analyze(X, modReach);
+        return X;
+    }
+
+    @DisplayName("O4-EC: removing through the collection's own abstract iterator method modifies the receiver")
+    @Test
+    public void o4ec() {
+        for (boolean modReach : new boolean[]{false, true}) {
+            TypeInfo X = parseO4ec(modReach ? "O4ecR" : "O4ec", "IntArrayColl.this.removeAt(--cursor);", modReach);
+            TypeInfo coll = X.findSubType("IntColl");
+            String where = "modReach=" + modReach;
+            assertTrue(method(coll, "removeIf").isModifying(), "removeIf, " + where);
+            assertTrue(method(coll, "sum").isNonModifying(), "sum only calls next(), " + where);
+            assertEquals("@Independent(except={\"remove\"})", method(coll, "intIterator").analysis()
+                    .getOrNull(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.IndependentImpl.class).toString(), where);
+        }
+    }
+
+    @DisplayName("O4-EC veto: an iterator whose remove() does not reach the collection leaves removeIf non-modifying")
+    @Test
+    public void o4ecVeto() {
+        for (boolean modReach : new boolean[]{false, true}) {
+            TypeInfo X = parseO4ec(modReach ? "O4ecVR" : "O4ecV", "throw new UnsupportedOperationException();",
+                    modReach);
+            TypeInfo coll = X.findSubType("IntColl");
+            assertTrue(method(coll, "removeIf").isNonModifying(), "removeIf, modReach=" + modReach);
+        }
     }
 }

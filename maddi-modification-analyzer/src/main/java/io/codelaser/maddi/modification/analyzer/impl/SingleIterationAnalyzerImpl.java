@@ -368,6 +368,21 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         unionInWriteTargets();
     }
 
+    private static boolean overwriteAbstractLinks(MethodInfo methodInfo, MethodLinkedVariables mlv) {
+        var analysis = methodInfo.analysis();
+        synchronized (analysis) {
+            MethodLinkedVariables current = analysis.getOrNull(METHOD_LINKS,
+                    io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.class);
+            if (current != null && current.toString().equals(mlv.toString())) return false;
+        }
+        if (!methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
+            return TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv, methodInfo);
+        }
+        boolean written = methodInfo.analysis().overwrite(METHOD_LINKS, mlv);
+        if (written) TolerantWrite.markChanged(METHOD_LINKS, methodInfo);
+        return written;
+    }
+
     // ---- VariableData flatten-snapshot helpers (DESIGN-vardata-flatten.md) --------------------------
     // Both regenerate and flatten run only at pass boundaries in go(), where the workers are quiescent,
     // so neither races the parallel FieldAnalyzer reads of another method's last-statement VariableData.
@@ -477,7 +492,15 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     // methodLinks IS the method's summary: pass the target so the change reaches
                     // summaryChangedInfos and dirties dependents (the 3-arg overload's "?" context did not,
                     // leaving the worklist 0-dirty after a verification pass found methodLinks changes)
-                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
+                    if (methodInfo.isAbstract() && !methodInfo.typeInfo().compilationUnit().externalLibrary()) {
+                        // A SOURCE abstract method's links are a pure function of its CURRENT independence (the
+                        // union over implementations): the DEPENDENT default before the fold decides -- first
+                        // iteration, and again after MODREACH's clearDerivedFamily -- gives 'it.§m ≡ this.§m' +
+                        // content, the decided 'except' gives the sparser 'it.§m ☷{remove} this.§m'. Retention
+                        // ("equal primary, richer wins") kept the default for good (EC O4, booleanIterator).
+                        // The latest computation wins.
+                        if (overwriteAbstractLinks(methodInfo, mlv)) propertiesChanged.incrementAndGet();
+                    } else if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
                             methodInfo)) {
                         propertiesChanged.incrementAndGet();
                     }

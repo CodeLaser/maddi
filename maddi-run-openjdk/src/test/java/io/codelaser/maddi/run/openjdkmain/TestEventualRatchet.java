@@ -271,6 +271,21 @@ public class TestEventualRatchet {
             // methods, dogfood/README.md); the verdicts are still computed, so we do not assert on messages
             new IteratingAnalyzerImpl(javaInspector, modConfig).analyze(order, ccg.graph());
 
+            String dumpTo = System.getenv("RATCHET_DUMP"); // TEMPORARY
+            if (dumpTo != null) {
+                List<String> lines = new ArrayList<>();
+                for (Info info : order) {
+                    if (info instanceof TypeInfo ti) {
+                        lines.add("T " + ti.fullyQualifiedName() + " " + ti.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.class)
+                                  + " " + ti.analysis().getOrNull(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE, ValueImpl.EventuallyImmutableImpl.class));
+                    } else if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
+                        lines.add("M " + mi.fullyQualifiedName() + " " + mi.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class));
+                        lines.add("I " + mi.fullyQualifiedName() + " " + mi.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class));
+                    }
+                }
+                java.util.Collections.sort(lines);
+                Files.write(Path.of(dumpTo), lines);
+            }
             java.util.Map<String, Value.EventuallyImmutable> survivors = new java.util.TreeMap<>();
             for (Info info : order) {
                 if (!(info instanceof TypeInfo typeInfo)) continue;

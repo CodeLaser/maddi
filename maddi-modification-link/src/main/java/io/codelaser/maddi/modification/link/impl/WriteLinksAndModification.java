@@ -334,8 +334,12 @@ class WriteLinksAndModification {
                     }
                 });
         // finally, modification edges
+        // a pass-carrying ☷ edge is kept on its own: it IS the relation between the two objects (an inner-class
+        // instance and its outer 'this', 'it.§m ☷{remove} this.§m'); nothing else links them
         followGraph.graph().virtualModificationEdgeStream(variable)
-                .filter(link -> builder.containsPrimaryOf(link.to()))
+                .filter(link -> builder.containsPrimaryOf(link.to())
+                                || !link.linkNature().pass().isEmpty()
+                                   && !Util.firstRealVariable(link.from()).equals(Util.firstRealVariable(link.to())))
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 

@@ -37,7 +37,10 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -363,7 +366,42 @@ normal methods: does a modification to the return value imply any modification i
         if (fluent) return INDEPENDENT;
         boolean typeIsImmutable = analysisHelper.typeImmutable(methodInfo.returnType()).isImmutable();
         if (typeIsImmutable) return INDEPENDENT;
-        return worstLinkToFields(mlv.ofReturnValue());
+        Independent worst = worstLinkToFields(mlv.ofReturnValue());
+        if (worst == null || worst.isDependent()) return worst;
+        return withDependentExceptions(methodInfo, mlv.ofReturnValue(), worst);
+    }
+
+    /*
+    'return new Iter()' of an inner class whose remove() modifies the outer instance carries
+    'method.§m ☷{remove} this.§m' (ExpressionVisitor.linkInnerClassToOuterInstance): the returned object is independent
+    of this object except through those methods -- the computed form of @Independent(hc = true, except = "remove").
+     */
+    private static Independent withDependentExceptions(MethodInfo methodInfo, Links ofReturnValue, Independent worst) {
+        Set<MethodInfo> exceptions = new HashSet<>();
+        for (Link link : ofReturnValue) {
+            if (!link.linkNature().pass().isEmpty()
+                && Util.isVirtualModification(link.from()) && Util.isVirtualModification(link.to())
+                && Util.firstRealVariable(link.to()) instanceof This thisVar
+                && thisVar.typeInfo() == methodInfo.typeInfo()) {
+                exceptions.addAll(link.linkNature().pass());
+            }
+        }
+        if (exceptions.isEmpty()) return worst;
+        // state them on the DECLARED return type, as @Independent(except = "remove") does (the pass set also holds
+        // the inner class's own overriding methods, which a caller of the declared type never names)
+        io.codelaser.maddi.cst.api.info.TypeInfo returnType = methodInfo.returnType().bestTypeInfo();
+        if (returnType != null) {
+            Set<MethodInfo> onReturnType = new HashSet<>();
+            for (MethodInfo m : exceptions) {
+                if (m.typeInfo() == returnType || returnType.superTypesExcludingJavaLangObject().contains(m.typeInfo())) {
+                    onReturnType.add(m);
+                }
+            }
+            if (!onReturnType.isEmpty()) exceptions = onReturnType;
+        }
+        List<MethodInfo> sorted = exceptions.stream()
+                .sorted(java.util.Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        return new ValueImpl.IndependentImpl(worst.isIndependent() ? 2 : 1, Map.of(), sorted);
     }
 
     /**

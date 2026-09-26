@@ -73,6 +73,14 @@ public final class TolerantWrite {
         }
     }
 
+    /** Bookkeeping for a deliberate overwrite made outside this class: counts it and wakes the target's dependents. */
+    public static void markChanged(Property property, Object context) {
+        CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
+        if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
+            CHANGED_TARGETS.add(context);
+        }
+    }
+
     // element-INTERNAL (statement-level) properties: their changes are invisible to dependents and must not
     // propagate through the worklist (a ParameterInfo context can reach here via UNMODIFIED_VARIABLE)
     private static final java.util.Set<String> INTERNAL_PROPERTIES =
