@@ -25,6 +25,9 @@ import io.codelaser.maddi.util.Trie;
 import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -43,6 +46,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -153,6 +159,9 @@ public class RunMixedPrepAnalyzer {
                     analysisResultsDirs, sourceSetOfRequest);
             new LoadAnalysisResults(runtime, sourceSetOfRequest).go(analysisResultsDirs);
         }
+        // after the archive is loaded, before anything is concluded: which library members the source calls, and
+        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
+        writeLibraryCallDump(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
@@ -230,6 +239,54 @@ public class RunMixedPrepAnalyzer {
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, census.dumpLines());
         LOGGER.info("Wrote {} placeholder site(s) to {}", census.getSites().size(), path);
+    }
+
+    /**
+     * Every library member the source calls under a {@code kotlin.} package, one
+     * {@code <calls> <contracted|DEFAULT> <member>} line, most-called first, to the file named by
+     * {@code -Dmaddi.libraryCallDump} (absent: no file, no cost). ⭐ An uncontracted library method is a MODIFYING
+     * one — it modifies its receiver and every non-trivial argument (ShallowMethodAnalyzer) — so this is the
+     * worklist for the Kotlin archive: the calls the analysis currently reads as writes. "contracted" means the
+     * loaded archive marked the callee ANNOTATED_API (not NON_MODIFYING_METHOD: a static has no receiver, so a
+     * contracted extension function never carries one); written after the load and before prep, so nothing
+     * computed can pass for a contract. A constructor counts as its type's {@code <init>}.
+     */
+    private static void writeLibraryCallDump(List<TypeInfo> sourceTypes) throws IOException {
+        String target = System.getProperty("maddi.libraryCallDump");
+        if (target == null || target.isBlank()) return;
+        Map<MethodInfo, Integer> calls = new HashMap<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : sourceTypes) countLibraryCalls(type, calls, seen);
+        List<String> lines = calls.entrySet().stream()
+                .sorted(Map.Entry.<MethodInfo, Integer>comparingByValue().reversed()
+                        .thenComparing(e -> e.getKey().fullyQualifiedName()))
+                .map(e -> e.getValue() + "\t"
+                          + (e.getKey().analysis().haveAnalyzedValueFor(PropertyImpl.ANNOTATED_API)
+                        ? "contracted" : "DEFAULT") + "\t" + e.getKey().fullyQualifiedName())
+                .toList();
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} library member(s), {} call(s), to {}", lines.size(),
+                calls.values().stream().mapToInt(Integer::intValue).sum(), path);
+    }
+
+    private static void countLibraryCalls(TypeInfo type, Map<MethodInfo, Integer> calls, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> countLibraryCalls(sub, calls, seen));
+        Stream.concat(type.constructors().stream(), type.methodStream()).forEach(m -> {
+            if (seen.put(m, true) != null || m.methodBody() == null) return;
+            m.methodBody().visit(e -> {
+                MethodInfo callee = e instanceof MethodCall mc ? mc.methodInfo()
+                        : e instanceof ConstructorCall cc ? cc.constructor() : null;
+                // the PRIMARY type's package: a nested or local type has none of its own
+                String pkg = callee == null ? null : callee.typeInfo().primaryType().packageName();
+                if (pkg != null && pkg.startsWith("kotlin") && callee.typeInfo().compilationUnit().externalLibrary()) {
+                    calls.merge(callee, 1, Integer::sum);
+                }
+                return true;
+            });
+        });
     }
 
     /**

@@ -518,8 +518,14 @@ internal class KotlinTypeMapper(
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
         val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
         val builder = method.builder()
-        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
-        builder.setReturnType(mapType(property.returnType, owner))
+        // a generic extension property (`val <T> List<T>.lastIndex`) is a generic static getter, its type parameters
+        // unbounded for the reason convertLibraryMethod gives
+        property.typeParameters.forEachIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) }.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
+        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
+        builder.setReturnType(mapType(property.returnType, owner, method))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
             .addMethodModifier(runtime.methodModifierPublic())
@@ -770,17 +776,34 @@ internal class KotlinTypeMapper(
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
+        // ⛔ THE METHOD'S OWN TYPE PARAMETERS, as the class file's Signature attribute has them. Without them a bare
+        // `T` found no binder and fell to Object: `listOf(vararg T)` was `listOf(Object[])` returning List<Object>,
+        // every stdlib call site lost its generics, and a contract naming `T[]` -- listOf, setOf, mutableListOf,
+        // arrayListOf, toMap(.., M), ... -- matched no method and was skipped with a WARN (the kotlin archive's
+        // collection factories never applied). Created first, bounds after: a bound may name a sibling.
+        val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) } to tp
+        }
+        // ⚠ UNBOUNDED, deliberately. Mapping `T : Comparable<T>` eagerly LOADS the bound's type while this type's
+        // members load, past maxMemberDepth, as a shell; commitShells then freezes it memberless at the end of the scan,
+        // and the next scan (the mixed pipeline runs one per source set) finds it committed and cannot deepen it --
+        // measured: TypeResolutionTest's `java.io.File` lost every member. What the identity buys (generics at the call
+        // site, contract tokens naming `T`) needs no bound; a bounded T still erases to Object, as it did before.
+        cstTypeParameters.forEach { (cstTp, tp) ->
+            cstTp.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
         // an extension's receiver is its first JVM parameter, named as KotlinScan names a source extension's
-        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p ->
             // ⛔ A VARARG'S K2 returnType IS THE ELEMENT TYPE; the JVM parameter is an array of it. Without this
             // `mapOf(vararg Pair)` is modelled as `mapOf(Pair)` -- the signature of the OTHER, single-pair overload,
             // so the two collide and `seen` drops one of them (KotlinScan.convertMethodSignature does the same).
-            val elementType = mapType(p.returnType, owner)
+            val elementType = mapType(p.returnType, owner, method)
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             builder.addParameter(p.name.asString(), parameterType).builder().setVarArgs(p.isVararg)
         }
-        val returnType = mapType(function.returnType, owner)
+        val returnType = mapType(function.returnType, owner, method)
         // a suspend function's JVM shape, as the class file has it: see continuationParameter
         val suspendReturn = if (function.isSuspend) continuationParameter(builder, returnType) else null
         builder

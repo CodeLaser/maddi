@@ -188,8 +188,9 @@ only). Not contracted: `StringsKt` (every string extension), `Result`, `Sequence
 (`docs/kotlin-corpora.md:206`) is the repository's own, and this is a partial archive. Measured cost: the day
 extension calls began resolving on detekt, 16 immutable verdicts went *down* (`kotlin-corpora.md:185-203`) —
 resolution turned "unknown call" into "modifying call". detekt's `@Immutable ≥ 641` floor is set *with* the kotlin
-archive loaded; the run-kotlin CLI loads **no archive unless `--preload-analysis-results-dirs` is passed**
-(`RunMixedPrepAnalyzer.java:151-157`, `Main.java:173-175`).
+archive loaded. Neither CLI loads an archive unless `--preload-analysis-results-dirs` is passed
+(`RunMixedPrepAnalyzer.java:151-157`; the Java `RunAnalyzer.java:182-190` is the same) — symmetric, so not a
+parity gap, though a sharp edge for both.
 
 Contract authoring (`AnalysisHintsParser`): Java shadow classes resolved against bytecode (`:128-146`). A Kotlin
 type can be shadowed in its JVM shape; extension functions as statics on the multifile part class
@@ -257,7 +258,7 @@ safe-call lowering). It has **13 lowered shapes**. §2.3 shows what one more fix
 | Prepwork | full — neutral code, 3 stated requirements | 42 oracle tests, `doMethod` only | port the remaining 32 CommonTest classes; a `doPrimaryTypes` tier for synthesized members |
 | Link | full in code; FunctionN takes the custom-FI path | 0 in-module; 14 fixtures outside | Kotlin-input link tests for the custom-FI path (VirtualField, applied-FI) — or decide `kotlin.jvm.functions` is standard |
 | Analyzer | full in code (3 Java names) | 7 twin fixtures, 1 corpus floor | `listOf`/`toList` as immutable copies; `Sequence` as a stream |
-| **Knowledge** | **1/16th** | detekt floor only | contract `StringsKt`, `SequencesKt`, `Result`, `ArraysKt`, coroutines; a property notion in `AnalysisHintsParser`; load `libs/kotlin` by default in the mixed CLI |
+| **Knowledge** | **1/16th** | detekt floor only | contract `StringsKt`, `SequencesKt`, `Result`, `ArraysKt`, coroutines; a property notion in `AnalysisHintsParser` |
 | Persistence | write/read yes; incremental/daemon no | 1 round trip | fingerprint/rewire for Kotlin |
 | Reproducers / print | none for Kotlin | — | `IsolateClass` via `KotlinTypePrinter` |
 | Entry points | CLI yes; plugins refuse; IDEs no | 7 one-entry-point tests | plugin → mixed pipeline (85 MB bundle question) |
@@ -269,6 +270,6 @@ already structurally there and needs evidence, not code.
 
 ## 9. Not done here
 
-- The six §2.3 shapes are found, not fixed. They belong in GitHub issues (public repo; one per shape).
+- The six §2.3 shapes (and the multi-`is` arm) are found, not fixed: GitHub #52–#58.
 - javalin's numbers remain doc-only; a third corpus pin needs a copy this repo owns.
 - Nothing above was re-measured on `devel`; the worktree is `ws/python` at `32ff9cb92`.
