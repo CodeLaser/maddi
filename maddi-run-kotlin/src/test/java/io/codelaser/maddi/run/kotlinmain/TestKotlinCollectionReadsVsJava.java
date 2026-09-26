@@ -62,7 +62,9 @@ public class TestKotlinCollectionReadsVsJava {
     private static final List<String> ROWS = List.of(
             "JoinToString", "IsNotEmpty", "SingleOrNull", "FirstOrNull", "First", "LastOrNull", "Last",
             "MapNotNull", "Find", "FilterNot", "ToSet", "Count", "CountPredicate", "FlatMap", "OrEmpty", "Plus",
-            "Distinct", "SortedBy", "GroupBy", "FirstPredicate", "FilterIsInstance", "Fold", "Control");
+            "Distinct", "SortedBy", "GroupBy", "FirstPredicate", "FilterIsInstance", "Fold", "SeqFilterToList", "SeqAny",
+            "SplitArr", "TrimChars", "ArrFirstOrNull", "ArrFind", "SiblingString",
+            "SiblingBuilder", "Control");
 
     private static final String KOTLIN = """
             package a
@@ -88,6 +90,14 @@ public class TestKotlinCollectionReadsVsJava {
             class FirstPredicate(private val s: List<String>) { fun f(): String = s.first { it.length == 0 } }
             class FilterIsInstance(private val s: List<Any>) { fun f(): List<String> = s.filterIsInstance<String>() }
             class Fold(private val s: List<String>) { fun f(): Int = s.fold(0) { acc, x -> acc + x.length } }
+            class SeqFilterToList(private val s: Sequence<String>) { fun f(): List<String> = s.filter { it.isEmpty() }.toList() }
+            class SeqAny(private val s: Sequence<String>) { fun f(): Boolean = s.any { it.isEmpty() } }
+            class SplitArr(private val s: Array<String>) { fun f(x: String): List<String> = x.split(*s) }
+            class TrimChars(private val s: CharArray) { fun f(x: String): String = x.trim(*s) }
+            class ArrFirstOrNull(private val s: Array<String>) { fun f(): String? = s.firstOrNull() }
+            class ArrFind(private val s: Array<String>) { fun f(): String? = s.find { it.isEmpty() } }
+            class SiblingString(private val s: String) { fun f(x: String): String = x.removeSurrounding(s) }
+            class SiblingBuilder(private val s: StringBuilder) { fun f(x: String): String = x.removeSurrounding(s) }
             class Control(private val s: MutableList<String>) { fun f() { s.clear() } }
             """;
 
@@ -138,6 +148,9 @@ public class TestKotlinCollectionReadsVsJava {
                 .map(fqn -> fqn + " " + unmodified(type(primaryTypes, fqn)))
                 .collect(Collectors.joining("\n"));
         LOGGER.info("field verdicts:\n{}", verdicts);
+        // The Sibling rows call removeSurrounding, which has NO contract but lives in a part class that has some: the
+        // hints compiler used to ship defaults for such a sibling computed without the jdk results (String and
+        // CharSequence mutable), so both fields read false. AnalysisHintsCompiler's preloadResults fixed it.
         // isNotEmpty and orEmpty are @InlineOnly: no method for a contract to name. They were the two rows left wrong by
         // the contracts, and the front end's lowering to the call kotlinc inlines (TestInlineOnlyLowering) fixed them.
         assertEquals("""
@@ -164,6 +177,14 @@ public class TestKotlinCollectionReadsVsJava {
                 a.FirstPredicate true
                 a.FilterIsInstance true
                 a.Fold true
+                a.SeqFilterToList true
+                a.SeqAny true
+                a.SplitArr true
+                a.TrimChars true
+                a.ArrFirstOrNull true
+                a.ArrFind true
+                a.SiblingString true
+                a.SiblingBuilder true
                 a.Control false""", verdicts);
     }
 

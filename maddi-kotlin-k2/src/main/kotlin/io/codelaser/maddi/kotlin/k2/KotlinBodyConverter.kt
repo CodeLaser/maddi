@@ -1413,9 +1413,19 @@ internal class KotlinBodyConverter(
             // `find` is `firstOrNull(predicate)` by another name
             id == "kotlin.collections.find" && on == "kotlin.collections.Iterable" && receiver != null && n == 1 ->
                 stdlibStatic("kotlin.collections", "firstOrNull", on, listOf(receiver) + arguments)
+            id == "kotlin.collections.find" && on == "kotlin.Array" && receiver != null && n == 1 ->
+                stdlibStatic("kotlin.collections", "firstOrNull", on, listOf(receiver) + arguments)
             id == "kotlin.sequences.find" && on == "kotlin.sequences.Sequence" && receiver != null && n == 1 ->
                 stdlibStatic("kotlin.sequences", "firstOrNull", on, listOf(receiver) + arguments)
-            // text
+            // text: kotlinc inlines CharSequence.isEmpty() as `length() == 0`
+            id == "kotlin.text.isEmpty" && on == "kotlin.CharSequence" && receiver != null && n == 0 -> lengthIsZero(receiver)
+            id == "kotlin.text.isNotEmpty" && on == "kotlin.CharSequence" && receiver != null && n == 0 ->
+                lengthIsZero(receiver)?.let { not(it) }
+            id == "kotlin.text.isNullOrEmpty" && on == "kotlin.CharSequence" && receiver != null && n == 0
+                && rereadable(receiver) -> lengthIsZero(receiver)?.let { empty ->
+                    runtime.newBinaryOperatorBuilder().setLhs(runtime.newEquals(receiver, runtime.nullConstant()))
+                        .setRhs(empty).setOperator(runtime.orOperatorBool()).setPrecedence(runtime.precedenceLogicalOr())
+                        .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build() }
             id == "kotlin.text.matches" && on == "kotlin.CharSequence" && receiver != null && n == 1 ->
                 instanceCall(arguments[0], "matches", listOf(receiver))
             id == "kotlin.text.contains" && receiver != null && n == 1
@@ -1462,6 +1472,9 @@ internal class KotlinBodyConverter(
             else -> null
         }
     }
+
+    private fun lengthIsZero(receiver: Expression): Expression? =
+        instanceCall(receiver, "length", listOf())?.let { runtime.newEquals(it, runtime.newInt(0)) }
 
     /** `x != null ? x : fallback`, typed as the call. */
     private fun orElse(value: Expression, fallback: Expression): Expression =

@@ -611,4 +611,126 @@ public class KotlinCollections {
             return null;
         }
     }
+
+    /*
+    public fun <T> Array<out T>.firstOrNull(predicate: (T) -> Boolean): T?
+
+    An array is mutable, so the defaults call every array argument MODIFIED. These only read it. `find` is
+    @InlineOnly (`firstOrNull(predicate)` by another name); the front end lowers it to the call below.
+    ⛔ No filterIsInstance here or on Iterable/Sequence: a REIFIED inline function is ACC_SYNTHETIC in the class
+    file, so javac does not see it and the contract is dropped ("Ignoring method … not found in target type").
+    */
+    class ArraysKt___ArraysKt$ {
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T firstOrNull(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> T first(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> T first(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T singleOrNull(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T getOrNull(@NotModified T[] receiver, int index) {
+            return null;
+        }
+
+        static <T> boolean contains(@NotModified T[] receiver, T element) {
+            return false;
+        }
+
+        static <T> int indexOf(@NotModified T[] receiver, T element) {
+            return 0;
+        }
+
+        static <T> boolean any(@NotModified T[] receiver) {
+            return false;
+        }
+
+        static <T> boolean any(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean all(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified T[] receiver) {
+            return false;
+        }
+
+        static <T> boolean none(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return false;
+        }
+
+        static <T> void forEach(@NotModified T[] receiver, Function1<? super T, Unit> action) {
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filter(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> map(@NotModified T[] receiver, Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> mapNotNull(@NotModified T[] receiver, Function1<? super T, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toList(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> toMutableList(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Set<T> toSet(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @NotNull
+        static <T> String joinToString(@NotModified T[] receiver, @NotModified CharSequence separator,
+                                       @NotModified CharSequence prefix, @NotModified CharSequence postfix, int limit,
+                                       @NotModified CharSequence truncated,
+                                       Function1<? super T, ? extends CharSequence> transform) {
+            return null;
+        }
+    }
 }

@@ -71,6 +71,13 @@ public class TestInlineOnlyLowering {
                     fun rn(x: String?): String = requireNotNull(x)
                     fun pa(c: MutableList<String>) { c += "x" }
                     fun ma(c: MutableSet<String>) { c -= "x" }
+                    fun ce(x: CharSequence): Boolean = x.isEmpty()
+                    fun cn(x: CharSequence): Boolean = x.isNotEmpty()
+                    fun cq(x: String?): Boolean = x?.isNotEmpty() == true
+                    fun sn(x: String?): Boolean = x.isNullOrEmpty()
+                    fun ci(r: Regex, x: CharSequence): Boolean = r in x
+                    fun cs(r: Regex, x: String?): Boolean = x?.contains(r) ?: false
+                    fun af(a: Array<String>): String? = a.find { it.length > 1 }
                     fun eb() { error("boom") }
                     fun td(): Int = TODO()
                 }
@@ -110,6 +117,13 @@ public class TestInlineOnlyLowering {
                 rn: [return Objects.requireNonNull(x);]
                 pa: [c.add("x");]
                 ma: [c.remove("x");]
+                ce: [return x.length()==0;]
+                cn: [return !(x.length()==0);]
+                cq: [return (x==null?null:!(x.length()==0)).equals(true);]
+                sn: [return x==null||x.length()==0;]
+                ci: [return r.containsMatchIn(x);]
+                cs: [Boolean $nullSafe0=x==null?null:r.containsMatchIn(x);, return $nullSafe0==null?false:$nullSafe0;]
+                af: [return ArraysKt___ArraysKt.firstOrNull(a,it->it.length()>1);]
                 eb: [throw new IllegalStateException(String.valueOf("boom"));]
                 td: [throw new NotImplementedError("An operation is not implemented.");]
                 """, actual.toString());

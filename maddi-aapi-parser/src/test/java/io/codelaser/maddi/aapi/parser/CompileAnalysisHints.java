@@ -133,7 +133,13 @@ public class CompileAnalysisHints {
                 // modification-* test, and a jar that merely makes more types resolvable can move verdicts. The
                 // javadoc of materializeIgnoreModificationsFromFieldType records exactly that happening on
                 // fernflower, where an "inert" change moved ConstantPool.pool from @Independent to @Dependent.
-                compile(new AnalysisHintsCompiler(kotlinJavaInspectorFactory()), library, resultsBase);
+                //
+                // The committed jdk results are preloaded: without them the defaults the compiler writes for every
+                // UNCONTRACTED member of a shadowed part class see String and CharSequence as mutable (see the
+                // AnalysisHintsCompiler constructor). The committed ones, not resultsBase's: a test compiling into
+                // a temporary directory without the jdk must see the same defaults as the committed build.
+                compile(new AnalysisHintsCompiler(kotlinJavaInspectorFactory(), null,
+                        List.of(RESULTS_BASE_DIR.resolve(JDK_LIBRARY).toString())), library, resultsBase);
             } else {
                 compile(compiler, library, resultsBase);
             }

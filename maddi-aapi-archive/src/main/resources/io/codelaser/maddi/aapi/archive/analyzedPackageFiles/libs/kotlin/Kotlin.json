@@ -13,17 +13,17 @@
   {"name": "Pfirst(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Psecond(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mequals(3,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Pother(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pother(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetFirst(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MgetSecond(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MhashCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MtoString(7)", "data":{"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1}}]},
+ {"name": "MtoString(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
 
 {"name": "Tkotlin.TuplesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mto(0,A,B)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "subs":[
   {"name": "P$this$to(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pthat(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MtoList(1,kotlin.Pair)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "MtoList(1,kotlin.Pair)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$toList(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MtoList(2,kotlin.Triple)", "data":{"defaultsAnalyzer":1,"independentMethod":2}}]}
+ {"name": "MtoList(2,kotlin.Triple)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}}]}
 ]
