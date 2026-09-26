@@ -15,6 +15,7 @@ import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -804,6 +805,41 @@ class WriteLinksAndModification {
                 }));
     }
 
+    /**
+     * True when {@code primary ≈ other} is explained by field-level links of the builder -- {@code primary.f} linked
+     * by identity or assignment to {@code other.g} -- and every one of them carries a value of a concrete, fully
+     * immutable type (an enum, a String, a record of such). Then nothing the two share can
+     * change, and a modification of {@code other} (a setter writing its own field, say) does not reach
+     * {@code primary}. When no field-level link explains the ≈, nothing is known about what is shared: false, and
+     * the over-approximation stays. ⛔ {@code instance.setKind(command.getKind())}, an enum: {@code command ≈ instance},
+     * and the setter's modification of {@code instance} made {@code command} modified.
+     */
+    private boolean sharesOnlyImmutable(Links.Builder builder, Variable other) {
+        Variable primary = builder.primary();
+        boolean any = false;
+        for (Link l : builder) {
+            if (!(l.from() instanceof FieldReference from) || !(l.to() instanceof FieldReference to)) continue;
+            // any link between something under primary and something under other counts: a deeper one
+            // (primary.a.§es ~ other.b.§es) is sharing this method cannot judge, and keeps the over-approximation
+            if (!primary.equals(from.fieldReferenceBase()) || !other.equals(to.fieldReferenceBase())) continue;
+            if (!primary.equals(from.scopeVariable()) || !other.equals(to.scopeVariable())) return false;
+            if (Util.isVirtualModificationField(from.fieldInfo()) || Util.isVirtualModificationField(to.fieldInfo())) {
+                return false;
+            }
+            if (!l.linkNature().isIdenticalToOrAssignedFromTo()) return false;
+            // the declared type must say what the runtime object is: not a type parameter, not an abstract type
+            // (unlike the assigned-to rule, a concrete library type such as String is fine: its verdict is annotated)
+            ParameterizedType pt = from.parameterizedType();
+            TypeInfo best = pt.bestTypeInfo();
+            if (pt.typeParameter() != null || pt.arrays() > 0 || best == null || best.isAbstract()) return false;
+            // fully immutable: with hidden content, the other side may still change what hides in it
+            Value.Immutable immutable = new AnalysisHelper().typeImmutable(pt);
+            if (!ValueImpl.ImmutableImpl.IMMUTABLE.equals(immutable)) return false;
+            any = true;
+        }
+        return any;
+    }
+
     private boolean notLinkedToModified(Links.Builder builder,
                                         Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         for (Link link : builder) {
@@ -821,6 +857,11 @@ class WriteLinksAndModification {
                     // because we're processing the variables in order, adding to the map here provides the completion
                     modifiedVariablesAndTheirCause.put(builder.primary(), causesOfModification);
                     return false;
+                }
+                if (ln == SHARES_FIELDS && sharesOnlyImmutable(builder, link.to())) {
+                    // x ≈ y, and every field-level link behind it carries an immutable value: nothing the two share
+                    // can change, so y's modification does not reach x (analyzer TestSetterArgumentNotModified)
+                    continue;
                 }
                 if (ln == CONTAINS_AS_FIELD
                     || ln == SHARES_FIELDS // see impl/TestInstanceOf,2
