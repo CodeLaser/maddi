@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * {@code @Only} / {@code @TestMark} / {@code @NotModified(after=)} / {@code @Final(after=)} decorations. Without
  * this, the eventual nature — the novel output of the analysis — never reaches any IDE surface (all three
  * front-ends render {@code DecoratorImpl.annotations(...)}). See road-to-immutability §060 and
- * docs/eventual-info-hierarchy.md "Task 4".
+ * docs/design/eventual-info-hierarchy.md "Task 4".
  */
 public class TestDecorateEventual extends CommonTest {
 

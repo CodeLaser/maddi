@@ -114,7 +114,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             // the mark only RELAXES, so after-mark independence can never be below the unconditional verdict;
             // floor it there. The recomputation under-reports here when a plain accessor leaks a cluster
             // candidate whose immutability is not yet proven (ParameterInfoImpl.parameterizedType) -- see
-            // docs/eventual-info-hierarchy.md. The floor uses the HONESTLY RECOMPUTED unconditional (no
+            // docs/design/eventual-info-hierarchy.md. The floor uses the HONESTLY RECOMPUTED unconditional (no
             // cycle breaking), not the stored property: a cycle-broken INDEPENDENT in the property is
             // optimism, not a verdict, and trusting it promoted the leaked-ArrayList shape
             // (TestEventualPropagation.test7) the day the cluster ran default-on.

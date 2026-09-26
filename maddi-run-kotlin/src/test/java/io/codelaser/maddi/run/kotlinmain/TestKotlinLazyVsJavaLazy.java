@@ -54,7 +54,7 @@ import java.util.stream.Stream;
  * <p>
  * This is <em>The Road to Immutability</em> §12.6 asked across languages. §12.6 keeps its
  * {@code Lazy} section although the analyzer's own code no longer uses the type (see
- * {@code docs/book-vs-support-divergence.md}, findings 2 and 11); the reason to keep it is that
+ * {@code docs/design/book-vs-support-divergence.md}, findings 2 and 11); the reason to keep it is that
  * {@code Lazy} is the Java half of an idiom Kotlin has in its standard library, and this test is where
  * that claim is checked rather than asserted.
  * <p>

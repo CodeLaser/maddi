@@ -25,7 +25,7 @@ public class MethodMapImpl implements TypeInspection.MethodMap {
     public MethodMapImpl(List<MethodInfo> methods) {
         // accumulate locally and commit once: filling a final field with put() leaves it a mutable
         // container ever after -- part-of-construction excuses the assignment, not the content calls
-        // (the FactoryImpl.precedenceMap finding, docs/eventual-design-improvements.md)
+        // (the FactoryImpl.precedenceMap finding, docs/design/eventual-design-improvements.md)
         Map<String, Object> accumulator = new HashMap<>();
         for (MethodInfo methodInfo : methods) {
             String name = methodInfo.name();

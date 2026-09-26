@@ -50,7 +50,7 @@ public class AnnotationTagger {
     // an after-mark verdict: proven, but only once the object has passed its mark -- a conditional promise, so
     // neither the plain POSITIVE (proven now) nor the NEGATIVE baseline. Its own polarity so a front-end can
     // style/filter it distinctly; today every front-end shows an unrecognised polarity, so this degrades to
-    // "visible" without any client change. See road-to-immutability section 060 and docs/eventual-info-hierarchy.md.
+    // "visible" without any client change. See road-to-immutability section 060 and docs/design/eventual-info-hierarchy.md.
     public static final String EVENTUAL = "EVENTUAL";
 
     // annotation simple names by polarity (the core safety concepts)

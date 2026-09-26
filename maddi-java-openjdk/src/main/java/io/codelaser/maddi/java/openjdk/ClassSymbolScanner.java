@@ -108,6 +108,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
     private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
+    // the files this task was GIVEN to compile, as opposed to those javac parsed on demand from the source path;
+    // null until ScanCompilationUnits.scan() knows them. See isSourceSymbol.
+    private Set<URI> compilationUnitUris;
     // source-file URI -> its CompilationUnit, built up front by ScanCompilationUnits before any body is scanned;
     // lets a source type referenced before its own scan load onto its real (source-bearing) CU (see
     // lazilyLoadPrimaryTypeFromClassFile) instead of a source-less twin
@@ -517,7 +520,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 // Measured before the guard: 37 of guava's 698 generic types and 74 of timefold's 1469 -- all
                 // of them types with a nested type, which is the shape that reaches here (Equivalence, HashBiMap,
                 // BloomFilter, Invokable). The mirror of the method-type-parameter case, where the symbol view
-                // came FIRST and could not be replaced; see docs/method-type-parameter-source-loss.md.
+                // came FIRST and could not be replaced; see TestMethodTypeParameterSource and TestClassTypeParameterSource.
                 //
                 // Conservative: only when every one of them is source-built, and only when the counts agree.
                 // Anything else falls through to the symbol path exactly as before.
@@ -547,7 +550,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     // already built, so a caller scanned first left one type with TWO instances of its T: the
                     // signatures' had no source and the bound widened to '? extends', and their positions, filed
                     // under the declared instance in an identity-keyed DetailedSources, could not be found from them.
-                    // The third route of docs/method-type-parameter-source-loss.md (§9); TestClassTypeParameterIdentity.
+                    // The third route to the same loss (2026-09-14); TestClassTypeParameterIdentity.
                     // Same condition as deferCommitToDeclaration in addMethodToType, for the same reason.
                     boolean deferToDeclaration = !fromClassFile(cs)
                                                  && newTypeInfo.compilationUnit() != null
@@ -728,12 +731,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      * <p>
      * Asked of the PRIMARY type, like the map lookup below it: a member's own {@code sourcefile}/{@code classfile}
      * are the enclosing top-level type's.
+     * <p>
+     * ⚠ <b>BUT NOT EVERY SOURCE-ENTERED SYMBOL IS SCANNED.</b> Under a package restriction
+     * ({@code SourceSet.restrictToPackages}) only the accepted files are compilation units; the rest of the source
+     * directory is on javac's source path and parsed ON DEMAND. Such a symbol comes from a {@code .java} too, yet
+     * no {@code ScanCompilationUnit} ever visits it -- so nothing else would give it its hierarchy, and an
+     * annotation type committed without {@code java.lang.annotation.Annotation} (elasticsearch's
+     * {@code injection.guice.Inject}, TestElasticsearchServer). Once the task's own files are known, javac's answer
+     * counts only for them.
      */
     private boolean isSourceSymbol(Symbol symbol) {
         Symbol.ClassSymbol enclosing = symbol.enclClass();
         if (enclosing == null) return false;
         Symbol.ClassSymbol top = primary(enclosing);
-        if (!fromClassFile(top) && top.sourcefile != null) return true;
+        if (!fromClassFile(top) && top.sourcefile != null
+            && (compilationUnitUris == null || compilationUnitUris.contains(top.sourcefile.toUri()))) {
+            return true;
+        }
         return topLevelClassSymbolsOfSources != null && topLevelClassSymbolsOfSources.containsKey(top);
     }
 
@@ -1101,7 +1115,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
      * 2026-08-23 this loop took "already in the map" for "already handled" and SKIPPED it, then committed the
      * type around it: a committed type holding an uncommitted method whose {@code access()} is null forever.
      * Measured on maddi-as-one-project in the IDE daemon: 18 such methods, every one of them the method in which
-     * the scan threw, 104 null reads, fatal in the guard phase (see docs/handoff-uninspected-methods-null-access.md).
+     * the scan threw, 104 null reads, fatal in the guard phase (2026-08-23; pinned by TestDroppedUnitMethodAccess).
      * <p>
      * Finish it the way a compiled member is built: the access from its modifiers (the scan set the modifiers
      * first), no source, an empty body, the overrides from the symbol. Whatever the scan DID complete
@@ -1388,7 +1402,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // Nothing is set here at all when deferring, not even the bounds: the declaration supplies annotations,
         // bounds and source together, so there is no half-built state for a reader to see and nothing added
         // twice. ScanCompilationUnit.visitMethod recognises the deferral by hasBeenInspected() being false.
-        // See TestMethodTypeParameterSource, and docs/method-type-parameter-source-loss.md for how it was found.
+        // See TestMethodTypeParameterSource.
         if (!deferCommitToDeclaration) {
             int i = 0;
             for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
@@ -1461,6 +1475,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
         this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+    }
+
+    /** The files this task compiles, known right after {@code task.parse()}; see {@link #isSourceSymbol}. */
+    public void setCompilationUnitUris(Set<URI> compilationUnitUris) {
+        this.compilationUnitUris = compilationUnitUris;
     }
 
     /**

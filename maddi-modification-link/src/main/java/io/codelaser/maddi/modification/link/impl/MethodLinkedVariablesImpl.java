@@ -229,7 +229,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
      * Equality of method links is keyed on the primary variables (LinksImpl equality is primary-only),
      * so two values with the same primaries but DIFFERENT content are EQUAL — and whichever arrives
      * first freezes under first-arrival retention. Measured on the composed dogfood
-     * (docs/eventual-info-hierarchy.md §"The retention round"): the all-empty {@code [-] --> -} vs the
+     * (docs/design/eventual-info-hierarchy.md §"The retention round"): the all-empty {@code [-] --> -} vs the
      * rich derivation of {@code Statement.translate} split the 24↔10 worlds, and after fixing only the
      * empty case, rich-vs-richer pairs still split 39↔53. This predicate therefore imposes a TOTAL
      * canonical order on equal-keyed pairs: more content wins; equal content mass falls back to the
@@ -258,7 +258,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     /*
     Holds Links (for the return value and per parameter) and a set of modified Variables. Like LinksImpl, this is
     derived across types, so a REWIRE type's method links are stale by construction and should be recomputed rather
-    than carried; hence not implemented. See docs/rewiring.md.
+    than carried; hence not implemented. See docs/design/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

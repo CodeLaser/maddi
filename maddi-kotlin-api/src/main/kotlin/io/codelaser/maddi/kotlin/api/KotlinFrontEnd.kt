@@ -26,7 +26,7 @@ import java.util.ServiceLoader
 /**
  * <b>The Kotlin front end, as the host sees it.</b> Every type named here is loaded by the HOST's
  * classloader; the implementation and the 62 MB of compiler it needs are loaded inside a realm of their own
- * (docs/kotlin-classloader-isolation.md).
+ * (docs/design/kotlin-classloader-isolation.md).
  *
  * <p>⛔ The invariant that makes it work: [Runtime], [TypeInfo], [SourceSet], [InfoByFqn] and
  * [CompiledTypesManager] must be loaded ONCE, by the host, and imported into the realm. The mixed

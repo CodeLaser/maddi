@@ -146,7 +146,7 @@ public class LinksImpl implements Links {
      * Equality above is deliberately PRIMARY-ONLY, so two Links values with the same primary but
      * different content are "equal" — and under first-arrival retention (TolerantWrite), whichever
      * arrives first freezes, arrival-order dependently. The composed-dogfood bistability traced to
-     * exactly this shape (docs/eventual-info-hierarchy.md §"The retention round": methodLinks first,
+     * exactly this shape (docs/design/eventual-info-hierarchy.md §"The retention round": methodLinks first,
      * then the field-level {@code links} property keeping the count flipping 39↔53). Same total
      * canonical order as {@code MethodLinkedVariablesImpl}: more link content wins; equal mass falls
      * back to the lexicographically smaller rendering.
@@ -547,7 +547,7 @@ public class LinksImpl implements Links {
     /*
     Holds the primary Variable and a Link per entry, each with a from and a to Variable, so a rewire has to map all
     of them. Links are derived across types, so a REWIRE type's links are stale by construction and should be
-    recomputed rather than carried; hence not implemented. See docs/rewiring.md.
+    recomputed rather than carried; hence not implemented. See docs/design/rewiring.md.
      */
     @Override
     public Value rewire(InfoMapView infoMap) {

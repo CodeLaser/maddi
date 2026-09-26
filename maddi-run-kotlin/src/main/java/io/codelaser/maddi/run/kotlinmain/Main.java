@@ -159,7 +159,7 @@ public class Main {
             LOGGER.error("""
                     These options are not (yet) honoured for a project that contains Kotlin: {}.
                     They all depend on persisting an analysis result, which needs a Kotlin codec round trip \
-                    (see docs/kotlin-gap-analysis-2026-09-21.md §8.6). Refusing rather than running them as \
+                    (see docs/status/kotlin-gap-analysis-2026-09-21.md §8.6). Refusing rather than running them as \
                     no-ops: a run that wrote an empty result directory would look like one that worked. \
                     Drop the option, or analyze the Java half with `bin/maddi`.""", unsupported);
             return ExitCode.UNSUPPORTED_OPTION;

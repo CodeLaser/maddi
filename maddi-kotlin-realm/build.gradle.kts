@@ -13,7 +13,7 @@
  */
 
 // ⭐ The realm: where the Kotlin compiler and the 62 MB of third-party libraries it bundles are loaded,
-// so they are NOT on anybody's flat classpath. See docs/kotlin-classloader-isolation.md (G46).
+// so they are NOT on anybody's flat classpath. See docs/design/kotlin-classloader-isolation.md (G46).
 
 plugins {
     id("java-library-conventions")

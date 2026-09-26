@@ -39,7 +39,7 @@ public class Kotlin {
     a METHOD (PropertyImpl.EVENTUAL_METHOD), and reading kotlin.Lazy's value is not a method call: `val value` is
     a property, which is a FIELD once the type is loaded from bytecode, and the read compiles to
     `this.x$delegate.value`. There is nothing to carry @Mark. Writing @TestMark on isInitialized() alone would
-    leave a mark that is tested and never set -- the defect docs/book-vs-support-divergence.md finding 3 records
+    leave a mark that is tested and never set -- the defect docs/design/book-vs-support-divergence.md finding 3 records
     in the book's own FirstThen listing.
 
     So this states the unconditional claim instead: from outside, a Lazy is a fixed container of one hidden

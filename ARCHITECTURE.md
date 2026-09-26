@@ -10,7 +10,7 @@ deliberately does not repeat it.
 > Historical note: the root Java package was `org.e2immu.*`, after the project's predecessor. The
 > coordinated rename landed on 2026-08-17 and ships in 0.9.1: it is now `io.codelaser.maddi.*`, in
 > line with the project, artifacts and distributions, which were already named **maddi**. What an
-> existing user has to change is in [`docs/release-notes-0.9.1.md`](docs/release-notes-0.9.1.md).
+> existing user has to change is in [`docs/project/release-notes-0.9.1.md`](docs/project/release-notes-0.9.1.md).
 
 ## The pipeline
 
@@ -184,11 +184,11 @@ The IDE plugins are delivered separately and talk to the bundled daemon.
 - **"I want to work on a front end"** — `maddi-inspection-api`'s `JavaInspector`, then the
   producer/driver pair for your language (table above); for javac, read
   `parsing-stability.md` *before* anything else.
-- **"I want to touch the printers/formatter"** — `docs/formatter-analysis.md`,
+- **"I want to touch the printers/formatter"** — `docs/design/formatter-analysis.md`,
   `maddi-cst-print`, and `maddi-cst-print-kotlin/kotlin-printing.md`.
 - **"I want to work on the plugins or IDE integration"** — `maddi-run-config`, then the plugin
   module; for IDEs, `maddi-ide-daemon`'s `DaemonProtocol` and `Taskfile.yml` (the IDE build
-  tasks); status in `docs/eclipse-plugin-state.md` and `docs/ide-todo.md`.
+  tasks); state in `maddi-eclipse/README.md`, open items in `docs/roadmap/ide-todo.md`.
 
 ## Documentation map
 

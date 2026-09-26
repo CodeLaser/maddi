@@ -800,4 +800,26 @@ class ExpressionTest : KotlinScanTestBase() {
         assertEquals("contains", extension.name())
         assertEquals("java.util.List", callee("member").typeInfo().fullyQualifiedName()) // a member stays a member
     }
+
+    @Test
+    fun aBareNameInAReceiverLambdaIsTheInnermostReceivers() {
+        // `fun Args.spec() = compiler { jvmTarget = jvmTarget }`: the target is the BUILDER's jvmTarget, the lambda's
+        // receiver, and so is the read; by name both bound to Args.jvmTarget, the extension function's receiver
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "B.kt", """
+            package p
+            class Args { var jvmTarget: String = "17" }
+            class Builder { var jvmTarget: String = "1.8" }
+            fun compiler(block: Builder.() -> Unit): Builder = Builder().apply(block)
+            fun Args.spec() = compiler { jvmTarget = "21" }
+            """.trimIndent() + "\n"
+        )
+        val facade = types.first { it.simpleName() == "BKt" }
+        val written = mutableListOf<String>()
+        facade.findUniqueMethod("spec", 1).methodBody().visit { e ->
+            if (e is Assignment) written += (e.variableTarget() as FieldReference).fieldInfo().fullyQualifiedName()
+            true
+        }
+        assertEquals(listOf("p.Builder.jvmTarget"), written)
+    }
 }

@@ -26,7 +26,7 @@ public class ParameterInspectionImpl extends InspectionImpl implements Parameter
 
     // private: the Builder is the only construction route, so every caller of this constructor is inside
     // this primary type. That is what lets the analyzer verify, rather than believe, that the collections it
-    // stores are immutable. See docs/dynamic-immutability-feasibility.md.
+    // stores are immutable. See docs/design/dynamic-immutability-feasibility.md.
     private ParameterInspectionImpl(Inspection inspection, boolean isFinal, boolean varArgs) {
         super(inspection.access(), inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), null);

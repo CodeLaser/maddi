@@ -59,7 +59,7 @@ public final class Fact<V, L> implements Comparable<Fact<V, L>> {
      * insertion/iteration ties broken by {@code System.identityHashCode} ({@code HashMap.tieBreakOrder})
      * — per-JVM-run order. Facts key every engine map (closure, witness index, history sets); an
      * identity tie-break there is exactly the "identical event trace, different surviving instance"
-     * nondeterminism measured on the composed dogfood (docs/eventual-info-hierarchy.md §"The trace
+     * nondeterminism measured on the composed dogfood (docs/design/eventual-info-hierarchy.md §"The trace
      * round"). Order on (source, target), consistent with {@link #equals} (label excluded). V is a
      * {@code Variable} in every engine instantiation, and Variable is Comparable by FQN.
      */

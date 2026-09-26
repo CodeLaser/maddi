@@ -12,7 +12,7 @@ stores them as properties, and _computes_ them by propagation, for classes and i
 examples above is not implemented (nor needed for the patterns maddi itself uses).
 The chapter is retained because the design remains valid and the pattern is central to how the analyzer's
 own support classes are written (see <<in-the-analyzer>>).
-The plan for computing them is in `docs/eventual-immutability.md`.
+The plan for computing them is in `docs/design/eventual-immutability.md`.
 ====
 
 In this section we explore types which follow a two-phase life cycle: they start off as mutable, then somehow become

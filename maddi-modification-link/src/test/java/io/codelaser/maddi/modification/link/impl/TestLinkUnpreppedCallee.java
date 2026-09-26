@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Prepwork can leave a reachable source method without VariableData: a fault-tolerant prep run isolates a
  * failing type or method and carries on ({@code PrepAnalyzer.doType} / {@code doMethodIsolated}), and a
  * caller prepping one primary type at a time may simply never have prepped the callee's type — the shape in
- * which jfocus-standardize's intake lost 208 closed-core methods to this abort (see
- * {@code docs/handoff-linkcomputer-recursion-vd-null.md}).
+ * which jfocus-standardize's intake lost 208 closed-core methods to this abort (2026-08-02).
+ *
  * <p>
  * Pinned behaviour: {@code LinkComputerImpl.doMethod} detects the missing prep data, degrades THAT method to
  * a shallow summary — explicitly, marking {@code DEGRADED_ANALYSIS_METHOD} — and the caller completes

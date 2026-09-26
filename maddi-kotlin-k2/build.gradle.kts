@@ -27,7 +27,7 @@ val analysisApiVersion = "2.4.0"
 
 dependencies {
     // ⭐ The front end's CONTRACT, which the host loads and this module implements. Everything the host
-    // is allowed to see lives there; see docs/kotlin-classloader-isolation.md and the ⛔ rule in its build.
+    // is allowed to see lives there; see docs/design/kotlin-classloader-isolation.md and the ⛔ rule in its build.
     api(project(":maddi-kotlin-api"))
     // The shared CST this front-end produces (Runtime factories, TypeInfo, ParameterizedType, ...).
     api(project(":maddi-cst-api"))
@@ -76,6 +76,8 @@ dependencies {
 
     // Test-only: a concrete Runtime, and SourceSet construction.
     testImplementation(project(":maddi-cst-impl"))
+    // NonLocalReturnTest prints the CST back as Kotlin: a `return@forEach` must survive the round trip
+    testImplementation(project(":maddi-cst-print-kotlin"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")

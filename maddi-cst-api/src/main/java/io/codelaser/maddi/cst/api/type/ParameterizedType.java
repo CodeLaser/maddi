@@ -156,7 +156,7 @@ public interface ParameterizedType {
 
     ParameterizedType erasedForFQN();
 
-    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every implementation returns a freshly
+    // TRUSTED LEAF (docs/design/eventual-design-improvements.md §4): every implementation returns a freshly
     // built immutable set (Set.of, toUnmodifiableSet) -- shares only hidden content, a fact the analyzer
     // cannot compute from the declared java.util.Set.
     @Independent(hc = true)
@@ -248,13 +248,13 @@ public interface ParameterizedType {
                                    TypeInfo primaryType,
                                    ParameterizedType other);
 
-    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): the committed face is List.copyOf-backed
+    // TRUSTED LEAF (docs/design/eventual-design-improvements.md §4): the committed face is List.copyOf-backed
     // (ParameterizedTypeImpl's constructor), so the exposed wrapper shares only hidden content -- a fact
     // the analyzer cannot compute from the declared java.util.List.
     @Independent(hc = true)
     List<ParameterizedType> parameters();
 
-    // TRUSTED LEAF (docs/eventual-design-improvements.md §4): every return is a freshly built immutable
+    // TRUSTED LEAF (docs/design/eventual-design-improvements.md §4): every return is a freshly built immutable
     // list (List.of, the staticToList collector) -- shares only hidden content.
     @Independent(hc = true)
     List<ParameterizedType> replaceByTypeBounds();

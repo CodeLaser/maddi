@@ -63,8 +63,50 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
     public record Assignment(Variable from, Variable to, String statementIndex) {
     }
 
-    private final Set<Variable> variables = new LinkedHashSet<>();
-    private final List<Assignment> assignments = new ArrayList<>();
+    /*
+     The group's CONTENT (members, recorded assignments and the memos derived from them) lives in a separate
+     object, so that the representative itself is only a name. The rep is a vertex of the link graph (equality
+     is by name) and is shared by every copy of the graph that a branch makes; each copy owns its own Data, and
+     SharedVariables points the rep at the Data of the state it installs (SharedVariables.snapshot/restore).
+     */
+    public static final class Data {
+        private final Set<Variable> variables;
+        private final List<Assignment> assignments;
+        private final java.util.Map<Variable, Set<Variable>> assignmentSourcesCache = new java.util.HashMap<>();
+        private java.util.Map<Variable, List<Variable>> forwardAssignments;
+
+        public Data() {
+            this(new LinkedHashSet<>(), new ArrayList<>());
+        }
+
+        public Set<Variable> variables() {
+            return variables;
+        }
+
+        public List<Assignment> assignments() {
+            return assignments;
+        }
+
+        private Data(Set<Variable> variables, List<Assignment> assignments) {
+            this.variables = variables;
+            this.assignments = assignments;
+        }
+
+        // the memos are not copied: they are recomputed on demand
+        public Data copy() {
+            return new Data(new LinkedHashSet<>(variables), new ArrayList<>(assignments));
+        }
+    }
+
+    private Data data = new Data();
+
+    public Data data() {
+        return data;
+    }
+
+    public void setData(Data data) {
+        this.data = data;
+    }
 
     /**
      * Memo for {@code SharedVariables.assignmentSources}, which is a pure function of {@link #assignments} and
@@ -77,7 +119,6 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
      * <p>
      * Cached here rather than in the caller because this is where every mutation of the group passes.
      */
-    private final java.util.Map<Variable, Set<Variable>> assignmentSourcesCache = new java.util.HashMap<>();
 
     /**
      * {@code from -> tos} over {@link #assignments}. It does not depend on the variable being asked about, so
@@ -85,7 +126,6 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
      * remaining cost was one full rebuild per distinct member, i.e. still quadratic in a long method. Built once
      * per group version, dropped by {@link #invalidate()} alongside the memo.
      */
-    private java.util.Map<Variable, List<Variable>> forwardAssignments;
 
     public SharedVariable(String name, ParameterizedType parameterizedType, Runtime runtime) {
         super(name, parameterizedType, runtime.newEmptyExpression());
@@ -107,58 +147,63 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
      */
     public Set<Variable> assignmentSources(Variable variable,
                                            java.util.function.Function<Variable, Set<Variable>> compute) {
-        Set<Variable> cached = assignmentSourcesCache.get(variable);
+        Set<Variable> cached = data.assignmentSourcesCache.get(variable);
         if (cached != null) return cached;
         ASSIGNMENT_SOURCE_COMPUTATIONS.increment();
         Set<Variable> computed = compute.apply(variable);
-        assignmentSourcesCache.put(variable, computed);
+        data.assignmentSourcesCache.put(variable, computed);
         return computed;
     }
 
     /** The forward adjacency of {@link #assignments}, shared by every query against this group. */
     public java.util.Map<Variable, List<Variable>> forwardAssignments() {
-        if (forwardAssignments == null) {
+        if (data.forwardAssignments == null) {
             FORWARD_ASSIGNMENT_REBUILDS.increment();
             java.util.Map<Variable, List<Variable>> fwd = new java.util.HashMap<>();
-            for (Assignment a : assignments) {
+            for (Assignment a : data.assignments) {
                 fwd.computeIfAbsent(a.from(), k -> new ArrayList<>()).add(a.to());
             }
-            forwardAssignments = fwd;
+            data.forwardAssignments = fwd;
         }
-        return forwardAssignments;
+        return data.forwardAssignments;
+    }
+
+    // after a direct edit of assignments() (SharedVariables' detached records)
+    public void invalidateMemos() {
+        invalidate();
     }
 
     private void invalidate() {
-        assignmentSourcesCache.clear();
-        forwardAssignments = null;
+        data.assignmentSourcesCache.clear();
+        data.forwardAssignments = null;
     }
 
     public boolean add(Variable variable) {
-        boolean added = variables.add(variable);
+        boolean added = data.variables.add(variable);
         if (added) invalidate();
         return added;
     }
 
     public void addAssignment(Variable from, Variable to, String statementIndex) {
-        assignments.add(new Assignment(from, to, statementIndex));
+        data.assignments.add(new Assignment(from, to, statementIndex));
         invalidate();
     }
 
     /** Fold another group's assignments in; goes through here so the memo is dropped (see {@link #merge}'s caller). */
     public void addAssignments(List<Assignment> toAdd) {
         if (toAdd.isEmpty()) return;
-        assignments.addAll(toAdd);
+        data.assignments.addAll(toAdd);
         invalidate();
     }
 
     // 'from' is the recipient of an assignment recorded at a statement OTHER than 'statementIndex': a genuine
     // reassignment, as opposed to a second arm of the same (multi-valued) assignment.
     public boolean recipientAtOtherStatement(Variable from, String statementIndex) {
-        return assignments.stream().anyMatch(a -> a.from().equals(from) && !a.statementIndex().equals(statementIndex));
+        return data.assignments.stream().anyMatch(a -> a.from().equals(from) && !a.statementIndex().equals(statementIndex));
     }
 
     public List<Assignment> assignments() {
-        return assignments;
+        return data.assignments;
     }
 
     @Override
@@ -170,18 +215,18 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
     }
 
     public Set<Variable> variables() {
-        return variables;
+        return data.variables;
     }
 
     public void removeAll(Set<Variable> variables) {
-        this.variables.removeAll(variables);
-        assignments.removeIf(a -> variables.contains(a.from()) || variables.contains(a.to()));
+        data.variables.removeAll(variables);
+        data.assignments.removeIf(a -> variables.contains(a.from()) || variables.contains(a.to()));
         invalidate();
     }
 
     public void remove(Variable variable) {
-        variables.remove(variable);
-        assignments.removeIf(a -> variable.equals(a.from()) || variable.equals(a.to()));
+        data.variables.remove(variable);
+        data.assignments.removeIf(a -> variable.equals(a.from()) || variable.equals(a.to()));
         invalidate();
     }
 }

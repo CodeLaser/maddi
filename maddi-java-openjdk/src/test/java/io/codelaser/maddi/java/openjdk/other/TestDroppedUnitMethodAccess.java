@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ⛔ <b>A METHOD HALF-SCANNED BY A DROPPED COMPILATION UNIT IS NEVER FINISHED, AND ITS TYPE IS COMMITTED
- * AROUND IT.</b> The shape behind {@code docs/handoff-uninspected-methods-null-access.md} (2026-08-23, 18 methods,
+ * AROUND IT.</b> The shape found on 2026-08-23 (18 methods,
  * 104 null {@code access()} reads, every one of them a method in which the source scan threw):
  * <ol>
  *     <li>{@code ScanCompilationUnit.visitMethod} registers the {@link MethodInfo} on its type AND in the

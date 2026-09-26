@@ -78,7 +78,7 @@ import java.util.stream.Stream;
  * reduction that reproduced the failure and then went green; one of them took the hundred-class corpus from 97
  * trees compiling to <b>9</b>, with the whole unit suite still passing. Run
  * {@code TestIsolateClosedCoreClasses} for anything that changes what a stub declares.
- * {@code docs/isolate-class.md} §6 has the twelve causes and §7 the three that are left.
+ * {@code docs/design/isolate-class.md} §6 has the twelve causes and §7 the three that are left.
  * <p>
  * One gap is left deliberately: the <b>isolated type itself</b> is always emitted as a {@code class}, so isolating
  * an {@code enum} loses its nature and its constants. The stubs reproduce every nature; the isolated type does not.

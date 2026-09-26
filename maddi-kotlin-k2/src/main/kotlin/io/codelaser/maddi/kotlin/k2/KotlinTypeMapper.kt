@@ -163,6 +163,21 @@ internal class KotlinTypeMapper(
      */
     private val shells = java.util.IdentityHashMap<TypeInfo, KaSymbolPointer<KaNamedClassSymbol>>()
 
+    /**
+     * The library types whose members [loadLibraryMembers] is loading right now: see [nestedInLoading].
+     */
+    private val loadingMembers = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
+
+    /**
+     * Whether [jvmFqn] is nested in a type whose members this mapper is loading, so that the shared CompiledTypesManager
+     * must not be asked for it: loading a nested class loads its enclosing class, which the class scanner found in the
+     * registry -- this mapper's half-built instance -- filled from the class file and committed, and the member load's
+     * own closing commit threw. MEASURED 2026-09-25: jetty's `Request` reaching `Request.Content` from one of its own
+     * signatures failed the whole javalin parse. The nested type is built here instead, like its enclosing type.
+     */
+    private fun nestedInLoading(jvmFqn: String): Boolean =
+        loadingMembers.any { jvmFqn.startsWith(it.fullyQualifiedName() + ".") }
+
     /** Give a [shells] type its members, when reached from where its first visit could not. */
     private fun KaSession.deepen(typeInfo: TypeInfo) {
         if (memberDepth >= maxMemberDepth) return
@@ -252,14 +267,21 @@ internal class KotlinTypeMapper(
     // `actual typealias Handle` are, to a plain JVM module, two declarations of one FQN, and the CLASS wins —
     // `findTypeAlias(classId)` returns null and `findClassLike(classId)` returns the class. So the alias is
     // only reachable through the declaration itself. Populated by KotlinScan before conversion.
-    private val typeAliasByFqn = mutableMapOf<String, KtTypeAlias>()
+    // Stored as the expansion's ClassId, resolved in the ALIAS's own module: with a multiplatform target split into
+    // fragment modules, an `actual typealias` in nonAndroidMain cannot be analysed from a commonMain use site.
+    private val typeAliasByFqn = mutableMapOf<String, ClassId>()
 
     /** Register every top-level `typealias` in [ktFiles], so an `expect` type can resolve to its expansion. */
     internal fun registerTypeAliases(ktFiles: List<KtFile>) {
         ktFiles.forEach { ktFile ->
             val packageName = ktFile.packageFqName.asString()
-            ktFile.declarations.filterIsInstance<KtTypeAlias>().forEach { alias ->
-                alias.name?.let { typeAliasByFqn[if (packageName.isEmpty()) it else "$packageName.$it"] = alias }
+            val aliases = ktFile.declarations.filterIsInstance<KtTypeAlias>()
+            if (aliases.isEmpty()) return@forEach
+            analyze(ktFile) {
+                aliases.forEach { alias ->
+                    val expanded = (alias.symbol.expandedType as? KaClassType)?.classId ?: return@forEach
+                    alias.name?.let { typeAliasByFqn[if (packageName.isEmpty()) it else "$packageName.$it"] = expanded }
+                }
             }
         }
     }
@@ -315,7 +337,7 @@ internal class KotlinTypeMapper(
         // JVM class has. Resolve through the alias to what it expands to, which is the type that really exists.
         // Guarded by isExpect, so the overwhelmingly common path does not pay for the lookup.
         if ((type.symbol as? KaNamedClassSymbol)?.isExpect == true) {
-            val expanded = typeAliasByFqn[type.classId.asFqNameString()]?.symbol?.expandedType as? KaClassType
+            val expanded = typeAliasByFqn[type.classId.asFqNameString()]?.let { buildClassType(it) } as? KaClassType
             if (expanded != null && expanded.classId != type.classId) {
                 val target = mapClassType(expanded, owner, method)
                 // Re-apply the USE-SITE type arguments. The expansion's own arguments name the ALIAS's type
@@ -341,7 +363,7 @@ internal class KotlinTypeMapper(
             // getOrLoad lazily loads from bytecode), so java.* is ONE TypeInfo instance across the Java and
             // Kotlin front-ends. Cache it locally; fall back to the K2-based load when absent (standalone) or
             // when the manager doesn't know the type (a Kotlin-only stdlib type).
-            compiledTypesManager?.type(jvmFqn, librarySourceSet)?.also {
+            (if (nestedInLoading(jvmFqn)) null else compiledTypesManager?.type(jvmFqn, librarySourceSet))?.also {
                 // only register if absent: a SHARED registry (mixed setup) already holds this instance under its
                 // own (java.base) source set via the openjdk load, and re-putting the same instance trips the
                 // InfoByFqn duplicate assertion. Standalone: getType is null on first use, so we still cache.
@@ -496,8 +518,14 @@ internal class KotlinTypeMapper(
         val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
         val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
         val builder = method.builder()
-        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
-        builder.setReturnType(mapType(property.returnType, owner))
+        // a generic extension property (`val <T> List<T>.lastIndex`) is a generic static getter, its type parameters
+        // unbounded for the reason convertLibraryMethod gives
+        property.typeParameters.forEachIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) }.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
+        receiver?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
+        builder.setReturnType(mapType(property.returnType, owner, method))
             .setMethodBody(runtime.emptyBlock())
             .setMissingData(runtime.methodMissingMethodBody())
             .addMethodModifier(runtime.methodModifierPublic())
@@ -607,6 +635,7 @@ internal class KotlinTypeMapper(
     private fun KaSession.loadLibraryMembers(typeInfo: TypeInfo, symbol: KaNamedClassSymbol) {
         val builder = typeInfo.builder()
         memberDepth++
+        loadingMembers.add(typeInfo)
         try {
             // Static fields FIRST (`System.out`, `Integer.MAX_VALUE`, `Math.PI`, …): they live in the static
             // member scope as KaJavaFieldSymbols (not properties), and are commonly used as call receivers
@@ -684,6 +713,7 @@ internal class KotlinTypeMapper(
                 .forEach { if (seenCtors.add(it.fullyQualifiedName())) builder.addConstructor(it) }
         } finally {
             memberDepth--
+            loadingMembers.remove(typeInfo)
         }
     }
 
@@ -746,17 +776,34 @@ internal class KotlinTypeMapper(
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
         val method = runtime.newMethod(owner, function.name.asString(), methodType)
         val builder = method.builder()
+        // ⛔ THE METHOD'S OWN TYPE PARAMETERS, as the class file's Signature attribute has them. Without them a bare
+        // `T` found no binder and fell to Object: `listOf(vararg T)` was `listOf(Object[])` returning List<Object>,
+        // every stdlib call site lost its generics, and a contract naming `T[]` -- listOf, setOf, mutableListOf,
+        // arrayListOf, toMap(.., M), ... -- matched no method and was skipped with a WARN (the kotlin archive's
+        // collection factories never applied). Created first, bounds after: a bound may name a sibling.
+        val cstTypeParameters = function.typeParameters.mapIndexed { index, tp ->
+            runtime.newTypeParameter(index, tp.name.asString(), method)
+                .also { builder.addTypeParameter(it) } to tp
+        }
+        // ⚠ UNBOUNDED, deliberately. Mapping `T : Comparable<T>` eagerly LOADS the bound's type while this type's
+        // members load, past maxMemberDepth, as a shell; commitShells then freezes it memberless at the end of the scan,
+        // and the next scan (the mixed pipeline runs one per source set) finds it committed and cannot deepen it --
+        // measured: TypeResolutionTest's `java.io.File` lost every member. What the identity buys (generics at the call
+        // site, contract tokens naming `T`) needs no bound; a bounded T still erases to Object, as it did before.
+        cstTypeParameters.forEach { (cstTp, tp) ->
+            cstTp.builder().setTypeBounds(listOf()).setVariance(mapVariance(tp.variance)).commit()
+        }
         // an extension's receiver is its first JVM parameter, named as KotlinScan names a source extension's
-        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner)) }
+        function.receiverParameter?.let { builder.addParameter("\$receiver", mapType(it.returnType, owner, method)) }
         function.valueParameters.forEach { p ->
             // ⛔ A VARARG'S K2 returnType IS THE ELEMENT TYPE; the JVM parameter is an array of it. Without this
             // `mapOf(vararg Pair)` is modelled as `mapOf(Pair)` -- the signature of the OTHER, single-pair overload,
             // so the two collide and `seen` drops one of them (KotlinScan.convertMethodSignature does the same).
-            val elementType = mapType(p.returnType, owner)
+            val elementType = mapType(p.returnType, owner, method)
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             builder.addParameter(p.name.asString(), parameterType).builder().setVarArgs(p.isVararg)
         }
-        val returnType = mapType(function.returnType, owner)
+        val returnType = mapType(function.returnType, owner, method)
         // a suspend function's JVM shape, as the class file has it: see continuationParameter
         val suspendReturn = if (function.isSuspend) continuationParameter(builder, returnType) else null
         builder

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test
  * as an expression — Java does not either — so the declaration is split from the assignment and each branch
  * assigns into the local, which is what both languages compile to.
  *
- * `try` as an expression has been an open item since August (`docs/kotlin-corpora.md` §5.2, where it cost a
+ * `try` as an expression has been an open item since August (`docs/status/kotlin-corpora.md` §5.2, where it cost a
  * prep isolate on coil).
  */
 class StatementAsValueTest : KotlinScanTestBase() {

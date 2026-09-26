@@ -206,6 +206,10 @@ public class ScanCompilationUnits {
 
     public Result scan() throws IOException {
         Iterable<? extends CompilationUnitTree> units = task.parse();
+        // before anything is attributed or loaded: which files are THIS task's, as opposed to those javac will parse
+        // on demand from the source path under a package restriction (ClassSymbolScanner.isSourceSymbol)
+        classSymbolScanner.setCompilationUnitUris(StreamSupport.stream(units.spliterator(), false)
+                .map(unit -> unit.getSourceFile().toUri()).collect(Collectors.toUnmodifiableSet()));
         // compilation units dropped by fault isolation (accumulate mode), and their recorded failures
         List<CompilationUnitFailure> failures = new ArrayList<>();
         // filled after analyze(), the first moment a symbol exists; one instance, because a scanner built before
@@ -247,7 +251,7 @@ public class ScanCompilationUnits {
         // hierarchy -- which ScanCompilationUnit.visitClass then adopts and builds a second time, so commit()
         // died on "Extending multiple identical interfaces". Five of maddi-annotation's twenty-seven types, in
         // the FIRST source set of the whole-CodeLaser-tree parse, because the preload runs only there.
-        // See TestPreloadBeforeSourceSymbols and docs/handoff-source-and-jar-duplicate-interfaces.md.
+        // See TestPreloadBeforeSourceSymbols.
         IdentityHashMap<Symbol.ClassSymbol, Boolean> symbols = StreamSupport.stream(units.spliterator(), false)
                 .flatMap(unit -> unit.getTypeDecls().stream()
                         .filter(td -> td instanceof JCTree.JCClassDecl)

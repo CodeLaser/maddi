@@ -15,7 +15,7 @@
 // ⭐ The Kotlin front-end's contract, WITHOUT the Kotlin compiler.
 //
 // This module exists so the K2 front end can live behind a classloader boundary (see
-// docs/kotlin-classloader-isolation.md). Everything here is loaded by the HOST's classloader and
+// docs/design/kotlin-classloader-isolation.md). Everything here is loaded by the HOST's classloader and
 // shared with the realm; everything in maddi-kotlin-k2 is loaded inside it.
 //
 // ⛔ The one rule: nothing in this module may depend on kotlin-compiler, the '*-for-ide' artifacts,

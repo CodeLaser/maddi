@@ -31,7 +31,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Stage 2 of eventual immutability (road to immutability §060; plan in {@code docs/eventual-immutability.md}):
+ * Stage 2 of eventual immutability (road to immutability §060; plan in {@code docs/design/eventual-immutability.md}):
  * a type holding a field of eventually immutable type inherits the mark, method by method. No preconditions are
  * involved — the callee's contract says which side of the transition it belongs to.
  */
@@ -441,7 +441,7 @@ public class TestEventualPropagation extends CommonTest {
      is non-modifying in the product but MODIFYING in the Builder (it reaches TypeInfo.parentClass(), which runs
      EventuallyFinalOnDemand's on-demand loader), so the meet caps the interface at FINAL_FIELDS and the
      hierarchy rule then makes every implementation mutable. There, splitting the builder off IS the blocker.
-     See docs/dynamic-immutability-feasibility.md.
+     See docs/design/dynamic-immutability-feasibility.md.
      */
     @DisplayName("splitting the builder off the shared interface is a no-op when its accessors do not modify")
     @Test

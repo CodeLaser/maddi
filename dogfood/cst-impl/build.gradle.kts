@@ -20,7 +20,7 @@ val maddiVersion = extra["maddiVersion"] as String // the project's own version;
 dependencies {
     // the project dependencies are the ones under test: cst-api and cst-analysis must arrive as SOURCE, not
     // as jars -- analyzing PropertyValueMapImpl as source lets getOrDefault be proven @NotModified, which a
-    // jar dependency cannot establish (see docs/eventual-info-hierarchy.md, ParameterInfoImpl)
+    // jar dependency cannot establish (see docs/design/eventual-info-hierarchy.md, ParameterInfoImpl)
     implementation(project(":cst-api"))
     implementation(project(":cst-analysis"))
     // maddi-support in particular stays a jar so that reading @Mark/@Only out of byte code is exercised

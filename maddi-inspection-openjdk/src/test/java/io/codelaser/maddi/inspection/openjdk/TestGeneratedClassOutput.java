@@ -280,7 +280,7 @@ public class TestGeneratedClassOutput {
      * {@code CompiledTypesManager.getOrLoad} — the on-demand library load that
      * {@code maddi-inspection-openjdk/DESIGN-drop-javac-ast.md} §3 shows the analysis depends on. Switching
      * generation on therefore broke it with an {@code IllegalStateException} out of {@code getElements()}, exactly as
-     * {@code docs/partial-reparse-rewire.md} §7.1 predicted. A source-free replacement task now serves those loads.
+     * {@code docs/design/partial-reparse-rewire.md} §7.1 predicted. A source-free replacement task now serves those loads.
      */
     @DisplayName("compiled-type loading still works after generation destroyed the scan's task")
     @Test

@@ -252,9 +252,12 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
             return t;
         }
 
-        // 5. Sibling class of current type
-        if (currentType.compilationUnitOrEnclosingType().isRight()) {
-            t = currentType.compilationUnitOrEnclosingType().getRight().findSubType(name, false);
+        // 5. Member type of an enclosing type: a sibling of the current type, and further out every enclosing
+        //    type's members -- which is how an intermediate enclosing type is in scope by its simple name. Inside
+        //    Deep.One.Two.Three, {@code Two} is a member of One, two levels up; looking only at the DIRECT
+        //    enclosing type left {@code {@link Two.Three#make()}} unresolved. Innermost first, as javac shadows.
+        for (TypeInfo enclosing = enclosing(currentType); enclosing != null; enclosing = enclosing(enclosing)) {
+            t = enclosing.findSubType(name, false);
             if (t != null) {
                 detailedSourcesOfType(name, source, dsb, t, offsetInSource);
                 return t;

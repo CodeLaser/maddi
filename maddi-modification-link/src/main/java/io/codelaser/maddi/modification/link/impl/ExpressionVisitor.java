@@ -444,9 +444,16 @@ public record ExpressionVisitor(Runtime runtime,
             return res.setEvaluated(newVe);
         }
         VariableExpression newVE;
+        Variable expressionScopePrimary = null;
         if (v instanceof FieldReference fr) {
             Result r = visit(fr.scope(), variableData, stage);
             extra = extra.merge(r.extra());
+            if (fr.scopeVariable() == null && r.links() != null && r.links().primary() != null) {
+                // the scope is an expression ('requireNonNull(tail).next', 'self().next'): keep what it evaluates
+                // to, and its links, so that an assignment to the field can modify it
+                expressionScopePrimary = r.links().primary();
+                extra = extra.merge(new LinkedVariablesImpl(Map.of(expressionScopePrimary, r.links())));
+            }
             if (r.getEvaluated() != fr.scope()) {
                 newVE = runtime.newVariableExpression(runtime.newFieldReference(fr.fieldInfo(), r.getEvaluated(),
                         fr.parameterizedType()));
@@ -464,7 +471,7 @@ public record ExpressionVisitor(Runtime runtime,
             Links links = Objects.requireNonNullElse(vi.linkedVariables(), LinksImpl.EMPTY);
             links.forEach(l -> builder.add(l.from(), l.linkNature(), l.to()));
         }
-        return new Result(builder.build(), extra).setEvaluated(newVE);
+        return new Result(builder.build(), extra).setEvaluated(newVE).setExpressionScopePrimary(expressionScopePrimary);
     }
 
     private Result assignment(VariableData variableData, Stage stage, Assignment a) {
@@ -486,6 +493,12 @@ public record ExpressionVisitor(Runtime runtime,
                                        && fr.fieldInfo().isIgnoreModifications()
                 ? Set.of()
                 : Util.scopeVariables(a.variableTarget());
+        // a field of an expression's result ('requireNonNull(tail).next = node'): no scope VARIABLE, but the
+        // expression's result is modified, and through its links whatever it stands for (guava LinkedListMultimap)
+        if (rTarget.expressionScopePrimary() != null && scopeVariables.isEmpty()
+            && !(a.variableTarget() instanceof FieldReference fr2 && fr2.fieldInfo().isIgnoreModifications())) {
+            scopeVariables = Set.of(rTarget.expressionScopePrimary());
+        }
         return result
                 .merge(rValue)
                 .merge(rTarget)
@@ -894,7 +907,7 @@ public record ExpressionVisitor(Runtime runtime,
                     // enclosed (lambda/anonymous-class) method: NOT an analysis-order element, so the
                     // doType SLOT never recomputes it — getOrCreate here froze the FIRST on-demand
                     // computation, in whatever context that toucher had. Arrival-order dependent: the
-                    // λ-target residue of docs/eventual-info-hierarchy.md §"The seed-order round"
+                    // λ-target residue of docs/design/eventual-info-hierarchy.md §"The seed-order round"
                     // (which caller's lambda carries the value-mediated edge varied per run).
                     // Recompute and let canonical retention decide — the slot rule (LinkComputerImpl.
                     // doType) extended to non-order methods; the stored value is yielded, so caller

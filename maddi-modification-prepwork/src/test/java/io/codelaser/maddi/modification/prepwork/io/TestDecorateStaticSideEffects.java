@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * {@code DecoratorImpl} must surface a computed/contracted {@code STATIC_SIDE_EFFECTS_METHOD} verdict as a
  * {@code @StaticSideEffects} decoration, so the global-escape signal reaches the IDE surfaces (all three
  * front-ends render {@code DecoratorImpl.annotations(...)}). See road-to-immutability §050 "Static side effects"
- * and docs/eventual-info-hierarchy.md.
+ * and docs/design/eventual-info-hierarchy.md.
  */
 public class TestDecorateStaticSideEffects extends CommonTest {
 

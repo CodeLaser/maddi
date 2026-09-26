@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Mechanical enforcement of the four cst-impl idioms that eventual immutability rests on, so that a
  * commit which breaks one fails here with a one-line diagnosis instead of surfacing a week later as a
- * mysterious drop in the dogfood survivor count (docs/eventual-design-improvements.md §2).
+ * mysterious drop in the dogfood survivor count (docs/design/eventual-design-improvements.md §2).
  * <p>
  * Each rule is here because a real commit broke it:
  * <ol>
@@ -255,7 +255,7 @@ public class TestEventualConformance {
         if (!unsuppressed.isEmpty()) {
             fail("Eventual-immutability conformance: " + unsuppressed.size() + " violation(s).\n"
                  + String.join("\n", unsuppressed)
-                 + "\n\nEach rule is documented in docs/eventual-design-improvements.md §2. If an exception is"
+                 + "\n\nEach rule is documented in docs/design/eventual-design-improvements.md §2. If an exception is"
                  + " genuinely intended, add it to SUPPRESSIONS in this file with a one-line justification.");
         }
     }

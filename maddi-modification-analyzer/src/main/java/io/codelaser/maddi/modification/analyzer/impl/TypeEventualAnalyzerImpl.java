@@ -205,7 +205,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                 eventualCluster.discardAssumptionBuffer();
             }
         }
-        // EVENTUALLY_UNMODIFIED_PARAMETER (spec: docs/spec-eventually-unmodified-parameter.md): the parameter
+        // EVENTUALLY_UNMODIFIED_PARAMETER (spec: docs/design/spec-eventually-unmodified-parameter.md): the parameter
         // twin of the loop above -- the same commit walk, rooted in a parameter instead of this. Entirely under
         // the gate: nothing here runs, and nothing is written, without EVENTUALCLUSTER.
         if (EventualCluster.ENABLED) {
@@ -255,7 +255,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * <p>
      * Only marks on the type's <em>own</em> fields are handled. A type inheriting its mark (a {@code Freezable}
      * subclass) gets its methods annotated, but its own type-level verdict waits for the parent-inheritance step
-     * (old {@code approvedPreconditionsFromParent}); see {@code docs/eventual-immutability.md}.
+     * (old {@code approvedPreconditionsFromParent}); see {@code docs/design/eventual-immutability.md}.
      */
     private void computeTypeLevel(TypeInfo typeInfo, boolean activateCycleBreaking) {
         // EVENTUALCLUSTER (#51): the verdict is write-once, except that a WEAK one (@FinalFields after the mark)
@@ -697,6 +697,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     expression(s.expression(), spine);
                 }
                 conditional(s); // sweep anything the spine walk did not reach (taint only)
+                // `xs.forEach { if (p(it)) return }`: a leaf whose lambda can end the method
+                if (Lambda.containsNonLocalReturn(s)) liveEarlyExit = true;
             }
         }
 
@@ -772,7 +774,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (block == null || block.isEmpty()) return false;
             boolean[] found = {false};
             block.visit(e -> {
-                if (e instanceof TypeInfo || e instanceof Lambda) return false;
+                if (e instanceof TypeInfo) return false;
+                // a lambda's own returns do not leave the method; a Kotlin non-local return in it does
+                if (e instanceof Lambda lambda) {
+                    if (lambda.hasNonLocalReturn()) found[0] = true;
+                    return false;
+                }
                 if (e instanceof ReturnStatement || e instanceof YieldStatement) {
                     found[0] = true;
                     return false;
@@ -886,7 +893,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     /**
      * EVENTUALCLUSTER only. The labels after which a call leaves the ARGUMENT for {@code pi} unmodified
-     * ({@code EVENTUALLY_UNMODIFIED_PARAMETER}, spec: {@code docs/spec-eventually-unmodified-parameter.md}):
+     * ({@code EVENTUALLY_UNMODIFIED_PARAMETER}, spec: {@code docs/design/spec-eventually-unmodified-parameter.md}):
      * the same commit walk as {@link #computeEventuallyNonModifying}, rooted in the parameter instead of
      * {@code this}. Labels are field names in the parameter type's label space. Only meaningful when the plain
      * verdict is an honest FALSE; the empty set is never written (it would coincide with plain
@@ -1000,7 +1007,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
 
     /**
      * EVENTUALCLUSTER reframe of the per-call excusal (handoff: {@code
-     * docs/handoff-eventual-interface-nonmodification.md} §5): a call cannot modify {@code this} after mark M iff
+     * docs/design/handoff-eventual-interface-nonmodification.md} §5): a call cannot modify {@code this} after mark M iff
      * every {@code this}-derived value it touches -- its receiver <em>and</em> its arguments -- is committed by M.
      * Replaces both the receiver-only rooting of {@link #nonModifyingLabels} and the all-or-nothing parameter
      * guard, which bail on the real cross-reference accessors ({@code returnType().typeInfo().isEnclosedIn(this
@@ -1220,6 +1227,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // the callee's own fresh-locals fixpoint (the buildLocalContext pass-1 shape), plus this method's
         // returns. Lambdas / anonymous classes are not descended into: their returns are not this method's,
         // and Java's effective-finality rule means they cannot assign this method's locals either.
+        // ... except a Kotlin non-local return, which returns THIS method's value from inside a lambda: no claim
+        if (Lambda.containsNonLocalReturn(methodInfo.methodBody())) return false;
         Map<Variable, List<Expression>> assignments = new HashMap<>();
         List<Expression> returns = new ArrayList<>();
         methodInfo.methodBody().visit(e -> {
@@ -1768,6 +1777,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         List<Statement> statements = methodInfo.methodBody().statements().stream()
                 .filter(s -> !s.isSynthetic()).toList();
         if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs)) return null;
+        if (rs.isNonLocal()) return null;
         return rs.expression();
     }
 
@@ -2679,6 +2689,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         List<Statement> statements = methodInfo.methodBody().statements().stream()
                 .filter(s -> !s.isSynthetic()).toList();
         if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs)) return null;
+        if (rs.isNonLocal()) return null;
         Expression expression = rs.expression();
         boolean negated = expression instanceof Negation;
         if (negated) expression = ((Negation) expression).expression();

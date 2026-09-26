@@ -504,8 +504,8 @@ abstract class IsolationCore {
      * implementations of a generic filter/command interface.
      * <p>
      * A CALL no longer arrives here that way: {@code MyVisitor.declaringOwner} places it on its declaring type, so
-     * the parameter is in scope and survives. Erasing it there was defect B of
-     * {@code docs/handoff-isolateclass-enum-and-generic-stubs.md} — this method was doing its job on a bad owner.
+     * the parameter is in scope and survives. Erasing it there was the second of the two stub defects fixed on
+     * 2026-07-30 (driver: {@code TestIsolateClass4Compiles}) — this method was doing its job on a bad owner.
      */
     private ParameterizedType eraseOutOfScope(ParameterizedType pt, TypeInfo owner, MethodInfo newMethod) {
         TypeParameter tp = pt.typeParameter();
@@ -1169,7 +1169,7 @@ abstract class IsolationCore {
         // the same method built by ensureMethodInfo, WITH the original's exceptions, overriding a dummy without
         // them -- "cannot override … overridden method does not throw SAXNotSupportedException"). One tree
         // against twenty-four. Reconciling the two properly needs a pass over the finished stub graph, matching
-        // each stub method against what it overrides; see docs/isolate-class.md.
+        // each stub method against what it overrides; see docs/design/isolate-class.md.
         dummy.builder()
                 .addMethodModifier(runtime.methodModifierPublic())
                 .setReturnType(returnType)

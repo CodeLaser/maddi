@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * <p>
  * The mirror of {@code TestMethodTypeParameterSource}, where the symbol view came first and could not be
  * replaced. Both are the same root cause: the symbol scanner writing type parameters onto a type the source
- * scan owns. See {@code docs/method-type-parameter-source-loss.md}.
+ * scan owns.
  * <p>
  * Measured before the guard: 37 of guava's 698 generic types, 74 of timefold-solver's 1469 — every one of them
  * a type with a nested type.

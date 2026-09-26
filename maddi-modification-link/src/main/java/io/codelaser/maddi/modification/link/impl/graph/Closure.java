@@ -18,6 +18,18 @@ public class Closure<V, L> {
         this.best = best;
     }
 
+    /** An independent copy of the facts (labels and vertices are immutable and shared). */
+    public Closure<V, L> copy() {
+        Closure<V, L> copy = new Closure<>(best);
+        reachable.forEach((v, row) -> copy.reachable.put(v, new HashMap<>(row)));
+        return copy;
+    }
+
+    // every fact of the other closure added to this one (a pair present in both: the best label)
+    public void unionWith(Closure<V, L> other) {
+        other.reachable.forEach((from, row) -> row.forEach((to, label) -> add(from, to, label)));
+    }
+
     public boolean add(V from, V to, L label) {
         assert !from.equals(to);
 

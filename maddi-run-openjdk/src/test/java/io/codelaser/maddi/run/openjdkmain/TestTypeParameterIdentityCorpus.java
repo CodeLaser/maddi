@@ -38,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Over a whole corpus parse: every occurrence of a type parameter in a field, return or parameter type is the
  * instance its owner declares, and every declared type parameter is committed.
  * <p>
- * The invariant behind docs/method-type-parameter-source-loss.md §9. Counting declared type parameters without a
- * source (the instrument of §3) could not see that route, because the owner's list held the right instance and only
+ * The invariant behind {@code TestClassTypeParameterIdentity} (2026-09-14). Counting declared type parameters without a
+ * source (the earlier instrument) could not see that route, because the owner's list held the right instance and only
  * the signatures held a second one: 1,731 of guava's 8,946 class type-parameter occurrences, 332 of jenkins' 826.
  * Scan order decides it, so it takes a real corpus, not a unit test, to cover the orders that occur.
  */

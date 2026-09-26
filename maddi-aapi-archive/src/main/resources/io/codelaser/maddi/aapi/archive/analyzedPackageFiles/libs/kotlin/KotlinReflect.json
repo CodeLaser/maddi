@@ -1,0 +1,46 @@
+[
+{"name": "Tkotlin.reflect.KCallable", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mcall(0,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "McallBy(1,java.util.Map)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1}}},
+ {"name": "MgetName(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetParameters(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetReturnType(4)", "data":{"defaultsAnalyzer":1}},
+ {"name": "MgetTypeParameters(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetVisibility(6)", "data":{"defaultsAnalyzer":1}},
+ {"name": "MisAbstract(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisFinal(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisOpen(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisSuspend(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Tkotlin.reflect.KClass", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mequals(0,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetConstructors(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetMembers(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetNestedClasses(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetObjectInstance(4)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetQualifiedName(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetSealedSubclasses(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetSimpleName(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetSupertypes(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetTypeParameters(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MgetVisibility(10)", "data":{"defaultsAnalyzer":1}},
+ {"name": "MhashCode(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisAbstract(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisCompanion(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisData(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisFinal(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisFun(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisInner(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisInstance(18,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisOpen(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisSealed(20)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisValue(21)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Tkotlin.reflect.TypesJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MgetJavaType(0,kotlin.reflect.KType)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$javaType(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}}
+]

@@ -37,6 +37,10 @@ class MemberIndexOperatorTest : KotlinScanTestBase() {
                 private operator fun ByteArray.set(c: Char, value: Byte) { this[0] = value }
                 private operator fun ByteArray.get(c: Char): Byte = this[0]
             }
+            class Holder(val mapping: Map<String, Int>)
+            class Safe {
+                fun look(h: Holder?, k: String): Int? = h?.mapping[k]
+            }
             """.trimIndent() + "\n")
     }
 
@@ -49,6 +53,12 @@ class MemberIndexOperatorTest : KotlinScanTestBase() {
     fun noPlaceholder() {
         val census = PlaceholderCensus.of(types)
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+    }
+
+    /** `h?.mapping[k]` is `h?.(mapping[k])`; detekt SleepInsteadOfDelay's shape, resolved through the call's receiver. */
+    @Test
+    fun safeQualifiedIndex() {
+        assertEquals("return h==null?null:h.mapping.get(k);", type("Safe").methods().first { it.name() == "look" }.methodBody().statements().joinToString(" "))
     }
 
     @Test

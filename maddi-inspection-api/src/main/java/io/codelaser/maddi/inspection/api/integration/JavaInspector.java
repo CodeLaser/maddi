@@ -333,7 +333,7 @@ public interface JavaInspector {
      * The read-only {@link io.codelaser.maddi.cst.api.info.InfoMapView} of the most recent re-parse's rewire (old
      * object → new object), or {@code null} if the last parse did no rewiring. Lets a caller carry a spared REWIRE
      * type's analysis onto its new object <em>outside</em> the reload, via the {@code rewire(InfoMapView, …)} path —
-     * see {@code docs/analysis-rewiring.md}. Valid until the next parse.
+     * see {@code docs/design/analysis-rewiring.md}. Valid until the next parse.
      */
     default io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap() {
         return null;

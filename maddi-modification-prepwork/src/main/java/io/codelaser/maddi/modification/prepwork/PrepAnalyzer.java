@@ -291,11 +291,9 @@ public class PrepAnalyzer {
                 typeInfo.recursiveSubTypeStream()
                         .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::constructorAndMethodStream)
                         .forEach(mi -> {
-                    if (!mi.analysis().haveAnalyzedValueFor(
-                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-                    mi.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
-                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
-                }
+                    mi.analysis().getOrCreate(
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.DEGRADED_ANALYSIS_METHOD,
+                            () -> io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
                         });
                 exceptions.add(new AnalyzerException(typeInfo, t));
             } else {

@@ -15,6 +15,7 @@ import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -112,6 +113,10 @@ class WriteLinksAndModification {
         for (Map.Entry<Variable, Set<MethodInfo>> entry : modifiedDuringEvaluation.entrySet()) {
             for (Variable v : followGraph.graph().allShared(entry.getKey())) {
                 expandedModifiedDuringEvaluation.put(v, entry.getValue());
+                // a join detached them from the group, but in one alternative they hold this very object
+                for (Variable alias : followGraph.graph().detachedAliases(v)) {
+                    expandedModifiedDuringEvaluation.putIfAbsent(alias, entry.getValue());
+                }
             }
             // a modified key that never existed as a graph vertex (ldIn.variables[1], marked through a
             // functional-interface call) still denotes the same runtime slot as its source-chain group faces
@@ -235,7 +240,10 @@ class WriteLinksAndModification {
         // recompute (handleReturnVariable's marker prepend is not idempotent; return dirt is global
         // anyway); parameters recompute at the LAST statement, where the summary needs them complete
         // while cached links carry the redundancy suppression (see the NORL guard below).
+        java.util.Set<io.codelaser.maddi.modification.link.impl.localvar.SharedVariable> detachedReps =
+                followGraph.graph().detachedReps(variable);
         if (reuse != null
+            && detachedReps.isEmpty() // what they carry changes without touching the variable
             && !(variable instanceof ReturnVariable)
             && !(lastStatement && variable instanceof io.codelaser.maddi.cst.api.info.ParameterInfo)
             && !reuse.dirty.contains(variable)) {
@@ -273,6 +281,25 @@ class WriteLinksAndModification {
             });
         } else {
             builder2 = builder1;
+        }
+        /*
+         A variable a join evicted from its groups (SharedVariables.planJoin: its alternatives disagreed on its
+         group) no longer reaches the facts on those groups' reps through translateForward, but in the alternative
+         it came from it held that value. It gets the reps' facts, translated onto itself -- what membership gave
+         it, without the identity with the other members. The plain join edge 'x ← rep' does not carry them: the
+         engine derives no composite TARGETING a return value (a return evicted by a loop join lost 'm ∈ 0:g[0]').
+         */
+        for (io.codelaser.maddi.modification.link.impl.localvar.SharedVariable rep : detachedReps) {
+            Links.Builder repLinks = followGraph.followGraph(virtualFieldComputer, rep);
+            VariableTranslationMap repToVariable = new VariableTranslationMap(runtime);
+            repToVariable.put(rep, variable);
+            for (Link link : repLinks.linkSet()) {
+                Link translated = link.translateFrom(repToVariable);
+                if (translated.to().equals(variable) || translated.to().equals(translated.from())) continue;
+                if (!builder2.contains(translated.from(), translated.linkNature(), translated.to())) {
+                    builder2.add(translated.from(), translated.linkNature(), translated.to(), translated.mediated());
+                }
+            }
         }
 
         Links.Builder builder = new LinksImpl.Builder(builder2.primary());
@@ -808,6 +835,41 @@ class WriteLinksAndModification {
                 }));
     }
 
+    /**
+     * True when {@code primary ≈ other} is explained by field-level links of the builder -- {@code primary.f} linked
+     * by identity or assignment to {@code other.g} -- and every one of them carries a value of a concrete, fully
+     * immutable type (an enum, a String, a record of such). Then nothing the two share can
+     * change, and a modification of {@code other} (a setter writing its own field, say) does not reach
+     * {@code primary}. When no field-level link explains the ≈, nothing is known about what is shared: false, and
+     * the over-approximation stays. ⛔ {@code instance.setKind(command.getKind())}, an enum: {@code command ≈ instance},
+     * and the setter's modification of {@code instance} made {@code command} modified.
+     */
+    private boolean sharesOnlyImmutable(Links.Builder builder, Variable other) {
+        Variable primary = builder.primary();
+        boolean any = false;
+        for (Link l : builder) {
+            if (!(l.from() instanceof FieldReference from) || !(l.to() instanceof FieldReference to)) continue;
+            // any link between something under primary and something under other counts: a deeper one
+            // (primary.a.§es ~ other.b.§es) is sharing this method cannot judge, and keeps the over-approximation
+            if (!primary.equals(from.fieldReferenceBase()) || !other.equals(to.fieldReferenceBase())) continue;
+            if (!primary.equals(from.scopeVariable()) || !other.equals(to.scopeVariable())) return false;
+            if (Util.isVirtualModificationField(from.fieldInfo()) || Util.isVirtualModificationField(to.fieldInfo())) {
+                return false;
+            }
+            if (!l.linkNature().isIdenticalToOrAssignedFromTo()) return false;
+            // the declared type must say what the runtime object is: not a type parameter, not an abstract type
+            // (unlike the assigned-to rule, a concrete library type such as String is fine: its verdict is annotated)
+            ParameterizedType pt = from.parameterizedType();
+            TypeInfo best = pt.bestTypeInfo();
+            if (pt.typeParameter() != null || pt.arrays() > 0 || best == null || best.isAbstract()) return false;
+            // fully immutable: with hidden content, the other side may still change what hides in it
+            Value.Immutable immutable = new AnalysisHelper().typeImmutable(pt);
+            if (!ValueImpl.ImmutableImpl.IMMUTABLE.equals(immutable)) return false;
+            any = true;
+        }
+        return any;
+    }
+
     private boolean notLinkedToModified(Links.Builder builder,
                                         Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         for (Link link : builder) {
@@ -825,6 +887,11 @@ class WriteLinksAndModification {
                     // because we're processing the variables in order, adding to the map here provides the completion
                     modifiedVariablesAndTheirCause.put(builder.primary(), causesOfModification);
                     return false;
+                }
+                if (ln == SHARES_FIELDS && sharesOnlyImmutable(builder, link.to())) {
+                    // x ≈ y, and every field-level link behind it carries an immutable value: nothing the two share
+                    // can change, so y's modification does not reach x (analyzer TestSetterArgumentNotModified)
+                    continue;
                 }
                 if (ln == CONTAINS_AS_FIELD
                     || ln == SHARES_FIELDS // see impl/TestInstanceOf,2
