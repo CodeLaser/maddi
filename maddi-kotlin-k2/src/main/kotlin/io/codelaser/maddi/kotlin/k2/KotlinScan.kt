@@ -2243,8 +2243,15 @@ class KotlinScan(
                 .setVariance(mapVariance(tp.variance))
                 .commit()
         }
-        // [signature]: the member substituted through a delegated supertype, see addDelegatedMembers
-        val returnType = mapType(signature?.returnType ?: function.returnType, owner, method)
+        // [signature]: the member substituted through a delegated supertype, see addDelegatedMembers. Where the
+        // interface says a type parameter, kotlinc's forwarder is boxed there: `Integer find(int)` for `E find(int)`
+        // through `Repo<Int>` -- an `int` one does not override it, and its Java stub does not compile
+        fun forwarded(declared: KaType, substituted: KaType?): ParameterizedType {
+            val mapped = mapType(substituted ?: declared, owner, method)
+            return if (substituted != null && declared is KaTypeParameterType && mapped.isPrimitiveExcludingVoid)
+                mapped.ensureBoxed(runtime) else mapped
+        }
+        val returnType = forwarded(function.returnType, signature?.returnType)
         // context parameters come first, then an extension function's receiver, then the value parameters (the JVM model)
         contextParameters(builder, function, owner, method, synthetic = false)
         function.receiverParameter?.let { receiver ->
@@ -2254,8 +2261,7 @@ class KotlinScan(
         }
         function.valueParameters.forEachIndexed { index, p ->
             // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it
-            val elementType = mapType(signature?.valueParameters?.getOrNull(index)?.returnType ?: p.returnType, owner,
-                method)
+            val elementType = forwarded(p.returnType, signature?.valueParameters?.getOrNull(index)?.returnType)
             val parameterType = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), parameterType)
             parameterInfo.builder().setVarArgs(p.isVararg)

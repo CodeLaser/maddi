@@ -67,7 +67,7 @@ class JavalinTailTest : KotlinScanTestBase() {
             ready: return this.driver!=null;
             readyThis: return this.driver!=null;
             hiddenReady: return this.hidden!=null;
-            text: return ArraysKt__ArraysJVMKt.toString(b,Charsets.UTF_8);
+            text: return new String(b,Charsets.UTF_8);
             conn: return s==null?null:getter.invoke(s);
             """.trimIndent(), listOf("none", "two", "date", "calendar", "ready", "readyThis", "hiddenReady", "text", "conn").joinToString("\n") { "$it: ${body(it)}" })
     }

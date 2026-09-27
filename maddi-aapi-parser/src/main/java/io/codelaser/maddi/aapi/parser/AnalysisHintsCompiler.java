@@ -15,6 +15,7 @@
 package io.codelaser.maddi.aapi.parser;
 
 import io.codelaser.maddi.modification.common.defaults.ShallowAnalyzer;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
 import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -54,9 +55,29 @@ public class AnalysisHintsCompiler {
     }
 
     public AnalysisHintsCompiler(JavaInspectorFactory javaInspectorFactory, CompilerVisitor compilerVisitor) {
+        this(javaInspectorFactory, compilerVisitor, List.of());
+    }
+
+    /**
+     * @param preloadResults analysis-result directories loaded into the runtime BEFORE the defaults run, so that a
+     *                       library's defaults see the types it depends on as the analyzer will see them.
+     *                       <p>
+     *                       ⛔ The compiler writes a defaults entry for EVERY member of a shadowed type, contracted or
+     *                       not, stamped {@code defaultsAnalyzer}, and the runtime never recomputes a stamped member.
+     *                       Computed without the JDK results, String and CharSequence count as MUTABLE: an uncontracted
+     *                       sibling such as {@code StringsKt__StringsKt.removeSurrounding(String, CharSequence)} then
+     *                       shipped with its CharSequence parameter MODIFIED, where the runtime default says unmodified
+     *                       -- and detekt's two {@code private const val} String constants read through it turned
+     *                       modified the moment the part class got its first contract.
+     */
+    public AnalysisHintsCompiler(JavaInspectorFactory javaInspectorFactory, CompilerVisitor compilerVisitor,
+                                 List<String> preloadResults) {
         this.compilerVisitor = compilerVisitor;
         this.javaInspectorFactory = javaInspectorFactory;
+        this.preloadResults = List.copyOf(preloadResults);
     }
+
+    private final List<String> preloadResults;
 
     public List<Message> go(AnalysisHints analysisHints) throws IOException {
         LOGGER.info("Compiling analysis hints {}", analysisHints);
@@ -68,6 +89,11 @@ public class AnalysisHintsCompiler {
             compilerVisitor.afterAnnotatedApiParsing(javaInspector);
         }
         Runtime runtime = javaInspector.runtime();
+        if (!preloadResults.isEmpty()) {
+            TypeInfo string = runtime.stringTypeInfo();
+            int loaded = new LoadAnalysisResults(runtime, string.compilationUnit().sourceSet()).go(preloadResults);
+            LOGGER.info("Preloaded {} primary types from {} before computing the defaults", loaded, preloadResults);
+        }
 
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, analysisHintsParser,
                 true, compilerVisitor == null ? null : compilerVisitor.debugVisitor());

@@ -1,0 +1,73 @@
+[
+{"name": "Tkotlin.io.FilesKt__FileReadWriteKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MappendBytes(0,java.io.File,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parray(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MappendText(1,java.io.File,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptext(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MbyteBufferForEncoding(2,int,java.nio.charset.CharsetEncoder)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "PchunkSize(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MforEachBlock(3,java.io.File,int,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PblockSize(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MforEachBlock(4,java.io.File,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MforEachLine(5,java.io.File,java.nio.charset.Charset,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MnewReplaceEncoder(6,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$newReplaceEncoder(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreadBytes(7,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$readBytes(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "MreadLines(8,java.io.File,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$readLines(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MreadText(9,java.io.File,java.nio.charset.Charset)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "P$this$readText(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MuseLines(10,java.io.File,java.nio.charset.Charset,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteBytes(11,java.io.File,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parray(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MwriteText(12,java.io.File,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptext(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteTextImpl(13,java.io.OutputStream,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptext(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+
+{"name": "Tkotlin.io.FilesKt__UtilsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}},
+ {"name": "McopyRecursively(0,java.io.File,java.io.File,boolean,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Poverwrite(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyTo(1,java.io.File,java.io.File,boolean,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Poverwrite(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PbufferSize(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McreateTempDir(2,java.lang.String,java.lang.String,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Pprefix(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Psuffix(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McreateTempFile(3,java.lang.String,java.lang.String,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Pprefix(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Psuffix(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MdeleteRecursively(4,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MendsWith(5,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pother(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MendsWith(6,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetExtension(7,java.io.File)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$extension(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "MgetInvariantSeparatorsPath(8,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetNameWithoutExtension(9,java.io.File)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "P$this$nameWithoutExtension(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "Mnormalize(10,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MrelativeTo(11,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MrelativeToOrNull(12,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MrelativeToOrSelf(13,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Mresolve(14,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Prelative(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mresolve(15,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MresolveSibling(16,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Prelative(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MresolveSibling(17,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MstartsWith(18,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pother(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MstartsWith(19,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MtoRelativeString(20,java.io.File,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}}]}
+]

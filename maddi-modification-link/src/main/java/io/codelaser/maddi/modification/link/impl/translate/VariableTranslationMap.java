@@ -24,6 +24,12 @@ public class VariableTranslationMap implements TranslationMap {
         this.runtime = runtime;
     }
 
+    public VariableTranslationMap copy() {
+        VariableTranslationMap copy = new VariableTranslationMap(runtime);
+        copy.map.putAll(map);
+        return copy;
+    }
+
     public VariableTranslationMap put(Variable from, Variable to) {
         assert from != null;
         assert to != null;

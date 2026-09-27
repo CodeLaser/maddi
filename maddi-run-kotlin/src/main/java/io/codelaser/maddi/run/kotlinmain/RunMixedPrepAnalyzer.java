@@ -25,6 +25,11 @@ import io.codelaser.maddi.util.Trie;
 import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.modification.common.defaults.ShallowMethodAnalyzer;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -42,7 +47,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -153,6 +162,9 @@ public class RunMixedPrepAnalyzer {
                     analysisResultsDirs, sourceSetOfRequest);
             new LoadAnalysisResults(runtime, sourceSetOfRequest).go(analysisResultsDirs);
         }
+        // after the archive is loaded, before anything is concluded: which library members the source calls, and
+        // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
+        writeLibraryCallDump(runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
@@ -181,6 +193,7 @@ public class RunMixedPrepAnalyzer {
             // every SOURCE type, not the primaries: a verdict that moves between runs may well be a nested
             // type's, and a dump that cannot show it cannot rule it out either (#34)
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+            writeMemberVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
         writeAnalysisResults(options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
                 inputConfiguration);
@@ -233,6 +246,79 @@ public class RunMixedPrepAnalyzer {
     }
 
     /**
+     * Every library member the source calls under a {@code kotlin.} package, one
+     * {@code <calls> <contracted|DEFAULT> <member> <parameter types>} line, most-called first, to the file named by
+     * {@code -Dmaddi.libraryCallDump} (absent: no file, no cost). ⭐ An uncontracted library method is a MODIFYING
+     * one — it modifies its receiver and every non-trivial argument (ShallowMethodAnalyzer) — so this is the
+     * worklist for the Kotlin archive: the calls the analysis currently reads as writes. "contracted" means the
+     * loaded archive marked the callee ANNOTATED_API (not NON_MODIFYING_METHOD: a static has no receiver, so a
+     * contracted extension function never carries one); written after the load and before prep, so nothing
+     * computed can pass for a contract. A constructor counts as its type's {@code <init>}.
+     */
+    private static void writeLibraryCallDump(Runtime runtime, List<TypeInfo> sourceTypes) throws IOException {
+        String target = System.getProperty("maddi.libraryCallDump");
+        if (target == null || target.isBlank()) return;
+        Map<MethodInfo, Integer> calls = new HashMap<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : sourceTypes) countLibraryCalls(type, calls, seen);
+        // The 5th column is what the analysis WILL read: "this" for a modifying instance method, the index of each
+        // parameter it takes as modified, "-" for none. A member the archive does not list gets its defaults here,
+        // from the same ShallowMethodAnalyzer the link computer would run on it later with the same (loaded) jdk
+        // data -- so the values are the ones the analysis uses, only computed earlier. ⛔ Guessing harm from a type
+        // NAME overcounts: jdk/JavaLang makes Iterable and CharSequence @Immutable(hc=true), unmodified by default.
+        ShallowMethodAnalyzer shallow = new ShallowMethodAnalyzer(runtime, Element::annotations);
+        calls.keySet().forEach(shallow::analyze);
+        List<String> lines = calls.entrySet().stream()
+                .sorted(Map.Entry.<MethodInfo, Integer>comparingByValue().reversed()
+                        .thenComparing(e -> e.getKey().fullyQualifiedName()))
+                .map(e -> e.getValue() + "\t"
+                          + (e.getKey().analysis().haveAnalyzedValueFor(PropertyImpl.ANNOTATED_API)
+                        ? "contracted" : "DEFAULT") + "\t" + e.getKey().fullyQualifiedName()
+                          // the UNERASED parameter types: an erased Object is a bare T (unmodified by default) or a
+                          // real Object (modified), and only these tell them apart
+                          + "\t" + e.getKey().parameters().stream()
+                                  .map(p -> p.parameterizedType().toString().replaceFirst("^Type ", ""))
+                                  .collect(Collectors.joining(", "))
+                          + "\t" + modifies(e.getKey()))
+                .toList();
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} library member(s), {} call(s), to {}", lines.size(),
+                calls.values().stream().mapToInt(Integer::intValue).sum(), path);
+    }
+
+    private static String modifies(MethodInfo m) {
+        List<String> out = new ArrayList<>();
+        if (!m.isStatic() && !m.isConstructor()
+            && !m.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE).isTrue()) {
+            out.add("this");
+        }
+        m.parameters().stream()
+                .filter(p -> !p.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue())
+                .forEach(p -> out.add(String.valueOf(p.index())));
+        return out.isEmpty() ? "-" : String.join(",", out);
+    }
+
+    private static void countLibraryCalls(TypeInfo type, Map<MethodInfo, Integer> calls, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> countLibraryCalls(sub, calls, seen));
+        Stream.concat(type.constructors().stream(), type.methodStream()).forEach(m -> {
+            if (seen.put(m, true) != null || m.methodBody() == null) return;
+            m.methodBody().visit(e -> {
+                MethodInfo callee = e instanceof MethodCall mc ? mc.methodInfo()
+                        : e instanceof ConstructorCall cc ? cc.constructor() : null;
+                // the PRIMARY type's package: a nested or local type has none of its own
+                String pkg = callee == null ? null : callee.typeInfo().primaryType().packageName();
+                if (pkg != null && pkg.startsWith("kotlin") && callee.typeInfo().compilationUnit().externalLibrary()) {
+                    calls.merge(callee, 1, Integer::sum);
+                }
+                return true;
+            });
+        });
+    }
+
+    /**
      * The immutability verdict of every primary type, one {@code <verdict> <fqn>} line, sorted by name, to the
      * file named by {@code -Dmaddi.verdictDump} (absent: no file, no cost). A count is not enough to debug a run
      * that disagrees with the previous one over the same tree (#34): two dumps diff to the types that moved,
@@ -249,6 +335,43 @@ public class RunMixedPrepAnalyzer {
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         Files.write(path, lines);
         LOGGER.info("Wrote {} type verdict(s) to {}", lines.size(), path);
+    }
+
+    /**
+     * The member-level verdicts, to the file named by {@code -Dmaddi.memberVerdictDump} (absent: no file, no cost):
+     * {@code F <unmodified> <field>}, {@code M <non-modifying> <method>} and {@code P <unmodified> <method>#<i>}, one per
+     * line, sorted. ⭐ The type-level {@link #writeVerdicts} dump did not move when library contracts turned 20 field
+     * reads from modified to unmodified in a fixture: a detekt type blocked by something else keeps its level, so
+     * the improvement is visible only here. An instrument, never asserted.
+     */
+    private static void writeMemberVerdicts(List<TypeInfo> types) throws IOException {
+        String target = System.getProperty("maddi.memberVerdictDump");
+        if (target == null || target.isBlank()) return;
+        List<String> lines = new java.util.ArrayList<>();
+        Map<Object, Boolean> seen = new IdentityHashMap<>();
+        for (TypeInfo type : types) memberVerdicts(type, lines, seen);
+        java.util.Collections.sort(lines);
+        Path path = Path.of(target);
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.write(path, lines);
+        LOGGER.info("Wrote {} member verdict(s) to {}", lines.size(), path);
+    }
+
+    private static void memberVerdicts(TypeInfo type, List<String> lines, Map<Object, Boolean> seen) {
+        if (seen.put(type, true) != null) return;
+        type.subTypes().forEach(sub -> memberVerdicts(sub, lines, seen));
+        type.fields().forEach(f -> lines.add("F " + bool(f.analysis().getOrNull(PropertyImpl.UNMODIFIED_FIELD,
+                ValueImpl.BoolImpl.class)) + " " + f.fullyQualifiedName()));
+        type.methodStream().forEach(m -> {
+            lines.add("M " + bool(m.analysis().getOrNull(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class))
+                      + " " + m.fullyQualifiedName());
+            m.parameters().forEach(p -> lines.add("P " + bool(p.analysis().getOrNull(PropertyImpl.UNMODIFIED_PARAMETER,
+                    ValueImpl.BoolImpl.class)) + " " + m.fullyQualifiedName() + "#" + p.index()));
+        });
+    }
+
+    private static String bool(Value.Bool value) {
+        return value == null ? "NONE" : String.valueOf(value.isTrue());
     }
 
     /** The name of a type's {@code IMMUTABLE_TYPE} value, or {@code NONE} when the analysis concluded nothing. */

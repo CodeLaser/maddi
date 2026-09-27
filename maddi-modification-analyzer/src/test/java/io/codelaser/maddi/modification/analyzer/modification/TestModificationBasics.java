@@ -157,7 +157,9 @@ public class TestModificationBasics extends CommonTest {
             {
                 VariableData vd2 = VariableDataImpl.of(m.methodBody().statements().get(2));
                 VariableInfo vi2m = vd2.variableInfo("m");
-                assertEquals("m.i≤0:list.§$s,m.i∩copy.§$s,m∈0:list.§$s", vi2m.linkedVariables().toString());
+                // 'm.i←1:k' stays: redundancy is per nature group, and a path through ≤/∩ says nothing about the
+                // assignment (RedundantLinks dropped it through the union of all groups)
+                assertEquals("m.i←1:k,m.i≤0:list.§$s,m.i∩copy.§$s,m∈0:list.§$s", vi2m.linkedVariables().toString());
                 VariableInfo vi1list = vd2.variableInfo(pi0);
                 assertTrue(vi1list.isModified());
             }

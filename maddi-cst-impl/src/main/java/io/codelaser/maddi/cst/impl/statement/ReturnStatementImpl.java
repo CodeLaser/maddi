@@ -33,6 +33,7 @@ import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 
 import java.util.List;
 import java.util.Objects;
@@ -42,9 +43,13 @@ import java.util.stream.Stream;
 public class ReturnStatementImpl extends StatementImpl implements ReturnStatement {
 
     private final Expression expression;
+    private final int exitLevels;
+    private final String goToLabel;
 
     public ReturnStatementImpl(Expression expression) {
         this.expression = expression;
+        this.exitLevels = 0;
+        this.goToLabel = null;
     }
 
     public ReturnStatementImpl(List<Comment> comments,
@@ -52,25 +57,48 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
                                List<AnnotationExpression> annotations,
                                String label,
                                Expression expression) {
+        this(comments, source, annotations, label, expression, 0, null);
+    }
+
+    public ReturnStatementImpl(List<Comment> comments,
+                               Source source,
+                               List<AnnotationExpression> annotations,
+                               String label,
+                               Expression expression,
+                               int exitLevels,
+                               String goToLabel) {
         super(comments, source, annotations, expression.complexity(), label);
+        assert exitLevels >= 0;
         this.expression = expression;
+        this.exitLevels = exitLevels;
+        this.goToLabel = goToLabel;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof ReturnStatementImpl that)) return false;
-        return Objects.equals(expression, that.expression);
+        // a local and a non-local `return x` go to different places: translation maps key on this equality
+        return exitLevels == that.exitLevels && Objects.equals(expression, that.expression);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(expression);
+        return 31 * Objects.hashCode(expression) + exitLevels;
     }
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.RETURN);
+        /*
+         Java cannot express a non-local return. Printing it as a plain `return` would print a return from the
+         lambda, which is a different program; a comment keeps the output honest (it no longer compiles as the
+         source did, but it says why). The Kotlin printer prints both kinds.
+         */
+        OutputBuilder outputBuilder = outputBuilder(qualification);
+        if (exitLevels > 0) {
+            outputBuilder.add(new TextImpl("/* non-local return, " + exitLevels + " level(s) */")).add(SpaceEnum.ONE);
+        }
+        outputBuilder.add(KeywordImpl.RETURN);
         if (!expression.isEmpty()) {
             outputBuilder.add(SpaceEnum.ONE).add(expression.print(qualification));
         }
@@ -95,6 +123,16 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
     }
 
     @Override
+    public int exitLevels() {
+        return exitLevels;
+    }
+
+    @Override
+    public String goToLabel() {
+        return goToLabel;
+    }
+
+    @Override
     public void visit(Predicate<Element> predicate) {
         if (predicate.test(this)) {
             expression.visit(predicate);
@@ -111,6 +149,8 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
 
     public static class Builder extends StatementImpl.Builder<ReturnStatement.Builder> implements ReturnStatement.Builder {
         private Expression expression;
+        private int exitLevels;
+        private String goToLabel;
 
         @Override
         public ReturnStatement.Builder setExpression(Expression expression) {
@@ -119,8 +159,20 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
         }
 
         @Override
+        public ReturnStatement.Builder setExitLevels(int exitLevels) {
+            this.exitLevels = exitLevels;
+            return this;
+        }
+
+        @Override
+        public ReturnStatement.Builder setGoToLabel(String goToLabel) {
+            this.goToLabel = goToLabel;
+            return this;
+        }
+
+        @Override
         public ReturnStatement build() {
-            return new ReturnStatementImpl(comments, source, annotations, label, expression);
+            return new ReturnStatementImpl(comments, source, annotations, label, expression, exitLevels, goToLabel);
         }
     }
 
@@ -137,7 +189,8 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tex != expression || !analysis().isEmpty() && translationMap.isClearAnalysis()
             || tAnnotations != annotations()) {
-            ReturnStatementImpl rs = new ReturnStatementImpl(comments(), source(), tAnnotations, label(), tex);
+            ReturnStatementImpl rs = new ReturnStatementImpl(comments(), source(), tAnnotations, label(), tex,
+                    exitLevels, goToLabel);
             if (!translationMap.isClearAnalysis()) rs.analysis().setAll(analysis());
             return translationMap.postTranslationHandler(this,  List.of(rs));
         }
@@ -151,12 +204,13 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
 
     @Override
     public ReturnStatement withSource(Source newSource) {
-        return new ReturnStatementImpl(comments(), newSource, annotations(), label(), expression);
+        return new ReturnStatementImpl(comments(), newSource, annotations(), label(), expression, exitLevels,
+                goToLabel);
     }
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
         return new ReturnStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap));
+                expression.rewire(infoMap), exitLevels, goToLabel);
     }
 }

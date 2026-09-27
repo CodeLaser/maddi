@@ -697,6 +697,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     expression(s.expression(), spine);
                 }
                 conditional(s); // sweep anything the spine walk did not reach (taint only)
+                // `xs.forEach { if (p(it)) return }`: a leaf whose lambda can end the method
+                if (Lambda.containsNonLocalReturn(s)) liveEarlyExit = true;
             }
         }
 
@@ -772,7 +774,12 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
             if (block == null || block.isEmpty()) return false;
             boolean[] found = {false};
             block.visit(e -> {
-                if (e instanceof TypeInfo || e instanceof Lambda) return false;
+                if (e instanceof TypeInfo) return false;
+                // a lambda's own returns do not leave the method; a Kotlin non-local return in it does
+                if (e instanceof Lambda lambda) {
+                    if (lambda.hasNonLocalReturn()) found[0] = true;
+                    return false;
+                }
                 if (e instanceof ReturnStatement || e instanceof YieldStatement) {
                     found[0] = true;
                     return false;
@@ -1220,6 +1227,8 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         // the callee's own fresh-locals fixpoint (the buildLocalContext pass-1 shape), plus this method's
         // returns. Lambdas / anonymous classes are not descended into: their returns are not this method's,
         // and Java's effective-finality rule means they cannot assign this method's locals either.
+        // ... except a Kotlin non-local return, which returns THIS method's value from inside a lambda: no claim
+        if (Lambda.containsNonLocalReturn(methodInfo.methodBody())) return false;
         Map<Variable, List<Expression>> assignments = new HashMap<>();
         List<Expression> returns = new ArrayList<>();
         methodInfo.methodBody().visit(e -> {
@@ -1768,6 +1777,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         List<Statement> statements = methodInfo.methodBody().statements().stream()
                 .filter(s -> !s.isSynthetic()).toList();
         if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs)) return null;
+        if (rs.isNonLocal()) return null;
         return rs.expression();
     }
 
@@ -2679,6 +2689,7 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
         List<Statement> statements = methodInfo.methodBody().statements().stream()
                 .filter(s -> !s.isSynthetic()).toList();
         if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs)) return null;
+        if (rs.isNonLocal()) return null;
         Expression expression = rs.expression();
         boolean negated = expression instanceof Negation;
         if (negated) expression = ((Negation) expression).expression();

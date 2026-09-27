@@ -24,7 +24,8 @@ import org.junit.jupiter.api.Test
 /**
  * Two gaps the ws/object SARIF thread reported (2026-09-25): an assignment had no source position of its own (only its
  * statement had), and `s += p` on a collection was a numeric compound assignment to `s`. kotlinc compiles the latter
- * as `CollectionsKt.plusAssign(s, p)`, or, on a `var` of a read-only type, `s = CollectionsKt.plus(s, p)`.
+ * as the inlined body of the @InlineOnly `plusAssign`, `s.add(p)`, or, on a `var` of a read-only type,
+ * `s = CollectionsKt.plus(s, p)`.
  */
 class AugmentedAssignmentTest : KotlinScanTestBase() {
 
@@ -61,11 +62,12 @@ class AugmentedAssignmentTest : KotlinScanTestBase() {
 
     @Test
     fun theShapes() {
-        // a primitive's and String's `+=` stay Java's compound assignment; a collection's are the operator calls
+        // a primitive's and String's `+=` stay Java's compound assignment; a MutableCollection's are kotlinc's inlined
+        // add/remove; a read-only `var`'s is the `plus` facade call, assigned
         assertEquals("""
             count: int n=i; n+=2; return n;
             text: String t=s; t+="!"; return t;
-            add: Set<String> s=SetsKt__SetsKt.mutableSetOf(); CollectionsKt__MutableCollectionsKt.plusAssign(s,p); CollectionsKt__MutableCollectionsKt.minusAssign(s,"x"); return s;
+            add: Set<String> s=SetsKt__SetsKt.mutableSetOf(); s.add(p); s.remove("x"); return s;
             grow: List<String> l=CollectionsKt__CollectionsKt.listOf(); l=CollectionsKt___CollectionsKt.plus(l,p); return l;
             """.trimIndent(), listOf("count", "text", "add", "grow").joinToString("\n") { "$it: ${body(it)}" })
     }

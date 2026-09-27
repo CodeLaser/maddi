@@ -35,7 +35,7 @@ Three of the findings change what the book *claims*, not just what it shows. The
 | 9 | `EventuallyFinal` | Exception message |
 | 10 | `SetOnceMap` | `@Modified`, `@NotModified`, `@NotNull` now explicit |
 | 11 | §14 opening | `@ExtensionClass` and `@Singleton` are said to live in `maddi-support` |
-| 12 | `Lazy` | **new** — two ways to write the same return get different independence verdicts |
+| 12 | `Lazy` | **fixed** — two ways to write the same return got different independence verdicts |
 
 ---
 
@@ -493,6 +493,13 @@ example of it, in shipped code.
 ## 12. Two ways to write the same return, two different independence verdicts
 
 **substantive, and it is about the analyzer rather than the book.**
+
+> **Fixed, 2026-09.** D and E are now computed `INDEPENDENT_HC`, like the other five, and
+> `TestLazyShapeIndependence` asserts that. The cause was in linking, not in independence: `return value`
+> on one branch was linked into the one graph of the method, so the return value was already grouped with
+> `value` when the later reassignment `value = ...` dropped the group's records, and the final
+> `return value` recorded nothing: `get()` had no link to `t` at all. The branches of an if/else are now
+> linked apart and joined. The record below is kept as it was found.
 
 Found while doing the alignment above, and only because it was checked rather than assumed. These two
 bodies are the same program:

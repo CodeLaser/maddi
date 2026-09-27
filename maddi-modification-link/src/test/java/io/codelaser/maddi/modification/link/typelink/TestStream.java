@@ -344,13 +344,13 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xss∩0:list.§xs,result.§xss∩stream1.§xs", lvResult.toString());
-        // result.§xss⊆stream2.§xss dropped
+        assertEquals("result.§xss∩0:list.§xs,result.§xss∩stream1.§xs,result.§xss⊆stream2.§xss", lvResult.toString());
+        // result.§xss⊆stream2.§xss kept: redundancy is per nature group (RedundantLinks)
 
         VariableInfo viStream22 = vd2.variableInfo("stream2");
         Links lvStream22 = viStream22.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss≥stream1.§xs", lvStream22.toString());
+        assertEquals("stream2.§xss∩0:list.§xs,stream2.§xss⊇result.§xss,stream2.§xss≥stream1.§xs", lvStream22.toString());
         // stream2.§xss⊇result.§xss dropped
 
         assertEquals("[-] --> method1.§xss∩0:list.§xs", mlv1.toString());
@@ -438,7 +438,10 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],stream2.§yxs≥stream1.§xys[-2],stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-1]≡stream1.§xys[-2],stream2.§yxs[-2]≤entries.§xys,stream2.§yxs[-2]≡stream1.§xys[-1]\
+                stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],stream2.§yxs≥stream1.§xys[-2],\
+                stream2.§yxs[-1]≤0:map.§xys,stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-1]≤stream1.§xys,\
+                stream2.§yxs[-1]≡stream1.§xys[-2],stream2.§yxs[-2]≤0:map.§xys,stream2.§yxs[-2]≤entries.§xys,\
+                stream2.§yxs[-2]≤stream1.§xys,stream2.§yxs[-2]≡stream1.§xys[-1]\
                 """, tlvStream2.toString()); // stream2.§yxs~0:map.§xys, stream2.§yxs~stream1.§xys  dropped
 
         // link(0) is now the whole-face 'stream2.§yxs~entries.§xys' (index drift after the string re-pin;

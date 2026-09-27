@@ -302,6 +302,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             SourceMethodComputer computer = new SourceMethodComputer(methodInfo);
             try {
                 try {
+                    if (DEGRADE_FOR_TESTING != null && DEGRADE_FOR_TESTING.test(methodInfo)) {
+                        throw new DegradedAnalysisException(DegradedAnalysisException.Reason.WORK_CEILING);
+                    }
                     tlv = computer.go();
                     reportWork(methodInfo, computer, false);
                     if (write) {
@@ -356,10 +359,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 !(s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.isSynthetic()));
     }
 
-    private static void markDegraded(MethodInfo methodInfo) {
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEGRADED_ANALYSIS_METHOD)) {
-            methodInfo.analysis().set(PropertyImpl.DEGRADED_ANALYSIS_METHOD, ValueImpl.BoolImpl.TRUE);
-        }
+    /*
+     Tests only: the methods matching this predicate degrade as if they had hit the work ceiling, so that what
+     consumes a degraded method (a shallow summary, variable data without links) can be tested without building
+     a method that is expensive enough to trip it. Null outside such a test.
+     */
+    public static volatile java.util.function.Predicate<MethodInfo> DEGRADE_FOR_TESTING;
+
+    // atomically: another thread linking the same callee may mark it too, and 'set' refuses any overwrite
+    static void markDegraded(MethodInfo methodInfo) {
+        methodInfo.analysis().getOrCreate(PropertyImpl.DEGRADED_ANALYSIS_METHOD, () -> ValueImpl.BoolImpl.TRUE);
     }
 
     /**
@@ -876,7 +885,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (testVisitor != null) {
                 testVisitor.visit(statementIndex, linkGraph.graph());
             }
-
             TIMED.info("Done {} methods. End of statement {} of {} graph size {}, facts in closure {}, witnesses {}",
                     countSourceMethods,
                     statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
@@ -1047,11 +1055,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd) {
-            List<VariableData> vds = subBlocksForLinking(statement)
-                    .filter(block -> !block.isEmpty())
-                    .map(block -> doBlock(block, vd))
-                    .filter(Objects::nonNull)
-                    .toList();
+            List<Block> blocks = subBlocksForLinking(statement).filter(block -> !block.isEmpty()).toList();
+            List<VariableData> vds = new ArrayList<>();
+            if (!NO_FORK && isAlternatives(statement) && !blocks.isEmpty()) {
+                linkAlternatives(statement, blocks, vd, vds);
+            } else {
+                for (Block block : blocks) {
+                    VariableData subVd = doBlock(block, vd);
+                    if (subVd != null) vds.add(subVd);
+                }
+            }
             Set<Variable> toRemove = new HashSet<>();
             for (VariableData subVd : vds) {
                 subVd.variableInfoContainerStream()
@@ -1063,6 +1076,56 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             handleSubBlocks(vds, vd, toRemove);
             LOGGER.debug("Removing {}", toRemove);
             linkGraph.graph().remove(toRemove);
+        }
+
+        /*
+         The then- and else-blocks of an if/else are ALTERNATIVES: one of them runs (or none, without an else).
+         Linking them one after the other into the one graph of the method let a later alternative's strong update
+         erase what an earlier one had established -- an assignment erases every edge of its target:
+
+             if (set != null) { this.set = set; } else { this.set = new HashSet<>(); }
+
+         lost 'this.set ← 0:set' as soon as any statement followed (nacos' FuzzyWatchSyncNotifyTask: the parameter
+         read as INDEPENDENT, an alias lost -- the unsafe direction). So each alternative is linked from its own
+         copy of the graph before the statement, and the graph after the statement is the JOIN of the states in
+         which the alternatives end, plus the state before when possibly none runs (Graph.join: a union). This is
+         what the variable data already did (handleSubBlocks(vds, ...) merges the links of every sub-block with the
+         evaluation's). Switches and loops are still linked one after the other (to follow, measured separately).
+         Gate NOFORK: link the alternatives one after the other, as before.
+         */
+        private static final boolean NO_FORK = Gate.isSet("NOFORK");
+
+        private static boolean isAlternatives(Statement statement) {
+            return statement instanceof IfElseStatement;
+        }
+
+        // true when control may pass the statement without running any of its non-empty sub-blocks
+        private static boolean mayRunNone(List<Block> blocks) {
+            return blocks.size() < 2;
+        }
+
+        private void linkAlternatives(Statement statement, List<Block> blocks, VariableData vd,
+                                      List<VariableData> vds) {
+            Graph graph = linkGraph.graph();
+            boolean none = mayRunNone(blocks);
+            Graph.State before = graph.snapshot();
+            List<Graph.State> ends = new ArrayList<>(blocks.size() + 1);
+            graph.enterAlternatives();
+            try {
+                for (int i = 0; i < blocks.size(); i++) {
+                    if (i > 0) {
+                        boolean lastUse = i == blocks.size() - 1 && !none;
+                        graph.restore(lastUse ? before : before.copy());
+                    }
+                    VariableData subVd = doBlock(blocks.get(i), vd);
+                    if (subVd != null) vds.add(subVd);
+                    ends.add(graph.detach());
+                }
+            } finally {
+                graph.leaveAlternatives();
+            }
+            if (none) ends.add(before);
+            graph.join(ends, statement.source().index());
         }
 
         // The CST's subBlockStream() does not include try-with-resources declarations. Those 'res = expr'
@@ -1112,7 +1175,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     assert vic.hasMerge();
                     VariableInfoImpl merge = (VariableInfoImpl) vic.best();
                     Links collected = collect.build();
-                    if (!collected.isEmpty()) {
+                    // empty links are a decision too: left null, the merge reads as undecided, and a field only read
+                    // in the condition of a method's last statement stayed undecided until cycle breaking wrote its
+                    // links EMPTY (guava's MoreCollectors.ToOptionalState.element: @Independent, links lost)
+                    if (!collected.isEmpty() || eval != null) {
                         merge.setLinkedVariables(collected);
                     }
                     if (TolerantWrite.setAllowControlledOverwrite(merge.analysis(), UNMODIFIED_VARIABLE,

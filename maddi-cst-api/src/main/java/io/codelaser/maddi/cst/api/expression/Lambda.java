@@ -15,12 +15,14 @@
 package io.codelaser.maddi.cst.api.expression;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
@@ -122,6 +124,47 @@ public interface Lambda extends Expression {
         Builder setOutputVariants(List<OutputVariant> outputVariants);
 
         Lambda build();
+    }
+
+    /**
+     * @return whether a {@code return} in this lambda's body, or in a lambda nested in it, returns from a method
+     * that ENCLOSES this lambda: a Kotlin non-local return ({@link ReturnStatement#exitLevels()}), so that calling
+     * this lambda may end the enclosing method. Always {@code false} for Java. A return nested {@code k} lambdas
+     * deep inside this one escapes it when its exit level exceeds {@code k}.
+     */
+    default boolean hasNonLocalReturn() {
+        return escapes(methodInfo().methodBody(), 0);
+    }
+
+    /**
+     * @return whether evaluating {@code element} can return from the method that contains it by way of a lambda's
+     * non-local return; see {@link #hasNonLocalReturn()}. Lambdas nested in lambdas are the outer lambda's concern.
+     */
+    static boolean containsNonLocalReturn(Element element) {
+        boolean[] found = {false};
+        element.visit(e -> {
+            if (found[0]) return false;
+            if (e instanceof Lambda lambda) {
+                if (lambda.hasNonLocalReturn()) found[0] = true;
+                return false;
+            }
+            return true;
+        });
+        return found[0];
+    }
+
+    private static boolean escapes(Element body, int depth) {
+        boolean[] found = {false};
+        body.visit(e -> {
+            if (found[0]) return false;
+            if (e instanceof Lambda inner) {
+                if (escapes(inner.methodInfo().methodBody(), depth + 1)) found[0] = true;
+                return false;
+            }
+            if (e instanceof ReturnStatement rs && rs.exitLevels() > depth) found[0] = true;
+            return !found[0];
+        });
+        return found[0];
     }
 
     String NAME = "lambda";

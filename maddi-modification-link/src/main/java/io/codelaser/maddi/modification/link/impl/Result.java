@@ -29,6 +29,9 @@ public class Result {
     private final Set<LocalVariable> variablesRepresentingConstants;
 
     private Expression evaluated;
+    // the primary of a field reference's scope when that scope is an EXPRESSION ('requireNonNull(t).next'): an
+    // assignment to the field modifies it (see ExpressionVisitor.assignment). Not carried by merge.
+    private Variable expressionScopePrimary;
 
     public Result(Links links,
                   LinkedVariables extra,
@@ -66,6 +69,15 @@ public class Result {
 
     public Expression getEvaluated() {
         return evaluated;
+    }
+
+    public Variable expressionScopePrimary() {
+        return expressionScopePrimary;
+    }
+
+    public Result setExpressionScopePrimary(Variable expressionScopePrimary) {
+        this.expressionScopePrimary = expressionScopePrimary;
+        return this;
     }
 
     public Result setEvaluated(Expression evaluated) {

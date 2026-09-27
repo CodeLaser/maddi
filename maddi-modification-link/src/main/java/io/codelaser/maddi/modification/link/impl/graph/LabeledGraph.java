@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,6 +21,13 @@ public final class LabeledGraph<V, L> {
 
     private final Map<V, Map<V, L>> map = new LinkedHashMap<>();
     private VertexListener<V> listener;
+
+    /** An independent copy of the edges (labels and vertices are immutable and shared), without a listener. */
+    public LabeledGraph<V, L> copy() {
+        LabeledGraph<V, L> copy = new LabeledGraph<>();
+        map.forEach((v, row) -> copy.map.put(v, new LinkedHashMap<>(row)));
+        return copy;
+    }
 
     public void setListener(VertexListener<V> listener) {
         this.listener = listener;
@@ -71,6 +79,18 @@ public final class LabeledGraph<V, L> {
     public void addSymmetricEdge(V from, V to, L label, L reverseLabel) {
         row(from).put(to, label);
         row(to).put(from, reverseLabel);
+    }
+
+    // the union of the two graphs' vertices and edges (a label present in both: the best of the two), vertices in
+    // this graph's order followed by the other's new ones; the listener sees every new vertex
+    public void unionWith(LabeledGraph<V, L> other, BinaryOperator<L> best) {
+        other.map.forEach((from, row) -> {
+            Map<V, L> mine = row(from);
+            row.forEach((to, label) -> {
+                row(to);
+                mine.merge(to, label, best);
+            });
+        });
     }
 
     public boolean addVertex(V v) {
