@@ -171,7 +171,7 @@ internal interface MemberConverter {
     fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo
 
     /** Convert the property initializers and `init` blocks of the anonymous type [owner] while it is still open. */
-    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtObjectDeclaration)
+    fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: org.jetbrains.kotlin.psi.KtClassOrObject)
 
     /** Build a method-local type declaration (`class C : A { … }`) as a full source type, capturing [outerLocals]. */
     fun KaSession.buildLocalType(enclosingMethod: MethodInfo, declaration: KtClassOrObject,
@@ -371,6 +371,19 @@ internal class KotlinBodyConverter(
         val name = statement.name ?: "_"
         val type = (statement.symbol as? KaVariableSymbol)?.let { mapType(it.returnType, method.typeInfo()) }
             ?: runtime.objectParameterizedType()
+        // `val x by lazy { 5 }`: as kotlinc compiles it, a local `x$delegate` holding the delegate object, and every
+        // read of `x` a read through it (#52). It used to become `int x;` -- read, never assigned, lambda gone.
+        val delegateExpression = statement.delegateExpression
+        if (delegateExpression != null && initializerOverride == null) {
+            val delegateType = delegateExpression.expressionType?.let { mapType(it, method.typeInfo()) }
+                ?: runtime.objectParameterizedType()
+            val delegate = runtime.newLocalVariable("$name\$delegate", delegateType,
+                convertExpression(delegateExpression, method, locals))
+            locals[delegate.simpleName()] = delegate
+            delegatedLocals[statement] = delegate to type
+            localDeclared(statement, delegate)
+            return runtime.newLocalVariableCreation(delegate).withSource(runtime.noSource())
+        }
         val initializer = initializerOverride
             ?: statement.initializer?.let { convertExpression(it, method, locals) }
             ?: runtime.newEmptyExpression()
@@ -1129,6 +1142,15 @@ internal class KotlinBodyConverter(
     /** `target = value` / `target op= value`, [value] already converted (the control-flow elvis lowering passes its own). */
     private fun KaSession.assignmentStatement(statement: KtBinaryExpression, value: Expression, method: MethodInfo,
                                               locals: MutableMap<String, Variable>, index: String = ""): Statement {
+        // `x = v` on a local `var x by d`: `x$delegate.setValue(null, null, v)`
+        if (statement.operationToken == KtTokens.EQ) {
+            (statement.left?.let { KtPsiUtil.safeDeparenthesize(it) } as? KtNameReferenceExpression)
+                ?.let { delegatedLocal(it) }?.let { (delegate, _) ->
+                    val write = delegateSetValue(variableExpression(delegate), runtime.nullConstant(), value)
+                        ?: runtime.newEmptyExpression("k2-delegate-write:${delegate.simpleName()}")
+                    return runtime.newExpressionAsStatement(write)
+                }
+        }
         // `(h as? Wrapper)?.handler = v`: an assignment through a safe call is `if (r != null) r.handler = v`, as
         // kotlinc compiles it. `(x as? W)?.p = v` tests the TYPE, since the cast only runs when it holds; anything
         // else tests for null. What is tested is read twice: a value not free to re-read (JettyServer's
@@ -2244,7 +2266,10 @@ internal class KotlinBodyConverter(
             // `languageVersionSettings` in a builder lambda is the builder's, even when the enclosing class has a
             // property of that name. The class-first lookup below bound it to `this.getLanguageVersionSettings()`,
             // silently -- a wrong read is no placeholder
-            is KtNameReferenceExpression -> (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
+            is KtNameReferenceExpression -> delegatedLocal(expression)?.let { (delegate, type) ->
+                    delegateGetValue(variableExpression(delegate), runtime.nullConstant(), type)
+                        ?: runtime.newEmptyExpression("k2-delegate-read:${delegate.simpleName()}") }
+                ?: (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
                 ?: resolveReference(expression.getReferencedName(), method, locals)
                 ?: implicitMemberAccess(expression, method, locals)
                 ?: topLevelPropertyAccess(expression, method)
@@ -3349,11 +3374,13 @@ internal class KotlinBodyConverter(
      * default, or when the declaration with the defaults has no `$default` in this project (a library function):
      * the caller falls back to the written arguments.
      */
-    internal fun KaSession.callArguments(call: KtCallElement, callee: KaFunctionSymbol, method: MethodInfo,
+    internal fun KaSession.callArguments(call: KtCallElement?, callee: KaFunctionSymbol, method: MethodInfo,
                                          locals: Map<String, Variable>): Arguments? {
-        val lambda = call.valueArguments.lastOrNull()?.takeIf { it is KtLambdaArgument }
-        val positional = call.valueArguments.filter { it.getArgumentName() == null && it !== lambda }
-        val byName = call.valueArguments.mapNotNull { va ->
+        // a null [call] writes no argument at all: an enum entry without parentheses (`P` in `enum class G(a: Int = 7)`)
+        val written = call?.valueArguments ?: emptyList()
+        val lambda = written.lastOrNull()?.takeIf { it is KtLambdaArgument }
+        val positional = written.filter { it.getArgumentName() == null && it !== lambda }
+        val byName = written.mapNotNull { va ->
             va.getArgumentName()?.asName?.asString()?.let { it to va }
         }.toMap()
         val parameters = callee.valueParameters
@@ -4798,6 +4825,108 @@ internal class KotlinBodyConverter(
 
     internal fun variableExpression(variable: Variable): Expression =
         runtime.newVariableExpressionBuilder().setVariable(variable).setSource(runtime.noSource()).build()
+
+    /**
+     * The delegate read, for a member (`this.x$delegate`) and a local (`x$delegate`) alike. Kotlin's convention is
+     * the `getValue(thisRef, property)` operator, which is what a hand-written delegate declares; `kotlin.Lazy` — the
+     * `by lazy` case — declares `val value` instead, a FIELD in the K2-built model, so `x$delegate.value` is the
+     * spelling there. The `KProperty` argument of the operator form is not modelled; `null` stands in for it.
+     * Null when the delegate type offers none of the three.
+     */
+    internal fun delegateGetValue(delegate: Expression, thisRef: Expression, type: ParameterizedType): Expression? {
+        val delegateType = delegate.parameterizedType().typeInfo()
+        delegateType?.methods()?.firstOrNull { it.name() == "getValue" && it.parameters().size == 2 }?.let { getValue ->
+            return runtime.newMethodCallBuilder()
+                .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(getValue)
+                .setParameterExpressions(listOf(thisRef, runtime.nullConstant()))
+                .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        }
+        delegateType?.fields()?.firstOrNull { it.name() == "value" }?.let { valueField ->
+            return runtime.newVariableExpressionBuilder()
+                .setVariable(runtime.newFieldReference(valueField, delegate, type))
+                .setSource(runtime.noSource()).build()
+        }
+        // ⛔ the CLASS-FILE `kotlin.Lazy` has neither: it is an interface whose `val value` is the abstract getter
+        // `getValue()`, which is what kotlinc calls. Which model a run holds depends on who loaded `Lazy` first, so
+        // on detekt ten `by lazy` reads fell through both branches above
+        (delegateType?.let { typeMapper.withMembers(it) } ?: delegateType)?.methods()
+            ?.firstOrNull { it.name() == "getValue" && it.parameters().isEmpty() }?.let { getValue ->
+                return runtime.newMethodCallBuilder()
+                    .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(getValue)
+                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
+                    .setSource(runtime.noSource()).build()
+            }
+        return null
+    }
+
+    /** The delegate write, `x$delegate.setValue(thisRef, null, value)`; null when the delegate has no setValue. */
+    internal fun delegateSetValue(delegate: Expression, thisRef: Expression, value: Expression): Expression? {
+        val setValue = delegate.parameterizedType().typeInfo()?.methods()
+            ?.firstOrNull { it.name() == "setValue" && it.parameters().size == 3 } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(setValue)
+            .setParameterExpressions(listOf(thisRef, runtime.nullConstant(), value))
+            .setConcreteReturnType(runtime.voidParameterizedType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+    }
+
+    /**
+     * An enum entry's field initializer, `new E(args)`, as the Java front end builds `A(true, "s")` (#53). The entry's
+     * `A(1)` is a super-type call to the enum's constructor; its arguments are ordered and defaulted as any call's
+     * ([callArguments]). An entry with no parentheses calls the constructor with none. A null result means the
+     * constructor could not be matched; the caller leaves a named placeholder, never a silent empty initializer.
+     */
+    internal fun KaSession.enumEntryInitializer(entry: org.jetbrains.kotlin.psi.KtEnumEntry, owner: TypeInfo,
+                                                context: MethodInfo): Expression {
+        val call = entry.initializerList?.initializers?.firstOrNull() as? KtSuperTypeCallEntry
+        // without parentheses there is no call to resolve: the constructor every parameter of which can be omitted
+        val symbol = call?.resolveToCall()?.singleFunctionCallOrNull()?.symbol
+            ?: (entry.containingClassOrObject?.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.constructors
+                ?.firstOrNull { c -> c.valueParameters.all { it.hasDefaultValue } }
+        val arguments = symbol?.let { callArguments(call, it, context, emptyMap()) }
+            ?: Arguments(call?.valueArguments.orEmpty().mapNotNull { va ->
+                va.getArgumentExpression()?.let { convertExpression(it, context, emptyMap()) } }, null)
+        val constructor = arguments.defaults
+            ?: members(owner).constructors().firstOrNull { !it.isSynthetic && it.parameters().size == arguments.expressions.size }
+            ?: return placeholder("k2-enum-entry-constructor:${entry.name}", entry)
+        // `B(2) { override fun g() = 9 }`: kotlinc compiles the body to a subclass of the enum; as a Java enum constant
+        // with a body, an anonymous subtype of E, its members converted as an `object :` expression's are
+        val body = entry.body?.let {
+            (entry.symbol as? org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol)?.enumEntryInitializer
+        }?.let { initializer ->
+            val anon = runtime.newAnonymousType(owner, owner.builder().getAndIncrementAnonymousTypes())
+            anon.builder().setTypeNature(runtime.typeNatureClass()).setAccess(runtime.accessPrivate())
+                .setEnclosingMethod(context).setParentClass(owner.asParameterizedType())
+            initializer.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>()
+                .forEach { property -> with(memberConverter) { buildAnonProperty(anon, property) } }
+            initializer.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
+                .forEach { function -> anon.builder().addMethod(with(memberConverter) { buildAnonMethod(anon, function) }) }
+            with(memberConverter) { finishAnonMembers(anon, entry) }
+            anon.builder().commit()
+            anon
+        }
+        return runtime.newConstructorCallBuilder()
+            .setAnonymousClass(body)
+            .setConstructor(constructor)
+            .setConcreteReturnType(owner.asParameterizedType())
+            .setParameterExpressions(arguments.expressions)
+            .setDiamond(runtime.diamondNo())
+            .setTypeArguments(listOf())
+            .setSource(runtime.noSource())
+            .build()
+    }
+
+    /**
+     * A LOCAL delegated property (`val x by lazy { 5 }`, #52): the declaration → its `x$delegate` local and the
+     * property's own type. Keyed by the declaration, not the name, so shadowing cannot confuse two of them.
+     */
+    private val delegatedLocals = mutableMapOf<KtProperty, Pair<LocalVariable, ParameterizedType>>()
+
+    private fun KaSession.delegatedLocal(expression: KtNameReferenceExpression): Pair<LocalVariable, ParameterizedType>? {
+        if (delegatedLocals.isEmpty()) return null
+        val declaration = expression.mainReference.resolveToSymbol()?.psi as? KtProperty ?: return null
+        return delegatedLocals[declaration]
+    }
 }
 
 private val JVM_NAME = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/JvmName")

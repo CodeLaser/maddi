@@ -283,7 +283,7 @@ class KotlinScan(
     override fun KaSession.buildAnonMethod(owner: TypeInfo, function: KaNamedFunctionSymbol): MethodInfo =
         convertMethod(owner, function)
 
-    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtObjectDeclaration) {
+    override fun KaSession.finishAnonMembers(owner: TypeInfo, declaration: KtClassOrObject) {
         convertInitializers(owner)
         convertInitBlocks(declaration, owner)
     }
@@ -963,6 +963,8 @@ class KotlinScan(
             // a reference to the entry (`Level.LOW`, `LOW` in a `when`) is recorded against this field, and the
             // entry's KDoc (whose links name project declarations) waits, as a property's, for every target to exist
             references.target(entry, field)
+            // its `new E(args)` waits for the constructors, as a property initializer does (convertInitializers)
+            pendingEnumEntries.getOrPut(typeInfo) { mutableListOf() } += field to entry
             commitOrDefer(field, entry) { field.builder().commit() }
             typeInfo.builder().addField(field)
         }
@@ -1769,8 +1771,16 @@ class KotlinScan(
      * Convert [owner]'s property initializers (see [initializerContext]) and delegate expressions (see
      * [convertDelegateInitializers]) into their fields' initializers, while [owner] is open and its members exist.
      */
+    // enum entries awaiting their `new E(args)` initializer, per enum: see addEnumMembers
+    private val pendingEnumEntries = java.util.IdentityHashMap<TypeInfo, MutableList<Pair<FieldInfo, KtEnumEntry>>>()
+
     private fun KaSession.convertInitializers(owner: TypeInfo) {
         convertDelegateInitializers(owner)
+        pendingEnumEntries.remove(owner)?.forEach { (field, entry) ->
+            val context = initializerContext(owner, true)
+            inBody { with(bodyConverter) { enumEntryInitializer(entry, owner, context) } }
+                ?.let { field.builder().setInitializer(it) }
+        }
         // an `object :` expression in an initializer queues its own properties under its own type, which its
         // conversion finishes (finishAnonMembers)
         val pending = pendingInitializers.remove(owner) ?: return
@@ -1884,13 +1894,7 @@ class KotlinScan(
         if (e is EmptyExpression && e.source() == null && p.delegateExpression != null)
             e.withSource(sourceOf(runtime, p.delegateExpression, "-")) else e
 
-    /**
-     * The delegate read. Kotlin's convention is the `getValue(thisRef, property)` operator, which is what a
-     * hand-written delegate declares; `kotlin.Lazy` — the `by lazy` case — declares `val value` instead, and
-     * once loaded from bytecode that is a FIELD, so `this.x$delegate.value` is the spelling there. That is the
-     * same shape the explicit form (`private val slot: Lazy<T> = lazy { … }; fun get() = slot.value`) already
-     * produces. The `KProperty` argument of the operator form is not modelled; `null` stands in for it.
-     */
+    /** The delegate read and write are shared with delegated locals: KotlinBodyConverter.delegateGetValue. */
     /** An extension property's accessor reads its receiver, `$receiver`, as the delegate's `thisRef`. */
     private fun receiverOf(accessor: MethodInfo): Expression? =
         accessor.parameters().firstOrNull()?.takeIf { it.name() == "\$receiver" }?.let {
@@ -1898,48 +1902,16 @@ class KotlinScan(
         }
 
     private fun delegateRead(owner: TypeInfo, field: FieldInfo, type: ParameterizedType, static: Boolean,
-                             receiver: Expression? = null): Expression {
-        val delegate = fieldReadExpression(owner, field, static)
-        val delegateType = field.type().typeInfo()
-        delegateType?.methods()?.firstOrNull { it.name() == "getValue" && it.parameters().size == 2 }?.let { getValue ->
-            return runtime.newMethodCallBuilder()
-                .setObject(delegate).setObjectIsImplicit(false)
-                .setMethodInfo(getValue)
-                .setParameterExpressions(listOf(receiver ?: thisRef(owner, static), runtime.nullConstant()))
-                .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
-        }
-        delegateType?.fields()?.firstOrNull { it.name() == "value" }?.let { valueField ->
-            return runtime.newVariableExpressionBuilder()
-                .setVariable(runtime.newFieldReference(valueField, delegate, type))
-                .setSource(runtime.noSource()).build()
-        }
-        // ⛔ the CLASS-FILE `kotlin.Lazy` has neither: it is an interface whose `val value` is the abstract getter
-        // `getValue()`, which is what kotlinc calls. Which model a run holds depends on who loaded `Lazy` first, so
-        // on detekt ten `by lazy` reads fell through both branches above
-        (delegateType?.let { typeMapper.withMembers(it) } ?: delegateType)?.methods()
-            ?.firstOrNull { it.name() == "getValue" && it.parameters().isEmpty() }?.let { getValue ->
-                return runtime.newMethodCallBuilder()
-                    .setObject(delegate).setObjectIsImplicit(false).setMethodInfo(getValue)
-                    .setParameterExpressions(listOf()).setConcreteReturnType(type).setTypeArguments(listOf())
-                    .setSource(runtime.noSource()).build()
-            }
-        return runtime.newEmptyExpression("k2-delegate-read:${field.name()}")
-    }
+                             receiver: Expression? = null): Expression =
+        bodyConverter.delegateGetValue(fieldReadExpression(owner, field, static), receiver ?: thisRef(owner, static), type)
+            ?: runtime.newEmptyExpression("k2-delegate-read:${field.name()}")
 
     /** The delegate write, `this.x$delegate.setValue(this, null, value)` — `var` properties only. */
     private fun delegateWrite(owner: TypeInfo, field: FieldInfo, value: ParameterInfo, static: Boolean,
-                              receiver: Expression? = null): Expression {
-        val setValue = field.type().typeInfo()?.methods()
-            ?.firstOrNull { it.name() == "setValue" && it.parameters().size == 3 }
-            ?: return runtime.newEmptyExpression("k2-delegate-write:${field.name()}")
-        return runtime.newMethodCallBuilder()
-            .setObject(fieldReadExpression(owner, field, static)).setObjectIsImplicit(false)
-            .setMethodInfo(setValue)
-            .setParameterExpressions(listOf(receiver ?: thisRef(owner, static), runtime.nullConstant(),
-                bodyConverter.variableExpression(value)))
-            .setConcreteReturnType(runtime.voidParameterizedType())
-            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
-    }
+                              receiver: Expression? = null): Expression =
+        bodyConverter.delegateSetValue(fieldReadExpression(owner, field, static), receiver ?: thisRef(owner, static),
+            bodyConverter.variableExpression(value))
+            ?: runtime.newEmptyExpression("k2-delegate-write:${field.name()}")
 
     /** The `thisRef` a delegate operator takes: `this`, or `null` for a delegated property on a facade/companion. */
     private fun thisRef(owner: TypeInfo, static: Boolean): Expression =

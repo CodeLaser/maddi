@@ -158,12 +158,12 @@ class DelegatedPropertyTest : KotlinScanTestBase() {
     }
 
     /**
-     * A local `val x by lazy { … }` is a SECOND site (`KotlinBodyConverter`, the local-variable path) and is
-     * still dropped — and, unlike the member case, still dropped without a marker. Pinned so the day that
-     * changes, this test says so.
+     * A local `val x by lazy { … }` is a SECOND site (`KotlinBodyConverter`, the local-variable path). It was
+     * dropped without a marker (`String local;`, #52); it is now `local$delegate`, as kotlinc compiles it, and the
+     * read goes through it. More shapes in LocalDelegateTest.
      */
     @Test
-    fun aLocalDelegatedPropertyIsStillDropped() {
+    fun aLocalDelegatedPropertyKeepsItsDelegate() {
         val holder = parse(
             """
             class Holder(private val n: Int) {
@@ -174,9 +174,9 @@ class DelegatedPropertyTest : KotlinScanTestBase() {
             }
             """
         ).getValue("Holder")
-        val first = holder.findUniqueMethod("run", 0).methodBody().statements().first()
-        // the local is created with no initializer at all: neither the `lazy` call nor the lambda survives
-        assertEquals("String local;", first.toString())
+        val statements = holder.findUniqueMethod("run", 0).methodBody().statements()
+        assertEquals("Lazy<String> local\$delegate=LazyKt__LazyJVMKt.lazy(()->\"v\"+this.n);", statements[0].toString())
+        assertEquals("return local\$delegate.value;", statements[1].toString())
     }
 
     /**
