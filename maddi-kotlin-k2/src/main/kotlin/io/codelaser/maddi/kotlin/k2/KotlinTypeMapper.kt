@@ -392,7 +392,11 @@ internal class KotlinTypeMapper(
         val typeArguments = type.typeArguments.map { projection ->
             if (projection is KaStarTypeProjection) return@map runtime.parameterizedTypeWildcard()
             val mapped = projection.type?.let { mapType(it, owner, method) } ?: runtime.objectParameterizedType()
-            val arg = if (mapped.isPrimitiveExcludingVoid) mapped.ensureBoxed(runtime) else mapped // List<Int> -> List<Integer>
+            // List<Int> -> List<Integer>; and `(T) -> Unit` is Function1<T, kotlin.Unit> on the JVM, as javac sees it
+            // from Java: Unit is `void` only in RETURN position, never as a type argument
+            val arg = if (mapped.isPrimitiveExcludingVoid) mapped.ensureBoxed(runtime)
+                      else if (mapped.isVoid) unitType() ?: mapped
+                      else mapped
             when ((projection as? KaTypeArgumentWithVariance)?.variance) {
                 KotlinVariance.OUT_VARIANCE -> arg.withWildcard(runtime.wildcardExtends())
                 KotlinVariance.IN_VARIANCE -> arg.withWildcard(runtime.wildcardSuper())
@@ -762,6 +766,11 @@ internal class KotlinTypeMapper(
         val arguments = parameters.map { mapType(it, owner, method).ensureBoxed(runtime) } + continuation + runtime.objectParameterizedType()
         return runtime.newParameterizedType(functionN, arguments)
     }
+
+    /** `kotlin.Unit` as a class type; null when the stdlib is not on the class path. */
+    private fun KaSession.unitType(): ParameterizedType? =
+        (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/Unit")) as? KaNamedClassSymbol)
+            ?.let { loadLibraryClass(it) }?.asSimpleParameterizedType()
 
     /** `kotlin.coroutines.Continuation<R>` (R boxed); null when the stdlib is not on the class path. */
     internal fun KaSession.continuationType(result: ParameterizedType): ParameterizedType? {
