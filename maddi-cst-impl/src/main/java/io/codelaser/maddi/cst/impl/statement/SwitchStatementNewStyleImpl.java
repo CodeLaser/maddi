@@ -83,6 +83,8 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
 
     @Override
     public void visit(Predicate<Element> predicate) {
+        // the switch itself is an element too: without this test no predicate visitor could see or prune it
+        if (!predicate.test(this)) return;
         selector.visit(predicate);
         for (SwitchEntry entry : entries) {
             entry.conditions().forEach(e -> e.visit(predicate));
