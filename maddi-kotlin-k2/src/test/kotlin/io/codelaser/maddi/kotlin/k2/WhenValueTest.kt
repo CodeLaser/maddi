@@ -45,6 +45,8 @@ class WhenValueTest : KotlinScanTestBase() {
                 }
                 fun elvisValue(o: Any, s: String?): Boolean = when (o) { is Int -> s ?: return false; else -> "y" } == "x"
                 fun tryValue(i: Int): Int = when (i) { 0 -> try { i / 0 } catch (e: Exception) { 1 }; else -> 2 }
+                fun tryOfWhen(i: Int): String = try { when (i) { 0 -> throw IllegalStateException(); else -> "ok" } } catch (e: IllegalStateException) { "state" }
+                fun assignedTryOfWhen(i: Int): Int { val v = try { when (i) { 0 -> 1; else -> 2 } } catch (e: Exception) { 3 }; return v }
             }
             """.trimIndent() + "\n")
     }
@@ -63,6 +65,16 @@ class WhenValueTest : KotlinScanTestBase() {
             ifValue: return switch(i){case 0->{if(c){ConsoleKt.println("c");yield 1;}else{yield 2;}}case 1->{if(c){return 5;}else{yield 6;}}default->3;};
             elvisValue: return (switch(o){case int it->{if(s==null){return false;}yield s;}default->"y";}).equals("x");
             """.trimIndent(), listOf("single", "block", "jump", "statement", "ifValue", "elvisValue").joinToString("\n") { "$it: ${body(it)}" })
+    }
+
+    /* A `when` at the tail of a try used as a value IS the value. It kept its statement form, `"ok"` became an
+       expression statement and the value was lost (jfocus-transform's Kotlin differential check, 2026-09-27). */
+    @Test
+    fun aWhenAtTheTailOfAValueTryIsAValue() {
+        assertEquals("try{return switch(i){case 0->throw new IllegalStateException();default->\"ok\";};}"
+                     + "catch(IllegalStateException e){return \"state\";}", body("tryOfWhen"))
+        assertEquals(true, body("assignedTryOfWhen").contains("v=(switch(i){case 0->1;default->2;});"),
+            body("assignedTryOfWhen"))
     }
 
     @Test

@@ -1734,6 +1734,12 @@ internal class KotlinBodyConverter(
         return block.build()
     }
 
+    /** A `when` in the tail of a block used as a value, with a value of its own (not Unit, not Nothing). */
+    private fun KaSession.isValueWhen(s: KtExpression): Boolean {
+        val type = (s as? KtWhenExpression)?.expressionType ?: return false
+        return !type.isUnitType && !type.isNothingType
+    }
+
     /** A block whose tail expression becomes [tail] (a return, a yield); any other tail statement is kept. */
     private fun KaSession.convertTailBlock(body: KtExpression?, method: MethodInfo,
                                            locals: Map<String, Variable>, blockIndex: String,
@@ -1753,6 +1759,12 @@ internal class KotlinBodyConverter(
             if (j != statements.lastIndex) {
                 return@forEachIndexed convertHoisting(s, method, childLocals, childIndex)
                     .forEach { block.addStatement(it) }
+            }
+            // `return try { when (i) { 0 -> throw …; else -> "ok" } } catch …`: a `when` tail is the VALUE, a switch
+            // expression; its statement form kept `"ok"` as an expression statement and the value was lost
+            if (isValueWhen(s)) {
+                block.addStatement(indexed(tail(convertExpression(s, method, childLocals)), childIndex))
+                return@forEachIndexed
             }
             val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
             hoisted.forEach { block.addStatement(it) }
@@ -1794,6 +1806,13 @@ internal class KotlinBodyConverter(
             // `if (c) { try { … } catch … { … } } else …`: each arm of the try assigns
             if (s is KtTryExpression) {
                 block.addStatement(convertTry(s, method, childLocals, childIndex, assignTo = target).withSource(source(s, childIndex)))
+                return@forEachIndexed
+            }
+            // `val v = try { when (…) { … } } catch …`: the `when` is the value, as in convertTailBlock
+            if (isValueWhen(s)) {
+                block.addStatement(indexed(runtime.newExpressionAsStatement(runtime.newAssignment(
+                    runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build(),
+                    convertExpression(s, method, childLocals))), childIndex))
                 return@forEachIndexed
             }
             // `else if (c) t else s ?: return 0`: the nested `if` is a value too, assigned in each of ITS branches
