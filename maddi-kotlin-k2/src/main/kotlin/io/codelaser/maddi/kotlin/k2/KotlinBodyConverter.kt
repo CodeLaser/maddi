@@ -441,11 +441,51 @@ internal class KotlinBodyConverter(
             else -> statement
         } ?: return listOf()
         val raw = ArrayList<Statement>()
+        hoistOutOfOrderArguments(root, method, locals, raw)
         hoistSpineOf(root, method, locals, index, raw)
         // ⚠ indexed only now: the declarations and the statement they precede must sort, and `pad` needs the
         // total (9 temporaries and a statement would otherwise index .10 before .2, as strings)
         return raw.mapIndexed { i, d -> indexed(d, "$index.${pad(i, raw.size + 1)}") }
     }
+
+    /**
+     * <b>Named arguments evaluate in the order WRITTEN (#56).</b> `namedOrder(b = n++, a = n++)` evaluates `b` first;
+     * passed in parameter order, `namedOrder(this.n++, this.n++)` evaluated `a` first, and each parameter got the
+     * other's value. kotlinc binds such arguments to temporaries in source order; so does this, for the statement's
+     * ROOT call only (`f(…)`, or `x.f(…)` on a stable `x`: evaluated unconditionally, nothing before it to reorder
+     * against), and only when the written order differs from the parameter order and some argument is not a stable
+     * reference. A lambda argument stays in place (creating it has no effect); a call with a vararg is left alone.
+     */
+    private fun KaSession.hoistOutOfOrderArguments(root: KtExpression, method: MethodInfo,
+                                                   locals: MutableMap<String, Variable>,
+                                                   declarations: MutableList<Statement>) {
+        val call = when (val e = KtPsiUtil.safeDeparenthesize(root)) {
+            is KtCallExpression -> e
+            is KtDotQualifiedExpression -> (e.selectorExpression as? KtCallExpression)
+                ?.takeIf { isStableReference(e.receiverExpression) }
+            else -> null
+        } ?: return
+        if (call.valueArguments.none { it.getArgumentName() != null }) return
+        val resolved = call.resolveToCall()?.singleFunctionCallOrNull() ?: return
+        if (resolved.symbol.valueParameters.any { it.isVararg }) return
+        val parameterIndex = resolved.symbol.valueParameters.withIndex().associate { (i, p) -> p.name to i }
+        val written = call.valueArguments.filter { it !is KtLambdaArgument && it.getArgumentExpression() !is KtLambdaExpression }
+            .mapNotNull { va -> va.getArgumentExpression()?.let { e -> resolved.argumentMapping[e]?.let { e to it } } }
+        val order = written.map { (_, parameter) -> parameterIndex[parameter.name] ?: return }
+        // a constant, a plain string or a stable read evaluates nothing: in any order, the same values
+        val effectFree = { e: KtExpression -> isStableReference(e) ||
+            (e is org.jetbrains.kotlin.psi.KtStringTemplateExpression && !e.hasInterpolation()) }
+        if (order == order.sorted() || written.all { (e, _) -> effectFree(e) }) return
+        written.forEach { (expression, _) ->
+            val type = expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+            val temporary = runtime.newLocalVariable("\$arg${argumentTemporaries++}", type,
+                convertExpression(expression, method, locals))
+            declarations.add(runtime.newLocalVariableCreation(temporary))
+            hoistedReads[expression] = temporary
+        }
+    }
+
+    private var argumentTemporaries = 0
 
     /** The index the hoisted statement itself takes, after [n] declarations. */
     private fun hoistedStatementIndex(index: String, n: Int): String = "$index.${pad(n, n + 1)}"
