@@ -4444,6 +4444,9 @@ internal class KotlinBodyConverter(
                                        prefix: Boolean, method: MethodInfo, locals: Map<String, Variable>): Expression {
         val operand = base?.let { convertExpression(it, method, locals) } ?: return runtime.newEmptyExpression("k2-unary")
         return when (token) {
+            // `v++` on a type with `operator fun inc()` calls it (#55); only a primitive's is Java's `++`
+            KtTokens.PLUSPLUS if !isPrimitiveOperator(expression) -> userIncrement(expression, base, operand, prefix, method, locals)
+            KtTokens.MINUSMINUS if !isPrimitiveOperator(expression) -> userIncrement(expression, base, operand, prefix, method, locals)
             KtTokens.PLUSPLUS, KtTokens.MINUSMINUS -> {
                 val target = operand as? VariableExpression ?: return runtime.newEmptyExpression("k2-incr-target")
                 val isPlus = token == KtTokens.PLUSPLUS
@@ -4471,9 +4474,26 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /**
+     * `v++` / `--v` on a type whose `inc()` / `dec()` is a user operator: `v = v.inc()`, as kotlinc compiles it (#55).
+     * It was lowered as an int increment, the operator never called and the object treated as a number. That is the
+     * value of a PREFIX increment, and of a postfix one whose value is unused; a postfix increment whose OLD value is
+     * used needs a temporary this does not build, so it is a named placeholder rather than a wrong value.
+     */
+    private fun KaSession.userIncrement(expression: KtUnaryExpression, base: KtExpression?, operand: Expression,
+                                        prefix: Boolean, method: MethodInfo, locals: Map<String, Variable>): Expression {
+        val target = operand as? VariableExpression ?: return placeholder("k2-incr-target", expression)
+        if (!prefix && expression.isUsedAsExpression) return placeholder("k2-postfix-operator-value", expression)
+        // the operand is read again as the call's receiver: only a target free to re-read (a local, a field of `this`)
+        if (base == null || !rereadable(target)) return placeholder("k2-incr-target", expression)
+        val call = unaryOperatorCall(expression, convertExpression(base, method, locals), method, locals)
+            ?: return placeholder("k2-unsupported-unary:${expression.operationToken}", expression)
+        return runtime.newAssignmentBuilder().setTarget(target).setValue(call).setSource(runtime.noSource()).build()
+    }
+
     /** Whether [expression]'s operator is a member of a Kotlin primitive (or does not resolve): Java's own operator. */
     private fun KaSession.isPrimitiveOperator(expression: KtUnaryExpression): Boolean {
-        val symbol = expression.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return true
+        val symbol = unaryOperator(expression)?.symbol ?: return true
         val owner = symbol.callableId?.classId ?: return false // a top-level extension operator
         return owner.packageFqName.asString() == "kotlin" && owner.shortClassName.asString() in KOTLIN_PRIMITIVES
     }
@@ -4483,9 +4503,21 @@ internal class KotlinBodyConverter(
      * extension called on the implicit tag; `+x` on a primitive is `x` itself. A member operator is `operand.op()`,
      * a top-level extension `Facade.op(operand)`.
      */
+    /**
+     * The operator a unary expression calls. `-x` resolves to a plain call; `v++` / `--v` to a COMPOUND ACCESS (read,
+     * operate, write back), whose operation is `inc` / `dec` -- consulting only the plain form left every `++` looking
+     * unresolved, hence primitive (#55).
+     */
+    private fun KaSession.unaryOperator(expression: KtUnaryExpression) =
+        expression.resolveToCall().let { resolved ->
+            resolved?.singleFunctionCallOrNull()?.partiallyAppliedSymbol
+                ?: resolved?.successfulCallOrNull<org.jetbrains.kotlin.analysis.api.resolution.KaCompoundVariableAccessCall>()
+                    ?.compoundOperation?.operationPartiallyAppliedSymbol
+        }
+
     private fun KaSession.unaryOperatorCall(expression: KtUnaryExpression, operand: Expression, method: MethodInfo,
                                             locals: Map<String, Variable>): Expression? {
-        val resolved = expression.resolveToCall()?.singleFunctionCallOrNull() ?: return null
+        val resolved = unaryOperator(expression) ?: return null
         val symbol = resolved.symbol as? KaNamedFunctionSymbol ?: return null
         val name = symbol.name.asString()
         if (name == "unaryPlus" && isPrimitiveOperator(expression)) return operand
@@ -4498,7 +4530,7 @@ internal class KotlinBodyConverter(
             val callee = operand.parameterizedType().typeInfo()?.let { resolveCallee(it, name, listOf()) } ?: return null
             return call(operand, false, callee, listOf())
         }
-        resolved.partiallyAppliedSymbol.dispatchReceiver?.let { dispatch ->
+        resolved.dispatchReceiver?.let { dispatch ->
             val obj = implicitReceiverValue(dispatch, method, locals) ?: return null
             val type = receiverLookupType(dispatch, obj, method) ?: return null
             val callee = resolveCallee(type, name, listOf(operand)) ?: return null
