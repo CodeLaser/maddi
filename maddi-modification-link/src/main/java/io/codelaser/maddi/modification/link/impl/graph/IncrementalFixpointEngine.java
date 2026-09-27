@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.function.BiPredicate;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -51,6 +52,9 @@ public final class IncrementalFixpointEngine<V, L> {
     private final Function<V, String> vertexPrinter;
     private final Comparator<V> vertexComparator;
     private final Predicate<V> acceptForComposite;
+    // a derived fact must also be acceptable as a whole (source, target, label); see LinkComputerImpl: no
+    // identity, assignment or sharing derived between a variable and its own field path
+    private final BiPredicate<Fact<V, L>, V> acceptComposite;
 
     // Per-method effort ceiling. The engine lives for ONE method (created in SourceMethodComputer);
     // one pathological method must not consume minutes of CPU and gigabytes of closure (elasticsearch
@@ -108,8 +112,22 @@ public final class IncrementalFixpointEngine<V, L> {
                                      Function<V, String> vertexPrinter,
                                      Comparator<V> vertexComparator,
                                      Predicate<V> acceptForComposite) {
+        this(combine, best, valid, scoreFunction, reverse, vertexPrinter, vertexComparator, acceptForComposite,
+                (_, _) -> true);
+    }
+
+    public IncrementalFixpointEngine(BinaryOperator<L> combine,
+                                     BinaryOperator<L> best,
+                                     Predicate<L> valid,
+                                     Function<L, Integer> scoreFunction,
+                                     UnaryOperator<L> reverse,
+                                     Function<V, String> vertexPrinter,
+                                     Comparator<V> vertexComparator,
+                                     Predicate<V> acceptForComposite,
+                                     BiPredicate<Fact<V, L>, V> acceptComposite) {
         this(new LabeledGraph<>(), new Closure<>(best), new WitnessIndex<>(scoreFunction, vertexComparator),
-                combine, best, valid, reverse, vertexPrinter, vertexComparator, acceptForComposite);
+                combine, best, valid, reverse, vertexPrinter, vertexComparator, acceptForComposite,
+                acceptComposite);
     }
 
     private IncrementalFixpointEngine(LabeledGraph<V, L> graph,
@@ -121,7 +139,8 @@ public final class IncrementalFixpointEngine<V, L> {
                                       UnaryOperator<L> reverse,
                                       Function<V, String> vertexPrinter,
                                       Comparator<V> vertexComparator,
-                                      Predicate<V> acceptForComposite) {
+                                      Predicate<V> acceptForComposite,
+                                      BiPredicate<Fact<V, L>, V> acceptComposite) {
         this.graph = graph;
         this.closure = closure;
         this.witnessIndex = witnessIndex;
@@ -132,6 +151,7 @@ public final class IncrementalFixpointEngine<V, L> {
         this.vertexPrinter = vertexPrinter;
         this.vertexComparator = vertexComparator;
         this.acceptForComposite = acceptForComposite;
+        this.acceptComposite = Objects.requireNonNull(acceptComposite);
     }
 
     /*
@@ -141,7 +161,7 @@ public final class IncrementalFixpointEngine<V, L> {
     public IncrementalFixpointEngine<V, L> copy() {
         IncrementalFixpointEngine<V, L> copy = new IncrementalFixpointEngine<>(graph.copy(), closure.copy(),
                 witnessIndex.copy(), combine, best, valid, reverse, vertexPrinter, vertexComparator,
-                acceptForComposite);
+                acceptForComposite, acceptComposite);
         copy.work = work;
         copy.touched.addAll(touched);
         return copy;
@@ -360,6 +380,7 @@ public final class IncrementalFixpointEngine<V, L> {
             V target = edge.getKey();
             if (acceptForComposite.test(target) && !source.equals(target) && valid.test(nextLabel)) {
                 Fact<V, L> next = new Fact<>(source, target, nextLabel);
+                if (!acceptComposite.test(next, fact.target())) continue;
                 if (history == null || addToHistory(history, next)) {
                     Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
                     Witness<V, L> leftW = witnessIndex.get(fact);
@@ -380,7 +401,7 @@ public final class IncrementalFixpointEngine<V, L> {
                                     improved ? "improved" : "",
                                     candidate.print(vertexPrinter));
                             queue.addLast(next);
-                            if (added) completeSymmetrically(next, fact, newFact, candidate, queue, optimize);
+                            if (added) completeSymmetrically(next, fact.target(), fact, newFact, candidate, queue, optimize);
                         }
                     }
                 }
@@ -398,11 +419,12 @@ public final class IncrementalFixpointEngine<V, L> {
     across insertion orders (the diamond pin). acceptForComposite guards feature #9 (no composites TARGETING a
     return variable or a someValue marker).
      */
-    private void completeSymmetrically(Fact<V, L> next, Fact<V, L> left, Fact<V, L> right,
+    private void completeSymmetrically(Fact<V, L> next, V middle, Fact<V, L> left, Fact<V, L> right,
                                        Witness<V, L> fallback, Deque<Fact<V, L>> queue, boolean optimize) {
         L revLabel = reverse.apply(next.label());
         if (!valid.test(revLabel) || !acceptForComposite.test(next.source())) return;
         Fact<V, L> mirror = new Fact<>(next.target(), next.source(), revLabel);
+        if (!acceptComposite.test(mirror, middle)) return;
         boolean added = closure.add(mirror.source(), mirror.target(), mirror.label());
         if (added) {
             touch(mirror);
@@ -441,6 +463,7 @@ public final class IncrementalFixpointEngine<V, L> {
                 L combined = combine.apply(predLabel, fact.label());
                 if (valid.test(combined)) {
                     Fact<V, L> next = new Fact<>(p, target, combined);
+                    if (!acceptComposite.test(next, source)) continue;
                     if (history == null || addToHistory(history, next)) {
                         Fact<V, L> newFact = new Fact<>(p, source, predLabel);
                         Witness<V, L> leftW = witnessIndex.get(newFact);
@@ -462,7 +485,7 @@ public final class IncrementalFixpointEngine<V, L> {
                                         improved ? "improved" : "",
                                         next.print(vertexPrinter), candidate.print(vertexPrinter));
                                 queue.addLast(next);
-                                if (added) completeSymmetrically(next, newFact, fact, candidate, queue, optimize);
+                                if (added) completeSymmetrically(next, source, newFact, fact, candidate, queue, optimize);
                             }
                         }
                     }

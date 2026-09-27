@@ -77,6 +77,16 @@ public interface Value extends Comparable<Value> {
         return false;
     }
 
+    /**
+     * Content equality for values whose {@link #equals} is deliberately key-only (see
+     * {@link #strictlyRicherThan}): true when the two values are equal AND carry the same content, so
+     * that a re-derivation which is authoritative for the element (an analysis-order recomputation)
+     * can tell "nothing changed" from "same key, different content". Default: {@code equals}.
+     */
+    default boolean sameContent(Value other) {
+        return equals(other);
+    }
+
     interface Bool extends Value {
         boolean isTrue();
 

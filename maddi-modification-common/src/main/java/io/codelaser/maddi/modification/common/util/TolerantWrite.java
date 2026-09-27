@@ -74,11 +74,52 @@ public final class TolerantWrite {
     }
 
     /** Bookkeeping for a deliberate overwrite made outside this class: counts it and wakes the target's dependents. */
-    public static void markChanged(Property property, Object context) {
+    /**
+     * The write of an ANALYSIS-ORDER recomputation (the method's slot in the main loop, or the link computer's
+     * own doType slot): the latest computation wins over an equal-keyed stored value with different content.
+     * <p>
+     * The engine converges downward from a pessimistic start: an undecided callee reads DEPENDENT, a source
+     * abstract method's links read {@code it.§m ≡ this.§m} before its independence is folded, and the first
+     * computation of every caller carries that pessimism as EXTRA link content. The "equal primary, richer
+     * wins" retention of {@link #setAllowControlledOverwrite} (introduced against the on-demand arrival-order
+     * fork, docs/design/eventual-info-hierarchy.md §"The retention round") then kept that early, richer value
+     * for good, and independence never re-derived upward (EC O4: {@code SwitchEntryImpl.variableStreamDoNotDescend}
+     * stayed {@code @Dependent} with its callees decided {@code @Independent}). The slot recomputes in full
+     * context, in analysis order, every iteration: its value is a function of the current state, not of the
+     * arrival pattern, so it may replace the stored one in either direction. On-demand writes (recurseMethod,
+     * a lambda's per-touch recomputation) keep the richer-wins rule: their context varies per toucher.
+     * <p>
+     * A different key (other primaries) still goes through the ordinary rules, including the refusal of a
+     * growing modified set ({@code overwriteAllowed}).
+     *
+     * @return true when the stored value changed (counted, and the context is a changed target)
+     */
+    public static <V extends Value> boolean setLatestWins(PropertyValueMap analysis,
+                                                          Property property,
+                                                          V value,
+                                                          Object context) {
+        String traceBefore;
+        synchronized (analysis) {
+            if (!analysis.haveAnalyzedValueFor(property)) {
+                return setAllowControlledOverwrite(analysis, property, value, context);
+            }
+            V current = analysis.getOrDefault(property, value);
+            if (!current.equals(value)) {
+                return setAllowControlledOverwrite(analysis, property, value, context);
+            }
+            if (current == value || current.sameContent(value)) return false;
+            traceBefore = MLTRACE ? String.valueOf(current) : null;
+            if (RETAINTRACE) System.out.println("RT latest " + context);
+            if (!analysis.overwrite(property, value)) return false;
+        }
         CHANGES.computeIfAbsent(property.key(), _ -> new java.util.concurrent.atomic.LongAdder()).increment();
         if (context != null && !(context instanceof String) && !INTERNAL_PROPERTIES.contains(property.key())) {
             CHANGED_TARGETS.add(context);
         }
+        if (traceBefore != null) {
+            LOGGER.info("MLTRACE latest {}\n  old={}\n  new={}", context, traceBefore, value);
+        }
+        return true;
     }
 
     // element-INTERNAL (statement-level) properties: their changes are invisible to dependents and must not

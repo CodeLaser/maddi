@@ -456,7 +456,25 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // the direct 'add ← $_v' edge itself stays)
                     v -> !(v instanceof ReturnVariable)
                          && (Gate.isSet("NOACM")
-                             || !(v instanceof MarkerVariable mv && mv.isSomeValue())));
+                             || !(v instanceof MarkerVariable mv && mv.isSomeValue())),
+                    // no derived identity or assignment between a variable and its own real field path
+                    // ('rv ≡ rv.delegate'). The join of an if/else is a union (Graph.join): 'rv ← rep' from
+                    // 'return iterable' and 'rv.delegate ← rep' from 'return new Adapter(iterable)' compose
+                    // ('← ∘ → = ≡') to a fact no execution makes, and from there to
+                    // 'rv.delegate.delegate ≡ rv.delegate' without bound (EC's CollectionAdapter.wrapList ground
+                    // the work ceiling for 72 min; TestAdapterChainGrowth). Containment, sharing ('x ≈ x.§$$',
+                    // TestConsumers reaches '∩ 0:e' through it) and the weaker natures build no path and stay.
+                    // A direct edge of that shape is a seed, not a composite, and stays. The same rule guards the
+                    // reconstructed edges (WriteLinksAndModification.isInternalSelfFieldLink).
+                    // Nor is a constant marker ever the MIDDLE of a composition: a callee's 'return null' is one
+                    // marker ($_ce12) at every call site, and 'bucket.zero ← $_ce12' + '$_ce12 → bucket.one'
+                    // composed to 'bucket.zero ≡ bucket.one' -- four slots of a bucket "identical" because each
+                    // was once assigned null (EC's UnifiedSet.removeFromChain: 64,586 such composites, 26M work;
+                    // TestRemoveChainWork). Two variables assigned from the same constant share no object.
+                    (fact, middle) -> !(middle instanceof MarkerVariable mv && mv.isConstant())
+                            && (Util.notOwnFieldPath(fact.source(), fact.target())
+                                || !(fact.label().isIdenticalTo() || fact.label() == LinkNatureImpl.IS_ASSIGNED_FROM
+                                     || fact.label() == LinkNatureImpl.IS_ASSIGNED_TO)));
             Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
             MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);

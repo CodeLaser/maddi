@@ -296,6 +296,20 @@ public class Util {
     // iterative, no streams: the recursive concat+collect version allocated a stream pipeline and a set PER
     // SCOPE LEVEL, and this helper runs inside FollowGraph/MakeGraph hot loops (11.6% of a corpus run's
     // allocations, async-profiler round 2). Callers only read the result; do not mutate it.
+    /**
+     * False when one of the two is a REAL field path (or array access) of the other, e.g. {@code x} and
+     * {@code x.f}, {@code x.f} and {@code x.f.g}; the virtual faces ({@code x} and {@code x.§m}, {@code x.§$s})
+     * are the same real variable and do not count. An identity or assignment of that shape ('x's field holds x')
+     * is never an execution fact of the link engine: it only arises as a composition across the alternatives
+     * of a join, and it is the seed of unbounded field-path growth.
+     */
+    public static boolean notOwnFieldPath(Variable v1, Variable v2) {
+        Variable r1 = firstRealVariable(v1);
+        Variable r2 = firstRealVariable(v2);
+        if (r1.equals(r2)) return true;
+        return !scopeVariables(r1).contains(r2) && !scopeVariables(r2).contains(r1);
+    }
+
     public static Set<Variable> scopeVariables(Variable variable) {
         Variable scope = scopeOrArray(variable);
         if (scope == null) return Set.of();
