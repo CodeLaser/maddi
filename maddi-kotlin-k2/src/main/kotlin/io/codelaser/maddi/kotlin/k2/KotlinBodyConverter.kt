@@ -2025,16 +2025,25 @@ internal class KotlinBodyConverter(
                 builder.addConditions(listOf(runtime.newEmptyExpression())) // default
             } else {
                 val conditions = mutableListOf<Expression>()
+                // ⛔ ONE entry has ONE pattern variable. `is String, is Int ->` set it twice and kept the last, so a
+                // String fell to `else` (#57). A type pattern only for an arm whose sole condition is `is T`; with
+                // several, each `is T` is the condition `subject instanceof T`, as Java has no multi-type pattern
+                val soleIs = entry.conditions.singleOrNull() as? KtWhenConditionIsPattern
                 entry.conditions.forEach { condition ->
                     when (condition) {
                         is KtWhenConditionWithExpression ->
                             condition.expression?.let { conditions.add(convertExpression(it, method, locals)) }
-                        is KtWhenConditionIsPattern -> // `is T` -> a type pattern; `!is T` -> a negated InstanceOf
-                            if (condition.isNegated) conditions.add(negatedIsCondition(condition, method, subject))
-                            else typePattern(condition, method)?.let { builder.setPatternVariable(it) }
-                        is KtWhenConditionInRange -> condition.rangeExpression
+                        is KtWhenConditionIsPattern -> when { // `is T` -> a type pattern; `!is T` -> a negated InstanceOf
+                            condition.isNegated -> conditions.add(negatedIsCondition(condition, method, subject))
+                            condition === soleIs -> typePattern(condition, method)?.let { builder.setPatternVariable(it) }
+                                ?: conditions.add(placeholder("k2-when-is-unresolved", condition))
+                            else -> conditions.add(isCondition(condition, method, subject))
+                        }
+                        // an arm whose range has no `contains` was dropped with no trace: now a named placeholder
+                        is KtWhenConditionInRange -> conditions.add(condition.rangeExpression
                             ?.let { convertExpression(it, method, locals) }
-                            ?.let { range -> containsCall(range, subject)?.let { conditions.add(maybeNegate(it, condition.isNegated)) } }
+                            ?.let { range -> containsCall(range, subject)?.let { maybeNegate(it, condition.isNegated) } }
+                            ?: placeholder("k2-when-in-unresolved", condition))
                     }
                 }
                 builder.addConditions(conditions)
@@ -2058,18 +2067,32 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.negatedIsCondition(condition: KtWhenConditionIsPattern, method: MethodInfo,
                                              subject: Expression): Expression {
-        val testType = condition.typeReference?.type?.let { mapType(it, method.typeInfo()) }
-            ?: return placeholder("k2-when-is-unresolved", condition)
+        val testType = testTypeOf(condition, method) ?: return placeholder("k2-when-is-unresolved", condition)
         val instanceOf = runtime.newInstanceOfBuilder().setExpression(subject).setTestType(testType)
             .setSource(runtime.noSource()).build()
         return runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
             instanceOf, runtime.precedenceUnary())
     }
 
+    /**
+     * The type an `is T` arm tests, BOXED: Kotlin's `is Int` maps to the primitive `int`, and `o instanceof int` or
+     * `case int it` on an Object subject is no Java at all -- kotlinc tests `instanceof Integer`.
+     */
+    private fun KaSession.testTypeOf(condition: KtWhenConditionIsPattern, method: MethodInfo): ParameterizedType? =
+        condition.typeReference?.type?.let { mapType(it, method.typeInfo()) }
+            ?.let { if (it.isPrimitiveExcludingVoid) it.ensureBoxed(runtime) else it }
+
+    /** A positive `is T` among several conditions of one arm: `subject instanceof T` (#57). */
+    private fun KaSession.isCondition(condition: KtWhenConditionIsPattern, method: MethodInfo, subject: Expression): Expression {
+        val testType = testTypeOf(condition, method) ?: return placeholder("k2-when-is-unresolved", condition)
+        return runtime.newInstanceOfBuilder().setExpression(subject).setTestType(testType)
+            .setSource(runtime.noSource()).build()
+    }
+
     /** A Kotlin `is T` arm as a type-pattern [RecordPattern] (Kotlin smartcasts the subject, so the bound
      * variable is synthetic). */
     private fun KaSession.typePattern(condition: KtWhenConditionIsPattern, method: MethodInfo): RecordPattern? {
-        val type = condition.typeReference?.type?.let { mapType(it, method.typeInfo()) } ?: return null
+        val type = testTypeOf(condition, method) ?: return null
         return runtime.newRecordPatternBuilder()
             .setLocalVariable(runtime.newLocalVariable("it", type))
             .setSource(runtime.noSource()).build()

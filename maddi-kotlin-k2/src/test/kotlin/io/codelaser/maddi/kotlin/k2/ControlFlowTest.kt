@@ -189,7 +189,8 @@ class ControlFlowTest : KotlinScanTestBase() {
         val entry = sw.entries()[0]
         assertTrue(entry.conditions().isEmpty())
         val pattern = entry.patternVariable()
-        assertEquals(runtime.intParameterizedType(), pattern.localVariable().parameterizedType())
+        // BOXED: `case int it` on an Object subject is no Java; kotlinc tests `instanceof Integer` (#57)
+        assertEquals(runtime.intParameterizedType().ensureBoxed(runtime), pattern.localVariable().parameterizedType())
     }
 
     @Test
