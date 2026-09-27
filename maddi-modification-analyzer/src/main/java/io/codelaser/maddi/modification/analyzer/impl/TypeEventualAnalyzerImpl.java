@@ -14,6 +14,10 @@
 
 package io.codelaser.maddi.modification.analyzer.impl;
 
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
+import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
+import io.codelaser.maddi.modification.prepwork.variable.Link;
+import io.codelaser.maddi.modification.prepwork.Util;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.TypeEventualAnalyzer;
 import io.codelaser.maddi.modification.analyzer.TypeImmutableAnalyzer;
@@ -1498,6 +1502,25 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
                     }
                     if (siteDebug()) ecsite("factory on root, no full commitment: " + mc.methodInfo().name());
                 }
+                // EVENTUALCLUSTER: a non-modifying root accessor with several returns (bestTypeInfo(): this.typeInfo,
+                // a type argument's, a bound's, null) cannot be inlined, and contributed ∅ -- "committed after
+                // nothing" -- for a value that IS root-derived content. Downstream, a pre-mark-modifying call on
+                // that value (bestType.superTypesExcludingJavaLangObject()) then read as not root-derived, the walk
+                // ended with ∅ and wrote no enm, and the modifying method sank its type to @FinalFields (the
+                // ParameterizedType keystone, 2026-09-27, once the fork/join linker made the link
+                // 'bestTypeInfo ← this.typeInfo' real). The callee's return links name the root fields the value
+                // derives from; the value commits after their labels. A result linked to no root field (a fresh
+                // map built from the argument: CommonType.makeHierarchy) keeps its ∅ -- labelling it root-derived
+                // made a lambda capturing it bail (CommonType.commonType lost its promise on the first attempt).
+                if (EventualCluster.ENABLED && acc.isEmpty() && isNonModifyingRead(mc.methodInfo())
+                    && !factoryCall(mc)) {
+                    Set<String> derived = accessorResultLabels(walk, mc.methodInfo());
+                    if (!derived.isEmpty()) {
+                        if (siteDebug()) ecsite("accessor on root " + mc.methodInfo().name()
+                                                + " -> " + new TreeSet<>(derived));
+                        acc.addAll(derived);
+                    }
+                }
                 receiverCommitted = false;
             } else {
                 Set<String> receiver = commitLabels(walk, mc.object(), ctx, depth);
@@ -1654,6 +1677,35 @@ public class TypeEventualAnalyzerImpl extends CommonAnalyzerImpl implements Type
      * mutable, uncommittable field means the root never fully commits, and the wrapper promise cannot be
      * honored.
      */
+    /**
+     * The labels after which a non-modifying root accessor's RESULT is committed: the root's own fields its
+     * return value links to (the engine's summary, {@code rv ← this.typeInfo}, {@code rv.§$ ≤ this.parameters.§$s}),
+     * each labelled as a direct root field read is by {@link #commitLabels}; a bare {@code this} in the links is
+     * the root's full commitment. Fields that do not commit (nor are harmless or disclaimed) are skipped rather
+     * than poisoning the value: the handed-on gauntlet judges those exactly as before. Empty when the result is
+     * not root-derived (a fresh object), or the callee has no summary yet.
+     */
+    private Set<String> accessorResultLabels(WalkRoot walk, MethodInfo accessor) {
+        MethodLinkedVariables mlv = accessor.analysis().getOrNull(MethodLinkedVariablesImpl.METHOD_LINKS,
+                MethodLinkedVariablesImpl.class);
+        if (mlv == null) return Set.of();
+        Set<String> labels = new HashSet<>();
+        for (Link link : mlv.ofReturnValue()) {
+            for (Variable v : link.to().variableStreamDescend().toList()) {
+                if (v instanceof This && accessor.typeInfo().isEqualToOrInnerClassOf(((This) v).typeInfo())) {
+                    Set<String> rc = rootCommitmentLabels(walk);
+                    if (rc != null) labels.addAll(rc);
+                } else if (v instanceof FieldReference fr && fr.scopeIsThis() && !Util.virtual(fr.fieldInfo())
+                           && isOwnOrInheritedField(walk.labelType(), fr.fieldInfo())
+                           && (fieldHoldsCommittableContent(fr.fieldInfo())
+                               || containerContentCommittable(fr.fieldInfo()))) {
+                    labels.add(fr.fieldInfo().name());
+                }
+            }
+        }
+        return labels;
+    }
+
     private Set<String> rootCommitmentLabels(WalkRoot walk) {
         Set<String> labels = new HashSet<>();
         TypeInfo t = walk.labelType();
