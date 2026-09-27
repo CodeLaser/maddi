@@ -51,7 +51,7 @@ class DestructuringValueTest : KotlinScanTestBase() {
         assertEquals(listOf<String>(), PlaceholderCensus.of(types).dumpLines().map { it.substringBefore('\t') })
         assertEquals("{Pair<Integer,String> \$elvis0=pair();if(\$elvis0==null){return 0;}" +
             "int a=\$elvis0.component1(),b=\$elvis0.component2();return a;}", body("elvis", 0))
-        assertEquals("{Pair<Integer,Integer> \$destructured0=switch(true){case c->{x;}default->{y;}};" +
+        assertEquals("{Pair<Integer,Integer> \$destructured0=switch(true){case c->x;default->y;};" +
             "int l=\$destructured0.component1(),r=\$destructured0.component2();return l+r;}", body("whenPair", 3))
         assertEquals("{int l=x.component1(),r=x.component2();return l+r;}", body("plain", 1))
         // `@Ann if {…} else {…} ?: return` is elvis(annotated(if), return): lowered like any other. (detekt's

@@ -66,7 +66,7 @@ class NarrowedReceiverTest : KotlinScanTestBase() {
         val actual = listOf("smart", "smartAccess", "smartOther", "bound", "twoBounds", "twoA", "twoB", "loaded", "implicitBound", "ib1", "ib2", "implicitSmart", "inLambda")
             .joinToString("\n") { "$it: ${body(it)}" }
         assertEquals("""
-            smart: return switch(c){case Validatable it->{c.validate(1);}default->{0;}};
+            smart: return switch(c){case Validatable it->c.validate(1);default->0;};
             smartAccess: return c instanceof Validatable?c.getPrio():0;
             smartOther: return c instanceof Validatable?c.name():"";
             bound: return t.validate(2)+t.getPrio();
