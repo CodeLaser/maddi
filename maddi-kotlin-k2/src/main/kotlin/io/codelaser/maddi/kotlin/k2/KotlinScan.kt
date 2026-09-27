@@ -2151,10 +2151,15 @@ class KotlinScan(
      * abstract method timeout() in Sink", coil's `FaultHidingSink : Sink by delegate`).
      *
      * The **abstract** members are the ones that must exist for `C` to be concrete, so those are what we
-     * materialise, with an empty body (the delegation target is a field; the forwarding call itself carries no
-     * information the modification analysis does not already get from the field). Inherited abstract members
-     * count too — `okio.Sink` extends `Closeable`/`Flushable` — hence `memberScope` rather than the declared
-     * one; `Any`'s members are excluded because Kotlin delegation never forwards them.
+     * materialise. Inherited abstract members count too — `okio.Sink` extends `Closeable`/`Flushable` — hence the
+     * type scope rather than the declared one; `Any`'s members are excluded because Kotlin delegation never
+     * forwards them.
+     *
+     * ⛔ #54: the forwarders had EMPTY bodies, and an empty source body reads downstream as "modifies nothing,
+     * independent" -- every delegating class came out non-modifying whatever its delegate did. As kotlinc compiles
+     * it, the delegate is now kept in a private final `$$delegate_N` field initialized from the `by` expression (in
+     * the primary constructor, as any property initializer), and each forwarder is `return this.$$delegate_N.f(args)`.
+     * An abstract PROPERTY of the interface gets its accessors the same way (`getP()` was simply absent).
      */
     @OptIn(KaExperimentalApi::class) // KaType.scope
     private fun KaSession.addDelegatedMembers(declaration: KtClassOrObject, typeInfo: TypeInfo) {
@@ -2162,8 +2167,21 @@ class KotlinScan(
         if (delegations.isEmpty()) return
         val present = typeInfo.methods().map { it.name() to it.parameters().size }.toMutableSet()
         present += listOf("equals" to 1, "hashCode" to 0, "toString" to 0)
-        delegations.forEach { entry ->
-            val superType = entry.typeReference?.type as? KaClassType ?: return@forEach
+        delegations.forEachIndexed { index, entry ->
+            val superType = entry.typeReference?.type as? KaClassType ?: return@forEachIndexed
+            val delegate = runtime.newFieldInfo("\$\$delegate_$index", false, mapType(superType, typeInfo), typeInfo)
+            delegate.builder()
+                .addFieldModifier(runtime.fieldModifierPrivate())
+                .addFieldModifier(runtime.fieldModifierFinal())
+                .setInitializer(runtime.newEmptyExpression())
+                .setSource(runtime.noSource()) // compiler-made
+                .computeAccess()
+            typeInfo.builder().addField(delegate)
+            commitOrDefer(delegate, null) { delegate.builder().commit() }
+            entry.delegateExpression?.let { expression ->
+                pendingInitializers.getOrPut(typeInfo) { mutableListOf() } +=
+                    PendingInitializer(typeInfo, delegate, expression, false)
+            }
             // ⛔ THE SIGNATURE AS SEEN THROUGH THE SUPERTYPE, not the member's own: `: Iterable<String> by values`
             // forwards `iterator(): Iterator<String>`. From `memberScope` it was `Iterator<T>`, unbound in the class,
             // and the Java stub `Iterator<Object> iterator()` does not compile ("return type Iterator<Object> is not
@@ -2176,11 +2194,63 @@ class KotlinScan(
                     if (!present.add(function.name.asString() to function.valueParameters.size)) return@forEach
                     val method = convertMethodSignature(typeInfo, function, forwarder = true, signature = signature)
                     typeInfo.builder().addMethod(method)
-                    method.builder().setMethodBody(runtime.emptyBlock())
+                    forwardTo(method, typeInfo, delegate, method.name())
                     commitOrDefer(method, null) { method.builder().commit() } // for its overrides
-
+                }
+            superType.scope?.getCallableSignatures { true }.orEmpty()
+                .mapNotNull { it.symbol as? KaPropertySymbol }
+                .filter { it.modality == KaSymbolModality.ABSTRACT }
+                .forEach { property ->
+                    val type = mapType(property.returnType, typeInfo)
+                    listOfNotNull(false, if (property.isVal) null else true).forEach { setter ->
+                        val name = accessorName(property, setter)
+                        if (!present.add(name to (if (setter) 1 else 0))) return@forEach
+                        val accessor = runtime.newMethod(typeInfo, name, runtime.methodTypeMethod())
+                        val builder = accessor.builder().setSynthetic(true).addMethodModifier(runtime.methodModifierPublic())
+                        if (setter) builder.addParameter("value", type)
+                        builder.setReturnType(if (setter) runtime.voidParameterizedType() else type)
+                            .setSource(runtime.noSource()).commitParameters().computeAccess()
+                        typeInfo.builder().addMethod(accessor)
+                        forwardTo(accessor, typeInfo, delegate, name)
+                        commitOrDefer(accessor, null) { accessor.builder().commit() }
+                    }
                 }
         }
+    }
+
+    /**
+     * [forwarder]'s body, `return this.$$delegate_N.name(args)` -- set in [complete], once the delegated type's
+     * members exist. A target that cannot be found is a named placeholder, never an empty body (#54).
+     */
+    private fun KaSession.forwardTo(forwarder: MethodInfo, owner: TypeInfo, delegate: FieldInfo, name: String) {
+        awaitBody(forwarder)
+        body {
+            val arguments = forwarder.parameters().map { bodyConverter.variableExpression(it) }
+            val erased = forwarder.parameters().map { it.parameterizedType().erased().fullyQualifiedName() }
+            val target = forwardTarget(delegate.type().typeInfo(), name, erased, mutableSetOf())
+            val call = if (target == null) runtime.newEmptyExpression("k2-delegation-target:${forwarder.name()}")
+            else runtime.newMethodCallBuilder()
+                .setObject(fieldReadExpression(owner, delegate, false)).setObjectIsImplicit(false)
+                .setMethodInfo(target).setParameterExpressions(arguments)
+                .setConcreteReturnType(forwarder.returnType()).setTypeArguments(listOf())
+                .setSource(runtime.noSource()).build()
+            val statement = if (forwarder.returnType().isVoid)
+                runtime.newExpressionAsStatementBuilder().setExpression(call).setSource(runtime.noSource()).build()
+            else runtime.newReturnBuilder().setExpression(call).setSource(runtime.noSource()).build()
+            forwarder.builder().setMethodBody(runtime.newBlockBuilder().addStatement(statement).build())
+        }
+    }
+
+    /** The member [name] with the erased parameter types [erased], on [type] or a supertype of it. */
+    private fun forwardTarget(type: TypeInfo?, name: String, erased: List<String>, visited: MutableSet<TypeInfo>): MethodInfo? {
+        if (type == null || !visited.add(type)) return null
+        val withMembers = typeMapper.withMembers(type) ?: type
+        withMembers.methods().firstOrNull { m ->
+            m.name() == name && m.parameters().map { it.parameterizedType().erased().fullyQualifiedName() } == erased
+        }?.let { return it }
+        withMembers.methods().singleOrNull { it.name() == name && it.parameters().size == erased.size }?.let { return it }
+        return withMembers.interfacesImplemented().firstNotNullOfOrNull { forwardTarget(it.typeInfo(), name, erased, visited) }
+            ?: forwardTarget(withMembers.parentClass()?.typeInfo(), name, erased, visited)
     }
 
     /**
