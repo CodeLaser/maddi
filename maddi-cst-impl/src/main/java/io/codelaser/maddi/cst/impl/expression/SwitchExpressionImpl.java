@@ -152,6 +152,8 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
 
     @Override
     public void visit(Predicate<Element> predicate) {
+        // the switch itself is an element too: without this test no predicate visitor could see or prune it
+        if (!predicate.test(this)) return;
         selector.visit(predicate);
         int i = 0;
         for (SwitchEntry entry : entries) {

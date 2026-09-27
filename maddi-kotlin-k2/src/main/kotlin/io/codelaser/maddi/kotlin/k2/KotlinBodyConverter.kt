@@ -38,6 +38,8 @@ import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
 import io.codelaser.maddi.cst.api.statement.SwitchEntry
+import io.codelaser.maddi.cst.api.statement.ThrowStatement
+import io.codelaser.maddi.cst.api.statement.YieldStatement
 import io.codelaser.maddi.cst.api.variable.LocalVariable
 import io.codelaser.maddi.cst.api.variable.Variable
 import io.codelaser.maddi.cst.api.type.NullableState
@@ -638,7 +640,8 @@ internal class KotlinBodyConverter(
     private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
                                                    index: String, returnValue: Boolean = false,
-                                                   assignTo: Variable? = null): List<Statement>? {
+                                                   assignTo: Variable? = null,
+                                                   yieldValue: Boolean = false): List<Statement>? {
         val elvis = when {
             isControlFlowElvis(statement) -> statement as KtBinaryExpression
             // an annotation on the initializer (`= @Suppress("…") if (…) a else null ?: return false`) annotates the
@@ -659,7 +662,8 @@ internal class KotlinBodyConverter(
         val control = elvis.right ?: return null
         // [returnValue]: the elvis is a function's EXPRESSION body, `fun f() = x ?: throw E()` -- its value returned
         // [assignTo]: the elvis is the tail of a branch of a value `if`, `target = x ?: return false`
-        val isWholeStatement = statement === elvis && !returnValue && assignTo == null
+        // [yieldValue]: the elvis is a `when` arm's value, `is T -> left ?: return false`
+        val isWholeStatement = statement === elvis && !returnValue && assignTo == null && !yieldValue
 
         // ⛔ The left operand is needed TWICE -- to test for null, and as the value. Converting it twice
         // EVALUATES it twice, which for `f() ?: return` means two calls where the source has one: a CST that
@@ -697,6 +701,7 @@ internal class KotlinBodyConverter(
         statements.add(guard)
         if (isWholeStatement) return statements
         val raw = if (returnValue) runtime.newReturnStatement(leftValue())
+        else if (yieldValue) runtime.newYieldBuilder().setExpression(leftValue()).setSource(runtime.noSource()).build()
         else if (assignTo != null) runtime.newExpressionAsStatement(runtime.newAssignment(
             runtime.newVariableExpressionBuilder().setVariable(assignTo).setSource(runtime.noSource()).build(), leftValue()))
         else when (statement) {
@@ -1932,7 +1937,102 @@ internal class KotlinBodyConverter(
      * Only a plain expression tail is rewritten; a control-flow tail (if/when/loop) keeps its statement form.
      */
     private fun KaSession.convertReturningBlock(body: KtExpression?, method: MethodInfo,
-                                                locals: Map<String, Variable>, blockIndex: String): Block {
+                                                locals: Map<String, Variable>, blockIndex: String): Block =
+        convertTailBlock(body, method, locals, blockIndex) { value -> runtime.newReturnStatement(value) }
+
+    /**
+     * <b>A `when` arm in the position of a VALUE</b>, in the shape the Java parser gives a switch-expression arm:
+     * a single expression is an expression statement (`case 0 -> -1`), a block ends in `yield` (`{ …; yield v; }`).
+     * It used to be the statement form's block with a plain tail expression, so nothing marked the arm's value:
+     * the analyzer's view of a switch expression reads its yields, and jfocus-transform's switch-expression lowering
+     * (which turns the yields into returns) dropped every Kotlin `when` value -- all 58 on javalin.
+     */
+    private fun KaSession.convertYieldingArm(body: KtExpression?, method: MethodInfo,
+                                             locals: Map<String, Variable>, blockIndex: String): Statement {
+        val built = convertYieldingBlock(body, method, locals, blockIndex)
+        // `x -> value` / `x -> throw …` alone: the Java parser's `case x -> value;` / `case x -> throw …;`. Nothing
+        // else may follow a switch expression's arrow without braces.
+        val only = built.statements().singleOrNull()
+        if (body !is KtBlockExpression) {
+            if (only is YieldStatement) return indexed(runtime.newExpressionAsStatement(only.expression()), blockIndex)
+            if (only is ThrowStatement) return only
+        }
+        return built
+    }
+
+    /** A branch that is (a block of) a single jump: `return`, `throw`, `break`, `continue`. */
+    private fun KtIfExpression.hasAJumpBranch(): Boolean = listOf(then, `else`).any { branch ->
+        val single = (branch as? KtBlockExpression)?.statements?.singleOrNull() ?: branch
+        single is KtReturnExpression || single is KtThrowExpression || single is KtBreakExpression
+                || single is KtContinueExpression
+    }
+
+    /** The statements of an arm (or of a branch of a value `if` in an arm), its value yielded at the tail. */
+    private fun KaSession.convertYieldingBlock(body: KtExpression?, method: MethodInfo,
+                                               locals: Map<String, Variable>, blockIndex: String): Block {
+        val childLocals = locals.toMutableMap()
+        val statements = when (body) {
+            null -> emptyList()
+            is KtBlockExpression -> body.statements
+            else -> listOf(body)
+        }
+        val block = runtime.newBlockBuilder()
+        if (blockIndex.isNotEmpty()) block.setSource(runtime.noSource().withIndex(blockIndex))
+        statements.forEachIndexed { j, s ->
+            val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
+            if (j != statements.lastIndex) {
+                val lowered = loweredStatements(s, method, childLocals, childIndex)
+                if (lowered != null) lowered.forEach { block.addStatement(it) }
+                else convertHoisting(s, method, childLocals, childIndex).forEach { block.addStatement(it) }
+                return@forEachIndexed
+            }
+            when {
+                // a jump, a declaration, an assignment: no value, a statement like any other
+                !isLambdaResultExpression(s) -> convertHoisting(s, method, childLocals, childIndex)
+                    .forEach { block.addStatement(it) }
+                // a value `if` that needs statements, or jumps in a branch: each branch yields its own value
+                s is KtIfExpression && (s.needsStatementForm() || s.hasAJumpBranch()) ->
+                    block.addStatement(runtime.newIfElseBuilder()
+                        .setExpression(s.condition?.let { convertExpression(it, method, childLocals) }
+                            ?: placeholder("k2-absent-condition", s))
+                        .setIfBlock(convertYieldingBlock(s.then, method, childLocals, "$childIndex.0"))
+                        .setElseBlock(convertYieldingBlock(s.`else`, method, childLocals, "$childIndex.1"))
+                        .setSource(source(s, childIndex)).build())
+                // `x -> left ?: return v`: the guard, then the (guarded) value yielded
+                isControlFlowElvis(s) -> controlFlowElvisLowering(s, method, childLocals, childIndex, yieldValue = true)
+                    ?.forEach { block.addStatement(it) }
+                    ?: block.addStatement(indexed(runtime.newExpressionAsStatement(
+                        placeholder("k2-when-arm-value-needs-statements", s)), childIndex))
+                // `x -> try { … } catch (…) { … }`: each branch assigns a temporary, which is then yielded, as
+                // destructuringLowering does for a value `try`
+                s is KtTryExpression -> {
+                    val type = s.expressionType?.let { mapType(it, method.typeInfo()) } ?: runtime.objectParameterizedType()
+                    val name = "\$whenValue${destructuringTemporaries++}"
+                    val temporary = runtime.newLocalVariable(name, type, runtime.newEmptyExpression())
+                    childLocals[name] = temporary
+                    block.addStatement(indexed(runtime.newLocalVariableCreation(temporary), "$childIndex.0"))
+                    block.addStatement(convertTry(s, method, childLocals, "$childIndex.1", assignTo = temporary)
+                        .withSource(source(s, "$childIndex.1")))
+                    block.addStatement(indexed(runtime.newYieldBuilder().setExpression(runtime.newVariableExpressionBuilder()
+                        .setVariable(temporary).setSource(runtime.noSource()).build())
+                        .setSource(runtime.noSource()).build(), "$childIndex.2"))
+                }
+                else -> {
+                    val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
+                    hoisted.forEach { block.addStatement(it) }
+                    block.addStatement(indexed(runtime.newYieldBuilder().setExpression(convertExpression(s, method, childLocals))
+                        .setSource(runtime.noSource()).build(), tailIndex))
+                    hoistedReads.clear()
+                }
+            }
+        }
+        return block.build()
+    }
+
+    /** A block whose tail expression becomes [tail] (a return, a yield); any other tail statement is kept. */
+    private fun KaSession.convertTailBlock(body: KtExpression?, method: MethodInfo,
+                                           locals: Map<String, Variable>, blockIndex: String,
+                                           tail: (Expression) -> Statement): Block {
         val childLocals = locals.toMutableMap()
         val statements = when (body) {
             null -> emptyList()
@@ -1953,9 +2053,8 @@ internal class KotlinBodyConverter(
             hoisted.forEach { block.addStatement(it) }
             val stmt = convertStatement(s, method, childLocals, tailIndex)
             hoistedReads.clear()
-            // the `return` takes the index of the statement it replaces: the analyzer requires one on every statement
-            block.addStatement(if (stmt is ExpressionAsStatement)
-                indexed(runtime.newReturnStatement(stmt.expression()), tailIndex) else stmt)
+            // the tail takes the index of the statement it replaces: the analyzer requires one on every statement
+            block.addStatement(if (stmt is ExpressionAsStatement) indexed(tail(stmt.expression()), tailIndex) else stmt)
         }
         return block.build()
     }
@@ -2053,12 +2152,14 @@ internal class KotlinBodyConverter(
      * are case-label conditions; `in range` is a `contains` call condition (`!in` negated).
      */
     private fun KaSession.whenEntries(statement: KtWhenExpression, method: MethodInfo,
-                                      subject: Expression, locals: Map<String, Variable>, prefix: String): List<SwitchEntry> {
+                                      subject: Expression, locals: Map<String, Variable>, prefix: String,
+                                      asValue: Boolean = false): List<SwitchEntry> {
         return statement.entries.mapIndexed { k, entry ->
             val blockIndex = if (prefix.isEmpty()) "$k" else "$prefix.$k"
             val builder = runtime.newSwitchEntryBuilder()
                 .setWhenExpression(runtime.newEmptyExpression()) // no Kotlin guard
-                .setStatement(convertBlock(entry.expression, method, locals, blockIndex))
+                .setStatement(if (asValue) convertYieldingArm(entry.expression, method, locals, blockIndex)
+                              else convertBlock(entry.expression, method, locals, blockIndex))
                 .setSource(runtime.noSource())
             if (entry.isElse) {
                 builder.addConditions(listOf(runtime.newEmptyExpression())) // default
@@ -2371,7 +2472,7 @@ internal class KotlinBodyConverter(
                 val (selector, entryLocals) = whenSubject(expression, method, locals)
                 runtime.newSwitchExpressionBuilder()
                     .setSelector(selector)
-                    .addSwitchEntries(whenEntries(expression, method, selector, entryLocals, ""))
+                    .addSwitchEntries(whenEntries(expression, method, selector, entryLocals, "", asValue = true))
                     .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
                         ?: runtime.objectParameterizedType())
                     .setSource(runtime.noSource()).build()
