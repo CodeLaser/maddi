@@ -2308,7 +2308,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             int numParams = methodSymbol.params.size();
             if (typeInfo.hasMethodMap()) {
                 return typeInfo.findUniqueMethod(methodName, numParams, () ->
-                        methodSymbol.params.stream().map(vs -> convert(types.erasure(vs.type)).fullyQualifiedName())
+                        methodSymbol.params.stream().map(vs -> erasedFqn(types.erasure(vs.type)))
                                 .collect(Collectors.joining(","))
                 );
             }
@@ -2325,10 +2325,28 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         for (ParameterInfo pi : parameters) {
             String erased = pi.parameterizedType().erasedForFQN().fullyQualifiedName();
             Symbol.VarSymbol vs = params.get(i++);
-            String erased2 = convert(types.erasure(vs.type)).fullyQualifiedName();
+            String erased2 = erasedFqn(types.erasure(vs.type));
             if (!erased.equals(erased2)) return false;
         }
         return true;
+    }
+
+    /**
+     * The FQN of an erased javac type, for matching a method among overloads (#60). NOT through {@code convert}:
+     * javac's erasure of a class-file parameter type such as {@code Sequence<? extends T>} still answers its type
+     * arguments, converting those reached the method-owned {@code T}, whose lookup loads the method, which
+     * matches the overloads again: a StackOverflowError on the four generic {@code plus} overloads of the Kotlin
+     * hints. An erased name needs the class alone (and the array dimensions).
+     */
+    private String erasedFqn(Type erased) {
+        if (erased instanceof Type.ArrayType at) return erasedFqn(types.erasure(at.elemtype)) + "[]";
+        if (erased instanceof Type.ClassType ct && !ct.getTypeArguments().isEmpty()) {
+            // the same class, without its arguments: the usual conversion path, which never reaches a type variable
+            Type.ClassType raw = new Type.ClassType(types.erasure(ct.getEnclosingType()),
+                    com.sun.tools.javac.util.List.nil(), ct.tsym);
+            return convert(raw).fullyQualifiedName();
+        }
+        return convert(erased).fullyQualifiedName();
     }
 
     @Override
