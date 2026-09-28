@@ -97,7 +97,9 @@ public record ExpressionVisitor(Runtime runtime,
                 yield EMPTY;
             }
         };
-        if (r.getEvaluated() == null) r.setEvaluated(expression);
+        // ⛔ the return value matters: for the shared EMPTY, setEvaluated returns a copy (#83). Ignoring it wrote the
+        // first TypeExpression ever visited into EMPTY, and every later EMPTY in the JVM carried that expression
+        if (r.getEvaluated() == null) r = r.setEvaluated(expression);
         return r;
     }
 

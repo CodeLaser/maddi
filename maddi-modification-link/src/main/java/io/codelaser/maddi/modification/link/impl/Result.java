@@ -81,6 +81,15 @@ public class Result {
     }
 
     public Result setEvaluated(Expression evaluated) {
+        // ⛔ EMPTY is one JVM-wide instance (ExpressionVisitor.EMPTY), returned for a TypeExpression among others;
+        // writing the evaluated expression INTO it made the last static scope of one parse the scope of every
+        // later static field reference, in every later parse in the JVM (#83: Registry.INSTANCE printed as
+        // List.INSTANCE). A constant gets a copy.
+        if (this == ExpressionVisitor.EMPTY) {
+            Result copy = new Result(links, extra);
+            copy.evaluated = evaluated;
+            return copy;
+        }
         this.evaluated = evaluated;
         return this;
     }

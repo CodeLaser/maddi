@@ -3,7 +3,7 @@ package io.codelaser.maddi.modification.link.kotlin;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /*
  ⛔ maddi#83: state from one parse leaks into the link results of a later, independent parse in the same JVM. Linking
@@ -48,7 +48,8 @@ public class TestKotlinLinkIsolation extends CommonKotlinLinkTest {
         Parsed second = link(SECOND, SECOND_JAVA);
         String kotlin = second.kotlinLinks("register");
         String java = second.javaLinks("register");
-        assertFalse(kotlin.contains("Registry.INSTANCE"), kotlin);
-        assertFalse(java.contains("Registry.INSTANCE"), java);
+        // fixed 2026-09-28: Result.setEvaluated no longer writes into the shared EMPTY result
+        assertEquals("[0:s*∈Registry.INSTANCE.all*.§$s] --> -", kotlin);
+        assertEquals("[0:s*∈Registry.INSTANCE.all*.§$s] --> -", java);
     }
 }
