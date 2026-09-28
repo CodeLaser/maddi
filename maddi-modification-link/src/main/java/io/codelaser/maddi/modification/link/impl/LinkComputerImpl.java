@@ -412,12 +412,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     }
 
     /*
-     A return link touching a face of a created object is dropped, with one exception: the SHALLOW provenance of
-     the return value itself, one face on each side at most ('makeList.§$s ⊆ oc:N.§$s': the elements returned are
-     the elements of the LinkedList created here; 'top.size ← oc:N.size'). A consumer that traces where a returned
-     object came from follows exactly that link (the method-flow metric reads the marker behind the face); the
-     deeper chains ('ret.entitySelector.childEntitySelector.§es ∩ oc:N.phaseLifecycleSupport.eventListenerList.§es')
-     were 95 % of the exported faces on timefold and describe nothing a caller can name.
+     A return link touching a face of a created object is dropped, with one exception: the VIRTUAL one-hop
+     provenance of the return value ('makeList.§$s ⊆ oc:N.§$s': the elements returned are the elements of the
+     LinkedList created here; 'fillAfter ≻ oc:N.§$s'). A virtual face is a view of the object itself, and a consumer
+     that traces where a returned object came from collapses it back onto the marker (Util.firstRealVariable); a
+     REAL field ('top.size ← oc:N.size', 'ret.entitySelector ← oc:N.entitySelector') is a different object, which the
+     caller already reaches through the return value's own field. On timefold, real one-hop fields were 81 % of the
+     one-hop faces and, re-imported by every caller, put the corpus run back over its heap and time limits (92
+     iterations, 12 G) where the full prune converged in 56; the deeper chains were 95 % of all exported faces.
      */
     static boolean dropsFaceOfObjectCreation(Link link, Variable returnVariable) {
         boolean fromFace = isFaceOfObjectCreation(link.from());
@@ -426,7 +428,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         if (fromFace != toFace && returnVariable != null) {
             Variable face = fromFace ? link.from() : link.to();
             Variable other = fromFace ? link.to() : link.from();
-            if (faceDepth(face) == 1 && returnVariable.equals(Util.primary(other)) && faceDepth(other) <= 1) {
+            if (faceDepth(face) == 1 && Util.virtual(face)
+                && returnVariable.equals(Util.primary(other)) && faceDepth(other) <= 1) {
                 return false;
             }
         }
