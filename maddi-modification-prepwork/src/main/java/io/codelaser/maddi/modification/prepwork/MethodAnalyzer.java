@@ -1114,24 +1114,42 @@ public class MethodAnalyzer {
             }
             if (e instanceof SwitchExpression switchExpression) {
                 switchExpression.selector().visit(this);
+                // #74: the arms are analysed against the variable data from BEFORE this statement, which knows every
+                // earlier local. They used to get currentVariableData -- this statement's still-empty builder -- so
+                // an earlier local read or assigned in an arm looked freshly declared there and was dropped below.
+                String end = index + StatementIndex.END;
                 for (SwitchEntry se : switchExpression.entries()) {
                     VariableData vd;
                     if (se.statement() instanceof Block block) {
-                        vd = doBlock(currentMethod, block, currentVariableData, internalVariables);
+                        vd = doBlock(currentMethod, block, previousVariableData, internalVariables);
                     } else {
-                        vd = doStatement(currentMethod, se.statement(), currentVariableData, true, internalVariables);
+                        vd = doStatement(currentMethod, se.statement(), previousVariableData, true, internalVariables);
                     }
-
-                    // we want to add all but locally created variables
-                    String end = index + StatementIndex.END;
+                    // every variable but the ones declared inside the arm: its reads and assignments in the arm,
+                    // at the arm's own indices (inside this statement, so a consumer sees them as conditional, as it
+                    // sees those of an if-statement's branch)
                     for (VariableInfo vi : vd.variableInfoIterable()) {
-                        boolean definedBeforeSwitchExpression = vi.assignments().indexOfDefinition().compareTo(index) <= 0;
-                        if (definedBeforeSwitchExpression) {
-                            if (vi.reads().between(index, end)) {
-                                markRead(vi.variable());
+                        Variable v = vi.variable();
+                        String definition = vi.assignments().indexOfDefinition();
+                        boolean declaredInArm = v instanceof LocalVariable
+                                                && definition.compareTo(index) > 0 && definition.compareTo(end) < 0;
+                        if (declaredInArm) continue;
+                        List<String> readsInArm = vi.reads().indicesBetween(index, end);
+                        if (!readsInArm.isEmpty()) {
+                            read.computeIfAbsent(v, vv -> new ArrayList<>()).addAll(readsInArm);
+                            if (!knownVariableNames.contains(v.fullyQualifiedName()) && !seenFirstTime.containsKey(v)) {
+                                seenFirstTime.put(v, index);
                             }
-                            if (vi.assignments().between(index, end)) {
-                                assignedAdd(vi.variable());
+                        }
+                        List<String> assignedInArm = vi.assignments().definitionAndAssignmentsBefore(end)
+                                .filter(i -> i.compareTo(index) > 0).toList();
+                        if (!assignedInArm.isEmpty()) {
+                            assigned.computeIfAbsent(v, vv -> new ArrayList<>()).addAll(assignedInArm);
+                            // a field first written in an arm is first seen by THIS statement: seen at the arm's
+                            // index it would be out of scope at the next statement, and the finality analysis,
+                            // which reads the last statement's data, would call the field final
+                            if (!knownVariableNames.contains(v.fullyQualifiedName()) && !seenFirstTime.containsKey(v)) {
+                                seenFirstTime.put(v, index);
                             }
                         }
                     }
