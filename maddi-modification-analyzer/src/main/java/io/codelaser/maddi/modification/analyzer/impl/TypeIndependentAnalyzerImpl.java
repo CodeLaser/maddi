@@ -618,6 +618,9 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
         });
     }
 
+    private static final java.util.Set<String> KOTLIN_COPIES = java.util.Set.of("toList", "toSet", "toMap",
+            "listOf", "setOf", "mapOf", "emptyList", "emptySet", "emptyMap");
+
     private static boolean immutableCopyExpression(io.codelaser.maddi.cst.api.expression.Expression expr) {
         if (expr instanceof io.codelaser.maddi.cst.api.expression.NullConstant) {
             return true; // a null wrapper cannot be mutated; the null-tolerant copyOf ternary shape
@@ -638,6 +641,12 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
                 String owner = mi.typeInfo().fullyQualifiedName();
                 return "java.util.List".equals(owner) || "java.util.Set".equals(owner)
                        || "java.util.Map".equals(owner);
+            }
+            // the Kotlin spellings of the same copies (#87): `xs.toList()`, `toSet()`, `toMap()`, and the literal
+            // constructors `listOf`/`setOf`/`mapOf`, static members of the kotlin.collections facades
+            if (mi.isStatic() && KOTLIN_COPIES.contains(name)
+                && mi.typeInfo().fullyQualifiedName().startsWith("kotlin.collections.")) {
+                return true;
             }
             if ("requireNonNull".equals(name) && !mc.parameterExpressions().isEmpty()) {
                 return immutableCopyExpression(mc.parameterExpressions().getFirst());
