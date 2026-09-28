@@ -686,9 +686,11 @@ internal class KotlinBodyConverter(
      * is excluded: hoisting the guard would run the check before `a()`, which the source runs after. Those keep
      * their placeholder and stay counted, exactly as {@code cannotBePassed} leaves what it cannot prove.
      *
-     * <h2>⛔ A labelled return is not this function's return</h2>
-     * `?: return@mapNotNull null` leaves a LAMBDA, and lowering it to a plain `return` would emit a return
-     * from the wrong method — silently, which is the one outcome worth avoiding. Refused, and counted.
+     * <h2>A labelled return is the lambda's, not this function's</h2>
+     * `?: return@mapNotNull null` leaves a LAMBDA. The guard's jump is converted by the ordinary statement path,
+     * so [returnStatement] gives it the exit levels the label resolves to (0 for the lambda itself, N for a
+     * non-local return): the lowered return lands where the source's does. As a lambda's RESULT expression the
+     * elvis is lowered with [returnValue] (`x ?: return v` is the lambda's `if (x == null) return v; return x;`).
      */
     private fun KaSession.controlFlowElvisLowering(statement: KtExpression, method: MethodInfo,
                                                    locals: MutableMap<String, Variable>,
@@ -3225,8 +3227,14 @@ internal class KotlinBodyConverter(
             // a lambda body is a statement list like any other: `val map = try { … } catch { … }` inside one
             // is lowered here too. ⛔ never the result expression — that is the lambda's value, not a statement.
             val lowered = if (isResult) null else loweredStatements(stmt, method, bodyScope, index)
+            // the lambda's value is `x ?: return v` (the return leaving the enclosing function, as a non-local
+            // return does): the guard and the value's return, as a function's expression body is lowered
+            // (detekt UseDataClass.visitKlass: `it.typeReference?.type ?: return` inside a `map` under `analyze`)
+            val resultElvis = if (isResult && isControlFlowElvis(unannotated(stmt)))
+                controlFlowElvisLowering(unannotated(stmt), method, bodyScope, index, returnValue = true) else null
             when {
                 lowered != null -> lowered.forEach { block.addStatement(it) }
+                resultElvis != null -> resultElvis.forEach { block.addStatement(it) }
                 // a lambda whose value is an `if` with a multi-statement branch: each branch returns the lambda's value
                 isResult && stmt is KtIfExpression && stmt.hasAMultiStatementBranch() ->
                     block.addStatement(convertValueIf(stmt, method, bodyScope, index, returning = true, assignTo = null))
