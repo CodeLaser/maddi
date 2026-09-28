@@ -2037,9 +2037,10 @@ internal class KotlinBodyConverter(
         // else may follow a switch expression's arrow without braces.
         val only = built.statements().singleOrNull()
         if (body !is KtBlockExpression) {
-            // the Java parser indexes an arm that is a bare expression or statement at `<entry>0` (#75)
-            if (only is YieldStatement) return indexed(runtime.newExpressionAsStatement(only.expression()), blockIndex + "0")
-            if (only is ThrowStatement) return indexed(only, blockIndex + "0")
+            // the Java parser indexes an arm that is a bare expression or statement at `<entry>.0` (#75, measured
+            // against the Java twins in the prepwork Kotlin tier)
+            if (only is YieldStatement) return indexed(runtime.newExpressionAsStatement(only.expression()), "$blockIndex.0")
+            if (only is ThrowStatement) return indexed(only, "$blockIndex.0")
         }
         return built
     }

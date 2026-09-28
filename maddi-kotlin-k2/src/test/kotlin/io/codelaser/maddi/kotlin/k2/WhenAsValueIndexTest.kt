@@ -34,14 +34,14 @@ class WhenAsValueIndexTest : KotlinScanTestBase() {
     fun armsOfAReturnedWhen() {
         assertEquals(0, PlaceholderCensus.of(types).total)
         val ret = method("a").methodBody().statements()[0] as ReturnStatement
-        assertEquals(listOf("0.00", "0.10"), armIndices(ret.expression() as SwitchExpression))
+        assertEquals(listOf("0.0.0", "0.1.0"), armIndices(ret.expression() as SwitchExpression))
     }
 
     @Test
     fun armsOfAnAssignedWhen() {
         val lvc = method("c").methodBody().statements()[1] as LocalVariableCreation
         val switch = lvc.localVariable().assignmentExpression() as SwitchExpression
-        assertEquals(listOf("1.0", "1.10"), armIndices(switch))
+        assertEquals(listOf("1.0", "1.1.0"), armIndices(switch))
         // the block arm's own statements sit under it
         assertEquals(listOf("1.0.0", "1.0.1"), switch.entries()[0].statement().let { (it as io.codelaser.maddi.cst.api.statement.Block).statements() }.map { it.source().index() })
     }

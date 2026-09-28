@@ -76,7 +76,7 @@ public class TestKotlinEscapes extends CommonKotlinTest {
         p.assertSameAsJava("whenThrows");
         assertEquals("""
                 i: D:-, A:[] | R 0
-                return whenThrows: D:-, A:[0, 0+0] | R -""", summary(p.kotlin("whenThrows")));
+                return whenThrows: D:-, A:[0, 0.1.0] | R -""", summary(p.kotlin("whenThrows")));
     }
 
     /*
