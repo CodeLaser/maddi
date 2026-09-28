@@ -3,6 +3,7 @@ package io.codelaser.maddi.modification.prepwork.kotlin;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -103,21 +104,21 @@ public class TestKotlinLambdas extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#72. The lambda assigns the enclosing `var n` (kotlinc: an IntRef). Prep records the assignment inside
-     the lambda only; in the enclosing method `n` is assigned at 0 and nowhere else, so `return n` reads the
-     initial value as far as prep can tell. Pinned: when #72 is fixed, statement 1 must assign `n`.
+     The lambda assigns the enclosing `var n`: kotlinc's IntRef holder (#72), declared and initialized at 0 and 1, and
+     every read and write is one of `n.element`. ⛔ maddi#94: the lambda's `n.element++` is not an assignment at
+     statement 2, so prep still sees `return n.element` read the initial value; the same holds for the Java holder
+     form. When #94 is fixed, `n.element` is also assigned at 2.
      */
     @Test
     public void capturedVar() {
-        assertEquals("""
-                it: D:-, A:[] | R 0-E
-                n: D:+, A:[0.0.0] | R 0.0.0
-                p: D:-, A:[] | R 0-E""", lambdaSummary(p.kotlin("capturedVar")));
-        assertEquals("""
-                n: D:0, A:[0] | R 1, 2
-                p: D:-, A:[] | R 1
-                return capturedVar: D:-, A:[2] | R -
-                xs: D:-, A:[] | R 1""", summary(p.kotlin("capturedVar")));
+        MethodInfo m = p.kotlin("capturedVar");
+        assertEquals("{IntRef n=new IntRef();n.element=0;CollectionsKt___CollectionsKt.forEach(xs,it->{if(it.equals(p)){n.element++;}});"
+                     + "return n.element;}", m.methodBody().print(p.runtime().qualificationSimpleNames()).toString());
+        VariableData last = VariableDataImpl.of(m.methodBody().statements().getLast());
+        String element = last.variableInfoStream()
+                .filter(vi -> vi.variable().fullyQualifiedName().equals("kotlin.jvm.internal.Ref.IntRef.element#n"))
+                .map(vi -> vi.assignments() + " | R " + vi.reads()).findFirst().orElseThrow();
+        assertEquals("D:0, A:[1] | R 2, 3", element);
     }
 
     /*

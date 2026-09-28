@@ -54,9 +54,10 @@ class ReceiverShadowingTest : KotlinScanTestBase() {
 
     @Test
     fun theReceiverNotTheClass() {
+        // in `read`, the `var r` the lambda assigns is a Ref holder, as kotlinc compiles it (#72)
         assertEquals("""
             write: return RsKt.build(${'$'}receiver->${'$'}receiver.level=3);
-            read: int r=0; RsKt.build(${'$'}receiver->r=${'$'}receiver.level); return r;
+            read: IntRef r=new IntRef(); r.element=0; RsKt.build(${'$'}receiver->r.element=${'$'}receiver.level); return r.element;
             own: return this.getLevel();
             ext: return ${'$'}receiver.level;
             """.trimIndent(), listOf("write", "read", "own", "ext").joinToString("\n") { "$it: ${body(it)}" })

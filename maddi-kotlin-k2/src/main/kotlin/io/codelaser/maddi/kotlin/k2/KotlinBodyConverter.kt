@@ -463,6 +463,7 @@ internal class KotlinBodyConverter(
         val initializer = initializerOverride
             ?: statement.initializer?.let { convertExpression(it, method, locals) }
             ?: runtime.newEmptyExpression()
+        refHolderCreation(statement, name, type, initializer, locals)?.let { return it }
         val local = runtime.newLocalVariable(name, type, initializer)
         locals[name] = local
         localDeclared(statement, local)
@@ -613,12 +614,12 @@ internal class KotlinBodyConverter(
         val hoisted = hoistNullSafeSpine(s, method, locals, index)
         if (hoisted.isEmpty()) {
             hoistedReads.clear()
-            return listOf(convertStatement(s, method, locals, index))
+            return withRefInit(s, listOf(convertStatement(s, method, locals, index)), index)
         }
         // the conversion below READS the temporaries, through hoistedReads; clear it after, never before
         val statement = convertStatement(s, method, locals, hoistedStatementIndex(index, hoisted.size))
         hoistedReads.clear()
-        return hoisted + statement
+        return withRefInit(s, hoisted + statement, index)
     }
 
     /**
@@ -676,14 +677,15 @@ internal class KotlinBodyConverter(
                                             locals: MutableMap<String, Variable>,
                                             index: String): List<Statement>? {
         val s = unannotated(annotated)
-        return controlFlowElvisLowering(s, method, locals, index)
+        return (controlFlowElvisLowering(s, method, locals, index)
             ?: argumentElvisLowering(s, method, locals, index)
             ?: spineElvisLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
             ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
-            ?: safeCallAsStatementLowering(s, method, locals, index)
+            ?: safeCallAsStatementLowering(s, method, locals, index))
+            ?.let { withRefInit(s, it, index) }
     }
 
     /**
@@ -5406,6 +5408,101 @@ internal class KotlinBodyConverter(
      * property's own type. Keyed by the declaration, not the name, so shadowing cannot confuse two of them.
      */
     private val delegatedLocals = mutableMapOf<KtProperty, Pair<LocalVariable, ParameterizedType>>()
+
+    /**
+     * <b>A `var` a lambda assigns is a `Ref` holder (#72)</b>, as kotlinc compiles it: `var n = 0; xs.forEach { n++ }`
+     * is `Ref.IntRef n = new Ref.IntRef(); n.element = 0;`, and every read and write of `n`, in the function and in its
+     * lambdas, is one of `n.element`. The CST models a lambda as a lambda, inline function or not, and the analysis
+     * follows a write to a field of a captured final holder; an assignment to the enclosing function's own local, which
+     * Java cannot write, it did not see, so after `forEach { n++ }` the function's `n` was still 0. The name binds to
+     * the element in [locals] -- what every read and write, and every lambda's copy of the scope, resolves -- and the
+     * declared local is the holder. The initial value is assigned by a second statement, which [loweredStatements] and
+     * [convertHoisting] append ([pendingRefInits]).
+     */
+    private fun KaSession.refHolderCreation(statement: KtProperty, name: String, type: ParameterizedType,
+                                            initializer: Expression, locals: MutableMap<String, Variable>): Statement? {
+        if (!isAssignedInACapture(statement)) return null
+        val (holderType, element, constructor) = refHolder(type) ?: return null
+        val newHolder = runtime.newConstructorCallBuilder().setSource(runtime.noSource()).setConstructor(constructor)
+            .setConcreteReturnType(holderType).setDiamond(runtime.diamondNo()).setParameterExpressions(listOf()).build()
+        val holder = runtime.newLocalVariable(name, holderType, newHolder)
+        val elementRef = runtime.newFieldReference(element, variableExpression(holder) as VariableExpression, type)
+        locals[name] = elementRef
+        localDeclared(statement, holder)
+        if (!(initializer is EmptyExpression && !isPlaceholder(initializer))) {
+            val assignment = runtime.newAssignmentBuilder().setTarget(variableExpression(elementRef) as VariableExpression).setValue(initializer)
+                .setSource(runtime.noSource()).build()
+            pendingRefInits[statement] = runtime.newExpressionAsStatement(assignment)
+        }
+        val dsb = runtime.newDetailedSourcesBuilder()
+        statement.nameIdentifier?.let { nameId ->
+            val nameSource = source(nameId, "-")
+            dsb.put(holder.simpleName(), nameSource).put(holder, nameSource)
+        }
+        return runtime.newLocalVariableCreation(holder).withSource(runtime.noSource().withDetailedSources(dsb.build()))
+    }
+
+    /** The `n.element = v` of a `Ref` holder declared by a statement, appended after it (see [refHolderCreation]). */
+    private val pendingRefInits = java.util.IdentityHashMap<KtExpression, Statement>()
+
+    private fun withRefInit(statement: KtExpression, converted: List<Statement>, index: String): List<Statement> =
+        pendingRefInits.remove(statement)?.let { converted + indexed(it, "$index.~") } ?: converted
+
+    private val assignedInACapture = java.util.IdentityHashMap<KtProperty, Boolean>()
+
+    /**
+     * Whether a lambda, a local function or an `object :` declared after the local `var` [statement], in its scope,
+     * assigns it (`=`, a compound assignment, `++`/`--`).
+     */
+    private fun KaSession.isAssignedInACapture(statement: KtProperty): Boolean = assignedInACapture.getOrPut(statement) {
+        if (!statement.isLocal || !statement.isVar) return@getOrPut false
+        val scope = statement.parent ?: return@getOrPut false
+        val name = statement.name ?: return@getOrPut false
+        val symbol = statement.symbol
+        PsiTreeUtil.collectElementsOfType(scope, KtNameReferenceExpression::class.java).any { reference ->
+            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope)
+                && reference.mainReference.resolveToSymbol() == symbol
+        }
+    }
+
+    private fun isAssignmentTarget(reference: KtNameReferenceExpression): Boolean =
+        when (val parent = reference.parent) {
+            is KtBinaryExpression -> parent.left === reference && parent.operationToken in KtTokens.ALL_ASSIGNMENTS
+            is KtUnaryExpression -> parent.baseExpression === reference
+                && (parent.operationToken == KtTokens.PLUSPLUS || parent.operationToken == KtTokens.MINUSMINUS)
+            else -> false
+        }
+
+    private fun crossesACapture(reference: KtExpression, scope: com.intellij.psi.PsiElement): Boolean =
+        generateSequence(reference.parent) { it.parent }.takeWhile { it !== scope }
+            .any { it is KtFunctionLiteral || it is KtNamedFunction || it is KtClassOrObject }
+
+    /**
+     * `kotlin.jvm.internal.Ref.IntRef` (and the other primitives') or `Ref.ObjectRef<T>` for a local of [type], with
+     * its `element` field and no-argument constructor; null without the stdlib.
+     */
+    private fun KaSession.refHolder(type: ParameterizedType): Triple<ParameterizedType, FieldInfo, MethodInfo>? {
+        val simple = when {
+            type.arrays() > 0 -> "ObjectRef"
+            type == runtime.intParameterizedType() -> "IntRef"
+            type == runtime.longParameterizedType() -> "LongRef"
+            type == runtime.shortParameterizedType() -> "ShortRef"
+            type == runtime.byteParameterizedType() -> "ByteRef"
+            type == runtime.charParameterizedType() -> "CharRef"
+            type == runtime.floatParameterizedType() -> "FloatRef"
+            type == runtime.doubleParameterizedType() -> "DoubleRef"
+            type == runtime.booleanParameterizedType() -> "BooleanRef"
+            else -> "ObjectRef"
+        }
+        val symbol = findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/internal/Ref.$simple"))
+            as? KaNamedClassSymbol ?: return null
+        val refType = with(typeMapper) { loadLibraryClass(symbol) }?.let { members(it) } ?: return null
+        val element = refType.fields().firstOrNull { it.name() == "element" } ?: return null
+        val constructor = refType.constructors().firstOrNull { it.parameters().isEmpty() } ?: return null
+        val holderType = if (simple == "ObjectRef") runtime.newParameterizedType(refType, listOf(type.ensureBoxed(runtime)))
+                         else refType.asParameterizedType()
+        return Triple(holderType, element, constructor)
+    }
 
     private fun KaSession.delegatedLocal(expression: KtNameReferenceExpression): Pair<LocalVariable, ParameterizedType>? {
         if (delegatedLocals.isEmpty()) return null

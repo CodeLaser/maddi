@@ -9,7 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /*
  Function types and lambdas. A Kotlin function type is kotlin.jvm.functions.FunctionN: the Java twins that take a
  Function1 link exactly as Kotlin does, those that take a java.util.function type do not (#80). What Kotlin's
- lambdas can do and Java's cannot: return from the enclosing function (#65) and assign an enclosing `var` (#72).
+ lambdas can do and Java's cannot: return from the enclosing function (#65) and assign an enclosing `var` (#72, now a
+ Ref holder; #94).
  */
 public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
 
@@ -41,6 +42,9 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
                 StringBuilder applyFunction(Function<StringBuilder, StringBuilder> f, StringBuilder s) { return f.apply(s); }
                 StringBuilder find(List<StringBuilder> xs) { for (StringBuilder x : xs) { if (x.isEmpty()) return x; } return null; }
                 StringBuilder captured(List<StringBuilder> xs) { StringBuilder r = null; for (StringBuilder x : xs) { r = x; } return r; }
+                StringBuilder capturedRef(List<StringBuilder> xs) { kotlin.jvm.internal.Ref.ObjectRef<StringBuilder> r = new kotlin.jvm.internal.Ref.ObjectRef<>(); r.element = null; xs.forEach(x -> { r.element = x; }); return r.element; }
+                StringBuilder capturedRef1(List<StringBuilder> xs) { kotlin.jvm.internal.Ref.ObjectRef<StringBuilder> r = new kotlin.jvm.internal.Ref.ObjectRef<>(); r.element = xs.get(0); return r.element; }
+                StringBuilder[] capturedArr(List<StringBuilder> xs) { StringBuilder[] r = new StringBuilder[1]; xs.forEach(x -> { r[0] = x; }); return r; }
             }
             """;
 
@@ -89,9 +93,18 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
      ⛔ maddi#72: the lambda assigns the enclosing `var r`; the method's return variable only sees `r = null`, so the
      result is not linked to the elements of xs.
      */
+    /*
+     The lambda assigns the enclosing `var r`: a Ref holder, `r.element = it`, as kotlinc compiles it (#72). It links as
+     the Java holder form does. ⛔ maddi#94: neither carries the lambda's write out -- the Java `for` loop links the
+     result to the elements of xs -- and without a lambda the holder links (capturedRef1). When #94 is fixed, `captured`
+     and `capturedRef` link as the loop does.
+     */
     @Test
     public void varAssignedInLambda() {
         assertEquals("[-] --> captured∈0:xs.§$s", p.javaLinks("captured"));
-        assertEquals("[-] --> -", p.kotlinLinks("captured"));
+        assertEquals("[-] --> -", p.javaLinks("capturedRef"));
+        assertEquals("[-] --> -", p.javaLinks("capturedArr"));
+        assertEquals("[-] --> capturedRef1∈0:xs.§$s", p.javaLinks("capturedRef1"));
+        assertEquals(p.javaLinks("capturedRef"), p.kotlinLinks("captured"));
     }
 }
