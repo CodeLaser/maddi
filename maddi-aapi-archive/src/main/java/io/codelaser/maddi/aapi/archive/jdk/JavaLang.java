@@ -2245,16 +2245,16 @@ public class JavaLang {
         StringBuffer insert(int offset, double d) { return null; }
 
         //override from java.lang.AbstractStringBuilder
-        int indexOf(String str) { return 0; }
+        @NotModified int indexOf(String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int indexOf(String str, int fromIndex) { return 0; }
+        @NotModified int indexOf(String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int lastIndexOf(String str) { return 0; }
+        @NotModified int lastIndexOf(String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int lastIndexOf(String str, int fromIndex) { return 0; }
+        @NotModified int lastIndexOf(String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2460,16 +2460,16 @@ public class JavaLang {
         StringBuilder insert(int offset, double d) { return null; }
 
         //override from java.lang.AbstractStringBuilder
-        int indexOf(String str) { return 0; }
+        @NotModified int indexOf(String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int indexOf(String str, int fromIndex) { return 0; }
+        @NotModified int indexOf(String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int lastIndexOf(String str) { return 0; }
+        @NotModified int lastIndexOf(String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        int lastIndexOf(String str, int fromIndex) { return 0; }
+        @NotModified int lastIndexOf(String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2803,7 +2803,7 @@ public class JavaLang {
         public String toString() { return null; }
         @IgnoreModifications void printStackTrace() { }
         @NotModified void printStackTrace(/*@Independent[M]*/ PrintStream s) { }
-        void printStackTrace(PrintWriter s) { }
+        @NotModified void printStackTrace(/*@Independent[M]*/ PrintWriter s) { }
         Throwable fillInStackTrace() { return null; }
         StackTraceElement [] getStackTrace() { return null; }
         void setStackTrace(StackTraceElement [] stackTrace) { }
