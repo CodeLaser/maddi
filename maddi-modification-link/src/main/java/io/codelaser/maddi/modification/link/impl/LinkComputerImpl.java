@@ -402,6 +402,37 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                && !primary.equals(v);
     }
 
+    // the number of field / element hops below the primary: 0 for 'x', 1 for 'x.f' and 'x.§$s', 2 for 'x.f.§es'
+    static int faceDepth(Variable v) {
+        return switch (v) {
+            case FieldReference fr when fr.scopeVariable() != null -> 1 + faceDepth(fr.scopeVariable());
+            case DependentVariable dv when dv.arrayVariable() != null -> 1 + faceDepth(dv.arrayVariable());
+            default -> 0;
+        };
+    }
+
+    /*
+     A return link touching a face of a created object is dropped, with one exception: the SHALLOW provenance of
+     the return value itself, one face on each side at most ('makeList.§$s ⊆ oc:N.§$s': the elements returned are
+     the elements of the LinkedList created here; 'top.size ← oc:N.size'). A consumer that traces where a returned
+     object came from follows exactly that link (the method-flow metric reads the marker behind the face); the
+     deeper chains ('ret.entitySelector.childEntitySelector.§es ∩ oc:N.phaseLifecycleSupport.eventListenerList.§es')
+     were 95 % of the exported faces on timefold and describe nothing a caller can name.
+     */
+    static boolean dropsFaceOfObjectCreation(Link link, Variable returnVariable) {
+        boolean fromFace = isFaceOfObjectCreation(link.from());
+        boolean toFace = isFaceOfObjectCreation(link.to());
+        if (!fromFace && !toFace) return false;
+        if (fromFace != toFace && returnVariable != null) {
+            Variable face = fromFace ? link.from() : link.to();
+            Variable other = fromFace ? link.to() : link.from();
+            if (faceDepth(face) == 1 && returnVariable.equals(Util.primary(other)) && faceDepth(other) <= 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void reportWork(MethodInfo methodInfo, SourceMethodComputer computer, boolean tripped) {
         Graph graph = computer.linkGraph.graph();
         long work = graph.engine().work();
@@ -557,7 +588,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             // re-exporting them). The bare marker ('return ← oc:N', fresh-object provenance) stays.
             // Gate KEEPOCFACES restores the old export, for A/B.
             if (!KEEP_OC_FACES && ofReturnValue.primary() != null) {
-                ofReturnValue = ofReturnValue.removeIfFromTo(LinkComputerImpl::isFaceOfObjectCreation);
+                LinksImpl.Builder kept = new LinksImpl.Builder(ofReturnValue);
+                kept.removeIf(link -> dropsFaceOfObjectCreation(link, returnVariable));
+                ofReturnValue = kept.build();
             }
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
