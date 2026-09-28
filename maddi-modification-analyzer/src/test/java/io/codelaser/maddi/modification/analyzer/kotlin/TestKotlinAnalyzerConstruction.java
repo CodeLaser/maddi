@@ -51,44 +51,39 @@ public class TestKotlinAnalyzerConstruction extends CommonKotlinAnalyzerTest {
     }
 
     /*
-     ⛔ maddi#85: `private val items = xs` stays a field initializer, outside the constructor. The constructor then
-     does not store its parameter, which reads @Independent: unsound, the object keeps `xs`. When #85 is fixed this
-     becomes `a.assertSameAsJava("Keep")`.
+     maddi#85 (fixed 2026-09-28): `private val items = xs` reads the constructor parameter, so it is code of the
+     constructor, as kotlinc compiles it; the constructor stores its parameter, which reads @Dependent as in Java.
      */
     @Test
     public void propertyInitializer() {
+        a.assertSameAsJava("Keep");
         assertEquals("constructor: nonModifying=false @Independent | 0: unmodified=true @Dependent",
-                a.java("Keep", "<init>").lines().skip(1).findFirst().orElseThrow());
-        assertEquals("constructor: nonModifying=true @Independent | 0: unmodified=true @Independent",
                 a.kotlin("Keep", "<init>").lines().skip(1).findFirst().orElseThrow());
     }
 
     /*
-     ⛔ maddi#84 (Java too): a field assigned in a nested block of the constructor never gets INDEPENDENT_FIELD, and
-     K2 puts every init block there. The Kotlin class and the Java nested-block twin agree, on the undecided field;
-     the flat Java constructor is what both should give.
+     maddi#84 (fixed 2026-09-28, Java too): a field assigned in a nested block of the constructor -- every Kotlin
+     init block -- now gets its links merged into the block statement, and so its independence; the nested-block
+     twin and the flat constructor give the same verdicts.
      */
     @Test
     public void initBlock() {
         a.assertSameAsJava("SnapInit");
         assertEquals("type SnapFlat: @Immutable(hc=true) @Independent(hc=true)",
                 a.java("SnapFlat").lines().findFirst().orElseThrow());
-        assertEquals("type SnapInit: @FinalFields ?", a.kotlin("SnapInit").lines().findFirst().orElseThrow());
-        assertEquals("field items: final=true unmodified=true ?", a.kotlin("SnapInit", "items").lines().skip(1)
+        assertEquals("type SnapInit: @Immutable(hc=true) @Independent(hc=true)", a.kotlin("SnapInit").lines().findFirst().orElseThrow());
+        assertEquals("field items: final=true unmodified=true @Independent(hc=true)", a.kotlin("SnapInit", "items").lines().skip(1)
                 .filter(l -> l.startsWith("field")).findFirst().orElseThrow());
     }
 
-    /*
-     ⛔ maddi#86: the constructor parameter of `vararg val xs: String` is typed String, not String[], and is not
-     varargs; the array field then reads as independent of it.
-     */
+    /* maddi#86 (fixed 2026-09-28): the constructor parameter of `vararg val xs: String` is a String[] varargs parameter */
     @Test
     public void varargProperty() {
-        assertEquals("Type String", a.kotlinType("Varg").findConstructor(1).parameters().getFirst().parameterizedType()
+        assertEquals("Type String[]", a.kotlinType("Varg").findConstructor(1).parameters().getFirst().parameterizedType()
                 .toString());
         assertEquals("Type String[]", a.javaType("Varg").findConstructor(1).parameters().getFirst().parameterizedType()
                 .toString());
-        assertEquals("type Varg: @FinalFields @Dependent", a.java("Varg").lines().findFirst().orElseThrow());
-        assertEquals("type Varg: @Immutable(hc=true) @Independent", a.kotlin("Varg").lines().findFirst().orElseThrow());
+        a.assertSameAsJava("Varg");
+        assertEquals("type Varg: @FinalFields @Dependent", a.kotlin("Varg").lines().findFirst().orElseThrow());
     }
 }

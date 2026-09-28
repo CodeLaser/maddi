@@ -104,6 +104,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
@@ -1157,9 +1158,13 @@ class KotlinScan(
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder()
         ctor.valueParameters.forEach { p ->
-            val type = mapType(p.returnType, owner)
+            // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it, as a function's
+            // (convertMethodSignature). `vararg val xs: String` was typed String, assigned to a String[] field (#86)
+            val elementType = mapType(p.returnType, owner)
+            val type = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), type)
-            parameter(parameterInfo, p.psi as? KtParameter, type)
+            parameterInfo.builder().setVarArgs(p.isVararg)
+            parameter(parameterInfo, p.psi as? KtParameter, elementType)
             annotate(parameterInfo.builder(), p, owner)
         }
         annotate(builder, ctor, owner)
@@ -1775,6 +1780,12 @@ class KotlinScan(
     // enum entries awaiting their `new E(args)` initializer, per enum: see addEnumMembers
     private val pendingEnumEntries = java.util.IdentityHashMap<TypeInfo, MutableList<Pair<FieldInfo, KtEnumEntry>>>()
 
+    /** Does [expression] read a parameter of a constructor (a primary constructor's `xs` in `val items = xs`)? */
+    private fun KaSession.readsAConstructorParameter(expression: KtExpression): Boolean =
+        com.intellij.psi.util.PsiTreeUtil.collectElementsOfType(expression, KtNameReferenceExpression::class.java).any { ref ->
+            (ref.mainReference.resolveToSymbol() as? KaValueParameterSymbol)?.containingDeclaration is KaConstructorSymbol
+        }
+
     private fun KaSession.convertInitializers(owner: TypeInfo) {
         convertDelegateInitializers(owner)
         pendingEnumEntries.remove(owner)?.forEach { (field, entry) ->
@@ -1791,7 +1802,10 @@ class KotlinScan(
         // A static one (a facade's, a companion's) goes into the static initializer.
         val blocks = java.util.IdentityHashMap<MethodInfo, MutableList<Statement>>()
         pending.forEach { p ->
-            if (!bodyConverter.needsStatementInitializer(p.expression)) return@forEach
+            // ... and one that reads a primary-constructor parameter: kotlinc runs every initializer in the
+            // constructor, and a field initializer cannot see the parameter -- it read as @Independent (#85)
+            if (!bodyConverter.needsStatementInitializer(p.expression)
+                && !(!p.static && runsInitOf[owner] != null && readsAConstructorParameter(p.expression))) return@forEach
             if (!p.static && runsInitOf[owner] != null) {
                 statementInitializersOf.getOrPut(owner) { mutableListOf() } += p
                 return@forEach

@@ -2470,7 +2470,15 @@ internal class KotlinBodyConverter(
                 convertValueIf(value, method, mutableMapOf(), index, returning = false, assignTo = target)
             value is KtTryExpression ->
                 convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
-            else -> null
+            // any other initializer moved into the constructor (one reading a constructor parameter, #85): the
+            // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves
+            else -> {
+                val assignment = runtime.newAssignmentBuilder()
+                    .setTarget(runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build())
+                    .setValue(convertExpression(value, method, mutableMapOf()))
+                    .setSource(runtime.noSource()).build()
+                indexed(runtime.newExpressionAsStatement(assignment), index).withSource(source(initializer, index))
+            }
         }
     }
 

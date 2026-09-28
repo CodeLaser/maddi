@@ -211,6 +211,15 @@ public class TestDetektCorpus {
         // walking interfaces, Iterable @ImmutableContainer(hc = true) -- measured on that merge with no front-end
         // change). About twenty holders of a Collection/List/Map moved IMMUTABLE_HC -> FINAL_FIELDS (ConfigSpec,
         // RuleSet, Issue, the *Spec interfaces); TestCollectionHoldersVsJava shows Java's twins get FINAL_FIELDS too.
-        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 641);
+        // 641 -> 636 (2026-09-28, the analyzer tier's construction fixes, A/B on the verdict dump): every mover is a
+        // verdict the Java twin gives too. Finding, PluginsHolder, DefaultAnalysisResult hold a passed collection
+        // or object and have an `init { require(…) }` block: their fields' links were UNDECIDED in the block's data
+        // and cycle breaking wrote @Independent optimistically; since #84 the block's links are merged and they read
+        // @Dependent, FINAL_FIELDS like KeepCtor's Java twin. Alias (`vararg val values: String`, #86): the stored
+        // array is the caller's. DetektCollector, XmlEscapeSymbols (#85): initializers reading a constructor
+        // parameter now run in the constructor, which stores what they build from it. RuleSetProvider follows its
+        // implementations. ValuesWithReasonDefault is unstable across runs (636/637; @FinalFields at the 641 baseline,
+        // @Immutable(hc=true) in one of three runs since), inside the tolerance -- not counted as a mover.
+        CensusRatchet.noWorseThanAtLeast("detekt immutable types", summary.immutableTypes(), 636);
     }
 }

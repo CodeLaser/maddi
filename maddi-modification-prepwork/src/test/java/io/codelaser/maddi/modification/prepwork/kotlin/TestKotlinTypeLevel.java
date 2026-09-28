@@ -164,7 +164,9 @@ public class TestKotlinTypeLevel extends CommonKotlinTest {
         assertEquals("equals, hashCode, toString", emptyBodies(type("k.D")));
         assertEquals("name, values, valueOf, getEntries, <static_0>", emptyBodies(type("k.E")));
         assertEquals("<init>", emptyBodies(type("k.O")));
-        assertEquals("<init>", emptyBodies(type("k.Del")));
+        // since #85 (2026-09-28) the delegate is assigned IN the constructor (`this.$$delegate_0 = d` reads the
+        // constructor parameter), so Del's constructor is no longer empty
+        assertEquals("", emptyBodies(type("k.Del")));
     }
 
     private static String emptyBodies(TypeInfo typeInfo) {

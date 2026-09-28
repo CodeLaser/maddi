@@ -23,7 +23,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.ParameterInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -92,11 +91,13 @@ class PropertyInitializerTest : KotlinScanTestBase() {
     fun anInstanceInitializerIsCodeOfThePrimaryConstructor() {
         parse()
         val constructor = type("A").constructors().single()
-        val doubled = initializer("A", "doubled")
-        assertFalse(doubled is EmptyExpression, "$doubled")
-        // `n` is a constructor parameter, not a property: it resolves as one, which it only can in the constructor
+        // `n` is a constructor parameter, not a property: an initializer reading it is code of the constructor, as
+        // kotlinc compiles it (#85) -- the field keeps no initializer, the constructor assigns it
+        assertTrue(initializer("A", "doubled") is EmptyExpression)
+        val assignment = constructor.methodBody().statements().single()
+        assertEquals("this.doubled=n*2;", assignment.toString())
         val reads = ArrayList<ParameterInfo>()
-        doubled.visit { e -> ((e as? VariableExpression)?.variable() as? ParameterInfo)?.let { reads += it }; true }
+        assignment.visit { e -> ((e as? VariableExpression)?.variable() as? ParameterInfo)?.let { reads += it }; true }
         assertEquals(listOf(constructor.parameters().single()), reads)
 
         val hi = anonymousHi(initializer("A", "greeter"))
