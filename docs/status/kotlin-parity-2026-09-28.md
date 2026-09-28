@@ -85,7 +85,8 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
   parameter is typed as the element; #88 a modification inside `apply { }` is not a modification of the receiver,
   so a builder method reads as non-modifying (unsound); #87 `toList()` is not a recognised copy; #89 tracks the
   stdlib contract gap (`xs.sum()` modifies `xs`); #73 now measured for a companion `var` (mutability moves to the
-  companion).
+  companion); #90 class delegation never assigns `$$delegate_0` in the constructor, so the type reads `@Independent`
+  of its delegate (unsound).
 - **#67.** Kotlin printed as Java does not compile: item 1 is a real placeholder (a comparison on a smart-cast
   value), item 2 a wrong type (`is Int` as `instanceof int`); items 3 and 4 may be intended.
 
@@ -106,7 +107,7 @@ prepwork, link and the analyzer hold ~1,000 Java-input tests and, before §5, ze
 - prepwork: a Kotlin tier covering the main topics (§5); synthesized members at the `doPrimaryTypes` level.
 - link: Kotlin-input tests for the path `FunctionN` lambdas take (`VirtualFieldComputer`,
   `LinkAppliedFunctionalInterface`), or a decision to treat `kotlin.jvm.functions` as standard.
-- analyzer: `$default`, synthesized accessors, delegation forwarders; an empty synthesized body reads as
+- analyzer: `$default`, synthesized accessors and delegation forwarders are covered by §7 (delegation: #90); an empty synthesized body reads as
   "modifies nothing" (`explicitlyEmptyMethod()`).
 
 ### 3.4 Analyzer rules that name Java
@@ -216,7 +217,7 @@ and #76 was first misreported (a harness artifact) and corrected the same day.
 
 ## 7. The Kotlin tier in `maddi-modification-analyzer` (added 2026-09-28)
 
-Package `io.codelaser.maddi.modification.analyzer.kotlin`, 27 tests in 5 classes, in the module's ordinary `test`
+Package `io.codelaser.maddi.modification.analyzer.kotlin`, 41 tests in 7 classes, in the module's ordinary `test`
 task. Same design as §5 and §6, run to the end as the mixed CLI does: fault-tolerant prep that must isolate
 nothing, then `IteratingAnalyzerImpl` (30 iterations, stop on a cycle without improvement). A type's verdicts are
 printed one line per member (type: immutable/independent; field: final/unmodified/independent; method:
@@ -230,10 +231,15 @@ optionally restricted to the members both sides declare.
 | `TestKotlinAnalyzerCollections` | defensive copy with `List.copyOf` and with `toList()` | 1 of 2 | #87 |
 | `TestKotlinAnalyzerFunctions` | function-typed parameter and field, extension functions, and #65/#72/#82's shapes | 4 of 4 | — (those defects do not move these fixtures' verdicts) |
 | `TestKotlinAnalyzerMethods` | fluent builder, `apply` builder, identity, parameter and parameter-field modification, `Nothing`, recursion, `sum()` | 4 of 6 | #88, #89 |
+| `TestKotlinAnalyzerSynthesized` | class delegation, `$default`, `private set`, computed and `by lazy` properties, top-level functions and extension properties, operator, anonymous object, template, `with`/`run`/`also`/`use` on a field | 5 of 7 | #90, #88 |
+| `TestKotlinAnalyzerControl` | `?.`/`?:`/`!!`, `when` with `is`, map destructuring, `buildList`, local function, interface and abstract properties, nested class, companion factory | 6 of 7 | #87 (a `toList()` at the only call site) |
 
 What agrees is most of the type system: value classes, sealed hierarchies, inheritance, objects, enums, generics,
 function types, extension functions, fluent and identity methods. The divergences cluster in two places:
 **construction** (Kotlin puts code into the primary constructor that the lowering does not: #84, #85, #86) and
-**the stdlib** (#87, #88, #89). Two of them are unsound rather than conservative: #85 (a stored parameter reads
-`@Independent`) and #88 (a mutating method reads non-modifying).
+**the stdlib** (#87, #88, #89). Three of them are unsound rather than conservative: #85 (a stored parameter reads
+`@Independent`), #88 (a mutating method reads non-modifying) and #90 (a type with a `by` delegate reads
+`@Independent` of it: the synthesized constructor does not assign `$$delegate_0`, which
+`TestKotlinLinkDelegation` in the link tier pins). #88 is measured wider than `apply`: `with`, `run`, `also` and `use`
+lose the modification whether the object is the receiver or `it`.
 
