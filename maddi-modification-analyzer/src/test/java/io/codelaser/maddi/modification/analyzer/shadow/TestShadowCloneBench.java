@@ -241,7 +241,31 @@ public class TestShadowCloneBench extends CommonTest {
         // says unmodified, which is the semantically right answer; the engine stays conservative. One of the
         // twelve, Function17545720.flushIfPossible(Object o) (`((Flushable) o).flush()`), IS a modification: the
         // pass misses it through the cast, and did so at unit scale before aa730a3bf too (not this change).
-        org.junit.jupiter.api.Assertions.assertEquals(285, totalRev,
+        // ⭐ Re-baselined 2026-09-28, the first shadow run after the four-thread merge into devel (31 engine
+        // commits, 7db3d7140..164c81db6: the fork/join linker 0d755fabd, latest-wins method links f747b2105,
+        // the composition rules f4f19205e, the eventual-walk fix 6666426bd, and the #64 archive hints). A/B on
+        // this corpus (7db3d7140 in a detached worktree reproduces {708, 285} exactly), same 9,319 types:
+        //     divergences 708 -> 712   {unmodifiedParameter 675 -> 679}   {propagated 684 -> 688}
+        //     reverse      285 -> 282   (5 closed, 2 opened)
+        // Closed reverse, five: four are the iterator-remove shape design A left frozen-modified and the pass
+        // did not reach (ArrayList_RetainAll.retainAll_iterator and its $3.accept, HashSet_RetainAll
+        // .retainAllContainsRemove_canonical, Function1642250.deleteAnnotations: `iter = param.iterator();
+        // … iter.remove()`) -- the `iterator.§m ☷{remove}` link the first computation dropped and #15's
+        // latest-wins now keeps, so both sides read it; the fifth (Function22541204.printCaughtExceptions,
+        // `t.printStackTrace(writer)`) is the archive: printStackTrace's PrintWriter is @Independent[M] since
+        // 2ab65eaa6 (#64), and both sides read the hint.
+        // Opened reverse, two, one shape: a local that is the parameter in one branch and a fresh, modified
+        // object in the other (Function22818474.encodePapPassword: `userPassBytes = userPass` vs
+        // `userPassBytes = new byte[128]; arraycopy(…, userPassBytes, …)`; Function23679178.executeAutoitFile:
+        // `parameters = (Vector) params[0]` vs `parameters.add(param)`). The fork/join is branch-insensitive:
+        // the join carries the fresh object's modification to the parameter. The pass's unmodified is the
+        // semantically right answer; the engine stays conservative.
+        // Opened divergences, four, one shape already in the list (GitConfigFileReader.configDirectory and
+        // friends: `new File(parent, name)` then `mkdirs()`, propagated through File.<init>'s parent): the
+        // parameter now reaches it through a local re-assigned inside a loop's branch (`curOutDir = outputDir;
+        // while (…) { if (dir) { curOutDir = new File(curOutDir, n); curOutDir.mkdirs(); continue; } … }`,
+        // Function13420786/14877116/16000974/17499276), a link the fork/join now produces.
+        org.junit.jupiter.api.Assertions.assertEquals(282, totalRev,
                 "reverse divergences are expected since design A (110695ece) retired the "
                 + "walkable-summary seed channel; re-baseline deliberately, and reclassify");
         // Re-baselined 2026-09-22 for the RECEIVER-DISCLAIMER rule (@IgnoreModifications on a parameter now
@@ -256,9 +280,9 @@ public class TestShadowCloneBench extends CommonTest {
         // mirror was found in the first place.
         // Both fixes above apply together, measured on this corpus with both present.
         org.junit.jupiter.api.Assertions.assertEquals(
-                Map.of("nonModifyingMethod", 7, "unmodifiedField", 26, "unmodifiedParameter", 675),
+                Map.of("nonModifyingMethod", 7, "unmodifiedField", 26, "unmodifiedParameter", 679),
                 byProperty);
-        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 684, "seed", 24), byClass);
+        org.junit.jupiter.api.Assertions.assertEquals(Map.of("propagated", 688, "seed", 24), byClass);
     }
 
     private volatile int totalMethods, totalSeeds, totalEdges, totalMissingArgLinks, totalUnprojectedReceivers;

@@ -740,6 +740,11 @@ public class SharedVariables {
                 evicted.add(member);
                 for (int i = 0; i < n; i++) {
                     if (reps[i] == null) continue;
+                    // a face of a shared variable is named like the group made for it (`$__sv_return m[0]` is both
+                    // the face `[0]` of the group `$__sv_return m` and the rep of the group of that face), so the
+                    // face reads as its own rep: an edge from it to itself says nothing, and Fact refuses it
+                    // (clone bench fors_pure_compiles shiftRight, the first clone-bench run with the fork, 2026-09-28)
+                    if (reps[i].equals(member)) continue;
                     edges.get(i).add(isRecipient(alternatives.get(i), reps[i], member)
                             ? new JoinEdge(member, reps[i]) : new JoinEdge(reps[i], member));
                 }

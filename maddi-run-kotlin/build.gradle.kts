@@ -83,6 +83,8 @@ tasks.withType<Test> {
     // RunMixedPrepAnalyzer.writeVerdicts. Unset -> nothing is written.
     System.getProperty("maddi.verdictDump")?.let { systemProperty("maddi.verdictDump", it) }
     System.getenv("MADDI_VERDICT_DUMP")?.let { systemProperty("maddi.verdictDump", it) }
+    System.getProperty("maddi.placeholderDump")?.let { systemProperty("maddi.placeholderDump", it) }
+    System.getenv("MADDI_PLACEHOLDER_DUMP")?.let { systemProperty("maddi.placeholderDump", it) }
     System.getProperty("maddi.libraryCallDump")?.let { systemProperty("maddi.libraryCallDump", it) }
     System.getProperty("maddi.memberVerdictDump")?.let { systemProperty("maddi.memberVerdictDump", it) }
     // the placeholder worklist: same forwarding, and for the same reason -- a -D on the Gradle JVM reaches
