@@ -139,7 +139,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         .anyMatch(p -> p.parameterizedType().hasTypeParameters());
                 // boolean isSupplier = sam.parameters().isEmpty();
                 boolean outputHasTypeParameters = sam.returnType().hasTypeParameters();
-                if (outputHasTypeParameters && !forceIntoReturn) {
+                // Kotlin's `(T) -> Unit` is Function1<T, Unit>: the formal SAM returns R, but the concrete result is
+                // Unit, which is nothing -- a consumer, as java.util.function.Consumer is (#94)
+                boolean unitResult = outputHasTypeParameters && isUnit(findReturnType(pi.parameterizedType()));
+                if (outputHasTypeParameters && !unitResult && !forceIntoReturn) {
                     // yes to Supplier<T> (result: T), no to Predicate<T> (result: boolean)
                     ParameterizedType sourceType = findReturnType(pi.parameterizedType());
                     Set<TypeParameter> sourceVariableTps = collectTypeParametersFromVirtualField(sourceType);
@@ -156,7 +159,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     }
                     ofParameters.add(piBuilder.build());
                     continue;
-                } else if (inputHasTypeParameters && !outputHasTypeParameters && !forceIntoReturn) {
+                } else if (inputHasTypeParameters && (!outputHasTypeParameters || unitResult) && !forceIntoReturn) {
                     // Consumer<T>
                     Set<TypeParameter> sourceVariableTps = pi.parameterizedType().parameters().stream()
                             .flatMap(param -> collectTypeParametersFromVirtualField(param).stream())
@@ -168,6 +171,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         transfer(thisBuilder, hcThis.type(), vfThis, pi.parameterizedType(), pi, independent,
                                 vfThis.mutable(), hcThisTps, false, IS_SUPERSET_OF, true);
                         ofParameters.add(thisBuilder.build());
+                    } else if (methodInfo.isStatic() && pi.index() > 0
+                               && receiverConsumer(methodInfo.parameters().getFirst(), pi, independent,
+                            sourceVariableTps) instanceof Links receiverLinks) {
+                        ofParameters.add(receiverLinks);
                     } else {
                         ofParameters.add(piBuilder.build());
                     }
@@ -615,6 +622,31 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     }
 
     // TestShallowFunctional,2, case where the interface is not one of the java.util.function.* interfaces
+    /*
+     A STATIC method whose first parameter plays the object's part -- a Kotlin extension function on the JVM,
+     `forEach($receiver: Iterable<T>, action: (T) -> Unit)` -- applying a consumer to that parameter's hidden content:
+     the contract an instance method gets for 'this' (Iterable.forEach: 'this.§ts ⊇ action'), rooted at the receiver
+     parameter instead (#94). Null when the receiver has no hidden content of the consumer's type parameters.
+     */
+    private Links receiverConsumer(ParameterInfo receiver, ParameterInfo pi, Value.Independent independent,
+                                   Set<TypeParameter> consumerTps) {
+        VirtualFields vfReceiver = virtualFieldComputer.compute(receiver.parameterizedType(), false).virtualFields();
+        FieldInfo hcReceiver = vfReceiver.hiddenContent();
+        if (hcReceiver == null) return null;
+        Set<TypeParameter> receiverTps = collectTypeParametersFromVirtualField(hcReceiver.type());
+        if (receiverTps.isEmpty() || !receiverTps.equals(consumerTps)) return null;
+        Links.Builder builder = new LinksImpl.Builder(receiver);
+        // no mutable component: a static method has no 'this' for it to be identical to
+        transfer(builder, hcReceiver.type(), vfReceiver, pi.parameterizedType(), pi, independent,
+                null, receiverTps, false, IS_SUPERSET_OF, true);
+        Links links = builder.build();
+        return links.isEmpty() ? null : links;
+    }
+
+    private static boolean isUnit(ParameterizedType type) {
+        return type.isVoid() || type.typeInfo() != null && "kotlin.Unit".equals(type.typeInfo().fullyQualifiedName());
+    }
+
     private ParameterizedType findReturnType(ParameterizedType fiType) {
         TypeInfo best = fiType.bestTypeInfo();
         MethodInfo sam = best.singleAbstractMethod();

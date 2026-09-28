@@ -69,7 +69,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         // and only its bare CONTAINS_AS_MEMBER connection to the primary is kept (see the links.isEmpty() case below,
         // and TestForEachLambda,6).
         boolean isSupplier = sam.parameters().isEmpty();
-        boolean isConsumer = sam.noReturnValue();
+        // Kotlin's `(T) -> Unit` is Function1<T, Unit>: its SAM returns R, concretely Unit, which is nothing (#94)
+        boolean isConsumer = sam.noReturnValue() || returnsUnit(functionalInterfaceType);
 
         if (isSupplier || isConsumer) {
             List<Triplet> result = new ArrayList<>();
@@ -88,7 +89,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
                             if (LinkNatureImpl.IS_ELEMENT_OF.equals(link.linkNature())) {
-                                if (functionalInterfaceType.parameters().size() >= 2) {
+                                if (sam.parameters().size() >= 2) {
                                     // BiConsumer (e.g. TestForEachLambda,9b)
                                     // 1:ii∈this.map.§$$s[-1], fromTranslated = map.§$$s, from = map.§$$s[-1]
                                     from = createSlice(sliceIndex, fromTranslated, link.from());
@@ -110,7 +111,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 // →: the element is STORED, `x -> r.element = x` (#94; Kotlin's `var` a lambda
                                 // assigns is such a Ref holder): the target holds one of the source's elements, as
                                 // after `for (x : xs) r = x`: source.§$s ∋ target
-                                from = functionalInterfaceType.parameters().size() >= 2
+                                from = sam.parameters().size() >= 2
                                         ? createSlice(sliceIndex, fromTranslated, link.from()) : fromTranslated;
                                 nature = CONTAINS_AS_MEMBER;
                             } else {
@@ -208,6 +209,15 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             }
         }
         return result;
+    }
+
+    /** `kotlin.jvm.functions.FunctionN<…, Unit>`: the last type argument is the result. */
+    private static boolean returnsUnit(ParameterizedType functionalInterfaceType) {
+        TypeInfo typeInfo = functionalInterfaceType.typeInfo();
+        if (typeInfo == null || !typeInfo.fullyQualifiedName().startsWith("kotlin.jvm.functions.Function")
+            || functionalInterfaceType.parameters().isEmpty()) return false;
+        ParameterizedType result = functionalInterfaceType.parameters().getLast();
+        return result.typeInfo() != null && "kotlin.Unit".equals(result.typeInfo().fullyQualifiedName());
     }
 
     private Variable createSlice(int i, Variable base, Variable sub) {
