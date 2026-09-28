@@ -78,7 +78,7 @@ class ThrowBodyTest : KotlinScanTestBase() {
             d: if(s==null){throw new IllegalStateException("d");} String t=s; return t;
             e: Integer ${'$'}elvis0=s==null?null:s.hashCode(); if(${'$'}elvis0==null){return 0;} return ${'$'}elvis0;
             f: Pair<String,String> ${'$'}elvis1=b?TuplesKt.to(s,s):null; if(${'$'}elvis1==null){return 0;} String x=${'$'}elvis1.component1(),y=${'$'}elvis1.component2(); return (x==null?"":x).hashCode()+(y==null?"":y).hashCode();
-            g: Pair<String,Object> ${'$'}destructured0; if(e instanceof String){${'$'}destructured0=TuplesKt.to(e,p);}else{Pair<String,Object> ${'$'}elvis2=p instanceof String?TuplesKt.to(p,e):null;if(${'$'}elvis2==null){return false;}${'$'}destructured0=${'$'}elvis2;} String a=${'$'}destructured0.component1(),b=${'$'}destructured0.component2(); return a.equals(b);
+            g: Pair<String,Object> ${'$'}destructured0; if(e instanceof String){${'$'}destructured0=TuplesKt.to((String)e,p);}else{Pair<String,Object> ${'$'}elvis2=p instanceof String?TuplesKt.to((String)p,e):null;if(${'$'}elvis2==null){return false;}${'$'}destructured0=${'$'}elvis2;} String a=${'$'}destructured0.component1(),b=${'$'}destructured0.component2(); return a.equals(b);
             h: String v; if(b){v="x";}else{if(!(t==null)){v=t;}else{if(s==null){return 0;}v=s;}} return v.hashCode();
             """.trimIndent(), listOf("a", "b", "c", "d", "e", "f", "g", "h").joinToString("\n") { "$it: ${body(it)}" })
     }
