@@ -1393,10 +1393,12 @@ public abstract class ValueImpl implements Value {
             return codec.encodeList(context, encodedValues);
         }
 
+        // a decoded set is a registry like any other (#30): prep's addImplementation adds to it when the decoded
+        // hint landed on a type the project also defines in source, so it must be mutable like the rest
         public static SetOfMethodInfo from(Codec codec, Codec.Context context, Codec.EncodedValue encodedList) {
             List<Codec.EncodedValue> encodedValues = codec.decodeList(context, encodedList);
             Set<MethodInfo> set = encodedValues.stream().map(e -> codec.decodeMethodInfo(context, e))
-                    .collect(Collectors.toUnmodifiableSet());
+                    .collect(Collectors.toCollection(HashSet::new));
             return new SetOfMethodInfoImpl(set);
         }
 

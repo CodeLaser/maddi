@@ -212,9 +212,12 @@ public class SwitchEntryImpl implements SwitchEntry {
 
     @Override
     public Stream<Variable> variableStreamDescend() {
-        return Stream.concat(Stream.concat(patternVariable == null ? Stream.of() : patternVariable.variableStreamDescend(),
-                        whenExpression.variableStreamDescend()),
-                statement.variableStreamDescend());
+        // the case labels read variables too (#66): a Java enum label is a static field read, and K2 lowers a
+        // subject-less Kotlin `when` to a switch over `true` whose labels are arbitrary boolean expressions
+        Stream<Variable> s0 = conditions.stream().flatMap(Expression::variableStreamDescend);
+        Stream<Variable> s1 = patternVariable == null ? Stream.of() : patternVariable.variableStreamDescend();
+        return Stream.concat(s0, Stream.concat(s1,
+                Stream.concat(whenExpression.variableStreamDescend(), statement.variableStreamDescend())));
     }
 
     @Override

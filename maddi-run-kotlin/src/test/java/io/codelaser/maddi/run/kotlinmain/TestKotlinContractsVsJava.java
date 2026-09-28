@@ -186,15 +186,13 @@ public class TestKotlinContractsVsJava {
         assertNotEquals(verdict(method(jSink, "peek")), verdict(method(jSink, "peekPlain")),
                 "the method contract changes nothing on the Java side; the comparison would be vacuous" + report);
 
-        // ⛔ KNOWN JAVA-ENGINE DEFECT, pinned as it is (both languages agree on the wrong answer): a @NotModified
-        // contract on an abstract method's parameter makes the CALLER's argument MODIFIED, where the unannotated
-        // call leaves it unmodified. The abstract method's link summary is computed while the parameter is still
-        // undecided (read as dependent: `b.§m ≡ this*.§m`), and methodLinks retention keeps that richer value over
-        // the recomputed `[-]` once the parameter is decided @Independent. The fix is parked on branch
-        // park/abstract-summary-latest-wins, waiting on the ws/dsl work on abstract methods without
-        // implementations (it unmasks an optimistic default there). When it lands, this flips to assertEquals.
-        assertNotEquals(verdict(method(jUse, "paramPlain")), verdict(method(jUse, "paramNotModified")),
-                "the @NotModified-parameter defect no longer reproduces: switch this to assertEquals" + report);
+        // A @NotModified contract on an abstract method's parameter used to make the CALLER's argument MODIFIED,
+        // where the unannotated call left it unmodified: the abstract method's link summary was computed while the
+        // parameter was still undecided (read as dependent: `b.§m ≡ this*.§m`), and methodLinks retention kept that
+        // richer value over the recomputed `[-]` once the parameter was decided @Independent. Since 2026-09-27 the
+        // latest method-link summary wins (LinkComputerImpl), and the annotated call reads as the plain one does.
+        assertEquals(verdict(method(jUse, "paramPlain")), verdict(method(jUse, "paramNotModified")),
+                "a @NotModified parameter contract must not make the caller's argument modified" + report);
 
         assertEquals(javaSide.toString(), kotlinSide.toString(),
                 "a Kotlin contract annotation must yield the verdicts of the same annotation in Java");
