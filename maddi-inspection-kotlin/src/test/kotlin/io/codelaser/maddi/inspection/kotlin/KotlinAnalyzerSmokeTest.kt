@@ -58,11 +58,10 @@ class KotlinAnalyzerSmokeTest {
     }
 
     /**
-     * ⛔ The one risk in lowering `s ?: return 0` into TWO statements: they are indexed `0.0`/`0.1` with
-     * nothing at `0`, because the indexes only have to SORT and renumbering would shift every statement
-     * after them. Prep compares those indexes as strings and keys its per-statement variable data on them,
-     * so this asserts prep actually RUNS over a lowered method and sees both variables — a structural
-     * assumption is worth exactly as much as the run that confirms it.
+     * `s ?: return 0` lowers into TWO statements, indexed as siblings. They were `0.0`/`0.1`, children of a
+     * statement `0` that did not exist, and prep, which scopes a local by its statement index, lost `t` after
+     * them (#69). This test passed all along: `names.contains("t")` matched the `t` of `String`. It now asks
+     * for the variable by its whole name.
      */
     @Test
     fun analyzerRunsOnALoweredControlFlowElvis() {
@@ -73,14 +72,14 @@ class KotlinAnalyzerSmokeTest {
         val method = types.first().findUniqueMethod("m", 1)
         val body = method.methodBody()
         // the lowering: `if (s == null) return 0;` then `val t = s;` then the original return
-        assertEquals(listOf("0.0", "0.1", "1"), body.statements().map { it.source().index() })
+        assertEquals(listOf("0", "1", "2"), body.statements().map { it.source().index() })
 
         PrepAnalyzer(runtime).doMethod(method)
 
         val variableData = VariableDataImpl.of(body.lastStatement())
         assertNotNull(variableData)
-        val names = variableData.knownVariableNamesToString()
-        assertTrue(names.contains("s"), "variables: $names")
+        val names = variableData.knownVariableNamesToString().split(", ")
+        assertTrue(names.any { it.endsWith(":0:s") }, "variables: $names")
         assertTrue(names.contains("t"), "variables: $names")
     }
 

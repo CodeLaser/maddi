@@ -147,18 +147,19 @@ public class TestKotlinLambdas extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#69, the null-safe hoisting shape: `val n = s?.let { … } ?: 0` becomes `$nullSafe0 = …` at 0.0 and
-     `int n = …` at 0.1. At statement 1, `n` is unknown, so `return n` reads nothing.
+     The null-safe hoisting shape: `val n = s?.let { … } ?: 0` is `$nullSafe0 = …` and `int n = …`, siblings 0 and 1
+     (#69: 0.0 and 0.1), so `return n` at 2 reads `n`.
      */
     @Test
     public void scope() {
         MethodInfo scope = p.kotlin("scope");
-        assertEquals("$nullSafe0, k.X.scope(String):0:s, n",
-                VariableDataImpl.of(scope.methodBody().statements().get(1)).knownVariableNamesToString());
-        assertEquals("k.X.scope(String), k.X.scope(String):0:s",
+        assertEquals(3, scope.methodBody().statements().size());
+        assertEquals("$nullSafe0, k.X.scope(String), k.X.scope(String):0:s, n",
                 VariableDataImpl.of(scope.methodBody().statements().getLast()).knownVariableNamesToString());
         assertEquals("""
-                return scope: D:-, A:[1] | R -
-                s: D:-, A:[] | R 0.0""", summary(scope));
+                $nullSafe0: D:0, A:[0] | R 1
+                n: D:1, A:[1] | R 2
+                return scope: D:-, A:[2] | R -
+                s: D:-, A:[] | R 0""", summary(scope));
     }
 }

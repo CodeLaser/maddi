@@ -1040,7 +1040,7 @@ class KotlinScan(
             convertInitializers(companion)
             companionPsi?.let { declaration ->
                 convertInitBlocks(declaration, companion)
-                initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(constructorBody(listOf(), it)) }
+                initBlocksOf.remove(constructor)?.let { constructor.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(listOf(), it))) }
             }
             companion.builder().commit()
         }
@@ -1192,7 +1192,7 @@ class KotlinScan(
                 typeInfo.fields().firstOrNull { it.name() == param.name() }
                     ?.let { statements.add(assignFieldFromParam(typeInfo, it, param, false)) }
             }
-            cst.builder().setMethodBody(constructorBody(statements, initBlocksOf.remove(cst)))
+            cst.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(statements, initBlocksOf.remove(cst))))
             references.attach(runtime, cst)
             cst.builder().commit()
         }
@@ -1243,7 +1243,7 @@ class KotlinScan(
             inits.filterIsInstance<KtAnonymousInitializer>().let { blocks ->
                 blocks.forEachIndexed { j, init -> body.addStatement(convertInitBlock(init, initializer, bodyConverter.pad(j, blocks.size))) }
             }
-            initializer.builder().setMethodBody(body.build())
+            initializer.builder().setMethodBody(bodyConverter.normalizeIndices(body.build()))
             return
         }
         val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
@@ -1832,7 +1832,7 @@ class KotlinScan(
             if (statements.isEmpty()) return@forEach
             val body = runtime.newBlockBuilder()
             statements.forEach { body.addStatement(it) }
-            method.builder().setMethodBody(body.build())
+            method.builder().setMethodBody(bodyConverter.normalizeIndices(body.build()))
         }
     }
 

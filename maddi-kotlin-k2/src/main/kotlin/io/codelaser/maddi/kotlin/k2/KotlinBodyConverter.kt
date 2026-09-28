@@ -34,6 +34,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.info.Variance
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.cst.api.statement.Block
+import io.codelaser.maddi.cst.api.translate.TranslationMap
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
@@ -292,7 +293,11 @@ internal class KotlinBodyConverter(
             returning, method, locals)
 
     private fun KaSession.convertBodyOf(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
-                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block {
+                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block =
+        normalizeIndices(convertBodyOfRaw(blockBody, expressionBody, returning, method, locals))
+
+    private fun KaSession.convertBodyOfRaw(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
+                                           method: MethodInfo, locals: MutableMap<String, Variable>): Block {
         if (blockBody != null) return statementsToBlock(blockBody.statements, method, locals, "")
         val block = runtime.newBlockBuilder()
         expressionBody?.let { body ->
@@ -341,6 +346,72 @@ internal class KotlinBodyConverter(
     internal fun indexed(statement: Statement, index: String): Statement =
         statement.withSource(runtime.noSource().withIndex(index))
 
+    /**
+     * <b>A statement's index is its position in its block (#69)</b>, as the Java parser gives it and as
+     * `Block.findStatementByIndex` reads it. The lowerings index the statements ONE source statement becomes as
+     * `<i>.0`, `<i>.1`, …, which sort, but which prep reads as the sub-blocks of statement `<i>`: a local declared by
+     * the first (`val v = try …` is `int v;` then `try { v = … }`) was unknown at `<i+1>`, and every read of it after
+     * its statement was lost. Renumbering where they are built would shift every later statement's index, and the
+     * subtree of each: so it is done here, once per body, after building.
+     *
+     * Each direct statement of a block takes `<block>.<k>` (`<k>` at the root, zero-padded as [pad] does); a
+     * statement's sub-blocks keep their own last component (an `if`'s `.0`/`.1`, a `try`'s catch numbering) under the
+     * new prefix, and a bare block statement's statements are `<its index>.<k>`, as [statementsToBlock] builds an init
+     * block. A body already positional is returned as it is.
+     */
+    internal fun normalizeIndices(body: Block): Block = if (positional(body, "")) body else renumberBlock(body, "")
+
+    private fun childIndex(blockIndex: String, k: Int, n: Int): String =
+        if (blockIndex.isEmpty()) pad(k, n) else "$blockIndex.${pad(k, n)}"
+
+    private fun lastComponent(index: String?): String? = index?.substringAfterLast('.')
+
+    private fun positional(block: Block, blockIndex: String): Boolean {
+        val n = block.statements().size
+        return block.statements().withIndex().all { (k, s) ->
+            val expected = childIndex(blockIndex, k, n)
+            s.source()?.index() == expected && (if (s is Block) positional(s, expected)
+                else s.subBlockStream().allMatch { b ->
+                    val last = lastComponent(b.source()?.index())
+                    last == null || b.source()?.index() == "$expected.$last" && positional(b, "$expected.$last")
+                })
+        }
+    }
+
+    private fun renumberBlock(block: Block, blockIndex: String): Block {
+        val n = block.statements().size
+        val position = java.util.IdentityHashMap<Statement, Int>()
+        block.statements().forEachIndexed { k, s -> position[s] = k }
+        val renumbered = block.translate(object : IndexTranslation() {
+            override fun translateStatement(statement: Statement): List<Statement> =
+                if (statement === block) listOf(statement)
+                else position[statement]?.let { k -> listOf(renumberStatement(statement, childIndex(blockIndex, k, n))) }
+                    ?: listOf(statement)
+        }).single() as Block
+        return if (blockIndex.isEmpty()) renumbered
+        else renumbered.withSource((renumbered.source() ?: runtime.noSource()).withIndex(blockIndex)) as Block
+    }
+
+    private fun renumberStatement(statement: Statement, index: String): Statement {
+        if (statement is Block) return renumberBlock(statement, index)
+        val renumbered = statement.translate(object : IndexTranslation() {
+            override fun translateStatement(statement2: Statement): List<Statement> = when {
+                statement2 === statement -> listOf(statement2)
+                // a sub-block: its own last component, under the statement's new index; one with no index is left
+                statement2 is Block -> lastComponent(statement2.source()?.index())
+                    ?.let { listOf(renumberBlock(statement2, "$index.$it")) } ?: listOf(statement2)
+                else -> listOf(statement2)
+            }
+        }).single()
+        return renumbered.withSource((renumbered.source() ?: runtime.noSource()).withIndex(index))
+    }
+
+    /** A translation that changes nothing but what [translateStatement] returns: statement indices. */
+    private abstract inner class IndexTranslation : TranslationMap {
+        override fun translateVariableRecursively(variable: Variable): Variable =
+            runtime.translateVariableRecursively(this, variable)
+    }
+
     /** Zero-pad [i] to the width of the largest index in a block of [n] statements (so they sort in order). */
     internal fun pad(i: Int, n: Int): String =
         i.toString().padStart((n - 1).coerceAtLeast(0).toString().length, '0')
@@ -356,9 +427,8 @@ internal class KotlinBodyConverter(
         prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, childIndexOf(k))) }
         statements.forEachIndexed { j, s ->
             val childIndex = childIndexOf(j + prologue.size)
-            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
-            // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
-            // (prepwork compares them as strings), and renumbering would shift every statement after them.
+            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are built as
+            // `<childIndex>.0` and `.1`, and renumbered as siblings once the body is complete ([normalizeIndices], #69).
             val lowered = atStatement(childIndex) { loweredStatements(s, method, locals, childIndex) }
             if (lowered != null) lowered.forEach { block.addStatement(it) }
             else convertHoisting(s, method, locals, childIndex).forEach { block.addStatement(it) }
@@ -1879,7 +1949,7 @@ internal class KotlinBodyConverter(
                     if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(value)
                     else runtime.newReturnStatement(value), "0")).build()
             } ?: runtime.emptyBlock()
-        samBuilder.setMethodBody(body).commit()
+        samBuilder.setMethodBody(normalizeIndices(body)).commit()
         anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
             .setSingleAbstractMethod(sam).commit()
         val lambda = runtime.newLambdaBuilder().setMethodInfo(sam)
@@ -3321,7 +3391,7 @@ internal class KotlinBodyConverter(
             }
         }
         statementIndex = enclosingIndex
-        samBuilder.setMethodBody(block.build()).commit()
+        samBuilder.setMethodBody(normalizeIndices(block.build())).commit()
 
         anonymousType.builder()
             .addMethod(sam)
@@ -3943,7 +4013,7 @@ internal class KotlinBodyConverter(
         val body = runtime.newBlockBuilder().addStatement(indexed(
             if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(call)
             else runtime.newReturnStatement(call), "0")).build()
-        samBuilder.setMethodBody(body).commit()
+        samBuilder.setMethodBody(normalizeIndices(body)).commit()
         anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
             .setSingleAbstractMethod(sam).commit()
         return runtime.newLambdaBuilder().setMethodInfo(sam)

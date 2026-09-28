@@ -43,9 +43,9 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
         val p = parse("fun f(s: String?): Int { val t = s ?: return 0; return t.hashCode() }")
         assertEquals(0, PlaceholderCensus.of(listOf(p)).total, PlaceholderCensus.of(listOf(p)).byKind.toString())
         val statements = p.findUniqueMethod("f", 1).methodBody().statements()
-        // ⚠ indexed `0.0`/`0.1` with nothing at `0`: the indexes only have to SORT, and renumbering the
-        // siblings would move every statement after them
-        assertEquals(listOf("0.0", "0.1", "1"), statements.map { it.source().index() })
+        // siblings, each indexed by its position (#69: they were 0.0/0.1, children of a statement 0 that did not
+        // exist, and prep lost `t` at the next statement)
+        assertEquals(listOf("0", "1", "2"), statements.map { it.source().index() })
         assertTrue(statements[0] is IfElseStatement, statements[0].javaClass.toString())
         assertTrue((statements[0] as IfElseStatement).block().statements().single() is ReturnStatement)
         assertTrue(statements[1] is LocalVariableCreation, statements[1].javaClass.toString())
@@ -136,7 +136,7 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
             """.trimIndent() + "\n")
         val statements = types.first().findUniqueMethod("f", 0).methodBody().statements()
         // temporary, guard, declaration — then the original `return t`
-        assertEquals(listOf("0.0", "0.1", "0.2", "1"), statements.map { it.source().index() })
+        assertEquals(listOf("0", "1", "2", "3"), statements.map { it.source().index() })
         assertTrue(statements[0] is LocalVariableCreation, statements[0].javaClass.toString())
         assertEquals(1, scan.elvisTemporaries)
         assertEquals(0, scan.elvisReEvaluations, "the left operand must be evaluated exactly once")
