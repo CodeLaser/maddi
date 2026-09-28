@@ -85,7 +85,9 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
   parameter is typed as the element; #88 a modification inside `apply { }` is not a modification of the receiver,
   so a builder method reads as non-modifying (unsound); #87 `toList()` is not a recognised copy; #89 tracks the
   stdlib contract gap (`xs.sum()` modifies `xs`); #73 now measured for a companion `var` (mutability moves to the
-  companion).
+  companion); #90 class delegation never assigns `$$delegate_0` in the constructor, so the type reads `@Independent`
+  of its delegate (unsound); #92 a callable reference (`sb::append`) is typed `KFunction<A,R>`, not a functional
+  interface, so its link loses the lambda marker.
 - **#67.** Kotlin printed as Java does not compile: item 1 is a real placeholder (a comparison on a smart-cast
   value), item 2 a wrong type (`is Int` as `instanceof int`); items 3 and 4 may be intended.
 
@@ -104,9 +106,10 @@ has since been contracted. Neither CLI loads an archive by default, for Java or 
 prepwork, link and the analyzer hold ~1,000 Java-input tests and, before §5, zero Kotlin-input ones.
 
 - prepwork: a Kotlin tier covering the main topics (§5); synthesized members at the `doPrimaryTypes` level.
-- link: Kotlin-input tests for the path `FunctionN` lambdas take (`VirtualFieldComputer`,
-  `LinkAppliedFunctionalInterface`), or a decision to treat `kotlin.jvm.functions` as standard.
-- analyzer: `$default`, synthesized accessors, delegation forwarders; an empty synthesized body reads as
+- link: the `FunctionN` path is covered by §6 (`TestKotlinLinkLambdas`: own higher-order functions, lambdas as
+  values, SAM conversion to the JDK all agree; a bound callable reference is mistyped, #92); the decision whether
+  `kotlin.jvm.functions` is standard is still #80.
+- analyzer: `$default`, synthesized accessors and delegation forwarders are covered by §7 (delegation: #90); an empty synthesized body reads as
   "modifies nothing" (`explicitlyEmptyMethod()`).
 
 ### 3.4 Analyzer rules that name Java
@@ -150,7 +153,7 @@ Everything else is structurally in place and needs evidence rather than code.
 
 ## 5. The Kotlin tier in `maddi-modification-prepwork` (added 2026-09-28)
 
-Package `io.codelaser.maddi.modification.prepwork.kotlin`, 42 tests in 6 classes, part of the module's ordinary
+Package `io.codelaser.maddi.modification.prepwork.kotlin`, 43 tests in 6 classes, part of the module's ordinary
 `test` task (about 5 s on top of the Java tests). Every fixture is a pair: a Kotlin class `k.X` and the Java
 class `j.X` that says what kotlinc makes of it. Both go through **one** `MixedProjectInspector` parse, the
 production path (one runtime, the JDK read from bytecode, kotlin-stdlib on the class path), with a
@@ -169,7 +172,7 @@ from its own symbols, a model no production run uses; `s.length` does not even r
 | `TestKotlinTry` | try/catch/finally, several catches, rethrow, try as a value, `val v = if (…) { …; a } else …`, both inside a loop | 4 of 7 | #69 (the local of a two-statement lowering is lost at the next statement) |
 | `TestKotlinLambdas` | captured reads, a `var` assigned in a lambda, non-local return, local `fun`, `?.let { } ?:` | 2 of 5 | #72, #65 (prep side), #69 (null-safe hoisting) |
 | `TestKotlinEscapes` | `error()`, `TODO()`, `throw` in a `when` arm, `?: return`, `?: throw` | 2 of 5 | #75, #69 (control-flow elvis) |
-| `TestKotlinTypeLevel` | call graph and analysis order; part of construction (init block, secondary constructor); final fields; getter/setter classification of property accessors, `componentN`, `lateinit`, `@JvmField`, objects; bodies of delegation forwarders, `$default` bridges, `copy`; the members with empty bodies | pinned values | #73 (a companion's `const val` modelled twice) |
+| `TestKotlinTypeLevel` | call graph and analysis order; part of construction (init block, secondary constructor); final fields; getter/setter classification of property accessors, `componentN`, `lateinit`, `@JvmField`, objects; bodies of delegation forwarders, `$default` bridges, `copy`; the members with empty bodies | pinned values | #73 (a companion's `const val` modelled twice), #90 (the delegation constructor is empty) |
 
 What the tier found on its first run:
 
@@ -190,7 +193,7 @@ Not covered yet: synchronized/`use {}`, destructuring declarations, `for ((k, v)
 
 ## 6. The Kotlin tier in `maddi-modification-link` (added 2026-09-28)
 
-Package `io.codelaser.maddi.modification.link.kotlin`, 34 tests in 6 classes, in the module's ordinary `test`
+Package `io.codelaser.maddi.modification.link.kotlin`, 41 tests in 8 classes, in the module's ordinary `test`
 task. Same design as §5: one mixed parse per fixture pair, the annotated JDK and `libs/kotlin` results loaded as in
 the Java tests' `CommonTest`, prep, then `LinkComputerImpl` (`Options.TEST`). A method's `MethodLinkedVariables`
 prints without fully qualified names, so the Kotlin and Java strings compare directly, in a normal form (each
@@ -208,6 +211,11 @@ memberless and silently dropped a Java file that called one (#76 describes what 
 | `TestKotlinLinkFunctions` | function types vs Java `Function1` and `java.util.function`, non-local return, `var` assigned in a lambda | 1 of 4 | #80 (decision), #65, #72 |
 | `TestKotlinLinkTypes` | data class (constructor, `componentN`, destructuring, `copy`), another class's property, custom setter, `object`, loop, try, `also`/`apply`/`let`, sequences | 4 of 9 | #81, #82, #80 (`let`), #78 (sequence); `also`/`apply` do not see a modification through the lambda, by the engine's shared design (c0289fa84) |
 | `TestKotlinLinkIsolation` | state across parses | — | #83 |
+| `TestKotlinLinkDelegation` | class delegation: forwarders, constructor | 1 of 2 | #90 (the constructor never assigns `$$delegate_0`) |
+| `TestKotlinLinkLambdas` | own higher-order function, lambda and bound callable reference as values, SAM conversion to `removeIf`/`computeIfAbsent`/`stream().filter`, a call into a Java-source class | 3 of 5 | #92 (callable reference type), #68 (call into Java source, both shapes) |
+
+**Fixed since (ws/dsl, merged into ws/object 2026-09-28):** #74, #75, #77, #81, #82, #83. Their pins have become
+parity assertions; the tables in §5 and §6 give the counts as first measured.
 
 Language-level parity holds wherever the types agree: a Kotlin function type links exactly as Java code taking a
 `Function1`, a Kotlin `object` as a Java singleton, a `$default` bridge as ordinary code. Of the 12 issues the two
@@ -216,7 +224,7 @@ and #76 was first misreported (a harness artifact) and corrected the same day.
 
 ## 7. The Kotlin tier in `maddi-modification-analyzer` (added 2026-09-28)
 
-Package `io.codelaser.maddi.modification.analyzer.kotlin`, 27 tests in 5 classes, in the module's ordinary `test`
+Package `io.codelaser.maddi.modification.analyzer.kotlin`, 44 tests in 8 classes, in the module's ordinary `test`
 task. Same design as §5 and §6, run to the end as the mixed CLI does: fault-tolerant prep that must isolate
 nothing, then `IteratingAnalyzerImpl` (30 iterations, stop on a cycle without improvement). A type's verdicts are
 printed one line per member (type: immutable/independent; field: final/unmodified/independent; method:
@@ -230,10 +238,16 @@ optionally restricted to the members both sides declare.
 | `TestKotlinAnalyzerCollections` | defensive copy with `List.copyOf` and with `toList()` | 1 of 2 | #87 |
 | `TestKotlinAnalyzerFunctions` | function-typed parameter and field, extension functions, and #65/#72/#82's shapes | 4 of 4 | — (those defects do not move these fixtures' verdicts) |
 | `TestKotlinAnalyzerMethods` | fluent builder, `apply` builder, identity, parameter and parameter-field modification, `Nothing`, recursion, `sum()` | 4 of 6 | #88, #89 |
+| `TestKotlinAnalyzerSynthesized` | class delegation, `$default`, `private set`, computed and `by lazy` properties, top-level functions and extension properties, operator, anonymous object, template, `with`/`run`/`also`/`use` on a field | 5 of 7 | #90, #88 |
+| `TestKotlinAnalyzerSuspend` | `suspend` functions (the Continuation parameter), the `sequence { }` builder | 2 of 2 (plus one shared doubt) | #89 (uncontracted `sequence`/`yieldAll`: the result reads `@Independent` of the elements it exposes, Java too) |
+| `TestKotlinAnalyzerControl` | `?.`/`?:`/`!!`, `when` with `is`, map destructuring, `buildList`, local function, interface and abstract properties, nested class, companion factory | 6 of 7 | #87 (a `toList()` at the only call site) |
 
 What agrees is most of the type system: value classes, sealed hierarchies, inheritance, objects, enums, generics,
 function types, extension functions, fluent and identity methods. The divergences cluster in two places:
 **construction** (Kotlin puts code into the primary constructor that the lowering does not: #84, #85, #86) and
-**the stdlib** (#87, #88, #89). Two of them are unsound rather than conservative: #85 (a stored parameter reads
-`@Independent`) and #88 (a mutating method reads non-modifying).
+**the stdlib** (#87, #88, #89). Three of them are unsound rather than conservative: #85 (a stored parameter reads
+`@Independent`), #88 (a mutating method reads non-modifying) and #90 (a type with a `by` delegate reads
+`@Independent` of it: the synthesized constructor does not assign `$$delegate_0`, which
+`TestKotlinLinkDelegation` in the link tier pins). #88 is measured wider than `apply`: `with`, `run`, `also` and `use`
+lose the modification whether the object is the receiver or `it`.
 

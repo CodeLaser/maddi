@@ -117,7 +117,8 @@ public class TestKotlinTypeLevel extends CommonKotlinTest {
         assertEquals("k.D.<init>(int,String)", partOfConstruction(type("k.D")));
         assertEquals("code=true, A=true, B=true", finalFields(type("k.E")));
         assertEquals("hits=false, INSTANCE=true", finalFields(type("k.O")));
-        // class delegation: the delegate is a synthetic final field, assigned in the constructor
+        // class delegation: the delegate is a synthetic final field; kotlinc assigns it in the constructor, K2's
+        // lowering does not (maddi#90, see delegationConstructor)
         assertEquals("$$delegate_0=true", finalFields(type("k.Del")));
     }
 
@@ -165,8 +166,19 @@ public class TestKotlinTypeLevel extends CommonKotlinTest {
         assertEquals("name, values, valueOf, getEntries, <static_0>", emptyBodies(type("k.E")));
         assertEquals("<init>", emptyBodies(type("k.O")));
         // since #85 (2026-09-28) the delegate is assigned IN the constructor (`this.$$delegate_0 = d` reads the
-        // constructor parameter), so Del's constructor is no longer empty
+        // constructor parameter), so Del's constructor is no longer empty (#90)
         assertEquals("", emptyBodies(type("k.Del")));
+    }
+
+    /*
+     #90 (fixed by #85, 2026-09-28): kotlinc's constructor is `{this.$$delegate_0=d;}`, and so is K2's; before, the
+     lowering left it empty, `d` was read nowhere, the field assigned nowhere, and prep had no variable data for
+     the constructor at all.
+     */
+    @Test
+    public void delegationConstructor() {
+        MethodInfo constructor = type("k.Del").findConstructor(1);
+        assertEquals("{this.$$delegate_0=d;}", constructor.methodBody().print(p.runtime().qualificationSimpleNames()).toString());
     }
 
     private static String emptyBodies(TypeInfo typeInfo) {
