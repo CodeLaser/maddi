@@ -1,11 +1,9 @@
-package io.codelaser.maddi.modification.prepwork.kotlin;
+package io.codelaser.maddi.modification.link.kotlin;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.api.variable.FieldReference;
-import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
@@ -13,17 +11,17 @@ import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnd;
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
+import io.codelaser.maddi.modification.link.LinkComputer;
+import io.codelaser.maddi.modification.link.impl.LinkComputerImpl;
 import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
-import io.codelaser.maddi.modification.prepwork.variable.VariableData;
-import io.codelaser.maddi.modification.prepwork.variable.VariableInfo;
-import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
+import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
+import io.codelaser.maddi.modification.prepwork.variable.MethodLinkedVariables;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,20 +30,16 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /*
- Prep on KOTLIN input, from inside prepwork. Every fixture is a pair: a Kotlin class `k.X` and the Java class `j.X`
- that says what kotlinc makes of it. Both go through ONE mixed parse (MixedProjectInspector, the production path:
- one runtime, the JDK from bytecode), prep runs on every primary type, and the variables of a method that exists in
- both must get the same definition, assignments and reads.
+ Linking KOTLIN input, from inside the link module. Every fixture is a pair: a Kotlin class `k.X` and the Java class
+ `j.X` that says what kotlinc makes of it. Both go through ONE mixed parse (MixedProjectInspector, the production
+ path), the annotated JDK and library results are loaded as in the Java tests' CommonTest, prep runs on every primary
+ type, and LinkComputerImpl computes each method's MethodLinkedVariables.
 
- The Java twin is the oracle, so a difference is a finding, not a golden to update: either the lowering is not
- faithful (a front-end issue), or prep treats the two CSTs differently (a prepwork issue). Where a difference is
- filed, the test pins the Kotlin side and names the issue.
-
- Why not KotlinScan on its own: without the Java front end's CompiledTypesManager, K2 builds library types from its
- own symbols, a model no production run uses (`s.length` does not even resolve there; see
- KotlinTypeMapper.bootstrapString).
+ A method's links print without fully qualified names (parameters by index, `this`, virtual fields named after type
+ parameters), so the two sides compare as strings. The Java twin is the oracle: a difference is a finding. Where a
+ difference is filed, the test pins both sides and names the issue, so it fails the day the issue is fixed.
  */
-public abstract class CommonKotlinTest {
+public abstract class CommonKotlinLinkTest {
 
     /* The front end runs flat on the test class path, as in maddi-inspection-kotlin's tests. */
     @BeforeAll
@@ -53,9 +47,8 @@ public abstract class CommonKotlinTest {
         if (!KotlinFrontEnds.isInstalled()) KotlinFrontEnds.install(KotlinFrontEnd.load());
     }
 
-    /* The result of one mixed parse, with prep done on all of it. */
     protected record Parsed(Runtime runtime, TypeInfo kotlinX, TypeInfo javaX, List<TypeInfo> kotlinTypes,
-                            List<TypeInfo> javaTypes) {
+                            LinkComputer linkComputer) {
         MethodInfo kotlin(String name) {
             return method(kotlinX, name);
         }
@@ -64,32 +57,42 @@ public abstract class CommonKotlinTest {
             return method(javaX, name);
         }
 
-        /* The differential assertion: the same summary for the method `name` on both sides. */
+        String kotlinLinks(String name) {
+            return links(kotlin(name));
+        }
+
+        String javaLinks(String name) {
+            return links(java(name));
+        }
+
+        String links(MethodInfo methodInfo) {
+            MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
+            return mlv.toString();
+        }
+
+        /*
+         The differential assertion: the same method links on both sides. Compared in a normal form (the links of
+         each parameter, and of the return value, sorted): a constructor or field write prints the same links in
+         a different order on the two sides, which is insertion order, not meaning.
+         */
         void assertSameAsJava(String name) {
-            assertEquals(summary(java(name)), summary(kotlin(name)), "method " + name);
+            assertEquals(normalize(javaLinks(name)), normalize(kotlinLinks(name)), "method " + name);
         }
     }
 
     /*
-     Parse `kotlin` (package k) and `java` (package j) together, and run prep on every primary type. Each source
-     must declare a class X. Extra Java files (`fileName -> source`, package j) may sit beside them.
+     Parse `kotlin` (package k) and `java` (package j) together, load the annotated APIs, and run prep on every
+     primary type. Each source must declare a class X.
      */
-    protected static Parsed prep(String kotlin, String java, String... extraJava) {
-        return prep(true, kotlin, java, extraJava);
-    }
-
-    protected static Parsed prep(boolean runPrep, String kotlin, String java, String... extraJava) {
+    protected static Parsed link(String kotlin, String java) {
         try {
-            Path root = Files.createTempDirectory("prep-kotlin");
+            Path root = Files.createTempDirectory("link-kotlin");
             Path kDir = root.resolve("kotlin");
             Path jDir = root.resolve("java");
             Files.createDirectories(kDir.resolve("k"));
             Files.createDirectories(jDir.resolve("j"));
             Files.writeString(kDir.resolve("k/X.kt"), kotlin);
             Files.writeString(jDir.resolve("j/X.java"), java);
-            for (int i = 0; i + 1 < extraJava.length; i += 2) {
-                Files.writeString(jDir.resolve("j/" + extraJava[i]), extraJava[i + 1]);
-            }
             // the stdlib is a dependency of BOTH source sets: javac's class path is built from a Java source set's
             // dependencies, so without it every kotlin.* type is a memberless stub on the Java side
             SourceSet stdlib = kotlinStdlib();
@@ -104,19 +107,19 @@ public abstract class CommonKotlinTest {
             MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(config);
 
             // a construct the front end could not read is a placeholder, and both sides could then agree on
-            // variables neither derived from the code: every fixture must convert completely
+            // links neither derived from the code: every fixture must convert completely
             PlaceholderCensus census = PlaceholderCensus.of(parsed.getKotlinTypes());
             assertEquals(0, census.getTotal(), "unread Kotlin: " + census.dumpLines());
 
             Runtime runtime = parsed.getRuntime();
-            if (runPrep) {
-                Set<TypeInfo> primaryTypes = Stream.concat(parsed.getKotlinTypes().stream(),
-                                parsed.getJavaTypes().stream())
-                        .map(TypeInfo::primaryType).collect(Collectors.toUnmodifiableSet());
-                new PrepAnalyzer(runtime).doPrimaryTypes(primaryTypes);
-            }
+            new LoadAnalysisResults(runtime, kotlinSet).go(LoadAnalysisResults.ANALYZED_RESULTS);
+            Set<TypeInfo> primaryTypes = Stream.concat(parsed.getKotlinTypes().stream(),
+                            parsed.getJavaTypes().stream())
+                    .map(TypeInfo::primaryType).collect(Collectors.toUnmodifiableSet());
+            new PrepAnalyzer(runtime).doPrimaryTypes(primaryTypes);
+            LinkComputer linkComputer = new LinkComputerImpl(parsed.getJavaInspector(), LinkComputer.Options.TEST);
             return new Parsed(runtime, find(parsed.getKotlinTypes(), "k.X"), find(parsed.getJavaTypes(), "j.X"),
-                    parsed.getKotlinTypes(), parsed.getJavaTypes());
+                    parsed.getKotlinTypes(), linkComputer);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -138,34 +141,28 @@ public abstract class CommonKotlinTest {
                 .setExternalLibrary(true).setLibrary(true).setUri(jar.toUri()).build();
     }
 
+    /* "[a,b, c] --> d,e": sort the comma-separated links inside each parameter and inside the return value */
+    static String normalize(String mlv) {
+        int arrow = mlv.indexOf(" --> ");
+        String params = mlv.substring(1, arrow - 1);
+        String ret = mlv.substring(arrow + 5);
+        String sortedParams = params.isEmpty() ? "" : Stream.of(params.split(", "))
+                .map(CommonKotlinLinkTest::sortLinks).collect(Collectors.joining(", "));
+        return "[" + sortedParams + "] --> " + sortLinks(ret);
+    }
+
+    private static String sortLinks(String links) {
+        return Stream.of(links.split(",")).sorted().collect(Collectors.joining(","));
+    }
+
     protected static TypeInfo find(List<TypeInfo> types, String fqn) {
-        return types.stream().filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst()
+        return types.stream().flatMap(TypeInfo::recursiveSubTypeStream)
+                .filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst()
                 .orElseThrow(() -> new AssertionError("no type " + fqn + " in " + types));
     }
 
-    /*
-     The locals and parameters a method's body knows at its end, one line each: simple name, definition and
-     assignments, reads. Fields and `this` are left out: Kotlin reaches a property through its accessor, Java
-     through the field; the dedicated tests look at that.
-     */
-    protected static String summary(MethodInfo methodInfo) {
-        return summary(VariableDataImpl.of(methodInfo));
-    }
-
-    protected static String summary(VariableData vd) {
-        return vd.variableInfoStream()
-                .filter(vi -> !(vi.variable() instanceof This) && !(vi.variable() instanceof FieldReference))
-                .sorted(Comparator.comparing(vi -> vi.variable().simpleName()))
-                .map(CommonKotlinTest::line)
-                .collect(Collectors.joining("\n"));
-    }
-
-    protected static String line(VariableInfo vi) {
-        return vi.variable().simpleName() + ": " + vi.assignments() + " | R " + vi.reads();
-    }
-
     protected static MethodInfo method(TypeInfo typeInfo, String name) {
-        return typeInfo.methodStream().filter(m -> name.equals(m.name())).findFirst()
+        return typeInfo.constructorAndMethodStream().filter(m -> name.equals(m.name())).findFirst()
                 .orElseThrow(() -> new AssertionError("no method " + name + " in " + typeInfo));
     }
 }

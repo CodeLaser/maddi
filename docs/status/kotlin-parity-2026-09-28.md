@@ -45,7 +45,7 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
 |---|---|---|---|
 | Front end (K2) | ~90% of constructs converted | 400+ unit tests; placeholder ratchets on detekt and coil | an unknown residue of silent-wrong conversions; 64 placeholder kinds |
 | Prepwork | yes, no Kotlin-specific paths | 21 test files in `inspection-kotlin/prepwork` assert the Java tests' `VariableData` strings; since this document, a Kotlin test tier inside the module (§5) | synthesized accessors, `$default`, `<init>` bodies |
-| Link | yes in code | 0 Kotlin-input tests in the module; ~14 fixtures in `run-kotlin` | #65 non-local returns; `FunctionN` lambdas take the custom-functional-interface path |
+| Link | yes in code | since this document, a Kotlin tier inside the module (§6); ~14 fixtures in `run-kotlin` | #65 non-local returns; #80 `FunctionN` takes the custom-functional-interface path; #78 library collection links (Java too); #83 cross-parse state |
 | Analyzer | yes (3 Java-specific names) | 7 Kotlin-vs-Java fixture pairs, one detekt corpus floor | `listOf`/`toList` not recognised as immutable copies; `Sequence` is not a stream |
 | Stdlib contracts | ~38% of the JDK's member count | per-family differential tests (`TestKotlinCollectionReadsVsJava`) | §3.2 |
 | Persistence | write and read back | `TestKotlinAnalysisRoundTrip` | incremental analysis, rewire, `--analysis-results-target-dir`, `--updated-hints-dir` refused by name |
@@ -73,6 +73,12 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
 - **#72, #74, #75** (found by the prepwork tier, §5): a `var` assigned in a lambda is not assigned in the
   enclosing method; a local assigned or read in a switch expression's arm does not reach the enclosing statement
   (Java too); the arms of a `when` used as a value are indexed from 0 instead of under their statement.
+- **Found by the link tier (§6):** #77 a synthesized property setter cannot be linked (NPE); #81 a data class's
+  `copy()` with an omitted argument passes `null`; #82 a property with a custom setter, written from outside, is a
+  field write (the setter never runs); #78 `toList`/`toSet`/`filter`/`asSequence().first()` link to nothing and
+  library vararg calls link only their last argument (Java too); #79 a Java pattern variable in a conditional
+  expression links to nothing (Java); #83 link results of one parse carry a static-call scope from an earlier
+  parse in the same JVM (Java too).
 - **#67.** Kotlin printed as Java does not compile: item 1 is a real placeholder (a comparison on a smart-cast
   value), item 2 a wrong type (`is Int` as `instanceof int`); items 3 and 4 may be intended.
 
@@ -174,4 +180,30 @@ What the tier found on its first run:
 Not covered yet: synchronized/`use {}`, destructuring declarations, `for ((k, v) in map)`, coroutines, and a
 `doPrimaryTypes`-level run over a corpus slice. The Java tests' `CommonTest` classes that were ported in
 `maddi-inspection-kotlin/prepwork` (21 files, same `VariableData` strings) remain where they are.
+
+## 6. The Kotlin tier in `maddi-modification-link` (added 2026-09-28)
+
+Package `io.codelaser.maddi.modification.link.kotlin`, 34 tests in 6 classes, in the module's ordinary `test`
+task. Same design as §5: one mixed parse per fixture pair, the annotated JDK and `libs/kotlin` results loaded as in
+the Java tests' `CommonTest`, prep, then `LinkComputerImpl` (`Options.TEST`). A method's `MethodLinkedVariables`
+prints without fully qualified names, so the Kotlin and Java strings compare directly, in a normal form (each
+parameter's links sorted: K2 and javac insert the two links of a constructor parameter in opposite order).
+
+**Harness fix, both tiers:** kotlin-stdlib must be a class-path *part* and a *dependency* of the Java source set as
+well as the Kotlin one. As a plain class-path string it reached K2 only; javac then stubbed every `kotlin.*` type
+memberless and silently dropped a Java file that called one (#76 describes what the stub does to K2).
+
+| Class | Topic | Agrees with Java | Pinned divergence |
+|---|---|---|---|
+| `TestKotlinLinkFields` | primary constructor, synthesized getters, setter, collection field read/modified/viewed, another instance's field | 5 of 6 | #77 (synthesized setter throws) |
+| `TestKotlinLinkConditionals` | identity, if/when/elvis values, reassignment, cast, smart cast, arrays, varargs | 6 of 8 | #67 item 3 (smart cast loses `§m≡`), #79 (Java ternary pattern) |
+| `TestKotlinLinkCollections` | index, copy constructor, maps, for-in, `listOf`, `first`, `toList`/`toSet`/`filter`, `mutableListOf` | 4 of 6 | #78 (library copies link nothing; vararg last-argument) |
+| `TestKotlinLinkFunctions` | function types vs Java `Function1` and `java.util.function`, non-local return, `var` assigned in a lambda | 1 of 4 | #80 (decision), #65, #72 |
+| `TestKotlinLinkTypes` | data class (constructor, `componentN`, destructuring, `copy`), another class's property, custom setter, `object`, loop, try, `also`/`apply`/`let`, sequences | 4 of 9 | #81, #82, #80 (`let`), #78 (sequence); `also`/`apply` do not see a modification through the lambda, by the engine's shared design (c0289fa84) |
+| `TestKotlinLinkIsolation` | state across parses | — | #83 |
+
+Language-level parity holds wherever the types agree: a Kotlin function type links exactly as Java code taking a
+`Function1`, a Kotlin `object` as a Java singleton, a `$default` bridge as ordinary code. Of the 12 issues the two
+tiers filed, 4 are defects in the shared engine that Java code hits too (#74, #78, #79, #83); #80 is a decision,
+and #76 was first misreported (a harness artifact) and corrected the same day.
 
