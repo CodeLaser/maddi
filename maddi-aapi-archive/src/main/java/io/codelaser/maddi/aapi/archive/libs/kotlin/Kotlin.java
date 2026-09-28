@@ -104,6 +104,45 @@ public class Kotlin {
         @Independent(hc = true)
         @NotModified
         B getSecond() { return null; }
+
+        // `val (a, b) = pair` compiles to component1()/component2(): the same two values
+        @Independent(hc = true)
+        @NotModified
+        A component1() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        B component2() { return null; }
+    }
+
+    /* public data class Triple<out A, out B, out C>(val first: A, val second: B, val third: C): Pair's shape, three wide */
+    @ImmutableContainer(hc = true)
+    class Triple$<A, B, C> {
+        Triple$(A first, B second, C third) { }
+
+        @Independent(hc = true)
+        @NotModified
+        A getFirst() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        B getSecond() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        C getThird() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        A component1() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        B component2() { return null; }
+
+        @Independent(hc = true)
+        @NotModified
+        C component3() { return null; }
     }
 
     /*

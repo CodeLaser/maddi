@@ -67,7 +67,7 @@ public class TestKotlinCollectionReadsVsJava {
             "SiblingBuilder",
             "FilterNotNull", "Flatten", "IndexOfFirst", "SetPlus", "MapValues",
             "FilterIsInstanceArr", "SeqPlus", "OrEmptyCall", "Decode", "StringBytes",
-            "RangeContains", "MatchValues", "KClassName", "FileExt", "DequeFirst", "Control");
+            "RangeContains", "MatchValues", "KClassName", "FileExt", "DequeFirst", "DelegateRead", "Control");
 
     private static final String KOTLIN = """
             package a
@@ -116,6 +116,9 @@ public class TestKotlinCollectionReadsVsJava {
             class KClassName(private val s: kotlin.reflect.KClass<*>) { fun f(): String? = s.simpleName }
             class FileExt(private val s: java.io.File) { fun f(): String = s.extension }
             class DequeFirst(private val s: ArrayDeque<String>) { fun f(): String = s.first() }
+            class DelegateRead(private val s: kotlin.properties.ReadOnlyProperty<Any?, String>) {
+                fun f(p: kotlin.reflect.KProperty<*>): String = s.getValue(this, p)
+            }
             class Control(private val s: MutableList<String>) { fun f() { s.clear() } }
             """;
 
@@ -167,8 +170,8 @@ public class TestKotlinCollectionReadsVsJava {
                 .collect(Collectors.joining("\n"));
         LOGGER.info("field verdicts:\n{}", verdicts);
         // Negative control, run against the archive BEFORE each row's contract: SeqFilterToList, SeqAny, TrimChars,
-        // ArrFirstOrNull, ArrFind, MapValues, FilterIsInstanceArr, Decode, RangeContains, FileExt and DequeFirst were
-        // false, so they prove their contract. FilterNotNull, Flatten, IndexOfFirst, SetPlus, SeqPlus, OrEmptyCall,
+        // ArrFirstOrNull, ArrFind, MapValues, FilterIsInstanceArr, Decode, RangeContains, FileExt, DequeFirst and DelegateRead
+        // (a DECISION, see KotlinProperties) were false, so they prove their contract. FilterNotNull, Flatten, IndexOfFirst, SetPlus, SeqPlus, OrEmptyCall,
         // MatchValues and KClassName were already true (the jdk preload below makes Iterable/Set parameters
         // unmodified by default): they guard parity, not a contract.
         // The Sibling rows call removeSurrounding, which has NO contract but lives in a part class that has some: the
@@ -223,6 +226,7 @@ public class TestKotlinCollectionReadsVsJava {
                 a.KClassName true
                 a.FileExt true
                 a.DequeFirst true
+                a.DelegateRead true
                 a.Control false""", verdicts);
     }
 
