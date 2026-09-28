@@ -47,11 +47,12 @@ class WhenSeveralIsTest : KotlinScanTestBase() {
 
     @Test
     fun eachTypeIsTested() {
-        // a sole `is T` stays a type pattern; an `is Int` tests Integer, never the primitive
+        // a sole `is T` stays a type pattern; an `is Int` tests Integer, never the primitive; a when used as a value
+        // yields its arms' values (WhenValueTest), so an arm's sole expression is the arm's value, not a block
         assertEquals("""
-            several: return switch(o){case o instanceof String,o instanceof Integer->{1;}default->{0;}};
-            single: return switch(o){case Integer it->{1;}default->{0;}};
-            mixed: return switch(o){case o instanceof String,5->{1;}case !(o instanceof Integer)->{2;}default->{0;}};
+            several: return switch(o){case o instanceof String,o instanceof Integer->1;default->0;};
+            single: return switch(o){case Integer it->1;default->0;};
+            mixed: return switch(o){case o instanceof String,5->1;case !(o instanceof Integer)->2;default->0;};
             """.trimIndent(), listOf("several", "single", "mixed").joinToString("\n") { "$it: ${body(it)}" })
     }
 }
