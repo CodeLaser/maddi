@@ -117,6 +117,50 @@ public class TestNarOnClassPath {
                 "and belong to the archive it was read from");
     }
 
+    @Language("java")
+    private static final String FIELD_USER = """
+            package c.d;
+            import com.scurrilous.circe.checksum.Crc32cIntChecksum;
+            public class User {
+                private Crc32cIntChecksum checksum;
+            }
+            """;
+
+    /*
+     A class-path source set is matched by its jar's FILE name. Named anything else, every type in the jar is off the
+     classpath, and the parse fails on the first type it maps (#67 lost a bisection to a stdlib set named
+     "kotlin-stdlib"). The failure must name the jar and the rule, not only the type.
+     */
+    @DisplayName("a jar no class-path source set is named after: the failure names the jar")
+    @Test
+    public void misnamedLibrary() throws IOException {
+        Path libSrc = Files.createDirectories(root.resolve("lib-src/com/scurrilous/circe/checksum"));
+        Files.writeString(libSrc.resolve("Crc32cIntChecksum.java"), LIB);
+        Path libClasses = Files.createDirectories(root.resolve("lib-classes"));
+        compile(List.of(libSrc.resolve("Crc32cIntChecksum.java")), libClasses);
+        Path archive = root.resolve("circe-checksum-4.18.0.jar");
+        pack(libClasses, archive);
+        Path userSrc = Files.createDirectories(root.resolve("user-src/c/d"));
+        Files.writeString(userSrc.resolve("User.java"), FIELD_USER);
+
+        SourceSet lib = new SourceSetImpl.Builder().setName("circe-checksum")
+                .setSourceDirectories(List.of()).setUri(archive.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
+        SourceSet user = new SourceSetImpl.Builder().setName("user")
+                .setSourceDirectories(List.of(root.resolve("user-src")))
+                .setUri(root.resolve("user-classes").toUri()).setDependencies(List.of(lib)).build();
+        JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(user)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES).addClassPathParts(lib).build());
+        Summary summary = javaInspector.parse(Map.of(),
+                new JavaInspector.ParseOptions.Builder().setFailFast(false).build());
+        String all = String.join("\n", messages(summary));
+        assertTrue(all.contains("Cannot map javac's type"), all);
+        assertTrue(all.contains("loaded from circe-checksum-4.18.0.jar, which no class-path source set is named after"),
+                all);
+        assertTrue(all.contains("circe-checksum"), all);
+    }
+
     private static List<String> messages(Summary summary) {
         return Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
                 .map(e -> String.valueOf(e.getMessage())).toList();
