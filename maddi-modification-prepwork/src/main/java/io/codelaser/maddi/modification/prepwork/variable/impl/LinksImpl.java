@@ -195,13 +195,17 @@ public class LinksImpl implements Links {
         The indexes are lazily built on first query, incrementally maintained on add (so those pipelines
         stay O(1) per element), and invalidated on any removal/replacement. NOTE Link's own equality is
         (from,to)-only and its constructor asserts on unrepresentable faces, so the triplet index uses
-        its own key record; addAllDistinct keeps Link's pair equality and stays as it was.
+        its own key record; addAllDistinct keeps Link's pair equality, through the pair index: its
+        links.contains(l) scan was O(builder size) per incoming link, and the merge of a variable's links over
+        the sub-blocks of one statement (LinkComputerImpl.handleSubBlocks) held one thread for 39 minutes on
+        timefold's selector factories once the fork/join linker made those closures large.
          */
         private record TripletKey(Variable from, LinkNature nature, Variable to) {
         }
 
         private Set<TripletKey> tripletIndex;
         private Set<Variable> primaryToIndex;
+        private Set<Link> pairIndex;
 
         public Builder(Variable primary) {
             this.primary = primary;
@@ -219,11 +223,15 @@ public class LinksImpl implements Links {
             if (primaryToIndex != null) {
                 primaryToIndex.add(Util.primary(link.to()));
             }
+            if (pairIndex != null) {
+                pairIndex.add(link);
+            }
         }
 
         private void invalidateIndexes() {
             tripletIndex = null;
             primaryToIndex = null;
+            pairIndex = null;
         }
 
         @Override
@@ -287,12 +295,15 @@ public class LinksImpl implements Links {
         @Override
         public Links.Builder addAllDistinct(Links other) {
             assert primary.equals(other.primary());
-            other.stream()
-                    .filter(l -> !links.contains(l)) // Link's (from,to)-only equality, deliberately
-                    .forEach(l -> {
-                        links.add(l);
-                        addToIndexes(l);
-                    });
+            if (pairIndex == null) {
+                pairIndex = new HashSet<>(links); // Link's (from,to)-only equality, deliberately
+            }
+            for (Link l : other) {
+                if (!pairIndex.contains(l)) {
+                    links.add(l);
+                    addToIndexes(l);
+                }
+            }
             return this;
         }
 
