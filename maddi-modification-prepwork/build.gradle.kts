@@ -43,6 +43,11 @@ dependencies {
     testImplementation(project(":maddi-inspection-resource"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-java-openjdk"))
+    // the Kotlin front end, flat on the test class path, and the mixed parse that feeds it the JDK: package
+    // `kotlin` runs prep on Kotlin input and compares it with the Java twin of each fixture. Test-only, like
+    // every other parser above.
+    testImplementation(project(":maddi-kotlin-k2"))
+    testImplementation(project(":maddi-inspection-mixed"))
     testImplementation("ch.qos.logback:logback-classic")
 }
 

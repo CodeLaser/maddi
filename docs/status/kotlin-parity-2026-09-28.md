@@ -1,0 +1,177 @@
+# Kotlin parity with Java: state and remaining work (2026-09-28)
+
+**Question:** how far is maddi from treating Kotlin as it treats Java, and what work is left?
+
+**Verdict.** The analysis stack below the front end is shared and has no Kotlin-specific paths: prepwork, link and
+the analyzer treat a lowered Kotlin body like a Java one, and every Kotlin-vs-Java verdict fixture written so far
+agrees. The distance to parity is in *trust*, not structure:
+
+- the front end still converts some shapes silently wrong, and only differential fixtures find them;
+- the Kotlin stdlib contracts are about 38% of the JDK's by member count, and an uncontracted library call is a
+  modifying one by default;
+- one known unsound hole in the link engine (#65);
+- the shared modules hold no Kotlin-input tests of their own;
+- the entry points around the analysis (build plugins, IDEs, incremental analysis) are Java-only.
+
+This document updates `docs/kotlin-parity-study-2026-09-26.md`. That study remains the reference for the
+structure of the stack (its §1, §3–§5); where the two disagree, this one is newer. Numbers are the latest recorded
+ones (commit messages, issues, the archive files); nothing was re-measured for this document.
+
+---
+
+## 1. What changed since the 2026-09-26 study
+
+- **Silent-wrong shapes.** The study's probe found six shapes that convert with zero placeholders and mean
+  something else, and a seventh, milder one. Six are fixed and closed: local `val x by lazy {}` (#52), enum
+  entries with constructor arguments and bodies (#53), class delegation `: I by d` (#54), `++` on a type with
+  `operator fun inc()` (#55), evaluation order of named arguments (#56), a `when` arm with several `is` tests
+  (#57). The non-local return (#58) is modelled in the CST (`ReturnStatement.exitLevels()`, e2fcc08ac) and
+  guarded in the analyzer, but the link engine does not use it yet (#65).
+- **`when` as a value** yields its arms' values, as a Java switch expression does (3791920d5), including a
+  `when` at the tail of a try used as a value (04e0f0ddc).
+- **Kotlin stdlib archive:** 14 types / 31 annotated members became **38 types / 2,161 members**
+  (`libs/kotlin/*.json`, 9 files). The JDK archive has 249 types / 5,617. `@InlineOnly` stdlib members, which have
+  no JVM method a contract could name, are lowered to the body kotlinc inlines (f8533c58d, 1272c2146,
+  58ccd7f78). `ReadOnlyProperty.getValue` is read-only (226e06d48).
+- **Closed front-end and prep issues:** #32–#48 (prep isolation on detekt, run-to-run instability, the K2
+  session leak, abstract functions and properties, override families, data classes, imports, enum-entry and
+  Java-declaration references, companion references).
+- **Instruments:** `-Dmaddi.libraryCallDump` (every `kotlin.*` member called, and whether a contract reached
+  it), `-Dmaddi.memberVerdictDump`.
+
+## 2. State by layer
+
+| Layer | Shared code handles Kotlin? | Evidence | Gap |
+|---|---|---|---|
+| Front end (K2) | ~90% of constructs converted | 400+ unit tests; placeholder ratchets on detekt and coil | an unknown residue of silent-wrong conversions; 64 placeholder kinds |
+| Prepwork | yes, no Kotlin-specific paths | 21 test files in `inspection-kotlin/prepwork` assert the Java tests' `VariableData` strings; since this document, a Kotlin test tier inside the module (§5) | synthesized accessors, `$default`, `<init>` bodies |
+| Link | yes in code | 0 Kotlin-input tests in the module; ~14 fixtures in `run-kotlin` | #65 non-local returns; `FunctionN` lambdas take the custom-functional-interface path |
+| Analyzer | yes (3 Java-specific names) | 7 Kotlin-vs-Java fixture pairs, one detekt corpus floor | `listOf`/`toList` not recognised as immutable copies; `Sequence` is not a stream |
+| Stdlib contracts | ~38% of the JDK's member count | per-family differential tests (`TestKotlinCollectionReadsVsJava`) | §3.2 |
+| Persistence | write and read back | `TestKotlinAnalysisRoundTrip` | incremental analysis, rewire, `--analysis-results-target-dir`, `--updated-hints-dir` refused by name |
+| Entry points | the `maddi-kotlin` CLI | — | Gradle/Maven plugins refuse (or skip with `skipKotlinSources`); the IDE daemon reports Kotlin as a problem; IntelliJ, VS Code, Eclipse are Java-only |
+
+## 3. Remaining work, in order
+
+### 3.1 Soundness: Kotlin input that gets a wrong verdict
+
+- **#65, link engine.** The value of a non-local return never reaches the enclosing method's return variable, so
+  the analyzer can call a result independent of an input it depends on. About 120 sites on detekt, 34 on
+  javalin, 9 on coil (a rough scan). The only known unsound hole; design first.
+- **#69.** A statement lowered into two (`val v = try …`, `val v = if (…) { …; a } else …`, the control-flow
+  elvis) is indexed `<i>.0`/`<i>.1`, and prepwork forgets `v` at `<i+1>`. Found by a downstream transform; the
+  effect on the modification analysis is not measured. Size M.
+- **#68.** In a mixed project, a call from a Kotlin body to a member of a Java-source class is a
+  `k2-unresolved-call` placeholder, and its arguments go with it. Size S–M.
+- **A standing silent-wrong hunt.** Every new comparison against compiled Kotlin found more: six in the
+  09-26 probe, five in a downstream kotlinc-vs-transform differential check on 09-27. The placeholder census
+  cannot see these by construction. What is missing is a standing family of differential fixtures per
+  construct family (Kotlin vs hand-written Java), not per corpus site.
+- **Placeholder floor.** detekt 9 against a pin of 8 (the ratchet in `maddi-run-kotlin:slowTest` is red; the
+  09-26 commits still report 8, and the commit that added the ninth is not identified), coil 4, javalin 13
+  and unpinned.
+- **#72, #74, #75** (found by the prepwork tier, §5): a `var` assigned in a lambda is not assigned in the
+  enclosing method; a local assigned or read in a switch expression's arm does not reach the enclosing statement
+  (Java too); the arms of a `when` used as a value are indexed from 0 instead of under their statement.
+- **#67.** Kotlin printed as Java does not compile: item 1 is a real placeholder (a comparison on a smart-cast
+  value), item 2 a wrong type (`is Int` as `instanceof int`); items 3 and 4 may be intended.
+
+### 3.2 Stdlib knowledge: the largest verdict-level gap
+
+`ShallowMethodAnalyzer` reads a method with no body and no contract as modifying its receiver and every
+non-trivial parameter. Not contracted: `Result`, coroutines and `suspend` (no contract mentions `Continuation`),
+`Unit`, `Char` extensions, the remainder of the text and map extensions, and every library outside
+kotlin-stdlib. The contract language (`AnalysisHintsParser`) has no notion of a property, so a getter contract
+on a library property does not reach a Kotlin caller. Last measurement (09-26, before the later archive
+additions): 566 of detekt's 3,151 stdlib calls read as modifying, 426 of them `getValue`/`invoke`; `getValue`
+has since been contracted. Neither CLI loads an archive by default, for Java or Kotlin.
+
+### 3.3 Evidence inside the shared modules
+
+prepwork, link and the analyzer hold ~1,000 Java-input tests and, before §5, zero Kotlin-input ones.
+
+- prepwork: a Kotlin tier covering the main topics (§5); synthesized members at the `doPrimaryTypes` level.
+- link: Kotlin-input tests for the path `FunctionN` lambdas take (`VirtualFieldComputer`,
+  `LinkAppliedFunctionalInterface`), or a decision to treat `kotlin.jvm.functions` as standard.
+- analyzer: `$default`, synthesized accessors, delegation forwarders; an empty synthesized body reads as
+  "modifies nothing" (`explicitlyEmptyMethod()`).
+
+### 3.4 Analyzer rules that name Java
+
+`immutableCopyExpression` accepts only `List/Set/Map.copyOf|of`: Kotlin's `listOf`/`toList`/`toSet` are not
+recognised defensive copies. `isPrimitiveStream` is `java.util.stream.*` only. Small, but both move verdicts.
+
+### 3.5 Persistence, incremental analysis, IDE
+
+Writing and reading results back works. Incremental analysis needs fingerprinting and rewiring for Kotlin; the
+IDE daemon depends on it.
+
+### 3.6 Entry points
+
+Route the Gradle plugin to the mixed pipeline, then Maven. The open question is the size of the bundle (~85 MB
+of K2). The IDE clients follow §3.5.
+
+### 3.7 Tooling
+
+- `IsolateClass` writes reproducers as `.java`; `maddi-cst-print-kotlin` is wired into no main code.
+- Reference recall on detekt: 70.8% EXACT on 2026-09-25, with import, annotation and named-argument sites
+  dropped. Six recall issues (#41, #42, #45–#48) closed since; not re-measured, and no test pins a percentage.
+
+### 3.8 Decisions pending
+
+- **#58:** non-local returns in the front end: the current marker, a refusal, or inlining the scope functions
+  (125 detekt sites under `analyze{}`).
+
+### 3.9 Stale documents
+
+The 09-26 study (§7) lists about ten stale claims in `kotlin-parser-plan.md`, `kotlin-corpora.md`,
+`mixed-language-integration.md`, the README, `PUBLISHING.md` and `release-cli.sh` (`lib/` vs `lib-k2/`).
+
+## 4. The shortest path
+
+1. #65 and #69 (soundness), and a standing silent-wrong fixture family.
+2. Stdlib contracts to the point where an uncontracted Kotlin call is rare, loaded by default.
+3. The Gradle plugin on the mixed pipeline.
+
+Everything else is structurally in place and needs evidence rather than code.
+
+## 5. The Kotlin tier in `maddi-modification-prepwork` (added 2026-09-28)
+
+Package `io.codelaser.maddi.modification.prepwork.kotlin`, 42 tests in 6 classes, part of the module's ordinary
+`test` task (about 5 s on top of the Java tests). Every fixture is a pair: a Kotlin class `k.X` and the Java
+class `j.X` that says what kotlinc makes of it. Both go through **one** `MixedProjectInspector` parse, the
+production path (one runtime, the JDK read from bytecode, kotlin-stdlib on the class path), with a
+zero-placeholder guard, and prep runs over every primary type. The assertion is differential: for a method that
+exists on both sides, every local and parameter must have the same definition, assignments and reads. Where the
+two sides differ for a reason that is filed, the test pins both sides and names the issue, so it fails the day
+the issue is fixed.
+
+`KotlinScan` alone was not used: without the Java front end's `CompiledTypesManager`, K2 builds library types
+from its own symbols, a model no production run uses; `s.length` does not even resolve there.
+
+| Class | Topic | Agrees with Java | Pinned divergence |
+|---|---|---|---|
+| `TestKotlinAssignments` | if/else (statement, value), compound assignment, `when` (statement, value, subject-less), elvis, `!!`, string templates, arrays | 11 of 13 | #74 (arm assignments/reads, Java too), #75 (arm indices); subject-less `when` is a switch with conditional entries, not an if-chain (a shape difference, not a defect) |
+| `TestKotlinLoops` | for-in over collections and arrays, while, do-while, `while (true)`, break/continue, labeled jumps | 7 of 7 | — |
+| `TestKotlinTry` | try/catch/finally, several catches, rethrow, try as a value, `val v = if (…) { …; a } else …`, both inside a loop | 4 of 7 | #69 (the local of a two-statement lowering is lost at the next statement) |
+| `TestKotlinLambdas` | captured reads, a `var` assigned in a lambda, non-local return, local `fun`, `?.let { } ?:` | 2 of 5 | #72, #65 (prep side), #69 (null-safe hoisting) |
+| `TestKotlinEscapes` | `error()`, `TODO()`, `throw` in a `when` arm, `?: return`, `?: throw` | 2 of 5 | #75, #69 (control-flow elvis) |
+| `TestKotlinTypeLevel` | call graph and analysis order; part of construction (init block, secondary constructor); final fields; getter/setter classification of property accessors, `componentN`, `lateinit`, `@JvmField`, objects; bodies of delegation forwarders, `$default` bridges, `copy`; the members with empty bodies | pinned values | #73 (a companion's `const val` modelled twice) |
+
+What the tier found on its first run:
+
+- **#69 has four shapes, not one.** `val v = try …`, `val v = if (…) { …; a } else …`, `val t = s ?: return`
+  (and `?: throw`), and `val n = s?.let { … } ?: 0`. In each, the method's variable data has no `v`/`t`/`n`
+  at all, and the statement that uses it records no read.
+- **#72:** a `var` assigned in a lambda (kotlinc: an `IntRef`) is assigned only in the lambda's own
+  variable data.
+- **#74, a Java defect:** an assignment inside a switch expression's arm is not an assignment of the enclosing
+  statement; reads of locals in the arms are not recorded (Java), or are recorded through #75's colliding
+  indices (Kotlin).
+- **#65 at the prep level:** a non-local `return it` assigns the lambda's return variable; the enclosing method's
+  return variable is assigned by its own `return` only.
+
+Not covered yet: synchronized/`use {}`, destructuring declarations, `for ((k, v) in map)`, coroutines, and a
+`doPrimaryTypes`-level run over a corpus slice. The Java tests' `CommonTest` classes that were ported in
+`maddi-inspection-kotlin/prepwork` (21 files, same `VariableData` strings) remain where they are.
+
