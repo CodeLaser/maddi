@@ -5,14 +5,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /*
  The FunctionN path: a lambda passed to our own higher-order function, a lambda and a bound method reference as
  return values, and SAM conversion of a Kotlin lambda to a JDK functional interface (removeIf, computeIfAbsent,
  stream().filter). The Java twins pass kotlin.jvm.functions types where Kotlin has a function type, and a
- java.util.function lambda where Kotlin SAM-converts. And a Kotlin call into a Java-source class (#68).
+ java.util.function lambda where Kotlin SAM-converts. And Kotlin calls into a Java-source class.
  */
 public class TestKotlinLinkLambdas extends CommonKotlinLinkTest {
 
@@ -94,8 +92,9 @@ public class TestKotlinLinkLambdas extends CommonKotlinLinkTest {
     @Language("kotlin")
     private static final String KOTLIN_TO_JAVA_SOURCE = """
             package k
-            class X { fun fill(out: MutableList<StringBuilder>, s: StringBuilder) { j.Helper.put(out, s) }
-                      fun each(xs: List<StringBuilder>, out: MutableList<StringBuilder>) { j.Helper.forAll(xs) { out.add(it) } } }
+            class X { fun fill(out: MutableList<StringBuilder>, s: StringBuilder) { j.X.Helper.put(out, s) }
+                      fun each(xs: List<StringBuilder>, out: MutableList<StringBuilder>) { j.X.Helper.forAll(xs) { out.add(it) } }
+                      fun viaInstance(out: MutableList<StringBuilder>, s: StringBuilder) { j.X().add(out, s) } }
             """;
 
     @Language("java")
@@ -103,22 +102,27 @@ public class TestKotlinLinkLambdas extends CommonKotlinLinkTest {
             package j;
             import java.util.List;
             import java.util.function.Consumer;
-            final class X { }
-            final class Helper {
-                static void put(List<StringBuilder> out, StringBuilder s) { out.add(s); }
-                static void forAll(List<StringBuilder> xs, Consumer<StringBuilder> c) { for (StringBuilder x : xs) c.accept(x); }
+            public final class X {
+                public void add(List<StringBuilder> out, StringBuilder s) { out.add(s); }
+                void fill(List<StringBuilder> out, StringBuilder s) { Helper.put(out, s); }
+                void each(List<StringBuilder> xs, List<StringBuilder> out) { Helper.forAll(xs, it -> out.add(it)); }
+                void viaInstance(List<StringBuilder> out, StringBuilder s) { new X().add(out, s); }
+                public static final class Helper {
+                    public static void put(List<StringBuilder> out, StringBuilder s) { out.add(s); }
+                    public static void forAll(List<StringBuilder> xs, Consumer<StringBuilder> c) { for (StringBuilder x : xs) c.accept(x); }
+                }
             }
             """;
 
     /*
-     ⛔ maddi#68: a Kotlin call to a member of a Java-source class is a k2-unresolved-call placeholder, arguments and
-     lambda included, so there is nothing to link and the harness refuses the fixture. When #68 is fixed, this becomes a
-     differential test against a Java caller of Helper.
+     A Kotlin call into a Java-source class (#68's shape, static and instance, with a lambda for a Consumer) is the
+     Java front end's MethodInfo, and links as the same call written in Java.
      */
     @Test
     public void callIntoJavaSource() {
-        AssertionError e = assertThrows(AssertionError.class, () -> link(KOTLIN_TO_JAVA_SOURCE, JAVA_HELPER));
-        assertTrue(e.getMessage().contains("k2-unresolved-call:put"), e.getMessage());
-        assertTrue(e.getMessage().contains("k2-unresolved-call:forAll"), e.getMessage());
+        Parsed q = link(KOTLIN_TO_JAVA_SOURCE, JAVA_HELPER);
+        q.assertSameAsJava("fill");
+        q.assertSameAsJava("each");
+        q.assertSameAsJava("viaInstance");
     }
 }
