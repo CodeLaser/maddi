@@ -105,9 +105,8 @@ public class TestKotlinLambdas extends CommonKotlinTest {
 
     /*
      The lambda assigns the enclosing `var n`: kotlinc's IntRef holder (#72), declared and initialized at 0 and 1, and
-     every read and write is one of `n.element`. ⛔ maddi#94: the lambda's `n.element++` is not an assignment at
-     statement 2, so prep still sees `return n.element` read the initial value; the same holds for the Java holder
-     form. When #94 is fixed, `n.element` is also assigned at 2.
+     every read and write is one of `n.element`. The lambda's `n.element++` is an assignment at statement 2, the one
+     creating the lambda (#94), so `return n.element` reads a value the lambda may have written.
      */
     @Test
     public void capturedVar() {
@@ -118,7 +117,7 @@ public class TestKotlinLambdas extends CommonKotlinTest {
         String element = last.variableInfoStream()
                 .filter(vi -> vi.variable().fullyQualifiedName().equals("kotlin.jvm.internal.Ref.IntRef.element#n"))
                 .map(vi -> vi.assignments() + " | R " + vi.reads()).findFirst().orElseThrow();
-        assertEquals("D:0, A:[1] | R 2, 3", element);
+        assertEquals("D:0, A:[1, 2] | R 2, 3", element);
     }
 
     /*

@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  Function types and lambdas. A Kotlin function type is kotlin.jvm.functions.FunctionN: the Java twins that take a
  Function1 link exactly as Kotlin does, those that take a java.util.function type do not (#80). What Kotlin's
  lambdas can do and Java's cannot: return from the enclosing function (#65) and assign an enclosing `var` (#72, now a
- Ref holder; #94).
+ Ref holder, whose write reaches the creator since #94).
  */
 public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
 
@@ -44,6 +44,8 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
                 StringBuilder captured(List<StringBuilder> xs) { StringBuilder r = null; for (StringBuilder x : xs) { r = x; } return r; }
                 StringBuilder capturedRef(List<StringBuilder> xs) { kotlin.jvm.internal.Ref.ObjectRef<StringBuilder> r = new kotlin.jvm.internal.Ref.ObjectRef<>(); r.element = null; xs.forEach(x -> { r.element = x; }); return r.element; }
                 StringBuilder capturedRef1(List<StringBuilder> xs) { kotlin.jvm.internal.Ref.ObjectRef<StringBuilder> r = new kotlin.jvm.internal.Ref.ObjectRef<>(); r.element = xs.get(0); return r.element; }
+                StringBuilder capturedLoopInit(List<StringBuilder> xs, StringBuilder a) { StringBuilder r = a; for (StringBuilder x : xs) { r = x; } return r; }
+                StringBuilder capturedRefInit(List<StringBuilder> xs, StringBuilder a) { kotlin.jvm.internal.Ref.ObjectRef<StringBuilder> r = new kotlin.jvm.internal.Ref.ObjectRef<>(); r.element = a; xs.forEach(x -> { r.element = x; }); return r.element; }
                 StringBuilder[] capturedArr(List<StringBuilder> xs) { StringBuilder[] r = new StringBuilder[1]; xs.forEach(x -> { r[0] = x; }); return r; }
             }
             """;
@@ -99,12 +101,39 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
      result to the elements of xs -- and without a lambda the holder links (capturedRef1). When #94 is fixed, `captured`
      and `capturedRef` link as the loop does.
      */
+    /*
+     The lambda assigns the enclosing `var r`: a Ref holder, `r.element = it`, as kotlinc compiles it (#72). A lambda's
+     write through a captured holder -- a Ref field, an array element -- now reaches its creator (#94): the lambda's
+     summary keeps its parameter's link to the closure variable, and a Consumer applied to a collection's elements
+     stores one of them there. The Java holder forms link as the `for` loop does; they also keep the holder's earlier
+     value (`←1:a`), which the loop form drops, at the price of an over-approximate parameter link (`1:a∈0:xs.§$s`).
+     */
     @Test
     public void varAssignedInLambda() {
         assertEquals("[-] --> captured∈0:xs.§$s", p.javaLinks("captured"));
-        assertEquals("[-] --> -", p.javaLinks("capturedRef"));
-        assertEquals("[-] --> -", p.javaLinks("capturedArr"));
         assertEquals("[-] --> capturedRef1∈0:xs.§$s", p.javaLinks("capturedRef1"));
-        assertEquals(p.javaLinks("capturedRef"), p.kotlinLinks("captured"));
+        assertEquals("[0:xs.§$s∋$_ce1] --> capturedRef←$_ce1,capturedRef∈0:xs.§$s,capturedRef.§m~0:xs.§m",
+                p.javaLinks("capturedRef"));
+        assertEquals("[-] --> capturedArr[0]∈0:xs.§$s,capturedArr[0].§m~0:xs.§m", p.javaLinks("capturedArr"));
+        assertEquals("[-, -] --> capturedLoopInit∈0:xs.§$s", p.javaLinks("capturedLoopInit"));
+        assertEquals("[0:xs.§$s∋1:a,0:xs.§m~1:a.§m, 1:a∈0:xs.§$s,1:a.§m~0:xs.§m] --> capturedRefInit←1:a,"
+                     + "capturedRefInit∈0:xs.§$s,capturedRefInit.§m←1:a.§m,capturedRefInit.§m~0:xs.§m",
+                p.javaLinks("capturedRefInit"));
+    }
+
+    /*
+     ⛔ maddi#89: the Kotlin lambda's summary carries its write to the holder as Java's does, but Kotlin's `forEach` is
+     the stdlib's CollectionsKt.forEach, which has no link contract tying the lambda's parameter to the elements (Java's
+     Iterable.forEach has one), so nothing is applied. When forEach is contracted, `captured` links as `capturedRef`.
+     */
+    @Test
+    public void kotlinForEachIsNotContracted() {
+        java.util.List<String> lambdaLinks = new java.util.ArrayList<>();
+        p.kotlin("captured").methodBody().visit(e -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda l) lambdaLinks.add(p.links(l.methodInfo()));
+            return true;
+        });
+        assertEquals("[[0:it.§m≡r*.element.§m,0:it→r*.element] --> -]", lambdaLinks.toString());
+        assertEquals("[-] --> -", p.kotlinLinks("captured"));
     }
 }

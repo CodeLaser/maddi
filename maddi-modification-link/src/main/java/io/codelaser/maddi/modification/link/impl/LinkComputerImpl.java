@@ -542,12 +542,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
                     .collect(Collectors.toUnmodifiableSet());
-            List<Links> ofParameters = methodInfo.parameters().stream()
-                    .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd)).toList();
             Set<Variable> inClosure = vd == null ? Set.of()
                     : vd.variableInfoStream()
                     .filter(VariableInfo::isVariableInClosure)
                     .map(VariableInfo::variable).collect(Collectors.toUnmodifiableSet());
+            List<Links> ofParameters = methodInfo.parameters().stream()
+                    .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd, inClosure)).toList();
             Set<Variable> modified = vd == null ? Set.of()
                     : vd.variableInfoStream()
                     .filter(vi -> !vi.variable().equals(returnVariable)
@@ -714,19 +714,32 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return links;
         }
 
-        private Links filteredPi(ParameterInfo pi, Set<ParameterInfo> ignoreReturnValue, VariableData vd) {
+        private Links filteredPi(ParameterInfo pi, Set<ParameterInfo> ignoreReturnValue, VariableData vd,
+                                 Set<Variable> inClosure) {
             if (vd == null) return LinksImpl.EMPTY;
             VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
             if (vic == null) return LinksImpl.EMPTY;
             VariableInfo vi = vic.best();
             Links viLinks = vi.linkedVariables();
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
-            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v)
+            // a local of the ENCLOSING method (a lambda's, a local or anonymous class's closure) is not this method's
+            // local: a parameter's link to it -- `x -> r.element = x`, the Ref holder of a Kotlin var the lambda
+            // assigns -- is the lambda's effect on its creator, and applying the lambda must carry it there (#94)
+            Links links = viLinks.removeIfFromTo(v -> !(LinkVariable.acceptForLinkedVariables(v)
+                                                        || isInClosure(v, inClosure))
                                                       || isParameterOfSiblingMethod(v));
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable || isParameterOfStrictlyEnclosed(v));
             }
             return links.removeIfTo(this::isParameterOfStrictlyEnclosed);
+        }
+
+        /** Whether every local variable [v] is made of belongs to the closure: the enclosing method's. */
+        private static boolean isInClosure(Variable v, Set<Variable> inClosure) {
+            if (inClosure.isEmpty()) return false;
+            return v.variableStreamDescend().allMatch(x -> !(x instanceof LocalVariable lv)
+                    || lv instanceof LinkVariable linkVariable && linkVariable.acceptForLinkedVariables()
+                    || inClosure.contains(lv));
         }
 
         // see TestForEachLambda,5 and TestForEachMethodReference
