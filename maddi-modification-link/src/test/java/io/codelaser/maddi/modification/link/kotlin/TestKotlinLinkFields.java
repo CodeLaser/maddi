@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /*
  Fields and properties: a primary constructor storing its parameters, the accessors K2 synthesizes, reads and
@@ -70,14 +69,13 @@ public class TestKotlinLinkFields extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#77: the synthesized setter's statement has no source index, and linking it throws in
-     Assignments.contains. The Java twin links `[0:sb→this*.sb,0:sb.§m≡this*.sb.§m] --> -`. When #77 is fixed,
-     this becomes `p.assertSameAsJava("setSb")`.
+     maddi#77 (fixed 2026-09-28): the synthesized setter's statement is statement "0", and it links as the Java twin
+     does. The strings differ in the parameter's NAME only: kotlinc's synthesized setter calls it `value`.
      */
     @Test
     public void propertySetter() {
         assertEquals("[0:sb→this*.sb,0:sb.§m≡this*.sb.§m] --> -", p.javaLinks("setSb"));
-        assertThrows(NullPointerException.class, () -> p.kotlinLinks("setSb"));
+        assertEquals("[0:value.§m≡this*.sb.§m,0:value→this*.sb] --> -", p.kotlinLinks("setSb"));
     }
 
     @Test

@@ -238,19 +238,17 @@ public class TestKotlinAssignments extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#74 and #75. The Java twin records no read of `x` in the arms (#74); the Kotlin side records one at
-     statement 1, through arm statements indexed 0 and 1 rather than under statement 1 (#75).
+     ⛔ maddi#74: neither twin records the reads of `x` in the arms. With #75 fixed (2026-09-28), the Kotlin arms sit
+     under statement 1 like the Java ones, and the two sides agree -- on the Java defect. When #74 is fixed, both
+     read `x` at 1.
      */
     @Test
     public void whenArmReads() {
+        p.assertSameAsJava("whenArmReads");
         assertEquals("""
                 i: D:-, A:[] | R 1
                 return whenArmReads: D:-, A:[1] | R -
-                x: D:0, A:[0] | R -""", summary(p.java("whenArmReads")));
-        assertEquals("""
-                i: D:-, A:[] | R 1
-                return whenArmReads: D:-, A:[1] | R -
-                x: D:0, A:[0] | R 1""", summary(p.kotlin("whenArmReads")));
+                x: D:0, A:[0] | R -""", summary(p.kotlin("whenArmReads")));
     }
 
     @Test
