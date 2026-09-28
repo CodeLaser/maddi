@@ -752,10 +752,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (statement instanceof ExplicitConstructorInvocation eci &&
                     eci.isSuper() && eci.isSynthetic()) continue; // ignore, artifact of openjdk
                 boolean lastStatement = topBlock && statement == block.statements().getLast();
-                if (statement instanceof Block b) {
-                    // a block among the statements
+                if (statement instanceof Block b && VariableDataImpl.of(b) == null) {
+                    // a block without variable data of its own (prepwork skipped it): linked as its statements
                     vd = doBlock(b, vd);
                 } else {
+                    // a bare block among the statements goes through the statement path like any other: it is its
+                    // own sub-block, so its statements are linked and merged into the block's variable data (#84: a
+                    // field assigned inside it -- every Kotlin `init` block -- had links only on the inner statement,
+                    // and a reader of the constructor's last statement, the block, saw none: independence undecided
+                    // forever). The merge needs the block's evaluation stage seeded from the statement before, which
+                    // only the statement path does: merging the sub-block alone read "modified" for every variable.
                     try {
                         vd = doStatement(statement, vd, firstStatementOfBlock, lastStatement);
                     } catch (RuntimeException | AssertionError | StackOverflowError re) {
