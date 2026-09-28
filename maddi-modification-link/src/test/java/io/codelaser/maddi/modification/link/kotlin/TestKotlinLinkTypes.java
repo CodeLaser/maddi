@@ -154,10 +154,14 @@ public class TestKotlinLinkTypes extends CommonKotlinLinkTest {
         assertEquals("[-] --> -", p.kotlinLinks("letIt"));
     }
 
-    /* ⛔ maddi#78: asSequence().first() returns an element of xs, and links to nothing */
+    /*
+     asSequence().first() returns an element of xs. Iterable and Sequence each have one abstract method, iterator();
+     until #78 both were read as function types, the contracts linked nothing and the nested call's result was not
+     passed on.
+     */
     @Test
     public void sequenceFirst() {
-        assertEquals("[-] --> seqFirst∈0:xs.§$s", p.javaLinks("seqFirst"));
-        assertEquals("[-] --> -", p.kotlinLinks("seqFirst"));
+        p.assertSameAsJava("seqFirst");
+        assertEquals("[-] --> seqFirst∈0:xs.§$s", p.kotlinLinks("seqFirst"));
     }
 }

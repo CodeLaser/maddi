@@ -129,7 +129,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             // linkLevel 1 == independent HC
 
             // we preempt the hcReturnValue=true
-            if (pi.parameterizedType().isFunctionalInterface()) {
+            if (Util.isFunctionType(pi.parameterizedType())) {
                 // *************************************************
                 // parameter is functional interface
                 // *************************************************
