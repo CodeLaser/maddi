@@ -1406,6 +1406,7 @@ internal class KotlinBodyConverter(
             if (statement.operationToken == KtTokens.EQ && left != null)
                 writtenSetterCall(left, leftExpression, value)?.let { return runtime.newExpressionAsStatement(it) }
             val target = leftExpression as? VariableExpression
+                ?: compoundTargetBehindAWrittenGetter(statement, left, leftExpression)
             // a property with no backing field reads as a call of its getter: assigning to it is a call of its
             // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
             val setterCall = if (target != null || statement.operationToken != KtTokens.EQ) null
@@ -2513,6 +2514,24 @@ internal class KotlinBodyConverter(
         return receiverType?.let { resolveAccessor(it, name) }?.let { accessorCall(receiver, it) }
     }
 
+    /**
+     * `this.size -= n` where `size` has a WRITTEN getter: the qualified read is a call of it (#82), and a compound
+     * assignment to a call has no target, a `k2-assign-target` placeholder (coil's `LruCache.trimToSize`). The target
+     * is the property's backing field on the same receiver, as for the unqualified `size -= n`, which converts to a
+     * compound assignment to the field.
+     */
+    private fun compoundTargetBehindAWrittenGetter(statement: KtBinaryExpression, left: KtExpression?,
+                                                   leftExpression: Expression?): VariableExpression? {
+        if (statement.operationToken == KtTokens.EQ) return null
+        val call = leftExpression as? MethodCall ?: return null
+        val scope = call.`object`()?.takeIf { call.parameterExpressions().isEmpty() } ?: return null
+        val name = ((left as? KtDotQualifiedExpression)?.selectorExpression as? KtNameReferenceExpression)
+            ?.getReferencedName() ?: return null
+        val field = members(call.methodInfo().typeInfo()).fields().firstOrNull { it.name() == name && !it.isStatic }
+            ?: return null
+        return variableExpression(runtime.newFieldReference(field, scope, field.type())) as? VariableExpression
+    }
+
     private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
         token == KtTokens.EQ || augmentedOperator(token) != null
 
@@ -2967,7 +2986,11 @@ internal class KotlinBodyConverter(
         // companion at all: a library companion's model came back empty (`LanguageVersion.LATEST_STABLE`)
         // Every companion property's field is there since #73, but only a `const`, a @JvmField and a private one are
         // READ as the field; any other is read through the companion's getter, as kotlinc compiles it (below).
-        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT && readAsField(selector)) {
+        // ⛔ A read from COMMON code resolves to the `expect` property, which carries no @JvmField even when the JVM
+        // `actual` does (coil's `EventListener.Factory.NONE`): then the companion has no getter to call, and the
+        // field is the read.
+        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT
+            && (readAsField(selector) || !companionHasGetter(receiverClass, name))) {
             val outer = receiverClass.classId?.outerClassId?.let { findClass(it) } as? KaNamedClassSymbol
             outer?.let { classTypeInfo(it) }?.let { members(it) }?.let { outerType ->
                 outerType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, outerType) }
@@ -3470,7 +3493,8 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.objectPropertyAccess(reference: KtNameReferenceExpression): Expression? {
         val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
-        if (!readAsField(reference)) return singletonGetter(reference, property)
+        // a getter first; none (an `expect` read of a @JvmField `actual`, see staticMemberAccess) falls through to the field
+        if (!readAsField(reference)) singletonGetter(reference, property)?.let { return it }
         if (property.receiverParameter != null) return null
         val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
         if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
@@ -3482,6 +3506,10 @@ internal class KotlinBodyConverter(
         fieldHolder?.fields()?.firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, fieldHolder) }
         return singletonGetter(reference, property)
     }
+
+    /** Whether [companion] declares a getter for its property [name]; a @JvmField or `const` one has none. */
+    private fun KaSession.companionHasGetter(companion: KaNamedClassSymbol, name: String): Boolean =
+        classTypeInfo(companion)?.let { members(it) }?.let { resolveAccessor(it, name) } != null
 
     /** `Object.INSTANCE.getX()` / `Outer.Companion.getX()`: a property of an `object` or companion, read through its getter. */
     private fun KaSession.singletonGetter(reference: KtNameReferenceExpression, property: KaPropertySymbol): Expression? {
