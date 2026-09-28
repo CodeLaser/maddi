@@ -242,11 +242,25 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         if (!(other instanceof MethodLinkedVariablesImpl o)) return false;
         int c = Integer.compare(contentCount(), o.contentCount());
         if (c != 0) return c > 0;
-        // assigned participates in the canonical rendering (toString deliberately omits it): two values
-        // differing only in assigned content must still order totally
-        String mine = toString() + "|" + sortedAssignedString();
-        String theirs = o.toString() + "|" + o.sortedAssignedString();
-        return mine.compareTo(theirs) < 0; // equal mass: smaller canonical rendering wins, arbitrarily but totally
+        // equal mass: smaller canonical rendering wins, arbitrarily but totally
+        return canonicalRendering().compareTo(o.canonicalRendering()) < 0;
+    }
+
+    /**
+     * Same primaries (equal) and the same links, natures, modified and assigned sets: the analysis-order
+     * slot has nothing new to say. The rendering is order-stable: the link lists are sorted by the link
+     * computer's followGraph, the modified marks are per link, and assigned is sorted here.
+     */
+    @Override
+    public boolean sameContent(Value other) {
+        return other instanceof MethodLinkedVariablesImpl o && equals(o)
+               && canonicalRendering().equals(o.canonicalRendering());
+    }
+
+    // assigned participates in the canonical rendering (toString deliberately omits it): two values
+    // differing only in assigned content must still order totally
+    private String canonicalRendering() {
+        return toString() + "|" + sortedAssignedString();
     }
 
     private static @NotNull Set<Variable> excludeInternal(Set<Variable> variables) {

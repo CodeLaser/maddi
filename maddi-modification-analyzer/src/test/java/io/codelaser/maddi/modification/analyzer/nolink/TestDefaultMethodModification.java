@@ -82,4 +82,33 @@ public class TestDefaultMethodModification extends CommonTest {
         assertTrue(X.findSubType("Impl").getFieldByName("list", true).isModified(),
                 "Impl.list is modifiable via the inherited add()");
     }
+
+    private void inheritedDefaultIterating(boolean modReach) {
+        String name = modReach ? "XR" : "XI";
+        TypeInfo X = javaInspector.parse("a.b." + name, INHERITED_DEFAULT.replace("class X", "class " + name));
+        List<Info> ao = prepWork(X);
+        new io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl(javaInspector,
+                new io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl.ConfigurationBuilder()
+                        .setMaxIterations(10).setModificationViaReachability(modReach).build()).analyze(ao);
+        assertTrue(X.findSubType("Impl").getFieldByName("list", true).isModified(),
+                "Impl.list is modifiable via the inherited add(), modReach=" + modReach);
+    }
+
+    @DisplayName("as inheritedDefaultMethod, under the iterating analyzer")
+    @Test
+    public void inheritedDefaultMethodIterating() {
+        inheritedDefaultIterating(false);
+    }
+
+    /*
+     Found 2026-09-26 while checking the O4 work; fails at HEAD febe5d66d as well, so not caused by it: with the MODREACH
+     cutover on (every corpus run), modification of Impl.list through the inherited default add() -> items().add(s)
+     is lost -- the fixpoint has it, reachability does not. Another optimistic shape in the O1/O4 family.
+     */
+    @org.junit.jupiter.api.Disabled("MODREACH loses modification through an inherited default method via an accessor")
+    @DisplayName("as inheritedDefaultMethod, under the iterating analyzer with the MODREACH cutover")
+    @Test
+    public void inheritedDefaultMethodIteratingModReach() {
+        inheritedDefaultIterating(true);
+    }
 }

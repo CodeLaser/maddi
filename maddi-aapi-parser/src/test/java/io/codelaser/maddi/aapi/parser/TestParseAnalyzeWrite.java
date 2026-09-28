@@ -91,9 +91,11 @@ public class TestParseAnalyzeWrite extends CommonTest {
         // merely makes more types resolvable can move verdicts in every modification-* test that shares it.
         // ⚠ JDK 27's javac recovers the unresolvable kotlin.* names, maddi stubs them, and the three Kotlin units
         // (Kotlin, KotlinCollections, KotlinText) survive; the parser then skips each stubbed target with a warning.
-        // KotlinJvmFunctions imports nothing from kotlin.* (its targets are named by PACKAGE_NAME + class name), so
-        // it survives on every JDK; its targets are skipped the same way. Measured on 27 only.
-        int kotlinUnits = java.lang.Runtime.version().feature() >= 27 ? 4 : 1;
+        // KotlinJvmFunctions, KotlinIo, KotlinRanges and KotlinReflect import nothing from kotlin.* (their targets
+        // are named by PACKAGE_NAME + class name), so they survive on every JDK; their targets are skipped the same
+        // way. The four units that do import kotlin.* (Kotlin, KotlinCollections, KotlinSequences, KotlinText)
+        // survive on 27 only. Measured on 27 (8 of 8); the 26 figure follows the import rule and is not measured.
+        int kotlinUnits = java.lang.Runtime.version().feature() >= 27 ? 8 : 4;
         assertEquals(31 + kotlinUnits, types.size()); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
         for (TypeInfo typeInfo : types) {
             if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {

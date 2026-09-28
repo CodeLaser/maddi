@@ -96,6 +96,11 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             if (!independent.isIndependent()) {
                 transfer(ofReturnValue, returnType, null, hcThis.type(), hcThisFr, independent,
                         vfThis.mutable(), hcThisTps, forceIntoReturn, IS_SUBSET_OF, false);
+            } else if (!independent.dependentMethods().isEmpty()) {
+                // fully independent except through these methods (computed: an inner-class iterator whose remove()
+                // reaches the outer instance, TypeModIndyAnalyzerImpl.withDependentExceptions): no content is
+                // shared, only the modification component, and only via the passed methods
+                modificationExceptLink(ofReturnValue, returnType, vfThis.mutable(), independent.dependentMethods());
             }
         } else {
             forceIntoReturn = false;
@@ -275,6 +280,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     private TypeParameter formalToConcrete(TypeParameter formal, ParameterizedType parameterizedType) {
         return parameterizedType.parameters().get(formal.getIndex()).typeParameter();
+    }
+
+    private void modificationExceptLink(Links.Builder builder, ParameterizedType returnType, FieldInfo thisMutable,
+                                        List<MethodInfo> pass) {
+        if (thisMutable == null) return;
+        VirtualFields vfReturn = virtualFieldComputer.compute(returnType, false).virtualFields();
+        if (vfReturn == null || vfReturn.mutable() == null) return;
+        FieldReference mTarget = runtime.newFieldReference(vfReturn.mutable(),
+                runtime.newVariableExpression(builder.primary()), vfReturn.mutable().type());
+        builder.add(mTarget, LinkNatureImpl.makeIdenticalTo(pass), runtime.newFieldReference(thisMutable));
     }
 
     // important: the sourceType must be virtual fields/type parameters;

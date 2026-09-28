@@ -296,6 +296,10 @@ class WriteLinksAndModification {
             for (Link link : repLinks.linkSet()) {
                 Link translated = link.translateFrom(repToVariable);
                 if (translated.to().equals(variable) || translated.to().equals(translated.from())) continue;
+                // the rep's facts are the union over the alternatives; one that lands on the variable's own
+                // field path ('rv → rv.delegate' from 'rv.delegate ← rep' in the OTHER branch) describes no
+                // execution and seeds unbounded growth (see LinkComputerImpl's engine filter)
+                if (isInternalSelfFieldLink(translated.from(), translated.to())) continue;
                 if (!builder2.contains(translated.from(), translated.linkNature(), translated.to())) {
                     builder2.add(translated.from(), translated.linkNature(), translated.to(), translated.mediated());
                 }
@@ -339,7 +343,13 @@ class WriteLinksAndModification {
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to())
                                 // reverse-dedup, mirroring FollowGraph's block: if 's.r.j → s.k' is already in the
                                 // builder, do not also add the reconstructed 's.k ← s.r.j'
-                                && !builder.contains(link.to(), link.linkNature().reverse(), link.from()))
+                                && !builder.contains(link.to(), link.linkNature().reverse(), link.from())
+                                // the internal self-reference filter, as in the expansion above: after a join, a
+                                // return value evicted from the group of its argument and its own field face
+                                // ('rv.delegate ← rep' from the other branch) share that group, and the
+                                // reconstructed edge read 'rv → rv.delegate' -- the seed of unbounded field-path
+                                // growth (EC's CollectionAdapter.wrapList; TestAdapterChainGrowth)
+                                && !isInternalSelfFieldLink(link.from(), link.to()))
                 .forEach(link -> {
                     builder.add(link.from(), link.linkNature(), link.to(),
                             link.mediated() || followGraph.graph().isMediatedPair(link.from(), link.to()));
@@ -361,8 +371,12 @@ class WriteLinksAndModification {
                     }
                 });
         // finally, modification edges
+        // a pass-carrying ☷ edge is kept on its own: it IS the relation between the two objects (an inner-class
+        // instance and its outer 'this', 'it.§m ☷{remove} this.§m'); nothing else links them
         followGraph.graph().virtualModificationEdgeStream(variable)
-                .filter(link -> builder.containsPrimaryOf(link.to()))
+                .filter(link -> builder.containsPrimaryOf(link.to())
+                                || !link.linkNature().pass().isEmpty()
+                                   && !Util.firstRealVariable(link.from()).equals(Util.firstRealVariable(link.to())))
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
 

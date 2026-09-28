@@ -55,7 +55,6 @@
 # for FF==FF under the gate, the contraction discharges unconditional FF). From this pin on, TestEventualRatchet
 # also asserts LEVELS: its HC_KEYSTONES (Element, Expression, Statement, Info, MethodInfo, TypeInfo, ...) must stay
 # @Immutable(hc=true) after the mark -- #51 showed the whole family sliding to @FinalFields with this list unmoved.
-
 io.codelaser.maddi.cst.api.analysis.Codec.TypeAndSorted
 io.codelaser.maddi.cst.api.analysis.Message
 io.codelaser.maddi.cst.api.analysis.Value.AssignedToField
@@ -160,6 +159,8 @@ io.codelaser.maddi.cst.api.output.element.TextBlockFormatting
 io.codelaser.maddi.cst.api.runtime.Eval
 io.codelaser.maddi.cst.api.runtime.Eval.$0
 io.codelaser.maddi.cst.api.runtime.Eval.$1
+io.codelaser.maddi.cst.api.runtime.Predefined
+io.codelaser.maddi.cst.api.runtime.PredefinedWithoutParameterizedType
 io.codelaser.maddi.cst.api.runtime.Runtime
 io.codelaser.maddi.cst.api.runtime.Types
 io.codelaser.maddi.cst.api.statement.AssertStatement

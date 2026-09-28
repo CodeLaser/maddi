@@ -8,6 +8,7 @@ import io.codelaser.maddi.modification.link.impl.localvar.MarkerVariable;
 import io.codelaser.maddi.modification.link.impl.translate.VariableTranslationMap;
 import io.codelaser.maddi.modification.link.impl.translate.VirtualFieldTranslationMapForMethodParameters;
 import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
+import io.codelaser.maddi.modification.link.vf.VirtualFields;
 import io.codelaser.maddi.modification.prepwork.Util;
 import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.modification.prepwork.variable.*;
@@ -565,12 +566,61 @@ public record ExpressionVisitor(Runtime runtime,
         }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
-        return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
-                currentMethod, variableData, stage)
+        Result created = new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer,
+                variableCounter, currentMethod, variableData, stage)
                 .constructorCall(cc, object, params, mlvTranslated1)
                 .addModified(extraModified, null)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
+        return linkInnerClassToOuterInstance(cc, created);
+    }
+
+    /*
+    new Inner(...) of a non-static inner class, with the implicit outer instance E.this: the new object holds E.this,
+    and those of its methods that modify E.this modify the creating object. Link the two modification components,
+    passing exactly those methods: newObject.§m ☷{P} this.§m, P = the methods of Inner whose summaries modify E.this,
+    plus every method they override (so a call through the declared type, IntIter.remove, matches Iter.remove).
+    This is the shape of the JDK's Iterable.iterator() @Independent(hc = true, except = "remove"), computed instead of
+    declared: an iterator's next() moves its own cursor, its remove() removes from the collection (EC work list O4:
+    Mutable<P>Collection.removeIf through booleanIterator()). P empty: no link, the object stays independent of
+    E.this (the book's ImmutableArray.IteratorImpl, §080). Qualified 'outer.new Inner()' and anonymous classes are
+    not covered here.
+     */
+    private Result linkInnerClassToOuterInstance(ConstructorCall cc, Result created) {
+        TypeInfo inner = cc.constructor().typeInfo();
+        if (!inner.isInnerClass() || currentMethod.isStatic() || created.links() == null
+            || created.links().primary() == null) {
+            return created;
+        }
+        TypeInfo outer = inner.compilationUnitOrEnclosingType().getRight();
+        if (currentMethod.typeInfo() != outer) return created;
+        Set<MethodInfo> pass = new HashSet<>();
+        for (MethodInfo methodInfo : inner.methods()) {
+            if (methodInfo.isStatic() || methodInfo.isAbstract()) continue;
+            MethodLinkedVariables mlv = linkComputer.recurseMethod(methodInfo);
+            if (mlv == null) continue;
+            boolean modifiesOuter = mlv.modified().stream()
+                    .map(Util::primary)
+                    .anyMatch(v -> v instanceof This thisVar && thisVar.typeInfo() == outer);
+            if (modifiesOuter) {
+                pass.add(methodInfo);
+                pass.addAll(methodInfo.overrides());
+            }
+        }
+        if (pass.isEmpty()) return created;
+        VirtualFields vfInner = virtualFieldComputer.compute(inner.asParameterizedType(), false).virtualFields();
+        VirtualFields vfOuter = virtualFieldComputer.compute(outer.asParameterizedType(), false).virtualFields();
+        if (vfInner == null || vfOuter == null || vfInner.mutable() == null || vfOuter.mutable() == null) {
+            return created;
+        }
+        Variable newObject = created.links().primary();
+        FieldReference objectM = runtime.newFieldReference(vfInner.mutable(), runtime.newVariableExpression(newObject),
+                vfInner.mutable().type());
+        FieldReference thisM = runtime.newFieldReference(vfOuter.mutable());
+        Links links = new LinksImpl.Builder(created.links())
+                .add(objectM, LinkNatureImpl.makeIdenticalTo(pass), thisM)
+                .build();
+        return created.with(links);
     }
 
     // last-write-wins for the element-internal call-site argument links; same monitor discipline as

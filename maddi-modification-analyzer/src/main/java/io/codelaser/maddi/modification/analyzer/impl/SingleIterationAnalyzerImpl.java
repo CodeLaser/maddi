@@ -477,10 +477,21 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                     // methodLinks IS the method's summary: pass the target so the change reaches
                     // summaryChangedInfos and dirties dependents (the 3-arg overload's "?" context did not,
                     // leaving the worklist 0-dirty after a verification pass found methodLinks changes)
-                    if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
-                            methodInfo)) {
-                        propertiesChanged.incrementAndGet();
-                    }
+                    // This is the method's analysis-order SLOT: for a source method the latest computation wins
+                    // over an equal-keyed value with other content (TolerantWrite.setLatestWins). A source
+                    // abstract method's links are a pure function of its CURRENT independence (the union over
+                    // implementations): the DEPENDENT default before the fold decides -- first iteration, and
+                    // again after MODREACH's clearDerivedFamily -- gives 'it.§m ≡ this.§m' + content, the
+                    // decided 'except' gives the sparser 'it.§m ☷{remove} this.§m'; and every caller's first
+                    // computation carries that pessimism as extra links. "Equal primary, richer wins" kept the
+                    // early value for good (EC O4, booleanIterator; dogfood: 29 methods stuck @Dependent).
+                    // A library method's shallow links are a function of its annotations: ordinary retention.
+                    boolean source = !methodInfo.typeInfo().compilationUnit().externalLibrary();
+                    boolean written = source
+                            ? TolerantWrite.setLatestWins(methodInfo.analysis(), METHOD_LINKS, mlv, methodInfo)
+                            : TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), METHOD_LINKS, mlv,
+                            methodInfo);
+                    if (written) propertiesChanged.incrementAndGet();
                     // flatten-snapshot Phase 5: this method is fully linked (summary written), so flatten
                     // its last-statement VD and drop the intermediates RIGHT HERE — concurrently, inside
                     // the giant SCC wave, which is the only place the peak can actually be bounded. Safe

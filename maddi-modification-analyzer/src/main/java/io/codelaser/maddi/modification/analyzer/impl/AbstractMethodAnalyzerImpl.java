@@ -303,7 +303,10 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             return;
         }
         Value.Independent fromImplementations = INDEPENDENT;
+        boolean anyCounted = false;
         for (MethodInfo implementation : concreteImplementations) {
+            if (delegatesWithinFamily(implementation, methodInfo)) continue;
+            anyCounted = true;
             Value.Independent independentImpl = implementation.analysis().getOrNull(INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.class);
             if (independentImpl == null) {
@@ -315,9 +318,77 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             fromImplementations = fromImplementations.min(independentImpl);
             if (fromImplementations.isDependent()) break;
         }
+        // every implementation only delegates back into the family: nothing ever hands out this object's own
+        // state through this method -- independent, but its content (hidden content) may still flow
+        if (!anyCounted) fromImplementations = ValueImpl.IndependentImpl.INDEPENDENT_HC;
         if (TolerantWrite.setAllowControlledOverwrite(methodInfo.analysis(), INDEPENDENT_METHOD, fromImplementations, methodInfo)) {
             DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
         }
+    }
+
+    /*
+    Cycle breaking for a self-supporting union (option C, 2026-09-26). Element.variables(d) is implemented as
+    'return expression.variables(d)', 'return inner.variables(d)', ...: each such implementation's independence is
+    EXACTLY the union's own (it returns what another element's same method returns), so folding it into the union
+    only feeds the union its own provisional value. Starting from the DEPENDENT default links of the undecided
+    abstract method, the family then confirmed @Dependent for good (30 dogfood methods), with nothing in the cycle
+    ever returning a field. Leaving the delegating implementations out, the union is the minimum over the others
+    -- the greatest fixpoint, the same choice CYCLE_BREAKING makes for an undecided independence. Sound for the
+    delegating ones: their value equals the union's by construction, and they re-derive from the decided union.
+    Delegating: at least one return statement returns a call into the method's family (any receiver, arguments free
+    of 'this'), and every other one an expression free of 'this' altogether ('Stream.of()').
+     */
+    private static boolean delegatesWithinFamily(MethodInfo implementation, MethodInfo abstractMethod) {
+        if (implementation.isAbstract() || implementation.methodBody() == null
+            || implementation.methodBody().isEmpty()) {
+            return false;
+        }
+        Set<MethodInfo> family = new HashSet<>(abstractMethod.overrides());
+        family.add(abstractMethod);
+        boolean[] delegating = {true};
+        boolean[] anyFamilyCall = {false};
+        implementation.methodBody().visit(e -> {
+            if (!delegating[0]) return false;
+            if (e instanceof TypeInfo || e instanceof io.codelaser.maddi.cst.api.expression.Lambda) return false;
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs) {
+                int kind = x(rs.expression(), family);
+                if (kind == FAMILY) anyFamilyCall[0] = true;
+                else if (kind == OTHER) delegating[0] = false;
+                return false;
+            }
+            return true;
+        });
+        // at least one return must delegate: an implementation whose returns are all free of 'this' ('return new
+        // Iter()') has a value of its own and is counted
+        return delegating[0] && anyFamilyCall[0];
+    }
+
+    private static final int OTHER = 0, THIS_FREE = 1, FAMILY = 2;
+
+    // a returned expression: a call into the family, free of 'this', a conditional over those ('c ? Stream.of() :
+    // x.names()', SwitchEntryImpl.variableStreamDoNotDescend), or anything else
+    private static int x(io.codelaser.maddi.cst.api.expression.Expression x, Set<MethodInfo> family) {
+        if (x == null || x.isEmpty()) return OTHER;
+        if (x instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && inFamily(mc.methodInfo(), family)
+            && mc.parameterExpressions().stream().allMatch(AbstractMethodAnalyzerImpl::thisFree)) {
+            return FAMILY;
+        }
+        if (x instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+            int t = x(ic.ifTrue(), family), f = x(ic.ifFalse(), family);
+            if (t == OTHER || f == OTHER) return OTHER;
+            return t == FAMILY || f == FAMILY ? FAMILY : THIS_FREE;
+        }
+        return thisFree(x) ? THIS_FREE : OTHER;
+    }
+
+    private static boolean inFamily(MethodInfo callee, Set<MethodInfo> family) {
+        return family.contains(callee) || callee.overrides().stream().anyMatch(family::contains);
+    }
+
+    private static boolean thisFree(io.codelaser.maddi.cst.api.expression.Expression expression) {
+        return expression.variableStreamDescend().noneMatch(v ->
+                v instanceof io.codelaser.maddi.cst.api.variable.This
+                || v instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr && fr.scopeIsRecursivelyThis());
     }
 
     /**
