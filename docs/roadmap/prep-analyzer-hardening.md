@@ -43,7 +43,7 @@ Severity: **H** high, **M** medium, **L** low.
   to TestStaticBiFunction,6`), `LinkGraph.java:236` (`// FIXME add the current type`),
   `LinkMethodCall.java:115` (`// FIXME hard-coded`), `MethodLinkedVariablesImpl.java:150` (link restrictions
   "not implementing… complicated"), `ShallowMethodLinkComputer` library heuristics (`:68,165,189,346`).
-- [ ] **M** `ExpressionVisitor.java:85` hard-throws on unknown expression types (no graceful degrade).
+- [x] **M** `ExpressionVisitor.java:85` hard-throws on unknown expression types (no graceful degrade).
 - Tests: **zero linked-variable tests in prepwork**; engine tests live in `maddi-modification-link`.
 
 ## 2. Part-of-construction / final-field detection  (H)
@@ -188,8 +188,8 @@ Severity: **H** high, **M** medium, **L** low.
 ## 7. Serialization IO  (M→H robustness)
 - [ ] **H** (#16) No version/schema marker; `LoadAnalysisResults` reads by fixed positional index with unchecked
   casts (`io/LoadAnalysisResults.java:159-184`) → format drift = `ClassCastException`.
-- [ ] **H** (#17) A stale/renamed `Info` on load aborts the whole file (`:167-170`); no skip-and-continue.
-- [ ] **H** (#18) Properties the codec can't encode are silently dropped, no log (`io/WriteAnalysisResults.java:115`).
+- [x] **H** (#17) A stale/renamed `Info` on load aborts the whole file (`:167-170`); no skip-and-continue.
+- [x] **H** (#18) Properties the codec can't encode are silently dropped, no log (`io/WriteAnalysisResults.java:115`).
   `PrepWorkCodec` registers exactly one maddi property (`io/PrepWorkCodec.java:56-57`) — easy to forget new ones.
 - [ ] **M** Jar reads use platform charset vs UTF-8 elsewhere (`io/LoadAnalysisResults.java:105`).
 - [ ] **M** `DecoratorImpl.importsNeeded` is mutable instance state — not thread-safe if reused
