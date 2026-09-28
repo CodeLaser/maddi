@@ -95,31 +95,25 @@ public class TestKotlinAnalyzerSynthesized extends CommonKotlinAnalyzerTest {
     }
 
     /*
-     ⛔ maddi#90: `$$delegate_0` is disconnected from the constructor parameter: the forwarder's argument and the type
-     read @Independent, and the parameter never sees the modification a forwarder makes. When #90 is fixed, this
-     becomes `a.assertSameAsJava("Forward2")` and `a.assertSameAsJava("Forward")`.
+     #90 (fixed by #85, 2026-09-28): the constructor stores the delegate, so the type, the constructor and the field
+     agree with the Java twin. ⛔ maddi#93: the forwarder's parameter does not: Java's one-method Sink is a functional
+     interface and `$$delegate_0.put(s)` takes the lambda path (`~Λ`, @Dependent); Kotlin's `interface Sink` is not
+     (`fun interface` would be), and the ordinary abstract call reads `s` as @Independent of the delegate. When #93
+     is settled, this becomes `a.assertSameAsJava("Forward2")` and `a.assertSameAsJava("Forward")`.
      */
     @Test
     public void delegation() {
         a.assertSameAsJava("ListSink");
+        a.assertSameAsJava("Forward2", "<init>", "$$delegate_0");
+        a.assertSameAsJava("Forward", "<init>", "$$delegate_0", "d");
         assertEquals("""
                 type Forward2: @FinalFields @Dependent
-                constructor: nonModifying=false @Independent | 0: unmodified=false @Dependent
-                field $$delegate_0: final=true unmodified=false @Dependent
-                method put: nonModifying=false @Independent | 0: unmodified=false @Dependent""", a.java("Forward2"));
+                method put: nonModifying=false @Independent | 0: unmodified=false @Dependent""", a.java("Forward2", "put"));
         assertEquals("""
-                type Forward2: @FinalFields @Independent
-                constructor: nonModifying=true @Independent | 0: unmodified=true @Independent
-                field $$delegate_0: final=true unmodified=false @Independent
-                method put: nonModifying=false @Independent | 0: unmodified=false @Independent""", a.kotlin("Forward2"));
-        assertEquals("""
-                type Forward: @FinalFields @Dependent
-                constructor: nonModifying=false @Independent | 0: unmodified=true @Dependent
-                field $$delegate_0: final=true unmodified=false @Independent
-                field d: final=true unmodified=true @Dependent
-                method put: nonModifying=false @Independent | 0: unmodified=false @Independent""", a.kotlin("Forward"));
-        assertEquals("constructor: nonModifying=false @Independent | 0: unmodified=false @Dependent",
-                a.java("Forward", "<init>").lines().skip(1).findFirst().orElseThrow());
+                type Forward2: @FinalFields @Dependent
+                method put: nonModifying=false @Independent | 0: unmodified=false @Independent""", a.kotlin("Forward2", "put"));
+        assertEquals(a.java("Forward2", "put").replace("Forward2", "Forward"), a.java("Forward", "put"));
+        assertEquals(a.kotlin("Forward2", "put").replace("Forward2", "Forward"), a.kotlin("Forward", "put"));
     }
 
     /* the `$default` method carries the modification of the parameter it forwards; the type is unaffected */

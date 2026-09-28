@@ -44,13 +44,10 @@ public class TestKotlinLinkDelegation extends CommonKotlinLinkTest {
         p.assertSameAsJava("last");
     }
 
-    /*
-     ⛔ maddi#90: the constructor's body has no `$$delegate_0 = d`, so `d` links to nothing and every analysis above it
-     reads the delegate as independent of the object. When #90 is fixed, this becomes `p.assertSameAsJava("<init>")`.
-     */
+    /* #90 (fixed by #85, 2026-09-28): the constructor stores the delegate, `this.$$delegate_0 = d`, as kotlinc's does */
     @Test
     public void constructorStoresTheDelegate() {
-        assertEquals("[0:d.§m≡this*.$$delegate_0.§m,0:d→this*.$$delegate_0] --> -", p.javaLinks("<init>"));
-        assertEquals("[-] --> -", p.kotlinLinks("<init>"));
+        p.assertSameAsJava("<init>");
+        assertEquals("[0:d.§m≡this*.$$delegate_0.§m,0:d→this*.$$delegate_0] --> -", p.kotlinLinks("<init>"));
     }
 }
