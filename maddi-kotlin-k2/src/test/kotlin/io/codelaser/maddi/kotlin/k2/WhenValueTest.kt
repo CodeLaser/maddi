@@ -59,11 +59,11 @@ class WhenValueTest : KotlinScanTestBase() {
     fun theShapes() {
         assertEquals("""
             single: return switch(i){case 0->"zero";default->"other";};
-            block: return switch(i){case 0->{ConsoleKt.println("zero");yield 10;}default->{int j=i*2;yield j+1;}};
+            block: return switch(i){case 0->{System.out.println("zero");yield 10;}default->{int j=i*2;yield j+1;}};
             jump: return switch(i){case 0->throw new IllegalStateException();default->i;};
-            statement: switch(i){case 0->{ConsoleKt.println("zero");}default->{ConsoleKt.println("other");}}
-            ifValue: return switch(i){case 0->{if(c){ConsoleKt.println("c");yield 1;}else{yield 2;}}case 1->{if(c){return 5;}else{yield 6;}}default->3;};
-            elvisValue: return (switch(o){case int it->{if(s==null){return false;}yield s;}default->"y";}).equals("x");
+            statement: switch(i){case 0->{System.out.println("zero");}default->{System.out.println("other");}}
+            ifValue: return switch(i){case 0->{if(c){System.out.println("c");yield 1;}else{yield 2;}}case 1->{if(c){return 5;}else{yield 6;}}default->3;};
+            elvisValue: return (switch(o){case Integer it->{if(s==null){return false;}yield s;}default->"y";}).equals("x");
             """.trimIndent(), listOf("single", "block", "jump", "statement", "ifValue", "elvisValue").joinToString("\n") { "$it: ${body(it)}" })
     }
 

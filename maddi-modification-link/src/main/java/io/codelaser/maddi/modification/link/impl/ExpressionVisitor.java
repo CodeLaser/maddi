@@ -28,6 +28,8 @@ import io.codelaser.maddi.cst.api.variable.*;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,6 +51,7 @@ public record ExpressionVisitor(Runtime runtime,
     public record WriteMethodCall(Expression methodCall, Links linksFromObject) {
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExpressionVisitor.class);
     static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Map.of(), List.of(), Map.of(),
             Set.of(), Set.of());
 
@@ -86,9 +89,17 @@ public record ExpressionVisitor(Runtime runtime,
             case BinaryOperator bo -> binaryOperator(variableData, stage, bo);
             case TypeExpression _, EmptyExpression _ -> EMPTY;
             case SwitchExpression se -> switchExpression(se, variableData, stage);
-            default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
+            default -> {
+                // #22: an expression kind the linker does not enumerate contributes no links; before, this threw
+                // and (under fault tolerance) cost the whole method its link analysis
+                LOGGER.warn("Link engine: no visitor for {} in {}; contributes no links", expression.getClass().getName(),
+                        currentMethod);
+                yield EMPTY;
+            }
         };
-        if (r.getEvaluated() == null) r.setEvaluated(expression);
+        // ⛔ the return value matters: for the shared EMPTY, setEvaluated returns a copy (#83). Ignoring it wrote the
+        // first TypeExpression ever visited into EMPTY, and every later EMPTY in the JVM carried that expression
+        if (r.getEvaluated() == null) r = r.setEvaluated(expression);
         return r;
     }
 

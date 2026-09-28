@@ -49,15 +49,15 @@ class LocalDelegateTest : KotlinScanTestBase() {
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
     }
 
-    // `shadow`: the inner `x` is a plain local, not the delegate. (Its `return` inside `run {}` returning from the
-    // lambda is #58, not this.)
+    // `shadow`: the inner `x` is a plain local, not the delegate. Its bare `return` inside `run {}` leaves `shadow()`
+    // itself (#58): the Java printer marks the non-local return in a comment rather than print a different program.
     @Test
     fun theShapes() {
         assertEquals("""
             lazyLocal: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->5); return x${'$'}delegate.value;
             twice: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->5); return x${'$'}delegate.value+x${'$'}delegate.value;
             writable: ReadWriteProperty<Object,Integer> y${'$'}delegate=Delegates.INSTANCE.notNull(); y${'$'}delegate.setValue(null,null,3); return y${'$'}delegate.getValue(null,null);
-            shadow: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->1); StandardKt__StandardKt.run(this,${'$'}receiver->{int x=2;return x;});
+            shadow: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->1); StandardKt__StandardKt.run(this,${'$'}receiver->{int x=2;/* non-local return, 1 level(s) */ return x;});
             """.trimIndent(), listOf("lazyLocal", "twice", "writable", "shadow").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

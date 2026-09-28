@@ -69,20 +69,14 @@ public class TestKotlinEscapes extends CommonKotlinTest {
         assertEquals("0=true", escapes(p.kotlin("todo")));
     }
 
-    /*
-     ⛔ maddi#75: the arms of a `when` used as a value are indexed 0 and 1.0 instead of 0.0.0 and 0.1.0, and the
-     Java twin's return variable has an assignment (`0+0`) the Kotlin one lacks. When #75 is fixed, this becomes
-     `p.assertSameAsJava("whenThrows")`.
-     */
+    /* maddi#75 (fixed 2026-09-28): the arms of a `when` used as a value are indexed under their statement, as in Java */
     @Test
     public void whenThrows() {
         assertEquals("0=true", escapes(p.kotlin("whenThrows")));
+        p.assertSameAsJava("whenThrows");
         assertEquals("""
                 i: D:-, A:[] | R 0
-                return whenThrows: D:-, A:[0, 0+0] | R -""", summary(p.java("whenThrows")));
-        assertEquals("""
-                i: D:-, A:[] | R 0
-                return whenThrows: D:-, A:[0] | R -""", summary(p.kotlin("whenThrows")));
+                return whenThrows: D:-, A:[0, 0.1.0] | R -""", summary(p.kotlin("whenThrows")));
     }
 
     /*

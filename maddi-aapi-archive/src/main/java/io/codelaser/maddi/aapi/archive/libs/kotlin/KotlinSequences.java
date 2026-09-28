@@ -240,12 +240,24 @@ public class KotlinSequences {
             return null;
         }
 
-        /*
-        ⛔ NO plus(...) here. Its four generic overloads (element, array, Iterable, Sequence) send the javac bridge
-        into a recursion: matching an overload converts a parameter type that still carries another overload's
-        method type variable, whose lookup matches the overloads again (ClassSymbolScanner.getMethod/sameTypes <->
-        findTypeParameter). TestAnalysisHintsCompiler died of a StackOverflowError; GitHub #60.
-        */
+        // the four generic plus(...) overloads are the #60 shape (overload matching recursed through their method
+        // type variables); they stay here as the pin for it
+        @Independent(hc = true)
+        @NotNull
+        static <T> Sequence<T> plus(@NotModified Sequence<? extends T> receiver, T element) { return null; }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Sequence<T> plus(@NotModified Sequence<? extends T> receiver, @NotModified T[] elements) { return null; }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Sequence<T> plus(@NotModified Sequence<? extends T> receiver, @NotModified Iterable<? extends T> elements) { return null; }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Sequence<T> plus(@NotModified Sequence<? extends T> receiver, @NotModified Sequence<? extends T> elements) { return null; }
+
         @Independent(hc = true)
         @NotNull
         static <K, V> Map<K, V> associateWith(@NotModified Sequence<? extends K> receiver,

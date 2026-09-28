@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.statement.LocalVariableCreation
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.ThrowStatement
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -69,15 +70,19 @@ class ControlFlowElvisTest : KotlinScanTestBase() {
     }
 
     /**
-     * ⛔ CONTROL. `return@mapNotNull` leaves a LAMBDA, not this method; lowering it to a plain `return` would
-     * emit a return from the wrong method, silently. It must stay a placeholder — one of eight sites sampled
-     * from detekt's source was exactly this.
+     * `return@mapNotNull null` leaves the LAMBDA, not this method. Until 2026-09-28 the lambda's result expression
+     * was never lowered, so this stayed a placeholder; now the guard's return goes through the converter's return
+     * path, which carries the exit levels (0: the lambda itself), so the lowering is `if (it == null) return null;
+     * return it;` INSIDE the lambda -- exactly the source. ⛔ CONTROL on the target: no non-local marker.
      */
     @Test
-    fun aLabelledReturnIsRefused() {
+    fun aLabelledReturnFromTheLambdaItselfIsLowered() {
         val p = parse("fun f(xs: List<String?>) = xs.mapNotNull { it ?: return@mapNotNull null }")
         val census = PlaceholderCensus.of(listOf(p))
-        assertEquals(setOf("k2-unsupported-expr:KtReturnExpression"), census.byKind.keys, census.byKind.toString())
+        val body = p.findUniqueMethod("f", 1).methodBody().statements().joinToString(" ")
+        assertEquals(0, census.total, census.byKind.toString() + "\n" + body)
+        assertTrue(body.contains("if(it==null){return null;}return it;"), body)
+        assertFalse(body.contains("non-local"), body)
     }
 
     /**

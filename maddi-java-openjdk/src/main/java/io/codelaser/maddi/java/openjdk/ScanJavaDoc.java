@@ -6,6 +6,7 @@ import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocSourcePositions;
 import com.sun.source.util.DocTreeScanner;
 import com.sun.tools.javac.tree.DCTree;
+import com.sun.tools.javac.util.JCDiagnostic;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -24,8 +25,28 @@ public record ScanJavaDoc(Runtime runtime,
     public JavaDoc scan(DocCommentTree docCommentTree) {
         MyScanner myScanner = new MyScanner(docCommentTree);
         Source source = myScanner.source(docCommentTree);
+        if (source == runtime.noSource()) source = rawCommentSource(docCommentTree);
         myScanner.scan(docCommentTree, null);
         return runtime.newJavaDoc(source, myScanner.comment.toString(), List.copyOf(myScanner.tags));
+    }
+
+    /**
+     * #31: javac positions a doc comment tree by its BODY, so an empty {@code /** *&#47;} has no position at all,
+     * and the JavaDoc read as line 0 to every consumer placing something relative to a member's comments. The
+     * tokenizer's comment behind the tree knows where its {@code /**} is; take that, and the line it sits on.
+     */
+    private Source rawCommentSource(DocCommentTree docCommentTree) {
+        if (!(docCommentTree instanceof DCTree.DCDocComment dc) || dc.comment == null) return runtime.noSource();
+        JCDiagnostic.DiagnosticPosition pos = dc.comment.getPos();
+        if (pos == null) return runtime.noSource();
+        int start = pos.getStartPosition();
+        if (start == Diagnostic.NOPOS) return runtime.noSource();
+        int end = start + 3; // the '/**' token: a comment with a body positions itself, this one has none
+        long startLine = lineMap.getLineNumber(start);
+        long startCol = lineMap.getColumnNumber(start);
+        long endLine = lineMap.getLineNumber(end - 1);
+        long endCol = lineMap.getColumnNumber(end - 1); // inclusive
+        return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
     }
 
     class MyScanner extends DocTreeScanner<Void, Void> {

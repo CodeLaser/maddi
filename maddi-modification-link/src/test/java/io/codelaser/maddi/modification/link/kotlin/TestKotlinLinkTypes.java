@@ -81,16 +81,21 @@ public class TestKotlinLinkTypes extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#81: `d.copy(a = a)` is `d.copy(a, null)`: no copy$default, so the omitted `b` is null rather than d.b,
-     and the copy's `b` links to a constant.
+     maddi#81 (fixed 2026-09-28): `d.copy(a = a)` binds to the data class's `copy$default`, whose body substitutes
+     `this.b` for the omitted `b` before calling `copy`, as kotlinc's does.
      */
     @Test
     public void dataClassCopy() {
-        assertEquals("{return d.copy(a,null);}",
+        assertEquals("{return d.copy$default(a,null,2);}",
                 p.kotlin("copyD").methodBody().print(p.runtime().qualificationSimpleNames()).toString());
         assertEquals("[-, -] --> copyD.a←1:a,copyD.b←0:d.b,copyD.a.§m≡1:a.§m,copyD.b.§m≡0:d.b.§m",
                 p.javaLinks("copyD"));
-        assertEquals("[-, -] --> copyD.a.§m≡1:a.§m,copyD.b.§m≡$_ce0.§m,copyD.a←1:a,copyD.b←$_ce0",
+        // the copy's `b` now depends on `d.b`, as in Java. The rest is the bridge's conservatism: `$mask` is not
+        // evaluated, so each property links to BOTH its argument and the original's field, and the omitted `b`
+        // keeps its null placeholder ($_ce0) as a second source.
+        assertEquals("[0:d*.b.§m≡$_ce0*.§m, 1:a*.§m≡0:d*.a.§m,1:a*→0:d*.a] --> "
+                     + "copyD.a.§m≡0:d*.a.§m,copyD.a.§m≡1:a*.§m,copyD.b.§m≡$_ce0*.§m,copyD.b.§m≡0:d*.b.§m,"
+                     + "copyD.a←0:d*.a,copyD.a←1:a*,copyD.b→$_ce0*,copyD.b←0:d*.b",
                 p.kotlinLinks("copyD"));
     }
 
@@ -102,12 +107,12 @@ public class TestKotlinLinkTypes extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#82: with a custom setter it does not mean the same. kotlinc calls setSb (count++); the CST writes the
-     field, and the setter's side effect is not part of customSet.
+     maddi#82 (fixed 2026-09-28): with a custom setter a field write does not mean the same. kotlinc calls setSb
+     (count++), and so does the CST now; the setter's side effect is part of customSet.
      */
     @Test
     public void customSetterFromOutside() {
-        assertEquals("{l.sb=s;}",
+        assertEquals("{l.setSb(s);}",
                 p.kotlin("customSet").methodBody().print(p.runtime().qualificationSimpleNames()).toString());
     }
 

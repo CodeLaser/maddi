@@ -87,6 +87,17 @@ internal class KotlinReferenceRegistry {
     /** The `$default` synthetic of the function or constructor [declaration], or null if it declares no default. */
     fun defaultsOf(declaration: PsiElement?): MethodInfo? = declaration?.let { defaultsOf[it] }
 
+    // a data class's generated `copy()` has no declaration of its own (its PSI is the class's), so its `copy$default`
+    // is keyed by the CLASS, apart from the primary constructor's `$default` (#81)
+    private val copyDefaultsOf = IdentityHashMap<PsiElement, MethodInfo>()
+
+    fun copyDefaults(dataClass: PsiElement, method: MethodInfo) {
+        copyDefaultsOf[dataClass] = method
+    }
+
+    /** The `copy$default` synthetic of the data class [dataClass], or null. */
+    fun copyDefaultsOf(dataClass: PsiElement?): MethodInfo? = dataClass?.let { copyDefaultsOf[it] }
+
     /** [variable] is a CST local converted from the declaration [psi]: a `val`/`var`, a loop, catch or `when` variable. */
     fun local(psi: PsiElement?, variable: LocalVariable) {
         if (psi != null) localsOf.getOrPut(psi) { ArrayList() } += variable
