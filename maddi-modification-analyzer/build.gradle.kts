@@ -44,6 +44,10 @@ dependencies {
     testImplementation(testFixtures(project(":maddi-modification-common")))
 
     testRuntimeOnly(project(":maddi-aapi-archive"))
+    // the Kotlin front end, flat on the test class path, and the mixed parse that feeds it the JDK: package
+    // `kotlin` analyzes Kotlin input and compares its verdicts with the Java twin of each fixture. Test-only.
+    testImplementation(project(":maddi-kotlin-k2"))
+    testImplementation(project(":maddi-inspection-mixed"))
 }
 tasks.withType<Test> {
     // pass the clone-bench corpus location through to the test JVM, as run-openjdk does for test.oss.root
