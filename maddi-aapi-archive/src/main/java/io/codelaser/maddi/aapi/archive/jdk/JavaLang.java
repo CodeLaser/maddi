@@ -1922,10 +1922,12 @@ public class JavaLang {
             /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ CharSequence delimiter,
             /*@Independent[T]*/ CharSequence ... elements) { return null; }
 
+        // join only iterates its elements: @NotModified is a contract here, not the type's default, since Iterable is
+        // a @Container (a Java field passed to join must stay unmodified: TestKotlinCollectionReadsVsJava's control row)
         //@NotModified[T]
         static String join(
             /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ CharSequence delimiter,
-            /*@Independent[T]*/ Iterable<? extends CharSequence> elements) { return null; }
+            /*@Independent[T]*/ @NotModified Iterable<? extends CharSequence> elements) { return null; }
 
         //frequency 3
         //@NotModified[T]
