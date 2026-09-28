@@ -185,6 +185,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
             // -> 'from.t*→to*.t' (linksBetweenParameters); a passed Consumer that is invoked -> appliedFunctionalInterfaces.
             linksBetweenParameters(methodInfo, params, mlv, extra);
             appliedFunctionalInterfaces(methodInfo, params, extraModified, mlv, extra);
+            receiverConsumers(methodInfo, params, mlv, extra);
         }
         return new Result(concreteReturnValue, new LinkedVariablesImpl(extra))
                 .addModified(extraModified, null);
@@ -553,6 +554,50 @@ public record LinkMethodCall(JavaInspector javaInspector,
         return primary != null
                && !(primary instanceof FunctionalInterfaceVariable)
                && r.extra().isEmpty();
+    }
+
+    /*
+     LEAF 5b — a static method applying a consumer to its FIRST parameter's hidden content, a Kotlin extension function
+     on the JVM: `xs.forEach { r = it }` is `CollectionsKt.forEach(xs, action)`, whose summary roots the contract at the
+     receiver parameter as Iterable.forEach's is rooted at 'this' (ShallowMethodLinkComputer.receiverConsumer). The first
+     argument plays the object, and the lambda is lifted as parametersToObject lifts it (#94).
+     */
+    private void receiverConsumers(MethodInfo methodInfo, List<Result> params, MethodLinkedVariables mlv,
+                                   Map<Variable, Links> extra) {
+        if (methodInfo.parameters().isEmpty() || params.isEmpty() || params.getFirst() == null
+            || params.getFirst().links() == null) return;
+        ParameterInfo receiver = methodInfo.parameters().getFirst();
+        Variable objectPrimary = params.getFirst().links().primary();
+        if (objectPrimary == null) return;
+        for (int i = 1; i < mlv.ofParameters().size() && i < params.size(); i++) {
+            Links links = mlv.ofParameters().get(i);
+            if (!receiver.equals(links.primary())) continue;
+            ParameterizedType parameterizedType = methodInfo.parameters().get(i).parameterizedType();
+            Result r = params.get(i);
+            if (r == null || !parameterizedType.isFunctionalInterface() || r.extra().isEmpty()) continue;
+            List<Links> linksList = r.extra().map().entrySet().stream()
+                    .filter(e -> e.getKey() instanceof ParameterInfo)
+                    .map(Map.Entry::getValue)
+                    .toList();
+            VariableTranslationMap vtm = new VariableTranslationMap(runtime).put(receiver, objectPrimary);
+            Links.Builder builder = new LinksImpl.Builder(objectPrimary);
+            for (Link link : links) {
+                new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                        .go(parameterizedType, link.from(), LinkNatureImpl.SHARES_ELEMENTS, builder.primary(), linksList,
+                                objectPrimary)
+                        .forEach(t -> {
+                            Variable from = vtm.translateVariableRecursively(t.from());
+                            Variable to = t.to();
+                            if (Util.acceptModificationLink(from, to)
+                                && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(from)
+                                && LinksImpl.LinkImpl.doNotStackMOnTopOfVirtualField(to)) {
+                                builder.add(from, t.linkNature(), to);
+                            }
+                        });
+            }
+            Links built = builder.build();
+            if (!built.isEmpty()) extra.merge(objectPrimary, built, Links::merge);
+        }
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,

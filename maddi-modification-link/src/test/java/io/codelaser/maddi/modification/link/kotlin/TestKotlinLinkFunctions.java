@@ -92,16 +92,6 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#72: the lambda assigns the enclosing `var r`; the method's return variable only sees `r = null`, so the
-     result is not linked to the elements of xs.
-     */
-    /*
-     The lambda assigns the enclosing `var r`: a Ref holder, `r.element = it`, as kotlinc compiles it (#72). It links as
-     the Java holder form does. ⛔ maddi#94: neither carries the lambda's write out -- the Java `for` loop links the
-     result to the elements of xs -- and without a lambda the holder links (capturedRef1). When #94 is fixed, `captured`
-     and `capturedRef` link as the loop does.
-     */
-    /*
      The lambda assigns the enclosing `var r`: a Ref holder, `r.element = it`, as kotlinc compiles it (#72). A lambda's
      write through a captured holder -- a Ref field, an array element -- now reaches its creator (#94): the lambda's
      summary keeps its parameter's link to the closure variable, and a Consumer applied to a collection's elements
@@ -122,18 +112,20 @@ public class TestKotlinLinkFunctions extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#89: the Kotlin lambda's summary carries its write to the holder as Java's does, but Kotlin's `forEach` is
-     the stdlib's CollectionsKt.forEach, which has no link contract tying the lambda's parameter to the elements (Java's
-     Iterable.forEach has one), so nothing is applied. When forEach is contracted, `captured` links as `capturedRef`.
+     Kotlin's `forEach` is the stdlib's static extension CollectionsKt.forEach(Iterable, Function1<T, Unit>). Its
+     derived contract roots the consumer at the receiver parameter as Java's Iterable.forEach roots it at 'this'
+     (`0:$receiver.§ts⊇Λ1:action`), the call applies it with the first argument as the object, and a Unit-returning
+     Function1 lifts as a Consumer (#94). `captured` links as the Java `capturedRef`, in another order.
      */
     @Test
-    public void kotlinForEachIsNotContracted() {
+    public void kotlinForEachIsContracted() {
         java.util.List<String> lambdaLinks = new java.util.ArrayList<>();
         p.kotlin("captured").methodBody().visit(e -> {
             if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda l) lambdaLinks.add(p.links(l.methodInfo()));
             return true;
         });
         assertEquals("[[0:it.§m≡r*.element.§m,0:it→r*.element] --> -]", lambdaLinks.toString());
-        assertEquals("[-] --> -", p.kotlinLinks("captured"));
+        assertEquals("[0:xs.§$s∋$_ce1] --> captured.§m~0:xs.§m,captured←$_ce1,captured∈0:xs.§$s",
+                p.kotlinLinks("captured"));
     }
 }
