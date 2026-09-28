@@ -2002,7 +2002,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // type; we could not map it. Say which.
             throw new UnsupportedOperationException("Cannot map javac's type '" + ct + "' (tsym "
                                                     + (ct.tsym == null ? "null" : ct.tsym.getQualifiedName()
-                                                       + ", owner " + ct.tsym.owner) + ") onto a TypeInfo");
+                                                       + ", owner " + ct.tsym.owner) + ") onto a TypeInfo"
+                                                    + offClassPathHint(ct));
         }
         if (ct.getTypeArguments().isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
@@ -2236,6 +2237,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private TypeParameter getTmpMethodTypeParameter(String typeFqn, String methodTpName) {
         Map<String, TypeParameter> typeParameterMap = tmpMethodTypeParameterMap.get(typeFqn);
         return typeParameterMap == null ? null : typeParameterMap.get(methodTpName);
+    }
+
+    /*
+     The usual cause of a "Cannot map" is a jar on javac's class path that no class-path source set is NAMED after: a
+     set is matched by its jar's file name, so a stdlib set named "kotlin-stdlib" instead of "kotlin-stdlib-2.x.y.jar"
+     sends every type in the jar off the classpath, and the failure surfaces far away, on whichever type is mapped
+     first (#67). Name the jar and the rule; the per-type DEBUG line in ensureSourceSet is too quiet to find.
+     */
+    private String offClassPathHint(Type.ClassType ct) {
+        if (!(ct.tsym instanceof Symbol.ClassSymbol cs) || !fromClassFile(cs)) return "";
+        Matcher m = JAR_FILE.matcher(cs.classfile.toUri().toString());
+        if (!m.matches() || getSourceSet(m.group(2)) != null) return "";
+        return "; it was loaded from " + m.group(2) + ", which no class-path source set is named after (a class-path"
+               + " source set is matched by its jar's file name; known: " + new TreeSet<>(sourceSetMap.keySet()) + ")";
     }
 
     private SourceSet getSourceSet(String name) {

@@ -16,6 +16,7 @@ import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
 import io.codelaser.maddi.modification.prepwork.variable.impl.ObjectCreationVariableImpl;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -79,7 +80,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         int i = 0;
         for (Result r : params) {
             ParameterInfo pi = formalParameters.get(Math.min(formalParameters.size() - 1, i));
-            if (!pi.parameterizedType().isFunctionalInterface()) {
+            if (!Util.isFunctionType(pi.parameterizedType())) {
                 if (r.links() != null && r.links().primary() != null) {
                     extra.merge(r.links().primary(), r.links(), Links::merge);
                 }
@@ -409,12 +410,15 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         // the return value can also contain references to parameters... we should replace them by
         // actual arguments
+        ParameterInfo expandedVarargs = expandedVarargs(methodInfo, params);
+        List<Variable> varargElements = new ArrayList<>();
         int index = 0;
         for (Result pr : params) {
             ParameterInfo from = methodInfo.parameters().get(Math.min(index, methodInfo.parameters().size() - 1));
             Variable to = Objects.requireNonNullElseGet(pr.links().primary(), () ->
                     IntermediateVariable.parameterValue(variableCounter.getAndIncrement(),
                             pr.getEvaluated().parameterizedType(), pr.getEvaluated()));
+            if (from == expandedVarargs) varargElements.add(to);
             tm.put(from, to);
             ++index;
         }
@@ -425,6 +429,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         Set<Variable> extraModified = new HashSet<>();
         for (Link link : ofReturnValue.linkSet()) {
+            if (expandedVarargs != null && varargElementsToReturnValue(tm, link, ofReturnValue.primary(), newPrimary,
+                    expandedVarargs, varargElements, builder)) {
+                continue;
+            }
             // decoration links (functional-interface '↗/↖' markers) are handled by the FI machinery, not here
             if (!link.linkNature().isDecoration())
                 if (link.from().equals(ofReturnValue.primary())) {
@@ -441,6 +449,42 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 }
         }
         return new LM(builder.build(), extraModified);
+    }
+
+    /*
+     The varargs parameter of a call that passes its elements one by one ('mutableListOf(a, b)', 'Arrays.asList(a, b)'),
+     rather than an array: null when there is none, or when the call passes the array itself.
+     */
+    private static ParameterInfo expandedVarargs(MethodInfo methodInfo, List<Result> params) {
+        if (methodInfo.parameters().isEmpty()) return null;
+        ParameterInfo last = methodInfo.parameters().getLast();
+        if (!last.isVarArgs()) return null;
+        if (params.size() != methodInfo.parameters().size()) return params.size() >= last.index() ? last : null;
+        Result r = params.get(last.index());
+        ParameterizedType argType = r.getEvaluated() == null ? null : r.getEvaluated().parameterizedType();
+        return argType != null && argType.arrays() < last.parameterizedType().arrays() ? last : null;
+    }
+
+    /*
+     LEAF — the return value relates to the ELEMENTS of an expanded varargs parameter: each argument is one element.
+     'mutableListOf(vararg elements: T)' summarises as 'rv.§ts ⊆ elements.§ts'; at 'mutableListOf(a, b)' the result
+     contains each argument, 'rv.§ts ∋ a, rv.§ts ∋ b'. Before #78 the parameter was mapped to the LAST argument, as if
+     it were the array ('rv.§ts ⊆ b.§ts'). Returns false for any other link to the parameter, which keeps the
+     translation it had (a source method's 'pick(vararg xs) = xs[0]': 'pick←0:xs[0]', see TestKotlinLinkConditionals).
+     */
+    private boolean varargElementsToReturnValue(TranslationMap tm, Link link, Variable rvPrimary, Variable newPrimary,
+                                             ParameterInfo varargs, List<Variable> elements, Links.Builder builder) {
+        if (!(link.to() instanceof FieldReference fr) || !(fr.scope() instanceof VariableExpression ve)
+            || !varargs.equals(ve.variable()) || varargs.parameterizedType().arrays() != 1) return false;
+        LinkNature nature = link.linkNature();
+        if (nature != LinkNatureImpl.IS_SUBSET_OF && nature != LinkNatureImpl.IS_SUPERSET_OF) return false;
+        Variable from = link.from().equals(rvPrimary) ? newPrimary : tm.translateVariableRecursively(link.from());
+        for (Variable element : elements) {
+            if (Util.acceptModificationLink(from, element)) {
+                builder.add(from, LinkNatureImpl.CONTAINS_AS_MEMBER, element);
+            }
+        }
+        return true;
     }
 
     private void translateHandleFunctional(TranslationMap defaultTm,

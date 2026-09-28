@@ -91,27 +91,28 @@ public class TestKotlinLinkCollections extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#78 (language-neutral: the same calls from Java link the same way). toList/toSet/filter return a
-     collection sharing the receiver's elements, and link to nothing; the JDK twins link `⊆`.
+     toList/toSet/filter return a collection sharing the receiver's elements, as the JDK twins do. The receiver is an
+     Iterable, which has one abstract method; until #78 the shallow link computer read it as a function parameter
+     (a supplier of an Iterator) and linked the result to nothing.
      */
     @Test
-    public void stdlibCopiesLinkNothing() {
+    public void stdlibCopies() {
         for (String name : new String[]{"toListOf", "toSetOf", "filtered"}) {
-            assertEquals("[-] --> " + name + ".§$s⊆0:xs.§$s," + name + ".§m←0:xs.§m", p.javaLinks(name), name);
-            assertEquals("[-] --> -", p.kotlinLinks(name), name);
+            p.assertSameAsJava(name);
+            assertEquals("[-] --> " + name + ".§$s⊆0:xs.§$s," + name + ".§m←0:xs.§m", p.kotlinLinks(name), name);
         }
     }
 
     /*
-     ⛔ maddi#78: a library vararg call links its LAST argument as if it were the vararg array. A Kotlin source
-     vararg method is fine (TestKotlinLinkConditionals.varargs). The Java call of the same library method agrees
-     with Kotlin on the wrong answer.
+     A library vararg call passing its elements one by one: the result contains each argument. Until #78 the vararg
+     parameter was bound to the LAST argument, as if it were the array. The Java call of the same library method
+     agrees.
      */
     @Test
     public void stdlibVararg() {
-        assertEquals("[-] --> mutableListOfIt.§$s∋0:a", p.javaLinks("mutableListOfIt"));
-        assertEquals("[-] --> mutableListOfIt.§$s⊆0:a.§$s,mutableListOfIt.§m←0:a.§m", p.kotlinLinks("mutableListOfIt"));
+        p.assertSameAsJava("mutableListOfIt");
+        assertEquals("[-] --> mutableListOfIt.§$s∋0:a", p.kotlinLinks("mutableListOfIt"));
         p.assertSameAsJava("mutableListOf2");
-        assertEquals("[-, -] --> mutableListOf2.§$s⊆1:b.§$s,mutableListOf2.§m←1:b.§m", p.kotlinLinks("mutableListOf2"));
+        assertEquals("[-, -] --> mutableListOf2.§$s∋0:a,mutableListOf2.§$s∋1:b", p.kotlinLinks("mutableListOf2"));
     }
 }

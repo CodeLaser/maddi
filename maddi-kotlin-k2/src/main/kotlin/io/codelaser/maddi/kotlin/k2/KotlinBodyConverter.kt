@@ -2391,6 +2391,28 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * A read of a smart-cast value, cast to the type Kotlin reads it as (#67). After `o is StringBuilder` the
+     * variable is still declared `Any`; kotlinc checkcasts at the read, and a Java pattern variable has the tested
+     * type. Without the cast `return o` has no modification component to link (an Object has no `§m`), `o > 10` on
+     * a smart-cast Int found no numeric operator (a placeholder), and `len(o)` passed an Object for a String.
+     * Only a stable smart cast to a class type the value does not already have: a nullability-only one
+     * (`String?` to `String`) keeps its type, and an intersection (`Config & Validatable`) is resolved per member
+     * at the call instead. A primitive target is boxed, as the `is` pattern is: the value is a reference.
+     */
+    private fun KaSession.smartCastRead(expression: KtNameReferenceExpression, value: Expression,
+                                        method: MethodInfo): Expression {
+        val info = expression.smartCastInfo?.takeIf { it.isStable } ?: return value
+        val smart = info.smartCastType as? KaClassType ?: return value
+        val mapped = mapType(smart, method.typeInfo())
+        val target = if (mapped.isPrimitiveExcludingVoid) mapped.ensureBoxed(runtime) else mapped
+        val targetType = target.typeInfo() ?: return value
+        val current = value.parameterizedType()
+        if (current.arrays() != target.arrays() || current.typeInfo() == targetType
+            || current.isPrimitiveExcludingVoid && current.ensureBoxed(runtime).typeInfo() == targetType) return value
+        return runtime.newCast(value, target)
+    }
+
+    /**
      * The type an `is T` arm tests, BOXED: Kotlin's `is Int` maps to the primitive `int`, and `o instanceof int` or
      * `case int it` on an Object subject is no Java at all -- kotlinc tests `instanceof Integer`.
      */
@@ -2647,7 +2669,7 @@ internal class KotlinBodyConverter(
             // property of that name. The class-first lookup below bound it to `this.getLanguageVersionSettings()`,
             // silently -- a wrong read is no placeholder. receiverLambdaMember is the same rule reached from the
             // lambda side (a bare name inside a lambda with a receiver, not shadowed by a local or parameter).
-            is KtNameReferenceExpression -> delegatedLocal(expression)?.let { (delegate, type) ->
+            is KtNameReferenceExpression -> (delegatedLocal(expression)?.let { (delegate, type) ->
                     delegateGetValue(variableExpression(delegate), runtime.nullConstant(), type)
                         ?: runtime.newEmptyExpression("k2-delegate-read:${delegate.simpleName()}") }
                 ?: (if (readsAReceiverMember(expression)) implicitMemberAccess(expression, method, locals) else null)
@@ -2657,7 +2679,7 @@ internal class KotlinBodyConverter(
                 ?: topLevelPropertyAccess(expression, method)
                 ?: classAsValue(expression)
                 ?: enumEntryValue(expression)
-                ?: staticPropertyAccess(expression)
+                ?: staticPropertyAccess(expression))?.let { smartCastRead(expression, it, method) }
                 ?: objectPropertyAccess(expression)
                 ?: placeholder("k2-unresolved-ref:${expression.getReferencedName()}", expression)
             // ⛔ `(a + b).f()` used to be a placeholder, swallowing everything inside the parentheses with it:

@@ -22,6 +22,7 @@ public class TestKotlinLinkConditionals extends CommonKotlinLinkTest {
                 fun elvis(a: String?, b: String): String = a ?: b
                 fun reassign(a: String, b: String): String { var r = a; r = b; return r }
                 fun cast(o: Any): String = o as String
+                fun castMutable(o: Any): StringBuilder = o as StringBuilder
                 fun smartIf(o: Any): StringBuilder? { if (o is StringBuilder) return o; return null }
                 fun smartSb(o: Any): StringBuilder? = if (o is StringBuilder) o else null
                 fun array(a: Array<String>, i: Int): String = a[i]
@@ -42,6 +43,8 @@ public class TestKotlinLinkConditionals extends CommonKotlinLinkTest {
                 String elvis(String a, String b) { return a == null ? b : a; }
                 String reassign(String a, String b) { String r = a; r = b; return r; }
                 String cast(Object o) { return (String) o; }
+                StringBuilder castMutable(Object o) { return (StringBuilder) o; }
+                StringBuilder smartIfCast(Object o) { if (o instanceof StringBuilder) return (StringBuilder) o; return null; }
                 StringBuilder smartIf(Object o) { if (o instanceof StringBuilder s) return s; return null; }
                 StringBuilder smartSb(Object o) { return o instanceof StringBuilder s ? s : null; }
                 String array(String[] a, int i) { return a[i]; }
@@ -85,18 +88,22 @@ public class TestKotlinLinkConditionals extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#67 item 3: K2 keeps `o` at its declared type (`return o;` where o is an Object), so the modification
-     area link the Java pattern variable gives (`§m≡0:o.§m`) is missing: modifying the result is not modifying `o`.
+     A smart-cast read is a cast (#67): `if (o is StringBuilder) return o` converts to `return (StringBuilder)o;` and
+     links exactly as the Java cast form `smartIfCast`. ⛔ maddi#95: a downcast (Java or Kotlin) drops the
+     modification-area link a Java pattern variable keeps (`§m≡0:o.§m`), so modifying the result is not modifying `o`.
      */
     @Test
     public void smartCastStatement() {
         assertEquals("[-] --> smartIf←$_ce0,smartIf←0:o,smartIf.§m≡0:o.§m", p.javaLinks("smartIf"));
+        assertEquals("[-] --> smartIfCast←$_ce0,smartIfCast←0:o", p.links(p.java("smartIfCast")));
         assertEquals("[-] --> smartIf←$_ce0,smartIf←0:o", p.kotlinLinks("smartIf"));
+        p.assertSameAsJava("castMutable");
+        assertEquals("[-] --> castMutable←0:o", p.kotlinLinks("castMutable"));
     }
 
     /*
      A pattern variable in a Java conditional expression links to the value it was bound from (#79, fixed; it linked
-     to nothing). ⛔ The Kotlin side, which returns `o` itself, still lacks `§m≡`, for #67's reason (a smart cast).
+     to nothing). ⛔ The Kotlin side reads `(StringBuilder)o`, a cast, and lacks `§m≡` for #95's reason.
      */
     @Test
     public void smartCastExpression() {
