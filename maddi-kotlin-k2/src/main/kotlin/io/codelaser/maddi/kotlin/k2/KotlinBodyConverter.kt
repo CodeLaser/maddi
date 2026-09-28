@@ -3813,9 +3813,11 @@ internal class KotlinBodyConverter(
      * (`ExpressionVisitor.methodReference`: a TypeExpression has no primary and its receiver is treated as
      * internal; a value expression has one and its modifications reach the caller).
      *
-     * ⚠ `expression.expressionType` is `kotlin.reflect.KFunction1`, NOT the functional interface the reference
-     * is being coerced to at the use site. It is recorded as-is rather than guessed at: the engine types the
-     * synthetic functional-interface variable with it and reads nothing else from it.
+     * ⚠ `expression.expressionType` is `kotlin.reflect.KFunction1`, a compiler-synthesized type with no class file.
+     * It is recorded in its JVM shape, `Function1<A, R>` ([KotlinTypeMapper.reflectFunctionType], #92): as a class
+     * type it degraded to `KFunction<A, R>`, not a functional interface, and the engine, which types the synthetic
+     * functional-interface variable with it, took the reference off the functional-interface path Java's `sb::append`
+     * takes. A property reference's `KProperty1` is a class type and keeps its mapping.
      *
      * A PROPERTY reference (`Q::i`, `String::length`) is its getter — see [propertyReference].
      */

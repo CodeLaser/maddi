@@ -268,12 +268,12 @@ class CallableReferenceTest : KotlinScanTestBase() {
     }
 
     /**
-     * ⚠ The reference converts; INVOKING the value it was stored in does not. `g(2)` on a `KFunction1`-typed
-     * local is Kotlin's invoke-operator sugar over a type this front end knows only shallowly. Pinned so the
-     * remaining hole is a stated one, and so that closing it shows up here.
+     * The reference converts, and so does INVOKING the value it was stored in: `g(2)` is Kotlin's invoke-operator
+     * sugar, and the local is typed `Function1<Integer, Integer>`, the JVM shape of `KFunction1` (#92). As
+     * `kotlin.reflect.KFunction` it had no `invoke` and the call was a `k2-unresolved-call:g` placeholder.
      */
     @Test
-    fun aReferenceStoredInALocalConvertsButCallingItDoesNot() {
+    fun aReferenceStoredInALocalConvertsAndCallingItToo() {
         val types = parse("""
             class P {
                 fun twice(i: Int): Int = i * 2
@@ -281,7 +281,10 @@ class CallableReferenceTest : KotlinScanTestBase() {
             }
             """)
         val census = PlaceholderCensus.of(types)
-        assertEquals(setOf("k2-unresolved-call:g"), census.byKind.keys, census.byKind.toString())
+        assertEquals(0, census.total, census.byKind.toString())
         assertEquals("twice", referenceIn(types, 0).methodInfo().name())
+        val f = types.first { it.simpleName() == "P" }.findUniqueMethod("f", 0)
+        assertEquals("{Function1<Integer,Integer> g=this::twice;return g.invoke(2);}", 
+            f.methodBody().print(runtime.qualificationSimpleNames()).toString())
     }
 }

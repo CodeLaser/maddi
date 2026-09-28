@@ -238,6 +238,8 @@ internal class KotlinTypeMapper(
         val base = when (type) {
             // `suspend (A) -> R` is `Function2<A, Continuation<R>, Object>` in bytecode; K2's
             // `kotlin.coroutines.SuspendFunction1` has no JVM existence at all
+            // `KFunction1<A, R>`, a callable reference's type, is `Function1<A, R>` on the JVM (#92)
+            is KaFunctionType if type.isReflectType -> reflectFunctionType(type, owner, method) ?: mapClassType(type, owner, method)
             is KaFunctionType if type.isSuspend -> suspendFunctionType(type, owner, method) ?: mapClassType(type, owner, method)
             is KaClassType -> mapClassType(type, owner, method)
             is KaTypeParameterType -> {
@@ -764,6 +766,29 @@ internal class KotlinTypeMapper(
             as? KaNamedClassSymbol)?.let { loadLibraryClass(it) } ?: return null
         val continuation = continuationType(mapType(type.returnType, owner, method)) ?: return null
         val arguments = parameters.map { mapType(it, owner, method).ensureBoxed(runtime) } + continuation + runtime.objectParameterizedType()
+        return runtime.newParameterizedType(functionN, arguments)
+    }
+
+    /**
+     * A callable reference's type, `KFunction1<A, R>`, in its JVM shape `Function1<A, R>` (#92). `KFunctionN` is
+     * compiler-synthesized: it has no class file, so as a class type it degraded to `kotlin.reflect.KFunction` with
+     * N+1 arguments, not a functional interface, and the link engine lost the reference's functional-interface
+     * path. On the JVM the reference is a `FunctionReferenceImpl` implementing `FunctionN`; a `KSuspendFunctionN`
+     * takes the suspend shape. Null (map as before) without the stdlib or for a non-reflect type.
+     */
+    internal fun KaSession.reflectFunctionType(type: KaFunctionType, owner: TypeInfo, method: MethodInfo?): ParameterizedType? {
+        if (!type.isReflectType) return null
+        if (type.isSuspend) return suspendFunctionType(type, owner, method)
+        val parameters = listOfNotNull(type.receiverType) + type.parameterTypes
+        val functionN = (findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/functions/Function${parameters.size}"))
+            as? KaNamedClassSymbol)?.let { loadLibraryClass(it) } ?: return null
+        val arguments = (parameters + type.returnType).map { argument ->
+            val mapped = mapType(argument, owner, method)
+            // as in [parameterize]: boxed, and Unit is kotlin.Unit as a type argument
+            if (mapped.isPrimitiveExcludingVoid) mapped.ensureBoxed(runtime)
+            else if (mapped.isVoid) unitType() ?: mapped
+            else mapped
+        }
         return runtime.newParameterizedType(functionN, arguments)
     }
 

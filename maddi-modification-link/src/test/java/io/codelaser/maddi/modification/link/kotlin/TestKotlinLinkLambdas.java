@@ -74,15 +74,12 @@ public class TestKotlinLinkLambdas extends CommonKotlinLinkTest {
         assertEquals("[] --> supplier←Λ$_fi0", p.kotlinLinks("supplier"));
     }
 
-    /*
-     ⛔ maddi#92: `sb::append` is typed kotlin.reflect.KFunction<String,StringBuilder>, not a functional interface,
-     so the link to it loses its Λ. When #92 is fixed, this becomes `p.assertSameAsJava("appender")`.
-     */
+    /* a bound callable reference is typed as the FunctionN it is on the JVM, and links as Java's method reference (#92) */
     @Test
     public void boundMethodReference() {
-        assertEquals("[] --> appender←Λ$_fi0", p.javaLinks("appender"));
-        assertEquals("[] --> appender←$_fi0", p.kotlinLinks("appender"));
-        assertEquals("Type kotlin.reflect.KFunction<String,StringBuilder>", p.kotlin("appender").methodBody()
+        p.assertSameAsJava("appender");
+        assertEquals("[] --> appender←Λ$_fi0", p.kotlinLinks("appender"));
+        assertEquals("Type kotlin.jvm.functions.Function1<String,StringBuilder>", p.kotlin("appender").methodBody()
                 .statements().getFirst().expression().parameterizedType().toString());
     }
 
