@@ -402,40 +402,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                && !primary.equals(v);
     }
 
-    // the number of field / element hops below the primary: 0 for 'x', 1 for 'x.f' and 'x.§$s', 2 for 'x.f.§es'
-    static int faceDepth(Variable v) {
-        return switch (v) {
-            case FieldReference fr when fr.scopeVariable() != null -> 1 + faceDepth(fr.scopeVariable());
-            case DependentVariable dv when dv.arrayVariable() != null -> 1 + faceDepth(dv.arrayVariable());
-            default -> 0;
-        };
-    }
-
-    /*
-     A return link touching a face of a created object is dropped, with one exception: the VIRTUAL one-hop
-     provenance of the return value ('makeList.§$s ⊆ oc:N.§$s': the elements returned are the elements of the
-     LinkedList created here; 'fillAfter ≻ oc:N.§$s'). A virtual face is a view of the object itself, and a consumer
-     that traces where a returned object came from collapses it back onto the marker (Util.firstRealVariable); a
-     REAL field ('top.size ← oc:N.size', 'ret.entitySelector ← oc:N.entitySelector') is a different object, which the
-     caller already reaches through the return value's own field. On timefold, real one-hop fields were 81 % of the
-     one-hop faces and, re-imported by every caller, put the corpus run back over its heap and time limits (92
-     iterations, 12 G) where the full prune converged in 56; the deeper chains were 95 % of all exported faces.
-     */
-    static boolean dropsFaceOfObjectCreation(Link link, Variable returnVariable) {
-        boolean fromFace = isFaceOfObjectCreation(link.from());
-        boolean toFace = isFaceOfObjectCreation(link.to());
-        if (!fromFace && !toFace) return false;
-        if (fromFace != toFace && returnVariable != null) {
-            Variable face = fromFace ? link.from() : link.to();
-            Variable other = fromFace ? link.to() : link.from();
-            if (faceDepth(face) == 1 && Util.virtual(face)
-                && returnVariable.equals(Util.primary(other)) && faceDepth(other) <= 1) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private void reportWork(MethodInfo methodInfo, SourceMethodComputer computer, boolean tripped) {
         Graph graph = computer.linkGraph.graph();
         long work = graph.engine().work();
@@ -589,11 +555,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             // faces made summaries transitive dumps of callee-internal object graphs (timefold's selector
             // factories: 3,000-link summaries, 61 % of all summary links oc-faces, every caller re-importing and
             // re-exporting them). The bare marker ('return ← oc:N', fresh-object provenance) stays.
-            // Gate KEEPOCFACES restores the old export, for A/B.
+            // No exception for the return value's own faces ('ret.§$s ⊆ oc:N.§$s'): keeping even the one-hop
+            // virtual ones cost timefold two extra MODREACH re-derivation rounds (56 -> 101 iterations). A consumer
+            // that needs where a returned object's elements came from reads the callee's RETURN STATEMENT, where
+            // the face links are intact; the summary is not the place. Gate KEEPOCFACES restores the old export.
             if (!KEEP_OC_FACES && ofReturnValue.primary() != null) {
-                LinksImpl.Builder kept = new LinksImpl.Builder(ofReturnValue);
-                kept.removeIf(link -> dropsFaceOfObjectCreation(link, returnVariable));
-                ofReturnValue = kept.build();
+                ofReturnValue = ofReturnValue.removeIfFromTo(LinkComputerImpl::isFaceOfObjectCreation);
             }
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
