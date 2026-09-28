@@ -107,11 +107,19 @@ public class ExpressionComparator implements Comparator<Expression> {
         }
     }
 
+    /*
+     The SINGLETON is shared by every thread that sorts expressions. An IdentityHashMap is not safe under
+     concurrent computeIfAbsent: a corrupted table makes get() loop forever, and 113 duplication-detection
+     workers were found spinning in it (all in IdentityHashMap.get, one in put) after an hour. The cache is
+     therefore per thread; it is a memoization, so nothing is lost by not sharing it.
+     */
     @IgnoreModifications
-    private final IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache = new IdentityHashMap<>();
+    private static final ThreadLocal<IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>>> CACHE
+            = ThreadLocal.withInitial(IdentityHashMap::new);
 
     @Override
     public int compare(Expression v1, Expression v2) {
+        IdentityHashMap<Expression, IdentityHashMap<Expression, Integer>> cache = CACHE.get();
         if (cache.size() > 1_000) cache.clear();
         IdentityHashMap<Expression, Integer> map = cache.computeIfAbsent(v1, e -> new IdentityHashMap<>());
         return map.computeIfAbsent(v2, e -> compareNotCached(v1, v2));
