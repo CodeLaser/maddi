@@ -5158,11 +5158,14 @@ internal class KotlinBodyConverter(
                     .setSource(runtime.noSource()).build()
             }
         }
-        // a field of an enclosing type accessed from a (non-static) inner class: `label` -> `Outer.this.label`
+        // a field of an enclosing type accessed from a (non-static) inner class: `label` -> `Outer.this.label`; a static
+        // one of any enclosing type: `Outer.label`
         var enclosing = method.typeInfo().compilationUnitOrEnclosingType()
         while (enclosing.isRight) {
             val outer = enclosing.right
             outer.fields().firstOrNull { it.name() == name }?.let { field ->
+                // a static one needs no instance: a companion's `const val`, declared on its enclosing class (#73)
+                if (field.isStatic) return staticFieldRef(field, outer)
                 val outerThis = variableExpression(runtime.newThis(outer.asParameterizedType(), outer, false))
                 return variableExpression(runtime.newFieldReference(field, outerThis, field.type()))
             }

@@ -334,6 +334,34 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertTrue(reset.isStatic)
     }
 
+    /**
+     * A companion's `const val` is ONE field, as kotlinc emits it: static on the enclosing class, with the
+     * declaration's initializer, and every read -- bare in the companion, bare in the class, qualified from elsewhere
+     * -- is a read of it. The companion has no field of that name (#73: there were two, and Kotlin read the other).
+     */
+    @Test
+    fun companionConstIsOneStaticFieldOfTheEnclosingClass() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Limits.kt",
+            "class Limits {\n" +
+                "    fun inClass(): Int = MAX\n" +
+                "    companion object { const val MAX = 10; fun twice(): Int = MAX * 2 }\n" +
+                "}\n" +
+                "class User { fun qualified(): Int = Limits.MAX }\n"
+        )
+        val limits = types.single { it.simpleName() == "Limits" }
+        val companion = limits.subTypes().single { it.simpleName() == "Companion" }
+        assertTrue(companion.fields().none { it.name() == "MAX" }, companion.fields().toString())
+        val max = limits.fields().single { it.name() == "MAX" }
+        assertTrue(max.isStatic && max.isFinal)
+        assertEquals("10", max.initializer().toString())
+        val names = runtime.qualificationSimpleNames()
+        assertEquals("{return Limits.MAX;}", limits.findUniqueMethod("inClass", 0).methodBody().print(names).toString())
+        assertEquals("{return Limits.MAX*2;}", companion.findUniqueMethod("twice", 0).methodBody().print(names).toString())
+        val user = types.single { it.simpleName() == "User" }
+        assertEquals("{return Limits.MAX;}", user.findUniqueMethod("qualified", 0).methodBody().print(names).toString())
+    }
+
     @Test
     fun companionJvmFieldAndJvmStaticPropertyAreStaticOnTheEnclosingClass() {
         // javalin's `TestTool` writes `companion object { @JvmField val TestLogsKey = ... }` and its Java test names

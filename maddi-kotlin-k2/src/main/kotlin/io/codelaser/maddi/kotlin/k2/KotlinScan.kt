@@ -794,7 +794,7 @@ class KotlinScan(
             .addTypeModifier(runtime.typeModifierFinal())
             .computeAccess() // top-level: eventual access == the public modifier; needed before members
         properties.forEach { p ->
-            (p.symbol as? KaPropertySymbol)?.let { convertProperty(facade, it, static = true) }
+            (p.symbol as? KaPropertySymbol)?.let { convertProperty(facade, it, staticIn = true) }
         }
         return functions.mapNotNull { fn ->
             (fn.symbol as? KaNamedFunctionSymbol)?.let { sym ->
@@ -885,7 +885,7 @@ class KotlinScan(
         recordWrittenSignatures(typeInfo, classSymbol)
         classSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
-            .forEach { property -> convertProperty(typeInfo, property, static = isObject && isJvmStatic(property)) }
+            .forEach { property -> convertProperty(typeInfo, property, staticIn = isObject && isJvmStatic(property)) }
         // enum: entry fields + synthetic name()/values()/valueOf() (K2 doesn't surface these). Before the
         // methods, so an enum method body can reference `HIGH` etc.
         if (classSymbol.classKind == KaClassKind.ENUM_CLASS) {
@@ -1021,7 +1021,9 @@ class KotlinScan(
         recordWrittenSignatures(companion, companionSymbol)
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
-            .forEach { property -> convertProperty(companion, property) }
+            // a `const val` is ONE field on the JVM, a static one of the enclosing class; the companion has none (#73)
+            .forEach { property -> convertProperty(companion, property,
+                fieldHolder = if ((property as? KaKotlinPropertySymbol)?.isConst == true) enclosing else null) }
         // signatures first, then bodies, as for a class (convertMembers)
         val pendingMethods = companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
@@ -1074,7 +1076,8 @@ class KotlinScan(
     private fun KaSession.addCompanionStatics(enclosing: TypeInfo, companion: TypeInfo, companionField: FieldInfo,
                                               companionSymbol: KaNamedClassSymbol) {
         val properties = companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>().toList()
-        properties.filter { (it as? KaKotlinPropertySymbol)?.isConst == true || isJvmField(it) }
+        // a `const val` is already there, declared on the enclosing class by convertProperty (#73)
+        properties.filter { (it as? KaKotlinPropertySymbol)?.isConst != true && isJvmField(it) }
             .forEach { property ->
                 enclosing.builder().addField(
                     singletonField(enclosing, property.name.asString(), mapType(property.returnType, enclosing),
@@ -1546,7 +1549,11 @@ class KotlinScan(
      * before that: a **delegated** property (`by`, see [convertDelegatedProperty]) and a **computed** one
      * (a custom `get()`).
      */
-    private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol, static: Boolean = false) {
+    private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol, staticIn: Boolean = false,
+                                          fieldHolder: TypeInfo? = null) {
+        // [fieldHolder]: the type the backing field is declared on when it is not [owner] -- a companion's `const val`
+        // is a static field of the enclosing class (#73); it has no accessor, so nothing else lands elsewhere
+        val static = staticIn || fieldHolder != null
         val name = property.name.asString()
         val type = mapType(property.returnType, owner)
         val isVal = property.isVal
@@ -1567,7 +1574,7 @@ class KotlinScan(
             return
         }
 
-        val field = runtime.newFieldInfo(name, static, type, owner)
+        val field = runtime.newFieldInfo(name, static, type, fieldHolder ?: owner)
         // a `const val` or a @JvmField has no accessor: its field IS the JVM surface, with the property's visibility.
         // Private for all of them, a public const read as private to diagnose.sarif's unusedPrivateMember (detekt's
         // `object Versions { const val DETEKT }`, read from a build script) and to anything else asking its access.
@@ -1579,7 +1586,8 @@ class KotlinScan(
                 ?: runtime.fieldModifierPrivate())
             .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
         (property.psi as? KtProperty)?.initializer?.let {
-            pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(owner, field, it, static)
+            // queued with the property's owner, converted in the context of the field's (#73)
+            pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(fieldHolder ?: owner, field, it, static)
         }
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
         if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
@@ -1594,7 +1602,7 @@ class KotlinScan(
         fieldBuilder.computeAccess()
         references.target(property.psi, field)
         commitOrDefer(field, property.psi) { field.builder().commit() }
-        owner.builder().addField(field)
+        (fieldHolder ?: owner).builder().addField(field)
 
         // Getter: a `const val` (inlined static-final field) and a `private` property have no getter method on
         // the JVM -- only the backing field -- and a synthetic one clashes with an explicitly-declared getX()
@@ -1811,14 +1819,14 @@ class KotlinScan(
                 return@forEach
             }
             if (!p.static) return@forEach
-            val block = initializerContext(owner, true)
+            val block = initializerContext(p.owner, true)
             val statements = blocks.getOrPut(block) { mutableListOf() }
             inBody { with(bodyConverter) { statementInitializer(p.expression, p.field, block, bodyConverter.pad(statements.size, 10)) } }
                 ?.let { statements += it; p.converted = true }
         }
         pending.forEach { p ->
             if (p.converted || statementInitializersOf[owner]?.contains(p) == true) return@forEach
-            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(owner, p.static), emptyMap()))
+            p.field.builder().setInitializer(convertExpression(p.expression, initializerContext(p.owner, p.static), emptyMap()))
         }
         blocks.forEach { (method, statements) ->
             if (statements.isEmpty()) return@forEach
