@@ -46,7 +46,7 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
 | Front end (K2) | ~90% of constructs converted | 400+ unit tests; placeholder ratchets on detekt and coil | an unknown residue of silent-wrong conversions; 64 placeholder kinds |
 | Prepwork | yes, no Kotlin-specific paths | 21 test files in `inspection-kotlin/prepwork` assert the Java tests' `VariableData` strings; since this document, a Kotlin test tier inside the module (§5) | synthesized accessors, `$default`, `<init>` bodies |
 | Link | yes in code | since this document, a Kotlin tier inside the module (§6); ~14 fixtures in `run-kotlin` | #65 non-local returns; #80 `FunctionN` takes the custom-functional-interface path; #78 library collection links (Java too); #83 cross-parse state |
-| Analyzer | yes (3 Java-specific names) | 7 Kotlin-vs-Java fixture pairs, one detekt corpus floor | `listOf`/`toList` not recognised as immutable copies; `Sequence` is not a stream |
+| Analyzer | yes (3 Java-specific names) | since this document, a Kotlin tier inside the module (§7); 7 fixture pairs in `run-kotlin`, one detekt corpus floor | #87 `toList`/`listOf` not recognised as copies; #84 fields assigned in an `init` block undecided (Java too); #88 `apply { }` hides modification of `this` |
 | Stdlib contracts | ~38% of the JDK's member count | per-family differential tests (`TestKotlinCollectionReadsVsJava`) | §3.2 |
 | Persistence | write and read back | `TestKotlinAnalysisRoundTrip` | incremental analysis, rewire, `--analysis-results-target-dir`, `--updated-hints-dir` refused by name |
 | Entry points | the `maddi-kotlin` CLI | — | Gradle/Maven plugins refuse (or skip with `skipKotlinSources`); the IDE daemon reports Kotlin as a problem; IntelliJ, VS Code, Eclipse are Java-only |
@@ -79,6 +79,13 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
   library vararg calls link only their last argument (Java too); #79 a Java pattern variable in a conditional
   expression links to nothing (Java); #83 link results of one parse carry a static-call scope from an earlier
   parse in the same JVM (Java too).
+- **Found by the analyzer tier (§7):** #85 a property initializer reading a constructor parameter is outside the
+  constructor, so the parameter reads `@Independent` (unsound); #84 a field assigned in a nested constructor block
+  (every Kotlin `init` block) never gets `INDEPENDENT_FIELD` (Java too); #86 a `vararg val` constructor property's
+  parameter is typed as the element; #88 a modification inside `apply { }` is not a modification of the receiver,
+  so a builder method reads as non-modifying (unsound); #87 `toList()` is not a recognised copy; #89 tracks the
+  stdlib contract gap (`xs.sum()` modifies `xs`); #73 now measured for a companion `var` (mutability moves to the
+  companion).
 - **#67.** Kotlin printed as Java does not compile: item 1 is a real placeholder (a comparison on a smart-cast
   value), item 2 a wrong type (`is Int` as `instanceof int`); items 3 and 4 may be intended.
 
@@ -206,4 +213,27 @@ Language-level parity holds wherever the types agree: a Kotlin function type lin
 `Function1`, a Kotlin `object` as a Java singleton, a `$default` bridge as ordinary code. Of the 12 issues the two
 tiers filed, 4 are defects in the shared engine that Java code hits too (#74, #78, #79, #83); #80 is a decision,
 and #76 was first misreported (a harness artifact) and corrected the same day.
+
+## 7. The Kotlin tier in `maddi-modification-analyzer` (added 2026-09-28)
+
+Package `io.codelaser.maddi.modification.analyzer.kotlin`, 27 tests in 5 classes, in the module's ordinary `test`
+task. Same design as §5 and §6, run to the end as the mixed CLI does: fault-tolerant prep that must isolate
+nothing, then `IteratingAnalyzerImpl` (30 iterations, stop on a cycle without improvement). A type's verdicts are
+printed one line per member (type: immutable/independent; field: final/unmodified/independent; method:
+non-modifying/independent plus each parameter's unmodified/independent), sorted, and compared with the Java twin,
+optionally restricted to the members both sides declare.
+
+| Class | Topic | Agrees with Java | Pinned divergence |
+|---|---|---|---|
+| `TestKotlinAnalyzerTypes` | value class, mutable class, `lateinit`, collection holder, generic box, sealed hierarchy, open/override, interface default, inner class, `object`, enum, data class, companion state | 10 of 11 | #73 (companion `var`) |
+| `TestKotlinAnalyzerConstruction` | constructor property, property initializer, `init` block, `vararg val` | 1 of 4 (the `init` block agrees with Java's nested-block twin, on #84's undecided field) | #85, #84, #86 |
+| `TestKotlinAnalyzerCollections` | defensive copy with `List.copyOf` and with `toList()` | 1 of 2 | #87 |
+| `TestKotlinAnalyzerFunctions` | function-typed parameter and field, extension functions, and #65/#72/#82's shapes | 4 of 4 | — (those defects do not move these fixtures' verdicts) |
+| `TestKotlinAnalyzerMethods` | fluent builder, `apply` builder, identity, parameter and parameter-field modification, `Nothing`, recursion, `sum()` | 4 of 6 | #88, #89 |
+
+What agrees is most of the type system: value classes, sealed hierarchies, inheritance, objects, enums, generics,
+function types, extension functions, fluent and identity methods. The divergences cluster in two places:
+**construction** (Kotlin puts code into the primary constructor that the lowering does not: #84, #85, #86) and
+**the stdlib** (#87, #88, #89). Two of them are unsound rather than conservative: #85 (a stored parameter reads
+`@Independent`) and #88 (a mutating method reads non-modifying).
 
