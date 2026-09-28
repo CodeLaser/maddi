@@ -392,6 +392,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
      */
     private static final String WORK_DUMP = System.getProperty("maddi.workDump");
 
+    private static final boolean KEEP_OC_FACES = Gate.isSet("KEEPOCFACES");
+
+    // 'oc:N.f', 'oc:N.§$s', 'oc:N.f.g': a field or virtual-field face rooted at an object-creation marker; the
+    // bare marker 'oc:N' is not a face
+    static boolean isFaceOfObjectCreation(Variable v) {
+        Variable primary = Util.primary(v);
+        return primary instanceof io.codelaser.maddi.modification.prepwork.variable.ObjectCreationVariable
+               && !primary.equals(v);
+    }
+
     private void reportWork(MethodInfo methodInfo, SourceMethodComputer computer, boolean tripped) {
         Graph graph = computer.linkGraph.graph();
         long work = graph.engine().work();
@@ -538,6 +548,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                                          || !vd.isKnown(returnVariable.fullyQualifiedName())
                         ? "?" : vd.variableInfo(returnVariable).linkedVariables())
                                    + " ofReturnValue=" + ofReturnValue);
+            }
+            // #91: a face of an object created INSIDE this method ('oc:337-26.selectionComparatorFactory.§$') is
+            // anonymous to every caller: the caller can reach that object only through the return value or a
+            // parameter's fields, and those paths are spelled on the return/parameter already. Re-exporting the
+            // faces made summaries transitive dumps of callee-internal object graphs (timefold's selector
+            // factories: 3,000-link summaries, 61 % of all summary links oc-faces, every caller re-importing and
+            // re-exporting them). The bare marker ('return ← oc:N', fresh-object provenance) stays.
+            // Gate KEEPOCFACES restores the old export, for A/B.
+            if (!KEEP_OC_FACES && ofReturnValue.primary() != null) {
+                ofReturnValue = ofReturnValue.removeIfFromTo(LinkComputerImpl::isFaceOfObjectCreation);
             }
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
@@ -722,7 +742,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Links viLinks = vi.linkedVariables();
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
             Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v)
-                                                      || isParameterOfSiblingMethod(v));
+                                                      || isParameterOfSiblingMethod(v)
+                                                      || !KEEP_OC_FACES && isFaceOfObjectCreation(v));
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable || isParameterOfStrictlyEnclosed(v));
             }
