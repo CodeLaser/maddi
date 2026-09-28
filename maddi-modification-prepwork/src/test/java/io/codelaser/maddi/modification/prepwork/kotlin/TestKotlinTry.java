@@ -138,47 +138,38 @@ public class TestKotlinTry extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#69. K2 lowers `val v = try { … } catch …` into TWO statements, `int v;` and a try assigning it, and
-     indexes them 0.0 and 0.1: children of statement 0 rather than siblings. Prep scopes a local by its statement
-     index, so at statement 1 `v` is unknown: `return v` reads nothing, and the method's variable data has no `v`
-     at all. The Java twin (the same two statements as siblings) has it. The three tests below pin the Kotlin side;
-     when #69 is fixed they fail, and each becomes `p.assertSameAsJava(name)`.
+     `val v = try { … } catch …` is TWO statements, `int v;` and a try assigning it, indexed as siblings, 0 and 1, as
+     the Java twin's are (#69: they were 0.0 and 0.1, children of statement 0, and `v` was unknown at statement 1).
      */
     @Test
     public void tryValue() {
+        p.assertSameAsJava("tryValue");
         assertEquals("""
                 return tryValue: D:-, A:[2] | R -
                 s: D:-, A:[] | R 1.0.0
-                v: D:0, A:[1.0.0, 1.1.0, 1=M] | R 2""", summary(p.java("tryValue")));
-        assertEquals("""
-                return tryValue: D:-, A:[1] | R -
-                s: D:-, A:[] | R 0.1.0.0""", summary(p.kotlin("tryValue")));
+                v: D:0, A:[1.0.0, 1.1.0, 1=M] | R 2""", summary(p.kotlin("tryValue")));
     }
 
     @Test
     public void ifBlockValue() {
+        p.assertSameAsJava("ifBlockValue");
         assertEquals("""
                 return ifBlockValue: D:-, A:[2] | R -
                 s: D:-, A:[] | R 1-E, 1.0.0
-                v: D:0, A:[1.0.1, 1.1.0, 1=M] | R 2""", summary(p.java("ifBlockValue")));
-        assertEquals("""
-                return ifBlockValue: D:-, A:[1] | R -
-                s: D:-, A:[] | R 0.1-E, 0.1.0.0""", summary(p.kotlin("ifBlockValue")));
+                v: D:0, A:[1.0.1, 1.1.0, 1=M] | R 2""", summary(p.kotlin("ifBlockValue")));
     }
 
-    /* #69's original shape: `sum += v` does not read `v`, which the loop body's last statement does not know. */
+    /* inside a loop body too: `sum += v` knows `v` */
     @Test
     public void tryValueInLoop() {
-        Block javaLoop = p.java("tryValueInLoop").methodBody().statements().get(1).block();
-        assertEquals("""
+        String expected = """
                 sum: D:0, A:[0, 1.0.2] | R 1.0.2
                 v: D:1.0.0, A:[1.0.1.0.0] | R 1.0.2
                 x: D:1+E, A:[1+E] | R 1.0.1.0.0
-                xs: D:-, A:[] | R 1-E""", summary(VariableDataImpl.of(javaLoop.statements().getLast())));
+                xs: D:-, A:[] | R 1-E""";
+        Block javaLoop = p.java("tryValueInLoop").methodBody().statements().get(1).block();
+        assertEquals(expected, summary(VariableDataImpl.of(javaLoop.statements().getLast())));
         Block kotlinLoop = p.kotlin("tryValueInLoop").methodBody().statements().get(1).block();
-        assertEquals("""
-                sum: D:0, A:[0, 1.0.1] | R 1.0.1
-                x: D:1+E, A:[1+E] | R 1.0.0.1.0.0
-                xs: D:-, A:[] | R 1-E""", summary(VariableDataImpl.of(kotlinLoop.statements().getLast())));
+        assertEquals(expected, summary(VariableDataImpl.of(kotlinLoop.statements().getLast())));
     }
 }

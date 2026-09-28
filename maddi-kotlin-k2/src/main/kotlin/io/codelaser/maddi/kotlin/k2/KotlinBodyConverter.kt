@@ -34,6 +34,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.info.Variance
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.cst.api.statement.Block
+import io.codelaser.maddi.cst.api.translate.TranslationMap
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
@@ -292,7 +293,11 @@ internal class KotlinBodyConverter(
             returning, method, locals)
 
     private fun KaSession.convertBodyOf(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
-                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block {
+                                        method: MethodInfo, locals: MutableMap<String, Variable>): Block =
+        normalizeIndices(convertBodyOfRaw(blockBody, expressionBody, returning, method, locals))
+
+    private fun KaSession.convertBodyOfRaw(blockBody: KtBlockExpression?, expressionBody: KtExpression?, returning: Boolean,
+                                           method: MethodInfo, locals: MutableMap<String, Variable>): Block {
         if (blockBody != null) return statementsToBlock(blockBody.statements, method, locals, "")
         val block = runtime.newBlockBuilder()
         expressionBody?.let { body ->
@@ -341,6 +346,72 @@ internal class KotlinBodyConverter(
     internal fun indexed(statement: Statement, index: String): Statement =
         statement.withSource(runtime.noSource().withIndex(index))
 
+    /**
+     * <b>A statement's index is its position in its block (#69)</b>, as the Java parser gives it and as
+     * `Block.findStatementByIndex` reads it. The lowerings index the statements ONE source statement becomes as
+     * `<i>.0`, `<i>.1`, …, which sort, but which prep reads as the sub-blocks of statement `<i>`: a local declared by
+     * the first (`val v = try …` is `int v;` then `try { v = … }`) was unknown at `<i+1>`, and every read of it after
+     * its statement was lost. Renumbering where they are built would shift every later statement's index, and the
+     * subtree of each: so it is done here, once per body, after building.
+     *
+     * Each direct statement of a block takes `<block>.<k>` (`<k>` at the root, zero-padded as [pad] does); a
+     * statement's sub-blocks keep their own last component (an `if`'s `.0`/`.1`, a `try`'s catch numbering) under the
+     * new prefix, and a bare block statement's statements are `<its index>.<k>`, as [statementsToBlock] builds an init
+     * block. A body already positional is returned as it is.
+     */
+    internal fun normalizeIndices(body: Block): Block = if (positional(body, "")) body else renumberBlock(body, "")
+
+    private fun childIndex(blockIndex: String, k: Int, n: Int): String =
+        if (blockIndex.isEmpty()) pad(k, n) else "$blockIndex.${pad(k, n)}"
+
+    private fun lastComponent(index: String?): String? = index?.substringAfterLast('.')
+
+    private fun positional(block: Block, blockIndex: String): Boolean {
+        val n = block.statements().size
+        return block.statements().withIndex().all { (k, s) ->
+            val expected = childIndex(blockIndex, k, n)
+            s.source()?.index() == expected && (if (s is Block) positional(s, expected)
+                else s.subBlockStream().allMatch { b ->
+                    val last = lastComponent(b.source()?.index())
+                    last == null || b.source()?.index() == "$expected.$last" && positional(b, "$expected.$last")
+                })
+        }
+    }
+
+    private fun renumberBlock(block: Block, blockIndex: String): Block {
+        val n = block.statements().size
+        val position = java.util.IdentityHashMap<Statement, Int>()
+        block.statements().forEachIndexed { k, s -> position[s] = k }
+        val renumbered = block.translate(object : IndexTranslation() {
+            override fun translateStatement(statement: Statement): List<Statement> =
+                if (statement === block) listOf(statement)
+                else position[statement]?.let { k -> listOf(renumberStatement(statement, childIndex(blockIndex, k, n))) }
+                    ?: listOf(statement)
+        }).single() as Block
+        return if (blockIndex.isEmpty()) renumbered
+        else renumbered.withSource((renumbered.source() ?: runtime.noSource()).withIndex(blockIndex)) as Block
+    }
+
+    private fun renumberStatement(statement: Statement, index: String): Statement {
+        if (statement is Block) return renumberBlock(statement, index)
+        val renumbered = statement.translate(object : IndexTranslation() {
+            override fun translateStatement(statement2: Statement): List<Statement> = when {
+                statement2 === statement -> listOf(statement2)
+                // a sub-block: its own last component, under the statement's new index; one with no index is left
+                statement2 is Block -> lastComponent(statement2.source()?.index())
+                    ?.let { listOf(renumberBlock(statement2, "$index.$it")) } ?: listOf(statement2)
+                else -> listOf(statement2)
+            }
+        }).single()
+        return renumbered.withSource((renumbered.source() ?: runtime.noSource()).withIndex(index))
+    }
+
+    /** A translation that changes nothing but what [translateStatement] returns: statement indices. */
+    private abstract inner class IndexTranslation : TranslationMap {
+        override fun translateVariableRecursively(variable: Variable): Variable =
+            runtime.translateVariableRecursively(this, variable)
+    }
+
     /** Zero-pad [i] to the width of the largest index in a block of [n] statements (so they sort in order). */
     internal fun pad(i: Int, n: Int): String =
         i.toString().padStart((n - 1).coerceAtLeast(0).toString().length, '0')
@@ -356,9 +427,8 @@ internal class KotlinBodyConverter(
         prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, childIndexOf(k))) }
         statements.forEachIndexed { j, s ->
             val childIndex = childIndexOf(j + prologue.size)
-            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
-            // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
-            // (prepwork compares them as strings), and renumbering would shift every statement after them.
+            // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are built as
+            // `<childIndex>.0` and `.1`, and renumbered as siblings once the body is complete ([normalizeIndices], #69).
             val lowered = atStatement(childIndex) { loweredStatements(s, method, locals, childIndex) }
             if (lowered != null) lowered.forEach { block.addStatement(it) }
             else convertHoisting(s, method, locals, childIndex).forEach { block.addStatement(it) }
@@ -393,6 +463,7 @@ internal class KotlinBodyConverter(
         val initializer = initializerOverride
             ?: statement.initializer?.let { convertExpression(it, method, locals) }
             ?: runtime.newEmptyExpression()
+        refHolderCreation(statement, name, type, initializer, locals)?.let { return it }
         val local = runtime.newLocalVariable(name, type, initializer)
         locals[name] = local
         localDeclared(statement, local)
@@ -543,12 +614,12 @@ internal class KotlinBodyConverter(
         val hoisted = hoistNullSafeSpine(s, method, locals, index)
         if (hoisted.isEmpty()) {
             hoistedReads.clear()
-            return listOf(convertStatement(s, method, locals, index))
+            return withRefInit(s, listOf(convertStatement(s, method, locals, index)), index)
         }
         // the conversion below READS the temporaries, through hoistedReads; clear it after, never before
         val statement = convertStatement(s, method, locals, hoistedStatementIndex(index, hoisted.size))
         hoistedReads.clear()
-        return hoisted + statement
+        return withRefInit(s, hoisted + statement, index)
     }
 
     /**
@@ -606,14 +677,15 @@ internal class KotlinBodyConverter(
                                             locals: MutableMap<String, Variable>,
                                             index: String): List<Statement>? {
         val s = unannotated(annotated)
-        return controlFlowElvisLowering(s, method, locals, index)
+        return (controlFlowElvisLowering(s, method, locals, index)
             ?: argumentElvisLowering(s, method, locals, index)
             ?: spineElvisLowering(s, method, locals, index)
             ?: arrayInitLowering(s, method, locals, index)
             ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
-            ?: safeCallAsStatementLowering(s, method, locals, index)
+            ?: safeCallAsStatementLowering(s, method, locals, index))
+            ?.let { withRefInit(s, it, index) }
     }
 
     /**
@@ -1879,7 +1951,7 @@ internal class KotlinBodyConverter(
                     if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(value)
                     else runtime.newReturnStatement(value), "0")).build()
             } ?: runtime.emptyBlock()
-        samBuilder.setMethodBody(body).commit()
+        samBuilder.setMethodBody(normalizeIndices(body)).commit()
         anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
             .setSingleAbstractMethod(sam).commit()
         val lambda = runtime.newLambdaBuilder().setMethodInfo(sam)
@@ -2871,7 +2943,9 @@ internal class KotlinBodyConverter(
         // K2 resolves `JvmTarget` in `JvmTarget.DEFAULT` to the COMPANION when the member is the companion's. A
         // `const val` or `@JvmField` there is a static field of the OUTER class, with no field or getter on the
         // companion at all: a library companion's model came back empty (`LanguageVersion.LATEST_STABLE`)
-        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT) {
+        // Every companion property's field is there since #73, but only a `const`, a @JvmField and a private one are
+        // READ as the field; any other is read through the companion's getter, as kotlinc compiles it (below).
+        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT && readAsField(selector)) {
             val outer = receiverClass.classId?.outerClassId?.let { findClass(it) } as? KaNamedClassSymbol
             outer?.let { classTypeInfo(it) }?.let { members(it) }?.let { outerType ->
                 outerType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, outerType) }
@@ -3321,7 +3395,7 @@ internal class KotlinBodyConverter(
             }
         }
         statementIndex = enclosingIndex
-        samBuilder.setMethodBody(block.build()).commit()
+        samBuilder.setMethodBody(normalizeIndices(block.build())).commit()
 
         anonymousType.builder()
             .addMethod(sam)
@@ -3374,6 +3448,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.objectPropertyAccess(reference: KtNameReferenceExpression): Expression? {
         val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if (!readAsField(reference)) return singletonGetter(reference, property)
         if (property.receiverParameter != null) return null
         val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
         if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
@@ -3383,8 +3458,30 @@ internal class KotlinBodyConverter(
             holder.classId?.outerClassId?.let { findClass(it) as? KaNamedClassSymbol }?.let { classTypeInfo(it) }?.let { members(it) }
         else objectType
         fieldHolder?.fields()?.firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, fieldHolder) }
-        val getter = resolveAccessor(objectType, name) ?: return null
+        return singletonGetter(reference, property)
+    }
+
+    /** `Object.INSTANCE.getX()` / `Outer.Companion.getX()`: a property of an `object` or companion, read through its getter. */
+    private fun KaSession.singletonGetter(reference: KtNameReferenceExpression, property: KaPropertySymbol): Expression? {
+        if (property.receiverParameter != null) return null
+        val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
+        if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
+        val objectType = classTypeInfo(holder)?.let { members(it) } ?: return null
+        val getter = resolveAccessor(objectType, reference.getReferencedName()) ?: return null
         return singletonOf(holder)?.let { accessorCall(it, getter) }
+    }
+
+    /**
+     * Whether a read of the property [reference] names is a read of its FIELD: a `const val` and a @JvmField, whose
+     * field is the JVM surface, and a private property, which has no accessor. Any other has a getter, and a read
+     * from outside its declaration is a call to it. True when the reference is not a property.
+     */
+    private fun KaSession.readAsField(reference: KtNameReferenceExpression): Boolean {
+        val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return true
+        return (property as? KaKotlinPropertySymbol)?.isConst == true
+            || property.backingFieldSymbol?.annotations?.any { it.classId?.asFqNameString() == "kotlin.jvm.JvmField" } == true
+            || property.annotations.any { it.classId?.asFqNameString() == "kotlin.jvm.JvmField" }
+            || property.visibility == KaSymbolVisibility.PRIVATE
     }
 
     /**
@@ -3813,9 +3910,11 @@ internal class KotlinBodyConverter(
      * (`ExpressionVisitor.methodReference`: a TypeExpression has no primary and its receiver is treated as
      * internal; a value expression has one and its modifications reach the caller).
      *
-     * ⚠ `expression.expressionType` is `kotlin.reflect.KFunction1`, NOT the functional interface the reference
-     * is being coerced to at the use site. It is recorded as-is rather than guessed at: the engine types the
-     * synthetic functional-interface variable with it and reads nothing else from it.
+     * ⚠ `expression.expressionType` is `kotlin.reflect.KFunction1`, a compiler-synthesized type with no class file.
+     * It is recorded in its JVM shape, `Function1<A, R>` ([KotlinTypeMapper.reflectFunctionType], #92): as a class
+     * type it degraded to `KFunction<A, R>`, not a functional interface, and the engine, which types the synthetic
+     * functional-interface variable with it, took the reference off the functional-interface path Java's `sb::append`
+     * takes. A property reference's `KProperty1` is a class type and keeps its mapping.
      *
      * A PROPERTY reference (`Q::i`, `String::length`) is its getter — see [propertyReference].
      */
@@ -3941,7 +4040,7 @@ internal class KotlinBodyConverter(
         val body = runtime.newBlockBuilder().addStatement(indexed(
             if (returnType == runtime.voidParameterizedType()) runtime.newExpressionAsStatement(call)
             else runtime.newReturnStatement(call), "0")).build()
-        samBuilder.setMethodBody(body).commit()
+        samBuilder.setMethodBody(normalizeIndices(body)).commit()
         anonymousType.builder().addMethod(sam).addInterfaceImplemented(functionalType).setEnclosingMethod(method)
             .setSingleAbstractMethod(sam).commit()
         return runtime.newLambdaBuilder().setMethodInfo(sam)
@@ -5156,11 +5255,14 @@ internal class KotlinBodyConverter(
                     .setSource(runtime.noSource()).build()
             }
         }
-        // a field of an enclosing type accessed from a (non-static) inner class: `label` -> `Outer.this.label`
+        // a field of an enclosing type accessed from a (non-static) inner class: `label` -> `Outer.this.label`; a static
+        // one of any enclosing type: `Outer.label`
         var enclosing = method.typeInfo().compilationUnitOrEnclosingType()
         while (enclosing.isRight) {
             val outer = enclosing.right
             outer.fields().firstOrNull { it.name() == name }?.let { field ->
+                // a static one needs no instance: a companion's `const val`, declared on its enclosing class (#73)
+                if (field.isStatic) return staticFieldRef(field, outer)
                 val outerThis = variableExpression(runtime.newThis(outer.asParameterizedType(), outer, false))
                 return variableExpression(runtime.newFieldReference(field, outerThis, field.type()))
             }
@@ -5306,6 +5408,101 @@ internal class KotlinBodyConverter(
      * property's own type. Keyed by the declaration, not the name, so shadowing cannot confuse two of them.
      */
     private val delegatedLocals = mutableMapOf<KtProperty, Pair<LocalVariable, ParameterizedType>>()
+
+    /**
+     * <b>A `var` a lambda assigns is a `Ref` holder (#72)</b>, as kotlinc compiles it: `var n = 0; xs.forEach { n++ }`
+     * is `Ref.IntRef n = new Ref.IntRef(); n.element = 0;`, and every read and write of `n`, in the function and in its
+     * lambdas, is one of `n.element`. The CST models a lambda as a lambda, inline function or not, and the analysis
+     * follows a write to a field of a captured final holder; an assignment to the enclosing function's own local, which
+     * Java cannot write, it did not see, so after `forEach { n++ }` the function's `n` was still 0. The name binds to
+     * the element in [locals] -- what every read and write, and every lambda's copy of the scope, resolves -- and the
+     * declared local is the holder. The initial value is assigned by a second statement, which [loweredStatements] and
+     * [convertHoisting] append ([pendingRefInits]).
+     */
+    private fun KaSession.refHolderCreation(statement: KtProperty, name: String, type: ParameterizedType,
+                                            initializer: Expression, locals: MutableMap<String, Variable>): Statement? {
+        if (!isAssignedInACapture(statement)) return null
+        val (holderType, element, constructor) = refHolder(type) ?: return null
+        val newHolder = runtime.newConstructorCallBuilder().setSource(runtime.noSource()).setConstructor(constructor)
+            .setConcreteReturnType(holderType).setDiamond(runtime.diamondNo()).setParameterExpressions(listOf()).build()
+        val holder = runtime.newLocalVariable(name, holderType, newHolder)
+        val elementRef = runtime.newFieldReference(element, variableExpression(holder) as VariableExpression, type)
+        locals[name] = elementRef
+        localDeclared(statement, holder)
+        if (!(initializer is EmptyExpression && !isPlaceholder(initializer))) {
+            val assignment = runtime.newAssignmentBuilder().setTarget(variableExpression(elementRef) as VariableExpression).setValue(initializer)
+                .setSource(runtime.noSource()).build()
+            pendingRefInits[statement] = runtime.newExpressionAsStatement(assignment)
+        }
+        val dsb = runtime.newDetailedSourcesBuilder()
+        statement.nameIdentifier?.let { nameId ->
+            val nameSource = source(nameId, "-")
+            dsb.put(holder.simpleName(), nameSource).put(holder, nameSource)
+        }
+        return runtime.newLocalVariableCreation(holder).withSource(runtime.noSource().withDetailedSources(dsb.build()))
+    }
+
+    /** The `n.element = v` of a `Ref` holder declared by a statement, appended after it (see [refHolderCreation]). */
+    private val pendingRefInits = java.util.IdentityHashMap<KtExpression, Statement>()
+
+    private fun withRefInit(statement: KtExpression, converted: List<Statement>, index: String): List<Statement> =
+        pendingRefInits.remove(statement)?.let { converted + indexed(it, "$index.~") } ?: converted
+
+    private val assignedInACapture = java.util.IdentityHashMap<KtProperty, Boolean>()
+
+    /**
+     * Whether a lambda, a local function or an `object :` declared after the local `var` [statement], in its scope,
+     * assigns it (`=`, a compound assignment, `++`/`--`).
+     */
+    private fun KaSession.isAssignedInACapture(statement: KtProperty): Boolean = assignedInACapture.getOrPut(statement) {
+        if (!statement.isLocal || !statement.isVar) return@getOrPut false
+        val scope = statement.parent ?: return@getOrPut false
+        val name = statement.name ?: return@getOrPut false
+        val symbol = statement.symbol
+        PsiTreeUtil.collectElementsOfType(scope, KtNameReferenceExpression::class.java).any { reference ->
+            reference.getReferencedName() == name && isAssignmentTarget(reference) && crossesACapture(reference, scope)
+                && reference.mainReference.resolveToSymbol() == symbol
+        }
+    }
+
+    private fun isAssignmentTarget(reference: KtNameReferenceExpression): Boolean =
+        when (val parent = reference.parent) {
+            is KtBinaryExpression -> parent.left === reference && parent.operationToken in KtTokens.ALL_ASSIGNMENTS
+            is KtUnaryExpression -> parent.baseExpression === reference
+                && (parent.operationToken == KtTokens.PLUSPLUS || parent.operationToken == KtTokens.MINUSMINUS)
+            else -> false
+        }
+
+    private fun crossesACapture(reference: KtExpression, scope: com.intellij.psi.PsiElement): Boolean =
+        generateSequence(reference.parent) { it.parent }.takeWhile { it !== scope }
+            .any { it is KtFunctionLiteral || it is KtNamedFunction || it is KtClassOrObject }
+
+    /**
+     * `kotlin.jvm.internal.Ref.IntRef` (and the other primitives') or `Ref.ObjectRef<T>` for a local of [type], with
+     * its `element` field and no-argument constructor; null without the stdlib.
+     */
+    private fun KaSession.refHolder(type: ParameterizedType): Triple<ParameterizedType, FieldInfo, MethodInfo>? {
+        val simple = when {
+            type.arrays() > 0 -> "ObjectRef"
+            type == runtime.intParameterizedType() -> "IntRef"
+            type == runtime.longParameterizedType() -> "LongRef"
+            type == runtime.shortParameterizedType() -> "ShortRef"
+            type == runtime.byteParameterizedType() -> "ByteRef"
+            type == runtime.charParameterizedType() -> "CharRef"
+            type == runtime.floatParameterizedType() -> "FloatRef"
+            type == runtime.doubleParameterizedType() -> "DoubleRef"
+            type == runtime.booleanParameterizedType() -> "BooleanRef"
+            else -> "ObjectRef"
+        }
+        val symbol = findClass(org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/internal/Ref.$simple"))
+            as? KaNamedClassSymbol ?: return null
+        val refType = with(typeMapper) { loadLibraryClass(symbol) }?.let { members(it) } ?: return null
+        val element = refType.fields().firstOrNull { it.name() == "element" } ?: return null
+        val constructor = refType.constructors().firstOrNull { it.parameters().isEmpty() } ?: return null
+        val holderType = if (simple == "ObjectRef") runtime.newParameterizedType(refType, listOf(type.ensureBoxed(runtime)))
+                         else refType.asParameterizedType()
+        return Triple(holderType, element, constructor)
+    }
 
     private fun KaSession.delegatedLocal(expression: KtNameReferenceExpression): Pair<LocalVariable, ParameterizedType>? {
         if (delegatedLocals.isEmpty()) return null

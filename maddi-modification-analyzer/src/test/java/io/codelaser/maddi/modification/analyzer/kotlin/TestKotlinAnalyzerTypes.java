@@ -133,22 +133,14 @@ public class TestKotlinAnalyzerTypes extends CommonKotlinAnalyzerTest {
     }
 
     /*
-     ⛔ maddi#73: kotlinc puts the companion's `private var next` on Ids as a static field; K2 puts it on the
-     Companion, as an instance field. Mutability moves from the class to its companion, and nextId becomes modifying.
+     Companion state: kotlinc puts the companion's `private var next` on Ids as a static field, and so does the front
+     end (#73; it was an instance field of the Companion, which made the Companion @Mutable and Ids @FinalFields).
+     Ids also has the static initializer that assigns `next = 0`, where the Java twin writes a field initializer.
      */
     @Test
     public void companionState() {
-        assertEquals("type Ids: @Mutable @Independent", a.java("Ids").lines().findFirst().orElseThrow());
-        assertEquals("type Ids: @FinalFields @Independent", a.kotlin("Ids").lines().findFirst().orElseThrow());
-        assertEquals("""
-                type Companion: @Immutable @Independent
-                constructor: nonModifying=true @Independent
-                method nextId: nonModifying=true @Independent""", a.java("Ids.Companion"));
-        assertEquals("""
-                type Companion: @Mutable @Independent
-                constructor: nonModifying=true @Independent
-                field next: final=false unmodified=true @Independent
-                method nextId: nonModifying=false @Independent
-                method setNext: nonModifying=false ? | 0: unmodified=true ?""", a.kotlin("Ids.Companion"));
+        a.assertSameAsJava("Ids", "<init>", "Companion", "next");
+        assertEquals("type Ids: @Mutable @Independent", a.kotlin("Ids").lines().findFirst().orElseThrow());
+        a.assertSameAsJava("Ids.Companion");
     }
 }

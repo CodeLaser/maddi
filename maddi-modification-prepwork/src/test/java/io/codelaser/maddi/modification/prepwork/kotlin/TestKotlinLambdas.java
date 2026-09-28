@@ -3,6 +3,7 @@ package io.codelaser.maddi.modification.prepwork.kotlin;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.modification.prepwork.variable.VariableData;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -103,21 +104,20 @@ public class TestKotlinLambdas extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#72. The lambda assigns the enclosing `var n` (kotlinc: an IntRef). Prep records the assignment inside
-     the lambda only; in the enclosing method `n` is assigned at 0 and nowhere else, so `return n` reads the
-     initial value as far as prep can tell. Pinned: when #72 is fixed, statement 1 must assign `n`.
+     The lambda assigns the enclosing `var n`: kotlinc's IntRef holder (#72), declared and initialized at 0 and 1, and
+     every read and write is one of `n.element`. The lambda's `n.element++` is an assignment at statement 2, the one
+     creating the lambda (#94), so `return n.element` reads a value the lambda may have written.
      */
     @Test
     public void capturedVar() {
-        assertEquals("""
-                it: D:-, A:[] | R 0-E
-                n: D:+, A:[0.0.0] | R 0.0.0
-                p: D:-, A:[] | R 0-E""", lambdaSummary(p.kotlin("capturedVar")));
-        assertEquals("""
-                n: D:0, A:[0] | R 1, 2
-                p: D:-, A:[] | R 1
-                return capturedVar: D:-, A:[2] | R -
-                xs: D:-, A:[] | R 1""", summary(p.kotlin("capturedVar")));
+        MethodInfo m = p.kotlin("capturedVar");
+        assertEquals("{IntRef n=new IntRef();n.element=0;CollectionsKt___CollectionsKt.forEach(xs,it->{if(it.equals(p)){n.element++;}});"
+                     + "return n.element;}", m.methodBody().print(p.runtime().qualificationSimpleNames()).toString());
+        VariableData last = VariableDataImpl.of(m.methodBody().statements().getLast());
+        String element = last.variableInfoStream()
+                .filter(vi -> vi.variable().fullyQualifiedName().equals("kotlin.jvm.internal.Ref.IntRef.element#n"))
+                .map(vi -> vi.assignments() + " | R " + vi.reads()).findFirst().orElseThrow();
+        assertEquals("D:0, A:[1, 2] | R 2, 3", element);
     }
 
     /*
@@ -147,18 +147,19 @@ public class TestKotlinLambdas extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#69, the null-safe hoisting shape: `val n = s?.let { … } ?: 0` becomes `$nullSafe0 = …` at 0.0 and
-     `int n = …` at 0.1. At statement 1, `n` is unknown, so `return n` reads nothing.
+     The null-safe hoisting shape: `val n = s?.let { … } ?: 0` is `$nullSafe0 = …` and `int n = …`, siblings 0 and 1
+     (#69: 0.0 and 0.1), so `return n` at 2 reads `n`.
      */
     @Test
     public void scope() {
         MethodInfo scope = p.kotlin("scope");
-        assertEquals("$nullSafe0, k.X.scope(String):0:s, n",
-                VariableDataImpl.of(scope.methodBody().statements().get(1)).knownVariableNamesToString());
-        assertEquals("k.X.scope(String), k.X.scope(String):0:s",
+        assertEquals(3, scope.methodBody().statements().size());
+        assertEquals("$nullSafe0, k.X.scope(String), k.X.scope(String):0:s, n",
                 VariableDataImpl.of(scope.methodBody().statements().getLast()).knownVariableNamesToString());
         assertEquals("""
-                return scope: D:-, A:[1] | R -
-                s: D:-, A:[] | R 0.0""", summary(scope));
+                $nullSafe0: D:0, A:[0] | R 1
+                n: D:1, A:[1] | R 2
+                return scope: D:-, A:[2] | R -
+                s: D:-, A:[] | R 0""", summary(scope));
     }
 }

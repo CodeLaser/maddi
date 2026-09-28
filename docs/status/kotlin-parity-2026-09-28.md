@@ -53,6 +53,10 @@ ones (commit messages, issues, the archive files); nothing was re-measured for t
 
 ## 3. Remaining work, in order
 
+> **Update (end of 2026-09-28).** Of the issues below, #68, #69, #72, #73, #74, #75, #77, #79, #81–#87, #90 and #92 are
+> closed; see the "Fixed since" note in §6. New: #93 (link, SAM path of a forwarder), #94 (engine: a lambda's write
+> through a captured holder is not seen, Java too; the remaining half of #72).
+
 ### 3.1 Soundness: Kotlin input that gets a wrong verdict
 
 - **#65, link engine.** The value of a non-local return never reaches the enclosing method's return variable, so
@@ -214,7 +218,11 @@ memberless and silently dropped a Java file that called one (#76 describes what 
 | `TestKotlinLinkDelegation` | class delegation: forwarders, constructor | 1 of 2 | #90 (the constructor never assigns `$$delegate_0`) |
 | `TestKotlinLinkLambdas` | own higher-order function, lambda and bound callable reference as values, SAM conversion to `removeIf`/`computeIfAbsent`/`stream().filter`, a call into a Java-source class | 3 of 5 | #92 (callable reference type), #68 (call into Java source, both shapes) |
 
-**Fixed since (ws/dsl, merged into ws/object 2026-09-28):** #74, #75, #77, #81, #82, #83. Their pins have become
+**Fixed since (ws/dsl, merged into ws/object 2026-09-28):** #74, #75, #77, #81, #82, #83; later on ws/dsl #84–#87,
+#90. **Fixed on ws/object (2026-09-28, unpushed):** #92 (callable reference typed as `FunctionN`), #73 (companion
+state and `const` on the enclosing class, as kotlinc), #69 (lowered statements renumbered as siblings), #79 (pattern
+variable in a conditional expression), #72 (a lambda-assigned `var` is a `Ref` holder; the engine half is #94, Java
+too); #68 closed as not reproducible. Their pins have become
 parity assertions; the tables in §5 and §6 give the counts as first measured.
 
 Language-level parity holds wherever the types agree: a Kotlin function type links exactly as Java code taking a

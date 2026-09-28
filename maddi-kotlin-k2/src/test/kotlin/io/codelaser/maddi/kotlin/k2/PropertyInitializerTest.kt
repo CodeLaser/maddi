@@ -29,8 +29,9 @@ import org.junit.jupiter.api.Test
 
 /**
  * A property initializer is converted into its field's initializer, in the context kotlinc compiles it into: an
- * instance property's primary constructor (a companion's included), a top-level property's facade static initializer,
- * an `object :` expression's instance initializer. That context is what an `object :` expression or a lambda in the
+ * instance property's primary constructor, a companion property's the enclosing class's static initializer, a
+ * top-level property's the facade's, an `object :` expression's its instance initializer. That context is what an
+ * `object :` expression or a lambda in the
  * initializer is enclosed by -- and until initializers were converted, such an `object :` and the overrides it
  * declares did not exist in the CST at all.
  */
@@ -106,18 +107,24 @@ class PropertyInitializerTest : KotlinScanTestBase() {
         assertEquals(11, hi.source().detailedSources().detail(hi.name()).beginLine())
     }
 
+    /**
+     * A companion has its private constructor; its properties' fields are static fields of the enclosing class, and
+     * their initializers are code of that class's static initializer, where kotlinc compiles them (#73).
+     */
     @Test
-    fun aCompanionHasItsPrivateConstructorAndItsInitializersRunThere() {
+    fun aCompanionHasItsPrivateConstructorAndItsPropertiesInitializeInTheEnclosingClass() {
         parse()
         val companion = type("Companion")
         val constructor = companion.constructors().single()
         assertTrue(constructor.isSynthetic && constructor.access().isPrivate, "$constructor")
+        assertTrue(companion.fields().isEmpty(), companion.fields().toString())
 
-        val made = initializer("Companion", "made")
+        val made = initializer("B", "made")
         assertEquals("make", (made as MethodCall).methodInfo().name())
 
-        val hi = anonymousHi(initializer("Companion", "empty"))
-        assertSame(constructor, hi.typeInfo().enclosingMethod())
+        val staticInitializer = type("B").methods().single { it.isStaticInitializer }
+        val hi = anonymousHi(initializer("B", "empty"))
+        assertSame(staticInitializer, hi.typeInfo().enclosingMethod())
         assertEquals(setOf(greeterHi), hi.overrides())
     }
 

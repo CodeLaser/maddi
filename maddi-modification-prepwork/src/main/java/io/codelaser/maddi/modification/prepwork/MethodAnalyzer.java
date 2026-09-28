@@ -1038,6 +1038,7 @@ public class MethodAnalyzer {
                     }
                     copyReadsFromAnonymousMethod(lambda.methodInfo(), Set.of(), Set.of(lambda.methodInfo().typeInfo()),
                             variableInfoMap);
+                    copyHolderWritesFromLambda(lambda.methodInfo(), variableInfoMap);
                 }
                 return false;
             }
@@ -1212,6 +1213,26 @@ public class MethodAnalyzer {
                 }
             });
         }*/
+
+        /*
+         #94: a lambda's write THROUGH a captured holder -- a field or an array element of a local of this method, as
+         Kotlin's `var n; xs.forEach { n++ }` is `n.element++` on a Ref holder -- is an assignment at the statement that
+         creates the lambda. (A lambda cannot assign the local itself; that is Java's rule, and kotlinc's holder is how
+         Kotlin keeps to it.)
+         */
+        private void copyHolderWritesFromLambda(MethodInfo lambdaMethod, VariableInfoMap closure) {
+            if (lambdaMethod.methodBody() == null) return;
+            lambdaMethod.methodBody().visit(e -> {
+                if (e instanceof Assignment a) {
+                    Variable target = a.variableTarget();
+                    if ((target instanceof FieldReference || target instanceof DependentVariable)
+                        && Util.primary(target) instanceof LocalVariable lv && closure.contains(lv.fullyQualifiedName())) {
+                        assignedAdd(target);
+                    }
+                }
+                return true;
+            });
+        }
 
         private VariableInfoMap ensureLocalVariableNamesOfEnclosingType(TypeInfo anonymousClass) {
             VariableInfoMap stored = anonymousClass.analysis().getOrNull(VARIABLES_OF_ENCLOSING_METHOD,

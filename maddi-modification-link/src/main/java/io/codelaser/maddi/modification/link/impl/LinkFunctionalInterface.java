@@ -10,6 +10,7 @@ import io.codelaser.maddi.modification.prepwork.variable.Links;
 import io.codelaser.maddi.modification.prepwork.variable.ReturnVariable;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -74,18 +75,23 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             List<Triplet> result = new ArrayList<>();
             int i = 0;
             for (Links links : linksList) {
+                // the slice of a BiConsumer's source is the lambda PARAMETER's: linksList comes from a map of the
+                // parameters that have links, so its position is not the parameter's (`(k, v) -> r[0] = v` sliced as
+                // the key)
+                int sliceIndex = links.primary() instanceof ParameterInfo pi ? pi.index() : i;
                 for (Link link : links) {
                     // LEAF — skip a link to the SAM's own return variable (an independent, freshly produced value such
                     // as 'String::valueOf'): there is nothing external to link to.
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
                         Variable from;
+                        LinkNature nature = linkNature;
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
                             if (LinkNatureImpl.IS_ELEMENT_OF.equals(link.linkNature())) {
                                 if (functionalInterfaceType.parameters().size() >= 2) {
                                     // BiConsumer (e.g. TestForEachLambda,9b)
                                     // 1:ii∈this.map.§$$s[-1], fromTranslated = map.§$$s, from = map.§$$s[-1]
-                                    from = createSlice(i, fromTranslated, link.from());
+                                    from = createSlice(sliceIndex, fromTranslated, link.from());
                                 } else {
                                     // Consumer (e.g. TestForEachLambda,3)
                                     // j->add(j), link 0:j∈this.set.§$s, fromTranslated = list.§$s
@@ -99,6 +105,14 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 // ↗
                                 // TestBiConsumer
                                 from = fromTranslated;
+                            } else if (isConsumer && !isSupplier
+                                       && LinkNatureImpl.IS_ASSIGNED_TO.equals(link.linkNature())) {
+                                // →: the element is STORED, `x -> r.element = x` (#94; Kotlin's `var` a lambda
+                                // assigns is such a Ref holder): the target holds one of the source's elements, as
+                                // after `for (x : xs) r = x`: source.§$s ∋ target
+                                from = functionalInterfaceType.parameters().size() >= 2
+                                        ? createSlice(sliceIndex, fromTranslated, link.from()) : fromTranslated;
+                                nature = CONTAINS_AS_MEMBER;
                             } else {
                                 from = null; // TODO
                             }
@@ -113,7 +127,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                             from = null;
                         }
                         if (from != null && Util.acceptModificationLink(from, link.to())) {
-                            Triplet t = new Triplet(from, linkNature, link.to());
+                            Triplet t = new Triplet(from, nature, link.to());
                             result.add(t);
                         }
                     }

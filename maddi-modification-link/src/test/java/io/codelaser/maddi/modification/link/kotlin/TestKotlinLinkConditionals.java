@@ -95,12 +95,12 @@ public class TestKotlinLinkConditionals extends CommonKotlinLinkTest {
     }
 
     /*
-     ⛔ maddi#79, a JAVA defect: a pattern variable in a conditional expression links to nothing. The Kotlin side,
-     which returns `o` itself, links; it lacks `§m≡` for #67's reason.
+     A pattern variable in a Java conditional expression links to the value it was bound from (#79, fixed; it linked
+     to nothing). ⛔ The Kotlin side, which returns `o` itself, still lacks `§m≡`, for #67's reason (a smart cast).
      */
     @Test
     public void smartCastExpression() {
-        assertEquals("[-] --> -", p.javaLinks("smartSb"));
+        assertEquals("[-] --> smartSb←$_ce0,smartSb←0:o,smartSb.§m≡0:o.§m", p.javaLinks("smartSb"));
         assertEquals("[-] --> smartSb←$_ce0,smartSb←0:o", p.kotlinLinks("smartSb"));
     }
 

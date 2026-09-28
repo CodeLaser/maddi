@@ -341,7 +341,10 @@ public record ExpressionVisitor(Runtime runtime,
         Links rtChanged = atl.go(newPrimary, rt.links());
         Links rfChanged = atl.go(newPrimary, rf.links());
         Links newLinks = rtChanged.merge(rfChanged);
-        Result merge = rc.merge(rt).merge(rf);
+        // the condition's own links go to `extra`: `with(newLinks)` below replaces the main links, and a pattern
+        // binding in the condition (`o instanceof T t ? t : …`) IS the condition's main links, `o → t`. Replaced, `t`
+        // linked to nothing and the ternary's value lost `o` (#79); an `if` statement's condition keeps them.
+        Result merge = rc.moveLinksToExtra().merge(rt).merge(rf);
         // ⛔ `new Result(links, extra)` keeps only those two and resets the other five — including `modified`,
         // the record of which variables a call in here modifies. It threw away every modification made by the
         // condition and both arms, so `cond ? c.add(t) : 0` left `c` unmodified. `with()` replaces the links

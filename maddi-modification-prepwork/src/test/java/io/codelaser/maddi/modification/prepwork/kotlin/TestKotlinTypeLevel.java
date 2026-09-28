@@ -81,28 +81,28 @@ public class TestKotlinTypeLevel extends CommonKotlinTest {
     @Test
     public void callGraphAndAnalysisOrder() {
         G<Info> graph = new ComputeCallGraph(p.runtime(), p.kotlinX()).go().graph();
-        // ⚠ maddi#73: `const val C` is a field of X (as kotlinc emits it) AND of X.Companion, and make() reads
-        // the companion's. kotlinc has only X.C.
+        // a companion's `const val C` is one static field of X, as kotlinc emits it (#73), initialized in X's static
+        // initializer; make() reads X.C
         assertEquals("""
-                k.X->S->k.X.<init>(), k.X->S->k.X.<init>(int), k.X->S->k.X.C, k.X->S->k.X.Companion, \
-                k.X->S->k.X.Companion, k.X->S->k.X.add(String), k.X->S->k.X.count, k.X->S->k.X.getCount(), \
-                k.X->S->k.X.getName(), k.X->S->k.X.getSize(), k.X->S->k.X.getStart(), k.X->S->k.X.initList(int), \
-                k.X->S->k.X.jf, k.X->S->k.X.list, k.X->S->k.X.name, k.X->S->k.X.setCount(int), \
-                k.X->S->k.X.setName(String), k.X->S->k.X.start, k.X->S->k.X.withDefault$default(int,int,int), \
-                k.X->S->k.X.withDefault(int,int), k.X.<init>()->SR->k.X.<init>(int), \
-                k.X.<init>(int)->R->k.X.initList(int), k.X.Companion->D->k.X.Companion, \
-                k.X.Companion->S->k.X.Companion.<init>(), k.X.Companion->S->k.X.Companion.C, \
-                k.X.Companion->S->k.X.Companion.make(), k.X.Companion.C->R->k.X.Companion.make(), \
-                k.X.Companion.make()->R->k.X.<init>(int), k.X.count->R->k.X.add(String), \
-                k.X.count->R->k.X.getCount(), k.X.count->R->k.X.setCount(int), k.X.list->R->k.X.add(String), \
-                k.X.list->R->k.X.getSize(), k.X.list->R->k.X.initList(int), k.X.name->R->k.X.getName(), \
-                k.X.name->R->k.X.setName(String), k.X.start->R->k.X.<init>(int), k.X.start->R->k.X.getStart(), \
+                k.X->S->k.X.<init>(), k.X->S->k.X.<init>(int), k.X->S->k.X.<static_0>(), k.X->S->k.X.C, \
+                k.X->S->k.X.Companion, k.X->S->k.X.Companion, k.X->S->k.X.add(String), k.X->S->k.X.count, \
+                k.X->S->k.X.getCount(), k.X->S->k.X.getName(), k.X->S->k.X.getSize(), k.X->S->k.X.getStart(), \
+                k.X->S->k.X.initList(int), k.X->S->k.X.jf, k.X->S->k.X.list, k.X->S->k.X.name, \
+                k.X->S->k.X.setCount(int), k.X->S->k.X.setName(String), k.X->S->k.X.start, \
+                k.X->S->k.X.withDefault$default(int,int,int), k.X->S->k.X.withDefault(int,int), \
+                k.X.<init>()->SR->k.X.<init>(int), k.X.<init>(int)->R->k.X.initList(int), \
+                k.X.Companion->D->k.X.Companion, k.X.Companion->S->k.X.Companion.<init>(), \
+                k.X.Companion->S->k.X.Companion.make(), k.X.Companion.make()->R->k.X.<init>(int), \
+                k.X.Companion.make()->R->k.X.C, k.X.count->R->k.X.add(String), k.X.count->R->k.X.getCount(), \
+                k.X.count->R->k.X.setCount(int), k.X.list->R->k.X.add(String), k.X.list->R->k.X.getSize(), \
+                k.X.list->R->k.X.initList(int), k.X.name->R->k.X.getName(), k.X.name->R->k.X.setName(String), \
+                k.X.start->R->k.X.<init>(int), k.X.start->R->k.X.getStart(), \
                 k.X.withDefault$default(int,int,int)->R->k.X.withDefault(int,int)\
                 """, ComputeCallGraph.print(graph));
         // the $default bridge after the method it calls; the secondary constructor after the primary one
         assertEquals("""
-                C, <init>, add, getCount, getName, getSize, getStart, initList, jf, setCount, setName, withDefault, \
-                <init>, count, list, name, withDefault$default, <init>, make, start, C, Companion, Companion, X\
+                <static_0>, C, <init>, add, getCount, getName, getSize, getStart, initList, jf, setCount, setName, \
+                withDefault, <init>, count, list, name, withDefault$default, <init>, make, start, Companion, Companion, X\
                 """, new ComputeAnalysisOrder().go(graph).stream().map(Info::simpleName)
                 .collect(Collectors.joining(", ")));
     }
@@ -111,7 +111,7 @@ public class TestKotlinTypeLevel extends CommonKotlinTest {
     public void partOfConstructionAndFinalFields() {
         // the init block is part of the primary constructor; initList is called from it only
         assertEquals("k.X.<init>(), k.X.<init>(int), k.X.initList(int)", partOfConstruction(p.kotlinX()));
-        assertEquals("start=true, list=true, count=false, name=false, jf=true, Companion=true, C=true",
+        assertEquals("start=true, list=true, count=false, name=false, jf=true, C=true, Companion=true",
                 finalFields(p.kotlinX()));
         assertEquals("a=true, b=false", finalFields(type("k.D")));
         assertEquals("k.D.<init>(int,String)", partOfConstruction(type("k.D")));

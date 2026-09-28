@@ -80,27 +80,22 @@ public class TestKotlinEscapes extends CommonKotlinTest {
     }
 
     /*
-     ⛔ maddi#69, the control-flow elvis: `val t = s ?: return 0` is `if (s == null) return 0;` at 0.0 and
-     `String t = s;` at 0.1. The Java twin has the same statements as siblings, 0 and 1. The escape is right; `t`
-     is lost at statement 1, so `return t.length()` does not read it.
+     The control-flow elvis: `val t = s ?: return 0` is `if (s == null) return 0;` and `String t = s;`, siblings 0
+     and 1, as the Java twin writes them (#69: they were 0.0 and 0.1, and `t` was lost at statement 1).
      */
     @Test
     public void elvisReturn() {
-        assertEquals("0.0=false, 0.1=false, 1=true", escapes(p.kotlin("elvisReturn")));
-        assertEquals("""
-                return elvisReturn: D:-, A:[0.0.0.0, 1] | R -
-                s: D:-, A:[] | R 0.0-E, 0.1""", summary(p.kotlin("elvisReturn")));
+        p.assertSameAsJava("elvisReturn");
+        assertEquals("0=false, 1=false, 2=true", escapes(p.kotlin("elvisReturn")));
         assertEquals("""
                 return elvisReturn: D:-, A:[0.0.0, 2] | R -
                 s: D:-, A:[] | R 0-E, 1
-                t: D:1, A:[1] | R 2""", summary(p.java("elvisReturn")));
+                t: D:1, A:[1] | R 2""", summary(p.kotlin("elvisReturn")));
     }
 
     @Test
     public void elvisThrow() {
-        assertEquals("0.0=false, 0.1=false, 1=true", escapes(p.kotlin("elvisThrow")));
-        assertEquals("""
-                return elvisThrow: D:-, A:[0.0.0.0, 1] | R -
-                s: D:-, A:[] | R 0.0-E, 0.1""", summary(p.kotlin("elvisThrow")));
+        p.assertSameAsJava("elvisThrow");
+        assertEquals("0=false, 1=false, 2=true", escapes(p.kotlin("elvisThrow")));
     }
 }
