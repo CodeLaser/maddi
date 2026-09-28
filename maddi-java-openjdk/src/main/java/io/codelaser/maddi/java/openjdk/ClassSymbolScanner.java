@@ -247,6 +247,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     TypeInfo lazilyLoadTypeFromClassFile(Symbol.ClassSymbol cs) {
+        // #40: javac's error symbol for a class literal whose qualifier did not resolve is a ClassSymbol named
+        // 'class' owned by the qualifier; materialising it made the qualifier gain a member type 'class', or,
+        // when the qualifier was already committed, killed the whole parse with an UnsupportedOperationException.
+        // It is an unresolved symbol, in the category of the owner.kind == NIL case below. Only that shape: an
+        // erroneous symbol with a real name is stubbed on purpose (JDK 27's javac recovers unresolvable names,
+        // and the stub keeps the unit).
+        if (cs.owner instanceof Symbol.ClassSymbol && "class".contentEquals(cs.getSimpleName())
+            && (cs.kind == Kinds.Kind.ERR || cs.type != null && cs.type.isErroneous())) {
+            throw new UnresolvedSymbolException("Class literal on an unresolved type '" + cs.owner
+                                                + "' [symbol kind " + cs.kind + "]");
+        }
         switch (cs.owner) {
             case Symbol.PackageSymbol _ -> {
                 return lazilyLoadPrimaryTypeFromClassFile(cs);
