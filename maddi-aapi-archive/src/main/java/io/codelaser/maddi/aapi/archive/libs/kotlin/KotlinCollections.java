@@ -274,31 +274,31 @@ public class KotlinCollections {
 
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> toList(@NotModified Iterable<? extends T> receiver) {
+        static <T> List<T> toList(@Independent(hc = true) @NotModified Iterable<? extends T> receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> Set<T> toSet(@NotModified Iterable<? extends T> receiver) {
+        static <T> Set<T> toSet(@Independent(hc = true) @NotModified Iterable<? extends T> receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> toMutableList(@NotModified Iterable<? extends T> receiver) {
+        static <T> List<T> toMutableList(@Independent(hc = true) @NotModified Iterable<? extends T> receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> toMutableList(@NotModified Collection<? extends T> receiver) {
+        static <T> List<T> toMutableList(@Independent(hc = true) @NotModified Collection<? extends T> receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> Set<T> toMutableSet(@NotModified Iterable<? extends T> receiver) {
+        static <T> Set<T> toMutableSet(@Independent(hc = true) @NotModified Iterable<? extends T> receiver) {
             return null;
         }
 
@@ -513,7 +513,7 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         @SafeVarargs
-        static <K, V> Map<K, V> mapOf(@NotModified Pair<? extends K, ? extends V>... pairs) {
+        static <K, V> Map<K, V> mapOf(@Independent(hc = true) @NotModified Pair<? extends K, ? extends V>... pairs) {
             return null;
         }
 
@@ -550,7 +550,7 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         @SafeVarargs
-        static <T> List<T> listOf(@NotModified T... elements) {
+        static <T> List<T> listOf(@Independent(hc = true) @NotModified T... elements) {
             return null;
         }
 
@@ -595,7 +595,7 @@ public class KotlinCollections {
     class MapsKt__MapsJVMKt$ {
         @Independent(hc = true)
         @NotNull
-        static <K, V> Map<K, V> mapOf(@NotModified Pair<? extends K, ? extends V> pair) {
+        static <K, V> Map<K, V> mapOf(@Independent(hc = true) @NotModified Pair<? extends K, ? extends V> pair) {
             return null;
         }
     }
@@ -610,7 +610,7 @@ public class KotlinCollections {
 
         @Independent(hc = true)
         @NotNull
-        static <K, V> List<Pair<K, V>> toList(@NotModified Map<? extends K, ? extends V> receiver) {
+        static <K, V> List<Pair<K, V>> toList(@Independent(hc = true) @NotModified Map<? extends K, ? extends V> receiver) {
             return null;
         }
 
@@ -625,7 +625,7 @@ public class KotlinCollections {
     class CollectionsKt__CollectionsJVMKt$ {
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> listOf(@NotModified T element) {
+        static <T> List<T> listOf(@Independent(hc = true) @NotModified T element) {
             return null;
         }
     }
@@ -634,7 +634,7 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         @SafeVarargs
-        static <T> Set<T> setOf(@NotModified T... elements) {
+        static <T> Set<T> setOf(@Independent(hc = true) @NotModified T... elements) {
             return null;
         }
 
@@ -648,7 +648,7 @@ public class KotlinCollections {
     class SetsKt__SetsJVMKt$ {
         @Independent(hc = true)
         @NotNull
-        static <T> Set<T> setOf(@NotModified T element) {
+        static <T> Set<T> setOf(@Independent(hc = true) @NotModified T element) {
             return null;
         }
     }
@@ -750,19 +750,19 @@ public class KotlinCollections {
 
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> toList(@NotModified T[] receiver) {
+        static <T> List<T> toList(@Independent(hc = true) @NotModified T[] receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> List<T> toMutableList(@NotModified T[] receiver) {
+        static <T> List<T> toMutableList(@Independent(hc = true) @NotModified T[] receiver) {
             return null;
         }
 
         @Independent(hc = true)
         @NotNull
-        static <T> Set<T> toSet(@NotModified T[] receiver) {
+        static <T> Set<T> toSet(@Independent(hc = true) @NotModified T[] receiver) {
             return null;
         }
 

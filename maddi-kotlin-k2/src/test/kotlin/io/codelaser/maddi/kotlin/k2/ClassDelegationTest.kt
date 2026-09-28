@@ -53,8 +53,14 @@ class ClassDelegationTest : KotlinScanTestBase() {
     fun theDelegateIsKeptAndEveryMemberForwards() {
         // Kept's own `override fun g() { }` is not a forwarder: its (empty) body is the source's
         assertEquals("""
-            Del: ${'$'}${'$'}delegate_0=d | f[x]:[return this.${'$'}${'$'}delegate_0.f(x);] g[]:[this.${'$'}${'$'}delegate_0.g();] getP[]:[return this.${'$'}${'$'}delegate_0.getP();] getQ[]:[return this.${'$'}${'$'}delegate_0.getQ();] setQ[value]:[this.${'$'}${'$'}delegate_0.setQ(value);]
-            Kept: d=<empty> ${'$'}${'$'}delegate_0=d | f[x]:[return this.${'$'}${'$'}delegate_0.f(x);] g[]:[] getP[]:[return this.${'$'}${'$'}delegate_0.getP();] getQ[]:[return this.${'$'}${'$'}delegate_0.getQ();] setQ[value]:[this.${'$'}${'$'}delegate_0.setQ(value);]
+            Del: ${'$'}${'$'}delegate_0=<empty> | f[x]:[return this.${'$'}${'$'}delegate_0.f(x);] g[]:[this.${'$'}${'$'}delegate_0.g();] getP[]:[return this.${'$'}${'$'}delegate_0.getP();] getQ[]:[return this.${'$'}${'$'}delegate_0.getQ();] setQ[value]:[this.${'$'}${'$'}delegate_0.setQ(value);]
+            Kept: d=<empty> ${'$'}${'$'}delegate_0=<empty> | f[x]:[return this.${'$'}${'$'}delegate_0.f(x);] g[]:[] getP[]:[return this.${'$'}${'$'}delegate_0.getP();] getQ[]:[return this.${'$'}${'$'}delegate_0.getQ();] setQ[value]:[this.${'$'}${'$'}delegate_0.setQ(value);]
             """.trimIndent(), listOf("Del", "Kept").joinToString("\n") { "$it: ${shape(it)}" })
+        // the `by` expression reads the constructor parameter, so the delegate is assigned IN the constructor, as
+        // kotlinc does (#85); the field keeps no initializer of its own
+        assertEquals("this.${'$'}${'$'}delegate_0=d;",
+            types.first { it.simpleName() == "Del" }.findConstructor(1).methodBody().statements().joinToString(" "))
+        assertEquals("this.d=d; this.${'$'}${'$'}delegate_0=d;",
+            types.first { it.simpleName() == "Kept" }.findConstructor(1).methodBody().statements().joinToString(" "))
     }
 }

@@ -259,6 +259,8 @@ internal class KotlinBodyConverter(
 
     // set by KotlinScan: the `$default` synthetic a call omitting an argument of this declaration calls (see callArguments)
     var defaultsOf: (PsiElement?) -> MethodInfo? = { null }
+    /** A data class's `copy$default` by the class's PSI, which its generated `copy` reports as its own (#81). */
+    var copyDefaultsOf: (PsiElement?) -> MethodInfo? = { null }
 
     // type mapping lives on the collaborator; it's a KaSession member extension, so reach it via with(…)
     private fun KaSession.mapType(type: KaType, owner: TypeInfo, method: MethodInfo? = null) =
@@ -357,7 +359,7 @@ internal class KotlinBodyConverter(
             // ⚠ ONE source statement can become TWO (see controlFlowElvisLowering). They are indexed
             // `<childIndex>.0` and `.1` rather than renumbered as siblings: the indexes only have to SORT
             // (prepwork compares them as strings), and renumbering would shift every statement after them.
-            val lowered = loweredStatements(s, method, locals, childIndex)
+            val lowered = atStatement(childIndex) { loweredStatements(s, method, locals, childIndex) }
             if (lowered != null) lowered.forEach { block.addStatement(it) }
             else convertHoisting(s, method, locals, childIndex).forEach { block.addStatement(it) }
         }
@@ -1188,14 +1190,27 @@ internal class KotlinBodyConverter(
         }
     }
 
+    /**
+     * The index of the statement being converted: an expression that holds statements of its own (a `when` used as
+     * a value is a switch expression, whose arms are blocks) indexes them under it, as the Java parser does; indexed
+     * from 0 they collided with the method's own statements (#75).
+     */
+    private var statementIndex: String = ""
+
+    private inline fun <T> atStatement(index: String, convert: () -> T): T {
+        val saved = statementIndex
+        statementIndex = index
+        try { return convert() } finally { statementIndex = saved }
+    }
+
     internal fun KaSession.convertStatement(statement: KtExpression, method: MethodInfo,
-                                           locals: MutableMap<String, Variable>, index: String): Statement {
+                                           locals: MutableMap<String, Variable>, index: String): Statement = atStatement(index) {
         val raw = rawStatement(statement, method, locals, index)
         // apply the statement's full range + index, keeping any DetailedSources rawStatement attached (e.g. a
         // local-variable name)
         val whole = source(statement, index)
         val detailed = raw.source()?.detailedSources()
-        return raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed))
+        raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed))
     }
 
     private fun source(psi: PsiElement, index: String): Source = sourceOf(runtime, psi, index)
@@ -1314,6 +1329,10 @@ internal class KotlinBodyConverter(
             // `var` of a read-only type, `plus` (`s = s.plus(p)`) -- never Java's numeric `+=` (ws/object SARIF thread)
             if (statement.operationToken != KtTokens.EQ && left != null && leftExpression != null)
                 augmentedOperatorCall(statement, left, leftExpression, value, method, locals)?.let { return it }
+            // a property with a WRITTEN setter: kotlinc calls it from every site but the setter itself (where `field`
+            // is the backing field, another symbol), so a field write elsewhere lost the setter's effects (#82)
+            if (statement.operationToken == KtTokens.EQ && left != null)
+                writtenSetterCall(left, leftExpression, value)?.let { return runtime.newExpressionAsStatement(it) }
             val target = leftExpression as? VariableExpression
             // a property with no backing field reads as a call of its getter: assigning to it is a call of its
             // setter, `c.computed = v` -> `c.setComputed(v)`, which is what kotlinc compiles too (#36)
@@ -2018,8 +2037,10 @@ internal class KotlinBodyConverter(
         // else may follow a switch expression's arrow without braces.
         val only = built.statements().singleOrNull()
         if (body !is KtBlockExpression) {
-            if (only is YieldStatement) return indexed(runtime.newExpressionAsStatement(only.expression()), blockIndex)
-            if (only is ThrowStatement) return only
+            // the Java parser indexes an arm that is a bare expression or statement at `<entry>.0` (#75, measured
+            // against the Java twins in the prepwork Kotlin tier)
+            if (only is YieldStatement) return indexed(runtime.newExpressionAsStatement(only.expression()), "$blockIndex.0")
+            if (only is ThrowStatement) return indexed(only, "$blockIndex.0")
         }
         return built
     }
@@ -2045,7 +2066,7 @@ internal class KotlinBodyConverter(
         statements.forEachIndexed { j, s ->
             val childIndex = if (blockIndex.isEmpty()) pad(j, statements.size) else "$blockIndex.${pad(j, statements.size)}"
             if (j != statements.lastIndex) {
-                val lowered = loweredStatements(s, method, childLocals, childIndex)
+                val lowered = atStatement(childIndex) { loweredStatements(s, method, childLocals, childIndex) }
                 if (lowered != null) lowered.forEach { block.addStatement(it) }
                 else convertHoisting(s, method, childLocals, childIndex).forEach { block.addStatement(it) }
                 return@forEachIndexed
@@ -2365,6 +2386,39 @@ internal class KotlinBodyConverter(
             .setSource(runtime.noSource()).build()
     }
 
+    /**
+     * `x.p = v` / `p = v` on a property whose setter is WRITTEN (`set(v) { … }`): the call of that setter on the
+     * field reference's scope, as kotlinc compiles it. Null for a default setter (a field write means the same), for
+     * `field` inside the accessor (a backing-field symbol, not the property), and where no setter method is found.
+     */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.writtenSetterCall(left: KtExpression, converted: Expression?, value: Expression): MethodCall? {
+        val reference = (left as? KtQualifiedExpression)?.selectorExpression as? KtNameReferenceExpression
+            ?: left as? KtNameReferenceExpression ?: return null
+        val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if ((property.psi as? KtProperty)?.setter?.hasBody() != true) return null
+        val fr = (converted as? VariableExpression)?.variable() as? io.codelaser.maddi.cst.api.variable.FieldReference
+            ?: return null
+        val setterName = property.javaSetterName?.asString()
+            ?: ("set" + property.name.asString().replaceFirstChar { it.uppercaseChar() })
+        val setter = members(fr.fieldInfo().owner()).methods()
+            .singleOrNull { it.name() == setterName && !it.isStatic && it.parameters().size == 1 } ?: return null
+        return runtime.newMethodCallBuilder()
+            .setObject(fr.scope()).setObjectIsImplicit(left is KtNameReferenceExpression)
+            .setMethodInfo(setter).setParameterExpressions(listOf(value))
+            .setConcreteReturnType(runtime.voidParameterizedType()).setTypeArguments(listOf())
+            .setSource(runtime.noSource()).build()
+    }
+
+    /** `x.p` on a property whose getter is WRITTEN: the call of that getter, as kotlinc compiles it (#82). */
+    @OptIn(KaExperimentalApi::class)
+    private fun KaSession.writtenGetterCall(selector: KtNameReferenceExpression, receiver: Expression,
+                                            receiverType: TypeInfo?, name: String): Expression? {
+        val property = selector.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if ((property.psi as? KtProperty)?.getter?.hasBody() != true) return null
+        return receiverType?.let { resolveAccessor(it, name) }?.let { accessorCall(receiver, it) }
+    }
+
     private fun isAssignment(token: com.intellij.psi.tree.IElementType): Boolean =
         token == KtTokens.EQ || augmentedOperator(token) != null
 
@@ -2416,7 +2470,15 @@ internal class KotlinBodyConverter(
                 convertValueIf(value, method, mutableMapOf(), index, returning = false, assignTo = target)
             value is KtTryExpression ->
                 convertTry(value, method, mutableMapOf(), index, assignTo = target).withSource(source(value, index))
-            else -> null
+            // any other initializer moved into the constructor (one reading a constructor parameter, #85): the
+            // assignment `this.field = value`, converted in the constructor's scope, where the parameter resolves
+            else -> {
+                val assignment = runtime.newAssignmentBuilder()
+                    .setTarget(runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build())
+                    .setValue(convertExpression(value, method, mutableMapOf()))
+                    .setSource(runtime.noSource()).build()
+                indexed(runtime.newExpressionAsStatement(assignment), index).withSource(source(initializer, index))
+            }
         }
     }
 
@@ -2577,11 +2639,11 @@ internal class KotlinBodyConverter(
                 }
                 parts.reduceOrNull { acc, part -> runtime.newStringConcat(acc, part) } ?: runtime.newStringConstant("")
             }
-            is KtWhenExpression -> { // when as an expression
+            is KtWhenExpression -> { // when as an expression: its arms are indexed under the statement it is in (#75)
                 val (selector, entryLocals) = whenSubject(expression, method, locals)
                 runtime.newSwitchExpressionBuilder()
                     .setSelector(selector)
-                    .addSwitchEntries(whenEntries(expression, method, selector, entryLocals, "", asValue = true))
+                    .addSwitchEntries(whenEntries(expression, method, selector, entryLocals, statementIndex, asValue = true))
                     .setParameterizedType(expression.expressionType?.let { mapType(it, method.typeInfo()) }
                         ?: runtime.objectParameterizedType())
                     .setSource(runtime.noSource()).build()
@@ -2634,6 +2696,9 @@ internal class KotlinBodyConverter(
                 val field = receiverType?.takeUnless { selector.mainReference.resolveToSymbol() is KaSyntheticJavaPropertySymbol }
                     ?.let { members(it) }?.fields()?.firstOrNull { it.name() == name }
                 when {
+                    // a WRITTEN getter runs on every read, so the field is not what `obj.x` reads (#82)
+                    field != null && writtenGetterCall(selector, receiver, receiverType, name) != null ->
+                        writtenGetterCall(selector, receiver, receiverType, name)!!
                     // obj.x, typed at the use site when the field's type is a type parameter (as for a getter, below)
                     field != null -> variableExpression(runtime.newFieldReference(field, receiver,
                         selector.expressionType?.takeIf { field.type().typeParameter() != null }
@@ -3221,8 +3286,10 @@ internal class KotlinBodyConverter(
         }
         val total = prologue.size + statements.size
         prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, pad(k, total))) }
+        val enclosingIndex = statementIndex // a lambda's statements are its own method's; the enclosing one resumes after
         statements.forEachIndexed { i, stmt ->
             val index = pad(i + prologue.size, total)
+            statementIndex = index
             val isResult = i == statements.lastIndex && !voidReturn && isLambdaResultExpression(stmt)
             // a lambda body is a statement list like any other: `val map = try { … } catch { … }` inside one
             // is lowered here too. ⛔ never the result expression — that is the lambda's value, not a statement.
@@ -3253,6 +3320,7 @@ internal class KotlinBodyConverter(
                 else -> convertHoisting(stmt, method, bodyScope, index).forEach { block.addStatement(it) }
             }
         }
+        statementIndex = enclosingIndex
         samBuilder.setMethodBody(block.build()).commit()
 
         anonymousType.builder()
@@ -3647,7 +3715,7 @@ internal class KotlinBodyConverter(
         // a VARARG parameter takes every positional argument from its index on (Kotlin passes a parameter after it
         // by name, or as the trailing lambda), or one named spread `p = *arr`
         val varargIndex = parameters.indexOfFirst { it.isVararg }
-        val defaultsMethod = defaultsOf(declaring?.psi)
+        val defaultsMethod = defaultsOf(declaring?.psi) ?: generatedCopyDefaults(callee)
         val bound: List<List<Expression>> = parameters.mapIndexed { i, p ->
             if (i == varargIndex) {
                 val named = byName[p.name.asString()]
@@ -3722,6 +3790,17 @@ internal class KotlinBodyConverter(
      * The declaration whose default values a call to [symbol] uses: its own, or those of the member it overrides (an
      * override cannot declare defaults of its own). Null for a library declaration: its defaults are not source.
      */
+    /**
+     * The `copy$default` of a data class's generated `copy` (#81); its parameters default to the properties. Looked
+     * up by the CLASS symbol's PSI, the key KotlinScan registered it under (the callee's own `psi` is not reliably
+     * that element).
+     */
+    private fun KaSession.generatedCopyDefaults(callee: KaFunctionSymbol): MethodInfo? {
+        if (callee !is KaNamedFunctionSymbol || callee.name.asString() != "copy") return null
+        val dataClass = callee.callableId?.classId?.let { findClass(it) } as? KaNamedClassSymbol ?: return null
+        return if (dataClass.isData) copyDefaultsOf(dataClass.psi) else null
+    }
+
     private fun KaSession.declaringDefaults(symbol: KaFunctionSymbol): KaFunctionSymbol? =
         (sequenceOf(symbol) + symbol.allOverriddenSymbols.filterIsInstance<KaFunctionSymbol>())
             .firstOrNull { s -> s.valueParameters.any { (it.psi as? KtParameter)?.defaultValue != null } }

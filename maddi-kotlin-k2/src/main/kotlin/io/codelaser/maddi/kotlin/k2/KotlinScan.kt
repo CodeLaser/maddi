@@ -104,6 +104,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
@@ -199,6 +200,7 @@ class KotlinScan(
     init {
         bodyConverter.memberConverter = this
         bodyConverter.defaultsOf = { references.defaultsOf(it) }
+        bodyConverter.copyDefaultsOf = { references.copyDefaultsOf(it) }
         bodyConverter.localDeclared = { psi, variable -> references.local(psi, variable) }
     }
 
@@ -1145,8 +1147,8 @@ class KotlinScan(
             .setObject(bodyConverter.singletonAccess(enclosing, companionField)).setObjectIsImplicit(false)
             .setMethodInfo(target).setParameterExpressions(params.map { bodyConverter.variableExpression(it) })
             .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
-        val statement = if (returnType == runtime.voidParameterizedType())
-            runtime.newExpressionAsStatement(delegate) else runtime.newReturnStatement(delegate)
+        val statement = bodyConverter.indexed(if (returnType == runtime.voidParameterizedType())
+            runtime.newExpressionAsStatement(delegate) else runtime.newReturnStatement(delegate), "0") // #77
         builder.setMethodBody(runtime.newBlockBuilder().addStatement(statement).build()).computeAccess().commit()
         enclosing.builder().addMethod(forwarder)
     }
@@ -1156,9 +1158,13 @@ class KotlinScan(
         val constructor = runtime.newConstructor(owner, runtime.methodTypeConstructor())
         val builder = constructor.builder()
         ctor.valueParameters.forEach { p ->
-            val type = mapType(p.returnType, owner)
+            // a vararg's K2 returnType is the element type; the JVM/CST parameter is an array of it, as a function's
+            // (convertMethodSignature). `vararg val xs: String` was typed String, assigned to a String[] field (#86)
+            val elementType = mapType(p.returnType, owner)
+            val type = if (p.isVararg) elementType.copyWithArrays(elementType.arrays() + 1) else elementType
             val parameterInfo = builder.addParameter(p.name.asString(), type)
-            parameter(parameterInfo, p.psi as? KtParameter, type)
+            parameterInfo.builder().setVarArgs(p.isVararg)
+            parameter(parameterInfo, p.psi as? KtParameter, elementType)
             annotate(parameterInfo.builder(), p, owner)
         }
         annotate(builder, ctor, owner)
@@ -1774,6 +1780,12 @@ class KotlinScan(
     // enum entries awaiting their `new E(args)` initializer, per enum: see addEnumMembers
     private val pendingEnumEntries = java.util.IdentityHashMap<TypeInfo, MutableList<Pair<FieldInfo, KtEnumEntry>>>()
 
+    /** Does [expression] read a parameter of a constructor (a primary constructor's `xs` in `val items = xs`)? */
+    private fun KaSession.readsAConstructorParameter(expression: KtExpression): Boolean =
+        com.intellij.psi.util.PsiTreeUtil.collectElementsOfType(expression, KtNameReferenceExpression::class.java).any { ref ->
+            (ref.mainReference.resolveToSymbol() as? KaValueParameterSymbol)?.containingDeclaration is KaConstructorSymbol
+        }
+
     private fun KaSession.convertInitializers(owner: TypeInfo) {
         convertDelegateInitializers(owner)
         pendingEnumEntries.remove(owner)?.forEach { (field, entry) ->
@@ -1790,7 +1802,10 @@ class KotlinScan(
         // A static one (a facade's, a companion's) goes into the static initializer.
         val blocks = java.util.IdentityHashMap<MethodInfo, MutableList<Statement>>()
         pending.forEach { p ->
-            if (!bodyConverter.needsStatementInitializer(p.expression)) return@forEach
+            // ... and one that reads a primary-constructor parameter: kotlinc runs every initializer in the
+            // constructor, and a field initializer cannot see the parameter -- it read as @Independent (#85)
+            if (!bodyConverter.needsStatementInitializer(p.expression)
+                && !(!p.static && runsInitOf[owner] != null && readsAConstructorParameter(p.expression))) return@forEach
             if (!p.static && runsInitOf[owner] != null) {
                 statementInitializersOf.getOrPut(owner) { mutableListOf() } += p
                 return@forEach
@@ -1877,14 +1892,14 @@ class KotlinScan(
         if (!p.getter.hasBeenInspected()) {
             val read = runtime.newReturnBuilder()
                 .setExpression(atDelegate(p, delegateRead(p.owner, p.field, p.type, p.static, receiverOf(p.getter))))
-                .setSource(runtime.noSource()).build()
+                .setSource(runtime.noSource().withIndex("0")).build() // #77
             p.getter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(read).build()).commit()
         }
         val setter = p.setter ?: return
         if (!setter.hasBeenInspected()) {
             val value = setter.parameters().last()
-            val write = runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field, value, p.static,
-                receiverOf(setter))))
+            val write = bodyConverter.indexed(runtime.newExpressionAsStatement(atDelegate(p, delegateWrite(p.owner, p.field,
+                value, p.static, receiverOf(setter)))), "0") // #77
             setter.builder().setMethodBody(runtime.newBlockBuilder().addStatement(write).build()).commit()
         }
     }
@@ -2009,9 +2024,11 @@ class KotlinScan(
                                       property: KaPropertySymbol, static: Boolean): MethodInfo {
         val getter = runtime.newMethod(owner, accessorName(property, false), methodType(static))
         val source = runtime.noSource()
+        // the one statement of a one-statement body is statement "0": prep keys its data by the index, and the link
+        // engine's Assignments.contains binary-searches on it -- a null index threw there for every setter (#77)
         val returnField = runtime.newReturnBuilder()
             .setExpression(fieldReadExpression(owner, field, static))
-            .setSource(source).build()
+            .setSource(source.withIndex("0")).build()
         getter.builder()
             .setReturnType(type)
             .setMethodBody(runtime.newBlockBuilder().addStatement(returnField).build())
@@ -2050,7 +2067,7 @@ class KotlinScan(
                 .setSource(source).build())
             .setValue(runtime.newVariableExpressionBuilder().setVariable(param).setSource(source).build())
             .setSource(source).build()
-        return runtime.newExpressionAsStatementBuilder().setExpression(assignment).setSource(source).build()
+        return runtime.newExpressionAsStatementBuilder().setExpression(assignment).setSource(source.withIndex("0")).build()
     }
 
 
@@ -2086,8 +2103,10 @@ class KotlinScan(
     private fun KaSession.finishMethodBody(function: KaNamedFunctionSymbol, method: MethodInfo,
                                            outerLocals: Map<String, Variable> = emptyMap()) {
         // the KOTLIN return type: a suspend function's JVM one is Object, and `suspend fun f() = g()` still returns nothing
-        method.builder().setMethodBody(dataClassMemberBody(function, method) ?: convertBody(function,
+        val dataClassBody = dataClassMemberBody(function, method)
+        method.builder().setMethodBody(dataClassBody ?: convertBody(function,
             if (function.isSuspend) mapType(function.returnType, method.typeInfo(), method) else method.returnType(), method, outerLocals))
+        if (dataClassBody != null && function.name.asString() == "copy") copyDefaultsMethod(function, method)
         // nor does it host that PSI: references written there are the property's or the class's, not copy()'s (#38)
         commitOrDefer(method, if (isGenerated(function, false)) null else function.psi) { method.builder().commit() }
         defaultsMethodOf.remove(method)?.let { defaults ->
@@ -2095,6 +2114,56 @@ class KotlinScan(
             defaults.builder().setMethodBody(defaultsBody(defaults, method, pending.parameters))
             commitOrDefer(defaults, null) { defaults.builder().commit() }
         }
+    }
+
+    /**
+     * kotlinc's `copy$default` for a data class: `copy`'s parameters, then the masks, and a body that replaces each
+     * omitted parameter by the property it defaults to -- `if ((mask & bit) != 0) b = this.b;` -- before calling
+     * `copy`. Without it a call omitting an argument, `d.copy(a = a)`, had no `$default` to bind to and passed
+     * `null` for `b`: every partial copy dropped the fields it did not name (#81). Registered by the CLASS's PSI,
+     * which is what the generated `copy` reports as its own (KotlinReferenceRegistry.copyDefaults).
+     */
+    private fun KaSession.copyDefaultsMethod(function: KaNamedFunctionSymbol, copy: MethodInfo) {
+        val classSymbol = function.callableId?.classId?.let { findClass(it) } as? KaNamedClassSymbol ?: return
+        val classPsi = classSymbol.psi as? org.jetbrains.kotlin.psi.KtClass ?: return
+        val owner = copy.typeInfo()
+        val fields = classPsi.primaryConstructorParameters.filter { it.hasValOrVar() }
+            .map { p -> owner.fields().firstOrNull { it.name() == p.name } ?: return }
+        if (fields.size != copy.parameters().size) return
+        val defaults = runtime.newMethod(owner, "copy\$default", runtime.methodTypeMethod())
+        val builder = defaults.builder().setSynthetic(true)
+        copy.parameters().forEach { syntheticParameter(builder, it.name(), it.parameterizedType()) }
+        val n = copy.parameters().size
+        masks(n).forEach { syntheticParameter(builder, it, runtime.intParameterizedType()) }
+        builder.commitParameters().setReturnType(copy.returnType()).setSource(runtime.noSource())
+        builder.addMethodModifier(runtime.methodModifierPublic()).addMethodModifier(runtime.methodModifierFinal())
+        builder.computeAccess()
+        val passed = defaults.parameters().subList(0, n)
+        val maskParameters = defaults.parameters().subList(n, n + masks(n).size)
+        val count = n + 1
+        val body = runtime.newBlockBuilder()
+        fields.forEachIndexed { i, field ->
+            val index = bodyConverter.pad(i, count)
+            val assignment = runtime.newAssignmentBuilder()
+                .setTarget(runtime.newVariableExpressionBuilder().setVariable(passed[i]).setSource(runtime.noSource()).build())
+                .setValue(fieldReadExpression(owner, field, false)).setSource(runtime.noSource()).build()
+            body.addStatement(runtime.newIfElseBuilder()
+                .setExpression(maskTest(maskParameters[i / 32], 1 shl (i % 32)))
+                .setIfBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.0"))
+                    .addStatement(bodyConverter.indexed(runtime.newExpressionAsStatement(assignment), "$index.0.0")).build())
+                .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$index.1")).build())
+                .setSource(runtime.noSource().withIndex(index)).build())
+        }
+        val call = runtime.newMethodCallBuilder()
+            .setObject(bodyConverter.variableExpression(runtime.newThis(owner.asParameterizedType())))
+            .setObjectIsImplicit(true).setMethodInfo(copy)
+            .setParameterExpressions(passed.map { bodyConverter.variableExpression(it) })
+            .setConcreteReturnType(copy.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
+        body.addStatement(bodyConverter.indexed(runtime.newReturnStatement(call), bodyConverter.pad(n, count)))
+        builder.setMethodBody(body.build())
+        owner.builder().addMethod(defaults)
+        references.copyDefaults(classPsi, defaults)
+        commitOrDefer(defaults, null) { defaults.builder().commit() }
     }
 
     /**
@@ -2234,9 +2303,9 @@ class KotlinScan(
                 .setMethodInfo(target).setParameterExpressions(arguments)
                 .setConcreteReturnType(forwarder.returnType()).setTypeArguments(listOf())
                 .setSource(runtime.noSource()).build()
-            val statement = if (forwarder.returnType().isVoid)
-                runtime.newExpressionAsStatementBuilder().setExpression(call).setSource(runtime.noSource()).build()
-            else runtime.newReturnBuilder().setExpression(call).setSource(runtime.noSource()).build()
+            val statement = if (forwarder.returnType().isVoid) // statement "0" of a one-statement body (#77)
+                runtime.newExpressionAsStatementBuilder().setExpression(call).setSource(runtime.noSource().withIndex("0")).build()
+            else runtime.newReturnBuilder().setExpression(call).setSource(runtime.noSource().withIndex("0")).build()
             forwarder.builder().setMethodBody(runtime.newBlockBuilder().addStatement(statement).build())
         }
     }
