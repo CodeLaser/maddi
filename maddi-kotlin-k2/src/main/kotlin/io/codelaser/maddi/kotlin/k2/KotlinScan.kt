@@ -1021,9 +1021,14 @@ class KotlinScan(
         recordWrittenSignatures(companion, companionSymbol)
         companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaPropertySymbol>()
-            // a `const val` is ONE field on the JVM, a static one of the enclosing class; the companion has none (#73)
+            // a companion property's backing field is a static field of the ENCLOSING class on the JVM -- a `const val`,
+            // a @JvmField and a plain `val`/`var` alike -- and the companion has none: its accessors read and write the
+            // enclosing class's field (#73). Modelled on the companion instance, the state made the companion @Mutable
+            // and the class @FinalFields, the inverse of what the bytecode and Java see. (A delegated one's
+            // `x$delegate` is not moved yet.)
             .forEach { property -> convertProperty(companion, property,
-                fieldHolder = if ((property as? KaKotlinPropertySymbol)?.isConst == true) enclosing else null) }
+                fieldHolder = if (property.isDelegatedProperty
+                    || (property as? KaKotlinPropertySymbol)?.hasBackingField == false) null else enclosing) }
         // signatures first, then bodies, as for a class (convertMembers)
         val pendingMethods = companionSymbol.declaredMemberScope.declarations
             .filterIsInstance<KaNamedFunctionSymbol>()
@@ -1065,24 +1070,18 @@ class KotlinScan(
      * Surface companion members that the JVM also emits on the enclosing class, which is where Java names them
      * (javalin's `import static io.javalin.testtools.TestTool.TestLogsKey`, a `companion object { @JvmField val }`):
      *
-     * - `const val` and `@JvmField val/var` → a `public static` field on the enclosing class. A `@JvmField var`
-     *   is not final. The field is the JVM surface of a `@JvmField`, which has no accessors at all.
-     * - `@JvmStatic` property → its ACCESSORS, as static forwarders; the field stays on the companion.
+     * - `@JvmStatic` property → its ACCESSORS, as static forwarders.
      * - `@JvmStatic fun` → a static forwarder method.
      *
-     * A plain companion member gets nothing: Java must write `Outer.Companion.member`. Each member also keeps its
-     * copy on the companion, which is what Kotlin resolves `Outer.Companion.member` against.
+     * The FIELDS are not here: every companion property's backing field is a static field of the enclosing class,
+     * declared there by [convertProperty] (#73) -- public for a `const val` or `@JvmField`, whose field is the JVM
+     * surface, private otherwise. A plain companion function gets nothing: Java must write `Outer.Companion.f()`.
      */
     private fun KaSession.addCompanionStatics(enclosing: TypeInfo, companion: TypeInfo, companionField: FieldInfo,
                                               companionSymbol: KaNamedClassSymbol) {
         val properties = companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaPropertySymbol>().toList()
-        // a `const val` is already there, declared on the enclosing class by convertProperty (#73)
-        properties.filter { (it as? KaKotlinPropertySymbol)?.isConst != true && isJvmField(it) }
-            .forEach { property ->
-                enclosing.builder().addField(
-                    singletonField(enclosing, property.name.asString(), mapType(property.returnType, enclosing),
-                        final = property.isVal))
-            }
+        // the fields -- `const val`, @JvmField, plain -- are already there: convertProperty declared them on the
+        // enclosing class (#73)
         // a @JvmField has no accessors to forward; `const` is inlined at the call site, so neither has one either
         properties.filter { isJvmStaticProperty(it) }
             .forEach { property ->
@@ -1551,9 +1550,11 @@ class KotlinScan(
      */
     private fun KaSession.convertProperty(owner: TypeInfo, property: KaPropertySymbol, staticIn: Boolean = false,
                                           fieldHolder: TypeInfo? = null) {
-        // [fieldHolder]: the type the backing field is declared on when it is not [owner] -- a companion's `const val`
-        // is a static field of the enclosing class (#73); it has no accessor, so nothing else lands elsewhere
-        val static = staticIn || fieldHolder != null
+        // [fieldHolder]: the type the backing field is declared on when it is not [owner] -- a companion property's is
+        // a static field of the enclosing class (#73). Only the FIELD moves: the accessors stay [owner]'s, instance
+        // members of the companion, reading and writing the field where it is.
+        val static = staticIn
+        val fieldStatic = staticIn || fieldHolder != null
         val name = property.name.asString()
         val type = mapType(property.returnType, owner)
         val isVal = property.isVal
@@ -1574,7 +1575,7 @@ class KotlinScan(
             return
         }
 
-        val field = runtime.newFieldInfo(name, static, type, fieldHolder ?: owner)
+        val field = runtime.newFieldInfo(name, fieldStatic, type, fieldHolder ?: owner)
         // a `const val` or a @JvmField has no accessor: its field IS the JVM surface, with the property's visibility.
         // Private for all of them, a public const read as private to diagnose.sarif's unusedPrivateMember (detekt's
         // `object Versions { const val DETEKT }`, read from a build script) and to anything else asking its access.
@@ -1587,10 +1588,10 @@ class KotlinScan(
             .setInitializer(runtime.newEmptyExpression()) // replaced by the converted one, see convertInitializers
         (property.psi as? KtProperty)?.initializer?.let {
             // queued with the property's owner, converted in the context of the field's (#73)
-            pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(fieldHolder ?: owner, field, it, static)
+            pendingInitializers.getOrPut(owner) { mutableListOf() } += PendingInitializer(fieldHolder ?: owner, field, it, fieldStatic)
         }
         if (isVal) fieldBuilder.addFieldModifier(runtime.fieldModifierFinal())
-        if (static) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
+        if (fieldStatic) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic())
         annotate(fieldBuilder, property.backingFieldSymbol, owner)
         // name keyed by field.name(), type reference keyed by its TypeInfo -- mirroring the Java parser
         fieldBuilder.setSource(declarationSource(property.psi) {
@@ -1621,7 +1622,9 @@ class KotlinScan(
         val customSetter = (property.psi as? KtProperty)?.setter?.takeIf { it.hasBody() }
         // ... nor one whose JVM signature the type writes itself (see writtenSignatures)
         val hasGetter = !isConst && !isWritten(owner, accessorName(property, false), listOf(), type)
-        val hasSetter = !isConst && !isVal
+        // ... nor a private companion property's: its field is the enclosing class's (#73), where no setter exists to
+        // model, and a private setter on the companion is a mutator of the companion kotlinc never emits
+        val hasSetter = !isConst && !isVal && !(isPrivate && fieldHolder != null)
                 && !isWritten(owner, accessorName(property, true), listOf(type), runtime.voidParameterizedType())
         if (hasGetter && customGetter != null) {
             owner.builder().addMethod(buildCustomAccessor(owner, field, type, property, static, customGetter))
@@ -1689,7 +1692,7 @@ class KotlinScan(
         awaitBody(method)
         body {
             val scope = mutableMapOf<String, Variable>()
-            field?.let { scope["field"] = runtime.newFieldReference(it, fieldAccessScope(owner, static), it.type()) }
+            field?.let { scope["field"] = runtime.newFieldReference(it, fieldScope(owner, it, static), it.type()) }
             builder.setMethodBody(convertAccessorBody(accessor, !setter, method, scope))
             commitOrDefer(method, accessor) { method.builder().commit() }
         }
@@ -1961,9 +1964,13 @@ class KotlinScan(
         else runtime.newVariableExpressionBuilder()
             .setVariable(runtime.newThis(owner.asParameterizedType())).setSource(runtime.noSource()).build()
 
+    /** The scope of an access to [field] from a member of [owner]: a static field's own type, whoever reads it. */
+    private fun fieldScope(owner: TypeInfo, field: FieldInfo, static: Boolean): Expression =
+        if (field.isStatic) fieldAccessScope(field.owner(), true) else fieldAccessScope(owner, static)
+
     private fun fieldReadExpression(owner: TypeInfo, field: FieldInfo, static: Boolean): Expression =
         runtime.newVariableExpressionBuilder()
-            .setVariable(runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+            .setVariable(runtime.newFieldReference(field, fieldScope(owner, field, static), field.type()))
             .setSource(runtime.noSource()).build()
 
     /** A computed property's getter: its real (custom) body, no field-access tagging. */
@@ -2071,7 +2078,7 @@ class KotlinScan(
         val source = runtime.noSource()
         val assignment = runtime.newAssignmentBuilder()
             .setTarget(runtime.newVariableExpressionBuilder()
-                .setVariable(runtime.newFieldReference(field, fieldAccessScope(owner, static), field.type()))
+                .setVariable(runtime.newFieldReference(field, fieldScope(owner, field, static), field.type()))
                 .setSource(source).build())
             .setValue(runtime.newVariableExpressionBuilder().setVariable(param).setSource(source).build())
             .setSource(source).build()

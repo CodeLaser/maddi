@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import io.codelaser.maddi.kotlin.api.PlaceholderCensus
 import io.codelaser.maddi.cst.api.element.SourceSet
 import io.codelaser.maddi.cst.api.info.Variance
 import io.codelaser.maddi.cst.api.expression.Assignment
@@ -339,6 +340,49 @@ class TypeStructureTest : KotlinScanTestBase() {
      * declaration's initializer, and every read -- bare in the companion, bare in the class, qualified from elsewhere
      * -- is a read of it. The companion has no field of that name (#73: there were two, and Kotlin read the other).
      */
+    /**
+     * Every companion property's backing field is a static field of the enclosing class, as kotlinc emits it (#73):
+     * the companion keeps the accessors of a non-private one, and they, the companion's functions, the class's own
+     * members and the initializer all read and write that one field.
+     */
+    @Test
+    fun companionPropertiesLiveOnTheEnclosingClass() {
+        val types = KotlinScan(runtime, sourceSet).parse(
+            "Reg.kt",
+            "class Reg {\n" +
+                "    fun inClass(): Int = count + base\n" +
+                "    companion object {\n" +
+                "        var count = 0\n" +
+                "        private val base = start()\n" +
+                "        @JvmField val tag = \"t\"\n" +
+                "        fun start(): Int = 7\n" +
+                "        fun bump() { count++ }\n" +
+                "    }\n" +
+                "}\n" +
+                "class Other { fun read(): Int = Reg.count }\n"
+        )
+        val census = PlaceholderCensus.of(types)
+        assertEquals(0, census.total, census.byKind.toString())
+        val reg = types.single { it.simpleName() == "Reg" }
+        val companion = reg.subTypes().single { it.simpleName() == "Companion" }
+        assertEquals(listOf<String>(), companion.fields().map { it.name() })
+        assertEquals(setOf("Companion", "count", "base", "tag"), reg.fields().map { it.name() }.toSet())
+        assertTrue(reg.fields().all { it.isStatic })
+        val names = runtime.qualificationSimpleNames()
+        fun body(t: io.codelaser.maddi.cst.api.info.TypeInfo, m: String, n: Int) =
+            t.findUniqueMethod(m, n).methodBody().print(names).toString()
+        assertEquals("{return Reg.count+Reg.base;}", body(reg, "inClass", 0))
+        assertEquals("{Reg.count++;}", body(companion, "bump", 0))
+        assertEquals("{return Reg.count;}", body(companion, "getCount", 0))
+        assertEquals("{Reg.count=value;}", body(companion, "setCount", 1))
+        // from outside, a non-private property is read through the companion's getter, as kotlinc compiles it
+        assertEquals("{return Reg.Companion.getCount();}", body(types.single { it.simpleName() == "Other" }, "read", 0))
+        // the initializer runs in the enclosing class's static initializer, and calls the companion's function there
+        assertEquals("Reg.Companion.start()", reg.getFieldByName("base", true).initializer().toString())
+        // a private property has no accessor
+        assertEquals(listOf("getCount", "setCount", "start", "bump"), companion.methods().map { it.name() })
+    }
+
     @Test
     fun companionConstIsOneStaticFieldOfTheEnclosingClass() {
         val types = KotlinScan(runtime, sourceSet).parse(
@@ -382,13 +426,18 @@ class TypeStructureTest : KotlinScanTestBase() {
         assertTrue(tool.fields().single { it.name() == "sink" }.isStatic)
         assertTrue(tool.findUniqueMethod("getCount", 0).isStatic)
         assertTrue(tool.findUniqueMethod("setCount", 1).isStatic)
-        assertTrue(tool.fields().none { it.name() == "plain" }, "a plain companion property is not surfaced")
+        // a plain companion property's field is on the enclosing class too, as kotlinc puts it, but PRIVATE: it is
+        // not the JVM surface (#73), and its accessor stays on the companion
+        val plain = tool.fields().single { it.name() == "plain" }
+        assertTrue(plain.isStatic && plain.access().isPrivate)
+        assertTrue(tool.fields().single { it.name() == "sink" }.access().isPublic)
         assertTrue(tool.methods().none { it.name() == "getPlain" }, "nor is its accessor")
 
-        // the companion keeps its own copy of each: that is where Kotlin resolves `Tool.Companion.sink`
+        // the companion has no fields of its own; it keeps the accessors
         val companion = tool.subTypes().single { it.simpleName() == "Companion" }
-        assertTrue(companion.fields().any { it.name() == "sink" })
+        assertTrue(companion.fields().isEmpty(), companion.fields().toString())
         assertTrue(companion.methods().any { it.name() == "getCount" })
+        assertTrue(companion.methods().any { it.name() == "getPlain" })
     }
 
     @Test

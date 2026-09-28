@@ -2941,7 +2941,9 @@ internal class KotlinBodyConverter(
         // K2 resolves `JvmTarget` in `JvmTarget.DEFAULT` to the COMPANION when the member is the companion's. A
         // `const val` or `@JvmField` there is a static field of the OUTER class, with no field or getter on the
         // companion at all: a library companion's model came back empty (`LanguageVersion.LATEST_STABLE`)
-        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT) {
+        // Every companion property's field is there since #73, but only a `const`, a @JvmField and a private one are
+        // READ as the field; any other is read through the companion's getter, as kotlinc compiles it (below).
+        if (receiverClass.classKind == KaClassKind.COMPANION_OBJECT && readAsField(selector)) {
             val outer = receiverClass.classId?.outerClassId?.let { findClass(it) } as? KaNamedClassSymbol
             outer?.let { classTypeInfo(it) }?.let { members(it) }?.let { outerType ->
                 outerType.fields().firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, outerType) }
@@ -3444,6 +3446,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.objectPropertyAccess(reference: KtNameReferenceExpression): Expression? {
         val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return null
+        if (!readAsField(reference)) return singletonGetter(reference, property)
         if (property.receiverParameter != null) return null
         val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
         if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
@@ -3453,8 +3456,30 @@ internal class KotlinBodyConverter(
             holder.classId?.outerClassId?.let { findClass(it) as? KaNamedClassSymbol }?.let { classTypeInfo(it) }?.let { members(it) }
         else objectType
         fieldHolder?.fields()?.firstOrNull { it.name() == name && it.isStatic }?.let { return staticFieldRef(it, fieldHolder) }
-        val getter = resolveAccessor(objectType, name) ?: return null
+        return singletonGetter(reference, property)
+    }
+
+    /** `Object.INSTANCE.getX()` / `Outer.Companion.getX()`: a property of an `object` or companion, read through its getter. */
+    private fun KaSession.singletonGetter(reference: KtNameReferenceExpression, property: KaPropertySymbol): Expression? {
+        if (property.receiverParameter != null) return null
+        val holder = property.callableId?.classId?.let { findClass(it) as? KaNamedClassSymbol } ?: return null
+        if (holder.classKind != KaClassKind.OBJECT && holder.classKind != KaClassKind.COMPANION_OBJECT) return null
+        val objectType = classTypeInfo(holder)?.let { members(it) } ?: return null
+        val getter = resolveAccessor(objectType, reference.getReferencedName()) ?: return null
         return singletonOf(holder)?.let { accessorCall(it, getter) }
+    }
+
+    /**
+     * Whether a read of the property [reference] names is a read of its FIELD: a `const val` and a @JvmField, whose
+     * field is the JVM surface, and a private property, which has no accessor. Any other has a getter, and a read
+     * from outside its declaration is a call to it. True when the reference is not a property.
+     */
+    private fun KaSession.readAsField(reference: KtNameReferenceExpression): Boolean {
+        val property = reference.mainReference.resolveToSymbol() as? KaPropertySymbol ?: return true
+        return (property as? KaKotlinPropertySymbol)?.isConst == true
+            || property.backingFieldSymbol?.annotations?.any { it.classId?.asFqNameString() == "kotlin.jvm.JvmField" } == true
+            || property.annotations.any { it.classId?.asFqNameString() == "kotlin.jvm.JvmField" }
+            || property.visibility == KaSymbolVisibility.PRIVATE
     }
 
     /**
