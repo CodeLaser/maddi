@@ -1,8 +1,12 @@
 # Eclipse Collections: blatantly wrong computed verdicts (engine work list)
 
-Status: 2026-09-25. Source run of EC 13.0.0 (API + implementation as source; engine at `fb14de6e8`, no engine change
-since), results in the session scratchpad `ec-source`. Produced by `corpus/scripts/ec-wrong-verdicts.py <results>
---src <checkout> --tsv <out>`, which prints the counts below and writes every element (about 19,000 rows) to a TSV.
+Status: 2026-09-25, re-measured 2026-09-29 on the current engine (`b6fcd70b4` plus the results-writer fix, see
+ECLIPSECOLLECTIONS.md F5): source run of EC 13.0.0, API + implementation as source, 4 minutes, 0 ceiling trips.
+Produced by `corpus/scripts/ec-wrong-verdicts.py <results> --src <checkout> --tsv <out>`, which prints the counts
+below and writes every element (about 19,000 rows) to a TSV. One movement since 09-25 worth knowing before reading
+the families: the object `Immutable*` and `Mutable*` API interfaces (`ImmutableList`, `MutableList`, `ImmutableMap`,
+...) now compute MUTABLE outright where they computed `@FinalFields`; the hints state their contract regardless
+(`ECLIPSECOLLECTIONS.md`, the EXPECTED table), so this changes the engine's distance, not the shipped verdicts.
 
 "Blatant" means contradicted by EC's own contract and readable from names alone: an `Immutable*` type below
 `@Immutable(hc)`, a mutator (`add`, `put`, `clear`, `sortThis`, ...) computed `@NotModified`, a pure query
