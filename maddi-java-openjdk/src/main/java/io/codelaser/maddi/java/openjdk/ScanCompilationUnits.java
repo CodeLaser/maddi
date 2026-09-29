@@ -112,6 +112,11 @@ public class ScanCompilationUnits {
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
 
+    /** The shared-JDK loader for platform types; see {@code ClassSymbolScanner#setSharedJdkLoader}. */
+    public void setSharedJdkLoader(java.util.function.Function<String, TypeInfo> sharedJdkLoader) {
+        classSymbolScanner.setSharedJdkLoader(sharedJdkLoader);
+    }
+
     /** A second front end sharing this source set; see {@link SourceSetInterleave}. Before {@link #scan}. */
     public void setInterleave(SourceSetInterleave interleave) {
         this.interleave = interleave;
@@ -801,6 +806,12 @@ public class ScanCompilationUnits {
                 return classSymbolScanner.getType(fullyQualifiedName);
             }
             TypeInfo pt = classSymbolScanner.getType(fullyQualifiedName);
+            if (pt == null || !pt.hasBeenInspected()) {
+                // a platform type is completed on the shared-JDK task, never against this task's band -- see
+                // ClassSymbolScanner.viaSharedJdk (a type the preload pass touched is registered but not committed)
+                TypeInfo shared = classSymbolScanner.viaSharedJdk(cs);
+                if (shared != null) return shared;
+            }
             if (pt == null) {
                 pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
                 if (pt == null) return null; // off-classpath jar: a miss, which getOrLoad() and its callers handle

@@ -95,6 +95,14 @@ public class JavaInspectorImpl implements JavaInspector {
      * that method for why the commit is deliberately left where it was.
      */
     private List<TypeInfo> pendingPreloads = List.of();
+    /**
+     * The preload pass's units, kept alive for the run: its task is the one the shared {@code java.*} model is built
+     * on (the run's shared release, {@link #sharedJdkPreloadRelease}), and every platform type a later set touches
+     * lazily is resolved and committed HERE rather than at that set's band -- see
+     * {@code ClassSymbolScanner#setSharedJdkLoader}. Never generated, so never torn down; survives invalidation,
+     * because the platform model does (the runtime's {@code Object} stays inspected).
+     */
+    private ScanCompilationUnits sharedJdkUnits;
     // ... unless generation destroyed that task: JavacTask.generate() tears the compiler context down, so the
     // retained scan can no longer answer getElements(). Then compiled-type loading moves to loaderUnits below.
     private boolean lastScanUnitsGenerated;
@@ -340,6 +348,28 @@ public class JavaInspectorImpl implements JavaInspector {
      * <p>
      * Called under {@code CompiledTypesManagerImpl.getOrLoad}'s monitor, like {@link #unitsForCompiledTypeLoading}.
      */
+    /** Every scan or loader task built after the preload pass resolves platform types through the shared task. */
+    private ScanCompilationUnits wireSharedJdk(ScanCompilationUnits units) {
+        if (sharedJdkUnits != null && sharedJdkUnits != units) {
+            units.setSharedJdkLoader(sharedJdkUnits::loadCompiledTypeOrNull);
+        }
+        return units;
+    }
+
+    /**
+     * Committing is where a type's members are filled in, from the symbol the committing task resolves by name. A
+     * platform type is therefore committed on the shared-JDK task, whichever set's scan reaches it first: the
+     * preload pass leaves what completing its preloads touched (java.util.List, from a java.lang signature)
+     * registered but lazily loaded, and the first set's scan used to complete it at that set's band.
+     */
+    private void commitLoaded(ScanCompilationUnits units, TypeInfo typeInfo) {
+        if (sharedJdkUnits != null && units != sharedJdkUnits && ClassSymbolScanner.platformType(typeInfo)) {
+            sharedJdkUnits.classSymbolScanner().commitType(typeInfo);
+        } else {
+            units.classSymbolScanner().commitType(typeInfo);
+        }
+    }
+
     private ScanCompilationUnits unitsForSourceSet(SourceSet sourceSetOfRequest) {
         if (sourceSetOfRequest == null) return null;
         if (lastScanUnits != null && !lastScanUnitsGenerated
@@ -392,8 +422,9 @@ public class JavaInspectorImpl implements JavaInspector {
             ParameterNameIndex pni = spec.parameterNames() || parameterNames ? parameterNameIndex() : null;
             LOGGER.info("Built a source-free javac task for compiled-type loading, on source set {}",
                     spec.sourceSet().name());
-            return new ScanCompilationUnits(runtime, inputConfiguration, task, spec.sourceSet(), infoByFqn, true,
-                    diagnostics, preload, pni, jdkInternals, computeFingerPrints, spec.syntheticListField());
+            return wireSharedJdk(new ScanCompilationUnits(runtime, inputConfiguration, task, spec.sourceSet(),
+                    infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
+                    spec.syntheticListField()));
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("Cannot build a compiled-type loader task on source set {}: {}", spec.sourceSet().name(),
                     e.toString());
@@ -495,6 +526,16 @@ public class JavaInspectorImpl implements JavaInspector {
      * <p>⚠ It runs on the first source set's class path, so the {@code CLASS_PATH} preloads ({@code org.slf4j},
      * the maddi annotations) resolve against exactly what they did when the preload happened inside that set.
      * Only the platform changes.
+     *
+     * <p>⛔ <b>AND THE PLATFORM TYPES TOUCHED LATER, LAZILY, GO THROUGH THIS PASS'S TASK TOO</b> (2026-09-29). The
+     * pass settles the preloaded packages; a platform type first met afterwards -- {@code java.util.HashSet} from
+     * a field, {@code java.util.List} from a {@code java.lang} signature this pass completed but did not commit --
+     * was still materialised, or completed at commit time, by whichever set touched it first, at that set's band.
+     * guava's reactor configuration (main sources at {@code --release 9}, test sets silent) then refused the test
+     * units using {@code HashSet.toArray()} and {@code ExecutorService.close()}. So the pass's units stay alive as
+     * {@link #sharedJdkUnits}: every later scan and loader task resolves platform types through them
+     * ({@code ClassSymbolScanner.viaSharedJdk}), and {@link #commitLoaded} commits platform types on them.
+     * {@link TestSharedJdkRelease} has the lazy case next to the preloaded ones.
      */
     private void preloadPass(List<SourceSet> linearization, ParseOptions parseOptions) {
         if (linearization.isEmpty()) return;
@@ -511,6 +552,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
                     parseOptions.syntheticListField());
             pendingPreloads = scan.preloadOnly();
+            sharedJdkUnits = scan;
             // ⛔⛔ COMMITTED HERE, WITH THIS PASS'S OWN TASK -- committing is where a type's MEMBERS are filled
             // in, so a commit run against a lower band loses whatever that band lacks. Deferring it to the first
             // real scan (which is what singleSourceSet does for its own types) meant java.lang.* was loaded at
@@ -862,9 +904,9 @@ public class JavaInspectorImpl implements JavaInspector {
         // when parameter names are requested, class-file methods get faithful formal parameter names from the
         // shipped index instead of javac's synthetic arg0, arg1, ...
         ParameterNameIndex pni = parameterNames ? parameterNameIndex() : null;
-        ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
-                computeFingerPrints, syntheticListField);
+        ScanCompilationUnits scanCompilationUnits = wireSharedJdk(new ScanCompilationUnits(runtime,
+                inputConfiguration, javacTask, sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals,
+                computeFingerPrints, syntheticListField));
         ScanCompilationUnits.Result scanned;
         scanCompilationUnits.setInterleave(interleave);
         try {
@@ -881,9 +923,9 @@ public class JavaInspectorImpl implements JavaInspector {
             diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
             javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput, false,
                     false);
-            scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javacTask, sourceSet,
-                    infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
-                    syntheticListField);
+            scanCompilationUnits = wireSharedJdk(new ScanCompilationUnits(runtime, inputConfiguration, javacTask,
+                    sourceSet, infoByFqn, true, diagnostics, preload, pni, jdkInternals, computeFingerPrints,
+                    syntheticListField));
             scanned = scanCompilationUnits.scan();
         }
         this.lastScanUnits = scanCompilationUnits; // keep the live task for on-demand getOrLoad
@@ -953,7 +995,7 @@ public class JavaInspectorImpl implements JavaInspector {
             //  offer this choice to the user
             try {
                 if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
-                    scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
+                    commitLoaded(scanCompilationUnits, typeInfo);
                 }
                 compiledTypesManager.addTypeInfo(null, typeInfo);
             } catch (RuntimeException | AssertionError | StackOverflowError e) {
