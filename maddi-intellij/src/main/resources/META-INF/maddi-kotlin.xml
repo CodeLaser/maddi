@@ -1,0 +1,18 @@
+<!-- Loaded only when the Kotlin plugin is present (the optional <depends> in plugin.xml): the same surfaces as on
+     Java, on Kotlin's PSI. The external annotator is language-neutral; the other two map Kotlin declarations. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <externalAnnotator language="kotlin"
+                           implementationClass="io.codelaser.maddi.ide.plugin.ui.MaddiExternalAnnotator"/>
+        <codeInsight.lineMarkerProvider language="kotlin"
+                           implementationClass="io.codelaser.maddi.ide.plugin.kotlin.MaddiKotlinLineMarkerProvider"/>
+        <codeInsight.declarativeInlayProvider language="kotlin"
+                    implementationClass="io.codelaser.maddi.ide.plugin.kotlin.MaddiKotlinInlayProvider"
+                    providerId="maddi.hints"
+                    isEnabledByDefault="true"
+                    group="OTHER_GROUP"
+                    bundle="messages.MaddiBundle"
+                    nameKey="inlay.maddi.name"
+                    descriptionKey="inlay.maddi.description"/>
+    </extensions>
+</idea-plugin>

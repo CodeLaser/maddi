@@ -44,9 +44,9 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
     @Override
     public @Nullable LineMarkerInfo<?> getLineMarkerInfo(PsiElement element) {
         if (!MaddiSettings.getInstance().getState().showGutterIcons) return null;
-        if (!(element instanceof PsiIdentifier)) return null;
-        String kind = kindOf(element.getParent());
-        if (kind == null) return null;
+        String kind = kindOf(element);
+        // parameters are covered by inlay hints, not the gutter
+        if (kind == null || "PARAMETER".equals(kind)) return null;
 
         PsiFile file = element.getContainingFile();
         VirtualFile vf = file == null ? null : file.getVirtualFile();
@@ -92,10 +92,16 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
                 () -> "maddi analysis: " + text);
     }
 
-    private static @Nullable String kindOf(PsiElement parent) {
+    /**
+     * The maddi kind of the declaration whose NAME is this leaf, or {@code null}. Java's; a language with another
+     * PSI overrides it (the Kotlin provider). A marker must anchor on a leaf, which the name identifier is.
+     */
+    protected @Nullable String kindOf(PsiElement leaf) {
+        if (!(leaf instanceof PsiIdentifier)) return null;
+        PsiElement parent = leaf.getParent();
         if (parent instanceof PsiClass) return "TYPE";
         if (parent instanceof PsiMethod) return "METHOD";
         if (parent instanceof PsiField) return "FIELD";
-        return null; // parameters are covered by inlay hints, not the gutter
+        return null;
     }
 }

@@ -66,7 +66,15 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         if (annotations.isEmpty()) return null;
         Document doc = file.getViewProvider().getDocument();
         if (doc == null) return null;
-        return new Collector(annotations, doc, mode, settings.hintPlacement);
+        return new Collector(annotations, doc, mode, settings.hintPlacement, this::kindOf);
+    }
+
+    /**
+     * The maddi kind ({@code TYPE}, {@code METHOD}, {@code FIELD}, {@code PARAMETER}) of the declaration whose
+     * NAME is this leaf, or {@code null}. Java's; a language with another PSI overrides it (the Kotlin provider).
+     */
+    protected @Nullable String kindOf(@NotNull PsiElement leaf) {
+        return leaf instanceof PsiIdentifier ? javaKindOf(leaf.getParent()) : null;
     }
 
     private static final String PARAMETER = "PARAMETER";
@@ -76,19 +84,20 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         private final Document doc;
         private final InlineHintsMode mode;
         private final HintPlacement placement;
+        private final java.util.function.Function<PsiElement, String> kinds;
 
         Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc, InlineHintsMode mode,
-                  HintPlacement placement) {
+                  HintPlacement placement, java.util.function.Function<PsiElement, String> kinds) {
             this.annotations = annotations;
             this.doc = doc;
             this.mode = mode;
             this.placement = placement;
+            this.kinds = kinds;
         }
 
         @Override
         public void collectFromElement(@NotNull PsiElement element, @NotNull InlayTreeSink sink) {
-            if (!(element instanceof PsiIdentifier)) return;
-            String kind = kindOf(element.getParent());
+            String kind = kinds.apply(element);
             if (kind == null) return;
             int idOffset = element.getTextRange().getStartOffset();
             // Pick the SMALLEST (most specific) containing range of the right kind, so a nested type/member gets
@@ -136,7 +145,7 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         }
     }
 
-    private static @Nullable String kindOf(PsiElement parent) {
+    private static @Nullable String javaKindOf(PsiElement parent) {
         if (parent instanceof PsiClass) return "TYPE";
         if (parent instanceof PsiMethod) return "METHOD";
         if (parent instanceof PsiField) return "FIELD";

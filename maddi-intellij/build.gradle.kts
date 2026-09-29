@@ -43,6 +43,7 @@ dependencies {
         // Since 2025.3 Community/Ultimate ship as one distribution (license-tiered), so use intellijIdea(...).
         intellijIdea("2025.3")
         bundledPlugin("com.intellij.java") // Java PSI, for mapping analysis results onto declarations
+        bundledPlugin("org.jetbrains.kotlin") // Kotlin PSI, the same mapping on .kt (an OPTIONAL dependency)
         // Platform + Java test fixtures (LightJavaCodeInsightFixtureTestCase etc.) for surface tests.
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
@@ -141,6 +142,8 @@ tasks.withType<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask> {
 
 // The plugin launches the daemon distribution. Tests exercise that launch against the real install.
 tasks.test {
+    // the Kotlin surfaces are tested in K2 mode, the Kotlin plugin's default and the one users run
+    systemProperty("idea.kotlin.plugin.use.k2", "true")
     dependsOn(":maddi-ide-daemon:installDist")
     val installDir = project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon")
     systemProperty("maddi.daemon.install", installDir.get().asFile.absolutePath)

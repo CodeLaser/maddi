@@ -4,13 +4,23 @@
     <vendor url="https://codelaser.io">CodeLaser</vendor>
     <description><![CDATA[
         Displays <b>maddi</b> analysis hints — immutability, container, independence, modification and
-        nullability — inline on Java source, and marks + explains <b>guard-system</b> contract
+        nullability — inline on Java and Kotlin source, and marks + explains <b>guard-system</b> contract
         violations with their why-chain. Analysis runs in a warm out-of-process maddi daemon (JDK 25+);
         the plugin talks to it over a loopback socket.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    <!-- optional: on Kotlin sources too, when the Kotlin plugin is there (the analysis needs the downloaded
+         Kotlin front end as well; see MaddiKotlinFrontEnd) -->
+    <depends optional="true" config-file="maddi-kotlin.xml">org.jetbrains.kotlin</depends>
+
+    <!-- ⚠ HERE, not in maddi-kotlin.xml: the Kotlin plugin reads it to decide whether to load that file at all, and
+         in its default K2 mode it skips the file of a plugin that does not declare it ("not compatible with the
+         Kotlin plugin in the K2 mode"). Only PSI is used (no resolve), which both modes provide alike. -->
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK1="true" supportsK2="true"/>
+    </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="maddi" displayType="BALLOON"/>
