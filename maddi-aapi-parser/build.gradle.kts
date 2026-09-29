@@ -104,7 +104,7 @@ tasks.register<JavaExec>("composeAnalysisHints") {
     workingDir = projectDir
     maxHeapSize = "4G"
     jvmArgs(javacAddExports)
-    listOf("anchor", "packages", "target", "out", "preload", "notes").forEach { key ->
+    listOf("anchor", "packages", "target", "out", "preload", "notes", "exclude").forEach { key ->
         providers.gradleProperty("maddi.compose.$key").orNull?.let { systemProperty("maddi.compose.$key", it) }
     }
 }

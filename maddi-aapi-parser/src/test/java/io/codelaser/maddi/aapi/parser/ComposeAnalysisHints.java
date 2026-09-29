@@ -49,6 +49,11 @@ import java.util.Map;
  *     library, then one class of each jar its class files refer to; the jars are found on this module's test class
  *     path (add the dependency as {@code testImplementation} first);</li>
  *     <li>{@code -Pmaddi.compose.packages=io.vavr} -- the package prefix to compose;</li>
+ *     <li>optionally {@code -Pmaddi.compose.exclude=org.eclipse.collections.api.block,.primitive} -- comma-separated:
+ *     a package prefix (no type under it is composed), or, starting with a dot, a package-name segment
+ *     ({@code .primitive} leaves out every {@code ..primitive} and {@code ..primitive.x} package). Eclipse Collections
+ *     is three quarters generated primitive specialisations of the object pattern; the hints cover the object
+ *     API;</li>
  *     <li>{@code -Pmaddi.compose.target=io.codelaser.maddi.aapi.archive.libs.vavr} -- the hints package;</li>
  *     <li>{@code -Pmaddi.compose.out=../maddi-aapi-archive/src/main/java} -- the source root to write into;</li>
  *     <li>optionally {@code -Pmaddi.compose.preload=dir1,dir2} -- analysis results (e.g. from a SOURCE run of the
@@ -72,6 +77,8 @@ public class ComposeAnalysisHints {
         String target = required("maddi.compose.target");
         String out = required("maddi.compose.out");
         String preload = System.getProperty("maddi.compose.preload");
+        List<String> exclude = Arrays.stream(System.getProperty("maddi.compose.exclude", "").split(","))
+                .map(String::trim).filter(e -> !e.isEmpty()).toList();
 
         // sourceSetOf, never a hand-rolled Builder: a loaded class file is attributed to its source set by the JAR's
         // file name (see CompileAnalysisHints.kotlinJavaInspectorFactory)
@@ -108,8 +115,10 @@ public class ComposeAnalysisHints {
                 .filter(TypeInfo::isPrimaryType)
                 .filter(t -> t.packageName() != null && (t.packageName().equals(packagePrefix)
                                                          || t.packageName().startsWith(packagePrefix + ".")))
+                .filter(t -> !excluded(t.packageName(), exclude))
                 .toList();
-        LOGGER.info("Composing hints for {} primary type(s) under {}", primaryTypes.size(), packagePrefix);
+        LOGGER.info("Composing hints for {} primary type(s) under {}{}", primaryTypes.size(), packagePrefix,
+                exclude.isEmpty() ? "" : ", excluding " + exclude);
 
         AnalysisHintsComposer composer = new AnalysisHintsComposer(javaInspector, _ -> target,
                 info -> info.access().isPublic());
@@ -153,6 +162,18 @@ public class ComposeAnalysisHints {
             "notNullField", "notNullMethod", "notNullParameter", "staticSideEffectsMethod", "unmodifiedField",
             "unmodifiedParameter", "utilityClass");
 
+    // see the class comment, -Pmaddi.compose.exclude
+    static boolean excluded(String packageName, List<String> exclude) {
+        for (String e : exclude) {
+            if (e.startsWith(".")) {
+                if (packageName.endsWith(e) || packageName.contains(e + ".")) return true;
+            } else if (packageName.equals(e) || packageName.startsWith(e + ".")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * One row of a library report's type table: {@code | `pattern` | computed | expected | gap |}. The pattern is a
      * fully qualified type name, optionally ending in {@code *} (a prefix). The first matching row wins, so list
@@ -173,7 +194,8 @@ public class ComposeAnalysisHints {
     /**
      * The expected TYPE verdict of a report row, when its expected cell is nothing but annotations. Anything else
      * ("no immutability claim", "eventually ... after ...", a verdict conditional on another type) is not a
-     * verdict a hint can state, and the type keeps its computed annotations.
+     * verdict a hint can state, and the type keeps its computed annotations. A bare {@code @Container} is a MUTABLE
+     * container: the type may change, its methods do not modify their arguments (Eclipse Collections' Mutable*).
      */
     record ExpectedType(Value.Immutable immutable, Boolean container, Value.Independent independent,
                         boolean utilityClass) {
@@ -212,6 +234,8 @@ public class ComposeAnalysisHints {
             }
             rest = rest.substring(m.end());
         }
+        // a bare @Container states a MUTABLE container (a mutable collection stores its arguments, never modifies them)
+        if (immutable == null && Boolean.TRUE.equals(container)) immutable = ValueImpl.ImmutableImpl.MUTABLE;
         if (immutable == null && !utilityClass) return null;
         if (independent == null && immutable != null && !immutable.isMutable()) {
             // an immutable type is independent: @Immutable implies @Independent, hc follows hc
