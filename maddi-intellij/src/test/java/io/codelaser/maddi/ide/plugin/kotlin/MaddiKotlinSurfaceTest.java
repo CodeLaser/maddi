@@ -74,6 +74,21 @@ public class MaddiKotlinSurfaceTest extends LightJavaCodeInsightFixtureTestCase 
         assertTrue(tooltips().stream().anyMatch(t -> t.contains("@NotModified")));
     }
 
+    /** A constructor val is a parameter and a field over one range: the gutter shows the field's verdict. */
+    public void testConstructorPropertyGutterShowsTheField() {
+        myFixture.configureByText("Pair2.kt", """
+                data class Pair2(val a: String, val <caret>b: List<String>)
+                """);
+        String path = path();
+        service().applyResult(result(List.of(), List.of(
+                element(path, 1, 33, 1, 51, "PARAMETER", "Pair2.<init>(String,java.util.List):1:b", "@Unmodified"),
+                element(path, 1, 33, 1, 51, "FIELD", "Pair2.b", "@Dependent"))));
+        myFixture.getEditor().getCaretModel().moveToOffset(myFixture.getFile().getText().indexOf("b:"));
+        List<String> tooltips = tooltips();
+        assertTrue("got " + tooltips, tooltips.stream().anyMatch(t -> t.contains("@Dependent")));
+        assertFalse("got " + tooltips, tooltips.stream().anyMatch(t -> t.contains("@Unmodified")));
+    }
+
     public void testFindingIsHighlighted() {
         myFixture.configureByText("Demo.kt", """
                 class Demo {

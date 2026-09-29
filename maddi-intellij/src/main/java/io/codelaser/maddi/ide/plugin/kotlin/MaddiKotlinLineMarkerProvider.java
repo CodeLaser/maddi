@@ -23,6 +23,6 @@ public class MaddiKotlinLineMarkerProvider extends MaddiLineMarkerProvider {
 
     @Override
     protected List<String> kindsOf(PsiElement leaf) {
-        return KotlinDeclarations.kindsOf(leaf);
+        return KotlinDeclarations.gutterKindsOf(leaf);
     }
 }
