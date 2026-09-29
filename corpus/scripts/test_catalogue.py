@@ -593,6 +593,9 @@ class TestRegister(EngineWorkspaceTest):
             """ % (d, shas[0], extra))
         # A Maven source-set name with a colon AND a space in it -- guava's real shape.
         self.config(name, 'core/main', 'Guava: Google Core Libraries for Java/test')
+        # `checkout` leaves HEAD on its LAST commit while the entry pins the first, and register
+        # refuses an off-pin checkout -- so put the fixture where the entry says it is.
+        git(d, 'checkout', '-q', '--detach', shas[0])
         return d, shas
 
     def test_it_links_the_checkout_and_the_one_configuration_and_writes_the_source_sets(self):
@@ -632,6 +635,20 @@ class TestRegister(EngineWorkspaceTest):
         self.assertIn(str(d / 'inputConfiguration.json'), err.getvalue())
         self.assertFalse((self.home / 'projects' / 'lib').exists(),
                          'a refused registration leaves nothing half-made')
+        self.assertFalse(catalogue.registered(e))
+
+    def test_a_checkout_off_its_pin_is_refused_before_anything_is_written(self):
+        """baseRevision comes from source.rev, and the engine RESETS a project to it -- so registering
+        a checkout that sits elsewhere writes a configuration for a tree that is not there."""
+        d, shas = self.entry_with_config()
+        git(d, 'checkout', '-q', '--detach', shas[-1])
+        e = catalogue.load_one('lib')
+        self.assertNotEqual(shas[0], git(d, 'rev-parse', 'HEAD'))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(1, catalogue.register(e))
+        self.assertIn(shas[0][:12], err.getvalue())
+        self.assertFalse((self.home / 'projects' / 'lib').exists())
         self.assertFalse(catalogue.registered(e))
 
     def test_a_configuration_with_no_source_sets_is_refused(self):

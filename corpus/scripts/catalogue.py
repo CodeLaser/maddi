@@ -744,6 +744,13 @@ def register(entry):
         print(f'{name}: no input configuration at {cfg} -- run the config phase first; there is '
               f'nothing for the engine to read', file=sys.stderr)
         return 1
+    # ⛔ OFF THE PIN, THE FILE WOULD LIE. `baseRevision` is written from source.rev, and the engine
+    # resets a project to it -- so registering a checkout that sits on another commit produces a
+    # configuration claiming a tree that is not there, and the reset would move the corpus to a commit
+    # nobody asked for. Measured on this machine: test-oss/timefold-solver is at 290c87fc533e while
+    # catalogue/timefold-solver.yml pins 9adba5acf547.
+    if check_rev(entry):
+        return 1
     sets = source_sets(entry, cfg)
     if not sets:
         # A configuration the engine cannot load, and it would say so only after starting up.
