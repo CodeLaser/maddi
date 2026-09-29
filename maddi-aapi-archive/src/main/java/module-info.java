@@ -12,6 +12,9 @@ module io.codelaser.maddi.aapi.archive {
     // the side-loaded vavr hints (libs/vavr) name vavr types in their signatures; parsed, never run. Not
     // exported and not packed into libs.jar: consumers preload analyzedPackageFiles/libs/vavr explicitly
     requires static io.vavr;
+    // the same for the side-loaded Eclipse Collections hints (libs/eclipsecollections)
+    requires static org.eclipse.collections.api;
+    requires static org.eclipse.collections.impl;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;

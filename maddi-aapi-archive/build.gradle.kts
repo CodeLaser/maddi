@@ -29,6 +29,9 @@ dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
     // the side-loaded vavr hints (libs/vavr) name vavr types in their signatures; parsed, never run
     compileOnly("io.vavr:vavr:1.0.1")
+    // the same for the side-loaded Eclipse Collections hints (libs/eclipsecollections)
+    compileOnly("org.eclipse.collections:eclipse-collections-api:13.0.0")
+    compileOnly("org.eclipse.collections:eclipse-collections:13.0.0")
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }
