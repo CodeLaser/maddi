@@ -8,6 +8,7 @@ import io.codelaser.maddi.modification.link.impl.LinkNatureImpl;
 import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
 import io.codelaser.maddi.modification.prepwork.Util;
 import io.codelaser.maddi.modification.link.impl.PassedFunction;
+import io.codelaser.maddi.modification.link.impl.ReceiverLevel;
 import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableInfoImpl;
@@ -219,8 +220,8 @@ public class ShadowModificationPass {
             // those, so under MODREACH the promoted-baseline invariant is:
             // 0 reverse AND divergences == immutableGuarded (frozen == pass output otherwise)
             boolean immutableTyped = switch (info) {
-                case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
-                case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+                case ParameterInfo pi -> immutableForModification(pi.parameterizedType());
+                case FieldInfo fi -> immutableForModification(fi.type());
                 default -> false;
             };
             if (immutableTyped) immutableGuardedDivergences++;
@@ -552,13 +553,24 @@ public class ShadowModificationPass {
                     // it onto our argument. That is the same "teleport" the E6 out-of-order guard above exists
                     // to prevent. Caught in 3s by the MODREACH variant of
                     // TestIgnoreModificationsOnFunctionalParameter, which is why that fast twin exists.
+                    io.codelaser.maddi.cst.api.type.ParameterizedType receiverType =
+                            mc.object() == null ? null : mc.object().parameterizedType();
                     if (!disclaimed) {
-                        handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions());
+                        handleCallSite(mi, vd, mc.methodInfo(), mc.analysis(), mc.parameterExpressions(), receiverType);
                     }
                     // E2: callee receiver -> caller-side receiver nodes (chained receivers resolved
-                    // through the inner callee's return-value summary, P2.2a)
+                    // through the inner callee's return-value summary, P2.2a). Mirror of the engine's cone
+                    // rule (ReceiverLevel): an abstract callee's node aggregates EVERY implementation through
+                    // E6, so a receiver whose static type bounds the dispatch is wired to the cone's
+                    // implementations instead
+                    List<MethodInfo> cone = ReceiverLevel.enabled()
+                            ? ReceiverLevel.coneImplementations(mc.methodInfo(), receiverType) : null;
                     for (Object node : projectReceiverChain(mi, vd, mc.object())) {
-                        addEdge(mc.methodInfo(), node);
+                        if (cone == null) {
+                            addEdge(mc.methodInfo(), node);
+                        } else {
+                            for (MethodInfo implementation : cone) addEdge(implementation, node);
+                        }
                     }
                     // ... and through the receiver's ☷ links: an identical-to link between modification components
                     // whose pass set contains the called method (WriteLinksAndModification's rule, pass-marked half).
@@ -569,7 +581,7 @@ public class ShadowModificationPass {
                     }
                 } else if (e instanceof ConstructorCall cc && cc.constructor() != null) {
                     seedBoundaryCalleeParameters(mi, cc.constructor());
-                    handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions());
+                    handleCallSite(mi, vd, cc.constructor(), cc.analysis(), cc.parameterExpressions(), null);
                 }
                 return true;
             });
@@ -666,7 +678,8 @@ public class ShadowModificationPass {
     }
 
     private void handleCallSite(MethodInfo mi, VariableData vd, MethodInfo callee, PropertyValueMap analysis,
-                                List<io.codelaser.maddi.cst.api.expression.Expression> argumentExpressions) {
+                                List<io.codelaser.maddi.cst.api.expression.Expression> argumentExpressions,
+                                io.codelaser.maddi.cst.api.type.ParameterizedType receiverType) {
         if (callee == null || callee.parameters().isEmpty()) return;
         LinkComputer.ListOfLinks list = analysis.getOrNull(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS,
                 LinkComputerImpl.ListOfLinksImpl.class);
@@ -726,8 +739,15 @@ public class ShadowModificationPass {
             } else {
                 links.stream().forEach(link -> targets.addAll(project(mi, vd, Util.firstRealVariable(link.to()))));
             }
+            // engine mirror (MethodModification.parameterExcusedByCone): the cone's implementations' parameters
+            List<MethodInfo> cone = ReceiverLevel.enabled()
+                    ? ReceiverLevel.coneImplementationsForParameter(pi, receiverType) : null;
             for (Object node : targets) {
-                addEdge(pi, node); // E1: callee parameter modified => argument's nodes modified
+                if (cone == null) {
+                    addEdge(pi, node); // E1: callee parameter modified => argument's nodes modified
+                } else {
+                    for (MethodInfo implementation : cone) addEdge(implementation.parameters().get(pi.index()), node);
+                }
             }
         }
     }
@@ -1033,14 +1053,14 @@ public class ShadowModificationPass {
                             report.reached().contains(mi), report.frontierIncomplete().contains(mi), false, mi,
                             contracted.test(mi))]++;
                     for (ParameterInfo pi : mi.parameters()) {
-                        boolean immutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+                        boolean immutable = immutableForModification(pi.parameterizedType());
                         counts[write(pi.analysis(), PropertyImpl.UNMODIFIED_PARAMETER,
                                 report.reached().contains(pi), report.frontierIncomplete().contains(pi), immutable, pi,
                                 contracted.test(pi))]++;
                     }
                 }
                 case FieldInfo fi -> {
-                    boolean immutable = analysisHelper.typeImmutable(fi.type()).isImmutable();
+                    boolean immutable = immutableForModification(fi.type());
                     counts[write(fi.analysis(), PropertyImpl.UNMODIFIED_FIELD,
                             report.reached().contains(fi), report.frontierIncomplete().contains(fi), immutable, fi,
                             false)]++;
@@ -1122,15 +1142,26 @@ public class ShadowModificationPass {
 
     private boolean immutableTyped(Object node) {
         return switch (node) {
-            case ParameterInfo pi -> analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
-            case FieldInfo fi -> analysisHelper.typeImmutable(fi.type()).isImmutable();
+            case ParameterInfo pi -> immutableForModification(pi.parameterizedType());
+            case FieldInfo fi -> immutableForModification(fi.type());
             default -> false;
         };
     }
 
     private boolean immutableVariable(Variable v) {
         return v.parameterizedType() != null
-               && analysisHelper.typeImmutable(v.parameterizedType()).isImmutable();
+               && immutableForModification(v.parameterizedType());
+    }
+
+    /*
+    "An immutable object cannot be modified": the deep immutability of the declared type (the type arguments
+    folded in), as before -- and, under the RECEIVERLEVEL gate, the base type at hc-level or better, the mirror
+    of the engine's level rule (ReceiverLevel): a call cannot modify a container whose own fields cannot change,
+    whatever it holds.
+     */
+    private boolean immutableForModification(io.codelaser.maddi.cst.api.type.ParameterizedType pt) {
+        return analysisHelper.typeImmutable(pt).isImmutable()
+               || ReceiverLevel.enabled() && ReceiverLevel.immutableBaseType(pt);
     }
 
     /**
