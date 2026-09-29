@@ -131,6 +131,49 @@ tasks:
     desc: 'Per corpus this machine holds: present? at its pin? built? configured? (= catalogue:doctor)'
     cmds: [{ task: catalogue:doctor }]
 
+  # ---------------------------------------------------- the five commands
+  #
+  # One corpus, from nothing to loadable by the engine. Everything else in this file is either a
+  # composite over these (install:wired, config:all) or the mechanics they call. The longer
+  # `catalogue:*` names stay because AGENTS.md, CONTRIBUTING.md and TestOssCorpus's failure messages
+  # name them; they are the same code, not a second copy of it.
+
+  pull:
+    desc: 'Clone one corpus and check out its pinned commit: task corpus:pull NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:obtain, vars: { NAME: '{{.NAME}}' } }]
+
+  build:
+    desc: 'Build one corpus and verify it produced what the next step needs: task corpus:build NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:build, vars: { NAME: '{{.NAME}}' } }]
+
+  clean:
+    desc: 'Discard edits, delete generated sources, return to the pinned commit: task corpus:clean NAME=guava [ALSO_OURS=1]'
+    requires: { vars: [NAME] }
+    cmds:
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py clean {{.NAME}} {{if .ALSO_OURS}}--also-ours{{end}}'
+
+  config:
+    desc: 'Generate the input configuration and register the corpus with the engine: task corpus:config NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:config, vars: { NAME: '{{.NAME}}' } }]
+
+  check:
+    desc: 'Per corpus: pulled? at its pin? built? configured? registered?: task corpus:check [NAME=guava]'
+    # NOT `task: catalogue:doctor`: that one passes {{.CLI_ARGS}}, so a NAME= handed to it would be
+    # silently ignored and the report would cover every corpus while naming one.
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.NAME}}']
+
+  ready:
+    desc: 'One corpus, end to end: pull -> build -> config (incl. register) -> check'
+    requires: { vars: [NAME] }
+    cmds:
+      - { task: pull,   vars: { NAME: '{{.NAME}}' } }
+      - { task: build,  vars: { NAME: '{{.NAME}}' } }
+      - { task: config, vars: { NAME: '{{.NAME}}' } }
+      - { task: check,  vars: { NAME: '{{.NAME}}' } }
+
   install:wired:
     desc: 'Obtain (at its pin), build and configure every corpus this machine holds -- hours'
     vars:
@@ -537,7 +580,7 @@ tasks:
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py list {{if .STATUS}}--status {{.STATUS}}{{end}}']
 
   catalogue:doctor:
-    desc: 'Per corpus: obtained? built? configured? how many source sets, how many are tests'
+    desc: 'Per corpus: obtained? built? configured? loadable by the engine? how many source sets'
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.CLI_ARGS}}']
 
   catalogue:machine:
@@ -588,6 +631,11 @@ tasks:
       # Only where one is declared: an entry without a baseline has nothing to diff, and that is not
       # a failed configuration.
       - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} --if-declared'
+      # ⛔ HERE, NOT IN A SEPARATE TASK SOMEONE MUST REMEMBER. Registration is what makes the
+      # configuration readable by the engine, and a corpus that is configured but not registered looks
+      # exactly like one that is ready until the script runner says "project not found". Every caller
+      # of the config phase gets it: config:all, catalogue:provision, install:wired.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py register {{.NAME}}'
 
   catalogue:parse:
     desc: 'Parse-only run (--analysis-steps=none) over the configuration parse.config names'

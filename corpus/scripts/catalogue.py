@@ -48,6 +48,10 @@ PINNING
     catalogue.py plan   <phase> <name>        print the shell command a phase would run
     catalogue.py obtain <name>                clone if absent, check out source.rev
     catalogue.py pin    <name> [--rev REV]    write the checkout's HEAD (or REV) as source.rev
+    catalogue.py clean  <name> [--also-ours]  discard edits, delete the directories source.generated
+                                              names, and return to source.rev
+    catalogue.py register <name>              make it loadable by the engine: a link under
+                                              <workspace>/projects and a project.yml under work/
     catalogue.py vendor <name> [--dry-run]    move the jars its configuration names into lib/<project>
     catalogue.py check-rev <name>             assert the checkout is at source.rev (exit 1 if not)
     catalogue.py check-provides <name>        assert build.provides exists  (exit 1 if not)
@@ -66,6 +70,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -433,6 +438,92 @@ def obtain(entry):
     return 0
 
 
+def clean(entry, also_ours=False):
+    """Discard edits, delete the generated source directories, and return to `source.rev`.
+
+    ⛔ TRACKED FILES, PLUS THE DIRECTORIES `source.generated` NAMES -- never `git clean -fdx`. Build
+    output can BE part of the corpus: six of questdb's twelve source directories live under
+    core/target/generated-sources, and caffeine generates 528 classes under build/. Deleting all
+    untracked files turns the next run into a different corpus, or breaks it outright.
+
+    ⛔ AND IT MOVES HEAD. `git checkout -- .` discards edits without moving HEAD, so a clean that only
+    did that would leave the checkout whatever commit someone's `git pull` last put it on, while every
+    number measured afterwards was still recorded against source.rev.
+
+    The generated directories go FIRST, before the checkout: git does not track them, so nothing else
+    restores them and an earlier run's edits to them would survive. The next build writes them anew
+    from sources that ARE tracked.
+
+    What it does NOT delete by default is OUR OWN output -- the input configuration and the compile
+    logs. Remaking those is the expensive phase and resetting the sources does not invalidate them.
+    `--also-ours` deletes them too, from the same list `generates` gives the gate's preserve-list.
+    """
+    name = entry['name']
+    d = project_dir(entry)
+    if not d.is_dir():
+        print(f'{name}: {d} does not exist -- nothing to clean; pull it first', file=sys.stderr)
+        return 1
+    if not (d / '.git').exists():
+        print(f'{name}: {d} is not a git checkout -- refusing to delete anything in it',
+              file=sys.stderr)
+        return 1
+    root = d.resolve()
+    for rel in ((entry.get('source') or {}).get('generated') or []):
+        # A DIRECTORY, not a pattern. Deleting by glob inside a third-party checkout is how you lose
+        # something you meant to keep, and one directory per entry has been enough for every corpus
+        # that needs this (questdb names core/target/generated-sources, caffeine build/generated).
+        if any(c in str(rel) for c in '*?[') or Path(str(rel)).is_absolute():
+            print(f'{name}: source.generated {rel!r} is a pattern or an absolute path; it must be a '
+                  f'plain directory relative to {d}', file=sys.stderr)
+            return 1
+        target = (d / str(rel)).resolve()
+        if root != target and root not in target.parents:
+            print(f'{name}: source.generated {rel!r} resolves outside {d}; refusing', file=sys.stderr)
+            return 1
+        if target.is_symlink() or (target.exists() and not target.is_dir()):
+            print(f'{name}: source.generated {rel} is not a directory; refusing', file=sys.stderr)
+            return 1
+        if target.is_dir():
+            shutil.rmtree(target)
+            print(f'{name}: deleted generated sources {rel}', file=sys.stderr)
+    if also_ours:
+        ours, warn = generates(entry)
+        for w in warn:
+            print(f'{name}: {w}', file=sys.stderr)
+        for rel in ours:
+            target = d / rel
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            elif target.exists() or target.is_symlink():
+                target.unlink()
+            else:
+                continue
+            print(f'{name}: deleted our own {rel}', file=sys.stderr)
+    if subprocess.run(['git', '-C', str(d), 'checkout', '--quiet', '--', '.']).returncode:
+        return 1
+    rev = (entry.get('source') or {}).get('rev')
+    if rev:
+        if subprocess.run(['git', '-C', str(d), 'checkout', '--quiet', '--detach', rev]).returncode:
+            return 1
+        head = _git(d, 'rev-parse', 'HEAD')
+        if head != _git(d, 'rev-parse', f'{rev}^{{commit}}'):
+            print(f'{name}: after the checkout {d} is at {head} and not at source.rev {rev} -- '
+                  f'stop here, the tree is not what the entry says it is', file=sys.stderr)
+            return 1
+    else:
+        print(f'{name}: UNPINNED -- edits discarded, but HEAD left where it was. Pin it with '
+              f'`catalogue.py pin {name}`', file=sys.stderr)
+    # --untracked-files=no: everything WE write into the checkout is untracked (see `generates`), so
+    # counting untracked files here would report a corpus as dirty for having been configured.
+    dirty = _git(d, 'status', '--porcelain', '--untracked-files=no')
+    if dirty:
+        print(f'{name}: {d} is STILL modified after the reset:\n{dirty[:400]}', file=sys.stderr)
+        return 1
+    print(f"{name}: clean, at {(rev or _git(d, 'rev-parse', 'HEAD'))[:12]}", file=sys.stderr)
+    return 0
+
+
+
 _SOURCE_BLOCK = re.compile(r'^source:[ \t]*(#.*)?$', re.M)
 
 
@@ -489,6 +580,9 @@ def state(entry, all_=None):
         'present': d.is_dir(),
         'built': bool(provides) and all((d / p).exists() for p in provides),
         'configured': config_path(entry).is_file(),
+        # Configured but not registered looks exactly like ready, until the engine says the project
+        # does not exist -- so it is state, not a note.
+        'registered': registered(entry),
         'buildable': bool((entry.get('build') or {}).get('cmd')),
         'obtainable': (entry.get('source') or {}).get('kind') in ('git',),
         'rev': rev_state(entry, all_),
@@ -580,6 +674,162 @@ def generates(entry):
 
 
 # ---------------------------------------------------------------- phases
+
+# ---------------------------------------------------------------- the engine's workspace
+
+def refactor_home():
+    """The engine's project workspace: $REFACTOR_HOME, else ~/refactorhome.
+
+    That is the second entry of `refactor.projectsWorkDirectories` in codelaser-refactor-server's
+    application.yml (main environment) and, since jfocus-refactor-server `corpora`, of both
+    application-test.yml files too -- so a project registered here is found by the Gradle script
+    runner and by the installed CLI alike. Registering INSIDE the jfocus-refactor-server checkout
+    instead would mean every `ws` worktree needed its own copy of these links.
+    """
+    return _path(os.environ.get('REFACTOR_HOME') or (Path.home() / 'refactorhome'))
+
+
+def engine_project(entry):
+    """The name the engine knows this corpus by: `engine.project`, else the entry name.
+
+    They differ only where one checkout is loaded under more than one name -- the A/B twins
+    (fernflower / fernflower-plugin) and the benchmark's writable sandboxes.
+    """
+    return (entry.get('engine') or {}).get('project') or entry['name']
+
+
+# Maven first: a project with both (pulsar has build.gradle.kts AND pom.xml files) is driven by the
+# one its `build.cmd` uses, and every such corpus in the catalogue today is a Maven reactor.
+_MONITOR_CANDIDATES = ('pom.xml', 'build.gradle.kts', 'build.gradle', 'settings.gradle.kts')
+
+
+def registered(entry):
+    """True when the engine can load this corpus from refactor_home() AS THIS ENTRY DESCRIBES IT.
+
+    ⛔ A STALE registration counts as NOT registered. Both are links, and a link left over from an
+    earlier entry (a renamed checkout, an A/B twin that changed `engine.project`, a moved corpus root)
+    would make the engine load the WRONG tree and report nothing wrong -- the one failure worse than
+    "project not found". So the links are compared against what the entry says, not merely counted.
+    """
+    home = refactor_home()
+    project = engine_project(entry)
+    link = home / 'projects' / project
+    work = home / 'work' / project
+    cfg_link = work / 'build.inputConfiguration.json'
+    if not (link.is_symlink() and cfg_link.is_symlink() and (work / 'project.yml').is_file()):
+        return False
+    try:
+        return (link.resolve() == project_dir(entry).resolve()
+                and cfg_link.resolve() == parse_config_path(entry).resolve())
+    except OSError:
+        return False
+
+
+def register(entry):
+    """Make the corpus loadable by the engine: a link under <workspace>/projects, and a generated
+    project.yml plus a link to the input configuration under <workspace>/work.
+
+    ⛔ THE INPUT CONFIGURATION IS LINKED, NOT COPIED. One file exists, the one the config phase wrote
+    beside the sources, and it is what maddi's own corpus tests read through TestOssCorpus.config. A
+    copy here would be a second description of the corpus that can go stale against the first -- which
+    is the whole failure this command exists to prevent.
+    """
+    name = entry['name']
+    d = project_dir(entry)
+    if not d.is_dir():
+        print(f'{name}: {d} does not exist -- pull it first', file=sys.stderr)
+        return 1
+    cfg = parse_config_path(entry)
+    if not cfg.is_file():
+        print(f'{name}: no input configuration at {cfg} -- run the config phase first; there is '
+              f'nothing for the engine to read', file=sys.stderr)
+        return 1
+    sets = source_sets(entry, cfg)
+    if not sets:
+        # A configuration the engine cannot load, and it would say so only after starting up.
+        print(f'{name}: {cfg} declares no source sets -- the engine has nothing to parse. Re-run the '
+              f'config phase and read its output', file=sys.stderr)
+        return 1
+    project = engine_project(entry)
+    home = refactor_home()
+    link = home / 'projects' / project
+    work = home / 'work' / project
+
+    # Never delete a real directory someone put there; replacing our own link is fine.
+    if link.is_symlink():
+        link.unlink()
+    elif link.exists():
+        print(f'{name}: {link} exists and is not a symlink -- refusing to replace it. Move it aside '
+              f'if it is stale', file=sys.stderr)
+        return 1
+    link.parent.mkdir(parents=True, exist_ok=True)
+    work.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(d.resolve())
+
+    linked_cfg = work / 'build.inputConfiguration.json'
+    if linked_cfg.is_symlink() or linked_cfg.exists():
+        if not linked_cfg.is_symlink():
+            print(f'{name}: {linked_cfg} is a real file, not a link -- moving it aside as '
+                  f'build.inputConfiguration.json.was-a-copy, so there is one configuration again',
+                  file=sys.stderr)
+            linked_cfg.rename(linked_cfg.with_suffix('.json.was-a-copy'))
+        else:
+            linked_cfg.unlink()
+    linked_cfg.symlink_to(cfg.resolve())
+
+    rev = (entry.get('source') or {}).get('rev') or _git(d, 'rev-parse', 'HEAD') or ''
+    branch = (entry.get('engine') or {}).get('branch')
+    if not branch:
+        # The checkout is DETACHED after `pull` (obtain checks out source.rev detached), so
+        # `rev-parse --abbrev-ref HEAD` says "HEAD" and not a branch. Ask the remote what its default
+        # branch is instead, and fall back to main rather than writing a name that means nothing.
+        head = _git(d, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD') or ''
+        branch = head.split('/', 1)[1] if '/' in head else (head or 'main')
+    monitor = next((d / c for c in _MONITOR_CANDIDATES if (d / c).is_file()), None)
+
+    # json.dumps for every scalar: Maven source-set names carry spaces and COLONS
+    # ('Guava: Google Core Libraries for Java/test'), and a bare colon in a YAML list item makes the
+    # line a mapping. A JSON string is a valid YAML double-quoted scalar, so this needs no yaml dump.
+    q = json.dumps
+    lines = [
+        f'# GENERATED by `catalogue.py register {name}` -- do not edit, regenerate.',
+        '#',
+        '# The engine loads a project as <workspace>/projects/<name> (the code, a link) plus',
+        '# <workspace>/work/<name> (this file and build.inputConfiguration.json, also a link). Both are',
+        '# written from the catalogue entry, so one corpus has one description:',
+    ]
+    lines += [f'#   {f}' for f in entry.get('_files', [])]
+    lines += [
+        '#',
+        '# ⛔ NO compile_debug_command AND NO clean_command, DELIBERATELY. With them, the engine could',
+        '# build this corpus and write its own input configuration, and a corpus would again have two',
+        '# descriptions that can disagree. A corpus is pulled, built, cleaned and configured by',
+        '# `task corpus:pull|build|clean|config` and by nothing else; the engine only reads it.',
+        'build:',
+        f'    directory: {q(str(d.resolve()))}',
+    ]
+    if monitor:
+        lines.append(f'    monitor: {q(str(monitor.resolve()))}')
+    lines += [
+        '    git_dirs:',
+        f'        {q(str((d / ".git").resolve()))}:',
+        f'            baseRevision: {q(rev)}',
+        f'            branch: {q(branch)}',
+        '            sourceSets:',
+    ]
+    lines += [f'            - {q(s)}' for s, _ in sets]
+    tests_cmd = (entry.get('tests') or {}).get('cmd')
+    if tests_cmd:
+        lines += ['test:', f'    run_tests_command: {q(tests_cmd)}']
+    lines += ['analyzer:', "    parallel: 'true'", '']
+    (work / 'project.yml').write_text('\n'.join(lines))
+
+    print(f'{name}: registered as engine project {project!r} in {home}', file=sys.stderr)
+    print(f'  {link} -> {d.resolve()}', file=sys.stderr)
+    print(f'  {linked_cfg} -> {cfg.resolve()}', file=sys.stderr)
+    print(f'  {work / "project.yml"}: {len(sets)} source sets at {rev[:12] or "?"}', file=sys.stderr)
+    return 0
+
 
 def plugin_version():
     """MADDI_PLUGIN_VERSION, else the `version=` of the maddi checkout's gradle.properties -- the same
@@ -730,7 +980,13 @@ def _route_cmd(entry, c, route):
         # project.yml, and it is not always `clean`: callforpapers uses
         # `-Dmaven.build.cache.enabled=false` to force every module to recompile, which is the
         # same guarantee by a different means. Composing a command over that would break it.
-        build = c.get('cmd') or f'./mvnw -X clean {c["tasks"]}{_mvn_exclusions(c)}'
+        # -Dstyle.color=never, and it is not cosmetic: with colour on, the log carries
+        # `[<esc>[1;36mDEBUG<esc>[m]` and the `^\[DEBUG] -d ` grep below matches NOTHING, so the whole
+        # -X rebuild is paid and the phase then dies on an empty compile.javac.log. Maven suppresses
+        # colour for a redirected stream on most setups, which is why every corpus here has worked --
+        # measured failing on Maven 3.9.9 / Ubuntu, where it does not. The engine's own equivalent
+        # command has always carried the flag (work/timefold-solver-dead/project.yml).
+        build = c.get('cmd') or f'./mvnw -Dstyle.color=never -X clean {c["tasks"]}{_mvn_exclusions(c)}'
         # Extra maddi options for this configuration -- ignite-core's `--jre <JDK 17>`, because
         # nothing in a javac line says which JDK compiled it (see the Taskfile's config:ignite-core).
         margs = f' {c["maddi_args"]}' if c.get('maddi_args') else ''
@@ -1057,7 +1313,7 @@ def cmd_list(args):
         s = state(e, all_)
         flags = ''.join(c if v else '-' for c, v in
                         (('P', s['present']), ('R', s['rev']['at_pin']), ('B', s['built']),
-                         ('C', s['configured'])))
+                         ('C', s['configured']), ('E', s['registered'])))
         print(f"{name:22} {e.get('status', '?'):10} {flags}  {e.get('summary', '')[:60]}")
 
 
@@ -1087,8 +1343,9 @@ def cmd_doctor(args):
               f'an entry this machine holds must be present, at its pin, built and configured')
     else:
         print(f'# no machine profile for {host_name()} in $CORPUS_MACHINES: nothing is required here')
-    print(f"{'corpus':22} {'status':10} {'present':>8} {'pin':>9} {'built':>7} {'config':>7}  notes")
-    print('-' * 96)
+    print(f"{'corpus':22} {'status':10} {'present':>8} {'pin':>9} {'built':>7} {'config':>7} "
+          f"{'engine':>8}  notes")
+    print('-' * 104)
     rc = 0
     for n in names:
         e = all_[n] if n in all_ else None
@@ -1100,14 +1357,15 @@ def cmd_doctor(args):
         notes = []
         expected, why_not = expected_here(e, profile)
         if profile and not expected:
-            print(f"{n:22} {e.get('status', '?'):10} {'':>8} {'':>9} {'':>7} {'':>7}  "
+            print(f"{n:22} {e.get('status', '?'):10} {'':>8} {'':>9} {'':>7} {'':>7} {'':>8}  "
                   f"not held here{': ' + why_not if why_not else ''}")
             continue
         if profile:
             # What the profile says this machine holds, it must actually hold. Without a profile the
             # same gaps are notes, as they always were: nothing says they should be filled here.
             gap = (not s['present'] or (s['buildable'] and not s['built'])
-                   or (not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none')))
+                   or (not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none'))
+                   or (s['configured'] and not s['registered']))
             if gap:
                 notes.append('!! HELD HERE')
                 rc = 1
@@ -1123,6 +1381,8 @@ def cmd_doctor(args):
             notes.append('build incomplete: build.provides missing')
         elif not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none'):
             notes.append(f'no {config_path(e).name}: `catalogue:config NAME={n}`')
+        elif not s['registered']:
+            notes.append(f'configured but the engine cannot load it: `corpus:config NAME={n}`')
         if s['present'] and s['configured']:
             sets = source_sets(e)
             t = sum(1 for _, is_t in sets if is_t)
@@ -1131,7 +1391,7 @@ def cmd_doctor(args):
                 notes.append('!! tests.cmd declared but config has NO test source sets')
                 rc = 1
         print(f"{n:22} {e.get('status', '?'):10} {str(s['present']):>8} {_pin_word(r):>9} {str(s['built']):>7} "
-              f"{str(s['configured']):>7}  {'; '.join(notes)}")
+              f"{str(s['configured']):>7} {str(s['registered']):>8}  {'; '.join(notes)}")
     return rc
 
 
@@ -1282,6 +1542,13 @@ def main():
     p = sub.add_parser('baseline'); p.add_argument('name'); p.add_argument('--record', action='store_true')
     p.add_argument('--if-declared', action='store_true')
     p.set_defaults(f=lambda a: baseline_cmd(load_one(a.name), a.record, if_declared=a.if_declared))
+
+    p = sub.add_parser('clean'); p.add_argument('name')
+    p.add_argument('--also-ours', action='store_true',
+                   help='also delete what WE wrote into the checkout (see `generates`)')
+    p.set_defaults(f=lambda a: clean(load_one(a.name), a.also_ours))
+    p = sub.add_parser('register'); p.add_argument('name')
+    p.set_defaults(f=lambda a: register(load_one(a.name)))
 
     a = ap.parse_args()
     sys.exit(a.f(a) or 0)

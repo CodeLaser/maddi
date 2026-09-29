@@ -8,6 +8,7 @@ import argparse
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import re
 import subprocess
@@ -472,6 +473,216 @@ class TestPhases(CatalogueTest):
         line = f'10:00 [DEBUG] [org.gradle.api.Task] :p:compileKotlin v: {pattern} -d out a.kt'
         self.assertTrue(re.search(grep, line))
         self.assertTrue(re.fullmatch(r'.*' + re.escape(pattern) + r'\s*(.+)', line))
+
+
+
+class EngineWorkspaceTest(CatalogueTest):
+    """CatalogueTest, plus an isolated engine workspace: `registered` and `register` read
+    $REFACTOR_HOME, and a test that fell through to the real ~/refactorhome would be answering about
+    this machine instead of about the fixture."""
+
+    def setUp(self):
+        super().setUp()
+        self.home = Path(os.path.realpath(self._tmp.name)) / 'refactorhome'
+        self._prev_home = os.environ.get('REFACTOR_HOME')
+        os.environ['REFACTOR_HOME'] = str(self.home)
+
+    def tearDown(self):
+        if self._prev_home is None:
+            os.environ.pop('REFACTOR_HOME', None)
+        else:
+            os.environ['REFACTOR_HOME'] = self._prev_home
+        super().tearDown()
+
+    def config(self, name, *source_sets):
+        f = self.oss / name / 'inputConfiguration.json'
+        f.write_text(json.dumps({'sourceSets': [{'name': s} for s in source_sets]}))
+        return f
+
+
+def read_project_yml(path):
+    """Read a generated project.yml with the same reader catalogue.py uses. The point of these tests is
+    that the ENGINE's YAML reader will accept the file, so parsing it is closer to that than matching
+    the text line by line."""
+    return catalogue.parse_yaml(path.read_text(), str(path))
+
+
+class TestClean(EngineWorkspaceTest):
+
+    def test_it_discards_edits_deletes_generated_sources_and_returns_to_the_pin(self):
+        d, shas = self.checkout('lib', commits=2)
+        self.entry(self.public, 'lib', """
+            source:
+              kind: git
+              url: file://%s
+              rev: %s
+              generated:
+                - target/generated-sources
+            """ % (d, shas[0]))
+        gen = d / 'target' / 'generated-sources'
+        gen.mkdir(parents=True)
+        (gen / 'Made.java').write_text('class Made {}')
+        (d / 'f').write_text('an edit an earlier run left behind')
+        self.assertEqual(shas[1], git(d, 'rev-parse', 'HEAD'))
+
+        self.assertEqual(0, catalogue.clean(catalogue.load_one('lib')))
+
+        self.assertFalse(gen.exists(), 'generated sources are untracked: only clean deletes them')
+        self.assertEqual('0', (d / 'f').read_text(), 'the edit must be gone')
+        self.assertEqual(shas[0], git(d, 'rev-parse', 'HEAD'), 'clean moves HEAD to source.rev')
+
+    def test_our_own_output_survives_unless_also_ours_is_asked_for(self):
+        d, shas = self.checkout('lib')
+        self.entry(self.public, 'lib', """
+            source: {kind: git, url: "file://%s", rev: %s}
+            config:
+              route: maven-log
+              tasks: test-compile
+            """ % (d, shas[0]))
+        ours = ('inputConfiguration.json', 'compile.log', 'compile.javac.log')
+        for f in ours:
+            (d / f).write_text('ours')
+
+        # Untracked files are not dirt: a CONFIGURED corpus must still come out of clean green.
+        self.assertEqual(0, catalogue.clean(catalogue.load_one('lib')))
+        self.assertTrue((d / 'inputConfiguration.json').is_file(),
+                        'remaking the configuration is the expensive phase; clean keeps it')
+
+        self.assertEqual(0, catalogue.clean(catalogue.load_one('lib'), also_ours=True))
+        for f in ours:
+            self.assertFalse((d / f).exists(), f + ' is ours, and --also-ours deletes it')
+
+    def test_it_refuses_a_pattern_or_a_path_that_leaves_the_checkout(self):
+        d, shas = self.checkout('lib')
+        outside = self.oss / 'not-the-corpus'
+        outside.mkdir()
+        (outside / 'keep').write_text('untouched')
+        self.entry(self.public, 'lib',
+                   'source: {kind: git, url: "file://%s", rev: %s}\n' % (d, shas[0]))
+        for generated in ('../not-the-corpus', 'target/*', '/etc'):
+            with self.subTest(generated=generated):
+                e = catalogue.load_one('lib')
+                e['source']['generated'] = [generated]
+                self.assertEqual(1, catalogue.clean(e))
+        self.assertTrue((outside / 'keep').is_file(), 'nothing outside the checkout may be deleted')
+
+    def test_an_absent_or_non_git_directory_is_refused_rather_than_emptied(self):
+        self.entry(self.public, 'gone', 'source: {kind: git, url: "file:///nowhere"}\n')
+        self.assertEqual(1, catalogue.clean(catalogue.load_one('gone')))
+
+        plain = self.oss / 'plain'
+        plain.mkdir()
+        (plain / 'file').write_text('not a checkout')
+        self.entry(self.public, 'plain', 'source: {kind: git, url: "file:///nowhere"}\n')
+        self.assertEqual(1, catalogue.clean(catalogue.load_one('plain')))
+        self.assertTrue((plain / 'file').is_file())
+
+
+class TestRegister(EngineWorkspaceTest):
+
+    def entry_with_config(self, name='lib', extra=''):
+        d, shas = self.checkout(name)
+        self.entry(self.public, name, """
+            source: {kind: git, url: "file://%s", rev: %s}
+            config:
+              route: maven-log
+              tasks: test-compile
+            tests:
+              cmd: ./mvnw test
+            %s
+            """ % (d, shas[0], extra))
+        # A Maven source-set name with a colon AND a space in it -- guava's real shape.
+        self.config(name, 'core/main', 'Guava: Google Core Libraries for Java/test')
+        return d, shas
+
+    def test_it_links_the_checkout_and_the_one_configuration_and_writes_the_source_sets(self):
+        d, shas = self.entry_with_config()
+        (d / 'pom.xml').write_text('<project/>')
+        e = catalogue.load_one('lib')
+        self.assertEqual(0, catalogue.register(e))
+
+        link = self.home / 'projects' / 'lib'
+        cfg_link = self.home / 'work' / 'lib' / 'build.inputConfiguration.json'
+        self.assertEqual(d.resolve(), link.resolve())
+        self.assertEqual((d / 'inputConfiguration.json').resolve(), cfg_link.resolve())
+        self.assertTrue(cfg_link.is_symlink(), 'linked, never copied: one configuration must exist')
+
+        got = read_project_yml(self.home / 'work' / 'lib' / 'project.yml')
+        self.assertEqual(str(d.resolve()), got['build']['directory'])
+        self.assertEqual(str((d / 'pom.xml').resolve()), got['build']['monitor'])
+        gitdir = got['build']['git_dirs'][str((d / '.git').resolve())]
+        self.assertEqual(shas[0], gitdir['baseRevision'])
+        self.assertEqual('main', gitdir['branch'], 'no origin/HEAD in a local clone -> main')
+        self.assertEqual(['core/main', 'Guava: Google Core Libraries for Java/test'],
+                         gitdir['sourceSets'], 'a colon in a name must survive as ONE scalar')
+        self.assertEqual('./mvnw test', got['test']['run_tests_command'])
+        # The engine must not be able to build or configure a corpus -- that is the other way round.
+        self.assertNotIn('compile_debug_command', got['build'])
+        self.assertNotIn('clean_command', got['build'])
+        self.assertTrue(catalogue.registered(e))
+
+    def test_without_a_configuration_it_refuses_and_names_the_missing_file(self):
+        d, shas = self.checkout('lib')
+        self.entry(self.public, 'lib',
+                   'source: {kind: git, url: "file://%s", rev: %s}\n' % (d, shas[0]))
+        e = catalogue.load_one('lib')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(1, catalogue.register(e))
+        self.assertIn(str(d / 'inputConfiguration.json'), err.getvalue())
+        self.assertFalse((self.home / 'projects' / 'lib').exists(),
+                         'a refused registration leaves nothing half-made')
+        self.assertFalse(catalogue.registered(e))
+
+    def test_a_configuration_with_no_source_sets_is_refused(self):
+        d, shas = self.checkout('lib')
+        self.entry(self.public, 'lib',
+                   'source: {kind: git, url: "file://%s", rev: %s}\n' % (d, shas[0]))
+        self.config('lib')
+        self.assertEqual(1, catalogue.register(catalogue.load_one('lib')))
+
+    def test_a_link_left_pointing_elsewhere_is_not_registered(self):
+        d, shas = self.entry_with_config()
+        e = catalogue.load_one('lib')
+        self.assertEqual(0, catalogue.register(e))
+
+        other, _ = self.checkout('other')
+        link = self.home / 'projects' / 'lib'
+        link.unlink()
+        link.symlink_to(other.resolve())
+        self.assertFalse(catalogue.registered(e),
+                         'a stale link makes the engine load the WRONG corpus and report nothing')
+        self.assertEqual(0, catalogue.register(e))
+        self.assertTrue(catalogue.registered(e), 'registering again repairs it')
+
+    def test_a_copied_configuration_is_moved_aside_and_replaced_by_the_link(self):
+        d, shas = self.entry_with_config()
+        work = self.home / 'work' / 'lib'
+        work.mkdir(parents=True)
+        (work / 'build.inputConfiguration.json').write_text('{"sourceSets": []} a stale copy')
+        self.assertEqual(0, catalogue.register(catalogue.load_one('lib')))
+        self.assertTrue((work / 'build.inputConfiguration.json').is_symlink())
+        self.assertIn('a stale copy',
+                      (work / 'build.inputConfiguration.json.was-a-copy').read_text())
+
+    def test_a_real_directory_under_projects_is_never_replaced(self):
+        d, shas = self.entry_with_config()
+        real = self.home / 'projects' / 'lib'
+        real.mkdir(parents=True)
+        (real / 'someones-work').write_text('not ours to delete')
+        self.assertEqual(1, catalogue.register(catalogue.load_one('lib')))
+        self.assertTrue((real / 'someones-work').is_file())
+
+    def test_engine_project_names_the_registration_so_two_entries_can_share_one_checkout(self):
+        d, shas = self.entry_with_config(
+            extra='engine:\n              project: lib-plugin\n              branch: devel')
+        e = catalogue.load_one('lib')
+        self.assertEqual('lib-plugin', catalogue.engine_project(e))
+        self.assertEqual(0, catalogue.register(e))
+        self.assertEqual(d.resolve(), (self.home / 'projects' / 'lib-plugin').resolve())
+        got = read_project_yml(self.home / 'work' / 'lib-plugin' / 'project.yml')
+        self.assertEqual('devel',
+                         got['build']['git_dirs'][str((d / '.git').resolve())]['branch'])
 
 
 if __name__ == '__main__':
