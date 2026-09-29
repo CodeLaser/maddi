@@ -2381,8 +2381,15 @@ class KotlinScan(
         // context parameters come first, then an extension function's receiver, then the value parameters (the JVM model)
         contextParameters(builder, function, owner, method, synthetic = false)
         function.receiverParameter?.let { receiver ->
-            val parameterInfo = builder.addParameter("\$receiver",
-                mapType(signature?.receiverType ?: receiver.returnType, owner, method))
+            val receiverType = mapType(signature?.receiverType ?: receiver.returnType, owner, method)
+            val parameterInfo = builder.addParameter("\$receiver", receiverType)
+            // positioned at its type, the only place a receiver is written (`fun StringBuilder.shout()`): without a
+            // source its verdict has nowhere to be shown, and the IDE drops it -- the one parameter an extension
+            // function is most likely to modify
+            val reference = if (forwarder) null else (function.psi as? KtNamedFunction)?.receiverTypeReference
+            parameterInfo.builder().setSource(declarationSource(reference) {
+                putTypeReference(runtime, receiverType, reference)
+            })
             if (!forwarder) annotate(parameterInfo.builder(), receiver, owner)
         }
         function.valueParameters.forEachIndexed { index, p ->

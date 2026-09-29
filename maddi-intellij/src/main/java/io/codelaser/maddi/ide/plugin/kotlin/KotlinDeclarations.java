@@ -15,6 +15,7 @@ package io.codelaser.maddi.ide.plugin.kotlin;
 
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.lexer.KtTokens;
 import org.jetbrains.kotlin.psi.KtClassOrObject;
@@ -22,6 +23,7 @@ import org.jetbrains.kotlin.psi.KtNamedDeclaration;
 import org.jetbrains.kotlin.psi.KtNamedFunction;
 import org.jetbrains.kotlin.psi.KtParameter;
 import org.jetbrains.kotlin.psi.KtProperty;
+import org.jetbrains.kotlin.psi.KtTypeReference;
 
 import java.util.List;
 
@@ -34,7 +36,8 @@ import java.util.List;
  * <p>
  * ⚠ Only the shapes whose meaning is plain are mapped. A declaration with no name of its own (a primary
  * constructor, {@code companion object}, an {@code init} block) has no leaf to anchor on and gets nothing yet;
- * a constructor {@code val} parameter is shown as the PARAMETER it is, not as the property it also declares.
+ * a constructor {@code val} parameter is shown as the PARAMETER it is, not as the property it also declares. An
+ * extension function's receiver, which has no name, is anchored on its type.
  */
 public final class KotlinDeclarations {
     private KotlinDeclarations() {
@@ -54,6 +57,7 @@ public final class KotlinDeclarations {
     public static @Nullable String kindOf(PsiElement leaf) {
         IElementType type = leaf.getNode() == null ? null : leaf.getNode().getElementType();
         if (type != KtTokens.IDENTIFIER) return null;
+        if (isReceiverAnchor(leaf)) return "PARAMETER";
         if (!(leaf.getParent() instanceof KtNamedDeclaration declaration)
             || declaration.getNameIdentifier() != leaf) {
             return null;
@@ -63,5 +67,27 @@ public final class KotlinDeclarations {
         if (declaration instanceof KtProperty) return "FIELD";   // no backing field: see kindsOf
         if (declaration instanceof KtParameter) return "PARAMETER";
         return null;
+    }
+
+    /**
+     * An extension function's receiver has no name to anchor on; the daemon positions it at its type reference
+     * ({@code StringBuilder} in {@code fun StringBuilder.shout()}). The anchor is that reference's FIRST identifier,
+     * so {@code List<String>} gets one hint, not one per name inside it.
+     */
+    private static boolean isReceiverAnchor(PsiElement leaf) {
+        // the outermost type reference around the leaf, up to the nearest function
+        KtTypeReference reference = null;
+        PsiElement up = leaf.getParent();
+        for (; up != null && !(up instanceof KtNamedFunction); up = up.getParent()) {
+            if (up instanceof KtTypeReference r) reference = r;
+        }
+        if (reference == null || !(up instanceof KtNamedFunction function)
+            || function.getReceiverTypeReference() != reference) {
+            return false;
+        }
+        for (PsiElement l = PsiTreeUtil.firstChild(reference); l != null; l = PsiTreeUtil.nextLeaf(l)) {
+            if (l.getNode() != null && l.getNode().getElementType() == KtTokens.IDENTIFIER) return l == leaf;
+        }
+        return false;
     }
 }

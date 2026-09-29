@@ -72,6 +72,25 @@ public class MaddiKotlinInlayTest extends DeclarativeInlayHintsProviderTestCase 
                 """);
     }
 
+    /** An extension function's receiver: one hint, on the first name of the receiver type. */
+    public void testExtensionReceiver() {
+        String source = """
+                fun List<String>.firstOr(d: String): String = firstOrNull() ?: d
+                """;
+        myFixture.configureByText("Ext.kt", source);
+        String path = myFixture.getFile().getVirtualFile().getPath();
+        MaddiAnalysisService.getInstance(getProject()).applyResult(result(List.of(), List.of(
+                element(path, 1, 5, 1, 16, "PARAMETER", "ExtKt.firstOr(java.util.List,String):0:$receiver", "@NotModified"),
+                element(path, 1, 26, 1, 34, "PARAMETER", "ExtKt.firstOr(java.util.List,String):1:d", "@Unmodified"))));
+        MaddiSettings.State state = MaddiSettings.getInstance().getState();
+        state.inlineHintsMode = InlineHintsMode.ALL;
+        state.hintPlacement = HintPlacement.INLINE;
+        doTestProviderWithConfigured(source, """
+                fun List/*<# @NotModified #>*/<String>.firstOr(d/*<# @Unmodified #>*/: String): String = firstOrNull() ?: d
+                """, new MaddiKotlinInlayProvider(), Map.of(), null, false,
+                DeclarativeInlayHintsProviderTestCase.ProviderTestMode.SIMPLE);
+    }
+
     private void doTest(HintPlacement placement, String expected) {
         myFixture.configureByText("Point.kt", SOURCE);
         String path = myFixture.getFile().getVirtualFile().getPath();

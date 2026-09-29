@@ -122,6 +122,24 @@ public class TestKotlinSources {
         assertTrue(parameters.stream().allMatch(fqn -> fqn.contains("<init>")), () -> "parameters: " + parameters);
     }
 
+    /** An extension function's receiver is its parameter 0, positioned at the receiver type. */
+    @Test
+    public void extensionReceiver(@TempDir Path projectDir) throws Exception {
+        Path kDir = write(projectDir, "k/src", "k/Ext.kt", """
+                package k
+
+                fun StringBuilder.shout(): StringBuilder = append("!")
+                """);
+        DaemonProtocol.Result result = analyze(projectDir, List.of(set("k/main", kDir, List.of())));
+        DaemonProtocol.ElementAnnotation receiver = result.elementAnnotations().stream()
+                .filter(e -> "PARAMETER".equals(e.kind()) && e.fqn().contains("shout"))
+                .findFirst().orElseThrow(() -> new AssertionError("no receiver among " + result.elementAnnotations()));
+        assertEquals(3, (int) receiver.beginLine());
+        assertEquals(5, (int) receiver.beginCol(), "at the receiver type");
+        assertEquals(17, (int) receiver.endCol(), "StringBuilder, inclusive");
+        assertTrue(receiver.displayAnnotations().contains("@Modified"), () -> "receiver: " + receiver.displayAnnotations());
+    }
+
     private static void assertNoKotlinSkipped(DaemonProtocol.Result result) {
         assertTrue(result.initializationProblems().stream().noneMatch(p -> p.contains("NOT analyzed")),
                 () -> "problems: " + result.initializationProblems());
