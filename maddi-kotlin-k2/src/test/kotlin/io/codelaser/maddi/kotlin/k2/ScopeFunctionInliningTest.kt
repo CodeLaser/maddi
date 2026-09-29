@@ -51,6 +51,8 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
                 fun tailIf(xs: List<String>): Int = xs.let { if (it.isEmpty()) return@let 0 else it.size }
                 fun discarded(xs: List<String>, sb: StringBuilder) { xs.let { if (it.isEmpty()) return@let; sb.append(it) } }
                 fun inLoop(xs: List<String>): Int = xs.let { for (x in it) if (x.isEmpty()) return@let 0; 1 }
+                fun shadowed(): List<String> = make().also { xs -> xs.forEach { sb.append(it) } }.also { make().forEach { x -> sb.append(it.size) } }
+                fun innerIt(): List<String> = make().also { sb.append(it.joinToString(",") { it }) }
                 fun useIt(w: java.io.StringWriter): String = w.use { it.write("x"); it.toString() }
                 fun useNew(): String = java.io.StringWriter().use { it.append("a").toString() }
                 fun useSafe(w: java.io.StringWriter?) { w?.use { it.write("y") } }
@@ -68,13 +70,14 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
         val census = PlaceholderCensus.of(types)
         val names = listOf("addAll", "onParam", "alsoIt", "letValue", "letCall", "safeLet", "statement", "withIt",
             "runIt", "nonLocal", "chain", "labelled", "named", "elvisLet", "applyReturn", "safeLabelled", "tailIf", "discarded",
-            "inLoop", "useIt", "useNew", "useSafe", "useLabelled")
+            "inLoop", "shadowed", "innerIt", "useIt", "useNew", "useSafe", "useLabelled")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         // a stable receiver (`this`, a parameter) is bound directly; a call is evaluated once into a local. A
         // `return` in the body is the enclosing function's, with no lambda to leave. A `return@let v` assigns the result
         // and the rest of the body moves into the other branch; inside a loop it keeps the call. `use` is a
-        // try-with-resources, its receiver the resource (#88 stage 3).
+        // try-with-resources, its receiver the resource (#88 stage 3). A local never takes a name the body (or its own
+        // initializer) declares again: `it$also`, not a local `it` beside a lambda parameter `it`.
         assertEquals("""
             addAll: {CollectionsKt.forEach(xs,it->this.sb.append(it));} return this;
             onParam: {s.append("x");} return s;
@@ -95,6 +98,8 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
             tailIf: int ${'$'}let9; {if(xs.isEmpty()){${'$'}let9=0;}else{${'$'}let9=xs.size;}} return ${'$'}let9;
             discarded: {if(xs.isEmpty()){{}}else{sb.append(xs);}}
             inLoop: return StandardKt.let(xs,it->{for(String x:it){if(StringsKt.isEmpty(x)){return 0;}}return 1;});
+            shadowed: List<String> it${'$'}also=StandardKt.also(make(),xs->CollectionsKt.forEach(xs,it->this.sb.append(it))); {CollectionsKt.forEach(make(),x->this.sb.append(it${'$'}also.size));} return it${'$'}also;
+            innerIt: List<String> it${'$'}also=make(); {this.sb.append(CollectionsKt.joinToString(it${'$'}also,",",null,null,0,null,it->it));} return it${'$'}also;
             useIt: String ${'$'}use10; try(w){w.write("x");${'$'}use10=w.toString();} return ${'$'}use10;
             useNew: String ${'$'}use11; try(StringWriter it=new StringWriter()){${'$'}use11=it.append("a").toString();} return ${'$'}use11;
             useSafe: if(!(w==null)){try(w){w.write("y");}}

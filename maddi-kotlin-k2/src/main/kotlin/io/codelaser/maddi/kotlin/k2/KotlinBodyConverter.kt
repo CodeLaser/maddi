@@ -126,6 +126,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtAnnotatedExpression
 import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtDestructuringDeclarationEntry
+import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFunctionLiteral
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
@@ -717,6 +718,20 @@ internal class KotlinBodyConverter(
         } && value is VariableExpression
     }
 
+    /**
+     * Whether [name] is declared inside [body]: a lambda's parameter (an implicit `it` too), or a local. Asked of the
+     * scope function's body and of its receiver, which is the new local's initializer and so within its scope too.
+     */
+    private fun declaresInside(body: KtElement?, name: String): Boolean {
+        if (body == null) return false
+        return PsiTreeUtil.findChildrenOfType(body, KtFunctionLiteral::class.java).any { literal ->
+            if (literal.valueParameters.isEmpty()) name == "it" && !literal.hasParameterSpecification()
+            else literal.valueParameters.any { it.name == name }
+        } || PsiTreeUtil.findChildrenOfType(body, KtProperty::class.java).any { it.name == name }
+            || PsiTreeUtil.findChildrenOfType(body, KtParameter::class.java).any { it.name == name }
+            || PsiTreeUtil.findChildrenOfType(body, KtDestructuringDeclarationEntry::class.java).any { it.name == name }
+    }
+
     private fun freshName(base: String, locals: Map<String, Variable>): String {
         if (base !in locals) return base
         var k = 1
@@ -751,8 +766,16 @@ internal class KotlinBodyConverter(
             else {
                 val type = (functionType.receiverType ?: functionType.parameterTypes.firstOrNull())
                     ?.let { mapType(it, enclosingType) } ?: value.parameterizedType()
-                val local = runtime.newLocalVariable(
-                    freshName(if (sc.kind.receiverLambda) "\$this\$${sc.name}" else parameterName, locals), type, value)
+                // ⛔ never the name of a variable the body declares: `.also { f { … it.map { it.x } } }` made a local `it`
+                // and a lambda parameter `it` inside its scope -- a shadowing Java forbids, and the analysis keys
+                // variables by name, so detekt's `loadExtensions` and everything calling it got no verdict at all
+                val base = when {
+                    sc.kind.receiverLambda -> "\$this\$${sc.name}"
+                    declaresInside(sc.lambda.bodyExpression, parameterName)
+                        || declaresInside(sc.receiver, parameterName) -> "$parameterName\$${sc.name}"
+                    else -> parameterName
+                }
+                val local = runtime.newLocalVariable(freshName(base, locals), type, value)
                 locals[local.simpleName()] = local
                 if (sc.kind == ScopeKind.USE && !sc.safe) resource = runtime.newLocalVariableCreation(local)
                 else emitted.add(runtime.newLocalVariableCreation(local))
