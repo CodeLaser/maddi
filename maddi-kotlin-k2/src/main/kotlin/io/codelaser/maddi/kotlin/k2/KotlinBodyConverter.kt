@@ -42,6 +42,7 @@ import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
 import io.codelaser.maddi.cst.api.statement.SwitchEntry
 import io.codelaser.maddi.cst.api.statement.ThrowStatement
+import io.codelaser.maddi.cst.api.statement.TryStatement
 import io.codelaser.maddi.cst.api.statement.YieldStatement
 import io.codelaser.maddi.cst.api.variable.LocalVariable
 import io.codelaser.maddi.cst.api.variable.Variable
@@ -125,6 +126,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtAnnotatedExpression
 import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtDestructuringDeclarationEntry
+import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFunctionLiteral
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtForExpression
@@ -373,7 +375,9 @@ internal class KotlinBodyConverter(
         return block.statements().withIndex().all { (k, s) ->
             val expected = childIndex(blockIndex, k, n)
             s.source()?.index() == expected && (if (s is Block) positional(s, expected)
-                else s.subBlockStream().allMatch { b ->
+                else (s !is TryStatement || s.resources().withIndex().all { (r, resource) ->
+                    resource.source()?.index() == "$expected+${pad(r, s.resources().size)}" })
+                    && s.subBlockStream().allMatch { b ->
                     val last = lastComponent(b.source()?.index())
                     last == null || b.source()?.index() == "$expected.$last" && positional(b, "$expected.$last")
                 })
@@ -396,9 +400,15 @@ internal class KotlinBodyConverter(
 
     private fun renumberStatement(statement: Statement, index: String): Statement {
         if (statement is Block) return renumberBlock(statement, index)
+        // a try's resources are `<try>+<k>`, as the Java parser numbers them
+        val resources = (statement as? TryStatement)?.resources().orEmpty()
+        val resourcePosition = java.util.IdentityHashMap<Statement, Int>()
+        resources.forEachIndexed { k, r -> resourcePosition[r] = k }
         val renumbered = statement.translate(object : IndexTranslation() {
             override fun translateStatement(statement2: Statement): List<Statement> = when {
                 statement2 === statement -> listOf(statement2)
+                resourcePosition.containsKey(statement2) -> listOf(statement2.withSource(
+                    (statement2.source() ?: runtime.noSource()).withIndex("$index+${pad(resourcePosition[statement2]!!, resources.size)}")))
                 // a sub-block: its own last component, under the statement's new index; one with no index is left
                 statement2 is Block -> lastComponent(statement2.source()?.index())
                     ?.let { listOf(renumberBlock(statement2, "$index.$it")) } ?: listOf(statement2)
@@ -611,7 +621,7 @@ internal class KotlinBodyConverter(
     // ---- scope functions, inlined as kotlinc inlines them (#88) ---------------------------------------------------
 
     /**
-     * <b>`apply`, `also`, `let`, `run` and `with` are inlined, not called.</b> They are `@InlineOnly`: kotlinc copies
+     * <b>`apply`, `also`, `let`, `run`, `with` and `use` are inlined, not called.</b> They are `@InlineOnly`: kotlinc copies
      * the lambda's body into the caller, where it runs exactly once, on the receiver. Called, the body was a lambda
      * whose PARAMETER the body modified, and the engine (by design, for a function that may never call its lambda)
      * does not carry that back to the argument: `fun addAll(xs) = apply { xs.forEach { sb.append(it) } }` read as
@@ -622,7 +632,10 @@ internal class KotlinBodyConverter(
      *                                             { sb.append("x"); }  StringBuilder b = sb;
      *   val n = f().let { it.size + 1 }      ->   List it = f(); int $let0; { $let0 = it.size() + 1; } int n = $let0;
      *   x?.also { log(it) }                  ->   if (!(x == null)) { log(x); }
+     *   val s = open().use { it.read() }     ->   String $use0; try (Reader it = open()) { $use0 = it.read(); }
      * </pre>
+     * `use` closes its receiver as it leaves, normally or not: a try-with-resources, which prepwork and the link
+     * engine already read (the resource prepended to the try block).
      * A receiver that is a parameter, `this`, or a `val` is bound directly (re-reading it is the same object);
      * anything else is evaluated once into a local, as kotlinc does. A `return` in the body leaves the enclosing
      * function, now without crossing a lambda ([returnExitLevels] skips [inlinedLiterals]).
@@ -634,7 +647,7 @@ internal class KotlinBodyConverter(
      */
     private enum class ScopeKind(val receiverLambda: Boolean, val valueIsReceiver: Boolean) {
         APPLY(true, true), ALSO(false, true), LET(false, false), RUN(true, false), WITH(true, false),
-        RUN_PLAIN(false, false)
+        RUN_PLAIN(false, false), USE(false, false)
     }
 
     private class ScopeCall(val kind: ScopeKind, val name: String, val call: KtCallExpression,
@@ -663,14 +676,17 @@ internal class KotlinBodyConverter(
         }
         val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return null
         val id = symbol.callableId ?: return null
-        if (id.packageName.asString() != "kotlin" || id.className != null) return null
         val name = id.callableName.asString()
+        // `use` is `kotlin.io.use` on a Closeable, `kotlin.use` on an AutoCloseable
+        val packageName = id.packageName.asString()
+        if (id.className != null || packageName != "kotlin" && !(packageName == "kotlin.io" && name == "use")) return null
         val kind = when (name) {
             "apply" -> ScopeKind.APPLY
             "also" -> ScopeKind.ALSO
             "let" -> ScopeKind.LET
             "run" -> if (symbol.receiverParameter != null) ScopeKind.RUN else ScopeKind.RUN_PLAIN
             "with" -> ScopeKind.WITH
+            "use" -> ScopeKind.USE
             else -> return null
         }
         val arguments = call.valueArguments
@@ -702,6 +718,20 @@ internal class KotlinBodyConverter(
         } && value is VariableExpression
     }
 
+    /**
+     * Whether [name] is declared inside [body]: a lambda's parameter (an implicit `it` too), or a local. Asked of the
+     * scope function's body and of its receiver, which is the new local's initializer and so within its scope too.
+     */
+    private fun declaresInside(body: KtElement?, name: String): Boolean {
+        if (body == null) return false
+        return PsiTreeUtil.findChildrenOfType(body, KtFunctionLiteral::class.java).any { literal ->
+            if (literal.valueParameters.isEmpty()) name == "it" && !literal.hasParameterSpecification()
+            else literal.valueParameters.any { it.name == name }
+        } || PsiTreeUtil.findChildrenOfType(body, KtProperty::class.java).any { it.name == name }
+            || PsiTreeUtil.findChildrenOfType(body, KtParameter::class.java).any { it.name == name }
+            || PsiTreeUtil.findChildrenOfType(body, KtDestructuringDeclarationEntry::class.java).any { it.name == name }
+    }
+
     private fun freshName(base: String, locals: Map<String, Variable>): String {
         if (base !in locals) return base
         var k = 1
@@ -729,18 +759,30 @@ internal class KotlinBodyConverter(
                 ?.partiallyAppliedSymbol?.extensionReceiver, method, locals) ?: return null
         }
         val parameterName = sc.lambda.valueParameters.singleOrNull()?.name ?: "it"
+        // `use`: the receiver is the try's resource, declared there unless a null test must read it first
+        var resource: Statement? = null
         val bound: Variable? = receiverValue?.let { value ->
             if (isStableReceiver(sc.receiver, value)) (value as VariableExpression).variable()
             else {
                 val type = (functionType.receiverType ?: functionType.parameterTypes.firstOrNull())
                     ?.let { mapType(it, enclosingType) } ?: value.parameterizedType()
-                val local = runtime.newLocalVariable(
-                    freshName(if (sc.kind.receiverLambda) "\$this\$${sc.name}" else parameterName, locals), type, value)
+                // ⛔ never the name of a variable the body declares: `.also { f { … it.map { it.x } } }` made a local `it`
+                // and a lambda parameter `it` inside its scope -- a shadowing Java forbids, and the analysis keys
+                // variables by name, so detekt's `loadExtensions` and everything calling it got no verdict at all
+                val base = when {
+                    sc.kind.receiverLambda -> "\$this\$${sc.name}"
+                    declaresInside(sc.lambda.bodyExpression, parameterName)
+                        || declaresInside(sc.receiver, parameterName) -> "$parameterName\$${sc.name}"
+                    else -> parameterName
+                }
+                val local = runtime.newLocalVariable(freshName(base, locals), type, value)
                 locals[local.simpleName()] = local
-                emitted.add(runtime.newLocalVariableCreation(local))
+                if (sc.kind == ScopeKind.USE && !sc.safe) resource = runtime.newLocalVariableCreation(local)
+                else emitted.add(runtime.newLocalVariableCreation(local))
                 local
             }
         }
+        if (sc.kind == ScopeKind.USE && resource == null) resource = runtime.newExpressionAsStatement(variableExpression(bound ?: return null))
         // the body's scope: the lambda's receiver or parameter is the bound receiver
         val scope = locals.toMutableMap()
         if (bound != null) {
@@ -761,7 +803,10 @@ internal class KotlinBodyConverter(
         } else null
         // provisional, renumbered by normalizeIndices; an `if`'s sub-blocks keep their last component, so numeric
         val provisional = "$index.${scopeBlocks++}"
-        val blockIndex = if (sc.safe) "$provisional.0" else provisional
+        val statementIndex = if (sc.safe) "$provisional.0" else provisional
+        // `use` wraps the body in `try (resource) { … }`: one level deeper
+        val tryIndex = if (resource != null) if (sc.safe) "$statementIndex.0" else statementIndex else null
+        val blockIndex = tryIndex?.let { "$it.0" } ?: statementIndex
         val literal = sc.lambda.functionLiteral
         inlinedLiterals.add(literal)
         inlinedResults[literal] = result
@@ -776,11 +821,20 @@ internal class KotlinBodyConverter(
         } finally {
             inlinedLiterals.remove(literal)
             inlinedResults.remove(literal)
+        }.let { inner ->
+            if (resource == null) inner
+            else {
+                val tried = runtime.newTryBuilder().addResource(indexed(resource!!, "$tryIndex+0")).setBlock(inner)
+                    .setFinallyBlock(runtime.newBlockBuilder().setSource(runtime.noSource()).build())
+                    .setSource(runtime.noSource().withIndex(tryIndex!!)).build()
+                if (sc.safe) runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(statementIndex))
+                    .addStatement(tried).build() else tried
+            }
         }
         if (sc.safe && bound != null) {
             val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
                 runtime.newEquals(variableExpression(bound), runtime.nullConstant()), runtime.precedenceUnary())
-            emitted.add(runtime.newIfElseBuilder().setExpression(notNull).setIfBlock(body)
+            emitted.add(runtime.newIfElseBuilder().setExpression(notNull).setIfBlock(body as Block)
                 .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$provisional.1")).build())
                 .setSource(runtime.noSource()).build())
         } else emitted.add(body)
