@@ -24,7 +24,6 @@ import com.intellij.codeInsight.hints.declarative.InlineInlayPosition;
 import com.intellij.codeInsight.hints.declarative.SharedBypassCollector;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
@@ -66,7 +65,17 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         if (annotations.isEmpty()) return null;
         Document doc = file.getViewProvider().getDocument();
         if (doc == null) return null;
-        return new Collector(annotations, doc, mode, settings.hintPlacement);
+        return new Collector(annotations, doc, mode, settings.hintPlacement, this::kindsOf);
+    }
+
+    /**
+     * The maddi kinds ({@code TYPE}, {@code METHOD}, {@code FIELD}, {@code PARAMETER}), in order of preference, of
+     * the declaration whose NAME is this leaf; empty for none. Java's; a language with another PSI overrides it
+     * (the Kotlin provider).
+     */
+    protected List<String> kindsOf(@NotNull PsiElement leaf) {
+        String kind = leaf instanceof PsiIdentifier ? javaKindOf(leaf.getParent()) : null;
+        return kind == null ? List.of() : List.of(kind);
     }
 
     private static final String PARAMETER = "PARAMETER";
@@ -76,34 +85,25 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         private final Document doc;
         private final InlineHintsMode mode;
         private final HintPlacement placement;
+        private final java.util.function.Function<PsiElement, List<String>> kinds;
 
         Collector(List<AnalysisModel.ElementAnnotation> annotations, Document doc, InlineHintsMode mode,
-                  HintPlacement placement) {
+                  HintPlacement placement, java.util.function.Function<PsiElement, List<String>> kinds) {
             this.annotations = annotations;
             this.doc = doc;
             this.mode = mode;
             this.placement = placement;
+            this.kinds = kinds;
         }
 
         @Override
         public void collectFromElement(@NotNull PsiElement element, @NotNull InlayTreeSink sink) {
-            if (!(element instanceof PsiIdentifier)) return;
-            String kind = kindOf(element.getParent());
-            if (kind == null) return;
-            int idOffset = element.getTextRange().getStartOffset();
-            // Pick the SMALLEST (most specific) containing range of the right kind, so a nested type/member gets
-            // its own annotations rather than an enclosing type's (whose range also contains this identifier).
-            AnalysisModel.ElementAnnotation match = null;
-            int bestLength = Integer.MAX_VALUE;
-            for (AnalysisModel.ElementAnnotation a : annotations) {
-                if (!kind.equals(a.kind()) || a.annotations().isEmpty()) continue;
-                TextRange r = MaddiPositions.range(doc, a.beginLine(), a.beginCol(), a.endLine(), a.endCol());
-                if (r != null && r.contains(idOffset) && r.getLength() < bestLength) {
-                    match = a;
-                    bestLength = r.getLength();
-                }
-            }
+            List<String> wanted = kinds.apply(element);
+            if (wanted.isEmpty()) return;
+            AnalysisModel.ElementAnnotation match = MaddiElementMatch.find(annotations, doc, wanted,
+                    element.getTextRange().getStartOffset(), a -> !a.annotations().isEmpty());
             if (match == null) return;
+            String kind = wanted.getFirst();
             // abbreviated: an eventual verdict's after= roster is a union and runs to dozens of marks, which
             // does not fit on the one line an inline hint has. The gutter tooltip carries the full text.
             String text = match.annotations().stream()
@@ -136,7 +136,7 @@ public class MaddiInlayProvider implements InlayHintsProvider {
         }
     }
 
-    private static @Nullable String kindOf(PsiElement parent) {
+    private static @Nullable String javaKindOf(PsiElement parent) {
         if (parent instanceof PsiClass) return "TYPE";
         if (parent instanceof PsiMethod) return "METHOD";
         if (parent instanceof PsiField) return "FIELD";

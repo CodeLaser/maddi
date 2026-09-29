@@ -63,3 +63,9 @@ tasks.withType<Test> {
     inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
 }
+
+// No module-info (a Kotlin module), but the IDE daemon is a named module that requires this one: an
+// automatic module name is what puts the jar on its compile module path rather than the unnamed classpath.
+tasks.jar {
+    manifest { attributes("Automatic-Module-Name" to "io.codelaser.maddi.kotlin.realm") }
+}

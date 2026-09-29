@@ -46,7 +46,22 @@ dependencies {
 
 // The launcher/round-trip tests drive the real daemon distribution (installDist: bin/ + lib/*.jar),
 // exactly as an IDE front-end will. Provide its location and a JDK 25+ to run it on (the daemon needs 25).
+// The K2 jars as a directory, the shape of a download: KotlinRoundTripTest hands it to a real daemon.
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    k2Runtime(project(":maddi-kotlin-k2"))
+}
+val k2Home = tasks.register<Sync>("k2Home") {
+    from(k2Runtime)
+    into(layout.buildDirectory.dir("k2-home"))
+}
+
 tasks.test {
+    dependsOn(k2Home)
+    systemProperty("maddi.test.k2Home", k2Home.get().destinationDir.absolutePath)
     dependsOn(":maddi-ide-daemon:installDist")
     val installDir = project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon")
     systemProperty("maddi.daemon.install", installDir.get().asFile.absolutePath)

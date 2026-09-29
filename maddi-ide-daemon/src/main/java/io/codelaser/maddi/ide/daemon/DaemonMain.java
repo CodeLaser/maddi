@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.codelaser.maddi.kotlin.realm.K2Realm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +70,18 @@ public final class DaemonMain {
         this.handler = handler;
     }
 
+    /**
+     * The environment variable a front end sets to the directory of K2 jars it installed. An environment variable
+     * rather than a {@code -D}: the launcher passes JVM options as one space-joined {@code JAVA_OPTS}, which would
+     * split a path containing a space. Mirrors {@code KotlinFrontEndInstaller.ENV_K2_HOME} in maddi-ide-client.
+     */
+    static final String ENV_K2_HOME = "MADDI_K2_HOME";
+
     public static void main(String[] args) throws IOException {
+        String k2Home = System.getenv(ENV_K2_HOME);
+        if (k2Home != null && !k2Home.isBlank() && System.getProperty(K2Realm.HOME_PROPERTY) == null) {
+            System.setProperty(K2Realm.HOME_PROPERTY, k2Home);
+        }
         int port = 0; // 0 = ephemeral, OS picks a free port
         for (int i = 0; i < args.length; i++) {
             if ("--port".equals(args[i]) && i + 1 < args.length) {
@@ -222,6 +234,16 @@ public final class DaemonMain {
     private static String maddiVersion() {
         String fromManifest = DaemonMain.class.getPackage().getImplementationVersion();
         if (fromManifest != null) return fromManifest;
-        return System.getProperty("maddi.version", "unknown");
+        String fromProperty = System.getProperty("maddi.version");
+        if (fromProperty != null) return fromProperty;
+        // the build stamp carries the release too; a front end matches downloads (the Kotlin front end) to it
+        try (java.io.InputStream in = DaemonMain.class.getResourceAsStream("build-stamp.properties")) {
+            if (in == null) return "unknown";
+            java.util.Properties properties = new java.util.Properties();
+            properties.load(in);
+            return properties.getProperty("version", "unknown");
+        } catch (IOException | RuntimeException e) {
+            return "unknown";
+        }
     }
 }

@@ -46,6 +46,10 @@ public final class MaddiSettings implements PersistentStateComponent<MaddiSettin
         public boolean showGutterIcons = true;
         /** Advisory "one member away from @Container/@Immutable/…" warnings; off, as on the CLI. */
         public boolean warnNearMisses = false;
+        /** A directory of K2 jars for Kotlin sources, overriding the download; empty = download on demand. */
+        public String kotlinFrontEndDir = "";
+        /** Offer to download the Kotlin front end when a project has Kotlin sources and none is installed. */
+        public boolean offerKotlinDownload = true;
     }
 
     private State state = new State();

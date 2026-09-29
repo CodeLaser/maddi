@@ -19,7 +19,6 @@ import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
-import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
@@ -44,9 +43,9 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
     @Override
     public @Nullable LineMarkerInfo<?> getLineMarkerInfo(PsiElement element) {
         if (!MaddiSettings.getInstance().getState().showGutterIcons) return null;
-        if (!(element instanceof PsiIdentifier)) return null;
-        String kind = kindOf(element.getParent());
-        if (kind == null) return null;
+        List<String> kinds = kindsOf(element);
+        // parameters are covered by inlay hints, not the gutter
+        if (kinds.isEmpty() || kinds.contains("PARAMETER")) return null;
 
         PsiFile file = element.getContainingFile();
         VirtualFile vf = file == null ? null : file.getVirtualFile();
@@ -57,20 +56,8 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
         Document doc = file.getViewProvider().getDocument();
         if (doc == null) return null;
 
-        int idOffset = element.getTextRange().getStartOffset();
-        // A nested type/member sits inside its enclosing type's range, so several same-kind annotations can
-        // contain this identifier. Pick the SMALLEST (most specific) containing range, so e.g. a nested class
-        // gets its own annotations, not the outer class's.
-        AnalysisModel.ElementAnnotation match = null;
-        int bestLength = Integer.MAX_VALUE;
-        for (AnalysisModel.ElementAnnotation a : annotations) {
-            if (!kind.equals(a.kind()) || a.displayAnnotations().isEmpty()) continue;
-            TextRange r = MaddiPositions.range(doc, a.beginLine(), a.beginCol(), a.endLine(), a.endCol());
-            if (r != null && r.contains(idOffset) && r.getLength() < bestLength) {
-                match = a;
-                bestLength = r.getLength();
-            }
-        }
+        AnalysisModel.ElementAnnotation match = MaddiElementMatch.find(annotations, doc, kinds,
+                element.getTextRange().getStartOffset(), a -> !a.displayAnnotations().isEmpty());
         if (match == null) return null;
 
         // The gutter keeps the FULL text, roster and all: it is the surface with room for it, and the inline
@@ -92,10 +79,17 @@ public class MaddiLineMarkerProvider implements LineMarkerProvider {
                 () -> "maddi analysis: " + text);
     }
 
-    private static @Nullable String kindOf(PsiElement parent) {
-        if (parent instanceof PsiClass) return "TYPE";
-        if (parent instanceof PsiMethod) return "METHOD";
-        if (parent instanceof PsiField) return "FIELD";
-        return null; // parameters are covered by inlay hints, not the gutter
+    /**
+     * The maddi kinds, in order of preference, of the declaration whose NAME is this leaf; empty for none. Java's;
+     * a language with another PSI overrides it (the Kotlin provider). A marker must anchor on a leaf, which the
+     * name identifier is.
+     */
+    protected List<String> kindsOf(PsiElement leaf) {
+        if (!(leaf instanceof PsiIdentifier)) return List.of();
+        PsiElement parent = leaf.getParent();
+        if (parent instanceof PsiClass) return List.of("TYPE");
+        if (parent instanceof PsiMethod) return List.of("METHOD");
+        if (parent instanceof PsiField) return List.of("FIELD");
+        return List.of();
     }
 }

@@ -43,6 +43,7 @@ dependencies {
         // Since 2025.3 Community/Ultimate ship as one distribution (license-tiered), so use intellijIdea(...).
         intellijIdea("2025.3")
         bundledPlugin("com.intellij.java") // Java PSI, for mapping analysis results onto declarations
+        bundledPlugin("org.jetbrains.kotlin") // Kotlin PSI, the same mapping on .kt (an OPTIONAL dependency)
         // Platform + Java test fixtures (LightJavaCodeInsightFixtureTestCase etc.) for surface tests.
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.Plugin.Java)
@@ -112,6 +113,22 @@ tasks.withType<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask> 
     }
 }
 
+// The Kotlin front end is NOT bundled: a user downloads it on demand (MaddiKotlinFrontEnd). For runIde, the build's
+// own K2 jars are gathered into a directory and handed over as -Dmaddi.k2.home, which the plugin passes to the
+// daemon it launches -- the same directory shape as a download (a maddi-kotlin distribution's lib-k2/).
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    k2Runtime(project(":maddi-kotlin-k2"))
+}
+val k2Home = tasks.register<Sync>("k2Home") {
+    description = "Gathers the K2 jars into the directory runIde hands the daemon as its Kotlin front end."
+    from(k2Runtime)
+    into(layout.buildDirectory.dir("k2-home"))
+}
+
 // For runIde (developing/verifying interactively): point the sandboxed IDE at the freshly built daemon
 // distribution and a JDK 25+ (the Gradle daemon JVM), via the dev system-property fallbacks the plugin reads.
 tasks.withType<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask> {
@@ -119,10 +136,14 @@ tasks.withType<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask> {
     val installDir = project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon")
     systemProperty("maddi.daemon.install", installDir.get().asFile.absolutePath)
     systemProperty("maddi.jdk.home", System.getProperty("java.home"))
+    dependsOn(k2Home)
+    systemProperty("maddi.k2.home", k2Home.get().destinationDir.absolutePath)
 }
 
 // The plugin launches the daemon distribution. Tests exercise that launch against the real install.
 tasks.test {
+    // the Kotlin surfaces are tested in K2 mode, the Kotlin plugin's default and the one users run
+    systemProperty("idea.kotlin.plugin.use.k2", "true")
     dependsOn(":maddi-ide-daemon:installDist")
     val installDir = project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon")
     systemProperty("maddi.daemon.install", installDir.get().asFile.absolutePath)

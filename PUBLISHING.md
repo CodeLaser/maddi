@@ -150,6 +150,12 @@ Three front-ends exist (`maddi-intellij`, `maddi-eclipse`, `maddi-vscode`) and t
 unrelated stores. Only IntelliJ is worked out here; Eclipse (Eclipse Marketplace) and VS Code
 (Open VSX / the VS Code Marketplace) are untouched, and both are unbuilt in some worktrees.
 
+⚠ **A plugin release needs the CLI release of the same version.** The plugin does not bundle the Kotlin front
+end; on a project with `.kt` sources it offers to download `maddi-kotlin-<version>.zip` from the `v<version>`
+GitHub release (`KotlinFrontEndInstaller.releaseZip`), checks it against the `<zip>.sha256` beside it, and keeps
+only its `lib-k2/`, matched to the bundled daemon's version. `release-cli.sh` publishes the zip and its checksum,
+and refuses a tag other than `v<version>`; v0.9.1's zip predates `lib-k2/` and the checksums, and is refused.
+
 What the IntelliJ plugin ships is unusual enough to say plainly, because both the listing text and the
 reviewer need it: the zip **bundles the whole maddi daemon distribution** at `<plugin>/daemon` (42 jars)
 and **launches it as a separate JVM process**, because the IDE runs on JBR 21 and maddi needs a JDK 25+.
