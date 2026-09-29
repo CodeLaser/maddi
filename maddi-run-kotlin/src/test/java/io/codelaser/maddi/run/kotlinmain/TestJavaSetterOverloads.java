@@ -86,7 +86,7 @@ public class TestJavaSetterOverloads {
         k.methods().forEach(m -> actual.append(m.name()).append(": ").append(m.methodBody().statements()).append('\n'));
         assertEquals("""
                 <init>: [super();, {this.setPath("i");}]
-                a: [return StandardKt__StandardKt.apply(new Factory(),$receiver->$receiver.setPath("x"));]
+                a: [return StandardKt.apply(new Factory(),$receiver->$receiver.setPath("x"));]
                 b: [f.setPath("y");]
                 c: [new X509CertSelector().setSubjectPublicKey(k);]
                 d: [return new Config();]

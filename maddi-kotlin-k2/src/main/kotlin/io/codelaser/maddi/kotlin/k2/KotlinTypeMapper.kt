@@ -455,7 +455,7 @@ internal class KotlinTypeMapper(
      * is exactly what kotlinc compiles it to, so nothing else here has to know the difference.
      */
     internal fun KaSession.loadLibraryFacadeFor(function: KaNamedFunctionSymbol): TypeInfo? =
-        loadLibraryFacade(jvmFacadeClassId(function), function.callableId?.packageName)
+        loadLibraryFacade(jvmFacadeClassId(function), function.callableId?.packageName)?.also { recordFacade(it, function) }
 
     /**
      * The facade holding a top-level library PROPERTY — `Class<T>.java`, `CharSequence.lastIndex`. Kotlin
@@ -464,7 +464,67 @@ internal class KotlinTypeMapper(
      * [KaNamedFunctionSymbol].
      */
     internal fun KaSession.loadLibraryFacadeForProperty(property: KaPropertySymbol): TypeInfo? =
-        loadLibraryFacade(jvmFacadeClassId(property), property.callableId?.packageName)
+        loadLibraryFacade(jvmFacadeClassId(property), property.callableId?.packageName)?.also { recordFacade(it, property) }
+
+    // a multifile PART by its public FACADE: `CollectionsKt__CollectionsKt` -> `CollectionsKt` (#67 item 4)
+    private val facadeOfPart = java.util.IdentityHashMap<TypeInfo, TypeInfo>()
+
+    /**
+     * The type a static call on [owner] is QUALIFIED by: for a multifile part, the public facade class kotlinc
+     * emits for the package's file group, else [owner] itself. The method stays the part's -- it is declared there,
+     * javac binds a Java call `CollectionsKt.mutableListOf(a, b)` to that same method, and the kotlin archive's
+     * contracts are keyed on it -- only the qualifier changes, as the Java front end writes it: a part is
+     * package-private, and printed as Java `CollectionsKt__CollectionsKt.mutableListOf(a, b)` does not compile.
+     */
+    internal fun staticQualifier(owner: TypeInfo): TypeInfo = synchronized(facadeOfPart) { facadeOfPart[owner] } ?: owner
+
+    private fun KaSession.recordFacade(part: TypeInfo, symbol: KaCallableSymbol) {
+        if (synchronized(facadeOfPart) { facadeOfPart.containsKey(part) }) return
+        val facadeFqn = jvmMultifileFacadeFqn(symbol) ?: return
+        if (facadeFqn == part.fullyQualifiedName()) return
+        // ⛔ never LOAD the facade from bytecode: loading it loads its superclass chain, the parts, and a part built
+        // from its class file lacks every @InlineOnly function (`let`, `apply`, `toInt`), which then no longer
+        // resolve -- `k2-unresolved-call` placeholders in the mixed parse. Reuse one already known, else a shell.
+        val facade = infoByFqn.getType(facadeFqn, librarySourceSet)
+            ?: compiledTypesManager?.typeIfLoaded(facadeFqn, librarySourceSet)
+            ?: facadeShell(facadeFqn, part)
+        synchronized(facadeOfPart) { facadeOfPart[part] = facade }
+    }
+
+    /**
+     * The facade as the class file has it, for a front end running without the Java one: public, final, and a
+     * subclass of the part chain (kotlinc makes the facade extend the last part), so a member lookup through it
+     * finds the part's statics. It declares nothing of its own.
+     */
+    private fun facadeShell(facadeFqn: String, part: TypeInfo): TypeInfo {
+        val dot = facadeFqn.lastIndexOf('.')
+        val typeInfo = runtime.newTypeInfo(libraryCompilationUnit(facadeFqn.substring(0, maxOf(dot, 0))),
+            facadeFqn.substring(dot + 1))
+        registerLibraryType(facadeFqn, typeInfo)
+        typeInfo.builder()
+            .setTypeNature(runtime.typeNatureClass())
+            .setParentClass(part.asParameterizedType())
+            .addTypeModifier(runtime.typeModifierPublic())
+            .addTypeModifier(runtime.typeModifierFinal())
+            .computeAccess().commit()
+        return typeInfo
+    }
+
+    /**
+     * The JVM facade of a multifile class part, `kotlin.collections.CollectionsKt` for a function in
+     * `CollectionsKt___CollectionsKt`: the `facadeClassName` of the FIR container source, which is set only for a
+     * part. Reflective for the reason [jvmFacadeClassId] gives.
+     */
+    private fun jvmMultifileFacadeFqn(symbol: KaCallableSymbol): String? = try {
+        val firSymbol = symbol.javaClass.methods.firstOrNull { it.name == "getFirSymbol" }?.invoke(symbol)
+        val fir = firSymbol?.javaClass?.methods?.firstOrNull { it.name == "getFir" }?.invoke(firSymbol)
+        val cs = fir?.javaClass?.methods?.firstOrNull { it.name == "getContainerSource" }?.invoke(fir)
+        val facade = cs?.javaClass?.methods?.firstOrNull { it.name == "getFacadeClassName" }?.invoke(cs)
+        (facade?.javaClass?.methods?.firstOrNull { it.name == "getInternalName" }?.invoke(facade) as? String)
+            ?.replace('/', '.')
+    } catch (_: Throwable) {
+        null
+    }
 
     /**
      * [kotlinPackage]: where the callables are DECLARED, which a `@file:JvmPackageName` file does not share with its

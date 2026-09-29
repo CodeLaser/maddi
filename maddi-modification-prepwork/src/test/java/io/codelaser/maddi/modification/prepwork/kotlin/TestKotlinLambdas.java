@@ -111,7 +111,7 @@ public class TestKotlinLambdas extends CommonKotlinTest {
     @Test
     public void capturedVar() {
         MethodInfo m = p.kotlin("capturedVar");
-        assertEquals("{IntRef n=new IntRef();n.element=0;CollectionsKt___CollectionsKt.forEach(xs,it->{if(it.equals(p)){n.element++;}});"
+        assertEquals("{IntRef n=new IntRef();n.element=0;CollectionsKt.forEach(xs,it->{if(it.equals(p)){n.element++;}});"
                      + "return n.element;}", m.methodBody().print(p.runtime().qualificationSimpleNames()).toString());
         VariableData last = VariableDataImpl.of(m.methodBody().statements().getLast());
         String element = last.variableInfoStream()

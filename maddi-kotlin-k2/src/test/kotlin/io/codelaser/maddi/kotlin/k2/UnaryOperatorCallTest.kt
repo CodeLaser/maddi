@@ -64,7 +64,7 @@ class UnaryOperatorCallTest : KotlinScanTestBase() {
             member: return v.unaryMinus();
             ext: return UoKt.unaryMinus(w);
             plain: return i+-i;
-            caught: return StandardKt__StandardKt.run(this,${'$'}receiver->{try{return StringsKt__StringNumberConversionsJVMKt.toInt(s);}catch(NumberFormatException _){return 0;}});
+            caught: return StandardKt.run(this,${'$'}receiver->{try{return StringsKt.toInt(s);}catch(NumberFormatException _){return 0;}});
             """.trimIndent(), listOf("html", "member", "ext", "plain", "caught").joinToString("\n") { "$it: ${body(it)}" })
     }
 

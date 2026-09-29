@@ -101,7 +101,7 @@ public class TestLibraryCompanions {
                 d: [return Regex.Companion.escape("x");]
                 e: [return Regex.Companion.fromLiteral("x");]
                 f: [return Charsets.INSTANCE;]
-                g: [return Sized.Companion.invoke(CollectionsKt__CollectionsJVMKt.listOf("a"));]
+                g: [return Sized.Companion.invoke(CollectionsKt.listOf("a"));]
                 h: [return Twice.INSTANCE.invoke(3);]
                 i: [return LanguageVersion.LATEST_STABLE;]
                 j: [return JvmTarget.DEFAULT;]

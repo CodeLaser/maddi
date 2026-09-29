@@ -77,7 +77,7 @@ class SuspendSignatureTest : KotlinScanTestBase() {
     @Test
     fun aLibrarySuspendMemberResolves() {
         // `yield` is SequenceScope's suspend member: two JVM parameters; the continuation is the suspend lambda's own
-        assertEquals("{return SequencesKt__SequenceBuilderKt.sequence((\$receiver,\$completion)->\$receiver.yield(1,\$completion));}",
+        assertEquals("{return SequencesKt.sequence((\$receiver,\$completion)->\$receiver.yield(1,\$completion));}",
             k().findUniqueMethod("seq", 0).methodBody().toString())
     }
 
