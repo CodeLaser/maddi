@@ -37,12 +37,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * work ceiling per pass); dropping them at export took a pass from 653M to 282M work with no verdict moving on the
  * clone bench, the shadow bench or detekt.
  * <p>
- * What stays: the bare marker ('fillAfter ← oc:15-20', fresh-object provenance) and the SHALLOW provenance of the
- * return value, one face on each side at most ('fillAfter ≻ oc:15-31.§$s', 'withSupplier.first ← Λoc:26-20.first',
- * 'top.size ← oc:39-16.size'). A consumer that traces where a returned object's elements came from follows exactly
- * that link (a method-flow metric reads the marker behind the face: the elements of makeList's result are those of
- * the LinkedList it created); on timefold these are 3 % of the links, and the pass stays at 364M / 7 trips.
- * Parameter-side faces are always dropped. Gate KEEPOCFACES restores the old export (A/B only).
+ * What stays: the bare marker ('fillAfter ← oc:15-20', fresh-object provenance). No face at all, not even the
+ * return value's own one-hop virtual provenance ('fillAfter ≻ oc:15-31.§$s'): keeping those ~450 links on timefold
+ * cost two extra MODREACH re-derivation rounds (56 -> 101 iterations, 818 -> 1536 s), the whole slow-battery
+ * budget. A consumer that needs where a returned object's elements came from reads the callee's return statement,
+ * where the statement-level links are intact. Gate KEEPOCFACES restores the old export (A/B only).
  * <p>
  * PRODUCTION options: object creations are tracked (TEST switches them off, so it never sees a marker).
  */
@@ -110,23 +109,17 @@ public class TestSummaryObjectCreationFaces extends CommonTest {
             String s = summary(X, name);
             assertFalse(s.contains("$__sv_"), name + " summary carries a shared-variable rep: " + s);
             if (pruned) {
-                // a face two or more hops below the marker ('oc:15-31.keys.§m') never leaves the method
-                assertFalse(s.matches("(?s).*oc:\\d+-\\d+\\.[^,.]+\\..*"),
-                        name + " summary carries a deep face of an object-creation marker: " + s);
-                // a face of the marker is never linked to a parameter's face, only to the return value
-                assertFalse(s.matches("(?s).*\\d+:\\w+[^,]*oc:\\d+-\\d+\\..*"),
-                        name + " summary links a parameter to a face of an object-creation marker: " + s);
+                assertFalse(s.matches("(?s).*oc:\\d+-\\d+\\..*"), name + " summary carries a face of an object-creation marker: " + s);
             }
         }
         if (pruned) {
-            // with KEEPOCFACES: [0:keys.§$s~oc:15-31.§$s] --> ..., fillAfter.keys.§m≡oc:15-31.§m
-            assertEquals("[-] --> fillAfter.keys←oc:15-31,fillAfter≻oc:15-31.§$s,fillAfter←oc:15-20,fillAfter.keys.§$s~0:keys.§$s",
-                    summary(X, "fillAfter"));
-            assertEquals("[-] --> withSupplier.first←Λ$_fi2,withSupplier.first←Λoc:26-20.first,withSupplier←oc:26-20",
-                    summary(X, "withSupplier"));
+            // with KEEPOCFACES: [0:keys.§$s~oc:15-31.§$s] --> ..., fillAfter≻oc:15-31.§$s, ..., fillAfter.keys.§m≡oc:15-31.§m
+            assertEquals("[-] --> fillAfter.keys←oc:15-31,fillAfter←oc:15-20,fillAfter.keys.§$s~0:keys.§$s", summary(X, "fillAfter"));
+            // with KEEPOCFACES: ..., withSupplier.first←Λoc:26-20.first, ...
+            assertEquals("[-] --> withSupplier.first←Λ$_fi2,withSupplier←oc:26-20", summary(X, "withSupplier"));
+            // with KEEPOCFACES: ..., top.size←oc:39-16.size, ...
             assertEquals("[-, -] --> top.selector≈oc:34-22,top.selector≈oc:36-22,top.selector←oc:38-29,top.size←$_ce2,"
-                         + "top.size←oc:39-16.size,top.selector.names←1:names,top≈oc:34-22,top≈oc:36-22,top←oc:39-16,"
-                         + "top.selector.names.§m≡1:names.§m",
+                         + "top.selector.names←1:names,top≈oc:34-22,top≈oc:36-22,top←oc:39-16,top.selector.names.§m≡1:names.§m",
                     summary(X, "top"));
         }
         // the object stored into a parameter's field keeps its path spelled on the parameter, in both modes
