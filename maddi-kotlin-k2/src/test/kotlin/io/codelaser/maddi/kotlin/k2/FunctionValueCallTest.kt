@@ -23,7 +23,8 @@ import org.junit.jupiter.api.Test
  * Two calls whose callee is not what the source names: a PROPERTY of function type called like a method
  * (`d.provider("x")` is `d.getProvider().invoke("x")`), and a parameter of a function type WITH a receiver invoked
  * with that receiver implicit (`init()` is `init.invoke($receiver)`). And `AutoCloseable.use`, whose facade,
- * `kotlin.jdk7.AutoCloseableKt`, lives in a JVM package that is not its Kotlin one (`@file:JvmPackageName`).
+ * `kotlin.jdk7.AutoCloseableKt`, lives in a JVM package that is not its Kotlin one (`@file:JvmPackageName`); called
+ * with a function value, since a literal is inlined as a try-with-resources (#88).
  */
 class FunctionValueCallTest : KotlinScanTestBase() {
 
@@ -35,7 +36,7 @@ class FunctionValueCallTest : KotlinScanTestBase() {
             fun W.tag(name: String, init: W.() -> Unit) { write(name); init() }
             class K {
                 fun viaProperty(d: Desc): Int = d.provider("x")
-                fun viaUse(c: AutoCloseable): Int = c.use { 1 }
+                fun viaUse(c: AutoCloseable, f: (AutoCloseable) -> Int): Int = c.use(f)
             }
             """.trimIndent() + "\n")
     }
@@ -57,7 +58,7 @@ class FunctionValueCallTest : KotlinScanTestBase() {
             "\ntag: " + body("FvKt", "tag")
         assertEquals("""
             viaProperty: return d.getProvider().invoke("x");
-            viaUse: return AutoCloseableKt.use(c,it->1);
+            viaUse: return AutoCloseableKt.use(c,f);
             tag: ${'$'}receiver.write(name); init.invoke(${'$'}receiver);
             """.trimIndent(), actual)
     }
