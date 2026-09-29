@@ -44,6 +44,12 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
                 fun chain(): String = StringBuilder().apply { append("a") }.toString()
                 fun labelled(xs: List<String>): Int = xs.let { if (it.isEmpty()) return@let 0; it.size }
                 fun named(xs: List<String>): Int = xs.let { ys -> ys.size }
+                fun elvisLet(xs: List<String>, m: Map<String, List<String>>): Int = xs.let { val v = m[it.first()] ?: return@let 0; v.size }
+                fun applyReturn(s: StringBuilder): StringBuilder = s.apply { if (isEmpty()) return@apply; append("x") }
+                fun safeLabelled(xs: List<String>?): Int = xs?.let { if (it.isEmpty()) return@let 1; it.size } ?: 0
+                fun tailIf(xs: List<String>): Int = xs.let { if (it.isEmpty()) return@let 0 else it.size }
+                fun discarded(xs: List<String>, sb: StringBuilder) { xs.let { if (it.isEmpty()) return@let; sb.append(it) } }
+                fun inLoop(xs: List<String>): Int = xs.let { for (x in it) if (x.isEmpty()) return@let 0; 1 }
             }
             """.trimIndent() + "\n")
     }
@@ -56,11 +62,13 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
     fun theShapes() {
         val census = PlaceholderCensus.of(types)
         val names = listOf("addAll", "onParam", "alsoIt", "letValue", "letCall", "safeLet", "statement", "withIt",
-            "runIt", "nonLocal", "chain", "labelled", "named")
+            "runIt", "nonLocal", "chain", "labelled", "named", "elvisLet", "applyReturn", "safeLabelled", "tailIf", "discarded",
+            "inLoop")
         val actual = names.joinToString("\n") { "$it: ${body(it)}" }
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
         // a stable receiver (`this`, a parameter) is bound directly; a call is evaluated once into a local. A
-        // `return` in the body is the enclosing function's, with no lambda to leave. A `return@let` keeps the call.
+        // `return` in the body is the enclosing function's, with no lambda to leave. A `return@let v` assigns the result
+        // and the rest of the body moves into the other branch; inside a loop it keeps the call.
         assertEquals("""
             addAll: {CollectionsKt.forEach(xs,it->this.sb.append(it));} return this;
             onParam: {s.append("x");} return s;
@@ -73,8 +81,14 @@ class ScopeFunctionInliningTest : KotlinScanTestBase() {
             runIt: String ${'$'}run4; {s.append("w");${'$'}run4=s.toString();} return ${'$'}run4;
             nonLocal: if(!(xs==null)){return xs.size;} return 0;
             chain: StringBuilder ${'$'}this${'$'}apply=new StringBuilder(); {${'$'}this${'$'}apply.append("a");} return ${'$'}this${'$'}apply.toString();
-            labelled: return StandardKt.let(xs,it->{if(it.isEmpty()){return 0;}return it.size;});
-            named: int ${'$'}let5; {${'$'}let5=xs.size;} return ${'$'}let5;
+            labelled: int ${'$'}let5; {if(xs.isEmpty()){${'$'}let5=0;}else{${'$'}let5=xs.size;}} return ${'$'}let5;
+            named: int ${'$'}let6; {${'$'}let6=xs.size;} return ${'$'}let6;
+            elvisLet: int ${'$'}let7; {List<String> ${'$'}elvis0=m.get(CollectionsKt.first(xs));if(${'$'}elvis0==null){${'$'}let7=0;}else{List<String> v=${'$'}elvis0;${'$'}let7=v.size;}} return ${'$'}let7;
+            applyReturn: {if(s.length()==0){{}}else{s.append("x");}} return s;
+            safeLabelled: Integer ${'$'}let8=null; if(!(xs==null)){if(xs.isEmpty()){${'$'}let8=1;}else{${'$'}let8=xs.size;}} return ${'$'}let8==null?0:${'$'}let8;
+            tailIf: int ${'$'}let9; {if(xs.isEmpty()){${'$'}let9=0;}else{${'$'}let9=xs.size;}} return ${'$'}let9;
+            discarded: {if(xs.isEmpty()){{}}else{sb.append(xs);}}
+            inLoop: return StandardKt.let(xs,it->{for(String x:it){if(StringsKt.isEmpty(x)){return 0;}}return 1;});
             """.trimIndent(), actual)
     }
 }

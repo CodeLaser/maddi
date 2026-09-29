@@ -37,6 +37,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.cst.api.statement.Block
 import io.codelaser.maddi.cst.api.translate.TranslationMap
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement
+import io.codelaser.maddi.cst.api.statement.IfElseStatement
 import io.codelaser.maddi.cst.api.statement.ReturnStatement
 import io.codelaser.maddi.cst.api.statement.Statement
 import io.codelaser.maddi.cst.api.statement.SwitchEntry
@@ -629,7 +630,7 @@ internal class KotlinBodyConverter(
      * <p>Only where it cannot move an evaluation: on a statement's unconditionally-evaluated spine
      * ([hoistNullSafeSpine]), or the statement itself. Not inlined, and so still a call: a lambda that is not a
      * literal written in place (`x.let(::f)`, a variable, a labelled literal), a destructured parameter, and a
-     * `return@label` to the literal itself (it needs a jump out of the inlined block).
+     * `return@label` to the literal itself where [structuredScopeBody] cannot move the rest of the body.
      */
     private enum class ScopeKind(val receiverLambda: Boolean, val valueIsReceiver: Boolean) {
         APPLY(true, true), ALSO(false, true), LET(false, false), RUN(true, false), WITH(true, false),
@@ -645,6 +646,9 @@ internal class KotlinBodyConverter(
     /** Function literals whose body is being converted INLINE (#88): a `return` inside one leaves no lambda. */
     private val inlinedLiterals: MutableSet<KtFunctionLiteral> =
         java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+
+    /** The result local of each literal in [inlinedLiterals], null for none: where its `return@label v` puts `v`. */
+    private val inlinedResults: java.util.IdentityHashMap<KtFunctionLiteral, Variable?> = java.util.IdentityHashMap()
 
     /** Statements whose whole expression was an inlined scope call with its value discarded: nothing follows it. */
     private val discardedScopeStatements: MutableSet<KtExpression> =
@@ -673,10 +677,11 @@ internal class KotlinBodyConverter(
         if (arguments.size != (if (kind == ScopeKind.WITH) 2 else 1)) return null
         val lambda = arguments.last().getArgumentExpression() as? KtLambdaExpression ?: return null
         if (lambda.valueParameters.any { it.destructuringDeclaration != null }) return null
-        // `return@let v` returns from the literal itself: inlined, that is a jump out of the block (not yet)
-        val labels = lambdaLabels(lambda.functionLiteral)
-        if (com.intellij.psi.util.PsiTreeUtil.findChildrenOfType(lambda, KtReturnExpression::class.java)
-                .any { it.getLabelName() in labels }) return null
+        // `return@let v` returns from the literal itself: inlined, only where the rest of the body can be moved
+        // into the other branch ([structuredScopeBody]); a jump out of a block the analysis cannot merge
+        val literal = lambda.functionLiteral
+        val statements = branchStatements(literal.bodyExpression)
+        if (statements.any { returnsTo(it, literal) } && !canStructure(statements, literal)) return null
         val withReceiver = if (kind == ScopeKind.WITH) arguments[0].getArgumentExpression() ?: return null else null
         if (withReceiver == null && receiver == null && kind != ScopeKind.RUN_PLAIN
             && call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.extensionReceiver == null) return null
@@ -757,12 +762,20 @@ internal class KotlinBodyConverter(
         // provisional, renumbered by normalizeIndices; an `if`'s sub-blocks keep their last component, so numeric
         val provisional = "$index.${scopeBlocks++}"
         val blockIndex = if (sc.safe) "$provisional.0" else provisional
-        inlinedLiterals.add(sc.lambda.functionLiteral)
+        val literal = sc.lambda.functionLiteral
+        inlinedLiterals.add(literal)
+        inlinedResults[literal] = result
         val body = try {
-            if (result != null) convertAssigningBlock(result, sc.lambda.bodyExpression, method, scope, blockIndex)
-            else convertBlock(sc.lambda.bodyExpression, method, scope, blockIndex)
+            val statements = branchStatements(literal.bodyExpression)
+            when {
+                statements.any { returnsTo(it, literal) } ->
+                    structuredScopeBody(statements, result, literal, method, scope.toMutableMap(), blockIndex)
+                result != null -> convertAssigningBlock(result, sc.lambda.bodyExpression, method, scope, blockIndex)
+                else -> convertBlock(sc.lambda.bodyExpression, method, scope, blockIndex)
+            }
         } finally {
-            inlinedLiterals.remove(sc.lambda.functionLiteral)
+            inlinedLiterals.remove(literal)
+            inlinedResults.remove(literal)
         }
         if (sc.safe && bound != null) {
             val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
@@ -773,6 +786,161 @@ internal class KotlinBodyConverter(
         } else emitted.add(body)
         out.addAll(emitted)
         return if (sc.kind.valueIsReceiver) bound else result
+    }
+
+    /**
+     * <b>`return@let v` in an inlined body (#88 stage 2)</b>: the value goes to the scope's result local, and the rest
+     * of the body must not run. kotlinc jumps; the CST could too (`L: { … break L; }`), but the analysis merges a
+     * block as if it always completes (`Assignments.assignmentsRequiredForMerge`), so the assignment before the jump
+     * would be overwritten by the one after it, and its value's links lost. So the rest moves into the other branch:
+     * <pre>
+     *   xs.let { if (it.isEmpty()) return@let 0; val n = it.size; n + 1 }
+     *     ->   int $let0; { if (xs.isEmpty()) { $let0 = 0; } else { int n = xs.size; $let0 = n + 1; } }
+     *   xs.let { val y = f(it) ?: return@let 0; y + 1 }
+     *     ->   { Y $elvis0 = f(xs); if ($elvis0 == null) { $let0 = 0; } else { Y y = $elvis0; $let0 = y + 1; } }
+     * </pre>
+     * Only for a return that is a statement of the body, a branch of an `if` statement whose other branch then
+     * takes the rest (or the body's tail, both branches its value), or the jump of a control-flow elvis
+     * ([canStructure]); anywhere else (a loop, a `when`, a nested lambda) the scope function stays a call.
+     */
+    private fun KaSession.structuredScopeBody(statements: List<KtExpression>, target: Variable?, literal: KtFunctionLiteral,
+                                              method: MethodInfo, locals: MutableMap<String, Variable>,
+                                              blockIndex: String, prologue: List<Statement> = listOf()): Block {
+        val block = runtime.newBlockBuilder().setSource(runtime.noSource().withIndex(blockIndex))
+        val total = prologue.size + statements.size
+        fun childIndexOf(k: Int) = "$blockIndex.${pad(k, total)}"
+        prologue.forEachIndexed { k, st -> block.addStatement(indexed(st, childIndexOf(k))) }
+        for ((j, annotated) in statements.withIndex()) {
+            val s = unannotated(annotated)
+            val childIndex = childIndexOf(prologue.size + j)
+            val rest = statements.subList(j + 1, statements.size)
+            fun plain() = (atStatement(childIndex) { loweredStatements(s, method, locals, childIndex) }
+                ?: convertHoisting(s, method, locals, childIndex)).forEach { block.addStatement(it) }
+            if (!returnsTo(s, literal)) {
+                if (rest.isEmpty() && target != null) addAssigningTail(block, target, s, method, locals, childIndex)
+                else plain()
+                continue
+            }
+            val elvis = elvisGuardTo(s, literal)
+            if (elvis != null) {
+                // the guard, then what follows it (the declaration, or the tail's assignment) and the rest, in its else
+                val lowered = (if (rest.isEmpty() && target != null && s === elvis)
+                    controlFlowElvisLowering(s, method, locals, childIndex, assignTo = target)
+                else controlFlowElvisLowering(s, method, locals, childIndex))
+                    ?: error("canStructure admitted an elvis controlFlowElvisLowering refuses")
+                val g = lowered.indexOfFirst { it is IfElseStatement }
+                lowered.take(g).forEach { block.addStatement(it) }
+                val guard = lowered[g] as IfElseStatement
+                block.addStatement(runtime.newIfElseBuilder().setExpression(guard.expression()).setIfBlock(guard.block())
+                    .setElseBlock(structuredScopeBody(rest, target, literal, method, locals.toMutableMap(),
+                        guard.elseBlock().source().index(), lowered.drop(g + 1)))
+                    .setSource(guard.source()).build())
+                break
+            }
+            if (s is KtIfExpression) {
+                val hoisted = hoistNullSafeSpine(s, method, locals, childIndex)
+                hoisted.forEach { block.addStatement(it) }
+                val ifIndex = if (hoisted.isEmpty()) childIndex else hoistedStatementIndex(childIndex, hoisted.size)
+                val condition = s.condition?.let { convertExpression(it, method, locals) }
+                    ?: placeholder("k2-absent-condition", s)
+                hoistedReads.clear()
+                val thenList = branchStatements(s.then)
+                val elseList = branchStatements(s.`else`)
+                val (thenPart, elsePart) = when {
+                    exits(thenList, literal) -> thenList to elseList + rest
+                    exits(elseList, literal) -> thenList + rest to elseList
+                    else -> thenList to elseList // the tail: each branch is the body's value
+                }
+                block.addStatement(runtime.newIfElseBuilder().setExpression(condition)
+                    .setIfBlock(structuredScopeBody(thenPart, target, literal, method, locals.toMutableMap(), "$ifIndex.0"))
+                    .setElseBlock(structuredScopeBody(elsePart, target, literal, method, locals.toMutableMap(), "$ifIndex.1"))
+                    .setSource(source(s, ifIndex)).build())
+                break
+            }
+            plain() // the return itself: [inlinedReturn] makes it the assignment; what follows it is dead
+            break
+        }
+        return block.build()
+    }
+
+    /** Whether [structuredScopeBody] can lower every `return` to [literal] in [statements]; see there. */
+    private fun canStructure(statements: List<KtExpression>, literal: KtFunctionLiteral): Boolean {
+        for ((j, annotated) in statements.withIndex()) {
+            val s = unannotated(annotated)
+            if (!returnsTo(s, literal)) continue
+            val rest = statements.subList(j + 1, statements.size)
+            elvisGuardTo(s, literal)?.let { elvis ->
+                return elvis.left?.let { !returnsTo(it, literal) } == true && canStructure(rest, literal)
+            }
+            if (s is KtReturnExpression && returnedLiteral(s) === literal)
+                return s.returnedExpression.let { it == null || it !is KtTryExpression && !returnsTo(it, literal) }
+            if (s !is KtIfExpression || s.condition?.let { returnsTo(it, literal) } != false) return false
+            val thenList = branchStatements(s.then)
+            val elseList = branchStatements(s.`else`)
+            return when {
+                exits(thenList, literal) -> canStructure(thenList, literal) && canStructure(elseList + rest, literal)
+                exits(elseList, literal) -> canStructure(thenList + rest, literal) && canStructure(elseList, literal)
+                rest.isEmpty() -> canStructure(thenList, literal) && canStructure(elseList, literal)
+                else -> false
+            }
+        }
+        return true
+    }
+
+    /** `val y = e ?: return@let v` (or the bare elvis, the body's tail) whose jump returns to [literal]. */
+    private fun elvisGuardTo(s: KtExpression, literal: KtFunctionLiteral): KtBinaryExpression? {
+        val elvis = when {
+            isControlFlowElvis(s) -> s as KtBinaryExpression
+            s is KtProperty && s.isLocal && isControlFlowElvis(s.initializer?.let { unannotated(it) }) ->
+                unannotated(s.initializer!!) as KtBinaryExpression
+            s is KtDestructuringDeclaration && isControlFlowElvis(s.initializer?.let { unannotated(it) }) ->
+                unannotated(s.initializer!!) as KtBinaryExpression
+            else -> return null
+        }
+        return elvis.takeIf { (it.right as? KtReturnExpression)?.let(::returnedLiteral) === literal }
+    }
+
+    /** Whether no statement after the last of [statements] runs: it returns, throws, or is an `if` both of whose branches do. */
+    private fun exits(statements: List<KtExpression>, literal: KtFunctionLiteral): Boolean =
+        when (val last = statements.lastOrNull()?.let { unannotated(it) }) {
+            is KtReturnExpression, is KtThrowExpression -> true
+            is KtIfExpression -> exits(branchStatements(last.then), literal) && exits(branchStatements(last.`else`), literal)
+            else -> false
+        }
+
+    private fun branchStatements(branch: KtExpression?): List<KtExpression> = when (branch) {
+        null -> listOf()
+        is KtBlockExpression -> branch.statements
+        else -> listOf(branch)
+    }
+
+    /** Whether [expression] is or contains a `return` to [literal]. */
+    private fun returnsTo(expression: KtExpression, literal: KtFunctionLiteral): Boolean =
+        (expression as? KtReturnExpression)?.let { returnedLiteral(it) === literal } == true
+            || PsiTreeUtil.findChildrenOfType(expression, KtReturnExpression::class.java).any { returnedLiteral(it) === literal }
+
+    /** The lambda a labelled `return@L` returns from: the nearest enclosing literal labelled `L`. */
+    private fun returnedLiteral(statement: KtReturnExpression): KtFunctionLiteral? {
+        val label = statement.getLabelName() ?: return null
+        var element: PsiElement? = statement.parent
+        while (element != null) {
+            if (element is KtFunctionLiteral && label in lambdaLabels(element)) return element
+            if (element is KtDeclarationWithBody && element !is KtFunctionLiteral || element is KtClassOrObject) return null
+            element = element.parent
+        }
+        return null
+    }
+
+    /** A `return@let v` to an inlined literal ([structuredScopeBody]): `$let0 = v`, or `v` evaluated for nothing. */
+    private fun inlinedReturn(statement: KtReturnExpression, value: Expression): Statement? {
+        val literal = returnedLiteral(statement)?.takeIf { inlinedResults.containsKey(it) } ?: return null
+        val target = inlinedResults[literal]
+        return when {
+            statement.returnedExpression == null -> runtime.newBlockBuilder().setSource(runtime.noSource()).build()
+            target != null -> runtime.newExpressionAsStatement(runtime.newAssignment(runtime.newVariableExpressionBuilder().setVariable(target)
+                .setSource(runtime.noSource()).build(), value))
+            else -> runtime.newExpressionAsStatement(value)
+        }
     }
 
     /**
@@ -1431,6 +1599,7 @@ internal class KotlinBodyConverter(
      * A label that names nothing this walk can find keeps a counted placeholder rather than a guess.
      */
     private fun returnStatement(statement: KtReturnExpression, value: Expression): Statement {
+        inlinedReturn(statement, value)?.let { return it }
         val levels = returnExitLevels(statement)
             ?: return runtime.newExpressionAsStatement(placeholder("k2-return-target-unresolved", statement))
         return runtime.newReturnBuilder().setExpression(value).setExitLevels(levels)
@@ -2483,37 +2652,43 @@ internal class KotlinBodyConverter(
                 return@forEachIndexed convertHoisting(s, method, childLocals, childIndex)
                     .forEach { block.addStatement(it) }
             }
-            // `else inner ?: return false` in a value `if`: the guard, then the assignment
-            if (isControlFlowElvis(s)) controlFlowElvisLowering(s, method, childLocals, childIndex, assignTo = target)
-                ?.let { lowered -> return@forEachIndexed lowered.forEach { block.addStatement(it) } }
-            // `if (c) { try { … } catch … { … } } else …`: each arm of the try assigns
-            if (s is KtTryExpression) {
-                block.addStatement(convertTry(s, method, childLocals, childIndex, assignTo = target).withSource(source(s, childIndex)))
-                return@forEachIndexed
-            }
-            // `val v = try { when (…) { … } } catch …`: the `when` is the value, as in convertTailBlock
-            if (isValueWhen(s)) {
-                block.addStatement(indexed(runtime.newExpressionAsStatement(runtime.newAssignment(
-                    runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build(),
-                    convertExpression(s, method, childLocals))), childIndex))
-                return@forEachIndexed
-            }
-            // `else if (c) t else s ?: return 0`: the nested `if` is a value too, assigned in each of ITS branches
-            if (s is KtIfExpression && s.needsStatementForm()) {
-                block.addStatement(convertValueIf(s, method, childLocals, childIndex, returning = false, assignTo = target))
-                return@forEachIndexed
-            }
-            val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
-            hoisted.forEach { block.addStatement(it) }
-            val stmt = convertStatement(s, method, childLocals, tailIndex)
-            hoistedReads.clear()
-            block.addStatement(if (stmt is ExpressionAsStatement)
-                indexed(runtime.newExpressionAsStatement(
-                    runtime.newAssignment(runtime.newVariableExpressionBuilder().setVariable(target)
-                        .setSource(runtime.noSource()).build(), stmt.expression())), tailIndex)
-            else stmt)
+            addAssigningTail(block, target, s, method, childLocals, childIndex)
         }
         return block.build()
+    }
+
+    /** The TAIL [s] of a block whose value goes to [target], as [convertAssigningBlock] converts it. */
+    private fun KaSession.addAssigningTail(block: Block.Builder, target: Variable, s: KtExpression, method: MethodInfo,
+                                           childLocals: MutableMap<String, Variable>, childIndex: String) {
+        // `else inner ?: return false` in a value `if`: the guard, then the assignment
+        if (isControlFlowElvis(s)) controlFlowElvisLowering(s, method, childLocals, childIndex, assignTo = target)
+            ?.let { lowered -> return lowered.forEach { block.addStatement(it) } }
+        // `if (c) { try { … } catch … { … } } else …`: each arm of the try assigns
+        if (s is KtTryExpression) {
+            block.addStatement(convertTry(s, method, childLocals, childIndex, assignTo = target).withSource(source(s, childIndex)))
+            return
+        }
+        // `val v = try { when (…) { … } } catch …`: the `when` is the value, as in convertTailBlock
+        if (isValueWhen(s)) {
+            block.addStatement(indexed(runtime.newExpressionAsStatement(runtime.newAssignment(
+                runtime.newVariableExpressionBuilder().setVariable(target).setSource(runtime.noSource()).build(),
+                convertExpression(s, method, childLocals))), childIndex))
+            return
+        }
+        // `else if (c) t else s ?: return 0`: the nested `if` is a value too, assigned in each of ITS branches
+        if (s is KtIfExpression && s.needsStatementForm()) {
+            block.addStatement(convertValueIf(s, method, childLocals, childIndex, returning = false, assignTo = target))
+            return
+        }
+        val (hoisted, tailIndex) = hoistBefore(s, method, childLocals, childIndex)
+        hoisted.forEach { block.addStatement(it) }
+        val stmt = convertStatement(s, method, childLocals, tailIndex)
+        hoistedReads.clear()
+        block.addStatement(if (stmt is ExpressionAsStatement)
+            indexed(runtime.newExpressionAsStatement(
+                runtime.newAssignment(runtime.newVariableExpressionBuilder().setVariable(target)
+                    .setSource(runtime.noSource()).build(), stmt.expression())), tailIndex)
+        else stmt)
     }
 
     /**

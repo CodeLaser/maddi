@@ -71,6 +71,9 @@ public class TestKotlinScopeFunctionsVsJava {
             "RequireRead", "CheckRead", "ErrorRead", "RequireNotNullRead",
             // modifications in the inlined body: modified, as the direct code kotlinc compiles it to (see the class doc)
             "ApplyModify", "AlsoModify", "LetModify", "RunModify", "WithModify",
+            // a `return@label` to the scope function's own lambda (#88 stage 2): still inlined, the rest of the body
+            // in the other branch
+            "LetLabelledModify", "AlsoLabelledRead", "LetElvisModify",
             // the sensor sees a modification at all
             "Control");
 
@@ -91,6 +94,9 @@ public class TestKotlinScopeFunctionsVsJava {
             class LetModify(private val s: MutableSet<String>) { fun f() { s.let { it.clear() } } }
             class RunModify(private val s: MutableSet<String>) { fun f() { s.run { clear() } } }
             class WithModify(private val s: MutableSet<String>) { fun f() { with(s) { clear() } } }
+            class LetLabelledModify(private val s: MutableSet<String>) { fun f(): Int = s.let { if (it.isEmpty()) return@let 0; it.clear(); 1 } }
+            class AlsoLabelledRead(private val s: MutableSet<String>) { fun f() { s.also { if (it.isEmpty()) return@also; it.size } } }
+            class LetElvisModify(private val s: MutableSet<String>, private val k: String?) { fun f(): Int = s.let { val key = k ?: return@let 0; it.remove(key); 1 } }
             class Control(private val s: MutableSet<String>) { fun f() { s.clear() } }
             """;
 
@@ -173,6 +179,9 @@ public class TestKotlinScopeFunctionsVsJava {
                 a.LetModify false
                 a.RunModify false
                 a.WithModify false
+                a.LetLabelledModify false
+                a.AlsoLabelledRead true
+                a.LetElvisModify false
                 a.Control false""", verdicts);
     }
 
