@@ -33,6 +33,8 @@ public class MaddiConfigurable implements Configurable {
 
     private TextFieldWithBrowseButton jdkHomeField;
     private TextFieldWithBrowseButton daemonInstallField;
+    private TextFieldWithBrowseButton kotlinFrontEndField;
+    private JBCheckBox offerKotlinDownload;
     private JBIntSpinner xmxSpinner;
     private JBCheckBox autoAnalyzeOnBuild;
     private JBCheckBox showGuardFindings;
@@ -57,6 +59,12 @@ public class MaddiConfigurable implements Configurable {
                 FileChooserDescriptorFactory.createSingleFolderDescriptor()
                         .withTitle("Daemon distribution directory (optional override)"));
 
+        kotlinFrontEndField = new TextFieldWithBrowseButton();
+        kotlinFrontEndField.addBrowseFolderListener(null,
+                FileChooserDescriptorFactory.createSingleFolderDescriptor()
+                        .withTitle("Kotlin front end: a directory of K2 jars (optional override)"));
+        offerKotlinDownload = new JBCheckBox("Offer to download Kotlin support when a project has Kotlin sources");
+
         xmxSpinner = new JBIntSpinner(4096, 512, 131072, 512);
         autoAnalyzeOnBuild = new JBCheckBox("Re-analyze automatically after each successful build");
         showGuardFindings = new JBCheckBox("Mark guard contract violations");
@@ -70,6 +78,10 @@ public class MaddiConfigurable implements Configurable {
                 .addTooltip("maddi runs on this JDK and reads java.base from it. NOT the analyzed project's SDK.")
                 .addLabeledComponent("Daemon install override:", daemonInstallField, 1, false)
                 .addLabeledComponent("Daemon max heap (MB):", xmxSpinner, 1, false)
+                .addLabeledComponent("Kotlin front end override:", kotlinFrontEndField, 1, false)
+                .addTooltip("The lib-k2 directory of a maddi-kotlin distribution of the daemon's version. Empty:"
+                        + " downloaded on demand.")
+                .addComponent(offerKotlinDownload)
                 .addComponent(autoAnalyzeOnBuild)
                 .addComponent(showGuardFindings)
                 .addLabeledComponent("Inline hints:", inlineHintsMode, 1, false)
@@ -92,6 +104,8 @@ public class MaddiConfigurable implements Configurable {
         return !jdkHomeField.getText().equals(nullToEmpty(s.jdkHome))
                 || !daemonInstallField.getText().equals(nullToEmpty(s.daemonInstallDir))
                 || xmxSpinner.getNumber() != s.daemonXmxMb
+                || !kotlinFrontEndField.getText().equals(nullToEmpty(s.kotlinFrontEndDir))
+                || offerKotlinDownload.isSelected() != s.offerKotlinDownload
                 || autoAnalyzeOnBuild.isSelected() != s.autoAnalyzeOnBuild
                 || showGuardFindings.isSelected() != s.showGuardFindings
                 || inlineHintsMode.getSelectedItem() != s.inlineHintsMode
@@ -106,6 +120,8 @@ public class MaddiConfigurable implements Configurable {
         s.jdkHome = jdkHomeField.getText().trim();
         s.daemonInstallDir = daemonInstallField.getText().trim();
         s.daemonXmxMb = xmxSpinner.getNumber();
+        s.kotlinFrontEndDir = kotlinFrontEndField.getText().trim();
+        s.offerKotlinDownload = offerKotlinDownload.isSelected();
         s.autoAnalyzeOnBuild = autoAnalyzeOnBuild.isSelected();
         s.showGuardFindings = showGuardFindings.isSelected();
         s.inlineHintsMode = (InlineHintsMode) inlineHintsMode.getSelectedItem();
@@ -120,6 +136,8 @@ public class MaddiConfigurable implements Configurable {
         jdkHomeField.setText(nullToEmpty(s.jdkHome));
         daemonInstallField.setText(nullToEmpty(s.daemonInstallDir));
         xmxSpinner.setNumber(s.daemonXmxMb);
+        kotlinFrontEndField.setText(nullToEmpty(s.kotlinFrontEndDir));
+        offerKotlinDownload.setSelected(s.offerKotlinDownload);
         autoAnalyzeOnBuild.setSelected(s.autoAnalyzeOnBuild);
         showGuardFindings.setSelected(s.showGuardFindings);
         inlineHintsMode.setSelectedItem(s.inlineHintsMode);

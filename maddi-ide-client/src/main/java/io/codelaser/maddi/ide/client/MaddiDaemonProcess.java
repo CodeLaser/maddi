@@ -31,13 +31,14 @@ public final class MaddiDaemonProcess implements Closeable {
     private static final int PROTOCOL_VERSION = 1;
 
     /** What a running daemon was launched WITH; a request that differs needs a new process, not this one. */
-    private record Launch(Path installDir, Path jdkHome, int xmxMb) {
+    private record Launch(Path installDir, Path jdkHome, int xmxMb, Path kotlinFrontEndHome) {
     }
 
     private final DaemonLauncher launcher = new DaemonLauncher();
     private DaemonLauncher.Handle handle;
     private DaemonClient client;
     private String buildStamp = "unknown";
+    private String maddiVersion = "unknown";
     private Launch launched;
 
     /**
@@ -52,7 +53,19 @@ public final class MaddiDaemonProcess implements Closeable {
      */
     public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb, Path logFile)
             throws IOException, InterruptedException {
-        Launch wanted = new Launch(installDir, jdkHome, xmxMb);
+        ensureStarted(installDir, jdkHome, xmxMb, null, logFile);
+    }
+
+    /**
+     * As above, for a daemon that can also read Kotlin.
+     *
+     * @param kotlinFrontEndHome the directory of K2 jars ({@link KotlinFrontEndInstaller}); {@code null} for none,
+     *                           in which case the daemon analyses the Java half of a mixed project and says so.
+     *                           A change relaunches the daemon: the front end is installed once per JVM.
+     */
+    public synchronized void ensureStarted(Path installDir, Path jdkHome, int xmxMb, Path kotlinFrontEndHome,
+                                           Path logFile) throws IOException, InterruptedException {
+        Launch wanted = new Launch(installDir, jdkHome, xmxMb, kotlinFrontEndHome);
         if (handle != null && handle.process().isAlive() && client != null && wanted.equals(launched)) return;
         closeQuietly();
         List<String> jvmArgs = new ArrayList<>();
@@ -60,13 +73,16 @@ public final class MaddiDaemonProcess implements Closeable {
             jvmArgs.add("-Xmx" + xmxMb + "m");
             jvmArgs.add("-XX:+UseG1GC");
         }
-        handle = launcher.launch(installDir, jdkHome, jvmArgs, 60_000, logFile);
+        java.util.Map<String, String> environment = kotlinFrontEndHome == null ? java.util.Map.of()
+                : java.util.Map.of(KotlinFrontEndInstaller.ENV_K2_HOME, kotlinFrontEndHome.toAbsolutePath().toString());
+        handle = launcher.launch(installDir, jdkHome, jvmArgs, environment, 60_000, logFile);
         client = new DaemonClient(handle.port(), 600_000); // heartbeats keep long analyses alive
         JsonNode ack = client.handshake(PROTOCOL_VERSION);
         if (!"handshakeAck".equals(ack.path("type").asText())) {
             throw new IOException("daemon handshake failed: " + ack);
         }
         buildStamp = ack.path("buildStamp").asText("unknown");
+        maddiVersion = ack.path("maddiVersion").asText("unknown");
         launched = wanted;
     }
 
@@ -77,6 +93,11 @@ public final class MaddiDaemonProcess implements Closeable {
      */
     public synchronized String buildStamp() {
         return buildStamp;
+    }
+
+    /** The maddi release the running daemon belongs to, from its handshake; {@code "unknown"} if it did not say. */
+    public synchronized String maddiVersion() {
+        return maddiVersion;
     }
 
     /** Send an analyze request; blocks until the daemon returns {@code result} or {@code error}. */
