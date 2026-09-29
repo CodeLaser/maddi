@@ -71,6 +71,11 @@ public class TestKotlinScopeFunctionsVsJava {
             "RequireRead", "CheckRead", "ErrorRead", "RequireNotNullRead",
             // modifications in the inlined body: modified, as the direct code kotlinc compiles it to (see the class doc)
             "ApplyModify", "AlsoModify", "LetModify", "RunModify", "WithModify",
+            // a `return@label` to the scope function's own lambda (#88 stage 2): still inlined, the rest of the body
+            // in the other branch
+            "LetLabelledModify", "AlsoLabelledRead", "LetElvisModify",
+            // `use` is a try-with-resources on its receiver (#88 stage 3): as b.JTryWithResourcesRead
+            "UseRead", "UseModify",
             // the sensor sees a modification at all
             "Control");
 
@@ -91,6 +96,11 @@ public class TestKotlinScopeFunctionsVsJava {
             class LetModify(private val s: MutableSet<String>) { fun f() { s.let { it.clear() } } }
             class RunModify(private val s: MutableSet<String>) { fun f() { s.run { clear() } } }
             class WithModify(private val s: MutableSet<String>) { fun f() { with(s) { clear() } } }
+            class LetLabelledModify(private val s: MutableSet<String>) { fun f(): Int = s.let { if (it.isEmpty()) return@let 0; it.clear(); 1 } }
+            class AlsoLabelledRead(private val s: MutableSet<String>) { fun f() { s.also { if (it.isEmpty()) return@also; it.size } } }
+            class LetElvisModify(private val s: MutableSet<String>, private val k: String?) { fun f(): Int = s.let { val key = k ?: return@let 0; it.remove(key); 1 } }
+            class UseRead(private val s: java.io.StringWriter) { fun f(): String = s.use { it.toString() } }
+            class UseModify(private val s: java.io.StringWriter) { fun f() { s.use { it.write("x") } } }
             class Control(private val s: MutableSet<String>) { fun f() { s.clear() } }
             """;
 
@@ -109,6 +119,7 @@ public class TestKotlinScopeFunctionsVsJava {
             "package b; import java.util.Set; public final class JOptionalModify { private final Set<String> s; public JOptionalModify(Set<String> s) { this.s = s; } public void f() { java.util.Optional.of(s).ifPresent(x -> x.clear()); } }",
             "package b; import java.util.Set; public final class JStreamModify { private final Set<String> s; public JStreamModify(Set<String> s) { this.s = s; } public void f() { java.util.stream.Stream.of(s).forEach(x -> x.clear()); } }",
             "package b; import java.util.Set; import java.util.function.Consumer; public final class JConsumerModify { private final Set<String> s; public JConsumerModify(Set<String> s) { this.s = s; } public void f() { Consumer<Set<String>> c = x -> x.clear(); c.accept(s); } }",
+            "package b; public final class JTryWithResourcesRead { private final java.io.StringWriter s; public JTryWithResourcesRead(java.io.StringWriter s) { this.s = s; } public String f() throws java.io.IOException { try (s) { return s.toString(); } } }",
             "package b; import java.util.Set; public final class JListForEachModify { private final java.util.List<Set<String>> s; public JListForEachModify(java.util.List<Set<String>> s) { this.s = s; } public void f() { s.forEach(x -> x.clear()); } }");
 
     @Test
@@ -148,7 +159,7 @@ public class TestKotlinScopeFunctionsVsJava {
                 .setMaxIterations(30).setStopWhenCycleDetectedAndNoImprovements(true).setFaultTolerant(true)
                 .build()).analyze(order, callGraph);
 
-        String verdicts = Stream.concat(Stream.of("b.J", "b.JOptionalModify", "b.JStreamModify", "b.JConsumerModify", "b.JListForEachModify"), ROWS.stream().map(r -> "a." + r))
+        String verdicts = Stream.concat(Stream.of("b.J", "b.JOptionalModify", "b.JStreamModify", "b.JConsumerModify", "b.JListForEachModify", "b.JTryWithResourcesRead"), ROWS.stream().map(r -> "a." + r))
                 .map(fqn -> fqn + " " + unmodified(type(primaryTypes, fqn)))
                 .collect(Collectors.joining("\n"));
         LOGGER.info("field verdicts:\n{}", verdicts);
@@ -158,6 +169,7 @@ public class TestKotlinScopeFunctionsVsJava {
                 b.JStreamModify true
                 b.JConsumerModify false
                 b.JListForEachModify true
+                b.JTryWithResourcesRead true
                 a.LetRead true
                 a.ApplyRead true
                 a.AlsoRead true
@@ -173,6 +185,11 @@ public class TestKotlinScopeFunctionsVsJava {
                 a.LetModify false
                 a.RunModify false
                 a.WithModify false
+                a.LetLabelledModify false
+                a.AlsoLabelledRead true
+                a.LetElvisModify false
+                a.UseRead true
+                a.UseModify false
                 a.Control false""", verdicts);
     }
 

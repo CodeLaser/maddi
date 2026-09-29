@@ -151,20 +151,11 @@ public class TestKotlinAnalyzerSynthesized extends CommonKotlinAnalyzerTest {
     }
 
     /*
-     `with`/`run` (the receiver) and `also` (the `it`) are inlined (#88): a modification in the body is the
-     method's, as in the Java twin. ⛔ `use` is not inlined yet (#88 stage 3: a try/finally with close()), so `useIt`
-     still reads as non-modifying and its argument as unmodified.
+     `with`/`run` (the receiver), `also` (the `it`) and `use` (a try-with-resources on its receiver) are inlined
+     (#88): a modification in the body is the method's, as in the Java twin.
      */
     @Test
     public void scopeFunctionsOnAField() {
-        a.assertSameAsJava("Idioms", "withIt", "runIt", "alsoIt");
-        assertEquals("""
-                type Idioms: @FinalFields @Dependent
-                method useIt: nonModifying=true @Independent | 0: unmodified=false @Independent""",
-                a.java("Idioms", "useIt"));
-        assertEquals("""
-                type Idioms: @FinalFields @Dependent
-                method useIt: nonModifying=true @Independent | 0: unmodified=true @Independent""",
-                a.kotlin("Idioms", "useIt"));
+        a.assertSameAsJava("Idioms", "withIt", "runIt", "alsoIt", "useIt");
     }
 }
