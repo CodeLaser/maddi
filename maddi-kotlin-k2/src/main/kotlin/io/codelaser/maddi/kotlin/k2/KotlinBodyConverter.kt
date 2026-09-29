@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.element.SourceSet
 import io.codelaser.maddi.cst.api.expression.EmptyExpression
 import io.codelaser.maddi.cst.api.expression.Expression
 import io.codelaser.maddi.cst.api.expression.NullConstant
+import io.codelaser.maddi.cst.api.expression.ConstructorCall
 import io.codelaser.maddi.cst.api.expression.Lambda
 import io.codelaser.maddi.cst.api.expression.MethodCall
 import io.codelaser.maddi.cst.api.expression.VariableExpression
@@ -410,6 +411,18 @@ internal class KotlinBodyConverter(
     private abstract inner class IndexTranslation : TranslationMap {
         override fun translateVariableRecursively(variable: Variable): Variable =
             runtime.translateVariableRecursively(this, variable)
+
+        /**
+         * ⛔ Never INTO an `object :` or a lambda: their bodies are numbered by their own conversion, and translating
+         * the type they carry COPIES it (TypeInfo.translate rebuilds a type whose methods come back as new instances)
+         * -- before commitDeferred computed an object literal's overrides, so the CST kept a copy whose `f()`
+         * overrode nothing. A different instance of the same expression ends the recursion; it shares the type.
+         */
+        override fun translateExpression(expression: Expression): Expression = when {
+            expression is ConstructorCall && expression.anonymousClass() != null -> expression.withSource(expression.source())
+            expression is Lambda -> expression.withSource(expression.source())
+            else -> expression
+        }
     }
 
     /** Zero-pad [i] to the width of the largest index in a block of [n] statements (so they sort in order). */
@@ -509,7 +522,7 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.hoistNullSafeSpine(statement: KtExpression, method: MethodInfo,
                                              locals: MutableMap<String, Variable>,
-                                             index: String): List<Statement> {
+                                             index: String, valueDiscarded: Boolean = false): List<Statement> {
         hoistedReads.clear()
         val root = when (statement) {
             is KtProperty -> if (statement.isLocal) statement.initializer else null
@@ -520,6 +533,7 @@ internal class KotlinBodyConverter(
         val raw = ArrayList<Statement>()
         hoistOutOfOrderArguments(root, method, locals, raw)
         hoistSpineOf(root, method, locals, index, raw)
+        lowerScopeOnReceiverChain(root, method, locals, index, valueDiscarded && root === statement, raw)
         // ⚠ indexed only now: the declarations and the statement they precede must sort, and `pad` needs the
         // total (9 temporaries and a statement would otherwise index .10 before .2, as strings)
         return raw.mapIndexed { i, d -> indexed(d, "$index.${pad(i, raw.size + 1)}") }
@@ -581,6 +595,9 @@ internal class KotlinBodyConverter(
             else -> return
         } ?: return
         hoistSpineOf(tested, method, locals, index, declarations)   // innermost first
+        // a scope function on the spine (`x?.let { … } ?: y`): its body inlined here, its value read after (#88)
+        scopeCall(tested)?.let { sc -> lowerScopeCall(sc, method, locals, index, true, declarations)
+            ?.let { hoistedReads[tested] = it; return } }
         if (isStableReference(tested)) return                       // re-reading it evaluates nothing
         val type = tested.expressionType?.let { mapType(it, method.typeInfo()) }
             ?: runtime.objectParameterizedType()
@@ -588,6 +605,217 @@ internal class KotlinBodyConverter(
         val temporary = runtime.newLocalVariable(name, type, convertExpression(tested, method, locals))
         declarations.add(runtime.newLocalVariableCreation(temporary))
         hoistedReads[tested] = temporary
+    }
+
+    // ---- scope functions, inlined as kotlinc inlines them (#88) ---------------------------------------------------
+
+    /**
+     * <b>`apply`, `also`, `let`, `run` and `with` are inlined, not called.</b> They are `@InlineOnly`: kotlinc copies
+     * the lambda's body into the caller, where it runs exactly once, on the receiver. Called, the body was a lambda
+     * whose PARAMETER the body modified, and the engine (by design, for a function that may never call its lambda)
+     * does not carry that back to the argument: `fun addAll(xs) = apply { xs.forEach { sb.append(it) } }` read as
+     * non-modifying, `sb.also { it.append("x") }` left `sb` unmodified. Inlined, the body is statements of the
+     * enclosing method, and the analysis sees what the JVM runs:
+     * <pre>
+     *   val b = sb.apply { append("x") }     ->   { $this$apply... } -- sb is stable, so bound directly:
+     *                                             { sb.append("x"); }  StringBuilder b = sb;
+     *   val n = f().let { it.size + 1 }      ->   List it = f(); int $let0; { $let0 = it.size() + 1; } int n = $let0;
+     *   x?.also { log(it) }                  ->   if (!(x == null)) { log(x); }
+     * </pre>
+     * A receiver that is a parameter, `this`, or a `val` is bound directly (re-reading it is the same object);
+     * anything else is evaluated once into a local, as kotlinc does. A `return` in the body leaves the enclosing
+     * function, now without crossing a lambda ([returnExitLevels] skips [inlinedLiterals]).
+     *
+     * <p>Only where it cannot move an evaluation: on a statement's unconditionally-evaluated spine
+     * ([hoistNullSafeSpine]), or the statement itself. Not inlined, and so still a call: a lambda that is not a
+     * literal written in place (`x.let(::f)`, a variable, a labelled literal), a destructured parameter, and a
+     * `return@label` to the literal itself (it needs a jump out of the inlined block).
+     */
+    private enum class ScopeKind(val receiverLambda: Boolean, val valueIsReceiver: Boolean) {
+        APPLY(true, true), ALSO(false, true), LET(false, false), RUN(true, false), WITH(true, false),
+        RUN_PLAIN(false, false)
+    }
+
+    private class ScopeCall(val kind: ScopeKind, val name: String, val call: KtCallExpression,
+                            val receiver: KtExpression?, val safe: Boolean, val lambda: KtLambdaExpression)
+
+    private var scopeTemporaries = 0
+    private var scopeBlocks = 0
+
+    /** Function literals whose body is being converted INLINE (#88): a `return` inside one leaves no lambda. */
+    private val inlinedLiterals: MutableSet<KtFunctionLiteral> =
+        java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+
+    /** Statements whose whole expression was an inlined scope call with its value discarded: nothing follows it. */
+    private val discardedScopeStatements: MutableSet<KtExpression> =
+        java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+
+    private fun KaSession.scopeCall(expression: KtExpression): ScopeCall? {
+        val (call, receiver, safe) = when (expression) {
+            is KtQualifiedExpression -> Triple(expression.selectorExpression as? KtCallExpression ?: return null,
+                expression.receiverExpression, expression is KtSafeQualifiedExpression)
+            is KtCallExpression -> Triple(expression, null, false)
+            else -> return null
+        }
+        val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol ?: return null
+        val id = symbol.callableId ?: return null
+        if (id.packageName.asString() != "kotlin" || id.className != null) return null
+        val name = id.callableName.asString()
+        val kind = when (name) {
+            "apply" -> ScopeKind.APPLY
+            "also" -> ScopeKind.ALSO
+            "let" -> ScopeKind.LET
+            "run" -> if (symbol.receiverParameter != null) ScopeKind.RUN else ScopeKind.RUN_PLAIN
+            "with" -> ScopeKind.WITH
+            else -> return null
+        }
+        val arguments = call.valueArguments
+        if (arguments.size != (if (kind == ScopeKind.WITH) 2 else 1)) return null
+        val lambda = arguments.last().getArgumentExpression() as? KtLambdaExpression ?: return null
+        if (lambda.valueParameters.any { it.destructuringDeclaration != null }) return null
+        // `return@let v` returns from the literal itself: inlined, that is a jump out of the block (not yet)
+        val labels = lambdaLabels(lambda.functionLiteral)
+        if (com.intellij.psi.util.PsiTreeUtil.findChildrenOfType(lambda, KtReturnExpression::class.java)
+                .any { it.getLabelName() in labels }) return null
+        val withReceiver = if (kind == ScopeKind.WITH) arguments[0].getArgumentExpression() ?: return null else null
+        if (withReceiver == null && receiver == null && kind != ScopeKind.RUN_PLAIN
+            && call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.extensionReceiver == null) return null
+        return ScopeCall(kind, name, call, withReceiver ?: receiver, safe, lambda)
+    }
+
+    /** Whether reading [receiver] again yields the same object: `this`, a parameter, a `val`. */
+    private fun KaSession.isStableReceiver(receiver: KtExpression?, value: Expression): Boolean {
+        if (receiver == null) return value is VariableExpression  // an implicit receiver: `this` or a `$receiver`
+        return when (val r = KtPsiUtil.safeDeparenthesize(receiver)) {
+            is KtThisExpression -> true
+            is KtNameReferenceExpression -> when (val s = r.mainReference.resolveToSymbol()) {
+                is KaValueParameterSymbol -> true
+                is KaVariableSymbol -> s.isVal
+                else -> false
+            }
+            else -> false
+        } && value is VariableExpression
+    }
+
+    private fun freshName(base: String, locals: Map<String, Variable>): String {
+        if (base !in locals) return base
+        var k = 1
+        while ("$base$$k" in locals) k++
+        return "$base$$k"
+    }
+
+    /**
+     * Emits [sc] inlined into [out] and returns the variable holding its value (the receiver's for `apply`/`also`,
+     * a result local otherwise), or null when it cannot be inlined -- then nothing has been emitted. With
+     * [valueUsed] false (the whole statement), no result local is made.
+     */
+    private fun KaSession.lowerScopeCall(sc: ScopeCall, method: MethodInfo, locals: MutableMap<String, Variable>,
+                                         index: String, valueUsed: Boolean, out: MutableList<Statement>): Variable? {
+        val functionType = sc.lambda.expressionType as? KaFunctionType ?: return null
+        val resultUnit = functionType.returnType.isUnitType
+        if (valueUsed && !sc.kind.valueIsReceiver && resultUnit) return null
+        val enclosingType = method.typeInfo()
+        val emitted = ArrayList<Statement>()
+        // the receiver, evaluated once
+        val receiverValue: Expression? = when {
+            sc.kind == ScopeKind.RUN_PLAIN -> null
+            sc.receiver != null -> convertExpression(sc.receiver, method, locals)
+            else -> implicitReceiverValue(sc.call.resolveToCall()?.singleFunctionCallOrNull()
+                ?.partiallyAppliedSymbol?.extensionReceiver, method, locals) ?: return null
+        }
+        val parameterName = sc.lambda.valueParameters.singleOrNull()?.name ?: "it"
+        val bound: Variable? = receiverValue?.let { value ->
+            if (isStableReceiver(sc.receiver, value)) (value as VariableExpression).variable()
+            else {
+                val type = (functionType.receiverType ?: functionType.parameterTypes.firstOrNull())
+                    ?.let { mapType(it, enclosingType) } ?: value.parameterizedType()
+                val local = runtime.newLocalVariable(
+                    freshName(if (sc.kind.receiverLambda) "\$this\$${sc.name}" else parameterName, locals), type, value)
+                locals[local.simpleName()] = local
+                emitted.add(runtime.newLocalVariableCreation(local))
+                local
+            }
+        }
+        // the body's scope: the lambda's receiver or parameter is the bound receiver
+        val scope = locals.toMutableMap()
+        if (bound != null) {
+            if (sc.kind.receiverLambda) {
+                scope["\$receiver"] = bound
+                scope[receiverKey(sc.lambda.functionLiteral)] = bound
+            } else if (sc.lambda.valueParameters.size <= 1) scope[parameterName] = bound
+        }
+        val result = if (!sc.kind.valueIsReceiver && valueUsed) {
+            val type = (sc.call.parent as? KtQualifiedExpression)?.takeIf { it.selectorExpression === sc.call }
+                ?.expressionType?.let { mapType(it, enclosingType) }
+                ?: sc.call.expressionType?.let { mapType(it, enclosingType) } ?: runtime.objectParameterizedType()
+            val local = runtime.newLocalVariable("\$${sc.name}${scopeTemporaries++}", type,
+                if (sc.safe) runtime.nullConstant() else runtime.newEmptyExpression())
+            locals[local.simpleName()] = local
+            emitted.add(runtime.newLocalVariableCreation(local))
+            local
+        } else null
+        // provisional, renumbered by normalizeIndices; an `if`'s sub-blocks keep their last component, so numeric
+        val provisional = "$index.${scopeBlocks++}"
+        val blockIndex = if (sc.safe) "$provisional.0" else provisional
+        inlinedLiterals.add(sc.lambda.functionLiteral)
+        val body = try {
+            if (result != null) convertAssigningBlock(result, sc.lambda.bodyExpression, method, scope, blockIndex)
+            else convertBlock(sc.lambda.bodyExpression, method, scope, blockIndex)
+        } finally {
+            inlinedLiterals.remove(sc.lambda.functionLiteral)
+        }
+        if (sc.safe && bound != null) {
+            val notNull = runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
+                runtime.newEquals(variableExpression(bound), runtime.nullConstant()), runtime.precedenceUnary())
+            emitted.add(runtime.newIfElseBuilder().setExpression(notNull).setIfBlock(body)
+                .setElseBlock(runtime.newBlockBuilder().setSource(runtime.noSource().withIndex("$provisional.1")).build())
+                .setSource(runtime.noSource()).build())
+        } else emitted.add(body)
+        out.addAll(emitted)
+        return if (sc.kind.valueIsReceiver) bound else result
+    }
+
+    /**
+     * The root of a statement's value, or a receiver down its `.` chain (`x.apply { … }.build()`): evaluated first,
+     * so inlining it before the statement moves nothing. The safe-call and elvis spine is [hoistSpineOf]'s.
+     */
+    private fun KaSession.lowerScopeOnReceiverChain(root: KtExpression, method: MethodInfo,
+                                                    locals: MutableMap<String, Variable>, index: String,
+                                                    rootDiscarded: Boolean, out: MutableList<Statement>) {
+        var node: KtExpression? = root
+        while (node != null && !hoistedReads.containsKey(node)) {
+            val sc = scopeCall(node)
+            if (sc != null) {
+                val discarded = rootDiscarded && node === root
+                val before = out.size
+                val value = lowerScopeCall(sc, method, locals, index, !discarded, out)
+                if (value != null && !discarded) hoistedReads[node] = value
+                if (discarded && out.size > before) discardedScopeStatements.add(node)
+                return
+            }
+            node = when (node) {
+                is KtDotQualifiedExpression -> node.receiverExpression
+                is KtParenthesizedExpression -> node.expression
+                else -> null
+            }
+        }
+    }
+
+    /** A statement that IS a scope call, its value discarded (`sb.apply { … }`, `x?.let { f(it) }`): the inlined body alone. */
+    private fun KaSession.scopeCallStatementLowering(statement: KtExpression, method: MethodInfo,
+                                                     locals: MutableMap<String, Variable>, index: String): List<Statement>? {
+        if (scopeCall(statement) == null) return null
+        val hoisted = hoistNullSafeSpine(statement, method, locals, index, valueDiscarded = true)
+        val discarded = discardedScopeStatements.remove(statement)
+        if (!discarded) {
+            // not inlined after all: the ordinary path, which reads whatever was hoisted
+            if (hoisted.isEmpty()) { hoistedReads.clear(); return null }
+            val converted = convertStatement(statement, method, locals, hoistedStatementIndex(index, hoisted.size))
+            hoistedReads.clear()
+            return hoisted + converted
+        }
+        hoistedReads.clear()
+        return hoisted
     }
 
     /**
@@ -684,6 +912,7 @@ internal class KotlinBodyConverter(
             ?: spineArrayInitLowering(s, method, locals, index)
             ?: destructuringLowering(s, method, locals, index)
             ?: statementAsValueLowering(s, method, locals, index)
+            ?: scopeCallStatementLowering(s, method, locals, index)
             ?: safeCallAsStatementLowering(s, method, locals, index))
             ?.let { withRefInit(s, it, index) }
     }
@@ -1220,7 +1449,8 @@ internal class KotlinBodyConverter(
         var element: PsiElement? = statement.parent
         while (element != null) {
             when (element) {
-                is KtFunctionLiteral -> {
+                // an INLINED literal (#88) is no lambda in the CST: a return inside it leaves none
+                is KtFunctionLiteral -> if (element !in inlinedLiterals) {
                     if (label != null && label in lambdaLabels(element)) return levels
                     levels++
                 }

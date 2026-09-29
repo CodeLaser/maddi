@@ -101,8 +101,9 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         // detekt's `with(configSpec) { configPaths }`
         val getSize = calls(type("K").findUniqueMethod("viaWith", 1)).single { it.methodInfo().name() == "getSize" }
         assertEquals(type("Box"), getSize.methodInfo().typeInfo())
+        // `with` is inlined (#88): the receiver is the argument itself, not a lambda's `$receiver`
         val receiver = receiverParameter(getSize)
-        assertEquals("\$receiver", receiver.name())
+        assertEquals("b", receiver.name())
         assertEquals(type("Box"), receiver.parameterizedType().typeInfo())
     }
 
@@ -122,7 +123,7 @@ class ImplicitReceiverTest : KotlinScanTestBase() {
         val getSize = calls(nested).single { it.methodInfo().name() == "getSize" }
         val receiver = receiverParameter(getSize)
         assertEquals(type("Box"), receiver.parameterizedType().typeInfo())
-        assertEquals("\$receiver", receiver.name())
+        assertEquals("b", receiver.name(), "the outer `with(b)`, inlined (#88)")
     }
 
     @Test

@@ -82,7 +82,8 @@ class NonLocalReturnTest : KotlinScanTestBase() {
     @Test
     fun aBareReturnInALambdaLeavesIt() {
         assertEquals("1 0", returns("bare"))
-        assertEquals("1 0", returns("viaRun"))
+        // `run { … }` is inlined (#88): its body is the method's, and the return leaves no lambda
+        assertEquals("0 0", returns("viaRun"))
     }
 
     @Test

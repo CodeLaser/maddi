@@ -62,8 +62,8 @@ class JavalinTailTest : KotlinScanTestBase() {
         assertEquals("""
             none: return new ProcessBuilder();
             two: return new ProcessBuilder("a","b");
-            date: return StandardKt.apply(new Date(),${'$'}receiver->${'$'}receiver.setTime(5L));
-            calendar: return StandardKt.apply(new GregorianCalendar(),${'$'}receiver->${'$'}receiver.setTimeInMillis(5L));
+            date: Date ${'$'}this${'$'}apply=new Date(); {${'$'}this${'$'}apply.setTime(5L);} return ${'$'}this${'$'}apply;
+            calendar: GregorianCalendar ${'$'}this${'$'}apply=new GregorianCalendar(); {${'$'}this${'$'}apply.setTimeInMillis(5L);} return ${'$'}this${'$'}apply;
             ready: return this.driver!=null;
             readyThis: return this.driver!=null;
             hiddenReady: return this.hidden!=null;
