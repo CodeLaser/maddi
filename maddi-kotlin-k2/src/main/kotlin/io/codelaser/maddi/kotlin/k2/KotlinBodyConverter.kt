@@ -882,7 +882,7 @@ internal class KotlinBodyConverter(
                     controlFlowElvisLowering(s, method, locals, childIndex, assignTo = target)
                 else controlFlowElvisLowering(s, method, locals, childIndex))
                     ?: error("canStructure admitted an elvis controlFlowElvisLowering refuses")
-                val g = lowered.indexOfFirst { it is IfElseStatement }
+                val g = lowered.indexOfLast { it is IfElseStatement } // an inlined `?.let` on the left comes first
                 lowered.take(g).forEach { block.addStatement(it) }
                 val guard = lowered[g] as IfElseStatement
                 block.addStatement(runtime.newIfElseBuilder().setExpression(guard.expression()).setIfBlock(guard.block())
@@ -1251,8 +1251,16 @@ internal class KotlinBodyConverter(
         // Measured before this was fixed: 190 such sites on detekt, 3 on coil. So a left operand that is not
         // a stable reference is bound to a temporary first, exactly as a hand-written Java version would.
         val statements = ArrayList<Statement>()
-        val needsTemporary = !isWholeStatement && !isStableReference(left)
-        val leftValue: () -> Expression = if (!needsTemporary) {
+        // `x?.let { … } ?: return`: the left operand is evaluated first and unconditionally, so a scope function there
+        // is inlined like one on a statement's spine (#88); its value is the tested temporary
+        val lowered = ArrayList<Statement>()
+        val scopeValue = scopeCall(KtPsiUtil.safeDeparenthesize(left))
+            ?.let { sc -> lowerScopeCall(sc, method, locals, "$index.0", true, lowered) }
+        lowered.forEachIndexed { i, st -> statements.add(indexed(st, "$index.0.${pad(i, lowered.size)}")) }
+        val needsTemporary = scopeValue == null && !isWholeStatement && !isStableReference(left)
+        val leftValue: () -> Expression = if (scopeValue != null) {
+            { runtime.newVariableExpressionBuilder().setVariable(scopeValue).setSource(runtime.noSource()).build() }
+        } else if (!needsTemporary) {
             { convertExpression(left, method, locals) }   // a name/this/dotted chain: re-reading it is free
         } else {
             val type = left.expressionType?.let { mapType(it, method.typeInfo()) }
@@ -1267,8 +1275,8 @@ internal class KotlinBodyConverter(
         }
         // with a temporary the guard is the SECOND statement, so the indexes shift by one
         val guardIndex = when {
-            isWholeStatement -> index
-            needsTemporary -> "$index.1"
+            isWholeStatement && scopeValue == null -> index
+            needsTemporary || scopeValue != null -> "$index.1"
             else -> "$index.0"
         }
         val guard = runtime.newIfElseBuilder()
@@ -1292,7 +1300,7 @@ internal class KotlinBodyConverter(
             is KtBinaryExpression -> assignmentStatement(statement, leftValue(), method, locals)
             else -> return null
         }
-        val whole = source(statement, if (needsTemporary) "$index.2" else "$index.1")
+        val whole = source(statement, if (needsTemporary || scopeValue != null) "$index.2" else "$index.1")
         val detailed = raw.source()?.detailedSources()
         statements.add(raw.withSource(if (detailed == null) whole else whole.withDetailedSources(detailed)))
         return statements
