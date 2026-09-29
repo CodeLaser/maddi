@@ -223,7 +223,7 @@ memberless and silently dropped a Java file that called one (#76 describes what 
 state and `const` on the enclosing class, as kotlinc), #69 (lowered statements renumbered as siblings), #79 (pattern
 variable in a conditional expression), #72 (a lambda-assigned `var` is a `Ref` holder), #94 (a lambda's write through a captured holder reaches
 its creator, Java and Kotlin; Kotlin's static extension consumers such as `CollectionsKt.forEach` are contracted);
-#78 (`Iterable`/`Sequence` read as function types; a library vararg call bound to its last argument); #67 (a smart-cast read is a cast, as kotlinc checkcasts it, its `§m` gap, Java too, is #95; a stdlib call is qualified by the public multifile facade, as Java's is); #68 closed as not reproducible. Their pins have become
+#78 (`Iterable`/`Sequence` read as function types; a library vararg call bound to its last argument); #67 (a smart-cast read is a cast, as kotlinc checkcasts it, its `§m` gap, Java too, is #95; a stdlib call is qualified by the public multifile facade, as Java's is); #88 stage 1 (`apply`/`also`/`let`/`run`/`with` inlined as kotlinc inlines them; `use` and `return@label` pending); #68 closed as not reproducible. Their pins have become
 parity assertions; the tables in §5 and §6 give the counts as first measured.
 
 Language-level parity holds wherever the types agree: a Kotlin function type links exactly as Java code taking a

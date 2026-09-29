@@ -90,7 +90,7 @@ class ContextParameterTest : KotlinScanTestBase() {
         val byName = calls(type("Host").findUniqueMethod("caller", 2)).associateBy { it.methodInfo().name() }
         listOf("member", "top", "ext2", "getProp").forEach { n ->
             val context = firstArgument(byName.getValue(n))
-            assertEquals("\$receiver", context.name(), n)
+            assertEquals("s", context.name(), n) // `with(s)` is inlined (#88): the Session is `s` itself
             assertEquals(type("Session"), context.parameterizedType().typeInfo(), n)
         }
         assertEquals(3, byName.getValue("ext2").parameterExpressions().size, "context, receiver, value")

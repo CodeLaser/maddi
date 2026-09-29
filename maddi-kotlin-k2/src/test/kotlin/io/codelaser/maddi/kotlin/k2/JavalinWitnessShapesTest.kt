@@ -61,10 +61,10 @@ class JavalinWitnessShapesTest : KotlinScanTestBase() {
         // `this` in a receiver lambda is the lambda's receiver (it was K's `this`: a read of the wrong object)
         assertEquals("""
             run: Function1<Runnable[],Object> runConcurrently=tasks->ArraysKt.forEach(tasks,it->it.run()); runConcurrently.invoke(new Runnable[]{()->a.run(),()->b.run()});
-            connect: return StandardKt.apply(new Server(),${'$'}receiver->CollectionsKt.forEach(names,${'$'}receiver::addConnector));
+            connect: Server ${'$'}this${'$'}apply=new Server(); {CollectionsKt.forEach(names,${'$'}this${'$'}apply::addConnector);} return ${'$'}this${'$'}apply;
             attach: if(h instanceof Wrapper){((Wrapper)h).handler=inner;}
             attachUnwrapped: {Handler ${'$'}safe0=JwKt.unwrap(h);if(${'$'}safe0 instanceof Wrapper){((Wrapper)${'$'}safe0).handler=inner;}}
-            self: return StandardKt.apply(new Server(),${'$'}receiver->${'$'}receiver.addConnector("x"));
+            self: Server ${'$'}this${'$'}apply=new Server(); {${'$'}this${'$'}apply.addConnector("x");} return ${'$'}this${'$'}apply;
             """.trimIndent(), listOf("run", "connect", "attach", "attachUnwrapped", "self").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

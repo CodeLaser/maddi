@@ -53,7 +53,7 @@ class BoundExtensionReferenceTest : KotlinScanTestBase() {
         assertEquals("""
             all: CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r));
             explicit: CollectionsKt.forEach(rs,r->BrKt.printRule(n,r));
-            viaWith: StandardKt.with(n,${'$'}receiver->CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r)));
+            viaWith: {CollectionsKt.forEach(rs,r->BrKt.printRule(n,r));}
             """.trimIndent(), listOf("all", "explicit", "viaWith").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

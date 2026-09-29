@@ -52,12 +52,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>⭐ MEASURED, uncontracted: every read row is unmodified -- the receiver is a bare {@code T}, which the defaults
  * already treat as unmodified -- so the census's "uncontracted" does not mean "harmful" here.
  *
- * <p>⛔ The MODIFY rows ({@code s.apply { clear() }}) are unmodified TOO, and that is the engine's design, not a Kotlin
- * gap: a modification made by a functional argument is not attributed to what was handed to it. The Java twins say
- * the same through the JDK -- {@code Optional.of(s).ifPresent(x -> x.clear())}, {@code Stream.of(s).forEach(..)},
- * {@code list.forEach(..)} all leave {@code s} unmodified; only a lambda invoked directly ({@code c.accept(s)}) is
- * seen. The two languages agree, which is what this asserts. If the engine ever learns to follow an argument into a
- * library lambda, both columns move together, and this test says so.
+ * <p>The MODIFY rows ({@code s.apply { clear() }}) are MODIFIED: the scope functions are {@code @InlineOnly}, and
+ * the front end inlines them as kotlinc does (#88), so the body is the method's own code and the modification is
+ * the field's, as in the control. The Java twins through a JDK lambda -- {@code Optional.of(s).ifPresent(x ->
+ * x.clear())}, {@code Stream.of(s).forEach(..)}, {@code list.forEach(..)} -- still leave {@code s} unmodified: that
+ * is the engine's design for a library call that applies a lambda it may never call. They are no longer the right
+ * twins for a scope function, which is not a call at all once compiled; they stay as the record of that design.
+ * Until #88 the Kotlin rows read unmodified too.
  *
  * <p>Guarded as TestKotlinPredicatesVsJava is: a zero-placeholder census, and a control that does modify.
  */
@@ -68,7 +69,7 @@ public class TestKotlinScopeFunctionsVsJava {
             // reads: the lambda only reads, so the field stays unmodified
             "LetRead", "ApplyRead", "AlsoRead", "TakeIfRead", "RunRead", "WithRead",
             "RequireRead", "CheckRead", "ErrorRead", "RequireNotNullRead",
-            // modifications through the lambda: unmodified, as Java's through a library lambda (see the class doc)
+            // modifications in the inlined body: modified, as the direct code kotlinc compiles it to (see the class doc)
             "ApplyModify", "AlsoModify", "LetModify", "RunModify", "WithModify",
             // the sensor sees a modification at all
             "Control");
@@ -167,11 +168,11 @@ public class TestKotlinScopeFunctionsVsJava {
                 a.CheckRead true
                 a.ErrorRead true
                 a.RequireNotNullRead true
-                a.ApplyModify true
-                a.AlsoModify true
-                a.LetModify true
-                a.RunModify true
-                a.WithModify true
+                a.ApplyModify false
+                a.AlsoModify false
+                a.LetModify false
+                a.RunModify false
+                a.WithModify false
                 a.Control false""", verdicts);
     }
 
