@@ -36,7 +36,7 @@ import java.util.List;
  * <p>
  * ⚠ Only the shapes whose meaning is plain are mapped. A declaration with no name of its own (a primary
  * constructor, {@code companion object}, an {@code init} block) has no leaf to anchor on and gets nothing yet;
- * a constructor {@code val} parameter is shown as the PARAMETER it is, not as the property it also declares. An
+ * a constructor {@code val} parameter shows its PARAMETER verdict inline and its FIELD verdict in the gutter. An
  * extension function's receiver, which has no name, is anchored on its type.
  */
 public final class KotlinDeclarations {
@@ -52,6 +52,19 @@ public final class KotlinDeclarations {
         String kind = kindOf(leaf);
         if (kind == null) return List.of();
         return "FIELD".equals(kind) ? List.of("FIELD", "METHOD") : List.of(kind);
+    }
+
+    /**
+     * The kinds the GUTTER looks for, which skips parameters. A constructor {@code val}/{@code var} parameter is also
+     * a field, over the same range, and the two verdicts can differ: the inline hint shows the parameter's, and the
+     * gutter the field's, so both are visible where each kind is normally shown.
+     */
+    public static List<String> gutterKindsOf(PsiElement leaf) {
+        if (leaf.getParent() instanceof KtParameter parameter && parameter.hasValOrVar()
+            && parameter.getNameIdentifier() == leaf) {
+            return List.of("FIELD");
+        }
+        return kindsOf(leaf);
     }
 
     public static @Nullable String kindOf(PsiElement leaf) {
