@@ -89,26 +89,28 @@ public class TestKotlinLinkConditionals extends CommonKotlinLinkTest {
 
     /*
      A smart-cast read is a cast (#67): `if (o is StringBuilder) return o` converts to `return (StringBuilder)o;` and
-     links exactly as the Java cast form `smartIfCast`. ⛔ maddi#95: a downcast (Java or Kotlin) drops the
-     modification-area link a Java pattern variable keeps (`§m≡0:o.§m`), so modifying the result is not modifying `o`.
+     links exactly as the Java cast form `smartIfCast`. Since maddi#95 a downcast returned whole keeps the
+     modification-area link a pattern variable keeps (`§m≡0:o.§m`), so the Kotlin smart cast and the Java pattern
+     summarise alike: modifying the result is modifying `o`.
      */
     @Test
     public void smartCastStatement() {
         assertEquals("[-] --> smartIf←$_ce0,smartIf←0:o,smartIf.§m≡0:o.§m", p.javaLinks("smartIf"));
-        assertEquals("[-] --> smartIfCast←$_ce0,smartIfCast←0:o", p.links(p.java("smartIfCast")));
-        assertEquals("[-] --> smartIf←$_ce0,smartIf←0:o", p.kotlinLinks("smartIf"));
+        assertEquals("[-] --> smartIfCast←$_ce0,smartIfCast←0:o,smartIfCast.§m≡0:o.§m",
+                p.links(p.java("smartIfCast")));
+        p.assertSameAsJava("smartIf");
         p.assertSameAsJava("castMutable");
-        assertEquals("[-] --> castMutable←0:o", p.kotlinLinks("castMutable"));
+        assertEquals("[-] --> castMutable.§m≡0:o.§m,castMutable←0:o", p.kotlinLinks("castMutable"));
     }
 
     /*
      A pattern variable in a Java conditional expression links to the value it was bound from (#79, fixed; it linked
-     to nothing). ⛔ The Kotlin side reads `(StringBuilder)o`, a cast, and lacks `§m≡` for #95's reason.
+     to nothing). The Kotlin side reads `(StringBuilder)o`, a cast, which carries the same `§m≡` since maddi#95.
      */
     @Test
     public void smartCastExpression() {
         assertEquals("[-] --> smartSb←$_ce0,smartSb←0:o,smartSb.§m≡0:o.§m", p.javaLinks("smartSb"));
-        assertEquals("[-] --> smartSb←$_ce0,smartSb←0:o", p.kotlinLinks("smartSb"));
+        p.assertSameAsJava("smartSb");
     }
 
     @Test

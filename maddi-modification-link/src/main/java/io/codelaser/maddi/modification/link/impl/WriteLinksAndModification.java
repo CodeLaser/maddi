@@ -691,6 +691,13 @@ class WriteLinksAndModification {
     2. double-∩ 'method ∩ Y.§X' AND 'method.§X' ∩ Y': the returned value and Y may be the same object cluster
        (each sits in the other's content web) ⟹ 'method.§m ≡ Y.§m'. TestStaticValuesRecord test4b:
        'method ∩ 0:in.§$s' + 'method.§$s ∩ 0:in' give 'method.§m ≡ 0:in.§m'.
+    3. (gate NORVCAST) 'method ← Y' across a change of static type (a downcast: 'return (StringBuilder) o') ⟹
+       'method.§m ≡ Y.§m', by the one-runtime-object semantics of addModificationFieldEquivalence (either type
+       mutable). A pattern binding got it already, but only because a return inside a block is rebuilt through
+       the shared-variable reconstruct, which carries the binding's §m: 'if (o instanceof StringBuilder s) return
+       s' summarised with it, 'return (StringBuilder) o' and 'x = (StringBuilder) o; return x' without, so a caller
+       modifying the result did not modify o (maddi#95; every Kotlin smart cast is such a cast since #67). A
+       same-type return ('return sb') is left alone: its ← already denotes the object and its modification area.
      */
     private void returnSideModificationCompanions(ReturnVariable rv, Links.Builder builder) {
         if (virtualFieldComputer == null || Gate.isSet("NORVM")) return;
@@ -710,6 +717,16 @@ class WriteLinksAndModification {
                     if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
                         toAdd.add(new LinksImpl.LinkImpl(m2.m1(), IS_ASSIGNED_FROM, m2.m2()));
                     }
+                }
+            }
+            if (!Gate.isSet("NORVCAST")
+                && link.linkNature() == IS_ASSIGNED_FROM
+                && rv.equals(from) && !Util.virtual(to)
+                && LinkVariable.acceptForLinkedVariables(to) && !(to instanceof MarkerVariable)
+                && !to.parameterizedType().equals(rv.parameterizedType())) {
+                VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(rv, to);
+                if (m2 != null && validCompanionFace(m2.m1()) && validCompanionFace(m2.m2())) {
+                    toAdd.add(new LinksImpl.LinkImpl(m2.m1(), LinkNatureImpl.makeIdenticalTo(null), m2.m2()));
                 }
             }
             if (link.linkNature() == OBJECT_GRAPH_OVERLAPS
