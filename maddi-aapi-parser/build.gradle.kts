@@ -61,6 +61,8 @@ dependencies {
     // and for the side-loaded Eclipse Collections hints (libs/eclipsecollections)
     testImplementation("org.eclipse.collections:eclipse-collections-api:13.0.0")
     testImplementation("org.eclipse.collections:eclipse-collections:13.0.0")
+    // and for the side-loaded Guava hints (libs/guava)
+    testImplementation("com.google.guava:guava:33.6.0-jre")
 
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")

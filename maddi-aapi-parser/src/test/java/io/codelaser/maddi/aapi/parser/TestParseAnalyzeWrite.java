@@ -96,12 +96,14 @@ public class TestParseAnalyzeWrite extends CommonTest {
         // way. The five units that do import kotlin.* (Kotlin, KotlinCollections, KotlinProperties, KotlinSequences,
         // KotlinText) survive on 27 only. Measured on 27 (9 of 9) and on the JDK 26 gate (4).
         int kotlinUnits = java.lang.Runtime.version().feature() >= 27 ? 9 : 4;
-        // The side-loaded Eclipse Collections hints (libs/eclipsecollections, 43 units naming org.eclipse.collections
-        // types) are in the same position as the Kotlin ones: no EC jar on the shared factory, so how many units
-        // survive is javac's recovery (21 of 43 on JDK 27). They are counted apart, not pinned.
-        long ecUnits = types.stream().filter(t -> t.packageName().endsWith(".libs.eclipsecollections")).count();
-        LOGGER.info("Eclipse Collections hint units parsed on the shared factory: {}", ecUnits);
-        assertEquals(31 + kotlinUnits, types.size() - ecUnits); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
+        // The side-loaded hints (libs/eclipsecollections, 43 units naming org.eclipse.collections types; libs/guava,
+        // naming com.google.common.collect ones) are in the same position as the Kotlin ones: no library jar on the
+        // shared factory, so how many units survive is javac's recovery (21 of 43 EC units on JDK 27). They are
+        // counted apart, not pinned.
+        long sideLoadedUnits = types.stream().filter(t -> t.packageName().endsWith(".libs.eclipsecollections")
+                                                        || t.packageName().endsWith(".libs.guava")).count();
+        LOGGER.info("Side-loaded hint units parsed on the shared factory: {}", sideLoadedUnits);
+        assertEquals(31 + kotlinUnits, types.size() - sideLoadedUnits); // 28 + JavaMath + JavaTimeFormat + OrgE2immuSupport
         for (TypeInfo typeInfo : types) {
             if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {
                 TypeInfo charSeq = typeInfo.findSubType("CharSequence$");
