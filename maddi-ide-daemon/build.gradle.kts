@@ -23,7 +23,14 @@ java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
+// The K2 runtime, for tests only: resolvable, never part of the daemon's own classpath or its distribution.
+val k2Runtime: Configuration by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+
 dependencies {
+    k2Runtime(project(":maddi-kotlin-k2"))
     // analysis pipeline (mirrors maddi-run-main)
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))
@@ -38,6 +45,13 @@ dependencies {
     implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-inspection-openjdk"))       // JavaInspectorImpl (the integration one is phased out)
     implementation(project(":maddi-inspection-resource"))      // InputConfigurationImpl
+    // A project with Kotlin sources: the mixed parse (MixedProjectInspector), the census of what K2 could not read
+    // (PlaceholderCensus), and the realm the compiler is loaded in (K2Realm). ⚠ The compiler itself is NOT a
+    // dependency: its jars are found at run time (-Dmaddi.k2.home, set by the IDE that downloaded them), and a
+    // daemon without them analyses the Java half and says so.
+    implementation(project(":maddi-inspection-mixed"))
+    implementation(project(":maddi-kotlin-api"))
+    implementation(project(":maddi-kotlin-realm"))
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-aapi-parser"))
 
@@ -72,6 +86,9 @@ application {
 // classpath) as its "hot class files", exactly as the plugin will point maddi at IntelliJ's output.
 tasks.test {
     jvmArgs(openjdkExports)
+    // as maddi-kotlin-realm's tests: an INPUT resolved into a path, so the realm gets the jars this build made
+    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
     useJUnitPlatform()
 }
 

@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.cst.api.runtime.Runtime
 import io.codelaser.maddi.inspection.api.integration.JavaInspector
+import io.codelaser.maddi.inspection.api.parser.Summary
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration
 import io.codelaser.maddi.inspection.kotlin.JavaStubGenerator
 import io.codelaser.maddi.kotlin.api.KotlinFrontEnds
@@ -56,7 +57,25 @@ import javax.tools.ToolProvider
  * *both* cross-language directions (an intra-module Kotlin↔Java cycle — the skeleton-pre-pass case), are
  * follow-ups. Single-threaded (javac); needs the openjdk `--add-exports`.
  */
-class MixedProjectInspector {
+class MixedProjectInspector @JvmOverloads constructor(private val settings: Settings = Settings()) {
+
+    /**
+     * What a host can vary about the Java half of the parse. The defaults are the batch runner's; the IDE daemon
+     * is the host that needs the others.
+     *
+     * @param parseOptions handed to every Java parse (detailed sources are what inline hints are placed by)
+     * @param tolerateParseErrors keep the Java types that DID parse when some did not, as an editor on a tree
+     *        mid-edit needs. The default refuses, as [Summary.parseResult] does: a batch run over a configuration
+     *        that does not compile should say so, not analyse part of it.
+     * @param beforeInitialize called on the Java inspector just before `initialize`, the only point at which a
+     *        `preload(...)` registration still takes effect (the daemon's hint loader needs the JDK packages it
+     *        decodes parsed first)
+     */
+    data class Settings @JvmOverloads constructor(
+        val parseOptions: JavaInspector.ParseOptions = JavaInspector.ParseOptions.Builder().build(),
+        val tolerateParseErrors: Boolean = false,
+        val beforeInitialize: java.util.function.Consumer<JavaInspector>? = null,
+    )
 
     /** The Kotlin front end: the contract only. Its implementation may live in a realm of its own. */
     private val frontEnd get() = KotlinFrontEnds.get()
@@ -85,6 +104,8 @@ class MixedProjectInspector {
         val javaTypes: List<TypeInfo>,
         val runtime: Runtime,
         val javaInspector: JavaInspector,
+        /** The Java half's parse summary: its parse errors and warnings, and whether the run is partial. */
+        val javaSummary: Summary? = null,
     ) {
         val kotlinTypes: List<TypeInfo> get() = kotlinBySourceSet.values.flatten()
     }
@@ -157,6 +178,7 @@ class MixedProjectInspector {
                 .setUri(URI.create("file:/"))
                 .setDependencies(projectClassPath + javaBase).build())
         }
+        settings.beforeInitialize?.accept(javaInspector)
         javaInspector.initialize(javaConfig.build())
         javaInspector.onlyPreload() // warm the CTM lazy loader before Kotlin delegates java.* to it
         // KNOWN GAP (Kotlin-only projects). `onlyPreload` scans the *configured* source sets, so with no Java
@@ -178,7 +200,6 @@ class MixedProjectInspector {
             .mapNotNull { uriToPath(it.uri()) }.filter { Files.exists(it) }
         val jdkHome = Paths.get(System.getProperty("java.home"))
         val orderedKotlin = dependencyOrder(kotlinSets)
-        val options = JavaInspector.ParseOptions.Builder().build()
 
         val kotlinDependsOnJava = kotlinSets.any { it.dependencies().any { d -> d in javaSetIdentity } }
         val javaDependsOnKotlin = javaSets.any { it.dependencies().any { d -> d in kotlinSetIdentity } }
@@ -186,11 +207,11 @@ class MixedProjectInspector {
         if (kotlinDependsOnJava && !javaDependsOnKotlin) {
             // Kotlin→Java only: parse Java first (its source types commit to the shared CTM), then Kotlin
             // resolves those references to the same instances (K2 sees the Java dirs as source roots).
-            val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
+            val (javaTypes, javaSummary) = parseJava(javaInspector)
             val javaSourceRoots = javaSets.flatMap { it.sourceDirectories() }
             val kotlinBySourceSet = frontEnd.projectScan(runtime, infoByFqn, ctm)
                 .parse(orderedKotlin, libraryRoots, jdkHome, javaSourceRoots, observers)
-            return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
+            return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector, javaSummary)
         }
 
         // Java→Kotlin (or independent): Kotlin first, generate stubs, then Java resolves Kotlin via the stubs.
@@ -212,8 +233,8 @@ class MixedProjectInspector {
             compileStubs(primaryKotlinTypes.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) },
                 libraryRoots)
         }
-        val javaTypes = javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
-        return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector)
+        val (javaTypes, javaSummary) = parseJava(javaInspector)
+        return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector, javaSummary)
     }
 
     /**
@@ -259,6 +280,7 @@ class MixedProjectInspector {
             rebuiltJavaSet[js] = rebuilt
             javaConfig.addSourceSets(rebuilt)
         }
+        settings.beforeInitialize?.accept(javaInspector)
         javaInspector.initialize(javaConfig.build())
         javaInspector.onlyPreload()
 
@@ -305,9 +327,8 @@ class MixedProjectInspector {
                         kotlinByName[sourceSet.name()]?.let { kotlin.complete(it) }
                     }
                 })
-                val options = JavaInspector.ParseOptions.Builder().build()
-                val javaTypes = try {
-                    javaInspector.parse(mapOf(), options).parseResult().primaryTypes().toList()
+                val (javaTypes, javaSummary) = try {
+                    parseJava(javaInspector)
                 } finally {
                     javaInspector.setInterleave(null)
                 }
@@ -315,8 +336,15 @@ class MixedProjectInspector {
                 kotlin.observe(observers)
                 val kotlinBySourceSet = LinkedHashMap<SourceSet, List<TypeInfo>>()
                 orderedKotlin.forEach { kotlinBySourceSet[it] = kotlin.result.getValue(it) }
-                return Result(kotlinBySourceSet, javaTypes, javaInspector.runtime(), javaInspector)
+                return Result(kotlinBySourceSet, javaTypes, javaInspector.runtime(), javaInspector, javaSummary)
             }
+    }
+
+    private fun parseJava(javaInspector: JavaInspector): Pair<List<TypeInfo>, Summary> {
+        val summary = javaInspector.parse(mapOf(), settings.parseOptions)
+        val parseResult = if (settings.tolerateParseErrors && summary.haveErrors()) summary.parseResultIgnoringErrors()
+        else summary.parseResult()
+        return parseResult.primaryTypes().toList() to summary
     }
 
     private fun hasExtension(sourceSet: SourceSet, extension: String): Boolean =

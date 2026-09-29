@@ -65,6 +65,7 @@ public class ResultCollector {
     /** Parse errors/warnings only — used when the project has parse errors and {@code parseResult()} is unsafe. */
     public List<DaemonProtocol.Finding> parseFindings(Summary summary) {
         List<DaemonProtocol.Finding> findings = new ArrayList<>();
+        if (summary == null) return findings;
         for (Summary.ParseException pe : summary.parseExceptions()) findings.add(toFinding(pe));
         for (Summary.ParseException pe : summary.parseWarnings()) findings.add(toFinding(pe));
         return findings;
