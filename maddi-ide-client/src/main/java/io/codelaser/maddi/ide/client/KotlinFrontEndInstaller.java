@@ -16,6 +16,7 @@ package io.codelaser.maddi.ide.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLConnection;
 import java.nio.file.FileVisitResult;
@@ -24,6 +25,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.function.LongConsumer;
 import java.util.stream.Stream;
@@ -83,7 +88,8 @@ public final class KotlinFrontEndInstaller {
     }
 
     /**
-     * Install the K2 jars of the distribution at {@code zip}. The zip is streamed, never unpacked whole: only
+     * Install the K2 jars of the distribution at {@code zip}, which must match the SHA-256 published beside it as
+     * {@code <zip>.sha256} (release-cli.sh writes it, in {@code sha256sum} format). The zip is streamed, never unpacked whole: only
      * entries under a {@code lib-k2/} directory ending in {@code .jar} are kept, each by its file name alone (so no
      * entry can write outside the target). The target is filled under a temporary name and moved into place only
      * when it holds the front end, so a failed or interrupted download never leaves a directory that looks
@@ -91,20 +97,21 @@ public final class KotlinFrontEndInstaller {
      *
      * @param bytesRead progress, in bytes of the zip read so far; may be {@code null}
      * @return the installed directory
-     * @throws IOException with a message fit for the user: the release does not exist, or its zip carries no
-     *                     {@code lib-k2/} (a release published before the Kotlin front end could be downloaded)
+     * @throws IOException with a message fit for the user: the release does not exist, it has no checksum or the
+     *                     zip does not match it, or its zip carries no {@code lib-k2/} (a release published before
+     *                     the Kotlin front end could be downloaded)
      */
     public Path install(String version, URI zip, LongConsumer bytesRead) throws IOException {
         Path home = homeFor(version);
+        String expected = publishedChecksum(version, zip);
         Files.createDirectories(cacheRoot);
         Path staging = Files.createTempDirectory(cacheRoot, "k2-" + version + "-");
         try {
-            URLConnection connection = zip.toURL().openConnection();
-            connection.setConnectTimeout(30_000);
-            connection.setReadTimeout(60_000);
+            MessageDigest sha256 = sha256();
             int jars = 0;
-            try (InputStream raw = connection.getInputStream();
-                 ZipInputStream in = new ZipInputStream(new CountingInputStream(raw, bytesRead))) {
+            try (InputStream raw = open(zip);
+                 DigestInputStream digest = new DigestInputStream(raw, sha256);
+                 ZipInputStream in = new ZipInputStream(new CountingInputStream(digest, bytesRead))) {
                 ZipEntry entry;
                 while ((entry = in.getNextEntry()) != null) {
                     String name = entry.getName();
@@ -115,6 +122,14 @@ public final class KotlinFrontEndInstaller {
                     Files.copy(in, staging.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
                     jars++;
                 }
+                // the zip reader stops before the central directory; the checksum is over the whole file
+                digest.transferTo(OutputStream.nullOutputStream());
+            }
+            String actual = HexFormat.of().formatHex(sha256.digest());
+            if (!actual.equalsIgnoreCase(expected)) {
+                throw new IOException("the maddi " + version + " Kotlin distribution at " + zip
+                                      + " does not match its published SHA-256 (expected " + expected + ", got " + actual
+                                      + "); nothing was installed");
             }
             if (!holdsFrontEnd(staging)) {
                 throw new IOException("the maddi " + version + " distribution at " + zip + " holds no Kotlin front end ("
@@ -129,6 +144,38 @@ public final class KotlinFrontEndInstaller {
             throw new IOException("no maddi " + version + " Kotlin distribution at " + zip, e);
         } finally {
             deleteRecursively(staging);
+        }
+    }
+
+    /** The hex digest in {@code <zip>.sha256}: its first token, as {@code sha256sum} writes it. */
+    private static String publishedChecksum(String version, URI zip) throws IOException {
+        URI checksum = URI.create(zip + ".sha256");
+        String content;
+        try (InputStream in = open(checksum)) {
+            content = new String(in.readNBytes(4096), java.nio.charset.StandardCharsets.US_ASCII).trim();
+        } catch (java.io.FileNotFoundException e) {
+            throw new IOException("no maddi " + version + " Kotlin distribution at " + zip
+                                  + " (or no checksum published beside it)", e);
+        }
+        String hex = content.split("\\s+", 2)[0];
+        if (!hex.matches("[0-9a-fA-F]{64}")) {
+            throw new IOException("the checksum at " + checksum + " is not a SHA-256: " + content);
+        }
+        return hex;
+    }
+
+    private static InputStream open(URI uri) throws IOException {
+        URLConnection connection = uri.toURL().openConnection();
+        connection.setConnectTimeout(30_000);
+        connection.setReadTimeout(60_000);
+        return connection.getInputStream();
+    }
+
+    private static MessageDigest sha256() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("every JDK has SHA-256", e);
         }
     }
 

@@ -5,7 +5,11 @@
 #
 #   maddi        (maddi-run-openjdk:distZip) — the openjdk (Java) runner
 #   maddi-kotlin (maddi-run-kotlin:distZip)  — the mixed Java+Kotlin runner; the K2 'for-ide' jars ride
-#                                              along in lib/, so this bundle is how Kotlin support ships
+#                                              along in lib-k2/, so this bundle is how Kotlin support ships
+#
+# Each zip gets a <zip>.sha256 beside it. The IDE plugins download maddi-kotlin-<version>.zip from release
+# v<version> (KotlinFrontEndInstaller) and refuse it without a matching checksum, so the tag must be the
+# version in gradle.properties -- checked below.
 #
 # Each bundle is self-contained: the launcher (bin/maddi[-kotlin]) has the javac --add-exports baked in
 # and every runtime jar sits in lib/. No Maven resolution is involved on the consumer side.
@@ -23,6 +27,12 @@ fi
 
 cd "$(dirname "$0")"
 
+VERSION=$(sed -n 's/^version=//p' gradle.properties)
+if [[ "$TAG" != "v$VERSION" ]]; then
+    echo "tag $TAG does not match version=$VERSION in gradle.properties: the IDE plugins look for release v$VERSION" >&2
+    exit 2
+fi
+
 echo "==> Building the CLI distributions (version from gradle.properties)"
 ./gradlew :maddi-run-openjdk:distZip :maddi-run-kotlin:distZip
 
@@ -31,6 +41,11 @@ OPENJDK_ZIP=$(ls maddi-run-openjdk/build/distributions/maddi-*.zip)
 KOTLIN_ZIP=$(ls maddi-run-kotlin/build/distributions/maddi-kotlin-*.zip)
 echo "    openjdk runner: $OPENJDK_ZIP"
 echo "    kotlin  runner: $KOTLIN_ZIP"
+
+# "<hex>  <file name>", the sha256sum format; shasum ships with macOS and perl alike
+for zip in "$OPENJDK_ZIP" "$KOTLIN_ZIP"; do
+    (cd "$(dirname "$zip")" && shasum -a 256 "$(basename "$zip")" > "$(basename "$zip").sha256")
+done
 
 # Release notes: docs/release-notes-<version>.md if it exists, where <version> is the tag without its
 # leading "v". The old behaviour -- a one-line --notes -- was survivable while the CLI zips were the
@@ -48,5 +63,5 @@ else
     gh release create "$TAG" --title "$TAG" --notes "maddi $TAG — command-line distributions."
 fi
 
-gh release upload "$TAG" "$OPENJDK_ZIP" "$KOTLIN_ZIP" --clobber
-echo "==> Done. Both CLI zips attached to release $TAG."
+gh release upload "$TAG" "$OPENJDK_ZIP" "$OPENJDK_ZIP.sha256" "$KOTLIN_ZIP" "$KOTLIN_ZIP.sha256" --clobber
+echo "==> Done. Both CLI zips and their checksums attached to release $TAG."

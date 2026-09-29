@@ -89,6 +89,7 @@ public class KotlinFrontEndInstallerTest {
         IOException e = assertThrows(IOException.class,
                 () -> installer.install("9.9.9", tmp.resolve("absent.zip").toUri(), null));
         assertTrue(e.getMessage().contains("no maddi 9.9.9 Kotlin distribution"), e.getMessage());
+        assertFalse(Files.exists(tmp.resolve("cache")), "nothing is created before the checksum is found");
     }
 
     @Test
@@ -108,7 +109,27 @@ public class KotlinFrontEndInstallerTest {
                 tmp.resolve("kotlin").toString(), tmp.resolve("absent").toString())));
     }
 
-    private static Path zip(Path target, String... entries) throws IOException {
+    @Test
+    public void aZipThatDoesNotMatchItsChecksumIsRefused(@TempDir Path tmp) throws Exception {
+        Path zip = zip(tmp.resolve("d.zip"), "maddi-kotlin-1.2.3/lib-k2/maddi-kotlin-k2-1.2.3.jar");
+        Files.writeString(tmp.resolve("d.zip.sha256"), "0".repeat(64) + "  d.zip\n");
+        KotlinFrontEndInstaller installer = new KotlinFrontEndInstaller(tmp.resolve("cache"));
+        IOException e = assertThrows(IOException.class, () -> installer.install("1.2.3", zip.toUri(), null));
+        assertTrue(e.getMessage().contains("does not match its published SHA-256"), e.getMessage());
+        assertNull(installer.installed("1.2.3"));
+    }
+
+    @Test
+    public void aZipWithoutAChecksumIsRefused(@TempDir Path tmp) throws Exception {
+        Path zip = zip(tmp.resolve("d.zip"), "maddi-kotlin-1.2.3/lib-k2/maddi-kotlin-k2-1.2.3.jar");
+        Files.delete(tmp.resolve("d.zip.sha256"));
+        KotlinFrontEndInstaller installer = new KotlinFrontEndInstaller(tmp.resolve("cache"));
+        IOException e = assertThrows(IOException.class, () -> installer.install("1.2.3", zip.toUri(), null));
+        assertTrue(e.getMessage().contains("no checksum published"), e.getMessage());
+    }
+
+    /** A zip with the given (empty-ish) entries, and its {@code .sha256} beside it as release-cli.sh writes it. */
+    private static Path zip(Path target, String... entries) throws Exception {
         try (OutputStream out = Files.newOutputStream(target); ZipOutputStream zip = new ZipOutputStream(out)) {
             for (String entry : entries) {
                 zip.putNextEntry(new ZipEntry(entry));
@@ -116,6 +137,10 @@ public class KotlinFrontEndInstallerTest {
                 zip.closeEntry();
             }
         }
+        String hex = java.util.HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(target)));
+        Files.writeString(target.resolveSibling(target.getFileName() + ".sha256"),
+                hex + "  " + target.getFileName() + "\n");
         assertNotNull(target);
         return target;
     }
