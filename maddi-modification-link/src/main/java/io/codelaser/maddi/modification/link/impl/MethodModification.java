@@ -13,6 +13,8 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,16 +23,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * @param currentMethod           the method whose body contains {@code mc}
  * @param throughPassedFunction   receives (parameter, entry) when a parameter of {@code currentMethod} is handed to
  *                                one of its own functional parameters: recorded instead of marked modified, see
  *                                {@link PassedFunction}
+ * @param dependsOn               receives every method whose verdict this call's modification decision rests on
+ *                                beyond the callee itself (the cone rule of {@link ReceiverLevel}), for the worklist
  */
 public record MethodModification(Runtime runtime, VariableData variableData, Stage stage, MethodCall mc,
                                  MethodInfo currentMethod,
-                                 BiConsumer<ParameterInfo, String> throughPassedFunction) {
+                                 BiConsumer<ParameterInfo, String> throughPassedFunction,
+                                 Consumer<MethodInfo> dependsOn) {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodModification.class);
 
     public Set<Variable> go(Variable objectPrimary, List<Result> params, MethodLinkedVariables methodLinkedVariables) {
@@ -49,12 +55,19 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
         // @NotModified on 2026-07-23 -- fixed on the callee side because the receiver's disclaimer did not reach.
         boolean receiverDisclaimed = objectPrimary != null
                                      && Util.variableAndScopes(objectPrimary).anyMatch(Variable::isIgnoreModifications);
+        // the static type of the receiver EXPRESSION (a cast counts), for the receiver rules (ReceiverLevel)
+        ParameterizedType receiverType = mc.object() == null ? null : mc.object().parameterizedType();
+        boolean receiverExcused = false;
         if (objectPrimary != null && !methodInfo.isFinalizer()) {
             if (methodInfo.isModifying() && !methodInfo.isIgnoreModification()) {
-                LOGGER.debug("Mark object primary {} as modified by {}", objectPrimary, methodInfo);
-                Util.variableAndScopes(objectPrimary)
-                        .filter(v -> !v.isIgnoreModifications())
-                        .forEach(modified::add);
+                if (ReceiverLevel.enabled() && receiverExcused(objectPrimary, receiverType, methodInfo)) {
+                    receiverExcused = true;
+                } else {
+                    LOGGER.debug("Mark object primary {} as modified by {}", objectPrimary, methodInfo);
+                    Util.variableAndScopes(objectPrimary)
+                            .filter(v -> !v.isIgnoreModifications())
+                            .forEach(modified::add);
+                }
             }
         }
         // the receiver is one of OUR functional parameters and this is its SAM: what it does to its arguments
@@ -66,7 +79,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
         Set<Variable> recordedThroughPassedFunction = new HashSet<>();
         if (!receiverDisclaimed) {
             for (ParameterInfo pi : methodInfo.parameters()) {
-                if (pi.isModified() && !pi.isIgnoreModifications()) {
+                if (pi.isModified() && !pi.isIgnoreModifications() && !parameterExcusedByCone(pi, receiverType)) {
                     if (pi.isVarArgs()) {
                         for (int i = methodInfo.parameters().size() - 1; i < mc.parameterExpressions().size(); i++) {
                             Result rp = params.get(i);
@@ -101,6 +114,9 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                 // the SAM's own summary says its argument is modified: for a recorded parameter, that is the same
                 // conditional modification, not a second one
                 if (recordedThroughPassedFunction.contains(translated)) continue;
+                // the receiver rules excused the object: the callee's own claim on its 'this' (a shallow summary
+                // of an abstract callee claims exactly the union verdict) is the same claim, not a second one
+                if (receiverExcused && Util.variableAndScopes(translated).anyMatch(objectPrimary::equals)) continue;
                 if (translated.equals(mv)
                     || variableData != null && variableData.isKnown(translated.fullyQualifiedName())) {
                     LOGGER.debug("Propagated modification to {}", translated);
@@ -113,8 +129,38 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
         return modified;
     }
 
+    /*
+    ReceiverLevel: the level rule (the object held cannot be modified), then the cone rule (only the callee's
+    implementations below the receiver's static type can run, and none of them modifies).
+     */
+    private boolean receiverExcused(Variable objectPrimary, ParameterizedType receiverType, MethodInfo methodInfo) {
+        if (ReceiverLevel.immutableObject(objectPrimary, receiverType)) {
+            LOGGER.debug("Receiver {} of {} is immutable: not modified", objectPrimary, methodInfo);
+            return true;
+        }
+        Value.Bool cone = ReceiverLevel.coneNonModifying(methodInfo, receiverType, dependsOn);
+        if (cone != null && cone.isTrue()) {
+            LOGGER.debug("Receiver {} of {}: no modifying implementation in the cone of {}", objectPrimary, methodInfo,
+                    receiverType);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean parameterExcusedByCone(ParameterInfo pi, ParameterizedType receiverType) {
+        if (!ReceiverLevel.enabled()) return false;
+        Value.Bool cone = ReceiverLevel.coneUnmodifiedParameter(pi, receiverType, dependsOn);
+        return cone != null && cone.isTrue();
+    }
+
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
         if (rp.links() != null && rp.links().primary() != null && !Util.isHiddenContentField(rp.links().primary())) {
+            if (ReceiverLevel.enabled()
+                && ReceiverLevel.immutableObject(rp.links().primary(), argument == null ? null : argument.parameterizedType())) {
+                LOGGER.debug("Argument primary {} of {} is immutable: not modified", rp.links().primary(), mc.methodInfo());
+                if (argument instanceof MethodReference mr) propagateModificationOfObject(modified, mr);
+                return;
+            }
             LOGGER.debug("Mark argument primary {} as modified by {}", rp.links().primary(), mc.methodInfo());
             // the LAST of go()'s four modification-recording sites to get this filter (fix C, 2026-09-22): a
             // disclaimed face never implicates its own node, whichever site reaches it. Handing a field that is

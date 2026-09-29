@@ -63,6 +63,7 @@ about to touch.
 | [builder-interface-split-impact.md](design/builder-interface-split-impact.md) | note | Costing the two ways to stop the mutable Builder capping the read-only Inspection interfaces; measured, no refactor landed. |
 | [book-vs-support-divergence.md](design/book-vs-support-divergence.md) | note | *The Road to Immutability* chapter 12 against the `maddi-support` code it quotes: two independently maintained lineages, and which side each finding changes. |
 | [independent-type-optimism.md](design/independent-type-optimism.md) | note | **Fixed 2026-09-24.** `INDEPENDENT_TYPE` was frozen at an optimistic value while a type's members were undecided. Kept as the rationale for "no optimistic default for an undecided input", which `DynamicImmutabilityInference` cites; the fix unmasked the SAM false positive in `defects/`. |
+| [receiver-level.md](design/receiver-level.md) | note | **Prototype, gate `RECEIVERLEVEL`.** The receiver of a call decides too: a receiver at hc-level (static type or what it holds) is never modified by a call; an abstract callee is judged by the implementations in the receiver's static type's cone. vavr: 168 method and 121 parameter verdicts lifted, no type changes level; the independence cycle (G2) is the next lever. |
 
 ### Other mechanisms
 
