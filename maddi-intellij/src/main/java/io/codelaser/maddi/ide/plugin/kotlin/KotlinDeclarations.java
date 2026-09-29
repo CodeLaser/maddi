@@ -23,6 +23,8 @@ import org.jetbrains.kotlin.psi.KtNamedFunction;
 import org.jetbrains.kotlin.psi.KtParameter;
 import org.jetbrains.kotlin.psi.KtProperty;
 
+import java.util.List;
+
 /**
  * Kotlin's PSI mapped onto maddi's element kinds, for the surfaces that anchor on a declaration's name.
  * <p>
@@ -38,6 +40,17 @@ public final class KotlinDeclarations {
     private KotlinDeclarations() {
     }
 
+    /**
+     * The kinds to look for at this leaf, in order of preference. A property is its backing FIELD, and when it
+     * has none (a custom getter, {@code val sum get() = x + y}) the analysed element is its accessor, a METHOD
+     * over the property's range: without the fallback that verdict had nowhere to go.
+     */
+    public static List<String> kindsOf(PsiElement leaf) {
+        String kind = kindOf(leaf);
+        if (kind == null) return List.of();
+        return "FIELD".equals(kind) ? List.of("FIELD", "METHOD") : List.of(kind);
+    }
+
     public static @Nullable String kindOf(PsiElement leaf) {
         IElementType type = leaf.getNode() == null ? null : leaf.getNode().getElementType();
         if (type != KtTokens.IDENTIFIER) return null;
@@ -47,7 +60,7 @@ public final class KotlinDeclarations {
         }
         if (declaration instanceof KtClassOrObject) return "TYPE";
         if (declaration instanceof KtNamedFunction) return "METHOD";
-        if (declaration instanceof KtProperty) return "FIELD";
+        if (declaration instanceof KtProperty) return "FIELD";   // no backing field: see kindsOf
         if (declaration instanceof KtParameter) return "PARAMETER";
         return null;
     }

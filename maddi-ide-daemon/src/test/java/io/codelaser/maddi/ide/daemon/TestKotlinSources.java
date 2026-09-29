@@ -103,6 +103,25 @@ public class TestKotlinSources {
         assertEquals(3, (int) user.beginLine());
     }
 
+    /**
+     * A data class's synthesized copy() takes parameters named and positioned like the constructor's, each with its
+     * own verdict. Only the constructor's may reach the editor: two elements of one kind over one range left the
+     * choice to list order.
+     */
+    @Test
+    public void dataClassCopyParametersAreNotShown(@TempDir Path projectDir) throws Exception {
+        Path kDir = write(projectDir, "k/src", "k/Pair2.kt", """
+                package k
+
+                data class Pair2(val a: String, val b: List<String>)
+                """);
+        DaemonProtocol.Result result = analyze(projectDir, List.of(set("k/main", kDir, List.of())));
+        List<String> parameters = result.elementAnnotations().stream()
+                .filter(e -> "PARAMETER".equals(e.kind())).map(DaemonProtocol.ElementAnnotation::fqn).toList();
+        assertFalse(parameters.isEmpty());
+        assertTrue(parameters.stream().allMatch(fqn -> fqn.contains("<init>")), () -> "parameters: " + parameters);
+    }
+
     private static void assertNoKotlinSkipped(DaemonProtocol.Result result) {
         assertTrue(result.initializationProblems().stream().noneMatch(p -> p.contains("NOT analyzed")),
                 () -> "problems: " + result.initializationProblems());

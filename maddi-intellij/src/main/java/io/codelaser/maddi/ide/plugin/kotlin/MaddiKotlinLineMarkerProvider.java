@@ -15,13 +15,14 @@ package io.codelaser.maddi.ide.plugin.kotlin;
 
 import com.intellij.psi.PsiElement;
 import io.codelaser.maddi.ide.plugin.ui.MaddiLineMarkerProvider;
-import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /** {@link MaddiLineMarkerProvider} on Kotlin sources; registered only when the Kotlin plugin is (maddi-kotlin.xml). */
 public class MaddiKotlinLineMarkerProvider extends MaddiLineMarkerProvider {
 
     @Override
-    protected @Nullable String kindOf(PsiElement leaf) {
-        return KotlinDeclarations.kindOf(leaf);
+    protected List<String> kindsOf(PsiElement leaf) {
+        return KotlinDeclarations.kindsOf(leaf);
     }
 }

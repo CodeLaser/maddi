@@ -16,13 +16,14 @@ package io.codelaser.maddi.ide.plugin.kotlin;
 import com.intellij.psi.PsiElement;
 import io.codelaser.maddi.ide.plugin.ui.MaddiInlayProvider;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /** {@link MaddiInlayProvider} on Kotlin sources; registered only when the Kotlin plugin is (maddi-kotlin.xml). */
 public class MaddiKotlinInlayProvider extends MaddiInlayProvider {
 
     @Override
-    protected @Nullable String kindOf(@NotNull PsiElement leaf) {
-        return KotlinDeclarations.kindOf(leaf);
+    protected List<String> kindsOf(@NotNull PsiElement leaf) {
+        return KotlinDeclarations.kindsOf(leaf);
     }
 }

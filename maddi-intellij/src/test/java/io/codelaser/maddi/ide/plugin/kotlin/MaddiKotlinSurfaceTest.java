@@ -61,6 +61,19 @@ public class MaddiKotlinSurfaceTest extends LightJavaCodeInsightFixtureTestCase 
         assertTrue(tooltips().stream().anyMatch(t -> t.contains("@Final")));
     }
 
+    /** No backing field: the analysed element is the getter, over the property's range, and it gets the gutter. */
+    public void testPropertyWithoutBackingFieldGetsTheGetterVerdict() {
+        myFixture.configureByText("Sum.kt", """
+                class Sum(val x: Int, val y: Int) {
+                    val to<caret>tal: Int get() = x + y
+                }
+                """);
+        String path = path();
+        service().applyResult(result(List.of(), List.of(
+                element(path, 2, 5, 2, 32, "METHOD", "Sum.getTotal()", "@NotModified"))));
+        assertTrue(tooltips().stream().anyMatch(t -> t.contains("@NotModified")));
+    }
+
     public void testFindingIsHighlighted() {
         myFixture.configureByText("Demo.kt", """
                 class Demo {
