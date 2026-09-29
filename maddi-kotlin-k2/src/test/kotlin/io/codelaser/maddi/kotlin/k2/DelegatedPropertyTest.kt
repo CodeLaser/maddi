@@ -175,7 +175,7 @@ class DelegatedPropertyTest : KotlinScanTestBase() {
             """
         ).getValue("Holder")
         val statements = holder.findUniqueMethod("run", 0).methodBody().statements()
-        assertEquals("Lazy<String> local\$delegate=LazyKt__LazyJVMKt.lazy(()->\"v\"+this.n);", statements[0].toString())
+        assertEquals("Lazy<String> local\$delegate=LazyKt.lazy(()->\"v\"+this.n);", statements[0].toString())
         assertEquals("return local\$delegate.value;", statements[1].toString())
     }
 

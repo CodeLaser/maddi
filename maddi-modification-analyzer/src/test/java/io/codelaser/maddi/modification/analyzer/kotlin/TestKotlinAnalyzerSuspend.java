@@ -88,7 +88,7 @@ public class TestKotlinAnalyzerSuspend extends CommonKotlinAnalyzerTest {
     @Test
     public void sequenceBuilder() {
         q.assertSameAsJava("Q");
-        assertEquals("{return SequencesKt__SequenceBuilderKt.sequence(($receiver,$completion)->{xs.add(\"x\");"
+        assertEquals("{return SequencesKt.sequence(($receiver,$completion)->{xs.add(\"x\");"
                      + "$receiver.yieldAll(xs,$completion);});}",
                 method(q.kotlinType("Q"), "gen").methodBody().print(q.runtime().qualificationSimpleNames()).toString());
     }

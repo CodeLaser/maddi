@@ -73,8 +73,8 @@ public class TestLibraryVarargCalls {
         StringBuilder actual = new StringBuilder();
         k.methods().forEach(m -> actual.append(m.name()).append(": ").append(m.methodBody().statements()).append('\n'));
         assertEquals("""
-                a: [PathsKt__PathReadWriteKt.writeText(p,"x",null);]
-                b: [return StringsKt__StringsKt.splitToSequence(s,new String[]{"."},false,0);]
+                a: [PathsKt.writeText(p,"x",null);]
+                b: [return StringsKt.splitToSequence(s,new String[]{"."},false,0);]
                 c: [return PsiUtilsKt.getParentOfTypesAndPredicate(e,true,new Class[]{KtNamedFunction.class,KtElement.class},it->true);]
                 """, actual.toString());
     }

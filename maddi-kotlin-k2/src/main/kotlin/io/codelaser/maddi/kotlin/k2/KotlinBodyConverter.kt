@@ -1490,7 +1490,7 @@ internal class KotlinBodyConverter(
         val type = typeNamed(fqn) ?: return null
         val callee = resolveCallee(type, name, arguments)?.takeIf { it.isStatic } ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(type))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -1511,7 +1511,7 @@ internal class KotlinBodyConverter(
         val facade = with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val callee = resolveCallee(facade, name, arguments)?.takeIf { it.isStatic } ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -1771,7 +1771,7 @@ internal class KotlinBodyConverter(
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val callee = resolveCallee(facade, name, listOf(receiver, argument)) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(receiver, argument))
             .setConcreteReturnType(returnType ?: callee.returnType()).setTypeArguments(listOf())
             .setSource(source(statement, "-")).build()
@@ -2023,7 +2023,7 @@ internal class KotlinBodyConverter(
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val callee = resolveCallee(facade, symbol.name.asString(), listOf(value)) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(value))
             .setConcreteReturnType(type).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -2390,6 +2390,10 @@ internal class KotlinBodyConverter(
         return runtime.newUnaryOperator(listOf(), runtime.noSource(), runtime.logicalNotOperatorBool(),
             instanceOf, runtime.precedenceUnary())
     }
+
+    /** The qualifier of a static member access on [type]: a multifile part's public facade (#67 item 4). */
+    private fun staticQualifier(type: TypeInfo): TypeExpression =
+        runtime.newTypeExpression(typeMapper.staticQualifier(type).asParameterizedType(), runtime.diamondNo())
 
     /**
      * A read of a smart-cast value, cast to the type Kotlin reads it as (#67). After `o is StringBuilder` the
@@ -2933,7 +2937,7 @@ internal class KotlinBodyConverter(
         if ((call.resolveSymbol() as? KaNamedFunctionSymbol)?.isStatic != true) return null
         val fqn = receiverClass.classId?.asFqNameString() ?: return null
         val type = infoByFqn.getType(fqn, sourceSet) ?: with(typeMapper) { loadLibraryClass(receiverClass) } ?: return null
-        val scope = runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo())
+        val scope = staticQualifier(type)
         return convertCall(call, scope to type, false, method, locals)
     }
 
@@ -2955,7 +2959,7 @@ internal class KotlinBodyConverter(
         val string = runtime.stringTypeInfo()
         val format = resolveCallee(string, "format", arguments)?.takeIf { it.isStatic } ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(string.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(string))
             .setObjectIsImplicit(false).setMethodInfo(format).setParameterExpressions(arguments)
             .setConcreteReturnType(format.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
@@ -3109,7 +3113,7 @@ internal class KotlinBodyConverter(
     /** A static-field access `Holder.field`, with the holder type as the (type-expression) scope. */
     private fun staticFieldRef(field: FieldInfo, holder: TypeInfo): Expression =
         variableExpression(runtime.newFieldReference(field,
-            runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), field.type()))
+            staticQualifier(holder), field.type()))
 
     /**
      * `Foo(args)` -> a CST [ConstructorCall]: the constructed type's constructor matching the argument count, or
@@ -3201,7 +3205,7 @@ internal class KotlinBodyConverter(
         val facadeArgs = listOf(receiver) + arguments
         val callee = resolveCallee(facade, symbol.name.asString(), facadeArgs) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(facadeArgs)
             .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource().withDetailedSources(marker(DetailedSources.INDEX_ACCESS, expression.leftBracket)))
@@ -3480,7 +3484,7 @@ internal class KotlinBodyConverter(
             ?.let { classTypeInfo(it) }?.let { members(it) } ?: return null
         val getter = resolveAccessor(owner, reference.getReferencedName())?.takeIf { it.isStatic } ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(owner))
             .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
             .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf())
             .setSource(runtime.noSource()).build()
@@ -3555,7 +3559,7 @@ internal class KotlinBodyConverter(
             ?: resolveCallee(facade, name, getterArgs) // a @JvmName'd getter keeps the property's name
             ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(getterArgs)
             .setConcreteReturnType(callee.returnType())
@@ -3612,7 +3616,7 @@ internal class KotlinBodyConverter(
         val getter = members(facade).methods().firstOrNull { it.isStatic && it.name() == getterName && it.parameters().isEmpty() }
             ?: return field?.let { staticFieldRef(it, facade) }
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(getter).setParameterExpressions(listOf())
             .setConcreteReturnType(getter.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -3663,7 +3667,7 @@ internal class KotlinBodyConverter(
                     m.parameters().zip(args).all { (p, a) -> p.parameterizedType() == (if (a === receiver) type else a.parameterizedType()) }
             } ?: return null
             return runtime.newMethodCallBuilder()
-                .setObject(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()))
+                .setObject(staticQualifier(owner))
                 .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(args)
                 .setConcreteReturnType(callee.returnType()).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
         }
@@ -3747,7 +3751,7 @@ internal class KotlinBodyConverter(
             it.isStatic && it.name() == "getOrCreateKotlinClass" && it.parameters().size == 1
         } ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(reflection.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(reflection))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(listOf(classLiteral))
             .setConcreteReturnType(expression.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
@@ -3981,7 +3985,7 @@ internal class KotlinBodyConverter(
                 ?: return placeholder("k2-callable-ref-constructor-owner", expression)
             val ctor = members(owner).constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
                 ?: return placeholder("k2-callable-ref-constructor", expression)
-            return methodReference(runtime.newTypeExpression(owner.asParameterizedType(), runtime.diamondNo()),
+            return methodReference(staticQualifier(owner),
                 ctor, functionalType, expression)
         }
         if (symbol is KaPropertySymbol) return propertyReference(symbol, expression, functionalType, method, locals)
@@ -4003,7 +4007,7 @@ internal class KotlinBodyConverter(
             receiver == null -> {
                 if ((fn.psi as? KtNamedFunction)?.containingClassOrObject == null) {
                     val facade = extensionFacade(fn) ?: with(typeMapper) { loadLibraryFacadeFor(fn) }
-                    facade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
+                    facade?.let { staticQualifier(it) to it }
                 } else implicitReferenceScope(expression, method, locals) ?: method.typeInfo().let { self(method) to it }
             }
             // `this::m`: whichever `this` it names -- inside `Server().apply { … }` the lambda's receiver, not the class
@@ -4084,7 +4088,7 @@ internal class KotlinBodyConverter(
         val arguments = listOf(receiver) + sam.parameters().map { variableExpression(it) }
         val callee = resolveCallee(facade, fn.name.asString(), arguments) ?: return null
         val call = runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
         val body = runtime.newBlockBuilder().addStatement(indexed(
@@ -4127,7 +4131,7 @@ internal class KotlinBodyConverter(
             ?: return placeholder("k2-callable-ref-extension-facade", expression)
         val callee = resolveCalleeByArity(facade, fn.name.asString(), fn.valueParameters.size + 1)
             ?: return placeholder("k2-callable-ref-unresolved:${fn.name.asString()}", expression)
-        return methodReference(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()),
+        return methodReference(staticQualifier(facade),
             callee, functionalType, expression)
     }
 
@@ -4148,7 +4152,7 @@ internal class KotlinBodyConverter(
         }
         val asClass = className(receiver)?.mainReference?.resolveToSymbol() as? KaNamedClassSymbol
         return if (asClass != null) classTypeInfo(asClass)?.let {
-            runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it
+            staticQualifier(it) to it
         } else {
             val value = convertExpression(receiver, method, locals)
             value.parameterizedType().typeInfo()?.let { value to it }
@@ -4185,14 +4189,14 @@ internal class KotlinBodyConverter(
             if (!typeReceiver) return placeholder("k2-callable-ref-property-bound-extension", expression)
             val getter = resolveCalleeByArity(facade, getterName, 1) ?: resolveCalleeByArity(facade, name, 1)
                 ?: return placeholder("k2-callable-ref-property-no-getter", expression)
-            return methodReference(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()),
+            return methodReference(staticQualifier(facade),
                 getter, functionalType, expression)
         }
 
         val scopeAndOwner: Pair<Expression, TypeInfo>? = when {
             // `::p` with no receiver: a top-level property lives on the file facade, a member is implicitly `this`
             receiver == null -> if (property.callableId?.classId == null) {
-                sourceFacade?.let { runtime.newTypeExpression(it.asParameterizedType(), runtime.diamondNo()) to it }
+                sourceFacade?.let { staticQualifier(it) to it }
             } else method.typeInfo().let { self(method) to it }
             // `this::m`: whichever `this` it names -- inside `Server().apply { … }` the lambda's receiver, not the class
             receiver is KtThisExpression -> convertExpression(receiver, method, locals).let { value ->
@@ -4526,7 +4530,7 @@ internal class KotlinBodyConverter(
             ?: return receiver?.let { valueClassMember(calleeSymbol, listOf(name), it.first, arguments, call, method) }
                 ?: placeholder("k2-unresolved-call:$name", call)
         val obj = receiver?.first
-            ?: if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+            ?: if (callee.isStatic) staticQualifier(callee.typeInfo())
             else self(method)
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         // DetailedSources (layer 2), mirroring exactly what the Java parser records for a method call: the
@@ -4720,7 +4724,7 @@ internal class KotlinBodyConverter(
         val callee = defaults ?: resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false)
             .setMethodInfo(callee)
             .setParameterExpressions(facadeArgs)
@@ -4807,7 +4811,7 @@ internal class KotlinBodyConverter(
                                               arguments: List<Expression>, call: KtCallExpression, method: MethodInfo): Expression {
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         // an object's `@JvmStatic` function is static (KotlinScan.isJvmStatic): called on the type, not the instance
-        val scope = if (callee.isStatic) runtime.newTypeExpression(callee.typeInfo().asParameterizedType(), runtime.diamondNo())
+        val scope = if (callee.isStatic) staticQualifier(callee.typeInfo())
                     else singletonAccess(holder, singletonField)
         return runtime.newMethodCallBuilder()
             .setObject(scope).setObjectIsImplicit(false).setMethodInfo(callee)
@@ -4819,7 +4823,7 @@ internal class KotlinBodyConverter(
     internal fun singletonAccess(holder: TypeInfo, field: FieldInfo): Expression =
         runtime.newVariableExpressionBuilder()
             .setVariable(runtime.newFieldReference(field,
-                runtime.newTypeExpression(holder.asParameterizedType(), runtime.diamondNo()), field.type()))
+                staticQualifier(holder), field.type()))
             .setSource(runtime.noSource()).build()
 
     /** The file-facade [TypeInfo] that holds a (source) top-level extension function, via its containing file. */
@@ -4840,7 +4844,7 @@ internal class KotlinBodyConverter(
         val callee = defaults ?: resolveCallee(facade, name, arguments, callReturnFqn(call, method)) ?: return null
         val returnType = call.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType()
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(arguments)
             .setConcreteReturnType(returnType).setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
@@ -4856,7 +4860,7 @@ internal class KotlinBodyConverter(
         val method0 = resolveCallee(members(type), callee.name.asString(), arguments, callReturnFqn(call, method))?.takeIf { it.isStatic }
             ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(type))
             .setObjectIsImplicit(false).setMethodInfo(method0).setParameterExpressions(arguments)
             .setConcreteReturnType(call.expressionType?.let { mapType(it, method.typeInfo()) } ?: method0.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
@@ -4879,7 +4883,7 @@ internal class KotlinBodyConverter(
         val callee = jvmNames.firstNotNullOfOrNull { n -> resolveCallee(type, "$n-impl", all)?.takeIf { it.isStatic } }
             ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(type.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(type))
             .setObjectIsImplicit(false).setMethodInfo(callee).setParameterExpressions(all)
             .setConcreteReturnType(psi.expressionType?.let { mapType(it, method.typeInfo()) } ?: callee.returnType())
             .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
@@ -5017,7 +5021,7 @@ internal class KotlinBodyConverter(
         }
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val callee = resolveCallee(facade, name, listOf(operand)) ?: return null
-        return call(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()), false, callee, listOf(operand))
+        return call(staticQualifier(facade), false, callee, listOf(operand))
     }
 
     /**
@@ -5269,7 +5273,7 @@ internal class KotlinBodyConverter(
         val facadeArgs = listOf(left, right)
         val callee = resolveCallee(facade, functionName, facadeArgs) ?: return null
         return runtime.newMethodCallBuilder()
-            .setObject(runtime.newTypeExpression(facade.asParameterizedType(), runtime.diamondNo()))
+            .setObject(staticQualifier(facade))
             .setObjectIsImplicit(false).setMethodInfo(callee)
             .setParameterExpressions(facadeArgs)
             .setConcreteReturnType(returnType ?: callee.returnType())

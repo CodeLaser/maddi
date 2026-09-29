@@ -91,9 +91,9 @@ public class TestTopLevelPropertyReads {
                 max: [return CoreKt.MAX;]
                 j: [return CoreKt.J;]
                 pi: [return 3.141592653589793;]
-                suspended: [return IntrinsicsKt__IntrinsicsKt.getCOROUTINE_SUSPENDED();]
+                suspended: [return IntrinsicsKt.getCOROUTINE_SUSPENDED();]
                 dur: [return DurationKt.toDuration(5,DurationUnit.SECONDS);]
-                seq: [return SequencesKt__SequenceBuilderKt.sequence(($receiver,$completion)->{});]
+                seq: [return SequencesKt.sequence(($receiver,$completion)->{});]
                 """, actual.toString());
         TypeInfo sequenceBuilder = ((MethodCall) use.findUniqueMethod("seq", 0).methodBody().statements().getFirst()
                 .expression()).methodInfo().typeInfo();

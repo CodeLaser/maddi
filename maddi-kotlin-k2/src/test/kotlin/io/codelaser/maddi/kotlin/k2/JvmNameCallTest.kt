@@ -58,7 +58,7 @@ class JvmNameCallTest : KotlinScanTestBase() {
         // `sum` stays `sum` here: the unit world's stdlib is BUILT from K2, with Kotlin names (its class file has
         // `sumOfInt`, which the lookup tries first)
         assertEquals("""
-            total: return CollectionsKt___CollectionsKt.sum(l);
+            total: return CollectionsKt.sum(l);
             path: return p.resolve("journal");
             named: return p.resolve("x");
             ext: return JnKt.twiceOf(i);

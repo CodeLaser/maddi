@@ -69,7 +69,7 @@ class CoilTailShapesTest : KotlinScanTestBase() {
             inRange: return 0.0<=p&&p<=1.0;
             outOfRange: return !(0.0<=p&&p<=1.0);
             next: return pair.second+1;
-            size: long n; if(b){try{n=StringsKt__StringNumberConversionsJVMKt.toLong(s);}catch(NumberFormatException _){n=0L;}}else{n=1L;} return n;
+            size: long n; if(b){try{n=StringsKt.toLong(s);}catch(NumberFormatException _){n=0L;}}else{n=1L;} return n;
             drop: l.remove(i);
             """.trimIndent(), listOf("inRange", "outOfRange", "next", "size", "drop").joinToString("\n") { "$it: ${body(it)}" })
     }

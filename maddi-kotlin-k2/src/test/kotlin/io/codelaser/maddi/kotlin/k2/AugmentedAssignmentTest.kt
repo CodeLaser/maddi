@@ -67,8 +67,8 @@ class AugmentedAssignmentTest : KotlinScanTestBase() {
         assertEquals("""
             count: int n=i; n+=2; return n;
             text: String t=s; t+="!"; return t;
-            add: Set<String> s=SetsKt__SetsKt.mutableSetOf(); s.add(p); s.remove("x"); return s;
-            grow: List<String> l=CollectionsKt__CollectionsKt.listOf(); l=CollectionsKt___CollectionsKt.plus(l,p); return l;
+            add: Set<String> s=SetsKt.mutableSetOf(); s.add(p); s.remove("x"); return s;
+            grow: List<String> l=CollectionsKt.listOf(); l=CollectionsKt.plus(l,p); return l;
             """.trimIndent(), listOf("count", "text", "add", "grow").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

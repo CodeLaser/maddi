@@ -51,9 +51,9 @@ class BoundExtensionReferenceTest : KotlinScanTestBase() {
     @Test
     fun theShapes() {
         assertEquals("""
-            all: CollectionsKt___CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r));
-            explicit: CollectionsKt___CollectionsKt.forEach(rs,r->BrKt.printRule(n,r));
-            viaWith: StandardKt__StandardKt.with(n,${'$'}receiver->CollectionsKt___CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r)));
+            all: CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r));
+            explicit: CollectionsKt.forEach(rs,r->BrKt.printRule(n,r));
+            viaWith: StandardKt.with(n,${'$'}receiver->CollectionsKt.forEach(rs,r->BrKt.printRule(${'$'}receiver,r)));
             """.trimIndent(), listOf("all", "explicit", "viaWith").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

@@ -54,10 +54,10 @@ class LocalDelegateTest : KotlinScanTestBase() {
     @Test
     fun theShapes() {
         assertEquals("""
-            lazyLocal: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->5); return x${'$'}delegate.value;
-            twice: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->5); return x${'$'}delegate.value+x${'$'}delegate.value;
+            lazyLocal: Lazy<Integer> x${'$'}delegate=LazyKt.lazy(()->5); return x${'$'}delegate.value;
+            twice: Lazy<Integer> x${'$'}delegate=LazyKt.lazy(()->5); return x${'$'}delegate.value+x${'$'}delegate.value;
             writable: ReadWriteProperty<Object,Integer> y${'$'}delegate=Delegates.INSTANCE.notNull(); y${'$'}delegate.setValue(null,null,3); return y${'$'}delegate.getValue(null,null);
-            shadow: Lazy<Integer> x${'$'}delegate=LazyKt__LazyJVMKt.lazy(()->1); StandardKt__StandardKt.run(this,${'$'}receiver->{int x=2;/* non-local return, 1 level(s) */ return x;});
+            shadow: Lazy<Integer> x${'$'}delegate=LazyKt.lazy(()->1); StandardKt.run(this,${'$'}receiver->{int x=2;/* non-local return, 1 level(s) */ return x;});
             """.trimIndent(), listOf("lazyLocal", "twice", "writable", "shadow").joinToString("\n") { "$it: ${body(it)}" })
     }
 }

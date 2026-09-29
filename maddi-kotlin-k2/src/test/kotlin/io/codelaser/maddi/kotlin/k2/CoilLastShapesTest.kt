@@ -66,7 +66,7 @@ class CoilLastShapesTest : KotlinScanTestBase() {
         assertEquals("""
             sum: int a=ClKt.component1(p),b=ClKt.component2(p); return a+b;
             h: return Bs.Companion.enc(${'$'}receiver);
-            paint: return StandardKt__StandardKt.apply(new Canvas(),${'$'}receiver::draw);
+            paint: return StandardKt.apply(new Canvas(),${'$'}receiver::draw);
             """.trimIndent(), "sum: " + body("K", "sum") + "\nh: " + body("K", "h") + "\npaint: " + body("ClKt", "paint"))
     }
 
