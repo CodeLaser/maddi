@@ -741,6 +741,13 @@ def register(entry):
         return 1
     cfg = parse_config_path(entry)
     if not cfg.is_file():
+        # As in `vendor`: an entry with no config phase is never going to have one, so there is
+        # nothing for the engine to read and nothing went wrong. An entry WITH a route and no
+        # configuration means the route did not produce one, and that must fail.
+        if plan(entry, 'config') is None:
+            print(f'{name}: no config phase and no configuration on disk, so nothing for the engine '
+                  f'to load -- not registered', file=sys.stderr)
+            return 0
         print(f'{name}: no input configuration at {cfg} -- run the config phase first; there is '
               f'nothing for the engine to read', file=sys.stderr)
         return 1
@@ -1388,7 +1395,7 @@ def cmd_doctor(args):
             notes.append('build incomplete: build.provides missing')
         elif not s['configured'] and (e.get('config') or {}).get('route') not in (None, 'none'):
             notes.append(f'no {config_path(e).name}: `catalogue:config NAME={n}`')
-        elif not s['registered']:
+        elif s['configured'] and not s['registered']:
             notes.append(f'configured but the engine cannot load it: `corpus:config NAME={n}`')
         if s['present'] and s['configured']:
             sets = source_sets(e)
@@ -1463,6 +1470,14 @@ def vendor(entry, dry_run=False):
         if c not in cfgs and c.is_file():
             cfgs.append(c)
     if not cfgs:
+        # ⚠ TWO DIFFERENT SITUATIONS, TWO DIFFERENT ANSWERS. An entry that declares NO config phase
+        # (build-only, or `route: none`) is never going to have a configuration, so there is nothing
+        # to vendor and that is not a failure -- `corpus:config` on such an entry used to die here,
+        # one step after the phase itself had correctly been skipped. An entry that HAS a route and
+        # still has no configuration means the route did not produce one, which is a failure.
+        if plan(entry, 'config') is None:
+            print(f"{entry['name']}: no config phase, so no jars to vendor", file=sys.stderr)
+            return 0
         print(f"{entry['name']}: no configuration on disk to vendor", file=sys.stderr)
         return 1
     rc = 0

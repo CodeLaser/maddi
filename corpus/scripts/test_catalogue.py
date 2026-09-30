@@ -423,6 +423,26 @@ class TestPhases(CatalogueTest):
         self.assertIn('compile.javac.log > compile.javac.log.tmp', cmd)
         self.assertIn('/compile.javac.log --jre /opt/jdk17 --write-input-configuration', cmd)
 
+    def test_plan_exits_2_for_a_phase_the_entry_does_not_have(self):
+        """⛔ THE NUMBER IS A CONTRACT. Taskfile.yml's `_cat` treats exit 2 from `plan` as "this corpus
+        has no such phase, skip it and go on", which is what lets `corpus:ready` run over guava, detekt
+        and caffeine -- none of which has a `build:`, because their config route IS the build. Change
+        this code and those composites start failing on a phase that was never supposed to exist."""
+        self.entry(self.public, 'routeless', 'config:\n  route: none\n')
+        args = argparse.Namespace(name='routeless', phase='build')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(2, catalogue.cmd_plan(args))
+        self.assertIn('no build phase defined', err.getvalue())
+        # `route: none` is the same statement about the config phase
+        self.assertEqual(2, catalogue.cmd_plan(argparse.Namespace(name='routeless', phase='config')))
+        # and a phase that IS defined still exits 0
+        self.entry(self.public, 'buildable', 'build:\n  cmd: make\n')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(0, catalogue.cmd_plan(argparse.Namespace(name='buildable', phase='build')))
+        self.assertEqual('make', out.getvalue().strip())
+
     def test_baseline_if_declared_passes_without_a_baseline(self):
         self.entry(self.public, 'n', 'parse:\n  runner: openjdk\n')
         e = catalogue.load_one('n')
@@ -624,10 +644,48 @@ class TestRegister(EngineWorkspaceTest):
         self.assertNotIn('clean_command', got['build'])
         self.assertTrue(catalogue.registered(e))
 
-    def test_without_a_configuration_it_refuses_and_names_the_missing_file(self):
+    def test_doctor_does_not_claim_an_unconfigured_corpus_is_configured(self):
+        """A build-only entry has no configuration and cannot be registered, and both are normal. The
+        note said "configured but the engine cannot load it" beside a `config` column reading False --
+        two statements in one row contradicting each other."""
         d, shas = self.checkout('lib')
-        self.entry(self.public, 'lib',
-                   'source: {kind: git, url: "file://%s", rev: %s}\n' % (d, shas[0]))
+        self.entry(self.public, 'lib', """
+            source: {kind: git, url: "file://%s", rev: %s}
+            build:
+              cmd: make
+            """ % (d, shas[0]))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            catalogue.cmd_doctor(argparse.Namespace(names=['lib']))
+        row = [l for l in out.getvalue().splitlines() if l.startswith('lib')][0]
+        self.assertNotIn('configured but', row, row)
+
+    def test_doctor_does_say_so_when_a_configured_corpus_is_not_registered(self):
+        d, shas = self.entry_with_config()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            catalogue.cmd_doctor(argparse.Namespace(names=['lib']))
+        row = [l for l in out.getvalue().splitlines() if l.startswith('lib')][0]
+        self.assertIn('configured but the engine cannot load it', row, row)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(0, catalogue.register(catalogue.load_one('lib')))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            catalogue.cmd_doctor(argparse.Namespace(names=['lib']))
+        row = [l for l in out.getvalue().splitlines() if l.startswith('lib')][0]
+        self.assertNotIn('configured but', row, row)
+        self.assertIn('2 source sets', row, row)
+
+    def test_a_route_that_produced_no_configuration_is_a_failure_and_names_the_file(self):
+        """The entry says how to configure itself, so a missing configuration means the route did not
+        run or did not work -- and registering would hide that."""
+        d, shas = self.checkout('lib')
+        self.entry(self.public, 'lib', """
+            source: {kind: git, url: "file://%s", rev: %s}
+            config:
+              route: maven-log
+              tasks: test-compile
+            """ % (d, shas[0]))
         e = catalogue.load_one('lib')
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
@@ -636,6 +694,26 @@ class TestRegister(EngineWorkspaceTest):
         self.assertFalse((self.home / 'projects' / 'lib').exists(),
                          'a refused registration leaves nothing half-made')
         self.assertFalse(catalogue.registered(e))
+
+    def test_an_entry_with_no_config_phase_is_not_a_failure_and_is_simply_not_registered(self):
+        """⛔ THE OTHER HALF OF THE SAME QUESTION. A build-only entry (or `route: none`) is never going
+        to have a configuration, so there is nothing for the engine to read and nothing went wrong --
+        `corpus:ready` has to walk past it. Reporting 1 here stopped the whole chain one step after the
+        config phase itself had correctly been skipped."""
+        d, shas = self.checkout('lib')
+        self.entry(self.public, 'lib', """
+            source: {kind: git, url: "file://%s", rev: %s}
+            build:
+              cmd: make
+            """ % (d, shas[0]))
+        e = catalogue.load_one('lib')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(0, catalogue.register(e))
+            self.assertEqual(0, catalogue.vendor(e))
+        self.assertIn('nothing for the engine to load', err.getvalue())
+        self.assertIn('no jars to vendor', err.getvalue())
+        self.assertFalse(catalogue.registered(e), 'not a failure, but not registered either')
 
     def test_a_checkout_off_its_pin_is_refused_before_anything_is_written(self):
         """baseRevision comes from source.rev, and the engine RESETS a project to it -- so registering

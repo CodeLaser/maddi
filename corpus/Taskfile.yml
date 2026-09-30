@@ -566,12 +566,29 @@ tasks:
     # answer silent by CREATING the missing directory instead of failing, so the phase ran in a
     # brand-new empty dir in the corpus root and failed on a missing ./mvnw. Ask the catalogue,
     # which resolves ~ and $VARS and knows relative-vs-absolute, and cd here instead.
+    #
+    # ⚠ EXIT 2 FROM `plan` MEANS "this corpus HAS no such phase", which is a normal state and not a
+    # failure: guava, detekt and caffeine declare no `build:` because their config route IS the build,
+    # and vavr declares no `tests:`. Treating it as a failure stopped the composites
+    # (`catalogue:provision`, `corpus:ready`) at the first such corpus -- `corpus:ready NAME=caffeine`
+    # died on a build phase caffeine is not supposed to have. Every other non-zero still stops.
+    #
+    # `|| rc=$?`, NOT `; rc=$?`: Task's shell stops the script at a command substitution that fails, so
+    # with `;` the lines below are never reached and the phase exits 2 anyway. That is the bug this
+    # block was added to fix, written once by hand and caught only because the skip message never
+    # appeared in the output.
+    #
+    # These notes live in a YAML comment, NOT in the shell block: Task echoes the block it runs, so a
+    # comment down there is reprinted on every phase of every corpus -- eleven lines of explanation
+    # before each of five phases, which is how a useful note becomes noise.
     cmds:
       - |
         dir="$({{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" || exit $?
-        cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || exit $?
-        # Not obtained yet is a normal state; say so rather than let cd's message stand alone.
-        [ -d "$dir" ] || { echo ">>> {{.NAME}}: $dir does not exist -- clone/obtain it first" >&2; exit 1; }
+        rc=0
+        cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || rc=$?
+        if [ "$rc" -eq 2 ]; then echo ">>> {{.NAME}}: no {{.PHASE}} phase in this entry -- skipped, the chain goes on" >&2; exit 0; fi
+        [ "$rc" -eq 0 ] || exit "$rc"
+        [ -d "$dir" ] || { echo ">>> {{.NAME}}: $dir does not exist -- clone/obtain it first, the message below is not the reason" >&2; exit 1; }
         echo ">>> {{.NAME}} [{{.PHASE}}] in $dir: $cmd"
         cd "$dir" && eval "$cmd"
 
@@ -598,7 +615,10 @@ tasks:
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py obtain {{.NAME}}']
 
   catalogue:pin:
-    desc: "Record the checkout's HEAD (or REV=...) as source.rev, then re-record the baseline: task catalogue:pin NAME=camel"
+    # It does NOT re-record the baseline, whatever this description used to say: `pin` writes
+    # source.rev and stops. Recording is a separate, deliberate step, so that moving a pin shows you
+    # what upstream changed before you accept it.
+    desc: "Write the checkout's HEAD (or REV=...) as source.rev; re-record the baseline separately with `catalogue:baseline NAME=… RECORD=1`"
     requires: { vars: [NAME] }
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py pin {{.NAME}} {{if .REV}}--rev {{.REV}}{{end}}']
 
