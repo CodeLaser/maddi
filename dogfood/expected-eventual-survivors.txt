@@ -2,7 +2,7 @@
 # on the composed dogfood run (maddi analysing its own CST).
 #
 # One fully-qualified type name per line, sorted. Blank lines and '#' comments are ignored.
-# Maintained by TestEventualRatchet (maddi-run-openjdk, slowTest). See docs/design/eventual-design-improvements.md
+# Maintained by TestEventualRatchet (maddi-gradleplugin, slowTest). See docs/design/eventual-design-improvements.md
 # section 1, and docs/design/eventual-info-hierarchy.md for the diagnosis recipe when a type disappears.
 #
 # A type LOST from this list means a commit has cost it its eventual verdict -- that is the regression

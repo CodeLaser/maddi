@@ -64,21 +64,8 @@ dependencies {
 
 // ---- the test JVM of maddi-run-openjdk, verbatim, for the tests that moved from there
 
-// TestEventualRatchet analyses the dogfood input configuration, which is GENERATED; see the long note on the same
-// task in maddi-run-openjdk/build.gradle.kts, where it was until split stage 3.
-val dogfoodInputConfiguration by tasks.registering(GradleBuild::class) {
-    group = "verification"
-    description = "Generates the dogfood input configuration that TestEventualRatchet analyses."
-    dependsOn(":maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository",
-            ":maddi-support:jar", ":maddi-util:jar")
-    dir = file("../dogfood")
-    tasks = listOf(":cst-impl:maddi-write-input-configuration")
-    startParameter.isRefreshDependencies = true
-}
-
-tasks.named<Test>("slowTest") {
-    dependsOn(dogfoodInputConfiguration)
-}
+// TestEventualRatchet and the dogfood input configuration it analyses moved to maddi-gradleplugin (split stage 5):
+// the dogfood build applies that plugin, and the ratchet reaches the analysis through the engine interface.
 
 val javacAddExports = listOf(
     "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

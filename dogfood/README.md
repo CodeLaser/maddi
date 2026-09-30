@@ -42,7 +42,7 @@ Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the
 How to run
 ----------
 
-**For the ratchet, nothing: `./gradlew :maddi-run-analysis:slowTest` does all of it.** That task's
+**For the ratchet, nothing: `./gradlew :maddi-gradleplugin:slowTest` does all of it.** That task's
 `dogfoodInputConfiguration` dependency publishes the plugin, builds the jars and runs the generation
 below, so `TestEventualRatchet` provisions its own input in any checkout. It had to: the input
 configuration is generated and gitignored, so before 2026-08-17 the ratchet failed its own "does not

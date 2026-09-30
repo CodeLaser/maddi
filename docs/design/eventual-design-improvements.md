@@ -49,7 +49,7 @@ re-derives the survivor set and diffs.
   run-to-run; the verification-residue boundary — same family as the historical
   `CompilationUnitPrinterImpl` wobble). A type on the allowlist may be present or absent without
   failing the ratchet.
-- **Test** `TestEventualRatchet`, in `maddi-run-openjdk`, tagged `@Tag("slow")` (there is no separate
+- **Test** `TestEventualRatchet`, in `maddi-gradleplugin` (until the split in `maddi-run-openjdk`), tagged `@Tag("slow")` (there is no separate
   `slowTest` source set — `slowTest` is a task that selects that tag out of `src/test/java`):
   1. Requires the generated `dogfood/cst-impl/build/inputConfiguration.json`; fail with a pointed
      message ("run `e2immu-write-input-configuration`, see dogfood/README.md") if absent — do NOT

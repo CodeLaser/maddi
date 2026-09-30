@@ -12,16 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.run.openjdkmain;
+package io.codelaser.maddi.gradleplugin;
 
 import ch.qos.logback.classic.Level;
-import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
-import io.codelaser.maddi.modification.analyzer.impl.EventualCluster;
-import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
+import io.codelaser.maddi.analysis.api.ModificationOptions;
+import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
-import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -63,10 +63,13 @@ import static org.junit.jupiter.api.Assertions.fail;
  * turned a resolve-once field into a mutable {@code ArrayList} and sank the whole {@code Element}
  * hierarchy for a week without a single red test. See {@code docs/design/eventual-design-improvements.md} §1.
  * <p>
- * The run is built here rather than through {@link RunAnalyzer} so that both gates are set
- * programmatically: {@code MODREACH} and {@code EVENTUALCLUSTER} are environment opt-outs on the CLI
+ * The run is built here rather than through the CLI so that both gates are set
+ * programmatically, as options of the analysis engine: {@code MODREACH} and {@code EVENTUALCLUSTER} are environment opt-outs on the CLI
  * path, and a developer with either exported to {@code 0} would otherwise measure a different engine
  * and read the difference as a regression.
+ * <p>
+ * It lives with the Gradle plugin (split stage 5) because its input is the dogfood build, which applies that
+ * plugin; it reaches the analysis through {@link AnalysisEngine} only, like every module of this tier.
  */
 @Tag("slow")
 public class TestEventualRatchet {
@@ -110,14 +113,18 @@ public class TestEventualRatchet {
 
     @BeforeAll
     public static void beforeAll() {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        // this module's test class path also carries Gradle's own SLF4J binding (gradleApi), so the root logger is
+        // logback's only when logback won the binding
+        if (LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) instanceof ch.qos.logback.classic.Logger root) {
+            root.setLevel(Level.INFO);
+        }
     }
 
     @Test
     public void test() throws IOException {
         if (!Files.isRegularFile(INPUT_CONFIGURATION)) {
             fail("The dogfood input configuration " + INPUT_CONFIGURATION.toAbsolutePath() + " does not exist."
-                 + " Run this test through `./gradlew :maddi-run-openjdk:slowTest`, whose"
+                 + " Run this test through `./gradlew :maddi-gradleplugin:slowTest`, whose"
                  + " dogfoodInputConfiguration task generates it; by hand it is `cd dogfood &&"
                  + " ../gradlew --refresh-dependencies :cst-impl:maddi-write-input-configuration`"
                  + " (dogfood/README.md). You are seeing this because the file is a generated, uncommitted"
@@ -222,68 +229,66 @@ public class TestEventualRatchet {
     }
 
     /**
-     * Prep + modification over the dogfood input, mirroring {@link RunAnalyzer}'s pipeline, and the
+     * Prep + modification over the dogfood input, mirroring the openjdk CLI's pipeline, and the
      * surviving {@code EVENTUALLY_IMMUTABLE_TYPE} verdicts read straight off the analysis — not parsed
      * back out of an {@code FPDUMP}, whose format is a diagnostic and free to change.
      */
     private java.util.Map<String, Value.EventuallyImmutable> runDogfoodAndCollectSurvivors() throws IOException {
-        boolean eventualClusterWasEnabled = EventualCluster.ENABLED;
-        EventualCluster.ENABLED = true;
-        try {
-            InputConfiguration inputConfiguration = JsonStreaming.objectMapper()
-                    .readValue(INPUT_CONFIGURATION.toFile(), InputConfigurationImpl.class);
-            JavaInspector javaInspector = new JavaInspectorImpl(true, false);
-            javaInspector.initialize(inputConfiguration);
-            javaInspector.preload("java.base::java.util");
+        AnalysisEngine engine = AnalysisEngines.require("the eventual ratchet");
+        InputConfiguration inputConfiguration = JsonStreaming.objectMapper()
+                .readValue(INPUT_CONFIGURATION.toFile(), InputConfigurationImpl.class);
+        JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.initialize(inputConfiguration);
+        javaInspector.preload("java.base::java.util");
 
-            JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
-                    .setDetailedSources(true)
-                    .setFailFast(false)
-                    .setParallel(true)
-                    .setLombok(inputConfiguration.containsLombok())
-                    .setIgnoreModule(true)
-                    .build();
-            Summary summary = javaInspector.parse(parseOptions);
-            assertFalse(summary.haveErrors(), "The dogfood sources must parse cleanly");
-            ParseResult parseResult = summary.parseResult();
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
+                .setDetailedSources(true)
+                .setFailFast(false)
+                .setParallel(true)
+                .setLombok(inputConfiguration.containsLombok())
+                .setIgnoreModule(true)
+                .build();
+        Summary summary = javaInspector.parse(parseOptions);
+        assertFalse(summary.haveErrors(), "The dogfood sources must parse cleanly");
+        ParseResult parseResult = summary.parseResult();
 
-            // after the parse: loading earlier resolves 0 hint types (RunAnalyzer carries the same note)
-            SourceSet mainSources = javaInspector.mainSources() != null ? javaInspector.mainSources()
-                    : inputConfiguration.sourceSets().stream().findAny().orElseThrow();
-            new LoadAnalysisResults(javaInspector.runtime(), mainSources).go(PRELOAD);
+        // after the parse: loading earlier resolves 0 hint types (RunAnalyzer carries the same note)
+        SourceSet mainSources = javaInspector.mainSources() != null ? javaInspector.mainSources()
+                : inputConfiguration.sourceSets().stream().findAny().orElseThrow();
+        engine.resultsLoader(javaInspector.runtime(), mainSources).load(PRELOAD);
 
-            Predicate<TypeInfo> externalsToAccept = _ -> false;
-            PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime(),
-                    new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-            ComputeCallGraph ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(
-                    Set.copyOf(parseResult.primaryTypes()),
-                    parseResult.sourceSetToModuleInfoMap().values(),
-                    externalsToAccept, parseOptions.parallel());
+        Predicate<TypeInfo> externalsToAccept = _ -> false;
+        ComputeCallGraph ccg = engine.prep(new PrepRequest(javaInspector.runtime(),
+                Set.copyOf(parseResult.primaryTypes()), parseResult.sourceSetToModuleInfoMap().values(),
+                externalsToAccept, parseOptions.parallel(), true)).callGraph();
 
-            List<Info> order = new ComputeAnalysisOrder().go(ccg.graph(), parseOptions.parallel());
-            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(30)
-                    .setStopWhenCycleDetectedAndNoImprovements(true)
-                    .setModificationViaReachability(true)
-                    .setFaultTolerant(true)
-                    .build();
-            // the run reports an ANALYZER_ERROR exit on the CLI (cycle protection trips on a few printer
-            // methods, dogfood/README.md); the verdicts are still computed, so we do not assert on messages
-            new IteratingAnalyzerImpl(javaInspector, modConfig).analyze(order, ccg.graph());
+        List<Info> order = new ComputeAnalysisOrder().go(ccg.graph(), parseOptions.parallel());
+        ModificationOptions options = new ModificationOptions(
+                30,     // max iterations
+                true,   // stop when a cycle shows no improvement
+                null,   // track object creations: the analyzer's default
+                true,   // modification via reachability (MODREACH), whatever the environment says
+                true,   // fault tolerant
+                null,   // near misses: the analyzer's default
+                false,  // not the CLI's environment gates
+                false,  // no fingerprints
+                null,   // static side effects: the analyzer's default
+                true);  // the eventual cluster (EVENTUALCLUSTER), whatever the environment says
+        // the run reports an ANALYZER_ERROR exit on the CLI (cycle protection trips on a few printer
+        // methods, dogfood/README.md); the verdicts are still computed, so we do not assert on messages
+        engine.modification(new ModificationRequest(javaInspector, order, ccg.graph(),
+                parseResult.primaryTypes(), options, null));
 
-            java.util.Map<String, Value.EventuallyImmutable> survivors = new java.util.TreeMap<>();
-            for (Info info : order) {
-                if (!(info instanceof TypeInfo typeInfo)) continue;
-                Value.EventuallyImmutable ev = info.analysis().getOrNull(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
-                        ValueImpl.EventuallyImmutableImpl.class);
-                if (ev != null && !ev.isDefault()) {
-                    survivors.put(typeInfo.fullyQualifiedName(), ev);
-                }
+        java.util.Map<String, Value.EventuallyImmutable> survivors = new java.util.TreeMap<>();
+        for (Info info : order) {
+            if (!(info instanceof TypeInfo typeInfo)) continue;
+            Value.EventuallyImmutable ev = info.analysis().getOrNull(PropertyImpl.EVENTUALLY_IMMUTABLE_TYPE,
+                    ValueImpl.EventuallyImmutableImpl.class);
+            if (ev != null && !ev.isDefault()) {
+                survivors.put(typeInfo.fullyQualifiedName(), ev);
             }
-            return survivors;
-        } finally {
-            EventualCluster.ENABLED = eventualClusterWasEnabled;
         }
+        return survivors;
     }
 
     private static Set<String> readNames(Path path) throws IOException {

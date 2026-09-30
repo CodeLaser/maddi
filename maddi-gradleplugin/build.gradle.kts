@@ -87,6 +87,13 @@ dependencies {
     shade("ch.qos.logback:logback-classic")
     shade("com.fasterxml.jackson.core:jackson-databind")
 
+    // TestEventualRatchet (slowTest): parses the dogfood input itself and runs the analysis through the engine
+    // interface; the engine is on the test run-time class path through shadeRuntime
+    testImplementation(project(":maddi-analysis-api"))
+    testImplementation(project(":maddi-callgraph"))
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation("ch.qos.logback:logback-classic")
+
     // GRADLE PLUGIN
     testImplementation(gradleTestKit())
     testImplementation("org.junit.jupiter:junit-jupiter-api")
@@ -193,9 +200,33 @@ tasks.named<Test>("test") {
     systemProperty("maddi.daemonInstall",
             project(":maddi-ide-daemon").layout.buildDirectory.dir("install/maddi-ide-daemon").get()
                     .asFile.absolutePath)
+
+    // TestEventualRatchet (slowTest, which mirrors this JVM): the javac front end, and the heap the dogfood
+    // analysis had in maddi-run-analysis; TESTXMX overrides
+    jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "12G"))
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
+}
+
+// TestEventualRatchet analyses the dogfood input configuration, which is GENERATED: the dogfood build applies this
+// plugin to maddi's own CST modules and writes it (dogfood/README.md). Moved here from maddi-run-analysis, which
+// is mod and cannot depend on this plugin (split stage 5).
+val dogfoodInputConfiguration by tasks.registering(GradleBuild::class) {
+    group = "verification"
+    description = "Generates the dogfood input configuration that TestEventualRatchet analyses."
+    dependsOn("publishAllPublicationsToLocalPluginRepoRepository", ":maddi-support:jar", ":maddi-util:jar")
+    dir = file("../dogfood")
+    tasks = listOf(":cst-impl:maddi-write-input-configuration")
+    startParameter.isRefreshDependencies = true
 }
 
 tasks.named<Test>("slowTest") {
+    dependsOn(dogfoodInputConfiguration)
     // The isolation test resolves the plugin from the local repo, so publish there first. Task
     // dependencies are NOT part of what java-library-conventions.gradle.kts mirrors from test onto
     // slowTest (only testClassesDirs/classpath/heap/jvmArgs/systemProperties are), so this needs
