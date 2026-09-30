@@ -37,7 +37,10 @@ import java.nio.file.Path;
  */
 public class CloneBenchCorpus {
 
-    private static final Corpora.Corpus TESTARCHIVE = Corpora.codeLaser("testarchive");
+    // The corpus name and its two older overrides live HERE, with the code that knows this corpus --
+    // not in Corpora, which is in the public part of maddi and needs no list of corpus names.
+    private static final Corpora.Corpus TESTARCHIVE =
+            Corpora.codeLaser("testarchive", "testarchive.root", "TESTARCHIVE_ROOT");
 
     /** The corpus checkout. May not exist; {@link #assumeAvailable()} is the check. */
     public static final Path ROOT = TESTARCHIVE.dir();

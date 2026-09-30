@@ -21,7 +21,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,14 +39,15 @@ import java.util.regex.Pattern;
  * <h2>Two families, because they live in different places</h2>
  * <dl>
  *   <dt>{@link #oss(String)}</dt>
- *   <dd>An open-source corpus — {@code fernflower}, {@code guava}, {@code timefold-solver} — inside a
- *   {@code test-oss} directory that holds all of them. Override the container with
+ *   <dd>An open-source corpus, inside a {@code test-oss} directory that holds all of them. Override the container with
  *   {@code -D}{@value #OSS_ROOT_PROPERTY} or {@value #OSS_ROOT_ENV}; otherwise the first
  *   {@code <ancestor>/test-oss} above the working directory wins.</dd>
  *
  *   <dt>{@link #codeLaser(String)}</dt>
- *   <dd>A CodeLaser corpus — {@code testarchive}, {@code testtransform}, {@code e2e-java-testrepo} —
- *   which is a repository checked out <i>beside</i> the others rather than inside a container.
+ *   <dd>A corpus that is a repository checked out <i>beside</i> the others rather than inside a
+ *   container. ⛔ WHICH ONES THOSE ARE IS NOT WRITTEN HERE, and must not be: this class is in a
+ *   public repository, the names include private ones, and it needs none of them — the caller passes
+ *   the name. The list lives in each catalogue directory, beside the tests that use it.
  *   Override with {@code -D}{@value #CODELASER_ROOT_PROPERTY} or {@value #CODELASER_ROOT_ENV};
  *   otherwise the first {@code <ancestor>/<name>} above the working directory wins.</dd>
  * </dl>
@@ -84,15 +84,11 @@ public final class Corpora {
     public static final String INPUT_CONFIGURATION = "inputConfiguration.json";
 
     /**
-     * ⚠ LEGACY, AND KEPT ONLY BECAUSE PEOPLE HAVE IT SET. {@code CloneBenchCorpus} resolved the
-     * testarchive corpus through its own property and environment variable, years before
-     * {@value #CODELASER_ROOT_ENV} existed. Dropping them here would silently stop honouring a
-     * setting that works today, so they are consulted for that one corpus, after the general
-     * override and before the walk-up. Delete this map once nobody's shell exports TESTARCHIVE_ROOT.
+     * ⚠ LEGACY OVERRIDES, PASSED IN BY THE CALLER. A corpus that had its own property and environment
+     * variable before {@value #CODELASER_ROOT_ENV} existed keeps working, and this class does not need
+     * to know which corpus that is -- naming one here would put a private corpus's name in a public
+     * repository for no gain. The caller that owns the corpus names its own legacy pair.
      */
-    private static final Map<String, String[]> LEGACY_OVERRIDES =
-            Map.of("testarchive", new String[]{"testarchive.root", "TESTARCHIVE_ROOT"});
-
     private Corpora() {
     }
 
@@ -105,12 +101,21 @@ public final class Corpora {
 
     /** An open-source corpus inside the {@code test-oss} container. */
     public static Corpus oss(String name) {
-        return new Corpus(name, Family.OSS);
+        return new Corpus(name, Family.OSS, null);
     }
 
-    /** A CodeLaser corpus checked out beside the other repositories. */
+    /** A corpus that is a repository checked out beside the others. */
     public static Corpus codeLaser(String name) {
-        return new Corpus(name, Family.CODELASER);
+        return new Corpus(name, Family.CODELASER, null);
+    }
+
+    /**
+     * As {@link #codeLaser(String)}, honouring one older property/environment pair that used to locate
+     * this corpus before {@value #CODELASER_ROOT_ENV} existed. Consulted after the general override and
+     * before the walk-up, so a machine that still exports the old variable keeps working.
+     */
+    public static Corpus codeLaser(String name, String legacyProperty, String legacyEnv) {
+        return new Corpus(name, Family.CODELASER, new String[]{legacyProperty, legacyEnv});
     }
 
     /**
@@ -139,10 +144,10 @@ public final class Corpora {
      * directory, or null.
      *
      * <p>⛔ THE WALK-UP IS THE POINT, and two of the four classes this replaces did not have it. A
-     * fixed {@code ../../test-oss} only resolves when the working directory is a module directory
-     * exactly two levels below a checkout that also holds the corpus. That is not academic: maddi's
-     * own testarchive tests were silently skipping for exactly this reason, because the corpus sits at
-     * {@code ~/git/testarchive} while {@code ../../testarchive} from a maddi module points inside the
+     * fixed {@code ../../<name>} only resolves when the working directory is a module directory exactly
+     * two levels below a checkout that also holds the corpus. That is not academic: one of maddi's own
+     * corpus test suites had been silently skipping for exactly this reason -- the corpus is a sibling
+     * of the repositories while {@code ../../<name>} from a module directory points inside the
      * workspace. Converting those call sites to this class makes them run for the first time.
      */
     private static Path walkUp(String relative) {
@@ -158,9 +163,12 @@ public final class Corpora {
         private final String name;
         private final Family family;
 
-        private Corpus(String name, Family family) {
+        private final String[] legacy;
+
+        private Corpus(String name, Family family, String[] legacy) {
             this.name = name;
             this.family = family;
+            this.legacy = legacy;
         }
 
         public String name() {
@@ -171,10 +179,7 @@ public final class Corpora {
         public Path dir() {
             if (family == Family.OSS) return ossRoot().resolve(name);
             String root = override(CODELASER_ROOT_PROPERTY, CODELASER_ROOT_ENV);
-            if (root == null) {
-                String[] legacy = LEGACY_OVERRIDES.get(name);
-                if (legacy != null) root = override(legacy[0], legacy[1]);
-            }
+            if (root == null && legacy != null) root = override(legacy[0], legacy[1]);
             if (root != null) return Path.of(root).resolve(name);
             Path found = walkUp(name);
             return found != null ? found : Path.of("..", "..", name);
