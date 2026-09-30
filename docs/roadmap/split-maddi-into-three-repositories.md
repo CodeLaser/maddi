@@ -355,7 +355,7 @@ stage 3 with that caller in mind: it holds a parse it made itself, not one the C
 
 | decision | default in this plan |
 |---|---|
-| repository names | `maddi`, `maddi-mod`, `maddi-ext` (the user chose the short name for mod, 2026-09-30) |
+| repository names | `maddi`, `maddi-mod`, `maddi-dist` (the user chose the short name for mod and `maddi-dist` over `maddi-ext`, 2026-09-30; the tier formerly called ext is `dist`) |
 | base keeps its SHAs | yes: `git rm` in base, `filter-repo` only for the two new repositories |
 | new module for the call graph | `maddi-callgraph`, JPMS `io.codelaser.maddi.callgraph` |
 | `recursiveMethod` property | moves to cst-analysis `PropertyImpl` |
@@ -489,3 +489,24 @@ only), and the CLI launchers into mod, which 3a had left broken.
 - Found on the way, not caused by the split: the installed `maddi-kotlin` does not exit after a
   successful run on Kotlin sources. A K2 "ApplicationImpl pooled thread" is non-daemon, and `Main` calls
   `System.exit` only on failure. Judged from the code (Main has no split commit), not from a pre-split run.
+
+### Before stage 5 — decisions and preparation (2026-09-30)
+
+- **The third repository is `maddi-dist`** (the user's choice over `maddi-ext`); the tier is called `dist`
+  everywhere (`tiers.txt`, `check_tiers.py`). **The CLI distributions go there**: `maddi-cli` and
+  `maddi-cli-kotlin` are tiered dist. Consequence for stage 5: the corpus catalogue and Taskfile (mod) call
+  `:maddi-cli:run` and `:maddi-cli-kotlin:run`, which after the split live in `../maddi-dist` — a reference
+  in tooling only, not in any build.
+- **The dist compile-time wall is enforced by the build**: `maddi-tier-guard` in build-logic fails any
+  dist module whose compile class path or annotation-processor path RESOLVES a mod module (by name, so
+  from source and pinned alike). Applied by java-library-conventions (inert outside dist) and by
+  maddi-intellij directly. Four deliberate leaks fail with its message. Base and mod need no such guard:
+  after the split neither build includes a tier above it. `tiers.txt` moved into build-logic's resources
+  as the single list for the guard and `check_tiers.py`. A CI job compiling dist without maddi-mod was
+  considered and not built.
+- **No reflection across the wall**: the analyzer's static switches (static side effects, eventual
+  cluster) are `ModificationOptions` fields; the daemon test uses them.
+- **The eventual ratchet moved to `maddi-gradleplugin`** with the dogfood input task, running through
+  `AnalysisEngine`; it passes (317 survivors against the pinned list). A mod test no longer needs a dist
+  build.
+- Fixed on the way: `build-logic/settings.gradle.kts` of stage 4 was one unclosed comment.
