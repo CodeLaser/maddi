@@ -3,7 +3,6 @@ package io.codelaser.maddi.run.openjdkmain;
 import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -11,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Tag;
@@ -33,8 +31,12 @@ public class TestTimefoldSolver {
     }
 
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.exists(Corpora.oss("timefold-solver").config()),
-                "requires the timefold-solver corpus checkout with its locally generated input configuration");
+        // Ask the locator, do NOT test the file here: only the locator honours
+        // -Dmaddi.corpus.required, which slowTest sets so that an absent corpus FAILS instead of
+        // skipping. A hand-written assumeTrue reported the same green as a run that analysed the
+        // whole corpus -- TestGuava skipped in 9 ms with no guava on disk and the build said
+        // SUCCESSFUL (measured 2026-09-30).
+        Corpora.oss("timefold-solver").requireConfig();
     }
 
     @Test

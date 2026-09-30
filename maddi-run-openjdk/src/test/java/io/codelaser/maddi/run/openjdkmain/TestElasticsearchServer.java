@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.cli.ParseException;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -83,8 +82,12 @@ public class TestElasticsearchServer {
      * nothing generates is how this driver skipped every run for its first 20 days.
      */
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.isDirectory(Corpora.oss("elasticsearch").dir().resolve("server/src/main/java")),
-                "requires the elasticsearch corpus checkout (task corpus:elasticsearch)");
+        // Ask the locator, do NOT test the file here: only the locator honours
+        // -Dmaddi.corpus.required, which slowTest sets so that an absent corpus FAILS instead of
+        // skipping. A hand-written assumeTrue reported the same green as a run that analysed the
+        // whole corpus -- TestGuava skipped in 9 ms with no guava on disk and the build said
+        // SUCCESSFUL (measured 2026-09-30).
+        Corpora.oss("elasticsearch").requireDir("server/src/main/java");
     }
 
     /**

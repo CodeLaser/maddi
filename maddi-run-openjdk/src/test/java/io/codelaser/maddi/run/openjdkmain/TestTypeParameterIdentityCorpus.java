@@ -23,11 +23,9 @@ import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +57,12 @@ public class TestTypeParameterIdentityCorpus {
 
     private static void check(String corpus) throws Exception {
         Path config = Corpora.oss(corpus).config();
-        Assumptions.assumeTrue(Files.exists(config), () -> "requires the " + corpus + " corpus at " + config);
+        // Ask the locator, do NOT test the file here: only the locator honours
+        // -Dmaddi.corpus.required, which slowTest sets so that an absent corpus FAILS instead of
+        // skipping. A hand-written assumeTrue reported the same green as a run that analysed the
+        // whole corpus -- TestGuava skipped in 9 ms with no guava on disk and the build said
+        // SUCCESSFUL (measured 2026-09-30).
+        Corpora.oss(corpus).requireConfig();
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         javaInspector.setJdkInternals(true); // guava-tests reads a non-exported java.base package; see TestGuava
         javaInspector.initialize(JsonStreaming.objectMapper().readValue(config.toFile(), InputConfigurationImpl.class));
