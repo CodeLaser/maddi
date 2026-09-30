@@ -9,6 +9,9 @@ both detailed in `AGENTS.md` §Working style and `CONTRIBUTING.md`: the customer
 proving corpus is never named (write `closed-core` / `com.example.*`; a commit hook refuses the
 rest), and **open work items become GitHub issues rather than new checkbox `.md` files**.
 
+Since the split this is the **base** repository; the modification analysis is in `../maddi-mod` and the IDE,
+build-tool and CLI distributions in `../maddi-dist` (README §Three repositories, each has its own CLAUDE.md).
+
 Orientation: **`ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
 **`AGENTS.md`** (tool-agnostic assistant guidance: commands, engine facts, working style),
 **`CONTRIBUTING.md`** (build/test workflow), **`docs/README.md`** (index of cross-module
@@ -23,7 +26,7 @@ lacks detail.
 
 Deeper technical references, in reading order per topic:
 
-- Link engine: `maddi-modification-link/linking-manual.md` (start at §5 LinkMethodCall + §6 worked
+- Link engine (in `../maddi-mod`, see README §Three repositories): `maddi-modification-link/linking-manual.md` (start at §5 LinkMethodCall + §6 worked
   examples; `TestLinkMethodCall` is the spec-by-example), `maddi-modification-link/README.md`
   (link-nature combination table), `maddi-modification-link/src/main/java/.../vf/virtual-fields.md`.
 - Shared-variable reconstruction: `maddi-modification-link/sv-reconstruction-techniques.md`.
@@ -33,7 +36,7 @@ Deeper technical references, in reading order per topic:
 
 When a test reads the clone-bench corpus, **do not** hardcode a path such as
 `"../../testarchive/…"`. Resolve it via `CloneBenchCorpus`
-(`maddi-modification-analyzer` test scope): `TESTARCHIVE_ROOT` / `-Dtestarchive.root`,
+(maddi-mod, `maddi-modification-common` test fixtures): `TESTARCHIVE_ROOT` / `-Dtestarchive.root`,
 else the default sibling checkout. Remember the corpus lives on the **`analyzed`
 branch** of `testarchive`.
 

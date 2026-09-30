@@ -1,5 +1,14 @@
 # maddi
 
+> **Three repositories.** Since 2026-09-30 maddi is split by tier
+> ([plan](docs/roadmap/split-maddi-into-three-repositories.md)): this repository holds the **base** (CST, front
+> ends, inspection, call graph, the run drivers and the `AnalysisEngine` interface);
+> [**maddi-mod**](https://github.com/CodeLaser/maddi-mod) holds the modification analysis (`maddi-modification-*`,
+> `maddi-aapi-parser`, `maddi-run-analysis`, the analysis tests, `corpus/`); and
+> [**maddi-dist**](https://github.com/CodeLaser/maddi-dist) holds what users install (daemon and IDE plugins, the
+> Gradle and Maven plugins, the `maddi` / `maddi-kotlin` CLI distributions, `dogfood/`). Modules named below that
+> are not in this checkout live in those siblings, checked out next to it (`../maddi-mod`, `../maddi-dist`).
+
 [![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)](https://github.com/CodeLaser/maddi/actions/workflows/build.yml)
 
 **maddi works out what is actually immutable in your Java codebase — and tells you why it isn't.**
