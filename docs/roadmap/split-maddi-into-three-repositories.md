@@ -14,10 +14,10 @@ repositories:
 | repository | tier | holds |
 |---|---|---|
 | `maddi` (this one, name and history kept) | **base** | CST, parsers and front-ends (Java, bytecode, Kotlin), inspection, graph, annotations, support, util, the annotated-API archive, the run configuration, the run drivers (CLI + compile-log route + the step pipeline), the analysis-step **service interface**, and — after stage 2 — the code-structure (call) graph |
-| `maddi-modification` | **mod** | prepwork, link, analyzer, modification-common, the AAPI compiler, and the module that **implements** the analysis steps and hosts every test that runs the analysis |
+| `maddi-mod` | **mod** | prepwork, link, analyzer, modification-common, the AAPI compiler, and the module that **implements** the analysis steps and hosts every test that runs the analysis |
 | `maddi-ext` | **ext** | IDE daemon and client, IntelliJ, Eclipse, VS Code, the Gradle and Maven plugins — compiled against base, shipping mod as a runtime-only dependency |
 
-The rule that the split enforces, and that a check script (stage 0) keeps enforced:
+The rule that the split enforces, and that a check script (stage 0, `tools/tiers/check_tiers.py`) keeps enforced:
 
 > **base depends on nothing above it; mod depends on base only; ext compiles against base only and
 > carries mod at run time.** A consumer of the base tier sees the modification analysis only as values
@@ -31,11 +31,11 @@ Three consumers of that interface, one mechanism:
 
 - the **run drivers** in base: `--analysis-steps=none` (parse only) works from base alone; `prep`,
   `modification`, `rewire-tests` and the hints compile are steps that mod provides;
-- the **IDE daemon and the build plugins** in ext: they bundle `maddi-modification` (the daemon's
+- the **IDE daemon and the build plugins** in ext: they bundle `maddi-mod` (the daemon's
   `installDist` lib directory, the plugins' shaded jar) as a **runtime-only** dependency and drive the
   analysis through the same steps, so their compile class path is base alone;
 - the **refactor engine's base tier** (`refactor-api`, `refactor-impl`, `commonservice`, `conformance`,
-  the shared metrics), which will build without `maddi-modification` and obtain its prepared project
+  the shared metrics), which will build without `maddi-mod` and obtain its prepared project
   through the same `prep` step (§5).
 
 ## 2. The tiers as measured
@@ -274,11 +274,11 @@ a rewrite costs):
 
 1. **`maddi` keeps its history and its SHAs.** The mod and ext modules are removed with `git rm`; their
    history stays reachable in this repository's log. Nothing is rewritten.
-2. **`maddi-modification` and `maddi-ext` are carved from a fresh clone with `git filter-repo`** and a
+2. **`maddi-mod` and `maddi-ext` are carved from a fresh clone with `git filter-repo`** and a
    `--path` list per tier (modules, `corpus/` for mod, `dogfood/` for ext, and the docs from §2 that
    belong to that tier). Each new repository holds the full history of its own paths.
 3. Each new repository gets: `settings.gradle.kts` with `pluginManagement { includeBuild("../maddi/build-logic") }`
-   and `includeBuild("../maddi")` (ext also `includeBuild("../maddi-modification")`, whose modules it
+   and `includeBuild("../maddi")` (ext also `includeBuild("../maddi-mod")`, whose modules it
    names only in `runtimeOnly` and `shade` configurations), the Gradle wrapper,
    `gradle.properties` with its own `version` (start both at `0.9.1`, the current line), and a README
    that states its tier and the rule from §1. Cross-repository dependencies are written as coordinates,
@@ -291,18 +291,18 @@ a rewrite costs):
    reads as "ext bundles mod and base". `CONTRIBUTING.md`'s customer-name hook is installed in all three.
 5. Workspace tooling: the `.ws` `REPOS` lists in `ws/*` and `ALL_REPOS` in jfocus-devops `scripts/ws.conf`
    gain the two repositories; `jfocus-refactor-service/settings.gradle.kts` and the server's replace
-   `includeBuild("../maddi")` with maddi + maddi-modification (ext is not on the refactor side's graph).
+   `includeBuild("../maddi")` with maddi + maddi-mod (ext is not on the refactor side's graph).
    Creating the remotes on `laser1` is the user's step; the thread leaves two local repositories under
    `~/git/` with a clean `main`/`devel` and says so.
 
 Gate, run in the aside workspace with all three checkouts side by side:
 - `maddi`: `./gradlew build --no-build-cache`; `check_tiers.py` (now trivially base-only); the
   parse-only CLI run from stage 0.
-- `maddi-modification`: `./gradlew test --no-build-cache` and `slowTest` with the corpus present, read
+- `maddi-mod`: `./gradlew test --no-build-cache` and `slowTest` with the corpus present, read
   from `build/test-results/slowTest`.
 - `maddi-ext`: `:maddi-ide-daemon:installDist` and the daemon analysis from stage 3, the Gradle plugin
   isolation test, the Maven plugin tests, `dogfood`; and the proof that mod is runtime-only: ext's
-  `compileJava` tasks succeed with `../maddi-modification` **absent** from the workspace (the composite
+  `compileJava` tasks succeed with `../maddi-mod` **absent** from the workspace (the composite
   then fails only at the runtime configurations, which the check names).
 - refactor composite: both `compileJava compileTestJava` gates from stage 0, plus the
   `codelaser-metrics-*` tests.
@@ -311,7 +311,7 @@ Gate, run in the aside workspace with all three checkouts side by side:
 
 ### Stage 6 — the wall (mechanism only, default unchanged)
 
-Add to `maddi-modification` and `maddi-ext` a property switch: `-PmaddiFromSource=false` drops the
+Add to `maddi-mod` and `maddi-ext` a property switch: `-PmaddiFromSource=false` drops the
 `includeBuild("../maddi")` and resolves `io.codelaser:maddi-*:$maddiVersion` from a Maven repository
 (`publishToMavenLocal` from `maddi`, or the file repository jfocus-devops will designate). Prove it once:
 publish base, build mod against the published jars with the switch off, run its tests. **Leave the
@@ -348,14 +348,14 @@ itself (base) and asks the `prep` step, obtained through the same `ServiceLoader
 `Prepwork` record's fields are all base types already. The refactor-side thread that follows will make
 that change; move `AnalysisResultsCache` (result IO is mod), `codelaser-metrics-dataflow`,
 `codelaser-metrics-immutable` and the one variable-data use in `codelaser-metrics-duplicate` to the mod
-side; and only then take `maddi-modification` off refactor-base's graph. Design the `AnalysisContext` of
+side; and only then take `maddi-mod` off refactor-base's graph. Design the `AnalysisContext` of
 stage 3 with that caller in mind: it holds a parse it made itself, not one the CLI made.
 
 ## 6. Decisions taken by default — say so if you want another
 
 | decision | default in this plan |
 |---|---|
-| repository names | `maddi`, `maddi-modification`, `maddi-ext` |
+| repository names | `maddi`, `maddi-mod`, `maddi-ext` (the user chose the short name for mod, 2026-09-30) |
 | base keeps its SHAs | yes: `git rm` in base, `filter-repo` only for the two new repositories |
 | new module for the call graph | `maddi-callgraph`, JPMS `io.codelaser.maddi.callgraph` |
 | `recursiveMethod` property | moves to cst-analysis `PropertyImpl` |
@@ -368,3 +368,29 @@ stage 3 with that caller in mind: it holds a parse it made itself, not one the C
 | versions | three `gradle.properties`, all starting at `0.9.1`, bumped independently |
 | from-source vs pinned | mechanism built in stage 6, default stays from-source |
 | Bazel files | travel with their modules; not a gate |
+
+## 7. Progress
+
+Carried out in the workspace `ws/split` (all nine repositories, branched from `ws/server`).
+
+### Stage 0 — done (2026-09-30)
+
+- `tools/tiers/check_tiers.py` + `tools/tiers/tiers.txt`. Edges come from build configurations,
+  `requires`, and source imports mapped to the module that owns the package (the plugins and the Kotlin
+  modules have no descriptor). `tiers.txt` holds the TARGET tiers, so the check fails until the stages
+  land. On `ws/split` at the start it reports 33 violations and 3 missing runtime edges, exactly the
+  edges of §2: the four `run-*` modules and run-config into mod, inspection-kotlin's tests into
+  prepwork, and the daemon's and both plugins' compile-scope use of mod (the plugins' `shade` is
+  extended by `implementation`, so it counts as compile). aapi-parser is not reported: it is tiered mod.
+- Baseline, maddi `./gradlew test --no-build-cache`: **4,003 tests executed, 1 failed, 45 skipped**
+  across 31 modules. The failure is pre-existing and unrelated to the split:
+  `maddi-modification-link` `TestKotlinLinkCollections.indexAndCopy` (the Kotlin `copyOf` fixture's
+  links come out empty where the Java twin has two). Per-module counts are in the stage-0 commit message.
+- Baseline, refactor side: the composite roots have no `compileJava` of their own (§3 stage 0 named a
+  task that does not exist). The gate is instead `compileJava` + `compileTestJava` of every
+  single-project included build of `jfocus-refactor-server`'s settings (50 builds, a superset of the
+  service composite's): **green**.
+- Baseline, ext: `:maddi-ide-daemon:installDist` green, 48 jars in `lib/`; the Gradle plugin's 14 tests
+  (with the shaded-jar isolation test) and the Maven plugin's 14 pass inside the suite above.
+- Deferred to the start of stage 3, where they are first needed: the parse-only CLI run, the analysis
+  results for the byte comparison, and `slowTest`. They are taken from the last commit before stage 3.

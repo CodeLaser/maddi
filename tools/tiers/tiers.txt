@@ -1,0 +1,71 @@
+# The tier of every maddi module: the source of truth for tools/tiers/check_tiers.py.
+# See docs/roadmap/split-maddi-into-three-repositories.md §1-§2.
+#
+#   base  depends on nothing above it, in any scope (main, test, testFixtures)
+#   mod   depends on base only
+#   ext   COMPILES against base only; mod may appear only in runtime configurations
+#         (runtimeOnly, testRuntimeOnly, shade not extended by implementation)
+#
+# Lines:  <module> <tier>
+#         require-runtime <module>     an ext module that must carry mod at run time
+#
+# The assignments below are the TARGET of the split, not the state of the code: the check fails until the
+# stages that make them true have landed.
+
+# ---- base: CST, front-ends, inspection, graph, configuration, drivers, service interface
+maddi-aapi-archive          base
+maddi-annotation            base
+maddi-cst-analysis          base
+maddi-cst-api               base
+maddi-cst-impl              base
+maddi-cst-io                base
+maddi-cst-print             base
+maddi-cst-print-kotlin      base
+maddi-graph                 base
+maddi-inspection-api        base
+maddi-inspection-integration base
+maddi-inspection-kotlin     base
+maddi-inspection-mixed      base
+maddi-inspection-openjdk    base
+maddi-inspection-parser     base
+maddi-inspection-resource   base
+maddi-java-bytecode         base
+maddi-java-openjdk          base
+maddi-java-parser           base
+maddi-kotlin-api            base
+maddi-kotlin-k2             base
+maddi-kotlin-realm          base
+maddi-manual                base
+maddi-support               base
+maddi-util                  base
+maddi-run-config            base
+maddi-run-main              base
+maddi-run-openjdk           base
+maddi-run-kotlin            base
+maddi-run-rewire            base
+maddi-callgraph             base
+maddi-analysis-api          base
+platform                    base
+road-to-immutability        base
+
+# ---- mod: the modification analysis and everything that runs it
+maddi-modification-common   mod
+maddi-modification-prepwork mod
+maddi-modification-link     mod
+maddi-modification-analyzer mod
+maddi-aapi-parser           mod
+maddi-run-analysis          mod
+
+# ---- ext: IDE and build-tool integrations
+maddi-ide-daemon            ext
+maddi-ide-client            ext
+maddi-intellij              ext
+maddi-eclipse               ext
+maddi-vscode                ext
+maddi-gradleplugin          ext
+maddi-mvnplugin             ext
+dogfood                     ext
+
+require-runtime maddi-ide-daemon
+require-runtime maddi-gradleplugin
+require-runtime maddi-mvnplugin
