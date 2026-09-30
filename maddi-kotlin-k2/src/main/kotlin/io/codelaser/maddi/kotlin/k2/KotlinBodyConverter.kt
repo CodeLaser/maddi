@@ -3537,6 +3537,11 @@ internal class KotlinBodyConverter(
      */
     private fun KaSession.resolvedConstructor(call: KtCallExpression, type: TypeInfo, method: MethodInfo): MethodInfo? {
         val symbol = call.resolveToCall()?.singleFunctionCallOrNull()?.symbol as? KaConstructorSymbol ?: return null
+        return constructorOf(symbol, type, method)
+    }
+
+    /** [resolvedConstructor] for a constructor symbol K2 has already resolved (a call's, or a `::Foo` reference's). */
+    private fun KaSession.constructorOf(symbol: KaConstructorSymbol, type: TypeInfo, method: MethodInfo): MethodInfo? {
         val candidates = type.constructors().filter { !it.isSynthetic && it.parameters().size == symbol.valueParameters.size }
         if (candidates.size <= 1) return candidates.singleOrNull()
         // a vararg parameter is typed as its element (a Kotlin symbol) or already as the array (a Java one): either
@@ -3604,9 +3609,13 @@ internal class KotlinBodyConverter(
                 .setParameterExpressions(arguments)
                 .build()
         }
+        // ⛔ the constructor K2 resolved FIRST, by its parameter types; the first of the right arity only when that fails.
+        // Arity first picked `ArrayList(int)` for `ArrayList(xs)` as soon as the JDK model listed that overload first
+        // (the shared-JDK materialisation of 7d26ab464 did): a CST that says `new ArrayList(capacity)` compiles,
+        // counts no placeholder, and links nothing to xs.
         val constructor = defaults
-            ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             ?: type.typeInfo()?.let { resolvedConstructor(call, members(it), method) }
+            ?: type.typeInfo()?.let { members(it) }?.constructors()?.firstOrNull { !it.isSynthetic && it.parameters().size == arguments.size }
             // a Java class that declares none: javac's default constructor, which the Java front end builds typed
             // SYNTHETIC_CONSTRUCTOR -- callable, unlike Kotlin's `$default`/overload constructors (javalin's `WsConfig()`)
             ?: type.typeInfo()?.let { members(it) }?.constructors()
@@ -4450,7 +4459,8 @@ internal class KotlinBodyConverter(
         if (symbol is KaConstructorSymbol) {
             val owner = (symbol.containingDeclaration as? KaNamedClassSymbol)?.let { classTypeInfo(it) }
                 ?: return placeholder("k2-callable-ref-constructor-owner", expression)
-            val ctor = members(owner).constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
+            val ctor = constructorOf(symbol, members(owner), method)
+                ?: members(owner).constructors().firstOrNull { it.parameters().size == symbol.valueParameters.size }
                 ?: return placeholder("k2-callable-ref-constructor", expression)
             return methodReference(staticQualifier(owner),
                 ctor, functionalType, expression)
