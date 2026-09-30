@@ -1,7 +1,7 @@
 # Split maddi into three repositories — work plan
 
-**Status: plan (2026-09-30, revised the same day: the run drivers stay in base behind an analysis-step
-service).** Written for the thread that carries it out. Every claim about the code below was measured on
+**Status: plan (2026-09-30, revised twice the same day: the run drivers stay in base behind an
+analysis-step service; ext compiles against base only and carries mod at run time).** Written for the thread that carries it out. Every claim about the code below was measured on
 `ws/server` at `3329d329d` (maddi) on 2026-09-30; re-measure before relying on a number, the commands are
 given.
 
@@ -15,20 +15,25 @@ repositories:
 |---|---|---|
 | `maddi` (this one, name and history kept) | **base** | CST, parsers and front-ends (Java, bytecode, Kotlin), inspection, graph, annotations, support, util, the annotated-API archive, the run configuration, the run drivers (CLI + compile-log route + the step pipeline), the analysis-step **service interface**, and — after stage 2 — the code-structure (call) graph |
 | `maddi-modification` | **mod** | prepwork, link, analyzer, modification-common, the AAPI compiler, and the module that **implements** the analysis steps and hosts every test that runs the analysis |
-| `maddi-ext` | **ext** | IDE daemon and client, IntelliJ, Eclipse, VS Code, the Gradle and Maven plugins |
+| `maddi-ext` | **ext** | IDE daemon and client, IntelliJ, Eclipse, VS Code, the Gradle and Maven plugins — compiled against base, shipping mod as a runtime-only dependency |
 
 The rule that the split enforces, and that a check script (stage 0) keeps enforced:
 
-> **base depends on nothing above it; mod depends on base only; ext depends on both.** A consumer of the
-> base tier sees the modification analysis only as values on `Info`, through the property map of
-> `cst-api` and the property constants of `cst-analysis`, and *runs* it only through the analysis-step
-> service interface, whose implementations arrive on the class path from mod. Anything that implements
-> a step, persists analysis results, or names the analysis's internal types is mod-side.
+> **base depends on nothing above it; mod depends on base only; ext compiles against base only and
+> carries mod at run time.** A consumer of the base tier sees the modification analysis only as values
+> on `Info`, through the property map of `cst-api` and the property constants of `cst-analysis`, and
+> *runs* it only through the analysis-step service interface, whose implementations arrive on the class
+> path from mod. Anything that implements a step, persists analysis results, or names the analysis's
+> internal types is mod-side. **No module outside mod names a `modification.*` or `aapi.parser.*` type
+> in a compile-scope import or a `requires`.**
 
-Two consumers of that interface, one mechanism:
+Three consumers of that interface, one mechanism:
 
 - the **run drivers** in base: `--analysis-steps=none` (parse only) works from base alone; `prep`,
   `modification`, `rewire-tests` and the hints compile are steps that mod provides;
+- the **IDE daemon and the build plugins** in ext: they bundle `maddi-modification` (the daemon's
+  `installDist` lib directory, the plugins' shaded jar) as a **runtime-only** dependency and drive the
+  analysis through the same steps, so their compile class path is base alone;
 - the **refactor engine's base tier** (`refactor-api`, `refactor-impl`, `commonservice`, `conformance`,
   the shared metrics), which will build without `maddi-modification` and obtain its prepared project
   through the same `prep` step (§5).
@@ -95,12 +100,30 @@ Facts that decide the edge cases:
   `road-to-immutability` and `maddi-manual` (docs; base), `buildSrc` (one conventions plugin applied by
   36 modules; stage 5), `corpus/` (configs for the slow-test battery; mod), `dogfood/` (runs the
   analyzer plugin over maddi's own modules; ext, it depends on the plugin).
-- **ext calls the pipeline directly today.** The Gradle plugin (`AnalyzerWorkAction`,
-  `AnalyzerPropertyComputer`, `ComputeSourceSets`) and the Maven plugin (`RunAnalyzerMojo`,
-  `CompileAnalysisHintsMojo`, `ComputeSourceSets`, `CommonMojo`) import the `run-*` classes; the daemon
-  drives `PrepAnalyzer` and `IteratingAnalyzer` itself (10 imports). ext depends on both tiers, so none of
-  this has to change for the split; the plugins keep working because `maddi-run-analysis` is on their
-  shaded class path.
+- **ext's compile-time footprint on mod is nine files, and each use has a base-side home.** The
+  client, IntelliJ, Eclipse and VS Code modules import nothing from mod. The rest:
+  - daemon `WarmAnalysisService`: the whole pipeline by hand (`PrepAnalyzer`, call graph and order,
+    `IteratingAnalyzer` and its `ConfigurationBuilder`, `AnalyzerException`) — a second copy of
+    `RunAnalyzer`; becomes a client of the steps.
+  - daemon `StreamingValueFeed` implements `AnalysisValueFeed` (analyzer module) to stream partial
+    results to the IDE. That interface imports only `Info` from cst-api: it moves to `analysis-api`.
+  - daemon `HintsLoader`: `LoadAnalysisResults` + `PrepWorkCodec` (result IO and the codec registry);
+    daemon `AnnotationTagger` and Maven `WriteAnalysisHintsMojo`: `DecoratorImpl`, which renders
+    analysis values as annotations and comments and has **no** modification import of its own — it sits
+    in prepwork's `io` package by history. Result IO and the decorator become base-side interfaces in
+    `analysis-api`, obtained from the same registry as the steps; the decorator's implementation can move
+    to base outright.
+  - daemon `ResultCollector` filters out `PrepAnalyzer.PREPPED`, the analyzer's per-run bookkeeping
+    property, before showing results. A client must not have to know a mod-internal property to hide
+    it: the step reports which properties are bookkeeping (or does not leak them at all).
+  - Gradle `AnalyzerPropertyComputer`, Maven `CompileAnalysisHintsMojo` and `CommonMojo`: the hints
+    configuration, base after stage 1. Maven `WriteAnalysisHintsMojo`: `AnalysisHintsComposer`
+    (aapi-parser) — the hints write becomes a step with the comments-decorator subclass on the mod side.
+  - Build wiring: the plugins' `shade` configuration is what `implementation` extends from, so
+    everything shaded is also on the compile class path. That split has to become explicit: base
+    modules on the compile class path, mod modules `runtimeOnly` **and** shaded. The daemon's
+    `module-info.java` drops its three `requires io.codelaser.maddi.modification.*` lines and declares
+    `uses` for the service types; the mod jars sit on its module path at run time.
 - **Bazel:** 28 `BUILD.bazel` files exist. CI (`.github/workflows/build.yml`) runs `./gradlew build`
   only; nothing in jfocus-devops runs Bazel. Default decision: the files travel with their modules and
   are not a gate. Say so in the commit message; do not spend time making Bazel build per repository.
@@ -128,9 +151,13 @@ then `eval "$(ws env maddi-split)"` before any Gradle command. Always `--no-buil
 2. Write `tools/check_tiers.py`: reads `tiers.txt` (one line per module: `<module> <tier>`, the source
    of truth for §2), every `build.gradle.kts` (`project(":…")` per configuration) and every
    `module-info.java` (`requires`), and fails on any edge — **main or test scope** — that goes up a tier
-   or from base to ext. Run it now: it must fail on exactly the edges §2 names (aapi-parser→mod,
-   run-config→aapi-parser, the four `run-*` modules→mod, and the test-scope edges of run-openjdk,
-   run-kotlin, run-config and inspection-kotlin) and nothing else. That is the check's own test.
+   or from base to ext. For ext the rule is compile scope: `api`, `implementation`, `compileOnly` and a
+   `requires` on a mod module fail; `runtimeOnly` and `shade` on a mod module are allowed and, for the
+   daemon and the two plugins, **required** (the check reports their absence too). Run it now: it must
+   fail on exactly the edges §2 names (aapi-parser→mod, run-config→aapi-parser, the four `run-*`
+   modules→mod, the test-scope edges of run-openjdk, run-kotlin, run-config and inspection-kotlin, and
+   the compile-scope edges of ide-daemon, gradleplugin and mvnplugin into mod) and nothing else. That
+   is the check's own test.
 
 Gate: baseline recorded; `check_tiers.py` reports the known edges and no other.
 
@@ -178,16 +205,22 @@ implementing it.
 1. **The interface**, in a new base module **`maddi-analysis-api`** (JPMS `io.codelaser.maddi.analysis.api`;
    depends on cst-api, inspection-api, graph, callgraph, run-config). One service type, discovered with
    `ServiceLoader` — say `AnalysisStep`: a literal `name()` (the `--analysis-steps` vocabulary: `prep`,
-   `modification`, `rewire-tests`, plus the result IO and the hints compile, which today are not steps
-   but flags), the names of the steps it must follow, and one `run(AnalysisContext)` that mutates the
-   analysis maps on the CST. `AnalysisContext` carries what the pipeline has by then: runtime,
-   inspector, parse result, the call graph and analysis order (base since stage 2), the configuration,
-   and the result-IO hooks. Two rules from the refactor side's `DslModuleProvider`, which is the same
-   pattern and has the scars: **names are literals**, and the registry that loads them **must throw,
-   naming the missing jar, when a step requested on the command line has no provider** — the CLI
-   already exits 0 for `--analysis-steps=none` whether or not the sources parsed, and a silent no-op
-   analysis would be the same defect one tier up. JPMS: the pipeline module declares `uses`, the
-   implementation module `provides … with`; without `uses` the loader returns an empty list.
+   `modification`, `rewire-tests`, plus the result IO and the hints compile and write, which today are
+   not steps but flags and mojos), the names of the steps it must follow, and one `run(AnalysisContext)`
+   that mutates the analysis maps on the CST. `AnalysisContext` carries what the pipeline has by then:
+   runtime, inspector, parse result, the call graph and analysis order (base since stage 2), the
+   configuration, the result-IO hooks, and an optional value feed. Besides the step, the module holds
+   what ext needs to compile (§2): `AnalysisValueFeed` (moved down as is), a results-IO interface
+   (load and write analysis values for a source set, the codec obtained from the registry), a
+   `Decorator` interface (values → annotations and comments) with the implementation moved down from
+   prepwork's `io` package, a problem report type that replaces `AnalyzerException` on the client side,
+   and the step's list of bookkeeping properties a client must hide. Two rules from the refactor side's
+   `DslModuleProvider`, which is the same pattern and has the scars: **names are literals**, and the
+   registry that loads them **must throw, naming the missing jar, when a step requested on the command
+   line has no provider** — the CLI already exits 0 for `--analysis-steps=none` whether or not the
+   sources parsed, and a silent no-op analysis would be the same defect one tier up. JPMS: the pipeline
+   module declares `uses`, the implementation module `provides … with`; without `uses` the loader
+   returns an empty list.
 2. **The implementations**, in a new mod module **`maddi-run-analysis`** (depends on the four
    modification modules, aapi-parser, analysis-api): the step bodies lifted out of the two pipeline
    classes, one class per step, and the codec registrations the result IO needs. The pipeline classes in
@@ -201,8 +234,15 @@ implementing it.
    faithfully, a claim about both tiers). The tests that remain in `run-*` and `inspection-kotlin` are
    the ones about parsing, configuration and the compile-log route. Drop the now-unused
    `testImplementation` lines.
-4. The daemon and the plugins keep their direct calls for now (ext may depend on mod); note in the
-   handoff that both could become `AnalysisStep` clients, which would let the daemon drop nine imports.
+4. **ext becomes a client of the same steps.** `WarmAnalysisService` loses its hand-written copy of the
+   pipeline and runs the steps the CLI runs (one pipeline, not two — the daemon's "as
+   `RunMixedPrepAnalyzer` does it" comments are the tell). `HintsLoader`, `AnnotationTagger`,
+   `ResultCollector` and `StreamingValueFeed` move to the `analysis-api` types. The Maven hints write
+   becomes a step; its comments-decorator subclass goes to `maddi-run-analysis`. Then the build wiring:
+   the daemon's and the plugins' compile class paths hold base only; `maddi-run-analysis` and the four
+   modification modules are `runtimeOnly` in the daemon (so `installDist` ships them) and `shade` in the
+   plugins with `shade` **no longer** extended by `implementation`; the daemon's `module-info.java`
+   drops the `requires io.codelaser.maddi.modification.*` lines and gains `uses`.
 
 Gate: the number of tests executed across `run-openjdk` + `run-kotlin` + `run-config` +
 `inspection-kotlin` + `maddi-run-analysis` equals the stage-0 baseline for the first four, and the
@@ -210,8 +250,11 @@ slow-test battery reports the same count from its new module; the parse-only CLI
 the same exit code and source-set count; a CLI run with `--analysis-steps=modification` and
 `maddi-run-analysis` **absent** from the class path fails with the message that names it; with it present,
 the results written for one small corpus are byte-identical to the stage-0 run (`diff -r` on the JSON);
-`check_tiers.py` places every `run-*` module and `analysis-api` in base with **no** edge, main or test,
-into mod.
+the daemon's analysis of the same corpus (its `analyze` request, run through `maddi-ide-client` against
+the `installDist` tree) produces the same values, and its `installDist/lib` holds the mod jars; the
+plugin isolation test passes and the Maven plugin tests pass; `check_tiers.py` places every `run-*`
+module and `analysis-api` in base with **no** edge, main or test, into mod, and reports for ide-daemon,
+gradleplugin and mvnplugin no compile-scope edge into mod and a runtime one present.
 
 ### Stage 4 — build logic that can be shared across repositories
 
@@ -235,7 +278,8 @@ a rewrite costs):
    `--path` list per tier (modules, `corpus/` for mod, `dogfood/` for ext, and the docs from §2 that
    belong to that tier). Each new repository holds the full history of its own paths.
 3. Each new repository gets: `settings.gradle.kts` with `pluginManagement { includeBuild("../maddi/build-logic") }`
-   and `includeBuild("../maddi")` (ext also `includeBuild("../maddi-modification")`), the Gradle wrapper,
+   and `includeBuild("../maddi")` (ext also `includeBuild("../maddi-modification")`, whose modules it
+   names only in `runtimeOnly` and `shade` configurations), the Gradle wrapper,
    `gradle.properties` with its own `version` (start both at `0.9.1`, the current line), and a README
    that states its tier and the rule from §1. Cross-repository dependencies are written as coordinates,
    `implementation("io.codelaser:maddi-cst-api:$maddiVersion")`, exactly as the refactor side already does
@@ -256,8 +300,10 @@ Gate, run in the aside workspace with all three checkouts side by side:
   parse-only CLI run from stage 0.
 - `maddi-modification`: `./gradlew test --no-build-cache` and `slowTest` with the corpus present, read
   from `build/test-results/slowTest`.
-- `maddi-ext`: `:maddi-ide-daemon:installDist`, the Gradle plugin isolation test, the Maven plugin
-  tests, `dogfood`.
+- `maddi-ext`: `:maddi-ide-daemon:installDist` and the daemon analysis from stage 3, the Gradle plugin
+  isolation test, the Maven plugin tests, `dogfood`; and the proof that mod is runtime-only: ext's
+  `compileJava` tasks succeed with `../maddi-modification` **absent** from the workspace (the composite
+  then fails only at the runtime configurations, which the check names).
 - refactor composite: both `compileJava compileTestJava` gates from stage 0, plus the
   `codelaser-metrics-*` tests.
 - Test counts per module equal the stage-0 baseline, module for module (moved tests counted at their
@@ -314,6 +360,8 @@ stage 3 with that caller in mind: it holds a parse it made itself, not one the C
 | new module for the call graph | `maddi-callgraph`, JPMS `io.codelaser.maddi.callgraph` |
 | `recursiveMethod` property | moves to cst-analysis `PropertyImpl` |
 | the service interface | `maddi-analysis-api` (base), one `AnalysisStep` type, `ServiceLoader` discovery, literal names, a missing provider throws |
+| what else moves down into `analysis-api` | `AnalysisValueFeed`, a results-IO interface, a `Decorator` interface plus the implementation from prepwork's `io` package, a problem report type, the bookkeeping-property list |
+| ext's dependency on mod | `runtimeOnly` (daemon) and `shade` not extended by `implementation` (plugins); no `requires`; the daemon runs the CLI's steps, not a copy |
 | the implementations and the analysing tests | `maddi-run-analysis` (mod), including the slow-test battery and `corpus/` |
 | inspection-kotlin analyzer tests | move to `maddi-run-analysis` |
 | shared build logic | `buildSrc` → included build `build-logic/` in `maddi` |
