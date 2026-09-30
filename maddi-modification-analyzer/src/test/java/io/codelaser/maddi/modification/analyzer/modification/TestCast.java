@@ -216,4 +216,43 @@ public class TestCast extends CommonTest {
                 new DecoratorImpl(runtime, sourceSetOfRequest),
                 javaInspector.importComputer(4, sourceSetOfRequest)));
     }
+
+    @Language("java")
+    private static final String INPUT95 = """
+            package a.b;
+            class X {
+                static StringBuilder pattern(Object o) { if (o instanceof StringBuilder s) return s; return null; }
+                static StringBuilder cast(Object o) { return (StringBuilder) o; }
+                static StringBuilder castLocal(Object o) { StringBuilder x = (StringBuilder) o; return x; }
+                static void viaPattern(Object o) { pattern(o).append("x"); }
+                static void viaCast(Object o) { cast(o).append("x"); }
+                static void viaCastLocal(Object o) { castLocal(o).append("x"); }
+            }
+            """;
+
+    /*
+    maddi#95: a downcast returned whole is the same object as its operand, and its summary now says so with the §m
+    pair a pattern binding's return already had (only because a return inside a block is rebuilt through the
+    shared-variable reconstruct). Every Kotlin smart cast converts to such a cast (#67).
+    ⚠ The caller verdicts below held BEFORE the fix too (A/B with NORVCAST, 2026-09-29, also for a result kept in a
+    local, a field argument, and an accessor downcasting a field): the whole-object ← already carries the
+    modification. They guard that; the summary assertion is what the fix changed.
+     */
+    @DisplayName("modifying a downcast result modifies the operand")
+    @Test
+    public void test95() {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT95);
+        List<Info> ao = prepAnalyzer.doPrimaryType(X);
+        analyzer.go(ao);
+
+        for (String callee : List.of("pattern", "cast", "castLocal")) {
+            MethodInfo m = X.findUniqueMethod(callee, 1);
+            MethodLinkedVariables mlv = m.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+            assertTrue(mlv.toString().contains(callee + ".§m≡0:o.§m"), callee + ": " + mlv);
+        }
+        for (String caller : List.of("viaPattern", "viaCast", "viaCastLocal")) {
+            ParameterInfo o = X.findUniqueMethod(caller, 1).parameters().getFirst();
+            assertTrue(o.isModified(), caller + ": o must be modified");
+        }
+    }
 }
