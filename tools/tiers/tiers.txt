@@ -55,6 +55,8 @@ maddi-modification-link     mod
 maddi-modification-analyzer mod
 maddi-aapi-parser           mod
 maddi-run-analysis          mod
+maddi-run-kotlin-analysis   mod
+maddi-inspection-kotlin-analysis mod
 
 # ---- ext: IDE and build-tool integrations
 maddi-ide-daemon            ext

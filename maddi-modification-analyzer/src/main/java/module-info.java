@@ -1,4 +1,5 @@
 module io.codelaser.maddi.modification.analyzer {
+    requires transitive io.codelaser.maddi.analysis.api;
     requires io.codelaser.maddi.callgraph;
     exports io.codelaser.maddi.modification.analyzer.impl;
     exports io.codelaser.maddi.modification.analyzer;

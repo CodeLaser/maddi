@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.modification.analyzer;
+package io.codelaser.maddi.analysis.api;
 
 import io.codelaser.maddi.cst.api.info.Info;
 

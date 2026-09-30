@@ -46,7 +46,6 @@ dependencies {
     testImplementation(project(":maddi-cst-print")) // the language-neutral formatter
     testImplementation(project(":maddi-cst-print-kotlin")) // the Kotlin printer under test
     testImplementation(project(":maddi-inspection-openjdk")) // Phase 1: the openjdk (javac) Java front-end, to share the JDK core
-    testImplementation(project(":maddi-modification-prepwork")) // Tier-1: run the analyzer on Kotlin CST
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     // FlatFrontEndTestBootstrap: the explicit install of the flat front end these tests use

@@ -21,6 +21,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    api(project(":maddi-analysis-api"))  // AnalysisValueFeed, in IteratingAnalyzer's signature (split stage 3)
     implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-graph"))

@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.modification.analyzer;
 
+import io.codelaser.maddi.analysis.api.AnalysisValueFeed;
+
 import io.codelaser.maddi.modification.link.LinkComputer;
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.info.Info;

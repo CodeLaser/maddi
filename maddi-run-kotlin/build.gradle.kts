@@ -31,6 +31,7 @@ val k2Runtime: Configuration by configurations.creating {
 }
 
 dependencies {
+    implementation(project(":maddi-analysis-api"))  // the modification analysis, as a service (split stage 3)
     implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     k2Runtime(project(":maddi-kotlin-k2"))
 
@@ -44,11 +45,7 @@ dependencies {
     implementation(project(":maddi-inspection-mixed"))      // MixedInspector: shared-core Java+Kotlin parse
     implementation(project(":maddi-kotlin-api"))            // PlaceholderCensus: what the front end could not read
     implementation(project(":maddi-kotlin-realm"))          // K2Realm: the compiler goes in a classloader of its own
-    implementation(project(":maddi-modification-prepwork")) // PrepAnalyzer, ComputeAnalysisOrder
-    implementation(project(":maddi-modification-analyzer")) // IteratingAnalyzer (--analysis-steps=modification)
-    implementation(project(":maddi-modification-link"))    // LinkCodec: the only codec that can write full results
     implementation(project(":maddi-util"))                 // Trie: the shape WriteAnalysisResults takes
-    implementation(project(":maddi-modification-common"))   // AnalyzerException (isolated-element reporting)
     implementation(project(":maddi-cst-analysis"))          // PropertyImpl/ValueImpl: read the immutability verdict
     implementation(project(":maddi-graph"))                 // G<Info>
     implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON

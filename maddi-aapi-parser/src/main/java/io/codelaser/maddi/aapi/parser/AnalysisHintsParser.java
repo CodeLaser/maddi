@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.aapi.parser;
 
+import io.codelaser.maddi.analysis.api.AnalysisHintsShadows;
+
 import io.codelaser.maddi.modification.common.defaults.AnnotationProvider;
 import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
 import io.codelaser.maddi.cst.api.element.*;
@@ -89,11 +91,7 @@ public class AnalysisHintsParser implements AnnotationProvider {
      * through {@link #isAnalysisHintsShadow}.
      */
     public static String analysisHintsPackage(TypeInfo typeInfo) {
-        FieldInfo packageName = typeInfo.getFieldByName("PACKAGE_NAME", false);
-        if (packageName != null && packageName.initializer() instanceof StringConstant sc) {
-            return sc.constant();
-        }
-        return null;
+        return AnalysisHintsShadows.analysisHintsPackage(typeInfo);
     }
 
     /**
@@ -106,9 +104,7 @@ public class AnalysisHintsParser implements AnnotationProvider {
      * {@link #inspect} — so the enclosing type's {@code PACKAGE_NAME} is what tells the two apart.
      */
     public static boolean isAnalysisHintsShadow(TypeInfo typeInfo) {
-        return typeInfo.simpleName().endsWith("$")
-               && typeInfo.compilationUnitOrEnclosingType().isRight()
-               && analysisHintsPackage(typeInfo.compilationUnitOrEnclosingType().getRight()) != null;
+        return AnalysisHintsShadows.isAnalysisHintsShadow(typeInfo);
     }
 
     private void process(CompiledTypesManager compiledTypesManager, TypeInfo typeInfo) {

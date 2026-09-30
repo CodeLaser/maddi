@@ -14,20 +14,20 @@
 
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.aapi.parser.AnalysisHintsParser;
-import io.codelaser.maddi.aapi.parser.AnalysisHints;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
+import io.codelaser.maddi.analysis.api.AnalysisHintsShadows;
+import io.codelaser.maddi.analysis.api.AnalysisProblem;
+import io.codelaser.maddi.analysis.api.HintsSpec;
+import io.codelaser.maddi.analysis.api.ModificationOptions;
+import io.codelaser.maddi.analysis.api.ModificationOutcome;
+import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.PrepOutcome;
+import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
-import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
-import io.codelaser.maddi.modification.common.AnalyzerException;
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
-import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
 import io.codelaser.maddi.run.rewire.RunRewireTests;
-import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
-import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ErrorReport;
 import io.codelaser.maddi.cst.api.analysis.Message;
@@ -46,7 +46,6 @@ import io.codelaser.maddi.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -70,6 +69,15 @@ public class RunAnalyzer implements Runnable {
 
     public RunAnalyzer(Configuration configuration) {
         this.configuration = configuration;
+    }
+
+    /**
+     * The modification analysis, from maddi-mod at run time (split stage 3). Asked for only when a step needs it:
+     * a parse-only run ({@code --analysis-steps=none}) works without maddi-run-analysis on the class path.
+     */
+    private AnalysisEngine engine() {
+        return AnalysisEngines.require("--analysis-steps=" + String.join(",",
+                configuration.generalConfiguration().analysisSteps()));
     }
 
     public int exitValue() {
@@ -171,7 +179,7 @@ public class RunAnalyzer implements Runnable {
         }
         assert summary.parseResult().primaryTypes().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
-                .noneMatch(AnalysisHintsParser::isAnalysisHintsShadow)
+                .noneMatch(AnalysisHintsShadows::isAnalysisHintsShadow)
                 : "It looks like the analysis hints types are part of the primary types of the parse result";
 
         if (modification) {
@@ -187,7 +195,7 @@ public class RunAnalyzer implements Runnable {
                     LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
                 }
                 LOGGER.info("Loading analyzed analysis hints from {}", preloadAnalysisResultsDirs);
-                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(preloadAnalysisResultsDirs);
+                engine().resultsLoader(javaInspector.runtime(), sourceSetOfRequest).load(preloadAnalysisResultsDirs);
             }
         }
 
@@ -206,26 +214,25 @@ public class RunAnalyzer implements Runnable {
             ParseResult parseResult = summary.parseResult();
             Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
-            PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime(),
-                    new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-            ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
-                    parseResult.sourceSetToModuleInfoMap().values(),
-                    externalsToAccept, parseOptions.parallel());
+            PrepOutcome prepOutcome = engine().prep(new PrepRequest(javaInspector.runtime(),
+                    Set.copyOf(parseResult.primaryTypes()), parseResult.sourceSetToModuleInfoMap().values(),
+                    externalsToAccept, parseOptions.parallel(), true));
+            ccg = prepOutcome.callGraph();
             assert ccg.graph().vertices().stream()
                     .noneMatch(v -> v.t() instanceof TypeInfo typeInfo
-                                    && AnalysisHintsParser.isAnalysisHintsShadow(typeInfo))
+                                    && AnalysisHintsShadows.isAnalysisHintsShadow(typeInfo))
                     : "It looks like the analysis hints types are part of the call graph.";
 
             // fault isolation: one failing type/method no longer aborts the whole run; surface what was skipped
-            List<AnalyzerException> prepExceptions = prepAnalyzer.exceptions();
+            List<AnalysisProblem> prepExceptions = prepOutcome.problems();
             if (!prepExceptions.isEmpty()) {
                 LOGGER.error("Prep analysis produced {} error(s); the affected types/methods were skipped:",
                         prepExceptions.size());
                 int i = 1;
-                for (AnalyzerException ae : prepExceptions) {
-                    Info info = ae.getInfo();
+                for (AnalysisProblem ae : prepExceptions) {
+                    Info info = ae.info();
                     String at = info == null || info.source() == null ? "?" : info.source().compact2();
-                    Throwable cause = ae.getCause() == null ? ae : ae.getCause();
+                    Throwable cause = ae.cause();
                     LOGGER.error("  [{}] {} ({}): {}: {}", i++, info, at,
                             cause.getClass().getName(), cause.getMessage());
                 }
@@ -255,169 +262,27 @@ public class RunAnalyzer implements Runnable {
             List<Info> order = cao.go(ccg.graph(), parseOptions.parallel());
             LOGGER.info("Call graph analysis order has size {}; start modification analysis", order.size());
 
-            // do actual modification analysis
-            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(30) // safety net only: the loop exits on convergence/certification/plateau
+            // do actual modification analysis: in maddi-mod since split stage 3, with the CLI's options and its
+            // experimental environment gates (SHADOWDIFF, MODREACH, CHECKPOINT[_RESTORE], INCREMENTAL[_FILL])
+            ModificationOptions modificationOptions = new ModificationOptions(
+                    30, // safety net only: the loop exits on convergence/certification/plateau
                     // (timefold PARALLEL=8 certified exactly at 20 — late worklist iterations cost ~3s, so headroom is free)
-                    .setStopWhenCycleDetectedAndNoImprovements(true) // plateau early-exit, see IteratingAnalyzerImpl
-                    // SHADOWDIFF (phase-1 reachability diff, PLAN §13) needs LINKED_VARIABLES_ARGUMENTS,
-                    // which only trackObjectCreations produces; note track-on shifts some verdicts
-                    // (P2.1 measured: nil cost, 0.12% churn on fernflower)
-                    .setTrackObjectCreations(System.getenv("SHADOWDIFF") != null)
-                    // MODREACH (PLAN §14 P2.3a, presence-only house convention): post-convergence
-                    // reachability pass becomes the single writer of the three modification
-                    // properties; implies trackObjectCreations
-                    // UNGATED 2026-08-01 alongside EVENTUALCLUSTER: the eventual layer needs the honest,
-                    // post-cutover modification state (without it the abstract-union race returns);
-                    // MODREACH=0 is the opt-out
-                    .setModificationViaReachability(!"0".equals(System.getenv("MODREACH")))
-                    .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
-                    .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
-                    .build();
-            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
-            // task #34: CHECKPOINT=<dir> writes pass-boundary deltas so a crashed multi-hour run can
-            // resume; CHECKPOINT_RESTORE (presence, with CHECKPOINT set) preloads the directory first —
-            // the verify-certify sweep of the resumed run is the soundness net. Value-carrying gates,
-            // FPDUMP convention.
-            String checkpointDir = System.getenv("CHECKPOINT");
-            if (checkpointDir != null && !checkpointDir.isBlank()) {
-                if (System.getenv("CHECKPOINT_RESTORE") != null) {
-                    try {
-                        int loaded = new io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults(
-                                javaInspector.runtime(), javaInspector.mainSources())
-                                .goDirTolerant(new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector)
-                                        .restoreCodec(), new File(checkpointDir));
-                        LOGGER.info("CHECKPOINT_RESTORE: preloaded {} primary types from {}", loaded, checkpointDir);
-                    } catch (IOException | RuntimeException e) {
-                        LOGGER.error("CHECKPOINT_RESTORE failed, continuing cold: {}", e.toString());
-                    }
-                }
-                var linkCodec = new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector);
-                analyzer.setValueFeed(new io.codelaser.maddi.modification.analyzer.CheckpointWriter(
-                        javaInspector.runtime(), linkCodec::codec, new File(checkpointDir)));
-                LOGGER.info("CHECKPOINT: writing pass-boundary deltas to {}", checkpointDir);
-            }
-            // task #35 phase C/D: INCREMENTAL=<dir of a prior CHECKPOINT run> — restore that run's
-            // values, detect changed primary types by SOURCE fingerprint, seed the early-cutoff
-            // worklist with the changed types' elements, and union the persisted consumption edges
-            // into the wake relation. Unchanged elements keep their carried (restored) values; the
-            // run stops when the worklist is dry. Value-carrying gate, FPDUMP convention.
-            java.util.Set<io.codelaser.maddi.cst.api.info.Info> initialDirty = null;
-            String incrementalDir = System.getenv("INCREMENTAL");
-            if (incrementalDir != null && !incrementalDir.isBlank()) {
-                try {
-                    var state = io.codelaser.maddi.modification.prepwork.io.IncrementalState
-                            .load(new File(incrementalDir));
-                    if (state.sourceFingerprints().isEmpty()) {
-                        LOGGER.warn("INCREMENTAL: no usable state in {}; running cold", incrementalDir);
-                    } else {
-                        int loaded = new io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults(
-                                javaInspector.runtime(), javaInspector.mainSources())
-                                .goDirTolerant(new io.codelaser.maddi.modification.link.io.LinkCodec(javaInspector)
-                                        .restoreCodec(), new File(incrementalDir));
-                        java.util.Set<String> changed = state.changedTypes(summary.parseResult().primaryTypes());
-                        initialDirty = new java.util.HashSet<>();
-                        int unrestored = 0;
-                        java.util.Map<String, io.codelaser.maddi.cst.api.info.TypeInfo> typesByFqn = new java.util.HashMap<>();
-                        for (var info : order) {
-                            var pt = info.typeInfo() == null ? null : info.typeInfo().primaryType();
-                            if (pt == null) continue;
-                            typesByFqn.putIfAbsent(pt.fullyQualifiedName(), pt);
-                            if (changed.contains(pt.fullyQualifiedName())) {
-                                initialDirty.add(info);
-                            } else if (info.analysis().isEmpty()) {
-                                // the restore's decode tail: an element with NO carried values stays
-                                // null (no verification pass in incremental mode). Re-analyzing them
-                                // (INCREMENTAL_FILL, presence gate) floods the worklist far past the
-                                // tail itself (measured: slower than a cold run on fernflower) — the
-                                // real fix is restore coverage (the shared codec fix list). Default:
-                                // fast resume, holes counted here and reported.
-                                unrestored++;
-                                if (System.getenv("INCREMENTAL_FILL") != null) initialDirty.add(info);
-                            }
-                        }
-                        java.util.Map<io.codelaser.maddi.cst.api.info.Info,
-                                java.util.Set<io.codelaser.maddi.cst.api.info.Info>> wake = new java.util.HashMap<>();
-                        state.consumers().forEach((consumedFqn, consumerFqns) -> {
-                            var consumedType = typesByFqn.get(consumedFqn);
-                            if (consumedType == null) return;
-                            java.util.Set<io.codelaser.maddi.cst.api.info.Info> consumers = new java.util.HashSet<>();
-                            for (String c : consumerFqns) {
-                                var t = typesByFqn.get(c);
-                                if (t != null) consumers.add(t);
-                            }
-                            if (!consumers.isEmpty()) wake.put(consumedType, consumers);
-                        });
-                        if (analyzer instanceof io.codelaser.maddi.modification.analyzer.impl
-                                .IteratingAnalyzerImpl iai) {
-                            iai.setExternalWakeEdges(wake);
-                        }
-                        LOGGER.info("INCREMENTAL: restored {} type files, {} changed primary type(s), "
-                                    + "{} dirty seed element(s) ({} unrestored), {} wake-edge sources",
-                                loaded, changed.size(), initialDirty.size(), unrestored, wake.size());
-                    }
-                } catch (RuntimeException e) {
-                    LOGGER.error("INCREMENTAL setup failed; running cold: {}", e.toString());
-                    initialDirty = null;
-                }
-            }
+                    true, // plateau early-exit, see IteratingAnalyzerImpl
+                    null, null, // decided by the environment gates
+                    true, // isolate a crash on one element; report it, don't abort the whole run
+                    configuration.generalConfiguration().warnNearMisses(),
+                    true, // environment gates
+                    true); // store the analysis fingerprints
+            ModificationOutcome modificationOutcome;
             try {
-                if (initialDirty != null) {
-                    // clear-before-recompute: a dirtied element's carried cross-type-derived values
-                    // must not block the fresh, possibly-lowering re-analysis
-                    java.util.function.Consumer<io.codelaser.maddi.cst.api.info.Info> clearHook = info -> {
-                        info.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY);
-                        if (info instanceof io.codelaser.maddi.cst.api.info.MethodInfo mi) {
-                            mi.parameters().forEach(p ->
-                                    p.analysis().removeIf(AnalysisFingerprint.CROSS_TYPE_DERIVED_ONLY));
-                        }
-                    };
-                    analyzer.analyze(order, ccg.graph(), initialDirty, clearHook);
-                } else {
-                    analyzer.analyze(order, ccg.graph()); // graph enables worklist narrowing (default ON, NOWORKLIST=1 opts out)
-                }
+                modificationOutcome = engine().modification(new ModificationRequest(javaInspector, order,
+                        ccg.graph(), summary.parseResult().primaryTypes(), modificationOptions, null));
             } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYZER_ERROR;
                 return;
             }
-            // phase-1 shadow diff (PLAN §13): one-shot reachability over the converged artifacts,
-            // no writes; names the frozen optimistic values the evidence contradicts (§9.4 cross-read)
-            if (System.getenv("SHADOWDIFF") != null) {
-                try {
-                    var report = new io.codelaser.maddi.modification.analyzer.shadow.ShadowModificationPass()
-                            .go(order);
-                    LOGGER.info("SHADOWDIFF {}", report.summary());
-                    // cause chain appended: distinguishes direct refused-downgrades from the E2/E6
-                    // union-over-implementations conservatism (§7.2) when classifying
-                    report.divergences().stream()
-                            .sorted(java.util.Comparator.comparing(Object::toString))
-                            .forEach(d -> LOGGER.info("SHADOWDIFF DIV {} || {}", d, report.explain(d.info())));
-                    // reverse = the pass missed something frozen-modified: a shadow-pass gap, must be
-                    // triaged to zero before the pass can gate phase 2 (its own soundness contract)
-                    report.reverseDivergences().forEach(d -> LOGGER.info("SHADOWDIFF REV {}", d));
-                } catch (RuntimeException | AssertionError | StackOverflowError e) {
-                    LOGGER.error("SHADOWDIFF failed: {}", e.toString());
-                }
-            }
-            analysisMessages.addAll(analyzer.messages());
-            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (docs/design/analysis-rewiring.md)
-            int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
-                    summary.parseResult().primaryTypes()).size();
-            LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
-            // task #35 phase C: a checkpointed run leaves per-type OUTPUT fingerprints + the
-            // recorded consumption edges (CHECKPOINT arms the recorder) so the next run can seed
-            // the early-cutoff worklist with changed types + their DIRECT consumers
-            if (checkpointDir != null && !checkpointDir.isBlank()) {
-                try {
-                    io.codelaser.maddi.modification.prepwork.io.IncrementalState
-                            .capture(javaInspector.runtime(), summary.parseResult().primaryTypes(),
-                                    io.codelaser.maddi.cst.impl.analysis.ConsumptionEdgeRecorder.edgesSnapshot())
-                            .save(new File(checkpointDir));
-                } catch (IOException | RuntimeException e) {
-                    LOGGER.warn("Cannot save incremental state: {}", e.toString());
-                }
-            }
+            analysisMessages.addAll(modificationOutcome.messages());
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYZER_ERROR;
             }
@@ -428,8 +293,7 @@ public class RunAnalyzer implements Runnable {
                 Trie<TypeInfo> trie = new Trie<>();
                 LOGGER.info("Writing results for {} types to {}", summary.types().size(), targetDir);
                 summary.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-                WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(javaInspector.runtime());
-                writeAnalysisResults.write(targetDir, trie);
+                engine().writeResults(javaInspector.runtime(), targetDir, trie);
             } else {
                 LOGGER.warn("Not writing out results, " + Main.ANALYSIS_RESULTS_DIR + " is empty");
             }
@@ -448,7 +312,7 @@ public class RunAnalyzer implements Runnable {
     }
     /**
      * Use case 2 (compile analysis hints sources into analyzed-analysis-hints results) and use case 3 (write updated hint
-     * files): both are driven by {@link AnalysisHintsCompiler}. We derive one {@link AnalysisHints} per (non
+     * files): both are driven by {@code AnalysisHintsCompiler} (maddi-mod, through {@link AnalysisEngine#hintsCompiler}). We derive one {@link HintsSpec} per (non
      * -library) source set of the input configuration -- library name and hints path from the source set,
      * results directory from {@code analysisResultsTargetDir}, updated-hints directory from
      * {@code updatedHintsDir}, package filter from {@code hintsPackages}, preload dirs from
@@ -469,20 +333,14 @@ public class RunAnalyzer implements Runnable {
         Path updatedHintsPath = ac.updatedHintsDir() == null ? null : Path.of(ac.updatedHintsDir());
         String packagePrefix = ac.hintsPackages().isEmpty() ? null : ac.hintsPackages().getFirst();
 
-        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(configurationFactory());
+        AnalysisEngine.HintsCompiler compiler = engine().hintsCompiler(configurationFactory());
         for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
             if (sourceSet.externalLibrary() || sourceSet.sourceDirectories().isEmpty()) continue;
-            AnalysisHints hints = new AnalysisHints.Builder()
-                    .setLibraryName(sourceSet.name())
-                    .setHintsPath(sourceSet.sourceDirectories().getFirst())
-                    .setPackagePrefix(packagePrefix)
-                    .setPreloadAnalysisResultsDirs(ac.preloadAnalysisResultsDirs())
-                    .setAnalysisResultsDir(analysisResultsDir)
-                    .setUpdatedHintsPath(updatedHintsPath)
-                    .build();
+            HintsSpec hints = new HintsSpec(sourceSet.name(), sourceSet.sourceDirectories().getFirst(), packagePrefix,
+                    ac.preloadAnalysisResultsDirs(), analysisResultsDir, updatedHintsPath);
             LOGGER.info("Compiling analysis hints for source set {} (hints {})", sourceSet.name(),
                     sourceSet.sourceDirectories().getFirst());
-            List<Message> messages = compiler.go(hints);
+            List<Message> messages = compiler.compile(hints);
             analysisMessages.addAll(messages);
             LOGGER.info("AnalysisHints compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
         }

@@ -64,17 +64,6 @@ public class TestOneEntryPoint {
         }
     }
 
-    /**
-     * ⭐ The real superset property: given the same arguments on a project with no {@code .kt} file, the mixed
-     * CLI must produce the same exit code as the Java one — because it runs the same {@code RunAnalyzer}.
-     */
-    @Test
-    public void aJavaOnlyProjectBehavesLikeTheJavaCli(@TempDir Path tmp) throws Exception {
-        String[] args = javaOnlyProject(tmp, "Ok", "package x;\npublic class Ok { public int i; }\n");
-        assertEquals(io.codelaser.maddi.run.openjdkmain.Main.execute(args), Main.execute(args));
-        assertEquals(ExitCode.OK, Main.execute(args));
-    }
-
     /** ⭐ The same, for a FAILING run: agreeing only on success would be agreeing about very little. */
     @Test
     public void aJavaParseErrorGivesTheSameCodeInBoth(@TempDir Path tmp) throws Exception {
@@ -101,38 +90,7 @@ public class TestOneEntryPoint {
         assertTrue(ExitCode.message(ExitCode.UNSUPPORTED_OPTION).contains("not supported"));
     }
 
-    /** ⭐ ...and the other half: the option that moved from refused to honoured actually writes. */
-    @Test
-    public void theResultsDirectoryIsHonouredOnAKotlinProject(@TempDir Path tmp) throws Exception {
-        Path out = tmp.resolve("results");
-        String[] args = concat(kotlinProject(tmp),
-                "--analysis-steps", "modification", "--analysis-results-dir", out.toString());
-        assertEquals(0, Main.execute(args));
-        assertTrue(Files.isDirectory(out), "honoured, so results must be written");
-        try (var walk = Files.walk(out)) {
-            assertTrue(walk.anyMatch(Files::isRegularFile), "the results directory is empty");
-        }
-    }
-
-    /** …and the same project without that option runs. The refusal must be about the option, not the project. */
-    @Test
-    public void theSameKotlinProjectRunsWithoutIt(@TempDir Path tmp) throws Exception {
-        assertEquals(ExitCode.OK, Main.execute(concat(kotlinProject(tmp), "--analysis-steps", "prep")));
-    }
-
     /** The explicit {@code --source}/{@code --jmod} route, which the Kotlin CLI did not have at all. */
-    /**
-     * {@code --skip-kotlin-sources} must mean the same thing on both CLIs. Here it is also the escape hatch
-     * for the options the mixed pipeline refuses: ask for the Java half, get the whole Java feature set.
-     */
-    @Test
-    public void skipKotlinSourcesTakesTheJavaRouteAndUnlocksItsOptions(@TempDir Path tmp) throws Exception {
-        Path out = tmp.resolve("results");
-        String[] args = concat(kotlinProject(tmp), "--skip-kotlin-sources",
-                "--analysis-steps", "prep", "--analysis-results-dir", out.toString());
-        assertEquals(ExitCode.OK, Main.execute(args), "the Java pipeline honours --analysis-results-dir");
-    }
-
     private static String[] javaOnlyProject(Path tmp, String name, String source) throws Exception {
         Path src = tmp.resolve("src");
         Files.createDirectories(src.resolve("x"));

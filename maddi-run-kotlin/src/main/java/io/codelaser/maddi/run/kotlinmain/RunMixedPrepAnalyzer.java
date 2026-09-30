@@ -14,19 +14,16 @@
 
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
-import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
-import io.codelaser.maddi.modification.common.AnalyzerException;
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
+import io.codelaser.maddi.analysis.api.AnalysisProblem;
+import io.codelaser.maddi.analysis.api.ModificationOptions;
+import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
-import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
 import java.io.File;
 import io.codelaser.maddi.util.Trie;
-import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
-import io.codelaser.maddi.modification.link.io.LinkCodec;
 import io.codelaser.maddi.cst.api.analysis.Value;
-import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.modification.common.defaults.ShallowMethodAnalyzer;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -129,6 +126,8 @@ public class RunMixedPrepAnalyzer {
         // idempotent: the CLI installs the realm before it gets here; a test or embedder that calls this
         // runner directly gets it installed on the way in, from -Dmaddi.k2.classpath / -Dmaddi.k2.home
         K2Realm.installIfAbsent();
+        // prep always runs here, so the engine is always needed: ask before the (expensive) mixed parse
+        AnalysisEngine engine = AnalysisEngines.require("the mixed Java+Kotlin runner's prep");
         boolean modification = options.modification();
         List<String> analysisResultsDirs = options.analysisResultsDirs();
         MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);
@@ -160,34 +159,33 @@ public class RunMixedPrepAnalyzer {
                     .orElseGet(() -> inputConfiguration.sourceSets().stream().findAny().orElse(null));
             LOGGER.info("Loading analyzed analysis hints from {} (source set of request {})",
                     analysisResultsDirs, sourceSetOfRequest);
-            new LoadAnalysisResults(runtime, sourceSetOfRequest).go(analysisResultsDirs);
+            engine.resultsLoader(runtime, sourceSetOfRequest).load(analysisResultsDirs);
         }
         // after the archive is loaded, before anything is concluded: which library members the source calls, and
         // whether a contract reached each (absent -Dmaddi.libraryCallDump: no walk, no cost)
-        writeLibraryCallDump(runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
+        writeLibraryCallDump(engine, runtime, Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
 
         // Fault-tolerant, as in run-openjdk's RunAnalyzer: one failing method must not deny analysis to a whole
         // corpus. The Kotlin front end has more rough edges than the Java one, so this matters more here, not
         // less — prep aborted detekt outright at 652 of 1,202 types before this.
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime,
-                new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-        G<Info> callGraph = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(primaryTypes, List.of(),
-                _ -> false, options.parallel()).graph();
-        int prepErrors = report("Prep", prepAnalyzer.exceptions());
+        var prepOutcome = engine.prep(new PrepRequest(runtime, primaryTypes, List.of(), _ -> false,
+                options.parallel(), true));
+        G<Info> callGraph = prepOutcome.callGraph().graph();
+        int prepErrors = report("Prep", prepOutcome.problems());
         List<Info> order = new ComputeAnalysisOrder().go(callGraph);
         LOGGER.info("Prep analysis order has size {}", order.size());
 
         int immutableTypes = 0;
         if (modification) {
             LOGGER.info("Starting modification analysis over {} element(s)", order.size());
-            IteratingAnalyzer.Configuration configuration = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(30) // safety net; the loop exits on convergence/certification/plateau
-                    .setStopWhenCycleDetectedAndNoImprovements(true)
-                    .setFaultTolerant(true) // isolate a crash on one element rather than abort the run
-                    .setWarnNearMisses(options.warnNearMisses())
-                    .build();
-            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(parsed.getJavaInspector(), configuration);
-            analyzer.analyze(order, callGraph); // the graph enables worklist narrowing
+            ModificationOptions modificationOptions = new ModificationOptions(
+                    30, // safety net; the loop exits on convergence/certification/plateau
+                    true, null, null,
+                    true, // isolate a crash on one element rather than abort the run
+                    options.warnNearMisses(), false, false);
+            // the graph enables worklist narrowing
+            engine.modification(new ModificationRequest(parsed.getJavaInspector(), order, callGraph, primaryTypes,
+                    modificationOptions, null));
             LOGGER.info("Modification analysis finished");
             immutableTypes = (int) primaryTypes.stream().filter(RunMixedPrepAnalyzer::isImmutable).count();
             // every SOURCE type, not the primaries: a verdict that moves between runs may well be a nested
@@ -195,7 +193,7 @@ public class RunMixedPrepAnalyzer {
             writeVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
             writeMemberVerdicts(Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream()).toList());
         }
-        writeAnalysisResults(options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
+        writeAnalysisResults(engine, options.analysisResultsTargetDir(), runtime, parsed, primaryTypes,
                 inputConfiguration);
         return new Summary(parsed.getKotlinTypes().size(), parsed.getJavaTypes().size(),
                 primaryTypes.size(), order.size(), prepErrors, immutableTypes, placeholderCensus.getTotal());
@@ -210,13 +208,13 @@ public class RunMixedPrepAnalyzer {
      * prep-work codec, whose property provider cannot know {@code methodLinks} — that Property is declared in
      * maddi-modification-link, which maddi-modification-prepwork does not and must not depend on. Written with
      * the wrong codec the file is unreadable, and the reader does not degrade: it asserts, and the WHOLE file
-     * is lost. {@link LinkCodec} is the matching pair, and {@code restoreCodec()} its read side.
+     * is lost. {@code LinkCodec} is the matching pair, and {@code restoreCodec()} its read side.
      *
      * <p>⚠ Without {@code --analysis-steps=modification} the results carry only what prep concluded. That is a
      * legitimate thing to write, but it is not a full analysis, and a reader cannot tell the two apart from
      * the file alone — so the log says which it was.
      */
-    private void writeAnalysisResults(String targetDir, Runtime runtime, MixedProjectInspector.Result parsed,
+    private void writeAnalysisResults(AnalysisEngine engine, String targetDir, Runtime runtime, MixedProjectInspector.Result parsed,
                                       Set<TypeInfo> primaryTypes, InputConfiguration inputConfiguration)
             throws IOException {
         if (targetDir == null || targetDir.isBlank() || "none".equalsIgnoreCase(targetDir)) return;
@@ -224,8 +222,7 @@ public class RunMixedPrepAnalyzer {
                 .orElseGet(() -> inputConfiguration.sourceSets().stream().findAny().orElse(null));
         Trie<TypeInfo> trie = new Trie<>();
         primaryTypes.forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-        new WriteAnalysisResults(runtime).write(new File(targetDir), trie,
-                new LinkCodec(parsed.getJavaInspector(), sourceSetOfRequest).codec());
+        engine.writeResultsWithLinks(runtime, parsed.getJavaInspector(), sourceSetOfRequest, new File(targetDir), trie);
         LOGGER.info("Wrote analysis results for {} primary type(s) to {}", primaryTypes.size(), targetDir);
     }
 
@@ -255,7 +252,8 @@ public class RunMixedPrepAnalyzer {
      * contracted extension function never carries one); written after the load and before prep, so nothing
      * computed can pass for a contract. A constructor counts as its type's {@code <init>}.
      */
-    private static void writeLibraryCallDump(Runtime runtime, List<TypeInfo> sourceTypes) throws IOException {
+    private static void writeLibraryCallDump(AnalysisEngine engine, Runtime runtime, List<TypeInfo> sourceTypes)
+            throws IOException {
         String target = System.getProperty("maddi.libraryCallDump");
         if (target == null || target.isBlank()) return;
         Map<MethodInfo, Integer> calls = new HashMap<>();
@@ -266,8 +264,7 @@ public class RunMixedPrepAnalyzer {
         // from the same ShallowMethodAnalyzer the link computer would run on it later with the same (loaded) jdk
         // data -- so the values are the ones the analysis uses, only computed earlier. ⛔ Guessing harm from a type
         // NAME overcounts: jdk/JavaLang makes Iterable and CharSequence @Immutable(hc=true), unmodified by default.
-        ShallowMethodAnalyzer shallow = new ShallowMethodAnalyzer(runtime, Element::annotations);
-        calls.keySet().forEach(shallow::analyze);
+        engine.applyShallowDefaults(runtime, calls.keySet());
         List<String> lines = calls.entrySet().stream()
                 .sorted(Map.Entry.<MethodInfo, Integer>comparingByValue().reversed()
                         .thenComparing(e -> e.getKey().fullyQualifiedName()))
@@ -393,14 +390,14 @@ public class RunMixedPrepAnalyzer {
     }
 
     /** Log what was isolated, so a run that "succeeded" cannot hide how much it skipped. */
-    private static int report(String phase, List<AnalyzerException> exceptions) {
+    private static int report(String phase, List<AnalysisProblem> exceptions) {
         if (exceptions.isEmpty()) return 0;
         LOGGER.error("{} produced {} error(s); the affected elements were skipped:", phase, exceptions.size());
         int i = 1;
-        for (AnalyzerException ae : exceptions) {
-            Info info = ae.getInfo();
+        for (AnalysisProblem ae : exceptions) {
+            Info info = ae.info();
             String at = info == null || info.source() == null ? "?" : info.source().compact2();
-            Throwable cause = ae.getCause() == null ? ae : ae.getCause();
+            Throwable cause = ae.cause();
             LOGGER.error("  [{}] {} ({}): {}: {}", i++, info, at, cause.getClass().getName(), cause.getMessage());
         }
         return exceptions.size();

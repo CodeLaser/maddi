@@ -75,6 +75,7 @@ dependencies {
     shade(project(":maddi-util"))
     shade(project(":maddi-run-config"))
     shade(project(":maddi-run-main")) // Main constants + exit codes (same as the Gradle plugin)
+    shade(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
     shade(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer
     shade(project(":maddi-aapi-archive")) // the shipped analysis-result jars (resource:.../*.jar)
 

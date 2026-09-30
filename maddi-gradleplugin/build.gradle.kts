@@ -67,6 +67,7 @@ dependencies {
 
     shade(project(":maddi-run-config"))
     shade(project(":maddi-run-main")) // GeneralConfiguration/InputConfiguration property mapping
+    shade(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
     shade(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer, run in a forked worker
 
     shade("ch.qos.logback:logback-classic")

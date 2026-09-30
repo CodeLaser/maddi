@@ -23,6 +23,7 @@ java {
 }
 
 dependencies {
+    implementation(project(":maddi-analysis-api"))  // AnalysisHintsShadows (split stage 3)
     api(project(":maddi-support"))
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))

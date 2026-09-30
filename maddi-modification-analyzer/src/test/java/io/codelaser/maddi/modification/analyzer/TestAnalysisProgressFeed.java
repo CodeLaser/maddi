@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.modification.analyzer;
 
+import io.codelaser.maddi.analysis.api.AnalysisValueFeed;
+
 import io.codelaser.maddi.cst.api.info.Info;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

@@ -43,10 +43,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     // ModificationAnalysisResource#incrementalAnalyze.
     private boolean certifiedWithoutFrozenValues;
 
-    private io.codelaser.maddi.modification.analyzer.AnalysisValueFeed valueFeed;
+    private io.codelaser.maddi.analysis.api.AnalysisValueFeed valueFeed;
 
     @Override
-    public void setValueFeed(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed feed) {
+    public void setValueFeed(io.codelaser.maddi.analysis.api.AnalysisValueFeed feed) {
         this.valueFeed = feed;
     }
 
@@ -63,7 +63,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     }
 
     // feed exceptions must never disturb the analysis
-    private void feed(java.util.function.Consumer<io.codelaser.maddi.modification.analyzer.AnalysisValueFeed> action) {
+    private void feed(java.util.function.Consumer<io.codelaser.maddi.analysis.api.AnalysisValueFeed> action) {
         if (valueFeed != null) {
             try {
                 action.accept(valueFeed);
@@ -429,7 +429,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             // wave-barrier above fires only once (at the end). Method ref = no per-element allocation; feed()
             // keeps the exception-swallowing contract. Runs on parallel workers, so the feed must be cheap.
             sia.setElementCompletedCallback(() ->
-                    feed(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed::elementCompleted));
+                    feed(io.codelaser.maddi.analysis.api.AnalysisValueFeed::elementCompleted));
         }
         // a stale warm-up window from a previous run on the same universe (the seeded incremental entry
         // point) would withhold this run's type-level writes: close it before the first iteration
@@ -588,7 +588,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                     cycleBreakingActive = true;
                     {
                         int it = iterations;
-                        feed(f -> f.phase(io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase
+                        feed(f -> f.phase(io.codelaser.maddi.analysis.api.AnalysisValueFeed.Phase
                                 .CYCLE_BREAKING_ACTIVATED, it));
                     }
                     dirty = null; // one more FULL pass, now with cycle breaking
@@ -727,10 +727,10 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
                 try {
                     {
                         var terminal = done
-                                ? io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
+                                ? io.codelaser.maddi.analysis.api.AnalysisValueFeed.Phase.TERMINAL_CERTIFIED
                                 : plateau
-                                ? io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
-                                : io.codelaser.maddi.modification.analyzer.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
+                                ? io.codelaser.maddi.analysis.api.AnalysisValueFeed.Phase.TERMINAL_PLATEAU
+                                : io.codelaser.maddi.analysis.api.AnalysisValueFeed.Phase.TERMINAL_MAX_ITERATIONS;
                         int it = iterations;
                         feed(f -> f.phase(terminal, it));
                     }

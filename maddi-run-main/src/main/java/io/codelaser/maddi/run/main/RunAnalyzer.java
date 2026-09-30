@@ -15,19 +15,18 @@
 package io.codelaser.maddi.run.main;
 
 import ch.qos.logback.classic.Level;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsParser;
-import io.codelaser.maddi.aapi.parser.AnalysisHints;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
+import io.codelaser.maddi.analysis.api.AnalysisHintsShadows;
+import io.codelaser.maddi.analysis.api.HintsSpec;
+import io.codelaser.maddi.analysis.api.ModificationOptions;
+import io.codelaser.maddi.analysis.api.ModificationOutcome;
+import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
-import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
-import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
-import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
 import io.codelaser.maddi.run.rewire.RunRewireTests;
-import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
-import io.codelaser.maddi.modification.prepwork.io.WriteAnalysisResults;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ErrorReport;
 import io.codelaser.maddi.cst.api.analysis.Message;
@@ -69,6 +68,15 @@ public class RunAnalyzer implements Runnable {
 
     public RunAnalyzer(Configuration configuration) {
         this.configuration = configuration;
+    }
+
+    /**
+     * The modification analysis, from maddi-mod at run time (split stage 3). Asked for only when a step needs it:
+     * a parse-only run ({@code --analysis-steps=none}) works without maddi-run-analysis on the class path.
+     */
+    private AnalysisEngine engine() {
+        return AnalysisEngines.require("--analysis-steps=" + String.join(",",
+                configuration.generalConfiguration().analysisSteps()));
     }
 
     public int exitValue() {
@@ -126,7 +134,7 @@ public class RunAnalyzer implements Runnable {
             List<String> preloadAnalysisResultsDirs = ac == null ? List.of() : ac.preloadAnalysisResultsDirs();
             if (!preloadAnalysisResultsDirs.isEmpty()) {
                 LOGGER.info("Loading analyzed analysis hints from {}", preloadAnalysisResultsDirs);
-                new LoadAnalysisResults(javaInspector.runtime(), sourceSetOfRequest).go(preloadAnalysisResultsDirs);
+                engine().resultsLoader(javaInspector.runtime(), sourceSetOfRequest).load(preloadAnalysisResultsDirs);
             }
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
@@ -157,7 +165,7 @@ public class RunAnalyzer implements Runnable {
         }
         assert summary.parseResult().primaryTypes().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
-                .noneMatch(AnalysisHintsParser::isAnalysisHintsShadow)
+                .noneMatch(AnalysisHintsShadows::isAnalysisHintsShadow)
                 : "It looks like the analysis hints types are part of the primary types of the parse result";
 
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
@@ -175,13 +183,13 @@ public class RunAnalyzer implements Runnable {
             ParseResult parseResult = summary.parseResult();
             Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
-            PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
-            ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
-                    parseResult.sourceSetToModuleInfoMap().values(),
-                    externalsToAccept, parseOptions.parallel());
+            // the prep analyzer's default options (not fault-tolerant), as always in this driver
+            ccg = engine().prep(new PrepRequest(javaInspector.runtime(), Set.copyOf(parseResult.primaryTypes()),
+                    parseResult.sourceSetToModuleInfoMap().values(), externalsToAccept, parseOptions.parallel(),
+                    null)).callGraph();
             assert ccg.graph().vertices().stream()
                     .noneMatch(v -> v.t() instanceof TypeInfo typeInfo
-                                    && AnalysisHintsParser.isAnalysisHintsShadow(typeInfo))
+                                    && AnalysisHintsShadows.isAnalysisHintsShadow(typeInfo))
                     : "It looks like the analysis hints types are part of the call graph.";
 
             if (printMemory) {
@@ -204,26 +212,23 @@ public class RunAnalyzer implements Runnable {
             List<Info> order = cao.go(ccg.graph(), parseOptions.parallel());
             LOGGER.info("Call graph analysis order has size {}; start modification analysis", order.size());
 
-            // do actual modification analysis
-            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setMaxIterations(10)
-                    .setTrackObjectCreations(false)
-                    .setFaultTolerant(true) // isolate a crash on one element; report it, don't abort the whole run
-                    .setWarnNearMisses(configuration.generalConfiguration().warnNearMisses())
-                    .build();
-            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
+            // do actual modification analysis: in maddi-mod since split stage 3
+            ModificationOptions modificationOptions = new ModificationOptions(10, null, false, null,
+                    true, // isolate a crash on one element; report it, don't abort the whole run
+                    configuration.generalConfiguration().warnNearMisses(),
+                    false, // no environment gates
+                    true); // store the analysis fingerprints
+            ModificationOutcome modificationOutcome;
             try {
-                analyzer.analyze(order);
+                // no call graph: this driver has always analyzed the order without worklist narrowing
+                modificationOutcome = engine().modification(new ModificationRequest(javaInspector, order, null,
+                        summary.parseResult().primaryTypes(), modificationOptions, null));
             } catch (RuntimeException | AssertionError | StackOverflowError analyzerError) {
                 terminalError = analyzerError;
                 exitValue = Main.EXIT_ANALYZER_ERROR;
                 return;
             }
-            analysisMessages.addAll(analyzer.messages());
-            // analysisFingerprint: store each source set's rollup for incremental early-cutoff (docs/design/analysis-rewiring.md)
-            int fpSets = AnalysisFingerprint.storePerSourceSet(javaInspector.runtime(),
-                    summary.parseResult().primaryTypes()).size();
-            LOGGER.info("Stored analysis fingerprints for {} source set(s)", fpSets);
+            analysisMessages.addAll(modificationOutcome.messages());
             if (analysisMessages.stream().anyMatch(m -> m.level().isError())) {
                 exitValue = Main.EXIT_ANALYZER_ERROR;
             }
@@ -234,8 +239,7 @@ public class RunAnalyzer implements Runnable {
                 Trie<TypeInfo> trie = new Trie<>();
                 LOGGER.info("Writing results for {} types to {}", summary.types().size(), targetDir);
                 summary.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-                WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(javaInspector.runtime());
-                writeAnalysisResults.write(targetDir, trie);
+                engine().writeResults(javaInspector.runtime(), targetDir, trie);
             } else {
                 LOGGER.warn("Not writing out results, " + Main.ANALYSIS_RESULTS_DIR + " is empty");
             }
@@ -254,7 +258,7 @@ public class RunAnalyzer implements Runnable {
     }
     /**
      * Use case 2 (compile analysis hints sources into analyzed-analysis-hints results) and use case 3 (write updated hint
-     * files): both are driven by {@link AnalysisHintsCompiler}. One {@link AnalysisHints} per (non-library)
+     * files): both are driven by {@code AnalysisHintsCompiler} (maddi-mod, through {@link AnalysisEngine#hintsCompiler}). One {@link HintsSpec} per (non-library)
      * source set of the input configuration; see the openjdk runner for the field-by-field mapping.
      */
     private void runAnalysisHintsCompiler() throws IOException {
@@ -272,20 +276,14 @@ public class RunAnalyzer implements Runnable {
         Path updatedHintsPath = ac.updatedHintsDir() == null ? null : Path.of(ac.updatedHintsDir());
         String packagePrefix = ac.hintsPackages().isEmpty() ? null : ac.hintsPackages().getFirst();
 
-        AnalysisHintsCompiler compiler = new AnalysisHintsCompiler(configurationFactory());
+        AnalysisEngine.HintsCompiler compiler = engine().hintsCompiler(configurationFactory());
         for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
             if (sourceSet.externalLibrary() || sourceSet.sourceDirectories().isEmpty()) continue;
-            AnalysisHints hints = new AnalysisHints.Builder()
-                    .setLibraryName(sourceSet.name())
-                    .setHintsPath(sourceSet.sourceDirectories().getFirst())
-                    .setPackagePrefix(packagePrefix)
-                    .setPreloadAnalysisResultsDirs(ac.preloadAnalysisResultsDirs())
-                    .setAnalysisResultsDir(analysisResultsDir)
-                    .setUpdatedHintsPath(updatedHintsPath)
-                    .build();
+            HintsSpec hints = new HintsSpec(sourceSet.name(), sourceSet.sourceDirectories().getFirst(), packagePrefix,
+                    ac.preloadAnalysisResultsDirs(), analysisResultsDir, updatedHintsPath);
             LOGGER.info("Compiling analysis hints for source set {} (hints {})", sourceSet.name(),
                     sourceSet.sourceDirectories().getFirst());
-            List<Message> messages = compiler.go(hints);
+            List<Message> messages = compiler.compile(hints);
             LOGGER.info("AnalysisHints compilation of {} produced {} message(s)", sourceSet.name(), messages.size());
             analysisMessages.addAll(messages);
         }

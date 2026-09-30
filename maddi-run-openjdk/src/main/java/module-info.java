@@ -1,10 +1,6 @@
 module io.codelaser.maddi.run.openjdkmain {
     requires io.codelaser.maddi.callgraph;
-    requires io.codelaser.maddi.aapi.parser;
-    requires io.codelaser.maddi.modification.analyzer;
-    requires io.codelaser.maddi.modification.common;
-    requires io.codelaser.maddi.modification.link;
-    requires io.codelaser.maddi.modification.prepwork;
+    requires io.codelaser.maddi.analysis.api;
     requires io.codelaser.maddi.run.config;
     requires io.codelaser.maddi.run.rewire;
     requires io.codelaser.maddi.cst.api;

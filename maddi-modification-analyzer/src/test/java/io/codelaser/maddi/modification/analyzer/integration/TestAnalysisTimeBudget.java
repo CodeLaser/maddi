@@ -19,7 +19,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.modification.analyzer.AnalysisBudgetExceededException;
-import io.codelaser.maddi.modification.analyzer.AnalysisValueFeed;
+import io.codelaser.maddi.analysis.api.AnalysisValueFeed;
 import io.codelaser.maddi.modification.analyzer.CommonTest;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.intellij.lang.annotations.Language;

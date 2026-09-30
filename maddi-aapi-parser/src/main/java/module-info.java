@@ -1,4 +1,5 @@
 module io.codelaser.maddi.aapi.parser {
+    requires io.codelaser.maddi.analysis.api;
     requires ch.qos.logback.classic;
     requires io.codelaser.maddi.modification.common;
     requires io.codelaser.maddi.modification.prepwork;

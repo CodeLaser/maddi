@@ -21,12 +21,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    implementation(project(":maddi-analysis-api"))  // the modification analysis, as a service (split stage 3)
     implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     api(project(":maddi-inspection-api"))
-    implementation(project(":maddi-modification-common"))
-    implementation(project(":maddi-modification-prepwork"))
-    implementation(project(":maddi-modification-analyzer"))
-    implementation(project(":maddi-modification-link"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))
@@ -39,7 +36,6 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-java-parser"))
-    implementation(project(":maddi-aapi-parser"))
 
     // to access resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar
     runtimeOnly(project(":maddi-aapi-archive"))
