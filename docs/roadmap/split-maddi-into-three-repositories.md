@@ -429,3 +429,63 @@ Carried out in the workspace `ws/split` (all nine repositories, branched from `w
   methodcallgraph 7, movetypegraph 1, all pass; dataflow 37 run with 1 failure,
   `TestMethodFlow` "constructor linked to return variable", which fails identically at the stage-1
   commits of all repositories (pre-existing). Tier check: 33 problems.
+
+### Stage 3 — done (2026-09-30)
+
+Three commits: 3a (the service, the drivers into base, the tests into mod), 3b (ext compiles against base
+only), and the CLI launchers into mod, which 3a had left broken.
+
+- **Deviation: a typed engine, not a generic step.** `maddi-analysis-api` holds one service type,
+  `AnalysisEngine`, with one typed method per `--analysis-steps` step and per service around them (prep,
+  modification, results loading and writing, hints compile and compose, decorator, shallow defaults), plus
+  `bookkeepingProperties()` for the clients to hide. Every caller consumes a typed result (the call graph,
+  the isolated problems, the messages), which a generic `run(AnalysisContext)` would have hidden behind
+  casts. `AnalysisEngines.require(why)` throws naming `io.codelaser:maddi-run-analysis (repository
+  maddi-mod)`; `--analysis-steps=none` needs no engine. Request records carry the options; a null field
+  keeps the analyzer's default, so each driver states exactly what it stated before.
+- `maddi-run-analysis` (mod) implements it with the bodies moved, not rewritten, from run-openjdk's
+  `RunAnalyzer`, including the CLI's environment gates (SHADOWDIFF, MODREACH, CHECKPOINT, INCREMENTAL).
+  The drivers run-openjdk, run-main and run-kotlin compile against analysis-api alone.
+- **Deviation: three test hosts, not one.** The analysis-running tests moved to `maddi-run-analysis`
+  (from run-openjdk and run-main, with `slowTest`, the dogfood ratchet, `corpus/` and the JSON
+  resources), `maddi-run-kotlin-analysis` (from run-kotlin: the K2 realm setup) and
+  `maddi-inspection-kotlin-analysis` (from inspection-kotlin: the flat front end, Kotlin plugin). The
+  realm and the flat front end cannot share a test JVM. Found by running the base tests WITHOUT the engine
+  and reading their captured output for its error: several tests call `Main` without checking the exit
+  code and passed while doing nothing.
+- 3b: the daemon runs prep and modification through the engine, its collector hides the engine's
+  bookkeeping properties, its hints loader and tagger use the engine's loader and decorator; build and
+  descriptor name the API only, `run-analysis` is `runtimeOnly`. The plugins split `shade`: base modules
+  in `shade` (compiled against), mod modules in `shadeRuntime` (extended by `runtimeOnly`), and the shadow
+  jar bundles `shadeAll`, which extends both so a shared transitive is bundled once. The Maven hints
+  mojo's comment decorator delegates to the engine's decorator instead of subclassing `DecoratorImpl`.
+- **Added: `maddi-cli` and `maddi-cli-kotlin` (mod)**, the shipped `maddi` and `maddi-kotlin`
+  distributions: a driver plus `maddi-run-analysis`, no code of their own; `maddi-kotlin` keeps its
+  `lib-k2/` layout for the IDE plugins' installer. The base drivers lost `application`; release-cli.sh,
+  the corpus Taskfile and catalogue (launcher `run` vs test-host `slowTest`, now two maps), the Bazel
+  binary and the docs follow. run-main keeps its launcher (nothing ships it). **Stage 5 consequence:** the
+  corpus scripts call `{maddi}/gradlew … :maddi-cli:run`; after the split that module is in maddi-mod.
+- The refactor side: `jfocus-refactor-server` projectconfig takes `runtimeOnly` maddi-run-analysis
+  (its `RunAnalyzerCommand` runs the openjdk driver); `maddiProjects` names analysis-api everywhere and
+  run-analysis in server and service; two Kotlin prepare scripts call `:maddi-cli-kotlin:run`.
+- Gate, as measured:
+  - suite 4,003 run, 45 skipped, the same single pre-existing failure; run-openjdk 51 → 30 + 21,
+    run-main 9 → 6 + 3, run-kotlin 56 → 33 + 23, inspection-kotlin 80 → 17 + 63;
+  - slow battery: 20 classes, 30 tests before and after, 11 classes now in the two mod hosts (counted in
+    the sources; the battery was **not executed**, it needs the corpora and hours);
+  - analysis results, the pre-stage-3 CLI (`9d8198ed7`) against `maddi-cli`, `--analysis-steps=
+    modification` on maddi-util, maddi-graph and maddi-cst-api: `diff -r` byte-identical, same verdict
+    fingerprints, same exit codes (0, 0, 5);
+  - the CLI without `maddi-run-analysis` in `lib/`: parse-only exits 0, modification exits 1 with the
+    message naming the jar;
+  - the daemon: `analyzeProject` over its socket, pre-stage-3 `installDist` against the new one, on
+    maddi-util and maddi-graph: identical results once elapsed time and object identity hashes are
+    masked. (The daemon sends prep's `variableData` as `VariableDataImpl@<hash>` in an element's
+    properties, before and after: a value that is not a result, and not hidden as bookkeeping.)
+  - daemon `installDist/lib` holds the mod jars; both shadow jars hold the analyzer once and register the
+    engine; plugin tests 14 + 14 pass;
+  - tier check: 0 problems (50 modules).
+  - Not measured: the stage-0 parse-only baseline was never taken; the parse-only runs above exit 0.
+- Found on the way, not caused by the split: the installed `maddi-kotlin` does not exit after a
+  successful run on Kotlin sources. A K2 "ApplicationImpl pooled thread" is non-daemon, and `Main` calls
+  `System.exit` only on failure. Judged from the code (Main has no split commit), not from a pre-split run.
