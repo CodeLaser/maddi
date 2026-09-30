@@ -143,6 +143,55 @@ public class TestSharedJdkRelease {
     }
 
     /**
+     * The preload pass settles the PRELOADED packages; a platform type touched lazily afterwards was still
+     * materialised by whichever set touched it first, at that set's band. The shape of guava's reactor configuration
+     * (2026-09-29): the main sources at {@code --release 9} met {@code java.util.HashSet} first, the silent test sets
+     * then brought {@code HashSet.toArray()} (Java 11) and {@code ExecutorService.close()} (Java 19), and the two
+     * units using them were refused. Here {@code java.util} is NOT preloaded, so the 17 set is the first to touch
+     * {@code List}: the probe passes only when the lazy load went through the shared-JDK task.
+     */
+    @DisplayName("a platform type first touched lazily by a lower-release set is the shared band's, not that set's")
+    @Test
+    public void lazilyTouchedPlatformTypeIsTheSharedBands() throws java.io.IOException {
+        int running = Runtime.version().feature();
+        Assumptions.assumeTrue(running >= 21, "the probe is List.getFirst(), added in Java 21 (running on "
+                                              + running + ")");
+
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        SourceSet low = new SourceSetImpl.Builder()
+                .setName(TEST_PROTOCOL)
+                .setUri(URI.create("file:/low"))
+                .setSourceRelease(17)
+                .build();
+        SourceSet silent = new SourceSetImpl.Builder()
+                .setName("silent")
+                .setUri(URI.create("file:/silent"))
+                .build();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addSourceSets(low, silent)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
+        // deliberately no preload of java.util: the in-memory source belongs to the 17 set, and its field is the
+        // first thing in the run to touch java.util.List
+        javaInspector.initialize(inputConfiguration);
+        List<TypeInfo> usesList = javaInspector.parse(Map.of("p.UsesList", """
+                package p;
+                import java.util.List;
+                public class UsesList {
+                    List<String> list;
+                }
+                """), JavaInspectorImpl.DETAILED_SOURCES).parseResult().typeByFullyQualifiedName("p.UsesList");
+        assertTrue(!usesList.isEmpty(), "the unit parses (once per set the in-memory source is handed to): " + usesList);
+
+        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        assertNotNull(list, "java.util.List was loaded lazily by the 17 set's field");
+        List<String> names = list.methods().stream().map(MethodInfo::name).toList();
+        assertTrue(names.contains("getFirst"),
+                "java.util.List was first touched by the set at 17, but 'silent' is parsed on the running JDK ("
+                + running + "), so the shared model must come from there; methods seen: " + names);
+    }
+
+    /**
      * ...and the set's OWN sources keep being attributed at its own release. Fix 2 must not become fix 1: the
      * per-set {@code --release} is a separate, deliberate decision ({@code createTask}, and
      * {@link TestPerSourceSetRelease}), and only the preload pass is exempt from it.

@@ -43,6 +43,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ClassSymbolScanner implements ConvertType, TypeData {
@@ -52,6 +53,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Elements elements;
     private final Types types;
     private final SourceSet sourceSetOfCurrentTask;
+    /**
+     * The shared-JDK loader: resolves and COMMITS a platform type on the task the shared {@code java.*} model is
+     * built on (the preload pass's, at the run's shared release), so that a platform type first touched lazily by
+     * a source set at a lower {@code --release} is not materialised from that set's {@code ct.sym} band. See
+     * {@link #lazilyLoadPrimaryTypeFromClassFile} and {@code JavaInspectorImpl.preloadPass}. Null on the shared
+     * task's own scanner, and when no preload pass ran.
+     */
+    private Function<String, TypeInfo> sharedJdkLoader;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     // loadType is reachable more than once per type (LAZILY then LOAD_MEMBERS); annotations are appended, so
     // guard the type-level add to run exactly once
@@ -415,6 +424,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     uri = URI.create("jrt:/internal/");
                 } else {
                     uri = cs.classfile.toUri();
+                    // ⛔ A PLATFORM TYPE IS MATERIALISED BY THE SHARED-JDK TASK, NOT BY THE TASK THAT HAPPENS TO
+                    // TOUCH IT FIRST. This task's file manager may read the platform from ct.sym's band for its
+                    // set's --release, and a type committed from a band lacks every member a later band has; a
+                    // committed type cannot gain one, so a set attributed on the running JDK then drops the unit
+                    // that uses the member. The preload pass closed this for the PRELOADED packages (2026-08-25,
+                    // JavaInspectorImpl.preloadPass); everything else arrived here, at the first toucher's band.
+                    // Measured on guava's reactor configuration (2026-09-29): main sources at --release 9, test
+                    // sets silent, java.util.HashSet committed from the 8/9 band, and guava-tests' units using
+                    // HashSet.toArray() (11) and ExecutorService.close() (19) refused. The shared loader resolves
+                    // and commits the type on the shared task (the run's superset band); this task then only finds
+                    // it (loadType is a no-op on a committed type, getMethod resolves the band's symbols by name).
+                    TypeInfo shared = viaSharedJdk(cs);
+                    if (shared != null) return shared;
+                    // no shared task, not a platform type, or not loadable there: this task's view, as before
                 }
                 SourceSet sourceSet = ensureSourceSet(cs, uri);
                 if (sourceSet == null) {
@@ -1481,6 +1504,46 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
 
         return method;
+    }
+
+    public void setSharedJdkLoader(Function<String, TypeInfo> sharedJdkLoader) {
+        this.sharedJdkLoader = sharedJdkLoader;
+    }
+
+    /**
+     * The shared-JDK view of a platform type: resolved and COMMITTED on the shared task, or {@code null} when there
+     * is no shared task, the type is not a platform type, or the shared task cannot load it. Both lazy paths ask
+     * here first: attribution ({@link #lazilyLoadPrimaryTypeFromClassFile}) and the by-name load
+     * ({@code ScanCompilationUnits#loadCompiledTypeOrNull}), which would otherwise COMPLETE a type the preload pass
+     * left lazily loaded against this task's band.
+     */
+    TypeInfo viaSharedJdk(Symbol.ClassSymbol cs) {
+        if (sharedJdkLoader == null || cs.classfile == null || !(cs.owner instanceof Symbol.PackageSymbol)) return null;
+        if (!platformType(cs, cs.classfile.toUri())) return null;
+        return sharedJdkLoader.apply(cs.getQualifiedName().toString());
+    }
+
+    /** A platform type by its compilation unit: what {@link #viaSharedJdk} decides from the symbol, for a loaded type. */
+    public static boolean platformType(TypeInfo typeInfo) {
+        SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+        return sourceSet != null && sourceSet.partOfJdk();
+    }
+
+    /**
+     * A type borne by a platform module of the running JDK (a configured JDK class-path part, or a system module
+     * the configuration does not name), read from a class file or from javac's release table. The lazy load of
+     * such a type goes to the shared-JDK loader.
+     */
+    private boolean platformType(Symbol.ClassSymbol cs, URI uri) {
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module != null && !module.isUnnamed()) {
+            String moduleName = module.name.toString();
+            SourceSet known = getSourceSet(moduleName);
+            if (known != null) return known.partOfJdk();
+            return platformModuleSourceSet(moduleName) != null;
+        }
+        // at --release 8 and below the platform sits in the unnamed module; see ensureSourceSet
+        return fromReleaseTable(uri) && systemModuleOfPackage(cs.packge().fullname.toString()) != null;
     }
 
     @Override
