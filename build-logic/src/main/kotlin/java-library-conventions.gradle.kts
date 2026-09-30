@@ -15,6 +15,8 @@
 
 plugins {
     `java-library`
+    // the dist tier's compile-time wall; inert in base and mod modules
+    id("maddi-tier-guard")
 }
 
 tasks.withType<Test> {

@@ -24,6 +24,8 @@ plugins {
     // version omitted: the settings plugin (org.jetbrains.intellij.platform.settings) already puts
     // the IntelliJ Platform Gradle Plugin on the build classpath.
     id("org.jetbrains.intellij.platform")
+    // the dist tier's compile-time wall (applied by java-library-conventions elsewhere; this module does not use it)
+    id("maddi-tier-guard")
 }
 
 group = "io.codelaser"

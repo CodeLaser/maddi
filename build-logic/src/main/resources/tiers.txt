@@ -1,13 +1,14 @@
-# The tier of every maddi module: the source of truth for tools/tiers/check_tiers.py.
+# The tier of every maddi module: the source of truth for tools/tiers/check_tiers.py (declared edges) and for the
+# `maddi-tier-guard` plugin in this build-logic (resolved compile class paths of the dist tier).
 # See docs/roadmap/split-maddi-into-three-repositories.md §1-§2.
 #
 #   base  depends on nothing above it, in any scope (main, test, testFixtures)
 #   mod   depends on base only
-#   ext   COMPILES against base only; mod may appear only in runtime configurations
+#   dist  COMPILES against base only; mod may appear only in runtime configurations
 #         (runtimeOnly, testRuntimeOnly, shade not extended by implementation)
 #
 # Lines:  <module> <tier>
-#         require-runtime <module>     an ext module that must carry mod at run time
+#         require-runtime <module>     a dist module that must carry mod at run time
 #
 # The assignments below are the TARGET of the split, not the state of the code: the check fails until the
 # stages that make them true have landed.
@@ -57,18 +58,18 @@ maddi-aapi-parser           mod
 maddi-run-analysis          mod
 maddi-run-kotlin-analysis   mod
 maddi-inspection-kotlin-analysis mod
-maddi-cli                   mod    # the shipped `maddi` distribution: driver + engine
-maddi-cli-kotlin            mod    # the shipped `maddi-kotlin` distribution
 
-# ---- ext: IDE and build-tool integrations
-maddi-ide-daemon            ext
-maddi-ide-client            ext
-maddi-intellij              ext
-maddi-eclipse               ext
-maddi-vscode                ext
-maddi-gradleplugin          ext
-maddi-mvnplugin             ext
-dogfood                     ext
+# ---- dist: IDE and build-tool integrations, and the command-line distributions (repository maddi-dist)
+maddi-cli                   dist   # the shipped `maddi` distribution: driver + engine
+maddi-cli-kotlin            dist   # the shipped `maddi-kotlin` distribution
+maddi-ide-daemon            dist
+maddi-ide-client            dist
+maddi-intellij              dist
+maddi-eclipse               dist
+maddi-vscode                dist
+maddi-gradleplugin          dist
+maddi-mvnplugin             dist
+dogfood                     dist
 
 require-runtime maddi-ide-daemon
 require-runtime maddi-gradleplugin

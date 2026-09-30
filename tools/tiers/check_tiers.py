@@ -3,7 +3,7 @@
 
     check_tiers.py [--verbose] [ROOT ...]
 
-ROOT defaults to this repository; pass the sibling checkouts (../maddi-mod, ../maddi-ext) once the split
+ROOT defaults to this repository; pass the sibling checkouts (../maddi-mod, ../maddi-dist) once the split
 has happened, so one run sees every module. Exit 0 when no edge breaks the rules in tiers.txt, 1 otherwise,
 2 on a usage or configuration error.
 
@@ -25,7 +25,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_ROOT = os.path.dirname(os.path.dirname(HERE))
-RANK = {"base": 0, "mod": 1, "ext": 2}
+RANK = {"base": 0, "mod": 1, "dist": 2}
 COMPILE_CONFIGS = {"api", "implementation", "compileOnly", "compileOnlyApi", "annotationProcessor",
                    "testImplementation", "testCompileOnly", "testFixturesApi", "testFixturesImplementation",
                    "testFixturesCompileOnly", "testAnnotationProcessor"}
@@ -79,7 +79,7 @@ def source_files(d, sets):
 def main(argv):
     verbose = "--verbose" in argv
     roots = [os.path.abspath(a) for a in argv[1:] if a != "--verbose"] or [DEFAULT_ROOT]
-    tiers, required = read_tiers(os.path.join(HERE, "tiers.txt"))
+    tiers, required = read_tiers(os.path.join(DEFAULT_ROOT, "build-logic", "src", "main", "resources", "tiers.txt"))
     mods = modules(roots)
 
     problems = []
@@ -152,7 +152,7 @@ def main(argv):
         for scope, kind, detail in uses:
             if RANK[tb] > RANK[ta]:
                 bad.append((scope, kind, detail))
-            elif ta == "ext" and tb == "mod" and kind == "compile":
+            elif ta == "dist" and tb == "mod" and kind == "compile":
                 bad.append((scope, kind, detail))
         if bad:
             scopes = sorted({s for s, _, _ in bad})
@@ -167,7 +167,7 @@ def main(argv):
         if m not in mods:
             continue
         if not any(tiers.get(t) == "mod" for t in runtime_edges[m]):
-            problems.append(f"NO-RUNTIME {m} (ext) carries no mod module in a runtime-only configuration")
+            problems.append(f"NO-RUNTIME {m} (dist) carries no mod module in a runtime-only configuration")
 
     for p in problems:
         print(p)
