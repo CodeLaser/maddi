@@ -1,8 +1,9 @@
 # Split maddi into three repositories — work plan
 
-**Status: plan (2026-09-30).** Written for the thread that carries it out. Every claim about the code
-below was measured on `ws/server` at `3329d329d` (maddi) on 2026-09-30; re-measure before relying on a
-number, the commands are given.
+**Status: plan (2026-09-30, revised the same day: the run drivers stay in base behind an analysis-step
+service).** Written for the thread that carries it out. Every claim about the code below was measured on
+`ws/server` at `3329d329d` (maddi) on 2026-09-30; re-measure before relying on a number, the commands are
+given.
 
 ## 1. Purpose, and the one rule
 
@@ -12,36 +13,39 @@ repositories:
 
 | repository | tier | holds |
 |---|---|---|
-| `maddi` (this one, name and history kept) | **base** | CST, parsers and front-ends (Java, bytecode, Kotlin), inspection, graph, annotations, support, util, the annotated-API archive, the run configuration, and — after stage 2 — the code-structure (call) graph |
-| `maddi-modification` | **mod** | prepwork, link, analyzer, modification-common, the AAPI compiler, the `run-*` drivers |
+| `maddi` (this one, name and history kept) | **base** | CST, parsers and front-ends (Java, bytecode, Kotlin), inspection, graph, annotations, support, util, the annotated-API archive, the run configuration, the run drivers (CLI + compile-log route + the step pipeline), the analysis-step **service interface**, and — after stage 2 — the code-structure (call) graph |
+| `maddi-modification` | **mod** | prepwork, link, analyzer, modification-common, the AAPI compiler, and the module that **implements** the analysis steps and hosts every test that runs the analysis |
 | `maddi-ext` | **ext** | IDE daemon and client, IntelliJ, Eclipse, VS Code, the Gradle and Maven plugins |
 
 The rule that the split enforces, and that a check script (stage 0) keeps enforced:
 
 > **base depends on nothing above it; mod depends on base only; ext depends on both.** A consumer of the
 > base tier sees the modification analysis only as values on `Info`, through the property map of
-> `cst-api` and the property constants of `cst-analysis`. Anything that *runs* the analysis, *persists*
-> it, or names its *internal* types is mod-side.
+> `cst-api` and the property constants of `cst-analysis`, and *runs* it only through the analysis-step
+> service interface, whose implementations arrive on the class path from mod. Anything that implements
+> a step, persists analysis results, or names the analysis's internal types is mod-side.
 
-The consumer this rule is for: the refactor engine's base tier (`refactor-api`, `refactor-impl`,
-`commonservice`, `conformance`, the shared metrics) **will build without `maddi-modification` on its
-class path or module path.** What it needs from maddi must therefore live in base. Today that is
-everything it imports except two things: the call graph (stage 2) and the run configuration's dependency
-on the AAPI compiler (stage 1). The refactor side's own moves (the prepared-project factory behind a
-provider, the results cache and the dataflow metric to the mod side) are a later thread's work and are
-listed in §5 as the contract this split must honour.
+Two consumers of that interface, one mechanism:
+
+- the **run drivers** in base: `--analysis-steps=none` (parse only) works from base alone; `prep`,
+  `modification`, `rewire-tests` and the hints compile are steps that mod provides;
+- the **refactor engine's base tier** (`refactor-api`, `refactor-impl`, `commonservice`, `conformance`,
+  the shared metrics), which will build without `maddi-modification` and obtain its prepared project
+  through the same `prep` step (§5).
 
 ## 2. The tiers as measured
 
 Assignment by declared main-scope dependency closure (`build.gradle.kts` `project(":…")` lines; the
 `module-info.java` `requires` directives agree — no base descriptor requires a `modification` module):
 
-- **base (26):** aapi-archive, annotation, cst-analysis, cst-api, cst-impl, cst-io, cst-print,
-  cst-print-kotlin, graph, inspection-api, inspection-integration, inspection-kotlin, inspection-mixed,
-  inspection-openjdk, inspection-parser, inspection-resource, java-bytecode, java-openjdk, java-parser,
-  kotlin-api, kotlin-k2, kotlin-realm, manual, support, util; plus `run-config` after stage 1.
-- **mod (10):** modification-common, modification-prepwork, modification-link, modification-analyzer,
-  aapi-parser, run-config *(until stage 1)*, run-rewire, run-main, run-openjdk, run-kotlin.
+- **base (31 after stages 1–3):** aapi-archive, annotation, cst-analysis, cst-api, cst-impl, cst-io,
+  cst-print, cst-print-kotlin, graph, inspection-api, inspection-integration, inspection-kotlin,
+  inspection-mixed, inspection-openjdk, inspection-parser, inspection-resource, java-bytecode,
+  java-openjdk, java-parser, kotlin-api, kotlin-k2, kotlin-realm, manual, support, util; **run-config**
+  (after stage 1); **callgraph** (new, stage 2); **analysis-api** (new, stage 3); **run-main,
+  run-openjdk, run-kotlin, run-rewire** (after stage 3).
+- **mod (6):** modification-common, modification-prepwork, modification-link, modification-analyzer,
+  aapi-parser, **run-analysis** (new, stage 3: the step implementations and the analysis-running tests).
 - **ext (7):** ide-daemon, ide-client, intellij, eclipse, vscode, gradleplugin, mvnplugin.
 
 Facts that decide the edge cases:
@@ -63,10 +67,25 @@ Facts that decide the edge cases:
   static edge-value decoders (`isAtLeastReference`, `weightedSumInteractions`, `handleFieldAccess`, the
   `TYPE`/`CODE`/`REFERENCES` constants). Stage 2 moves them down. `ComputePartOfConstructionFinalField`
   (uses prepwork variable data) and `EarlyCutoffWorklist` (used by prepwork's `IncrementalState`) stay.
-- **inspection-kotlin's edge into mod is test scope only.** Main scope imports nothing from
-  modification. Its build declares `testImplementation(project(":maddi-modification-prepwork"))`, used by
-  24 test files: the `prepwork/` test package (ports of the Java prep-analyzer tests, Kotlin source in,
-  same `VariableData` assertion strings out), the analyzer smoke test and two printer tests. Stage 3.
+  `run-rewire` (152 lines) uses only `ComputeCallGraph` and `PrimaryTypeUseGraph`, so it is base as
+  soon as they are.
+- **The run drivers are three layers, two of them clean.** `run-openjdk` and `run-kotlin` hold the CLI
+  (`Main`), the compile-log route (`javac/` and `kotlinc/` packages: parse the compiler invocations into
+  source sets — 0 modification imports) and one pipeline class each (`RunAnalyzer`,
+  `RunMixedPrepAnalyzer`); `run-main` is the same shape for the plugin. The pipeline already reads
+  `--analysis-steps` and branches on the names `none`, `prep`, `modification`, `rewire-tests`. What it
+  reaches into mod for, per step: `prep` → `PrepAnalyzer`; `modification` → `IteratingAnalyzer` and its
+  `ConfigurationBuilder`; result IO → `LoadAnalysisResults`, `WriteAnalysisResults`,
+  `AnalysisFingerprint` (the codecs for the values, e.g. `LinkCodec`, are mod); the hints compile →
+  `AnalysisHintsCompiler`/`Parser`. Everything else it does (parse, configuration, the call graph and
+  order after stage 2) is base. Stage 3 puts an interface between the two.
+- **Tests that run the analysis sit in base modules today** and must move, because a base repository
+  cannot have even a test-scope dependency on mod (Gradle composite builds do not allow a cycle between
+  builds). Counted: `run-openjdk` 10 of 36 test files, `run-kotlin` 15 of 38, `run-config` 1 of 20,
+  `inspection-kotlin` 24 (the `prepwork/` test package — ports of the Java prep-analyzer tests, Kotlin
+  source in, same `VariableData` assertion strings out — plus the analyzer smoke test and two printer
+  tests). The `slowTest` corpus battery is configured in `run-openjdk`'s build and runs the analysis, so
+  it moves too, with `corpus/`. All of these go to `maddi-run-analysis` (stage 3).
 - **The eight properties declared in the modification modules** (`links`, `methodLinks`, `typePrepped`,
   `partOfConstructionType`, `recursiveMethod`, `unmodifiedVariable`, `downcastVariable`,
   `localVariablesOfEnclosingMethod`) are the analysis's working state, not verdicts. They stay where
@@ -74,8 +93,14 @@ Facts that decide the edge cases:
   properties are already in cst-analysis, which depends on cst-api only — nothing to do there.
 - **Non-module entries in `settings.gradle.kts`:** `platform` (the BOM; base, the other two import it),
   `road-to-immutability` and `maddi-manual` (docs; base), `buildSrc` (one conventions plugin applied by
-  36 modules; §3 stage 5), `corpus/` (configs for the `run-openjdk` slow tests; mod), `dogfood/` (runs
-  the analyzer plugin over maddi's own modules; ext, it depends on the plugin).
+  36 modules; stage 5), `corpus/` (configs for the slow-test battery; mod), `dogfood/` (runs the
+  analyzer plugin over maddi's own modules; ext, it depends on the plugin).
+- **ext calls the pipeline directly today.** The Gradle plugin (`AnalyzerWorkAction`,
+  `AnalyzerPropertyComputer`, `ComputeSourceSets`) and the Maven plugin (`RunAnalyzerMojo`,
+  `CompileAnalysisHintsMojo`, `ComputeSourceSets`, `CommonMojo`) import the `run-*` classes; the daemon
+  drives `PrepAnalyzer` and `IteratingAnalyzer` itself (10 imports). ext depends on both tiers, so none of
+  this has to change for the split; the plugins keep working because `maddi-run-analysis` is on their
+  shaded class path.
 - **Bazel:** 28 `BUILD.bazel` files exist. CI (`.github/workflows/build.yml`) runs `./gradlew build`
   only; nothing in jfocus-devops runs Bazel. Default decision: the files travel with their modules and
   are not a gate. Say so in the commit message; do not spend time making Bazel build per repository.
@@ -91,19 +116,23 @@ then `eval "$(ws env maddi-split)"` before any Gradle command. Always `--no-buil
 
 1. Baseline, recorded in the handoff (counts, not colours):
    - maddi: `./gradlew test --no-build-cache` — tests executed and passed, per module
-     (`build/test-results/test`).
+     (`build/test-results/test`); `./gradlew slowTest` with the corpus present, same reading
+     (`build/test-results/slowTest`; an empty directory is not a result — see `AGENTS.md`).
    - refactor composite: `cd jfocus-refactor-service && ./gradlew compileJava compileTestJava
      --no-build-cache` and the same in `jfocus-refactor-server`.
    - ext: `./gradlew :maddi-ide-daemon:installDist`, `:maddi-gradleplugin:test` (includes
      `TestAnalyzerPluginShadedJarIsolation`), `:maddi-mvnplugin:test`.
+   - the CLI's parse-only route, which the refactor side's module-graph recipe uses:
+     `maddi-run-openjdk Main --compile-log … --analysis-steps=none` on one small corpus, exit code and
+     the count of source sets it derives.
 2. Write `tools/check_tiers.py`: reads `tiers.txt` (one line per module: `<module> <tier>`, the source
    of truth for §2), every `build.gradle.kts` (`project(":…")` per configuration) and every
-   `module-info.java` (`requires`), and fails on any main-scope edge that goes up a tier or from base to
-   ext. Test-scope edges are reported, and fail only when not listed in an allowlist in `tiers.txt`.
-   Run it now: it must fail on exactly the edges §2 names (aapi-parser→mod, run-config→aapi-parser,
-   inspection-kotlin test→prepwork) and nothing else. That is the check's own test.
+   `module-info.java` (`requires`), and fails on any edge — **main or test scope** — that goes up a tier
+   or from base to ext. Run it now: it must fail on exactly the edges §2 names (aapi-parser→mod,
+   run-config→aapi-parser, the four `run-*` modules→mod, and the test-scope edges of run-openjdk,
+   run-kotlin, run-config and inspection-kotlin) and nothing else. That is the check's own test.
 
-Gate: baseline recorded; `check_tiers.py` reports the three known edges and no other.
+Gate: baseline recorded; `check_tiers.py` reports the known edges and no other.
 
 ### Stage 1 — invert run-config ↔ aapi-parser
 
@@ -115,7 +144,7 @@ daemon, both plugins, and any on the refactor side — `grep -r 'aapi.parser.Ana
 over the workspace). Update both `module-info.java`.
 
 Gate: maddi suite counts unchanged; refactor composite compiles; `check_tiers.py` now lists run-config
-as base with no violation.
+as base with one remaining edge (its single analysis-running test, handled in stage 3).
 
 ### Stage 2 — the code-structure graph down into base
 
@@ -137,19 +166,52 @@ by import (string property names, reflection, a `Codec` registration); the impor
 read confirms it.
 
 Gate: maddi suite counts unchanged (moved tests execute at their new location); refactor composite
-compiles and `codelaser-metrics-*` tests pass; `check_tiers.py` places `maddi-callgraph` in base.
+compiles and `codelaser-metrics-*` tests pass; `check_tiers.py` places `maddi-callgraph` in base and
+`run-rewire` no longer has a main-scope edge into mod.
 
-### Stage 3 — inspection-kotlin's analyzer tests
+### Stage 3 — the analysis-step service, and the run drivers into base
 
-Move the 24 test files that drive the prep analyzer (the `prepwork/` test package,
-`KotlinAnalyzerSmokeTest`, `TestKotlinPrinter`, `TestKotlinPrinterRoundTrip`) into `maddi-run-kotlin`'s
-test source set, which already depends on inspection-kotlin, kotlin-k2 and prepwork. They test that the
-Kotlin CST feeds the analyzer faithfully, which is a claim about both tiers, so they belong on the mod
-side. Drop the `testImplementation` on prepwork (and cst-print, cst-print-kotlin, inspection-openjdk if
-nothing left uses them) from inspection-kotlin.
+This is the stage that decides the shape of both walls, so read `RunAnalyzer` (openjdk, ~500 lines) and
+`RunMixedPrepAnalyzer` end to end before designing, and write the interface down in the handoff before
+implementing it.
 
-Gate: the number of tests executed in inspection-kotlin + run-kotlin equals the stage-0 baseline for
-those two modules; `check_tiers.py` reports no test-scope edge from base into mod.
+1. **The interface**, in a new base module **`maddi-analysis-api`** (JPMS `io.codelaser.maddi.analysis.api`;
+   depends on cst-api, inspection-api, graph, callgraph, run-config). One service type, discovered with
+   `ServiceLoader` — say `AnalysisStep`: a literal `name()` (the `--analysis-steps` vocabulary: `prep`,
+   `modification`, `rewire-tests`, plus the result IO and the hints compile, which today are not steps
+   but flags), the names of the steps it must follow, and one `run(AnalysisContext)` that mutates the
+   analysis maps on the CST. `AnalysisContext` carries what the pipeline has by then: runtime,
+   inspector, parse result, the call graph and analysis order (base since stage 2), the configuration,
+   and the result-IO hooks. Two rules from the refactor side's `DslModuleProvider`, which is the same
+   pattern and has the scars: **names are literals**, and the registry that loads them **must throw,
+   naming the missing jar, when a step requested on the command line has no provider** — the CLI
+   already exits 0 for `--analysis-steps=none` whether or not the sources parsed, and a silent no-op
+   analysis would be the same defect one tier up. JPMS: the pipeline module declares `uses`, the
+   implementation module `provides … with`; without `uses` the loader returns an empty list.
+2. **The implementations**, in a new mod module **`maddi-run-analysis`** (depends on the four
+   modification modules, aapi-parser, analysis-api): the step bodies lifted out of the two pipeline
+   classes, one class per step, and the codec registrations the result IO needs. The pipeline classes in
+   `run-openjdk`, `run-kotlin` and `run-main` keep the orchestration (parse → preload → steps in
+   dependency order → write) and lose every modification import. `run-kotlin`'s mixed-source posture
+   (fault-tolerant per type, `ShallowMethodAnalyzer` for what the Kotlin front-end cannot give) is part
+   of the `prep` step's configuration, not of the driver.
+3. **The tests move** to `maddi-run-analysis`: the 10 + 15 + 1 driver tests that import the
+   modification tier, the `slowTest` battery with `corpus/` and its `-Dmaddi.corpus.required` wiring,
+   and inspection-kotlin's 24 analyzer tests (they test that the Kotlin CST feeds the analyzer
+   faithfully, a claim about both tiers). The tests that remain in `run-*` and `inspection-kotlin` are
+   the ones about parsing, configuration and the compile-log route. Drop the now-unused
+   `testImplementation` lines.
+4. The daemon and the plugins keep their direct calls for now (ext may depend on mod); note in the
+   handoff that both could become `AnalysisStep` clients, which would let the daemon drop nine imports.
+
+Gate: the number of tests executed across `run-openjdk` + `run-kotlin` + `run-config` +
+`inspection-kotlin` + `maddi-run-analysis` equals the stage-0 baseline for the first four, and the
+slow-test battery reports the same count from its new module; the parse-only CLI run from stage 0 gives
+the same exit code and source-set count; a CLI run with `--analysis-steps=modification` and
+`maddi-run-analysis` **absent** from the class path fails with the message that names it; with it present,
+the results written for one small corpus are byte-identical to the stage-0 run (`diff -r` on the JSON);
+`check_tiers.py` places every `run-*` module and `analysis-api` in base with **no** edge, main or test,
+into mod.
 
 ### Stage 4 — build logic that can be shared across repositories
 
@@ -180,9 +242,9 @@ a rewrite costs):
    for maddi; `includeBuild` substitutes them from source.
 4. `docs/`: design and roadmap documents about prepwork, link and the analyzer move with the mod
    repository; `docs/README.md` in each repository indexes only what it holds and links the others.
-   `PUBLISHING.md` splits: annotations and support (Central) stay here; the plugins and CLI zips go with
-   ext, and the note that the plugins shade the analyzer now reads as "ext bundles mod and base".
-   `CONTRIBUTING.md`'s customer-name hook is installed in all three.
+   `PUBLISHING.md` splits: annotations and support (Central) and the parse-only CLI stay here; the
+   plugins and the analysing CLI zips go with ext, and the note that the plugins shade the analyzer now
+   reads as "ext bundles mod and base". `CONTRIBUTING.md`'s customer-name hook is installed in all three.
 5. Workspace tooling: the `.ws` `REPOS` lists in `ws/*` and `ALL_REPOS` in jfocus-devops `scripts/ws.conf`
    gain the two repositories; `jfocus-refactor-service/settings.gradle.kts` and the server's replace
    `includeBuild("../maddi")` with maddi + maddi-modification (ext is not on the refactor side's graph).
@@ -190,14 +252,16 @@ a rewrite costs):
    `~/git/` with a clean `main`/`devel` and says so.
 
 Gate, run in the aside workspace with all three checkouts side by side:
-- `maddi`: `./gradlew build --no-build-cache`; `check_tiers.py` (now trivially base-only).
-- `maddi-modification`: `./gradlew test --no-build-cache` and `slowTest` with the corpus present
-  (a green `slowTest` with `build/test-results/slowTest` empty is not a result — see `AGENTS.md`).
+- `maddi`: `./gradlew build --no-build-cache`; `check_tiers.py` (now trivially base-only); the
+  parse-only CLI run from stage 0.
+- `maddi-modification`: `./gradlew test --no-build-cache` and `slowTest` with the corpus present, read
+  from `build/test-results/slowTest`.
 - `maddi-ext`: `:maddi-ide-daemon:installDist`, the Gradle plugin isolation test, the Maven plugin
   tests, `dogfood`.
 - refactor composite: both `compileJava compileTestJava` gates from stage 0, plus the
   `codelaser-metrics-*` tests.
-- Test counts per module equal the stage-0 baseline, module for module.
+- Test counts per module equal the stage-0 baseline, module for module (moved tests counted at their
+  destination).
 
 ### Stage 6 — the wall (mechanism only, default unchanged)
 
@@ -217,7 +281,8 @@ re-pointed; flipping the default is a decision for the user, recorded in the han
   separate, measurable change (the workspace map at 2026-09-14 counted 579 of 1,203 main-scope
   declarations unused, and the refactor side's are copy-pasted blocks). Note them, do not touch them.
 - The refactor side is touched only for imports and coordinates that a stage names. No verb logic.
-- Report numbers: tests executed and passed per module before and after; the tier check's output.
+- Report numbers: tests executed and passed per module before and after; the tier check's output; the
+  byte-comparison of analysis results in stage 3.
 - Commit per root cause, with the stage in the subject; the user pushes.
 - The customer behind the private corpus is never named (CONTRIBUTING.md; the hook enforces it).
 - If a stage's gate cannot be made green without touching something outside its scope, stop that stage,
@@ -228,12 +293,17 @@ re-pointed; flipping the default is a decision for the user, recorded in the han
 After this split, the refactor engine's base tier imports from `maddi` only:
 cst-api, cst-impl, cst-analysis, cst-io, cst-print, graph, inspection-api, inspection-resource,
 inspection-openjdk, inspection-integration, inspection-mixed, java-openjdk, java-parser, java-bytecode,
-aapi-archive, run-config, **callgraph**, support, util, annotation, kotlin-realm. It must not import
-modification-common, prepwork, link, analyzer, aapi-parser or any `run-*` driver. The refactor-side thread
-that follows will: split the `Prepwork` record (base) from the factory that runs `PrepAnalyzer` (behind
-an injected provider on the mod side); move `AnalysisResultsCache`, `codelaser-metrics-dataflow`,
+aapi-archive, run-config, **callgraph**, **analysis-api**, support, util, annotation, kotlin-realm. It
+must not import modification-common, prepwork, link, analyzer, aapi-parser or run-analysis.
+
+The service interface of stage 3 is the seam refactor-base will use: today `Prepwork.make` in
+`codelaser-metrics-common` calls `PrepAnalyzer` directly; afterwards it computes the call graph and order
+itself (base) and asks the `prep` step, obtained through the same `ServiceLoader`, to do the rest. The
+`Prepwork` record's fields are all base types already. The refactor-side thread that follows will make
+that change; move `AnalysisResultsCache` (result IO is mod), `codelaser-metrics-dataflow`,
 `codelaser-metrics-immutable` and the one variable-data use in `codelaser-metrics-duplicate` to the mod
-side; and only then take `maddi-modification` off refactor-base's graph.
+side; and only then take `maddi-modification` off refactor-base's graph. Design the `AnalysisContext` of
+stage 3 with that caller in mind: it holds a parse it made itself, not one the CLI made.
 
 ## 6. Decisions taken by default — say so if you want another
 
@@ -243,7 +313,9 @@ side; and only then take `maddi-modification` off refactor-base's graph.
 | base keeps its SHAs | yes: `git rm` in base, `filter-repo` only for the two new repositories |
 | new module for the call graph | `maddi-callgraph`, JPMS `io.codelaser.maddi.callgraph` |
 | `recursiveMethod` property | moves to cst-analysis `PropertyImpl` |
-| inspection-kotlin analyzer tests | move to `maddi-run-kotlin` |
+| the service interface | `maddi-analysis-api` (base), one `AnalysisStep` type, `ServiceLoader` discovery, literal names, a missing provider throws |
+| the implementations and the analysing tests | `maddi-run-analysis` (mod), including the slow-test battery and `corpus/` |
+| inspection-kotlin analyzer tests | move to `maddi-run-analysis` |
 | shared build logic | `buildSrc` → included build `build-logic/` in `maddi` |
 | versions | three `gradle.properties`, all starting at `0.9.1`, bumped independently |
 | from-source vs pinned | mechanism built in stage 6, default stays from-source |
