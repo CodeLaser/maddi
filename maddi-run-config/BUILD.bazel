@@ -17,7 +17,6 @@ maddi_java_library(
     srcs = glob(["src/main/java/**/*.java"]),
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     deps = [
-        "//maddi-aapi-parser",
         "//maddi-cst-api",
         "//maddi-cst-impl",
         "//maddi-graph",
@@ -39,7 +38,6 @@ maddi_java_test(
     test_packages = ["io.codelaser.maddi.run.config.util"],
     deps = [
         ":maddi-run-config",  # Depend on the main library
-        "//maddi-aapi-parser",
         "//maddi-cst-api",
         "//maddi-cst-impl",
         "//maddi-graph",

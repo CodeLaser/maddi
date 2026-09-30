@@ -394,3 +394,15 @@ Carried out in the workspace `ws/split` (all nine repositories, branched from `w
   (with the shaded-jar isolation test) and the Maven plugin's 14 pass inside the suite above.
 - Deferred to the start of stage 3, where they are first needed: the parse-only CLI run, the analysis
   results for the byte comparison, and `slowTest`. They are taken from the last commit before stage 3.
+
+### Stage 1 — done (2026-09-30)
+
+- `AnalysisHintsConfiguration` and `AnalysisHintsConfigurationImpl` now live in run-config's root package
+  `io.codelaser.maddi.run.config`, beside the `Configuration` that holds them: no new package, no new
+  export. aapi-parser never used them itself. 12 importers rewritten (run-config, run-main, run-openjdk
+  main and tests, both plugins). run-config drops aapi-parser from Gradle, its descriptor and Bazel;
+  run-kotlin drops the aapi-parser line whose comment said it was there for this type only (it still
+  reaches aapi-parser at run time through run-openjdk). The refactor side never named either type.
+- Gate: maddi suite identical to the baseline, module for module (4,003 run, the same 1 failure);
+  refactor composite compiles; run-config has **no** violation left — its one analysis-importing test
+  was the serialisation test of these types. 34 problems remain.

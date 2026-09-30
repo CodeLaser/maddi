@@ -1,5 +1,4 @@
 module io.codelaser.maddi.run.config {
-    requires io.codelaser.maddi.aapi.parser;
     requires io.codelaser.maddi.cst.api;
     requires io.codelaser.maddi.cst.impl;
     requires io.codelaser.maddi.inspection.api;

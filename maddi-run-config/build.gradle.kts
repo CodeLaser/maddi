@@ -24,7 +24,6 @@ dependencies {
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-aapi-parser"))
     implementation("com.fasterxml.jackson.core:jackson-databind")
     // TypeUseAnnotationClosure reads the type-annotation attributes of classpath bytecode
     implementation("org.ow2.asm:asm")

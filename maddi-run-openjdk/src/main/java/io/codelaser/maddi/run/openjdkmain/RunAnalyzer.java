@@ -17,7 +17,7 @@ package io.codelaser.maddi.run.openjdkmain;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsParser;
 import io.codelaser.maddi.aapi.parser.AnalysisHints;
 import io.codelaser.maddi.aapi.parser.AnalysisHintsCompiler;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
 import io.codelaser.maddi.modification.common.AnalyzerException;

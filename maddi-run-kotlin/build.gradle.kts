@@ -53,7 +53,6 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind") // Main reads/writes InputConfiguration JSON
     // ⭐ the command line itself: Main builds it from the Java CLI's own Options object, so the two cannot drift
     implementation("commons-cli:commons-cli")
-    implementation(project(":maddi-aapi-parser"))           // AnalysisHintsConfiguration (--preload-…-dirs)
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path

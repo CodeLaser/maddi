@@ -16,8 +16,8 @@ package io.codelaser.maddi.run.main;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;

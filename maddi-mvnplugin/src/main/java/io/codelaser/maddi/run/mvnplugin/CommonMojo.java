@@ -7,7 +7,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectDependenciesResolver;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.ComputeDependencies;

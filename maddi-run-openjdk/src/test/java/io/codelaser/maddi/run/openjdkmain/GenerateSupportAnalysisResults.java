@@ -1,6 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;

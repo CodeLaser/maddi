@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.aapi.parser;
+package io.codelaser.maddi.run.config;
 
 import java.util.List;
 

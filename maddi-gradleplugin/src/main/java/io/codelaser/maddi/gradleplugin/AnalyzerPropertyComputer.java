@@ -15,7 +15,7 @@
 package io.codelaser.maddi.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsConfiguration;
+import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
 import io.codelaser.maddi.run.config.util.JavaModules;
 import io.codelaser.maddi.run.config.util.PluginInputConfiguration;
