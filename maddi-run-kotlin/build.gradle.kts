@@ -59,7 +59,7 @@ dependencies {
     testImplementation(project(":maddi-inspection-kotlin"))            // TestCoilJvmSlice: the pure-Kotlin path
     // K2RealmTestBootstrap: installs the realm once for the whole module, the way the CLI does in Main
     testImplementation("org.junit.platform:junit-platform-launcher")
-    testImplementation(testFixtures(project(":maddi-run-openjdk")))    // TestOssCorpus
+    testImplementation(testFixtures(project(":maddi-util")))           // Corpora
 }
 
 // the openjdk (javac) front-end that MixedInspector uses reaches into these javac internals

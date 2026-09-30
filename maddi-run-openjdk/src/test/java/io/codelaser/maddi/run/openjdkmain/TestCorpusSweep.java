@@ -1,5 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,7 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Tag;
 
 /**
- * Batch first-contact sweep over every corpus under the test-oss root (see {@link TestOssCorpus}) that
+ * Batch first-contact sweep over every corpus under the test-oss root (see {@link io.codelaser.maddi.util.corpus.Corpora}) that
  * carries an inputConfiguration.json.
  * The bar per corpus: exit 0 (crash-free, certified fixpoint via the default worklist+parallel engine).
  * Gated on SWEEP=1 (this can run for hours); a corpus list via SWEEP=name1,name2 restricts the sweep.
@@ -24,7 +25,7 @@ import org.junit.jupiter.api.Tag;
  */
 @Tag("slow")
 public class TestCorpusSweep {
-    private static final Path CORPORA = TestOssCorpus.ROOT;
+    private static final Path CORPORA = Corpora.ossRoot();
 
     @BeforeAll
     public static void beforeAll() {

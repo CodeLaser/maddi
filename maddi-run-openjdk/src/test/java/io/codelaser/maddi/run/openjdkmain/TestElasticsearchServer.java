@@ -1,5 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,7 +83,7 @@ public class TestElasticsearchServer {
      * nothing generates is how this driver skipped every run for its first 20 days.
      */
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.isDirectory(TestOssCorpus.dir("elasticsearch").resolve("server/src/main/java")),
+        Assumptions.assumeTrue(Files.isDirectory(Corpora.oss("elasticsearch").dir().resolve("server/src/main/java")),
                 "requires the elasticsearch corpus checkout (task corpus:elasticsearch)");
     }
 
@@ -102,7 +103,7 @@ public class TestElasticsearchServer {
      * absolutizing happens here, rather than by weakening a documented contract in the inspector.
      */
     private static Path resolve(Path tempDir) throws IOException {
-        Path corpus = TestOssCorpus.dir("elasticsearch").toAbsolutePath().normalize();
+        Path corpus = Corpora.oss("elasticsearch").dir().toAbsolutePath().normalize();
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode root;
         try (InputStream in = TestElasticsearchServer.class.getResourceAsStream(CONFIG_RESOURCE)) {

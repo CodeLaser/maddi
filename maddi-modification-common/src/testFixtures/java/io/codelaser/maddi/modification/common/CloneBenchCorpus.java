@@ -14,49 +14,49 @@
 
 package io.codelaser.maddi.modification.common;
 
-import org.junit.jupiter.api.Assumptions;
+import io.codelaser.maddi.util.corpus.Corpora;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The clone-bench corpus root, resolved exactly as {@code TestOssCorpus} resolves the test-oss root, so the two
- * large corpora are configured the same way. It lives in <b>test fixtures</b> rather than one module's test
- * scope because more than one module's corpus tests need it, and they are not all downstream of each other:
- * {@code maddi-modification-prepwork} is UPSTREAM of {@code maddi-modification-analyzer}, so it cannot borrow
- * the analyzer's test classes. Resolution order:
- * <ol>
- *   <li>system property {@code -Dtestarchive.root=...}</li>
- *   <li>environment variable {@code TESTARCHIVE_ROOT}</li>
- *   <li>default {@code ../../testarchive}: a sibling of the repository checkout</li>
- * </ol>
- * The default only holds when the checkout sits directly under a workspace that also contains the corpus; a
- * worktree one level deeper (or one whose setup script did not link the corpus in) needs the override.
- * <p>
- * Use {@link #assumeAvailable()} rather than an assertion. An absent corpus must be indistinguishable from a
- * deliberate skip, never from a regression -- and, just as importantly, never from a pass: TestCloneBench used
- * to iterate an empty directory list and report success having analyzed 0 types, which is the one outcome that
- * makes a proving ground actively misleading.
+ * Where a clone-bench project's sources are inside the {@code testarchive} corpus.
+ *
+ * <p>⚠ THIS RESOLVES NOTHING. Finding the corpus is {@link Corpora}'s job, and this class exists only
+ * to hold one fact about that corpus's shape: it is a single repository containing many small
+ * projects, each with its sources at {@code <project>/src/main/java}. That is knowledge about
+ * testarchive, not about how to locate a corpus, and it is used by three test classes in two modules
+ * that are not downstream of each other ({@code maddi-modification-prepwork} is UPSTREAM of
+ * {@code maddi-modification-analyzer}, so it cannot borrow the analyzer's test classes).
+ *
+ * <p>It used to resolve the root itself, through {@code -Dtestarchive.root} / {@code TESTARCHIVE_ROOT}
+ * and a fallback of {@code ../../testarchive}. That fallback only holds when the checkout sits directly
+ * under a workspace that also contains the corpus, which is why maddi's clone-bench tests were
+ * silently skipping: the corpus is at {@code ~/git/testarchive} while {@code ../../testarchive} from a
+ * maddi module points inside the workspace. {@link Corpora} walks up the directory hierarchy instead,
+ * so these tests now find it. The two old overrides are still honoured, by {@code Corpora}.
  */
 public class CloneBenchCorpus {
 
-    public static final Path ROOT = resolveRoot();
+    private static final Corpora.Corpus TESTARCHIVE = Corpora.codeLaser("testarchive");
 
-    private static Path resolveRoot() {
-        String p = System.getProperty("testarchive.root");
-        if (p == null || p.isBlank()) p = System.getenv("TESTARCHIVE_ROOT");
-        return p == null || p.isBlank() ? Path.of("../../testarchive") : Path.of(p);
-    }
+    /** The corpus checkout. May not exist; {@link #assumeAvailable()} is the check. */
+    public static final Path ROOT = TESTARCHIVE.dir();
 
     /** The source directory of one clone-bench project, e.g. {@code <root>/switch_pure_compiles/src/main/java}. */
     public static Path sourceDirectory(String project) {
         return ROOT.resolve(project).resolve("src/main/java");
     }
 
+    /**
+     * Skip the calling test when the corpus is absent — or fail, under
+     * {@code -D}{@value io.codelaser.maddi.util.corpus.Corpora#REQUIRED_PROPERTY}.
+     *
+     * <p>Use this rather than an assertion. An absent corpus must be indistinguishable from a
+     * deliberate skip, never from a regression -- and, just as importantly, never from a pass:
+     * TestCloneBench used to iterate an empty directory list and report success having analyzed 0
+     * types, which is the one outcome that makes a proving ground actively misleading.
+     */
     public static void assumeAvailable() {
-        Assumptions.assumeTrue(Files.isDirectory(ROOT),
-                "requires the clone-bench corpus (testarchive) at "
-                + ROOT.toAbsolutePath().normalize()
-                + "; override with -Dtestarchive.root=... or TESTARCHIVE_ROOT");
+        TESTARCHIVE.assumeAvailable();
     }
 }

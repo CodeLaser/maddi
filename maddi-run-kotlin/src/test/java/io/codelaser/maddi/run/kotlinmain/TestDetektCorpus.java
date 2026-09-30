@@ -15,7 +15,7 @@
 package io.codelaser.maddi.run.kotlinmain;
 
 import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
+import io.codelaser.maddi.util.corpus.Corpora;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
@@ -62,7 +62,7 @@ public class TestDetektCorpus {
     private static final int SOURCE_SET_FLOOR = 25;
 
     private static Path config() {
-        return TestOssCorpus.requireCompleteConfig(CORPUS);
+        return Corpora.oss(CORPUS).requireCompleteConfig();
     }
 
     private static InputConfigurationImpl read(Path config) throws IOException {

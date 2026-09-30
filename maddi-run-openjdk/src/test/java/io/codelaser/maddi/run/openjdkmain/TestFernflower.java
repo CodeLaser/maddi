@@ -1,5 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.Assumptions;
@@ -31,7 +32,7 @@ public class TestFernflower {
     }
 
     private static void assumeCorpus() {
-        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("fernflower")),
+        Assumptions.assumeTrue(Files.exists(Corpora.oss("fernflower").config()),
                 "requires the fernflower corpus checkout with its locally generated input configuration");
     }
 
@@ -39,7 +40,7 @@ public class TestFernflower {
     public void test() throws IOException, ParseException {
         assumeCorpus();
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=" + TestOssCorpus.config("fernflower")
+                "--input-configuration=" + Corpora.oss("fernflower").config()
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"
         });

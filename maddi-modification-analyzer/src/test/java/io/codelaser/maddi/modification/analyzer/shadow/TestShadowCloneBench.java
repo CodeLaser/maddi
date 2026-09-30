@@ -69,7 +69,7 @@ public class TestShadowCloneBench extends CommonTest {
     @BeforeEach
     public void beforeEach() throws IOException {
         // Skip, do not fail, when the corpus is not checked out -- the same contract the test-oss corpus tests
-        // honour (see TestOssCorpus). Asserting instead made an absent corpus indistinguishable from a real
+        // honour (see Corpora). Asserting instead made an absent corpus indistinguishable from a real
         // regression, so `slowTest` reported a failure on every machine without the sibling checkout, and the
         // proving ground could not be used to validate an engine change at all.
         CloneBenchCorpus.assumeAvailable();

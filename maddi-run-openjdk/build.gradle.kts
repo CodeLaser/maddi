@@ -15,17 +15,14 @@
 plugins {
     id("java-library-conventions")
     application
-    // TestOssCorpus: the test-oss root locator, shared with maddi-run-kotlin's corpus tests
-    `java-test-fixtures`
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
-    // TestOssCorpus skips (or, under -Dmaddi.corpus.required, fails) when a corpus is absent, so the
-    // fixture itself needs the assumption API; the convention plugin only puts junit on `test`.
-    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
+    // Corpora, the corpus locator (it moved here from this module's own test fixtures)
+    testImplementation(testFixtures(project(":maddi-util")))
 
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))

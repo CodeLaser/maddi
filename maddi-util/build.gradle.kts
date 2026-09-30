@@ -14,6 +14,10 @@
 
 plugins {
    id("java-library-conventions")
+   // Corpora: the one corpus locator, shared by every repository's corpus tests. It is here rather
+   // than in a runner module because every consuming repo already depends on maddi-util, and
+   // resolving a directory must not drag a 43-file runner onto a test's class path.
+   `java-test-fixtures`
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
@@ -21,4 +25,8 @@ java {
 }
 dependencies {
     api(project(":maddi-support"))
+
+    // Corpora skips (or, under -Dmaddi.corpus.required, fails) when a corpus is absent, so the
+    // fixture needs the assumption API; the convention plugin only puts junit on `test`.
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 }

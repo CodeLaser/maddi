@@ -1,5 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.Assumptions;
@@ -31,7 +32,7 @@ public class TestJenkinsCore {
                 .getLogger("io.codelaser.maddi.modification.link.impl.linkgraph.RedundantLinks")).setLevel(Level.ERROR);
     }
 
-    private static final Path CONFIG = TestOssCorpus.config("jenkins");
+    private static final Path CONFIG = Corpora.oss("jenkins").config();
 
     @Test
     public void test() throws IOException, ParseException {

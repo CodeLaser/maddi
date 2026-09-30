@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -57,7 +58,7 @@ public class TestTypeParameterIdentityCorpus {
     }
 
     private static void check(String corpus) throws Exception {
-        Path config = TestOssCorpus.config(corpus);
+        Path config = Corpora.oss(corpus).config();
         Assumptions.assumeTrue(Files.exists(config), () -> "requires the " + corpus + " corpus at " + config);
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         javaInspector.setJdkInternals(true); // guava-tests reads a non-exported java.base package; see TestGuava

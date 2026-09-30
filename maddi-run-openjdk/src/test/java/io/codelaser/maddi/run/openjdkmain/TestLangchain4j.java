@@ -1,5 +1,6 @@
 package io.codelaser.maddi.run.openjdkmain;
 
+import io.codelaser.maddi.util.corpus.Corpora;
 import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.Assumptions;
@@ -28,10 +29,10 @@ public class TestLangchain4j {
 
     @Test
     public void test() throws IOException, ParseException {
-        Assumptions.assumeTrue(Files.exists(TestOssCorpus.config("langchain4j")),
+        Assumptions.assumeTrue(Files.exists(Corpora.oss("langchain4j").config()),
                 "requires the langchain4j corpus checkout with its locally generated input configuration");
         int exitValue = Main.execute(new String[]{
-                "--input-configuration=" + TestOssCorpus.config("langchain4j")
+                "--input-configuration=" + Corpora.oss("langchain4j").config()
                 //,"--parallel"
                 , "--analysis-steps=modification"
                 , "--preload-analysis-results-dirs=../maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk"

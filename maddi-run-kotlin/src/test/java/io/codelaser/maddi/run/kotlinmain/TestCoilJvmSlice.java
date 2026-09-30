@@ -15,7 +15,7 @@
 package io.codelaser.maddi.run.kotlinmain;
 
 import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
+import io.codelaser.maddi.util.corpus.Corpora;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The first <b>Kotlin</b> corpus test: the JVM slice of <a href="https://github.com/coil-kt/coil">coil</a>'s
  * {@code coil-core}. The Java corpus tests ({@code TestGuava}, {@code TestFernflower}, … in
- * {@code maddi-run-openjdk}) resolve their checkout the same way, via {@link TestOssCorpus}.
+ * {@code maddi-run-openjdk}) resolve their checkout the same way, via {@link Corpora}.
  *
  * <h2>Why a slice, and why this slice</h2>
  * Coil is <b>Kotlin Multiplatform</b>, not Kotlin/JVM: 445 {@code .kt} files, zero {@code .java}, targeting
@@ -81,7 +81,7 @@ public class TestCoilJvmSlice {
     private static final int PRIMARY_TYPE_FLOOR = 80;
 
     private static Path config() {
-        return TestOssCorpus.requireCompleteConfig(CORPUS);
+        return Corpora.oss(CORPUS).requireCompleteConfig();
     }
 
     private static InputConfigurationImpl read(Path config) throws IOException {

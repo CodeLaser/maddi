@@ -23,6 +23,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    // CloneBenchCorpus asks Corpora where the testarchive corpus is
+    testFixturesImplementation(testFixtures(project(":maddi-util")))
+
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
