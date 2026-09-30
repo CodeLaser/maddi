@@ -10,9 +10,10 @@
  * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
  * more details. You should have received a copy of the GNU Lesser General Public
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 // The conventions plugin (`java-library-conventions`) as an included build, not buildSrc: buildSrc cannot be
-// consumed from another build, and maddi-mod and maddi-ext apply the same conventions
+// consumed from another build, and maddi-mod and maddi-dist apply the same conventions
 // (docs/roadmap/split-maddi-into-three-repositories.md, stage 4). Consumers:
 //     pluginManagement { includeBuild("build-logic") }            -- this repository
 //     pluginManagement { includeBuild("../maddi/build-logic") }   -- the sibling repositories
