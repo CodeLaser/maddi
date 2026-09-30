@@ -14,7 +14,6 @@
 
 plugins {
     id("java-library-conventions")
-    application
 }
 java {
     // 26 (not 25 like most Java modules): this module consumes the Kotlin front-end modules (maddi-inspection-mixed
@@ -23,8 +22,8 @@ java {
     targetCompatibility = JavaVersion.VERSION_26
 }
 // ⭐ The jars that go INSIDE the realm. Resolvable but not consumable, so nothing here reaches this module's
-// own runtimeClasspath -- which is the entire point (G46). The distribution carries them in lib-k2/, beside
-// lib/ but never on the launcher's CLASSPATH.
+// own runtimeClasspath -- which is the entire point (G46). The tests hand them to the realm; the CLI
+// distribution (maddi-cli-kotlin) carries them in lib-k2/, beside lib/ but never on the launcher's CLASSPATH.
 val k2Runtime: Configuration by configurations.creating {
     isCanBeResolved = true
     isCanBeConsumed = false
@@ -96,28 +95,5 @@ tasks.withType<Test> {
     jvmArgs("-Xmx" + (System.getenv("TESTXMX") ?: "4G"))
 }
 
-// `run` goes through the realm as the tests and the shipped CLI do. Without this, `:maddi-run-kotlin:run` on any
-// input with Kotlin sources died in K2Realm.discover ("cannot find the Kotlin front end's jars") -- found when
-// the corpus catalogue's parse phase first ran a Kotlin entry (coil, 2026-09-26).
-tasks.named<JavaExec>("run") {
-    inputs.files(k2Runtime).withPropertyName("k2Runtime").withNormalizer(ClasspathNormalizer::class)
-    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dmaddi.k2.classpath=" + k2Runtime.asPath) })
-}
-
-// the realm's jars ship beside lib/, not in it: present in the distribution, absent from the CLASSPATH
-distributions {
-    main {
-        contents {
-            from(k2Runtime) { into("lib-k2") }
-        }
-    }
-}
-
-application {
-    // launcher script `bin/maddi-kotlin`, distribution `maddi-kotlin-<version>.zip` — this bundle is how
-    // Kotlin support ships: the K2 'for-ide' jars ride along in lib/ (see PUBLISHING.md)
-    applicationName = "maddi-kotlin"
-    mainClass = "io.codelaser.maddi.run.kotlinmain.Main"
-    // ./gradlew :maddi-run-kotlin:run --args="--compile-log <mixed build log>"
-    applicationDefaultJvmArgs = javacAddExports
-}
+// The `maddi-kotlin` launcher and distribution (with lib-k2/) moved to maddi-cli-kotlin (mod): this driver finds
+// the modification analysis as a service, and a base module cannot carry it (split stage 3).

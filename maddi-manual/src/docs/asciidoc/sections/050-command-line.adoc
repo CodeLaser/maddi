@@ -9,8 +9,8 @@ on the launching JVM:
   only (see <<kotlin>>).
 
 In the examples below, `maddi` stands for a launcher that starts the appropriate main class with the
-`--add-exports` already applied (the `run-openjdk` / `run-kotlin` modules apply Gradle's `application`
-plugin, so `./gradlew :maddi-run-openjdk:run --args="…"` works too).
+`--add-exports` already applied (the `maddi-cli` / `maddi-cli-kotlin` modules apply Gradle's `application`
+plugin, so `./gradlew :maddi-cli:run --args="…"` works too).
 
 == Providing the input
 
@@ -60,7 +60,7 @@ The `run-kotlin` CLI mirrors the openjdk one for mixed projects. It takes `--com
 
 [source,console]
 ----
-$ ./gradlew :maddi-run-kotlin:run --args="--compile-log mixed-build.log"
+$ ./gradlew :maddi-cli-kotlin:run --args="--compile-log mixed-build.log"
 ----
 
 == Exit codes

@@ -23,7 +23,7 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
   `test` excludes JUnit tag `slow`; `slowTest` runs only that tag and inherits each module's
   own `test` configuration (jvmArgs, heap via `TESTXMX`, system properties). Tag any test that
   parses a real-world corpus with `@Tag("slow")`.
-- Slow corpus tests live mainly in `maddi-run-openjdk` (guava, fernflower, langchain4j,
+- Slow corpus tests live mainly in `maddi-run-analysis` (guava, fernflower, langchain4j,
   timefold, jenkins-core, …) and `maddi-modification-analyzer` (`TestCloneBench`).
   `-Dclonebench.parallelism=<n>` tunes the CloneBench fork.
 - **The corpus tests need the external `test-oss` corpus** — real open-source projects, cloned

@@ -25,7 +25,7 @@ checked out at the paths recorded in the log.
 Gradle:
 
 ```console
-$ ./gradlew :maddi-run-openjdk:run --args="\
+$ ./gradlew :maddi-cli:run --args="\
     --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnTimefold-solver.txt.gz \
     --extra-jmod java.sql \
     --write-input-configuration /tmp/timefold-ic.json"
@@ -34,7 +34,7 @@ $ ./gradlew :maddi-run-openjdk:run --args="\
 Bazel:
 
 ```console
-$ bazel run //maddi-run-openjdk:maddi -- \
+$ bazel run //maddi-cli:maddi -- \
     --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnTimefold-solver.txt.gz \
     --extra-jmod java.sql \
     --write-input-configuration /tmp/timefold-ic.json
@@ -49,12 +49,12 @@ that needs the Timefold checkout present at the paths in the log.
 Bazel:
 
 ```console
-$ bazel run //maddi-run-openjdk:maddi -- \
+$ bazel run //maddi-cli:maddi -- \
     --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnLangchain4j.txt.gz \
     --write-input-configuration /tmp/lc4j-ic.json
 ```
 
-Gradle is the same call via `./gradlew :maddi-run-openjdk:run --args="…"`.
+Gradle is the same call via `./gradlew :maddi-cli:run --args="…"`.
 
 ## Parts of the JDK — java.base on the module path
 
@@ -62,7 +62,7 @@ To analyze sources against a JDK module directly (no build log), put the module 
 `--jmod` and point `--source` at the code. This is the shape exercised by `TestRunAnalyzer`:
 
 ```console
-$ bazel run //maddi-run-openjdk:maddi -- \
+$ bazel run //maddi-cli:maddi -- \
     --jmod=java.base \
     --classpath=$PWD/maddi-support/build/libs/maddi-support-<version>.jar \
     --source=$PWD/maddi-cst-api/src/main/java \

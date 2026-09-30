@@ -188,7 +188,7 @@ Requires a recent JDK on `JAVA_HOME` (no Gradle toolchain provisioning). A self-
 run — maddi analyzing its own CST API against `java.base`:
 
 ```bash
-./gradlew :maddi-run-openjdk:run --args="\
+./gradlew :maddi-cli:run --args="\
     --jmod=java.base \
     --source=$PWD/maddi-cst-api/src/main/java \
     --analysis-steps=prep"

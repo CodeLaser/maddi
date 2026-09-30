@@ -17,7 +17,7 @@ or vice versa) resolves to a single type.
 
 [source,console]
 ----
-$ ./gradlew :maddi-run-kotlin:run --args="--compile-log mixed-build.log"
+$ ./gradlew :maddi-cli-kotlin:run --args="--compile-log mixed-build.log"
 ----
 
 == Current limits

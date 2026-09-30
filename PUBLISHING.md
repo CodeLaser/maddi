@@ -118,9 +118,9 @@ The runners apply the Gradle `application` plugin, so `distZip` / `installDist` 
 bundles (launcher + every runtime jar in `lib/`, with the required javac `--add-exports` baked into the
 launcher). Publish these as **GitHub Release** assets:
 
-* `maddi` — the openjdk (Java) runner, from `maddi-run-openjdk:distZip` → `maddi-<version>.zip`, launcher
+* `maddi` — the openjdk (Java) runner, from `maddi-cli:distZip` → `maddi-<version>.zip`, launcher
   `bin/maddi`.
-* `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-run-kotlin:distZip` →
+* `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-cli-kotlin:distZip` →
   `maddi-kotlin-<version>.zip`, launcher `bin/maddi-kotlin`. **This is how Kotlin support ships**: the K2
   "for-ide" jars ride along in `lib/` (verified: the 7 `*-for-ide` jars + `kotlin-compiler` are bundled).
   Since 2026-09-21 it takes the **same option surface** as `maddi` — literally

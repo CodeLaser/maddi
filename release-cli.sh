@@ -3,8 +3,8 @@
 # Build the two self-contained maddi CLI distributions and publish them as assets on a GitHub Release.
 # This is the "command-line tools" leg of the publishing strategy (see PUBLISHING.md, Package 1, item 3).
 #
-#   maddi        (maddi-run-openjdk:distZip) — the openjdk (Java) runner
-#   maddi-kotlin (maddi-run-kotlin:distZip)  — the mixed Java+Kotlin runner; the K2 'for-ide' jars ride
+#   maddi        (maddi-cli:distZip) — the openjdk (Java) runner
+#   maddi-kotlin (maddi-cli-kotlin:distZip) — the mixed Java+Kotlin runner; the K2 'for-ide' jars ride
 #                                              along in lib-k2/, so this bundle is how Kotlin support ships
 #
 # Each zip gets a <zip>.sha256 beside it. The IDE plugins download maddi-kotlin-<version>.zip from release
@@ -34,11 +34,11 @@ if [[ "$TAG" != "v$VERSION" ]]; then
 fi
 
 echo "==> Building the CLI distributions (version from gradle.properties)"
-./gradlew :maddi-run-openjdk:distZip :maddi-run-kotlin:distZip
+./gradlew :maddi-cli:distZip :maddi-cli-kotlin:distZip
 
 # Each zip lives in its own module's distributions dir, so these globs cannot cross-match.
-OPENJDK_ZIP=$(ls maddi-run-openjdk/build/distributions/maddi-*.zip)
-KOTLIN_ZIP=$(ls maddi-run-kotlin/build/distributions/maddi-kotlin-*.zip)
+OPENJDK_ZIP=$(ls maddi-cli/build/distributions/maddi-*.zip)
+KOTLIN_ZIP=$(ls maddi-cli-kotlin/build/distributions/maddi-kotlin-*.zip)
 echo "    openjdk runner: $OPENJDK_ZIP"
 echo "    kotlin  runner: $KOTLIN_ZIP"
 

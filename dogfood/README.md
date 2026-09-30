@@ -42,7 +42,7 @@ Carrying `:cst-api`'s sources into `:cst-impl`'s input configuration is what the
 How to run
 ----------
 
-**For the ratchet, nothing: `./gradlew :maddi-run-openjdk:slowTest` does all of it.** That task's
+**For the ratchet, nothing: `./gradlew :maddi-run-analysis:slowTest` does all of it.** That task's
 `dogfoodInputConfiguration` dependency publishes the plugin, builds the jars and runs the generation
 below, so `TestEventualRatchet` provisions its own input in any checkout. It had to: the input
 configuration is generated and gitignored, so before 2026-08-17 the ratchet failed its own "does not
@@ -68,7 +68,7 @@ a real change does. A file-by-file diff of two dogfood runs is noise that looks 
 $ ./gradlew :maddi-gradleplugin:publishAllPublicationsToLocalPluginRepoRepository
 $ ./gradlew build                                    # the dependency jars must exist
 $ cd dogfood && ../gradlew --refresh-dependencies :cst-impl:maddi-write-input-configuration
-$ cd .. && ./gradlew :maddi-run-openjdk:run --args="\
+$ cd .. && ./gradlew :maddi-cli:run --args="\
     --input-configuration $PWD/dogfood/cst-impl/build/inputConfiguration.json \
     --preload-analysis-results-dirs $PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/jdk,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/test,$PWD/maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs/log \
     --analysis-steps prep,modification \

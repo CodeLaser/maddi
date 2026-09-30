@@ -51,7 +51,7 @@ Then run the analyzer straight off the generated JSON (validates the config end-
 
 ```
 cd ~/git/maddi
-./gradlew :maddi-run-openjdk:run --args="\
+./gradlew :maddi-cli:run --args="\
   --input-configuration /Users/bnaudts/git/test-oss/jenkins/cli/target/inputConfiguration.json \
   --analysis-steps prep"
 ```

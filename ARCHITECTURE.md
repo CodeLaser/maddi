@@ -134,8 +134,11 @@ metrics until it was found.
 | Module | Purpose |
 |---|---|
 | `maddi-run-config` | Shared run configuration, error reporting, exit codes; used by every runner and both build plugins. |
-| `maddi-run-openjdk` | **The main CLI** (`bin/maddi`, distZip): analyzer on the javac front end. Also home of the large-corpus smoke tests (`@Tag("slow")`), which run against the external `test-oss` corpus (see `CONTRIBUTING.md` §Building and testing; managed by the `corpus/` Taskfile). |
-| `maddi-run-kotlin` | CLI for mixed Java+Kotlin projects (`bin/maddi-kotlin`); how Kotlin support ships (the K2 jars are not on Maven Central, they ride along in `lib/`). |
+| `maddi-run-openjdk` | **The main driver**: the analyzer on the javac front end, which finds the modification analysis as a service (`maddi-analysis-api`). Its launcher and distZip are `maddi-cli`. |
+| `maddi-run-kotlin` | The driver for mixed Java+Kotlin projects; its launcher and distZip are `maddi-cli-kotlin`. |
+| `maddi-run-analysis` | The implementation of the analysis service (the modification tier behind `AnalysisEngine`). Also home of the large-corpus smoke tests (`@Tag("slow")`), which run against the external `test-oss` corpus (see `CONTRIBUTING.md` §Building and testing; managed by the `corpus/` Taskfile). |
+| `maddi-cli` | **The main CLI** (`bin/maddi`, distZip): `maddi-run-openjdk` + `maddi-run-analysis`, no code of its own. |
+| `maddi-cli-kotlin` | CLI for mixed Java+Kotlin projects (`bin/maddi-kotlin`, distZip); how Kotlin support ships (the K2 jars are not on Maven Central, they ride along in `lib-k2/`). |
 | `maddi-run-main` | CLI on the hand-written-parser front end. |
 | `maddi-run-rewire` | Small driver for incremental/partial re-analysis (rewiring), inspector-implementation-agnostic. |
 | `maddi-gradleplugin` | Gradle plugin (`io.codelaser.maddi.analyzer`); shades the whole Java analyzer stack so it is self-contained. |
@@ -161,8 +164,8 @@ exactly three things:
    compiles against);
 2. **Build plugins** — Gradle and Maven plugins, each self-contained by shading the Java
    analyzer stack;
-3. **CLI distributions** — self-contained zips from `maddi-run-openjdk` (Java) and
-   `maddi-run-kotlin` (mixed), released via `release-cli.sh`.
+3. **CLI distributions** — self-contained zips from `maddi-cli` (Java) and
+   `maddi-cli-kotlin` (mixed), released via `release-cli.sh`.
 
 The IDE plugins are delivered separately and talk to the bundled daemon.
 

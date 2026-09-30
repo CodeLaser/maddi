@@ -14,7 +14,6 @@
 
 plugins {
     id("java-library-conventions")
-    application
     // TestOssCorpus: the test-oss root locator, shared with maddi-run-kotlin's corpus tests
     `java-test-fixtures`
 }
@@ -53,24 +52,8 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
-application {
-    // launcher script `bin/maddi`, distribution `maddi-<version>.zip` (see PUBLISHING.md)
-    applicationName = "maddi"
-    mainClass = "io.codelaser.maddi.run.openjdkmain.Main"
-    applicationDefaultJvmArgs = listOf(
-        "-enableassertions", "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
-    )
-}
-
-run {
-    if (project.hasProperty("jvmArgs")) {
-        application.applicationDefaultJvmArgs += (project.property("jvmArgs") as String).split("\\s+")
-    }
-}
+// The `maddi` launcher and distribution moved to maddi-cli (mod): this driver finds the modification analysis as
+// a service, and a base module cannot carry it (split stage 3).
 
 tasks.test {
     useJUnitPlatform()

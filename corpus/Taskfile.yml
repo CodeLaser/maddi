@@ -18,7 +18,7 @@
 #   `task guava TEST_OSS_ROOT=/data/oss`.
 #
 # HOW THIS CONNECTS TO THE TESTS
-#   The @Tag("slow") corpus tests (maddi-run-openjdk, maddi-run-kotlin) resolve the corpus root
+#   The @Tag("slow") corpus tests (maddi-run-analysis, maddi-run-kotlin-analysis) resolve the corpus root
 #   via TEST_OSS_ROOT / -Dtest.oss.root and *skip silently* (JUnit assumptions) when a project or
 #   its inputConfiguration.json is missing. So: `task install:wired` + `task config:all` first,
 #   then `task test:slow` — and read the per-test roll-call, not just the build outcome
@@ -456,7 +456,7 @@ tasks:
       - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
       - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
       # MADDI_ARGS: extra maddi options for this project's configuration, e.g. ignite-core's `--jre <JDK 17>`.
-      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-run-openjdk:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json{{if .MADDI_ARGS}} {{.MADDI_ARGS}}{{end}}"'
+      - '{{.MADDI_REPO}}/gradlew -p {{.MADDI_REPO}} :maddi-cli:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json{{if .MADDI_ARGS}} {{.MADDI_ARGS}}{{end}}"'
       - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
       - task: _vendor
         vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
@@ -494,7 +494,7 @@ tasks:
     desc: 'First-contact sweep (TestCorpusSweep) over every corpus with a config: task sweep [SWEEP=name1,name2]'
     dir: '{{.MADDI_REPO}}'
     cmds:
-      - SWEEP={{.SWEEP | default "1"}} ./gradlew :maddi-run-openjdk:slowTest --tests '*TestCorpusSweep' --rerun-tasks
+      - SWEEP={{.SWEEP | default "1"}} ./gradlew :maddi-run-analysis:slowTest --tests '*TestCorpusSweep' --rerun-tasks
 
   run:prep:
     desc: 'Analyse one input configuration: task run:prep PROJECT=<corpus dir> | CONFIG=/path/to/inputConfiguration.json  [STEPS=prep] [XMX=24G]'
@@ -505,7 +505,7 @@ tasks:
       - sh: 'test -f "{{.CONFIG}}"'
         msg: 'No input configuration at {{.CONFIG}} — pass CONFIG=<path> or PROJECT=<corpus project> (generate with task config:<project>).'
     cmds:
-      - ./gradlew :maddi-run-openjdk:run {{if .XMX}}-PjvmArgs="-Xmx{{.XMX}}"{{end}} --args="--input-configuration={{.CONFIG}} --parallel --analysis-steps={{.STEPS | default "prep"}} --debug=memory"
+      - ./gradlew :maddi-cli:run {{if .XMX}}-PjvmArgs="-Xmx{{.XMX}}"{{end}} --args="--input-configuration={{.CONFIG}} --parallel --analysis-steps={{.STEPS | default "prep"}} --debug=memory"
 
   # ======================== the catalogue (new; see corpus/catalogue/) =======
   # Generic over catalogue/<name>.yml — no per-project task. These run alongside the hand-written

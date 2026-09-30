@@ -10,7 +10,6 @@
 # more details. You should have received a copy of the GNU Lesser General Public
 # License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-load("@rules_java//java:defs.bzl", "java_binary")
 load("//:java_library_conventions.bzl", "maddi_java_library")
 load("//:platform.bzl", "OPENJDK_JAVAC_EXPORTS")
 
@@ -45,14 +44,4 @@ maddi_java_library(
     ],
 )
 
-# 'application' plugin equivalent: the openjdk-parser-based `maddi` CLI
-java_binary(
-    name = "maddi",
-    main_class = "io.codelaser.maddi.run.openjdkmain.Main",
-    visibility = ["//visibility:public"],
-    jvm_flags = OPENJDK_JAVAC_EXPORTS,
-    runtime_deps = [
-        ":maddi-run-openjdk",
-        "//maddi-aapi-archive",  # runtimeOnly: shipped analysis-result jars
-    ],
-)
+# The `maddi` CLI (java_binary) moved to //maddi-cli: the driver finds the analysis as a service (split stage 3).

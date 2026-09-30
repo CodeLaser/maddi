@@ -604,9 +604,23 @@ def _mvn_exclusions(cfg):
     return f" -pl '{','.join(ex)}'" if ex else ''
 
 
+# Since the split (maddi docs/roadmap/split-maddi-into-three-repositories.md, stage 3) the drivers are base and
+# find the modification analysis as a service; the launchers that carry it (`run`) are maddi-cli and
+# maddi-cli-kotlin, and the corpus tests (`slowTest`) live beside the engine. run-main has no such launcher: its
+# `run` parses, and refuses any analysis step.
+def _runner(entry):
+    return (entry.get('parse') or {}).get('runner', 'openjdk')
+
+
 def _runner_module(entry):
-    return {'openjdk': 'maddi-run-openjdk', 'kotlin': 'maddi-run-kotlin',
-            'main': 'maddi-run-main'}[(entry.get('parse') or {}).get('runner', 'openjdk')]
+    """The module whose `run` launches this entry's driver with the analysis."""
+    return {'openjdk': 'maddi-cli', 'kotlin': 'maddi-cli-kotlin', 'main': 'maddi-run-main'}[_runner(entry)]
+
+
+def _corpus_test_module(entry):
+    """The module that hosts this entry's corpus test (`slowTest`)."""
+    return {'openjdk': 'maddi-run-analysis', 'kotlin': 'maddi-run-kotlin-analysis',
+            'main': 'maddi-run-analysis'}[_runner(entry)]
 
 
 def _run_maddi(entry, steps):
@@ -741,11 +755,11 @@ def _route_cmd(entry, c, route):
                 # Equivalent input, not a shortcut -- these are exactly the lines it keeps.
                 f"grep -aE '^\\[DEBUG] -d ' compile.log > compile.javac.log && "
                 + (_REWRITE_REACTOR_JARS if c.get('rewrite_reactor_jars') else '')
-                + f'{maddi}/gradlew -p {maddi} :maddi-run-openjdk:run '
+                + f'{maddi}/gradlew -p {maddi} :maddi-cli:run '
                 f'--args="--compile-log {d}/compile.javac.log{jmods}{margs} '
                 f'--write-input-configuration {out}"')
     if route in ('gradle-log', 'gradle-log-kotlin'):
-        target = 'maddi-run-kotlin' if route.endswith('kotlin') else 'maddi-run-openjdk'
+        target = 'maddi-cli-kotlin' if route.endswith('kotlin') else 'maddi-cli'
         # The kotlinc marker is ParseKotlincList.GRADLE_PATTERN's -- test_catalogue.py holds the
         # two together. This line once read `[KOTLIN] compiler arguments:`, which occurs 0 times in
         # detekt's real --debug log against 32 of the right one: a javac-only config, silently.
@@ -804,7 +818,7 @@ def plan(entry, phase):
         p = entry.get('parse') or {}
         if p.get('test'):
             maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-            return (f'{maddi}/gradlew -p {maddi} :{_runner_module(entry)}:slowTest '
+            return (f'{maddi}/gradlew -p {maddi} :{_corpus_test_module(entry)}:slowTest '
                     f"--tests '*{p['test']}' --rerun-tasks")
         if p.get('steps'):
             return _run_maddi(entry, ','.join(p['steps']))
