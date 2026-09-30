@@ -67,6 +67,17 @@ public class WarmAnalysisService implements AnalyzeHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(WarmAnalysisService.class);
 
     private final InputConfigurationAssembler assembler = new InputConfigurationAssembler();
+    /** The static-side-effect analysis for this service's runs; null keeps the analyzer's default. */
+    private final Boolean staticSideEffects;
+
+    public WarmAnalysisService() {
+        this(null);
+    }
+
+    /** For tests: switch the static-side-effect analysis on or off for every run of this service. */
+    WarmAnalysisService(Boolean staticSideEffects) {
+        this.staticSideEffects = staticSideEffects;
+    }
 
     /** What either parse path hands to the shared tail. */
     private record Parsed(JavaInspector inspector,
@@ -134,7 +145,9 @@ public class WarmAnalysisService implements AnalyzeHandler {
                 // RunAnalyzer, because they are noisy on a codebase that has not been curated for them
                 request.config().warnNearMisses(),
                 false,  // environment gates: the CLI's, not the daemon's
-                false); // store fingerprints
+                false,  // store fingerprints
+                staticSideEffects,
+                null);  // eventual cluster: the analyzer's default
         // Stream what each pass established, so the IDE can annotate the file on screen long before the run
         // ends: the first pass decides most of the output, and the tail is long but decides little.
         StreamingValueFeed valueFeed = new StreamingValueFeed(status, requestId, collector);

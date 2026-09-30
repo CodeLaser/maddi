@@ -41,6 +41,8 @@ import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
 import io.codelaser.maddi.modification.analyzer.CheckpointWriter;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
+import io.codelaser.maddi.modification.analyzer.impl.EventualCluster;
+import io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
 import io.codelaser.maddi.modification.analyzer.shadow.ShadowModificationPass;
 import io.codelaser.maddi.modification.common.AnalyzerException;
 import io.codelaser.maddi.modification.common.defaults.ShallowMethodAnalyzer;
@@ -115,6 +117,22 @@ public class AnalysisEngineImpl implements AnalysisEngine {
 
     @Override
     public ModificationOutcome modification(ModificationRequest request) throws IOException {
+        // The two feature switches are process-wide statics of the analyzer; a request that names one sets it for
+        // this run only and puts the previous value back, as the tests that toggled them directly always did.
+        ModificationOptions o = request.options();
+        boolean sseBefore = StaticSideEffectAnalyzerImpl.ENABLED;
+        boolean clusterBefore = EventualCluster.ENABLED;
+        if (o.staticSideEffects() != null) StaticSideEffectAnalyzerImpl.ENABLED = o.staticSideEffects();
+        if (o.eventualCluster() != null) EventualCluster.ENABLED = o.eventualCluster();
+        try {
+            return modificationWithSwitchesSet(request);
+        } finally {
+            StaticSideEffectAnalyzerImpl.ENABLED = sseBefore;
+            EventualCluster.ENABLED = clusterBefore;
+        }
+    }
+
+    private ModificationOutcome modificationWithSwitchesSet(ModificationRequest request) throws IOException {
         ModificationOptions o = request.options();
         JavaInspector javaInspector = request.javaInspector();
         List<Info> order = request.order();

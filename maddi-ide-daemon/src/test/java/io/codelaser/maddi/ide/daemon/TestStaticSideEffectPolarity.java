@@ -51,25 +51,16 @@ public class TestStaticSideEffectPolarity {
     @DisplayName("a computed @StaticSideEffects verdict is decorated and tagged NEGATIVE, end-to-end")
     @Test
     public void test(@TempDir Path dir) throws Exception {
-        // The flag lives in the analyzer (maddi-mod), which this ext module may not compile against: reach it
-        // reflectively, on the run-time class path.
-        java.lang.reflect.Field enabled = Class.forName(
-                "io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl").getField("ENABLED");
-        boolean saved = enabled.getBoolean(null);
-        enabled.setBoolean(null, true);
-        try {
-            DaemonProtocol.Result r = analyze(dir, "x/X.java", SOURCE);
-            assertEquals(0, r.parseErrorCount(), "unexpected parse errors");
+        // the static-side-effect analysis is off by default; the engine switches it on for this run only
+        DaemonProtocol.Result r = analyze(dir, "x/X.java", SOURCE, new WarmAnalysisService(true));
+        assertEquals(0, r.parseErrorCount(), "unexpected parse errors");
 
-            List<DaemonProtocol.Annotation> raise = annotationsFor(r, "METHOD", "X.raise");
-            DaemonProtocol.Annotation sse = one(raise, "@StaticSideEffects");
-            assertEquals(AnnotationTagger.NEGATIVE, sse.polarity(), sse.toString());
+        List<DaemonProtocol.Annotation> raise = annotationsFor(r, "METHOD", "X.raise");
+        DaemonProtocol.Annotation sse = one(raise, "@StaticSideEffects");
+        assertEquals(AnnotationTagger.NEGATIVE, sse.polarity(), sse.toString());
 
-            List<DaemonProtocol.Annotation> plain = annotationsFor(r, "METHOD", "X.plain");
-            assertTrue(plain.stream().noneMatch(a -> a.text().startsWith("@StaticSideEffects")),
-                    "a method with no static side effect must not carry @StaticSideEffects: " + plain);
-        } finally {
-            enabled.setBoolean(null, saved);
-        }
+        List<DaemonProtocol.Annotation> plain = annotationsFor(r, "METHOD", "X.plain");
+        assertTrue(plain.stream().noneMatch(a -> a.text().startsWith("@StaticSideEffects")),
+                "a method with no static side effect must not carry @StaticSideEffects: " + plain);
     }
 }

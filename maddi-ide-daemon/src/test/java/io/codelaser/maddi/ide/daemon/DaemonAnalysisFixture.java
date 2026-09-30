@@ -43,10 +43,22 @@ public final class DaemonAnalysisFixture {
         return analyze(projectDir, relativePath, source, warnNearMisses, status -> { });
     }
 
+    /** As {@link #analyze(Path, String, String)}, run by the given service (one configured for the test). */
+    public static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source,
+                                                WarmAnalysisService service) throws Exception {
+        return analyze(projectDir, relativePath, source, false, status -> { }, service);
+    }
+
     /** As above, with a sink — use it to capture the streamed {@code partialResult} frames. */
     public static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source,
                                                 boolean warnNearMisses, AnalyzeHandler.StatusSink sink)
             throws Exception {
+        return analyze(projectDir, relativePath, source, warnNearMisses, sink, new WarmAnalysisService());
+    }
+
+    private static DaemonProtocol.Result analyze(Path projectDir, String relativePath, String source,
+                                                 boolean warnNearMisses, AnalyzeHandler.StatusSink sink,
+                                                 WarmAnalysisService service) throws Exception {
         Path file = projectDir.resolve("src").resolve(relativePath);
         Files.createDirectories(file.getParent());
         Files.writeString(file, source);
@@ -60,7 +72,7 @@ public final class DaemonAnalysisFixture {
                 List.of(),
                 false,
                 warnNearMisses);
-        return new WarmAnalysisService().analyze(new DaemonProtocol.AnalyzeProject("test", config), sink);
+        return service.analyze(new DaemonProtocol.AnalyzeProject("test", config), sink);
     }
 
     /**

@@ -25,6 +25,10 @@ package io.codelaser.maddi.analysis.api;
  * @param storeFingerprints after the analysis, store each source set's analysis fingerprint rollup
  *                          (incremental early cut-off, docs/design/analysis-rewiring.md), BEFORE the environment
  *                          gates' incremental state is captured -- the order the CLI always had.
+ * @param staticSideEffects the static-side-effect analysis on or off for this run; null keeps the analyzer's
+ *                          process-wide default (on when the environment variable {@code SSE} is set)
+ * @param eventualCluster   the eventual-immutability cluster on or off for this run; null keeps the analyzer's
+ *                          process-wide default (on unless {@code EVENTUALCLUSTER=0})
  */
 public record ModificationOptions(Integer maxIterations,
                                   Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -33,5 +37,17 @@ public record ModificationOptions(Integer maxIterations,
                                   Boolean faultTolerant,
                                   Boolean warnNearMisses,
                                   boolean environmentGates,
-                                  boolean storeFingerprints) {
+                                  boolean storeFingerprints,
+                                  Boolean staticSideEffects,
+                                  Boolean eventualCluster) {
+
+    /** Both feature switches at the analyzer's process-wide default. */
+    public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
+                               Boolean trackObjectCreations, Boolean modificationViaReachability,
+                               Boolean faultTolerant, Boolean warnNearMisses, boolean environmentGates,
+                               boolean storeFingerprints) {
+        this(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                null, null);
+    }
 }
