@@ -510,3 +510,54 @@ only), and the CLI launchers into mod, which 3a had left broken.
   `AnalysisEngine`; it passes (317 survivors against the pinned list). A mod test no longer needs a dist
   build.
 - Fixed on the way: `build-logic/settings.gradle.kts` of stage 4 was one unclosed comment.
+
+### Stage 5 — done (2026-09-30)
+
+- **Carve.** maddi-mod and maddi-dist were carved with `git filter-repo` from a clone of this branch
+  (`ws/split` at `6de106609`), with their paths PLUS the directories those paths were renamed from
+  (`aapi-parser`, `modification-io`, `modification-linkedvariables`, `modification-common`,
+  `modification-prepwork`, `maddi-modification-io`, `maddi-modification-linkedvariables`; `run-gradleplugin`,
+  `run-mvnplugin`) and the old root-level names of moved docs: 1,417 and 178 commits back to the first
+  import. Files that moved in from a module that stays in base (the analysis tests out of run-openjdk) keep
+  their earlier history here only. Each carved tree equals this branch's files at those paths. The user's
+  initial commit on GitHub (`.gitignore`, `.githooks`) is replayed on top, on branch `ws/split` in each
+  repository; their `main` still equals `origin/main`.
+- **maddi** keeps its SHAs: one `git rm` commit, settings with the base modules only, root documents open
+  with where the moved modules live, `docs/README.md` still indexes all three repositories.
+- **Cross-repository references**: every `project(":…")` into another repository became an `io.codelaser`
+  coordinate at `maddiVersion` / `maddiModVersion`; source paths into base go through `../../maddi`;
+  maddi-dist's dogfood input task reaches maddi's jar tasks through `gradle.includedBuild("maddi")`; the
+  conventions take the platform BOM by coordinate outside maddi; the server composite substitutes it
+  explicitly. The corpus tooling (maddi-mod) finds the CLI launchers and the build plugins in
+  `MADDI_DIST_REPO`, the sibling `../maddi-dist` by default. `TestVersionSkew` checks each jar in the daemon
+  distribution against the version of the repository that builds it.
+- **Refactor side**: the seven repositories that include maddi also include `../maddi-mod`; `maddiProjects`
+  keeps the base modules and `maddiModProjects` lists the mod ones (clean/test links follow).
+- Gate, as measured:
+  - maddi `./gradlew build` green; maddi-mod `test`: 1,550; maddi-dist `test`: 118; together **4,003, module
+    for module as the monorepo**, with the single pre-existing failure (now in maddi-mod);
+  - tier check over the three roots: 50 modules, 0 problems; maddi-tier-guard active in maddi-dist;
+  - the `maddi` CLI installed from maddi-dist writes modification results on maddi-util byte-identical to
+    the pre-stage-3 CLI's; the daemon distribution bundles the six mod jars;
+  - refactor-server and refactor-service composites compile; metrics tests as at stage 2 (one pre-existing
+    dataflow failure), `codelaser-metrics-immutable` 78 pass.
+  - **Not run**: maddi-mod's `slowTest` against the corpora (hours; the battery's 30 tests are counted in the
+    sources, stage 3), and the stage-0 parse-only baseline, which was never taken. "dist compiles with
+    ../maddi-mod absent" is replaced by maddi-tier-guard, which the user chose over a CI job.
+- **Left to the user**: pushing (`ws/split` in each repository; for the two new ones, deciding whether it
+  becomes `main`, which then does not fast-forward from the initial commit on GitHub); adding maddi-mod and
+  maddi-dist to jfocus-devops `ws.conf` `ALL_REPOS` and to `~/git/` as main checkouts, which the `ws` tool
+  expects (in `ws/split` they are plain clones, so `.ws` was left as it is); CI workflows for the two new
+  repositories (each needs the sibling checkouts).
+
+### Stage 6 — done (2026-09-30), default unchanged
+
+- `maddi-publishing` (build-logic) gives every base and mod library a Maven publication; the Kotlin modules
+  outside the conventions apply it directly. maddi-mod and maddi-dist take `-PmaddiFromSource=false`: no
+  included sibling, coordinates from Maven local (`-Dmaven.repo.local=<dir>` for a designated one) or
+  `-PmaddiRepo=<url>`, listed before Maven Central.
+- Proven: maddi published to a scratch directory (32 artefacts), maddi-mod `clean test` pinned = the same
+  1,550 tests; maddi-mod published too, maddi-dist `clean test :maddi-cli:installDist` pinned = the same 118.
+  Not covered pinned: maddi-dist's dogfood `slowTest` (it needs the included maddi build).
+- The default stays from source. Flipping it is the user's decision, after the refactor side is split and
+  its census and ratchet workflows are re-pointed.
