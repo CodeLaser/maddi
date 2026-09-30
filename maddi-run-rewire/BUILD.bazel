@@ -20,7 +20,7 @@ maddi_java_library(
         "//maddi-cst-api",
         "//maddi-graph",
         "//maddi-inspection-api",
-        "//maddi-modification-prepwork",
+        "//maddi-callgraph",
         "//maddi-util",
     ],
 )

@@ -30,6 +30,7 @@ val k2Runtime: Configuration by configurations.creating {
 }
 
 dependencies {
+    implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     k2Runtime(project(":maddi-kotlin-k2"))
     // analysis pipeline (mirrors maddi-run-main)
     api(project(":maddi-inspection-api"))

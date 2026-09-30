@@ -52,6 +52,12 @@ public class PropertyImpl implements Property {
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
     public static final Property DEGRADED_ANALYSIS_METHOD = new PropertyImpl("degradedAnalysisMethod");
+    /**
+     * The method is on a cycle of the call graph. Set by {@code io.codelaser.maddi.callgraph.ComputeCallGraph};
+     * declared here (it used to be declared there) so that a module that reads it -- the link analysis, the
+     * refactor engine's dataflow metric -- need not depend on the module that computes it.
+     */
+    public static final Property RECURSIVE_METHOD = new PropertyImpl("recursiveMethod", ValueImpl.BoolImpl.FALSE);
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);

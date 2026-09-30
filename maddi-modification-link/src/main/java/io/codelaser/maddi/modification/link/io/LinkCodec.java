@@ -487,10 +487,9 @@ public class LinkCodec {
     private static final Map<String, Property> PROPERTY_MAP = Map.of(
             PART_OF_CONSTRUCTION.key(), PART_OF_CONSTRUCTION,
             METHOD_LINKS.key(), METHOD_LINKS,
-            LinksImpl.LINKS.key(), LinksImpl.LINKS,
-            // prepwork call-graph property, present on checkpointed methods (task #34)
-            io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD.key(),
-            io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph.RECURSIVE_METHOD);
+            LinksImpl.LINKS.key(), LinksImpl.LINKS);
+    // recursiveMethod (the call graph's, present on checkpointed methods, task #34) is decoded by the
+    // fallback below: it is declared in PropertyImpl and registered in PropertyProviderImpl since 2026-09-30.
 
     static class P implements Codec.PropertyProvider {
         @Override

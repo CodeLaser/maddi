@@ -23,6 +23,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     // TestOssCorpus skips (or, under -Dmaddi.corpus.required, fails) when a corpus is absent, so the
     // fixture itself needs the assumption API; the convention plugin only puts junit on `test`.
     testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")

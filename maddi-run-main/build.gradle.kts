@@ -21,6 +21,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))
     implementation(project(":maddi-modification-prepwork"))

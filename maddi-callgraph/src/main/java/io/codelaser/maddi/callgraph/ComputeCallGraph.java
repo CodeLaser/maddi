@@ -12,10 +12,9 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.modification.prepwork.callgraph;
+package io.codelaser.maddi.callgraph;
 
 
-import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
@@ -33,8 +32,6 @@ import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
-import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
-import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.byname.ByNameDangling;
 import io.codelaser.maddi.inspection.api.byname.ByNameReference;
 import io.codelaser.maddi.inspection.api.byname.ByNameSink;
@@ -52,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static io.codelaser.maddi.cst.impl.analysis.PropertyImpl.RECURSIVE_METHOD;
 import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 
 /*
@@ -60,7 +58,6 @@ call & reference graphs.
 direction of arrow: I need you to exist first (I, from -> you, to)
  */
 public class ComputeCallGraph {
-    public static final Property RECURSIVE_METHOD = new PropertyImpl("recursiveMethod", ValueImpl.BoolImpl.FALSE);
     private final Runtime runtime;
     private final Set<TypeInfo> primaryTypes;
     private final Set<MethodInfo> recursive = new HashSet<>();

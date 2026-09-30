@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.modification.prepwork.callgraph;
 
+import io.codelaser.maddi.callgraph.ComputeCallGraph;
+
 import io.codelaser.maddi.modification.prepwork.variable.VariableData;
 import io.codelaser.maddi.modification.prepwork.variable.VariableInfoContainer;
 import io.codelaser.maddi.modification.prepwork.variable.impl.VariableDataImpl;

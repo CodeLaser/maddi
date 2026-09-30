@@ -12,11 +12,11 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package io.codelaser.maddi.modification.prepwork.callgraph;
+package io.codelaser.maddi.callgraph;
 
 import org.junit.jupiter.api.Test;
 
-import static io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph.*;
+import static io.codelaser.maddi.callgraph.ComputeCallGraph.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestComputeCallGraph {

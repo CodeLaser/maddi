@@ -17,8 +17,8 @@ package io.codelaser.maddi.run.openjdkmain;
 import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
 import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
 import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
-import io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
+import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.modification.prepwork.io.AnalysisFingerprint;
 import io.codelaser.maddi.modification.link.impl.MethodLinkedVariablesImpl;
 import io.codelaser.maddi.cst.api.analysis.Property;
@@ -165,7 +165,7 @@ public class TestEarlyCutoffSkip {
         Files.writeString(baseFile, "// a comment\n\n" + BASE);
         JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration(), Map.of());
         Set<TypeInfo> changed = rr.sourceHasChanged();
-        Set<TypeInfo> dependents = new io.codelaser.maddi.modification.prepwork.callgraph.PrimaryTypeUseGraph(
+        Set<TypeInfo> dependents = new io.codelaser.maddi.callgraph.PrimaryTypeUseGraph(
                 ccg0.graph()).dependentsOf(changed);
         JavaInspector.Invalidated inv = ti ->
                 changed.contains(ti) ? INVALID : dependents.contains(ti) ? REWIRE : UNCHANGED;

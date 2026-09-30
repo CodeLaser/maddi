@@ -1,5 +1,7 @@
 package io.codelaser.maddi.modification.link.impl;
 
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
+
 import io.codelaser.maddi.modification.common.util.TolerantWrite;
 import io.codelaser.maddi.modification.link.LinkComputer;
 import io.codelaser.maddi.modification.link.impl.localvar.FunctionalInterfaceVariable;
@@ -10,7 +12,6 @@ import io.codelaser.maddi.modification.link.impl.translate.VirtualFieldTranslati
 import io.codelaser.maddi.modification.link.vf.VirtualFieldComputer;
 import io.codelaser.maddi.modification.link.vf.VirtualFields;
 import io.codelaser.maddi.modification.prepwork.Util;
-import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.modification.prepwork.variable.*;
 import io.codelaser.maddi.modification.prepwork.variable.impl.LinksImpl;
 import io.codelaser.maddi.cst.api.analysis.Value;
@@ -892,7 +893,7 @@ public record ExpressionVisitor(Runtime runtime,
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
         if (methodInfo.equals(currentMethod)
-            || currentMethod.analysis().getOrDefault(ComputeCallGraph.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
+            || currentMethod.analysis().getOrDefault(PropertyImpl.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
                     .isTrue()) {
             // direct recursion, lambda to enclosing method
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,

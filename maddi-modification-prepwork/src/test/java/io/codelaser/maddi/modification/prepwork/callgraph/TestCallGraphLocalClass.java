@@ -14,6 +14,9 @@
 
 package io.codelaser.maddi.modification.prepwork.callgraph;
 
+import io.codelaser.maddi.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
+
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;

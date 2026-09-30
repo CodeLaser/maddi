@@ -1,4 +1,5 @@
 module io.codelaser.maddi.run.openjdkmain {
+    requires io.codelaser.maddi.callgraph;
     requires io.codelaser.maddi.aapi.parser;
     requires io.codelaser.maddi.modification.analyzer;
     requires io.codelaser.maddi.modification.common;

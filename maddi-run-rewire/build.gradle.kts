@@ -25,8 +25,8 @@ Every dependency below is one both maddi-run-main and maddi-run-openjdk already 
 to the build graph but no new reachability.
  */
 dependencies {
+    implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
     api(project(":maddi-inspection-api"))                   // JavaInspector, ParseResult, InputConfiguration
-    implementation(project(":maddi-modification-prepwork")) // ComputeCallGraph, PrimaryTypeUseGraph
     implementation(project(":maddi-graph"))                 // G<Info>
     // slf4j-api comes from java-library-conventions
 }

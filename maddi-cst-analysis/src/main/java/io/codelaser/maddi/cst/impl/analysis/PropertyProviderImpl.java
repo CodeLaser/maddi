@@ -97,7 +97,10 @@ public class PropertyProviderImpl {
         Collections.addAll(properties,
                 DEGRADED_ANALYSIS_METHOD,
                 INDEPENDENT_TYPE_PARAMETER,
-                INSTANCEOF_SCOPE);
+                INSTANCEOF_SCOPE,
+                // written by ComputeCallGraph; decoded until 2026-09-30 by LinkCodec's own map, which it no
+                // longer needs now that the constant is declared in PropertyImpl
+                RECURSIVE_METHOD);
         properties.forEach(p -> propertyMap.put(p.key(), p));
     }
 

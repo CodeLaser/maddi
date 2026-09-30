@@ -1,4 +1,5 @@
 module io.codelaser.maddi.modification.prepwork {
+    requires transitive io.codelaser.maddi.callgraph;
     requires io.codelaser.maddi.cst.analysis;
     requires io.codelaser.maddi.cst.api;
     requires io.codelaser.maddi.cst.impl;

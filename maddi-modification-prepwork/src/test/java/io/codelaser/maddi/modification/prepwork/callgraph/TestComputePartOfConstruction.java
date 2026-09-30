@@ -37,11 +37,42 @@ import static io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestComputePartOfConstruction extends CommonTest {
+    // A copy of TestCallGraph.INPUT3: that test moved to maddi-callgraph with the call graph (split stage 2),
+    // and a test class of another module is not on this class path.
+    private static final String CALL_GRAPH_INPUT3 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            
+            class X {
+                private List<String> list;
+                X(int i) {
+                    initList(i+"");
+                    print();
+                    sleep();
+                }
+                private void initList(String i) {
+                    list = new ArrayList<>();
+                    list.add(i);
+                }
+                private void sleep() {
+                    list.clear();
+                }
+                void print() {
+                    System.out.println("print!");
+                }
+                public void rest() {
+                    sleep();
+                    System.out.println("awake");
+                }
+            }
+            """;
+
 
     @DisplayName("part of construction of CallGraph test 3")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(ABX, TestCallGraph.INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, CALL_GRAPH_INPUT3);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
 

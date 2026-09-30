@@ -14,8 +14,8 @@
 
 package io.codelaser.maddi.run.rewire;
 
-import io.codelaser.maddi.modification.prepwork.callgraph.ComputeCallGraph;
-import io.codelaser.maddi.modification.prepwork.callgraph.PrimaryTypeUseGraph;
+import io.codelaser.maddi.callgraph.ComputeCallGraph;
+import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;

@@ -483,7 +483,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
         java.util.List<java.util.List<java.util.List<Info>>> firstIterationWaves;
         if (!incremental && SingleIterationAnalyzerImpl.PARALLEL_THREADS > 1 && dependencyGraph != null
             && analysisOrder.size() >= SingleIterationAnalyzerImpl.MIN_ELEMENTS_FOR_PARALLEL) {
-            firstIterationWaves = io.codelaser.maddi.modification.prepwork.callgraph.ComputeAnalysisOrder
+            firstIterationWaves = io.codelaser.maddi.callgraph.ComputeAnalysisOrder
                     .waves(dependencyGraph);
             LOGGER.info("Computed {} first-iteration waves", firstIterationWaves.size());
         } else {

@@ -1,4 +1,5 @@
 module io.codelaser.maddi.ide.daemon {
+    requires io.codelaser.maddi.callgraph;
     requires io.codelaser.maddi.modification.analyzer;
     // AnalyzerException, to report the types prep isolated (likelier now that a partial parse is analysed)
     requires io.codelaser.maddi.modification.common;
