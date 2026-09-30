@@ -623,6 +623,35 @@ def parse_config_path(entry):
     return out if out.is_absolute() else project_dir(entry) / out
 
 
+def entry_dir(entry, dotted):
+    """The directory of the catalogue file that declared `dotted`.
+
+    ⛔ THE FILE THAT DECLARED IT, NOT THIS ONE, and it is the same rule `config.baseline` already uses
+    (see baseline_path). A private catalogue directory must be able to keep everything an entry owns --
+    its baseline, its hand-written config script -- beside itself. Resolving against maddi's own scripts
+    directory meant a private entry needing a script had to put that script in the PUBLIC repo, which
+    is the opposite of why CORPUS_CATALOGUE is a list.
+    """
+    return origin_of(entry, dotted).parent
+
+
+def script_path(entry):
+    """The config route's script: `config.script` relative to its own catalogue directory.
+
+    Checked here, because the alternative is handing a path that does not exist to the shell: the phase
+    then fails as `python3: can't open file ...` once it is already running, which names the symptom and
+    not the cause.
+    """
+    c = entry.get('config') or {}
+    rel = Path(str(c['script']))
+    base = entry_dir(entry, 'config.script')
+    f = rel if rel.is_absolute() else (base / rel).resolve()
+    if not f.is_file():
+        sys.exit(f"{entry['name']}: config.script {c['script']!r} is not a file at {f} -- it is "
+                 f"resolved against {base}, the directory of the catalogue file that declares it")
+    return f
+
+
 def source_sets(entry, path=None):
     """-> [(name, is_test)] from the generated config (or `path`), or [] when there is none."""
     f = path or config_path(entry)
@@ -1028,7 +1057,7 @@ def _route_cmd(entry, c, route):
                 f'--args="--compile-log {d}/compile.log{jmods} '
                 f'--write-input-configuration {out}"')
     if route == 'script':
-        return f'python3 {HERE / Path(c["script"]).name}'
+        return f'python3 {script_path(entry)}'
     sys.exit(f'{name}: unknown config.route {route!r}')
 
 
@@ -1053,7 +1082,10 @@ def plan(entry, phase):
         # `config.then`: commands that must follow the route, in the project dir, each only if the one
         # before succeeded. `{scripts}` is this directory. vavr is the case: derive the main-only
         # configuration, then REBUILD, because the route's own generate-sources wiped target/.
-        then = [t.format(scripts=HERE) for t in (c.get('then') or [])]
+        # {scripts} is the scripts directory belonging to the catalogue that declared `then`, by the
+        # same convention: a catalogue directory sits beside its own scripts/.
+        then = [t.format(scripts=(entry_dir(entry, 'config.then') / '..' / 'scripts').resolve())
+                for t in (c.get('then') or [])]
         return ' && '.join([f'( {cmd} )', *then]) if then else cmd
 
     if phase == 'parse':

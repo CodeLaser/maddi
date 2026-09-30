@@ -35,7 +35,7 @@ build:
 
 config:
   route: script
-  script: eclipse-collections-config.py
+  script: ../scripts/eclipse-collections-config.py
   generates: [inputConfiguration.json]
   # ⛔ THE PER-MODULE ROUTE WOULD ANALYSE THE API AS BYTE CODE. The maven-plugin route writes one
   # configuration per module, and the implementation's sees its reactor sibling only as a class-path

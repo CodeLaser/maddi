@@ -400,7 +400,12 @@ class TestPhases(CatalogueTest):
                                      '    - python3 {scripts}/derive.py .\n    - mvn install\n')
         cmd = catalogue.plan(catalogue.load_one('v'), 'config')
         self.assertTrue(cmd.startswith('( mkdir -p '), cmd)
-        self.assertTrue(cmd.endswith(f') && python3 {catalogue.HERE}/derive.py . && mvn install'), cmd)
+        # {scripts} is the scripts directory of the catalogue that declared the entry, NOT maddi's own:
+        # a private catalogue directory has to be able to keep its scripts beside itself. This assertion
+        # named catalogue.HERE until that changed; what it is really testing -- that `then` runs after
+        # the route, in order -- is the same either way.
+        scripts = self.public.parent / 'scripts'
+        self.assertTrue(cmd.endswith(f') && python3 {scripts}/derive.py . && mvn install'), cmd)
 
     def test_reactor_jars_are_rewritten_to_output_dirs_and_m2_is_left_alone(self):
         d = self.oss / 'guava'
@@ -442,6 +447,46 @@ class TestPhases(CatalogueTest):
         with contextlib.redirect_stdout(out):
             self.assertEqual(0, catalogue.cmd_plan(argparse.Namespace(name='buildable', phase='build')))
         self.assertEqual('make', out.getvalue().strip())
+
+    def overlay(self, name, entry_text, script_name=None, script_text='# ours\n'):
+        """A catalogue directory shaped like the real ones: <root>/catalogue beside <root>/scripts, so
+        what the test asserts is what a private overlay actually looks like on disk."""
+        root = Path(os.path.realpath(self._tmp.name)) / name
+        cat, scripts = root / 'catalogue', root / 'scripts'
+        cat.mkdir(parents=True), scripts.mkdir(parents=True)
+        os.environ['CORPUS_CATALOGUE'] = f"{self.public}:{cat}"
+        script = None
+        if script_name:
+            script = scripts / script_name
+            script.write_text(script_text)
+        return cat, script
+
+    def test_a_config_script_is_resolved_against_the_catalogue_that_declared_it(self):
+        """⛔ THE POINT OF CORPUS_CATALOGUE BEING A LIST. A private entry that needs a hand-written
+        config script keeps that script beside itself. Resolving against maddi's own scripts directory
+        meant putting it in the PUBLIC repository."""
+        cat, script = self.overlay('devops', None, script_name='private-config.py')
+        self.entry(cat, 'customer', 'config:\n  route: script\n'
+                                    '  script: ../scripts/private-config.py\n')
+        e = catalogue.load_one('customer')
+        self.assertEqual(script, catalogue.script_path(e))
+        self.assertIn(f'python3 {script}', catalogue.plan(e, 'config'))
+
+    def test_the_then_placeholder_follows_the_declaring_catalogue_too(self):
+        cat, script = self.overlay('devops2', None, script_name='derive.py')
+        self.entry(cat, 'over', 'config:\n  route: maven-plugin\n  module: m\n'
+                                '  then:\n    - python3 {scripts}/derive.py .\n')
+        self.assertIn(f'python3 {script} .', catalogue.plan(catalogue.load_one('over'), 'config'))
+
+    def test_a_missing_config_script_is_named_rather_than_handed_to_the_shell(self):
+        """`python3 <nonexistent>` fails as "can't open file", once the phase is already running -- the
+        symptom, not the cause."""
+        cat, _ = self.overlay('devops3', None)
+        self.entry(cat, 'gone', 'config:\n  route: script\n  script: ../scripts/not-here.py\n')
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as raised:
+            catalogue.script_path(catalogue.load_one('gone'))
+        self.assertIn('not-here.py', str(raised.exception))
 
     def test_baseline_if_declared_passes_without_a_baseline(self):
         self.entry(self.public, 'n', 'parse:\n  runner: openjdk\n')
