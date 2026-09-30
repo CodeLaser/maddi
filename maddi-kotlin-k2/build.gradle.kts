@@ -18,6 +18,8 @@
 
 plugins {
     kotlin("jvm") version "2.4.0"
+    // a Maven publication, as every base library has (maddi build-logic; split stage 6)
+    id("maddi-publishing")
 }
 
 group = "io.codelaser"

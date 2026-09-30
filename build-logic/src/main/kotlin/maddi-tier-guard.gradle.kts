@@ -22,15 +22,7 @@
 // The tiers are read from tiers.txt next to this plugin: the one list tools/tiers/check_tiers.py reads too.
 // Base and mod need no guard of this kind: after the split, neither build includes a tier above it.
 
-val tiers: Map<String, String> = run {
-    val stream = checkNotNull(object {}.javaClass.classLoader.getResourceAsStream("tiers.txt")) {
-        "tiers.txt is missing from build-logic's resources"
-    }
-    stream.bufferedReader().readLines()
-        .map { it.substringBefore('#').trim().split(Regex("\\s+")) }
-        .filter { it.size == 2 && it[1] in setOf("base", "mod", "dist") }
-        .associate { it[0] to it[1] }
-}
+val tiers: Map<String, String> = io.codelaser.maddi.buildlogic.Tiers.byModule
 
 if (tiers[project.name] == "dist") {
     val modModules = tiers.filterValues { it == "mod" }.keys

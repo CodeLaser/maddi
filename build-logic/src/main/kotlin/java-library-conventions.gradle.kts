@@ -19,6 +19,11 @@ plugins {
     id("maddi-tier-guard")
 }
 
+// base and mod libraries publish (split stage 6: the siblings can build against published jars); dist does not
+if (io.codelaser.maddi.buildlogic.Tiers.of(project.name) in setOf("base", "mod")) {
+    apply(plugin = "maddi-publishing")
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
 }
