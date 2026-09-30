@@ -7,10 +7,12 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DependencyResolutionException;
-import io.codelaser.maddi.aapi.parser.AnalysisHintsComposer;
-import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -25,7 +27,7 @@ import java.util.stream.Stream;
 
 /**
  * Generate first-cut analysis-hint ({@code .java}) skeletons for the library types the project's sources call into
- * (use case 3), annotated with call-frequency comments. Uses {@link AnalysisHintsComposer} (the former
+ * (use case 3), annotated with call-frequency comments. Uses the engine's {@link AnalysisEngine.HintsComposer} (the former
  * {@code Composer}). Runs on the in-house parser via {@link #parseSources()}, so no {@code --add-exports} is needed.
  */
 @Mojo(name = WriteAnalysisHintsMojo.WRITE_HINTS_GOAL, defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES, threadSafe = true,
@@ -54,7 +56,8 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
             Map<MethodInfo, Integer> overrideFrequencies = new HashMap<>();
             methodCallFrequencies.forEach((mi, f) ->
                     mi.overrides().forEach(o -> overrideFrequencies.putIfAbsent(o, f)));
-            AnalysisHintsComposer composer = new AnalysisHintsComposer(psr.javaInspector(),
+            AnalysisEngine engine = AnalysisEngines.require("the " + WRITE_HINTS_GOAL + " goal");
+            AnalysisEngine.HintsComposer composer = engine.hintsComposer(psr.javaInspector(),
                     set -> packagePrefixGenerator(packagePrefix, set),
                     info -> acceptedTypes.contains(info.typeInfo()));
             Set<TypeInfo> primaryTypes = psr.javaInspector().compiledTypesManager()
@@ -66,7 +69,7 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
             Map<Element, Element> dollarMap = composer.translateFromDollarToReal();
 
             Qualification.Decorator decorator = new DecoratorWithComments(getLog(), psr.javaInspector().runtime(),
-                    dollarMap, methodCallFrequencies, overrideFrequencies);
+                    engine.decorator(psr.javaInspector().runtime(), null, dollarMap), dollarMap, methodCallFrequencies, overrideFrequencies);
             composer.write(apiTypes, outputDirectory, decorator);
 
         } catch (RuntimeException | IOException | DependencyResolutionException e) {
@@ -84,7 +87,10 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    static class DecoratorWithComments extends DecoratorImpl {
+    /** The engine's decorator, with call-frequency comments in front of its own. Delegates rather than
+     * subclasses: the decorator's class lives in maddi-mod, which this plugin does not compile against. */
+    static class DecoratorWithComments implements Qualification.Decorator {
+        private final Qualification.Decorator delegate;
         private final Map<MethodInfo, Integer> methodCallFrequencies;
         private final Map<MethodInfo, Integer> overrideFrequencies;
         private final Runtime runtime;
@@ -93,10 +99,11 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
 
         public DecoratorWithComments(Log log,
                                      Runtime runtime,
+                                     Qualification.Decorator delegate,
                                      Map<Element, Element> translationMap,
                                      Map<MethodInfo, Integer> methodCallFrequencies,
                                      Map<MethodInfo, Integer> overrideFrequencies) {
-            super(runtime, null, translationMap);
+            this.delegate = delegate;
             this.translationMap = translationMap;
             this.log = log;
             this.runtime = runtime;
@@ -107,7 +114,7 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
         @Override
         public List<Comment> comments(Element infoIn) {
             Element info = translationMap == null ? infoIn : translationMap.getOrDefault(infoIn, infoIn);
-            List<Comment> comments = super.comments(info);
+            List<Comment> comments = delegate.comments(info);
             if (info instanceof MethodInfo mi) {
                 Integer frequency = methodCallFrequencies.get(mi);
                 Comment comment;
@@ -126,6 +133,16 @@ public class WriteAnalysisHintsMojo extends CommonMojo {
                 return Stream.concat(Stream.ofNullable(comment), comments.stream()).toList();
             }
             return comments;
+        }
+
+        @Override
+        public List<AnnotationExpression> annotations(Element element) {
+            return delegate.annotations(element);
+        }
+
+        @Override
+        public List<ImportStatement> importStatements() {
+            return delegate.importStatements();
         }
     }
 

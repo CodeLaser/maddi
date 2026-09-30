@@ -14,7 +14,6 @@
 
 package io.codelaser.maddi.ide.daemon;
 
-import io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,8 +51,12 @@ public class TestStaticSideEffectPolarity {
     @DisplayName("a computed @StaticSideEffects verdict is decorated and tagged NEGATIVE, end-to-end")
     @Test
     public void test(@TempDir Path dir) throws Exception {
-        boolean saved = StaticSideEffectAnalyzerImpl.ENABLED;
-        StaticSideEffectAnalyzerImpl.ENABLED = true;
+        // The flag lives in the analyzer (maddi-mod), which this ext module may not compile against: reach it
+        // reflectively, on the run-time class path.
+        java.lang.reflect.Field enabled = Class.forName(
+                "io.codelaser.maddi.modification.analyzer.impl.StaticSideEffectAnalyzerImpl").getField("ENABLED");
+        boolean saved = enabled.getBoolean(null);
+        enabled.setBoolean(null, true);
         try {
             DaemonProtocol.Result r = analyze(dir, "x/X.java", SOURCE);
             assertEquals(0, r.parseErrorCount(), "unexpected parse errors");
@@ -66,7 +69,7 @@ public class TestStaticSideEffectPolarity {
             assertTrue(plain.stream().noneMatch(a -> a.text().startsWith("@StaticSideEffects")),
                     "a method with no static side effect must not carry @StaticSideEffects: " + plain);
         } finally {
-            StaticSideEffectAnalyzerImpl.ENABLED = saved;
+            enabled.setBoolean(null, saved);
         }
     }
 }

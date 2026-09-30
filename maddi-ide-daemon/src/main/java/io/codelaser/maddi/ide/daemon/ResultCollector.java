@@ -14,7 +14,8 @@
 
 package io.codelaser.maddi.ide.daemon;
 
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.SourceSet;
@@ -46,9 +47,11 @@ public class ResultCollector {
     private static final int MAX_CAUSE_DEPTH = 12;
 
     private final AnnotationTagger tagger;
+    private final java.util.Set<Property> bookkeeping;
 
-    public ResultCollector(Runtime runtime, SourceSet sourceSetOfRequest) {
-        this.tagger = new AnnotationTagger(runtime, sourceSetOfRequest);
+    public ResultCollector(AnalysisEngine engine, Runtime runtime, SourceSet sourceSetOfRequest) {
+        this.tagger = new AnnotationTagger(engine, runtime, sourceSetOfRequest);
+        this.bookkeeping = engine.bookkeepingProperties();
     }
 
     // ---- findings ----
@@ -156,9 +159,9 @@ public class ResultCollector {
 
         Map<String, String> properties = new LinkedHashMap<>();
         info.analysis().propertyValueStream()
-                // PrepAnalyzer.PREPPED is per-run bookkeeping, not a result: showing it would put a property on
+                // the engine's bookkeeping properties (prep's PREPPED) are per-run state, not a result: showing it would put a property on
                 // every prepped type and defeat the "nothing to show → skip" test just below
-                .filter(pv -> pv.property() != PrepAnalyzer.PREPPED)
+                .filter(pv -> !bookkeeping.contains(pv.property()))
                 .forEach(pv -> properties.put(pv.property().key(), String.valueOf(pv.value())));
 
         // nothing computed and nothing to show → skip, to keep the payload lean

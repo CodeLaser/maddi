@@ -43,13 +43,27 @@ val shade: Configuration by configurations.creating {
     isCanBeResolved = true
 }
 configurations.named("implementation") { extendsFrom(shade) }
+// The modification analysis (maddi-mod) is bundled but never compiled against: the ext tier compiles against
+// base only and finds the engine as a service at run time (split plan §2, tools/tiers/check_tiers.py).
+// `runtimeOnly` extends it, so tests and the forked worker's class path see it too.
+val shadeRuntime: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+configurations.named("runtimeOnly") { extendsFrom(shadeRuntime) }
+// What the shadow jar bundles: both, resolved TOGETHER so a transitive shared by the two is bundled once.
+val shadeAll: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    extendsFrom(shade, shadeRuntime)
+}
 
 dependencies {
     shade(project(":maddi-inspection-api"))
-    shade(project(":maddi-modification-common"))
-    shade(project(":maddi-modification-prepwork"))
-    shade(project(":maddi-modification-link"))
-    shade(project(":maddi-modification-analyzer"))
+    shadeRuntime(project(":maddi-modification-common"))
+    shadeRuntime(project(":maddi-modification-prepwork"))
+    shadeRuntime(project(":maddi-modification-link"))
+    shadeRuntime(project(":maddi-modification-analyzer"))
     shade(project(":maddi-graph"))
     shade(project(":maddi-util"))
     shade(project(":maddi-cst-analysis"))
@@ -62,12 +76,12 @@ dependencies {
     shade(project(":maddi-inspection-resource"))
     shade(project(":maddi-java-bytecode"))
     shade(project(":maddi-java-parser"))
-    shade(project(":maddi-aapi-parser"))
+    shadeRuntime(project(":maddi-aapi-parser"))
     testRuntimeOnly(project(":maddi-aapi-archive"))
 
     shade(project(":maddi-run-config"))
     shade(project(":maddi-run-main")) // GeneralConfiguration/InputConfiguration property mapping
-    shade(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
+    shadeRuntime(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
     shade(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer, run in a forked worker
 
     shade("ch.qos.logback:logback-classic")
@@ -82,7 +96,7 @@ dependencies {
 tasks.shadowJar {
     // The shadow jar replaces the thin jar as the plugin artifact (no classifier).
     archiveClassifier.set("")
-    configurations = listOf(shade)
+    configurations = listOf(shadeAll)
     // Keep maddi's own class names intact: the forked worker references RunAnalyzer by its real name,
     // so relocating io.codelaser.maddi.* would break it. The analyzer runs in an isolated worker process, so
     // no relocation of third-party deps is needed either.

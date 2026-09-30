@@ -14,9 +14,8 @@
 
 package io.codelaser.maddi.ide.daemon;
 
-import io.codelaser.maddi.modification.prepwork.io.LoadAnalysisResults;
-import io.codelaser.maddi.modification.prepwork.io.PrepWorkCodec;
-import io.codelaser.maddi.cst.api.analysis.Codec;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
@@ -84,12 +83,12 @@ public class HintsLoader {
 
     /** Load the hint files. Call AFTER initialize (and after {@link #preload}). @return primary types loaded. */
     public int loadHints(Runtime runtime, SourceSet sourceSetOfRequest) {
-        LoadAnalysisResults loader = new LoadAnalysisResults(runtime, sourceSetOfRequest);
-        Codec codec = new PrepWorkCodec(runtime, sourceSetOfRequest).codec();
+        AnalysisEngine.ResultsLoader loader = AnalysisEngines.require("load the analysis hints")
+                .resultsLoader(runtime, sourceSetOfRequest);
         int count = 0;
-        count += guarded("JDK", () -> loadJdk(loader, codec));
-        // libs.jar is a real jar (nested resource); LoadAnalysisResults handles the resource: form directly
-        count += guarded("libs", () -> loader.go(List.of("resource:" + LIBS_JAR_RESOURCE)));
+        count += guarded("JDK", () -> loadJdk(loader));
+        // libs.jar is a real jar (nested resource); the results loader handles the resource: form directly
+        count += guarded("libs", () -> loader.load(List.of("resource:" + LIBS_JAR_RESOURCE)));
         LOGGER.info("Preloaded {} primary types of analysis hints", count);
         return count;
     }
@@ -107,7 +106,7 @@ public class HintsLoader {
         }
     }
 
-    private int loadJdk(LoadAnalysisResults loader, Codec codec) throws Exception {
+    private int loadJdk(AnalysisEngine.ResultsLoader loader) throws Exception {
         // Anchor on libs.jar (guaranteed to exist) to locate the archive, then load the sibling jdk hints.
         URL anchor = getClass().getResource(LIBS_JAR_RESOURCE);
         if (anchor == null) {
@@ -115,8 +114,8 @@ public class HintsLoader {
             return 0;
         }
         return switch (anchor.getProtocol()) {
-            case "file" -> loadJdkFromDir(loader, codec, anchor);
-            case "jar" -> loadJdkFromJar(loader, codec, anchor);
+            case "file" -> loadJdkFromDir(loader, anchor);
+            case "jar" -> loadJdkFromJar(loader, anchor);
             default -> {
                 LOGGER.warn("Unsupported classpath protocol '{}' for {}", anchor.getProtocol(), anchor);
                 yield 0;
@@ -125,7 +124,7 @@ public class HintsLoader {
     }
 
     /** Repo / resources-dir case: the jdk hints are a sibling directory of libs.jar on disk. */
-    private int loadJdkFromDir(LoadAnalysisResults loader, Codec codec, URL libsJar) throws Exception {
+    private int loadJdkFromDir(AnalysisEngine.ResultsLoader loader, URL libsJar) throws Exception {
         File libsFile = new File(libsJar.toURI());
         File jdkDir = new File(libsFile.getParentFile(), "jdk");
         File[] jsons = jdkDir.listFiles((d, n) -> n.endsWith(".json"));
@@ -135,13 +134,13 @@ public class HintsLoader {
         }
         int count = 0;
         for (File json : jsons) {
-            count += loadOne(loader, codec, json.getName(), Files.readString(json.toPath(), StandardCharsets.UTF_8));
+            count += loadOne(loader, json.getName(), Files.readString(json.toPath(), StandardCharsets.UTF_8));
         }
         return count;
     }
 
     /** Installed-daemon case: enumerate jdk/*.json entries inside the archive jar. */
-    private int loadJdkFromJar(LoadAnalysisResults loader, Codec codec, URL libsJar) throws Exception {
+    private int loadJdkFromJar(AnalysisEngine.ResultsLoader loader, URL libsJar) throws Exception {
         JarURLConnection conn = (JarURLConnection) libsJar.openConnection();
         File archiveJar = new File(conn.getJarFileURL().toURI()); // our own handle; safe to close
         int count = 0;
@@ -152,7 +151,7 @@ public class HintsLoader {
                 String name = entry.getName();
                 if (entry.isDirectory() || !name.startsWith(JDK_ENTRY_PREFIX) || !name.endsWith(".json")) continue;
                 try (InputStream is = jar.getInputStream(entry)) {
-                    count += loadOne(loader, codec, name, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+                    count += loadOne(loader, name, new String(is.readAllBytes(), StandardCharsets.UTF_8));
                 }
             }
         }
@@ -160,9 +159,9 @@ public class HintsLoader {
     }
 
     /** Load one hint file, isolating failures: a single bad file must not abort the whole JDK hint set. */
-    private int loadOne(LoadAnalysisResults loader, Codec codec, String name, String content) {
+    private int loadOne(AnalysisEngine.ResultsLoader loader, String name, String content) {
         try {
-            return loader.go(codec, content);
+            return loader.loadContent(content);
         } catch (Throwable t) {
             LOGGER.warn("Skipping analysis hint file {} ({})", name, t.toString());
             return 0;

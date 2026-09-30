@@ -14,7 +14,7 @@
 
 package io.codelaser.maddi.ide.daemon;
 
-import io.codelaser.maddi.modification.prepwork.io.DecoratorImpl;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
 import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.analysis.Value;
@@ -38,7 +38,7 @@ import java.util.Set;
  * Renders the full set of annotations for one element and tags each with polarity and context-default-ness,
  * so the plugin's inline-hints filter can hide clutter without losing signal.
  * <p>
- * The <em>positive</em> (proven-stronger) and neutral annotations come from {@link DecoratorImpl} (keeping its
+ * The <em>positive</em> (proven-stronger) and neutral annotations come from the engine's decorator ({@link AnalysisEngine#decorator}) (keeping its
  * exact formatting, e.g. {@code @Immutable(hc=true)}); the <em>negative</em> (baseline) ones — {@code @Modified},
  * {@code @Mutable}, {@code @Dependent}, {@code @Nullable} — which the decorator omits, are computed here from
  * the analysis values. They are mutually exclusive per concept, so nothing is double-rendered.
@@ -65,11 +65,11 @@ public class AnnotationTagger {
     // level which the decorator never emits unconditionally)
     private static final Set<String> ALWAYS_EVENTUAL_NAMES = Set.of("Mark", "Only", "TestMark", "FinalFields");
 
-    private final DecoratorImpl decorator;
+    private final Qualification.Decorator decorator;
     private final Qualification simpleNames;
 
-    public AnnotationTagger(Runtime runtime, SourceSet sourceSetOfRequest) {
-        this.decorator = new DecoratorImpl(runtime, sourceSetOfRequest);
+    public AnnotationTagger(AnalysisEngine engine, Runtime runtime, SourceSet sourceSetOfRequest) {
+        this.decorator = engine.decorator(runtime, sourceSetOfRequest, null);
         this.simpleNames = runtime.qualificationSimpleNames();
     }
 

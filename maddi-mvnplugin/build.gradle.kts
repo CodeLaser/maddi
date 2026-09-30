@@ -54,6 +54,20 @@ val shade: Configuration by configurations.creating {
     isCanBeResolved = true
 }
 configurations.named("implementation") { extendsFrom(shade) }
+// The modification analysis (maddi-mod) is bundled but never compiled against: the ext tier compiles against
+// base only and finds the engine as a service at run time (split plan §2, tools/tiers/check_tiers.py).
+// `runtimeOnly` extends it, so tests and the forked worker's class path see it too.
+val shadeRuntime: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+configurations.named("runtimeOnly") { extendsFrom(shadeRuntime) }
+// What the shadow jar bundles: both, resolved TOGETHER so a transitive shared by the two is bundled once.
+val shadeAll: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    extendsFrom(shade, shadeRuntime)
+}
 
 dependencies {
     // maddi modules (in-tree, same coordinates as the Gradle plugin) — bundled
@@ -66,16 +80,17 @@ dependencies {
     shade(project(":maddi-cst-io"))
     shade(project(":maddi-cst-print"))
     shade(project(":maddi-cst-analysis"))
-    shade(project(":maddi-modification-common"))
-    shade(project(":maddi-modification-prepwork"))
-    shade(project(":maddi-modification-link"))
-    shade(project(":maddi-modification-analyzer"))
-    shade(project(":maddi-aapi-parser"))
+    shadeRuntime(project(":maddi-modification-common"))
+    shadeRuntime(project(":maddi-modification-prepwork"))
+    shadeRuntime(project(":maddi-modification-link"))
+    shadeRuntime(project(":maddi-modification-analyzer"))
+    shadeRuntime(project(":maddi-aapi-parser"))
     shade(project(":maddi-graph"))
     shade(project(":maddi-util"))
     shade(project(":maddi-run-config"))
     shade(project(":maddi-run-main")) // Main constants + exit codes (same as the Gradle plugin)
-    shade(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
+    shade(project(":maddi-analysis-api"))  // the engine's hints composer + decorator (WriteAnalysisHintsMojo)
+    shadeRuntime(project(":maddi-run-analysis"))  // the engine run-main asks for at run time (split stage 3)
     shade(project(":maddi-run-openjdk")) // the openjdk-parser-based RunAnalyzer
     shade(project(":maddi-aapi-archive")) // the shipped analysis-result jars (resource:.../*.jar)
 
@@ -104,7 +119,7 @@ dependencies {
 
 tasks.shadowJar {
     archiveClassifier.set("")
-    configurations = listOf(shade)
+    configurations = listOf(shadeAll)
     // slf4j-api arrives transitively via the maddi modules; Maven core provides it, so keep it out of the jar
     // (two copies of the API would clash with the binding). maddi's own class names are not relocated — the
     // mojos reference RunAnalyzer etc. by their real names.

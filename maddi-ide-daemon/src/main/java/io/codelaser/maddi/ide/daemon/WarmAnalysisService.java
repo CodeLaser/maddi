@@ -14,10 +14,13 @@
 
 package io.codelaser.maddi.ide.daemon;
 
-import io.codelaser.maddi.modification.common.AnalyzerException;
-import io.codelaser.maddi.modification.analyzer.IteratingAnalyzer;
-import io.codelaser.maddi.modification.analyzer.impl.IteratingAnalyzerImpl;
-import io.codelaser.maddi.modification.prepwork.PrepAnalyzer;
+import io.codelaser.maddi.analysis.api.AnalysisEngine;
+import io.codelaser.maddi.analysis.api.AnalysisEngines;
+import io.codelaser.maddi.analysis.api.AnalysisProblem;
+import io.codelaser.maddi.analysis.api.ModificationOptions;
+import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.PrepOutcome;
+import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.callgraph.ComputeAnalysisOrder;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.cst.api.analysis.Message;
@@ -39,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -105,42 +109,47 @@ public class WarmAnalysisService implements AnalyzeHandler {
         }
         Summary summary = parsed.summary();
 
-        ResultCollector collector = new ResultCollector(parsed.runtime(), parsed.sourceSetOfRequest());
+        AnalysisEngine engine = AnalysisEngines.require("the IDE daemon's modification analysis");
+        ResultCollector collector = new ResultCollector(engine, parsed.runtime(), parsed.sourceSetOfRequest());
 
         emit(status, requestId, "prep", "call graph", null, parsed.primaryTypes().size());
         // Fault-tolerant like RunAnalyzer's: on a partial parse a type whose supertype did not resolve is far
         // likelier to trip prep, and one such type must not abort the run for everything else. The isolated
-        // failures are reported through prepAnalyzer.exceptions() below.
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(parsed.runtime(),
-                new PrepAnalyzer.Options.Builder().setFaultTolerant(true).build());
-        ComputeCallGraph ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(
-                Set.copyOf(parsed.primaryTypes()),
-                parsed.moduleInfos(),
-                typeInfo -> false,
-                parallel);
+        // failures are reported through the prep outcome's problems below.
+        PrepOutcome prep = engine.prep(new PrepRequest(parsed.runtime(), Set.copyOf(parsed.primaryTypes()),
+                parsed.moduleInfos(), typeInfo -> false, parallel, true));
+        ComputeCallGraph ccg = prep.callGraph();
 
         emit(status, requestId, "order", "analysis order", null, parsed.primaryTypes().size());
         List<Info> order = new ComputeAnalysisOrder().go(ccg.graph(), parallel);
 
         emit(status, requestId, "analyze", "modification analysis", 0, order.size());
-        IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                .setMaxIterations(10)
-                .setTrackObjectCreations(false)
-                .setFaultTolerant(true) // isolate a crash on one element into a finding; don't abort the run
+        ModificationOptions modOptions = new ModificationOptions(
+                10,     // max iterations
+                null,   // stop when a cycle shows no improvement: the analyzer's default
+                false,  // track object creations
+                null,   // modification via reachability: the analyzer's default
+                true,   // fault tolerant: isolate a crash on one element into a finding; don't abort the run
                 // advisory "you are one member away from @Container/@Immutable/..." warnings; opt-in, as in
                 // RunAnalyzer, because they are noisy on a codebase that has not been curated for them
-                .setWarnNearMisses(request.config().warnNearMisses())
-                .build();
-        IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(parsed.inspector(), modConfig);
+                request.config().warnNearMisses(),
+                false,  // environment gates: the CLI's, not the daemon's
+                false); // store fingerprints
         // Stream what each pass established, so the IDE can annotate the file on screen long before the run
         // ends: the first pass decides most of the output, and the tail is long but decides little.
         StreamingValueFeed valueFeed = new StreamingValueFeed(status, requestId, collector);
-        analyzer.setValueFeed(valueFeed);
+        ModificationRequest modRequest = new ModificationRequest(parsed.inspector(), order, null,
+                parsed.primaryTypes(), modOptions, valueFeed);
         // analyze() is one long blocking step with no sub-progress; run it on a worker and heartbeat so the
         // client's socket read never times out on a large project. A throw propagates: DaemonMain turns it into
         // an error{}, the daemon survives.
-        runWithHeartbeat(status, requestId, order.size(), () -> analyzer.analyze(order));
-        List<Message> messages = analyzer.messages();
+        List<Message> messages = runWithHeartbeat(status, requestId, order.size(), () -> {
+            try {
+                return engine.modification(modRequest).messages();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
 
         emit(status, requestId, "collect", "collecting results", null, null);
         List<DaemonProtocol.Finding> findings = collector.collectFindings(messages, summary);
@@ -152,7 +161,7 @@ public class WarmAnalysisService implements AnalyzeHandler {
         // surviving type's properties may be weaker than its code allows. Downgrade rather than let the client
         // read a fixpoint outcome as final. (parseErrorCount on the Result carries the detail; no protocol change.)
         String outcome = parsed.partial() ? DaemonProtocol.OUTCOME_UNKNOWN : valueFeed.outcome();
-        List<AnalyzerException> prepExceptions = prepAnalyzer.exceptions();
+        List<AnalysisProblem> prepExceptions = prep.problems();
         if (!prepExceptions.isEmpty()) {
             LOGGER.warn("prep isolated {} type(s)/method(s); they were skipped", prepExceptions.size());
         }
@@ -279,7 +288,8 @@ public class WarmAnalysisService implements AnalyzeHandler {
      * thread-safe, so all pipeline work must stay on one thread. A separate heartbeat thread only sends status
      * frames (socket I/O, never touches maddi state) so the client's read doesn't time out on a large project.
      */
-    private static void runWithHeartbeat(StatusSink status, String requestId, int total, Runnable analysis) {
+    private static <T> T runWithHeartbeat(StatusSink status, String requestId, int total,
+                                          java.util.function.Supplier<T> analysis) {
         Thread heartbeat = new Thread(() -> {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -293,7 +303,7 @@ public class WarmAnalysisService implements AnalyzeHandler {
         heartbeat.setDaemon(true);
         heartbeat.start();
         try {
-            analysis.run();
+            return analysis.get();
         } finally {
             heartbeat.interrupt();
         }

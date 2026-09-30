@@ -34,10 +34,11 @@ dependencies {
     k2Runtime(project(":maddi-kotlin-k2"))
     // analysis pipeline (mirrors maddi-run-main)
     api(project(":maddi-inspection-api"))
-    implementation(project(":maddi-modification-common"))
-    implementation(project(":maddi-modification-prepwork"))   // DecoratorImpl, PrepAnalyzer, ComputeCallGraph, ComputeAnalysisOrder
-    implementation(project(":maddi-modification-analyzer"))    // IteratingAnalyzerImpl
-    implementation(project(":maddi-modification-link"))
+    // The modification analysis is a SERVICE (AnalysisEngine): compiled against the interface in base, the
+    // implementation (maddi-mod) only on the run-time class path. The ext tier never compiles against mod
+    // (tools/tiers/check_tiers.py; split plan §2).
+    implementation(project(":maddi-analysis-api"))
+    runtimeOnly(project(":maddi-run-analysis"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))             // PropertyImpl keys, ValueImpl
@@ -54,7 +55,6 @@ dependencies {
     implementation(project(":maddi-kotlin-api"))
     implementation(project(":maddi-kotlin-realm"))
     implementation(project(":maddi-java-bytecode"))
-    implementation(project(":maddi-aapi-parser"))
 
     // to access resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar
     runtimeOnly(project(":maddi-aapi-archive"))
