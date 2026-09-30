@@ -74,7 +74,10 @@ afterEvaluate {
 group = "io.codelaser"
 
 dependencies {
-    api(platform(project(":platform")))
+    // maddi's own platform: this build's project, or -- applied in maddi-mod / maddi-dist -- the same project of the
+    // included maddi build, reached by its coordinate at `maddiVersion` (split stage 5)
+    api(platform(rootProject.findProject(":platform")
+            ?: "io.codelaser:platform:${providers.gradleProperty("maddiVersion").get()}"))
 
     implementation("org.jetbrains:annotations")
 
