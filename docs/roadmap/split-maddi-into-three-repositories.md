@@ -406,3 +406,26 @@ Carried out in the workspace `ws/split` (all nine repositories, branched from `w
 - Gate: maddi suite identical to the baseline, module for module (4,003 run, the same 1 failure);
   refactor composite compiles; run-config has **no** violation left — its one analysis-importing test
   was the serialisation test of these types. 34 problems remain.
+
+### Stage 2 — done (2026-09-30)
+
+- New base module **`maddi-callgraph`** (`io.codelaser.maddi.callgraph`): `ComputeCallGraph`,
+  `ComputeAnalysisOrder`, `PrimaryTypeUseGraph`, and the 8 tests that exercise them without running prep
+  (29 tests, with a trimmed `CommonTest` copy). The read found no by-name reach into prepwork. The 5 tests
+  in the old package that run prep first stay in prepwork; `TestComputePartOfConstruction` keeps a copy
+  of the one fixture it borrowed from `TestCallGraph`.
+- `RECURSIVE_METHOD` is declared in cst-analysis `PropertyImpl` and registered in `PropertyProviderImpl`
+  (required by `TestEveryWritablePropertyDecodes`, which enumerates `PropertyImpl` reflectively); the
+  link codec's private map entry for it is gone, its fallback finds it. Same key and default.
+- prepwork depends on the new module as `api` / `requires transitive`: `PrepAnalyzer` returns a
+  `ComputeCallGraph`. `run-rewire` depends on it **instead of** prepwork and is now clean.
+- Refactor side, 94 files rewritten. Five metrics modules (cluster, cycle, footprint, methodcallgraph,
+  movetypegraph) used prepwork only for the call graph and now depend on `maddi-callgraph` instead; the
+  others add it and keep prepwork (§5 is the refactor-side thread's). Every repository's `maddiProjects`
+  list in `gradle.properties` must name a new maddi module, or the composite does not substitute it and
+  Gradle looks for it in a Maven repository — stage 5 has to extend those lists the same way.
+- Gate: maddi suite 4,003 run, the same single failure, prepwork 289 → 260 and maddi-callgraph 29;
+  refactor composite compiles; metrics tests: cluster 42, cycle 32, extractinterface 177, footprint 12,
+  methodcallgraph 7, movetypegraph 1, all pass; dataflow 37 run with 1 failure,
+  `TestMethodFlow` "constructor linked to return variable", which fails identically at the stage-1
+  commits of all repositories (pre-existing). Tier check: 33 problems.
