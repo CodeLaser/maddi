@@ -560,6 +560,12 @@ tasks:
   _cat:
     internal: true
     requires: { vars: [NAME, PHASE] }
+    # `silent`, because this task ALREADY reports itself: the `echo ">>> <name> [<phase>] in <dir>:
+    # <command>"` below is the one line worth reading, and without silent Task prints the whole
+    # eight-line block verbatim before running it, on every phase of every corpus. The phase's own
+    # output and catalogue.py's messages are unaffected -- silent suppresses the echo of the script,
+    # not what the script writes.
+    silent: true
     # NO `dir:`. It can only be a static template, so it could only ever compose
     # TEST_OSS_ROOT/<name> -- and a PRIVATE entry's distinguishing mark is an absolute `dir`
     # outside the corpus root (callforpapers: ~/git/callforpapers). Task then made the wrong
