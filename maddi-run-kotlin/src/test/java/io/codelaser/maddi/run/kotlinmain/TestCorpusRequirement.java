@@ -60,7 +60,10 @@ public class TestCorpusRequirement {
                     "under -D" + Corpora.REQUIRED_PROPERTY + " an absent corpus is a failure, not a skip");
             assertTrue(failed.getMessage().contains(ABSENT), failed.getMessage());
             // the remedy must travel with the failure: whoever sees this in CI is not the person who set it up
-            assertTrue(failed.getMessage().contains("corpus:catalogue:config"), failed.getMessage());
+            // -- the one task that takes a corpus from nothing to configured, in the repository that holds the corpus
+            // Taskfile since the maddi split
+            assertTrue(failed.getMessage().contains("task corpus:ready NAME=" + ABSENT + "` in maddi-mod"),
+                    failed.getMessage());
         } finally {
             restore(previous);
         }

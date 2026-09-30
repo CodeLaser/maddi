@@ -279,7 +279,8 @@ public final class Corpora {
          *  is not the person who set the machine up. */
         private String remedy() {
             if (family == Family.OSS) {
-                return "provision it with `task corpus:ready NAME=" + name + "` in maddi, or point "
+                // the corpus Taskfile lives in maddi-mod since the maddi split (docs/roadmap/split-maddi-into-three-repositories.md)
+                return "provision it with `task corpus:ready NAME=" + name + "` in maddi-mod, or point "
                        + OSS_ROOT_ENV + " (or -D" + OSS_ROOT_PROPERTY + ") at the corpus root";
             }
             return "check out the '" + name + "' repository beside this one (e.g. under ~/git), or point "
