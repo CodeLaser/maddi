@@ -63,6 +63,16 @@ public final class DaemonLauncher {
      */
     public Handle launch(Path installDir, Path jdkHome, List<String> jvmArgs, long startTimeoutMillis, Path logFile)
             throws IOException, InterruptedException {
+        return launch(installDir, jdkHome, jvmArgs, java.util.Map.of(), startTimeoutMillis, logFile);
+    }
+
+    /**
+     * As above, with extra environment variables for the daemon process. A path goes here rather than in
+     * {@code jvmArgs}: those travel as one space-joined {@code JAVA_OPTS}, which splits a path containing a space.
+     */
+    public Handle launch(Path installDir, Path jdkHome, List<String> jvmArgs, java.util.Map<String, String> environment,
+                         long startTimeoutMillis, Path logFile)
+            throws IOException, InterruptedException {
         Path launcher = launcherScript(installDir);
         // A bundle that ships the daemon via a copy step (e.g. the Eclipse plugin) may lose the executable
         // bit; restore it. No-op on Windows and when already executable.
@@ -82,6 +92,7 @@ public final class DaemonLauncher {
             // the Gradle 'application' start script honours JAVA_OPTS / DEFAULT_JVM_OPTS
             pb.environment().put("JAVA_OPTS", String.join(" ", jvmArgs));
         }
+        if (environment != null) pb.environment().putAll(environment);
 
         Process process = pb.start();
         Writer log = openLog(logFile);

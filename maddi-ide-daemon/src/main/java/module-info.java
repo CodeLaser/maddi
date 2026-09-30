@@ -8,6 +8,10 @@ module io.codelaser.maddi.ide.daemon {
     requires io.codelaser.maddi.inspection.api;
     requires io.codelaser.maddi.inspection.openjdk;
     requires io.codelaser.maddi.inspection.resource;
+    // the mixed Java+Kotlin parse, and the realm the Kotlin front end is loaded in (automatic modules: Kotlin)
+    requires io.codelaser.maddi.inspection.mixed;
+    requires io.codelaser.maddi.kotlin.api;
+    requires io.codelaser.maddi.kotlin.realm;
     requires io.codelaser.maddi.support;
 
     requires com.fasterxml.jackson.databind;

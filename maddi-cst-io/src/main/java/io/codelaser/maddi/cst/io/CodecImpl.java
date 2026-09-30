@@ -689,8 +689,12 @@ public class CodecImpl implements Codec {
                 .map(epv -> '"' + epv.key() + "\":" + ((E) epv.encodedValue()).s)
                 .sorted()
                 .collect(Collectors.joining(",", "{", "}"));
-        if ("{}".equalsIgnoreCase(pvStream)) {
-            // no data, we'll not write
+        if ("{}".equalsIgnoreCase(pvStream) && (subs == null || subs.stream().allMatch(Objects::isNull))) {
+            // no data on this element and none on its members: nothing to write. An element WITHOUT data of
+            // its own but WITH members that carry some is written: an interface computed mutable (the default,
+            // so no type-level value) still has its methods' verdicts, and dropping the type dropped them --
+            // Eclipse Collections' RichIterable and MutableList, 181 and 67 methods, silently absent from the
+            // written results.
             return null;
         }
         String all = "\"name\": " + quote(fqn) + ", \"data\":" + pvStream;

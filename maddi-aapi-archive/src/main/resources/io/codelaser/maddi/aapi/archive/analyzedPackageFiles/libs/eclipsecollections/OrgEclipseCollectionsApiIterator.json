@@ -1,0 +1,57 @@
+[
+{"name": "Torg.eclipse.collections.api.iterator.BooleanIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.ByteIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.CharIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.DoubleIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.FloatIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.IntIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.LongIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableBooleanIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableByteIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableCharIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableDoubleIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableFloatIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableIntIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableLongIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.MutableShortIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "sub":
+ {"name": "Mremove(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.eclipse.collections.api.iterator.ShortIterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
+ {"name": "MhasNext(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mnext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]}
+]

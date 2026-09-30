@@ -116,10 +116,13 @@ public final class MaddiAnalysisService implements Disposable {
         indicator.setText("maddi: starting daemon");
         Path logFile = Path.of(PathManager.getLogPath(), "maddi-daemon.log");
         Path installDir = resolveInstallDir(settings);
-        daemon.ensureStarted(installDir, Path.of(jdkHome), settings.daemonXmxMb, logFile);
+        // null: no Kotlin front end yet; the daemon then analyses the Java half and names the skipped Kotlin
+        Path kotlinFrontEnd = MaddiKotlinFrontEnd.home(settings, installDir);
+        daemon.ensureStarted(installDir, Path.of(jdkHome), settings.daemonXmxMb, kotlinFrontEnd, logFile);
         // WHICH daemon answered, in idea.log: the bundled one is a build, not a version, and a stale bundle
         // presents as an analyzer regression (2026-08-24). The stamp is the source state; see DaemonMain.
-        LOG.info("maddi daemon: install=" + installDir + ", build=" + daemon.buildStamp());
+        LOG.info("maddi daemon: install=" + installDir + ", build=" + daemon.buildStamp()
+                 + ", kotlin=" + (kotlinFrontEnd == null ? "none" : kotlinFrontEnd));
         this.daemonInstall = installDir.toString();
         this.daemonBuild = daemon.buildStamp();
 
@@ -128,6 +131,9 @@ public final class MaddiAnalysisService implements Disposable {
         boolean warnNearMisses = settings.warnNearMisses;
         AnalysisModel.AnalyzeConfig config = ReadAction.compute(
                 () -> new MaddiConfigBuilder().build(project, resolvedJdkHome, warnNearMisses));
+        if (kotlinFrontEnd == null) {
+            MaddiKotlinFrontEnd.offerIfNeeded(project, config, installDir, this::analyzeInBackground);
+        }
         String requestId = "req-" + requestCounter.incrementAndGet();
         publishRun(l -> l.runStarted(requestId, daemonInstall, daemonBuild));
 

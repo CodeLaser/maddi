@@ -67,3 +67,9 @@ java {
 kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25) }
 }
+
+// No module-info (a Kotlin module), but the IDE daemon is a named module that requires this one: an
+// automatic module name is what puts the jar on its compile module path rather than the unnamed classpath.
+tasks.jar {
+    manifest { attributes("Automatic-Module-Name" to "io.codelaser.maddi.inspection.mixed") }
+}

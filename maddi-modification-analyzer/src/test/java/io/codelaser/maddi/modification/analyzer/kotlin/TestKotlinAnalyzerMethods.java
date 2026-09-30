@@ -86,15 +86,13 @@ public class TestKotlinAnalyzerMethods extends CommonKotlinAnalyzerTest {
     }
 
     /*
-     ⛔ maddi#88: inside `apply { }`, `sb` is `$receiver.sb`, a modification of the lambda's parameter, which the
-     engine does not carry back to the receiver. The method modifies `this` and reads as non-modifying: unsound.
-     The same body without the scope function (addEach) is right.
+     `fun addAll(xs) = apply { xs.forEach { sb.append(it) } }`: `apply` is inlined (#88), so the modification of
+     `sb` is the method's, as in the Java twin. It read as non-modifying while the body was a lambda's.
      */
     @Test
     public void applyBuilder() {
+        a.assertSameAsJava("Builder", "addAll");
         assertEquals("method addAll: nonModifying=false @Independent | 0: unmodified=true @Independent",
-                a.java("Builder", "addAll").lines().skip(1).findFirst().orElseThrow());
-        assertEquals("method addAll: nonModifying=true @Independent | 0: unmodified=true @Independent",
                 a.kotlin("Builder", "addAll").lines().skip(1).findFirst().orElseThrow());
     }
 

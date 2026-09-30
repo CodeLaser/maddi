@@ -58,6 +58,11 @@ dependencies {
     // the same for the side-loaded vavr hints (libs/vavr): ComposeAnalysisHints and CompileAnalysisHints load
     // io.vavr types from this jar, through their own inspector factory only
     testImplementation("io.vavr:vavr:1.0.1")
+    // and for the side-loaded Eclipse Collections hints (libs/eclipsecollections)
+    testImplementation("org.eclipse.collections:eclipse-collections-api:13.0.0")
+    testImplementation("org.eclipse.collections:eclipse-collections:13.0.0")
+    // and for the side-loaded Guava hints (libs/guava)
+    testImplementation("com.google.guava:guava:33.6.0-jre")
 
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")
@@ -104,7 +109,7 @@ tasks.register<JavaExec>("composeAnalysisHints") {
     workingDir = projectDir
     maxHeapSize = "4G"
     jvmArgs(javacAddExports)
-    listOf("anchor", "packages", "target", "out", "preload", "notes").forEach { key ->
+    listOf("anchor", "packages", "target", "out", "preload", "notes", "exclude").forEach { key ->
         providers.gradleProperty("maddi.compose.$key").orNull?.let { systemProperty("maddi.compose.$key", it) }
     }
 }

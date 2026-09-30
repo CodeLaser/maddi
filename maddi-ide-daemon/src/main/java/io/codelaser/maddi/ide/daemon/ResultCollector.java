@@ -65,6 +65,7 @@ public class ResultCollector {
     /** Parse errors/warnings only — used when the project has parse errors and {@code parseResult()} is unsafe. */
     public List<DaemonProtocol.Finding> parseFindings(Summary summary) {
         List<DaemonProtocol.Finding> findings = new ArrayList<>();
+        if (summary == null) return findings;
         for (Summary.ParseException pe : summary.parseExceptions()) findings.add(toFinding(pe));
         for (Summary.ParseException pe : summary.parseWarnings()) findings.add(toFinding(pe));
         return findings;
@@ -140,6 +141,11 @@ public class ResultCollector {
 
     private void addElement(List<DaemonProtocol.ElementAnnotation> out, Info info) {
         if (info.isSynthetic()) return;
+        // A synthetic method's parameters are not synthetic themselves, and a Kotlin one borrows its source from
+        // the declaration it was made from: data class Pair(val b: List<String>) gives copy()'s parameter b the
+        // range of the constructor's, with its OWN verdict. Both then compete for one name in the editor, and
+        // which one shows was a matter of list order.
+        if (info instanceof ParameterInfo parameter && parameter.methodInfo().isSynthetic()) return;
         Source source = info.source();
         if (source == null || source.isNoSource()) return;
         String uri = uriOf(info);

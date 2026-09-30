@@ -136,22 +136,23 @@ public class TestKotlinLinkTypes extends CommonKotlinLinkTest {
     }
 
     /*
-     `also`/`apply` return their receiver, linked as Java's `return s`. The modification THROUGH the lambda
-     (`it.append`) is not seen: the engine's design for any call that applies a lambda, shared with Java
-     (`Optional.of(s).ifPresent(x -> x.append(..))`), see c0289fa84. The Java twin appends directly, hence `0:s*`.
+     `also`/`apply` return their receiver, and the modification in the lambda (`it.append`) is a modification of it:
+     both are inlined as kotlinc inlines them (#88), so they link exactly as Java's `s.append("x"); return s;`.
+     Before, the lambda's parameter was modified and the engine (by design, for a call that applies a lambda) did
+     not carry that back.
      */
     @Test
     public void scopeFunctionsReturnTheReceiver() {
-        assertEquals("[-] --> alsoIt←0:s*", p.javaLinks("alsoIt"));
-        assertEquals("[-] --> alsoIt←0:s", p.kotlinLinks("alsoIt"));
-        assertEquals("[-] --> applyIt←0:s", p.kotlinLinks("applyIt"));
+        p.assertSameAsJava("alsoIt");
+        p.assertSameAsJava("applyIt");
+        assertEquals("[-] --> alsoIt←0:s*", p.kotlinLinks("alsoIt"));
     }
 
-    /* ⛔ maddi#80: `s.let { it }` returns s, but the value of a FunctionN applied by `let` is not linked back */
+    /* `s.let { it }` returns s: inlined (#88), the result is `s` itself, as Java's `return s` (it linked nothing) */
     @Test
     public void letResult() {
-        assertEquals("[-] --> letIt←0:s", p.javaLinks("letIt"));
-        assertEquals("[-] --> -", p.kotlinLinks("letIt"));
+        p.assertSameAsJava("letIt");
+        assertEquals("[-] --> letIt←0:s", p.kotlinLinks("letIt"));
     }
 
     /*

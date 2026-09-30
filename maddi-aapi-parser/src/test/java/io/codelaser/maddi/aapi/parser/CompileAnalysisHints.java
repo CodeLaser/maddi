@@ -62,8 +62,10 @@ public class CompileAnalysisHints {
      * .../analyzedPackageFiles/libs/vavr}. {@code libs.jar} goes to every maddi user; a library moves there only on
      * evidence of universal value. Each has a report next to its hints ({@code libs/vavr/VAVR.md}).
      */
-    static final List<String> SIDE_LOADED_LIBRARIES = List.of("libs/vavr");
+    static final List<String> SIDE_LOADED_LIBRARIES = List.of("libs/vavr", "libs/eclipsecollections", "libs/guava");
     static final String VAVR_LIBRARY = "libs/vavr";
+    static final String ECLIPSE_COLLECTIONS_LIBRARY = "libs/eclipsecollections";
+    static final String GUAVA_LIBRARY = "libs/guava";
     /** {@link #RESULTS_BASE} as a path; the directory the committed results live in. */
     static final Path RESULTS_BASE_DIR = Path.of(RESULTS_BASE);
     static final String KOTLIN_LIBRARY = "libs/kotlin";
@@ -161,6 +163,19 @@ public class CompileAnalysisHints {
                 // that class file a stub is created and Patterns' $Cons/$Tuple2/... lose their verdicts
                 compile(new AnalysisHintsCompiler(libraryJavaInspectorFactory("io.vavr.",
                         io.vavr.Value.class, io.vavr.match.annotation.Patterns.class)), library, resultsBase);
+            } else if (ECLIPSE_COLLECTIONS_LIBRARY.equals(library)) {
+                // the API jar AND the implementation jar: the hints cover both
+                compile(new AnalysisHintsCompiler(libraryJavaInspectorFactory("org.eclipse.collections.",
+                        org.eclipse.collections.api.RichIterable.class,
+                        org.eclipse.collections.impl.factory.Lists.class)), library, resultsBase);
+            } else if (GUAVA_LIBRARY.equals(library)) {
+                // failureaccess too: guava's class files reference InternalFutureFailureAccess, a stub would eat
+                // the util.concurrent verdicts the collect hints' signatures reach
+                compile(new AnalysisHintsCompiler(libraryJavaInspectorFactory("com.google.common.",
+                        com.google.common.collect.ImmutableList.class,
+                        com.google.common.util.concurrent.internal.InternalFutureFailureAccess.class)), library, resultsBase);
+            } else {
+                throw new UnsupportedOperationException("No inspector factory for side-loaded " + library);
             }
         }
     }

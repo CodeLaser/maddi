@@ -396,8 +396,15 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         Expression translatedObject = object.translate(translationMap);
         ParameterizedType translatedReturnType = translationMap.translateType(concreteReturnType);
         List<Expression> translatedParameters = parameterExpressions.isEmpty() ? parameterExpressions :
-                parameterExpressions.stream().map(e -> e.translate(translationMap))
-                        .filter(e -> !e.isEmpty()) // allows for removal of certain arguments
+                parameterExpressions.stream()
+                        // a translation that turns an argument into an empty expression removes it; an argument
+                        // that was already empty (a front end's placeholder for code it did not convert) stays, or
+                        // any translation of the call -- even one renumbering statement indices -- deletes it
+                        .map(e -> {
+                            Expression t = e.translate(translationMap);
+                            return t.isEmpty() && !e.isEmpty() ? null : t;
+                        })
+                        .filter(Objects::nonNull)
                         .collect(translationMap.toList(parameterExpressions));
         List<ParameterizedType> trTypeArgs = typeArguments.stream()
                 .map(translationMap::translateType)
