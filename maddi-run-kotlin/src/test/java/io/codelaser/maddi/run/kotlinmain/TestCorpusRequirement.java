@@ -13,7 +13,7 @@
  */
 package io.codelaser.maddi.run.kotlinmain;
 
-import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
+import io.codelaser.maddi.util.corpus.Corpora;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.opentest4j.TestAbortedException;
@@ -40,10 +40,10 @@ public class TestCorpusRequirement {
 
     @Test
     public void aMissingCorpusSkipsWhenItIsNotRequired() {
-        String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "false");
+        String previous = System.setProperty(Corpora.REQUIRED_PROPERTY, "false");
         try {
             TestAbortedException aborted = assertThrows(TestAbortedException.class,
-                    () -> TestOssCorpus.requireConfig(ABSENT),
+                    () -> Corpora.oss(ABSENT).requireConfig(),
                     "a contributor without the checkouts must still get a green build");
             assertTrue(aborted.getMessage().contains(ABSENT), aborted.getMessage());
         } finally {
@@ -53,11 +53,11 @@ public class TestCorpusRequirement {
 
     @Test
     public void aMissingCorpusFAILSWhenItIsRequired() {
-        String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "true");
+        String previous = System.setProperty(Corpora.REQUIRED_PROPERTY, "true");
         try {
             AssertionError failed = assertThrows(AssertionError.class,
-                    () -> TestOssCorpus.requireConfig(ABSENT),
-                    "under -D" + TestOssCorpus.REQUIRED_PROPERTY + " an absent corpus is a failure, not a skip");
+                    () -> Corpora.oss(ABSENT).requireConfig(),
+                    "under -D" + Corpora.REQUIRED_PROPERTY + " an absent corpus is a failure, not a skip");
             assertTrue(failed.getMessage().contains(ABSENT), failed.getMessage());
             // the remedy must travel with the failure: whoever sees this in CI is not the person who set it up
             assertTrue(failed.getMessage().contains("corpus:catalogue:config"), failed.getMessage());
@@ -69,9 +69,9 @@ public class TestCorpusRequirement {
     /** The same, for the directory form the elasticsearch/guava style tests use. */
     @Test
     public void theDirectoryFormIsGuardedToo() {
-        String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "true");
+        String previous = System.setProperty(Corpora.REQUIRED_PROPERTY, "true");
         try {
-            assertThrows(AssertionError.class, () -> TestOssCorpus.requireDir(ABSENT, "server/src/main/java"));
+            assertThrows(AssertionError.class, () -> Corpora.oss(ABSENT).requireDir("server/src/main/java"));
         } finally {
             restore(previous);
         }
@@ -86,14 +86,14 @@ public class TestCorpusRequirement {
         Path present = Files.createFile(tmp.resolve("present-1.0.jar"));
         Path config = tmp.resolve("inputConfiguration.json");
         String template = "{\"classPathParts\": [{\"name\": \"x\", \"uri\": \"%s\"}]}";
-        String previous = System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, "true");
+        String previous = System.setProperty(Corpora.REQUIRED_PROPERTY, "true");
         try {
             Files.writeString(config, template.formatted(present.toUri()));
-            assertEquals(config, TestOssCorpus.requireClassPath(ABSENT, config), "the control: every jar present");
+            assertEquals(config, Corpora.oss(ABSENT).requireClassPath(config), "the control: every jar present");
 
             Files.writeString(config, template.formatted(tmp.resolve("evicted-2.0.jar").toUri()));
             AssertionError failed = assertThrows(AssertionError.class,
-                    () -> TestOssCorpus.requireClassPath(ABSENT, config));
+                    () -> Corpora.oss(ABSENT).requireClassPath(config));
             assertTrue(failed.getMessage().contains("evicted-2.0.jar"), failed.getMessage());
         } finally {
             restore(previous);
@@ -101,7 +101,7 @@ public class TestCorpusRequirement {
     }
 
     private static void restore(String previous) {
-        if (previous == null) System.clearProperty(TestOssCorpus.REQUIRED_PROPERTY);
-        else System.setProperty(TestOssCorpus.REQUIRED_PROPERTY, previous);
+        if (previous == null) System.clearProperty(Corpora.REQUIRED_PROPERTY);
+        else System.setProperty(Corpora.REQUIRED_PROPERTY, previous);
     }
 }

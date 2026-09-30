@@ -20,7 +20,7 @@ import io.codelaser.maddi.kotlin.api.KotlinFrontEnds;
 import io.codelaser.maddi.kotlin.api.KotlinReferenceRecall;
 import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
-import io.codelaser.maddi.run.openjdkmain.TestOssCorpus;
+import io.codelaser.maddi.util.corpus.Corpora;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -47,7 +47,7 @@ public class TestDetektReferenceRecall {
 
     @Test
     public void measure() throws IOException {
-        Path config = TestOssCorpus.requireConfig("detekt");
+        Path config = Corpora.oss("detekt").requireConfig();
         KotlinInspector inspector = new KotlinInspector(new RuntimeImpl());
         inspector.initialize(JsonStreaming.objectMapper().readValue(config.toFile(), InputConfigurationImpl.class));
 
