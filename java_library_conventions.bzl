@@ -1,5 +1,5 @@
 """
-Java library conventions - equivalent to buildSrc java-library-conventions
+Java library conventions - equivalent to build-logic java-library-conventions
 """
 
 load("@rules_java//java:defs.bzl", "java_library", "java_test")

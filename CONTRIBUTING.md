@@ -19,7 +19,7 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
 ./gradlew :maddi-modification-link:test --tests 'TestLinkMethodCall'   # one spec
 ```
 
-- The fast/slow split lives in `buildSrc/src/main/kotlin/java-library-conventions.gradle.kts`:
+- The fast/slow split lives in `build-logic/src/main/kotlin/java-library-conventions.gradle.kts`:
   `test` excludes JUnit tag `slow`; `slowTest` runs only that tag and inherits each module's
   own `test` configuration (jvmArgs, heap via `TESTXMX`, system properties). Tag any test that
   parses a real-world corpus with `@Tag("slow")`.

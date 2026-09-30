@@ -17,6 +17,12 @@
 // dependencyResolutionManagement.repositories scope, so import the extension function explicitly.
 import org.jetbrains.intellij.platform.gradle.extensions.intellijPlatform
 
+pluginManagement {
+    // `java-library-conventions` (formerly buildSrc): an included build, so that the sibling repositories of the
+    // split can apply the same conventions (docs/roadmap/split-maddi-into-three-repositories.md, stage 4)
+    includeBuild("build-logic")
+}
+
 plugins {
     // Adds the IntelliJ Platform repositories at the settings level, required because
     // repositoriesMode is FAIL_ON_PROJECT_REPOS (no per-project repositories allowed). See maddi-intellij.

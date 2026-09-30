@@ -4,7 +4,7 @@
 // ⛔ Three subprojects deploy to Maven Central -- maddi-annotation, maddi-support and
 // maddi-mvnplugin -- and declaring `id("org.jreleaser") version "..."` in each of them does NOT
 // give one classloader. The first two apply plain `java-library`, so they land in the same scope
-// and coexist; maddi-mvnplugin arrives through buildSrc's `java-library-conventions`, a different
+// and coexist; maddi-mvnplugin arrives through build-logic's `java-library-conventions`, a different
 // parent scope, and JReleaser is then loaded twice. The build fails at configuration time with
 //
 //     class org.jreleaser.gradle.plugin.Banner$Inject_ cannot be cast to

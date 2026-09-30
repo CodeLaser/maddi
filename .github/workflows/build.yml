@@ -113,7 +113,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       # `build` runs `test`, which excludes @Tag("slow") -- see
-      # buildSrc/src/main/kotlin/java-library-conventions.gradle.kts.
+      # build-logic/src/main/kotlin/java-library-conventions.gradle.kts.
       #
       # Do NOT add `slowTest` here. The large-corpus smoke tests need external corpora
       # (test-oss, testarchive) that do not exist on a runner; without them each test

@@ -45,7 +45,7 @@ public final class TestOssCorpus {
 
     /**
      * When true, a missing corpus fails instead of skipping. Set by {@code slowTest} (see
-     * {@code buildSrc/.../java-library-conventions.gradle.kts}) and intended for CI.
+     * {@code build-logic/.../java-library-conventions.gradle.kts}) and intended for CI.
      */
     public static final String REQUIRED_PROPERTY = "maddi.corpus.required";
 
