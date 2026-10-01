@@ -623,6 +623,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
 
             if (loadMode != LoadMode.LAZILY) {
+                // A source type whose unit was dropped while ScanCompilationUnit.continueType built its header --
+                // an unresolvable 'extends' -- never got a parent class, and the setup block above, which would
+                // have set one, ran for the source scan already. Finish it from the symbol, as the members are
+                // (d6f85131d): an unresolvable superclass then throws the tolerable UnresolvedSymbolException
+                // here, not a null-parent refusal at commit. The javac 26 shape of TestUnqualifiedCallOnUnresolvedSupertype.
+                if (newTypeInfo.parentClass() == null && !newTypeInfo.isJavaLangObject()) {
+                    ParameterizedType superType = convert(cs.getSuperclass());
+                    builder.setParentClass(superType == null ? runtime.objectParameterizedType() : superType);
+                }
                 for (var member : members) {
                     addMemberToType(newTypeInfo, cs, member, loadMode);
                 }
