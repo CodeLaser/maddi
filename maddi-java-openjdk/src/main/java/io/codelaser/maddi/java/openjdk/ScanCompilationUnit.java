@@ -389,6 +389,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return "Unexpected " + where + ": '" + s + "', class " + node.getClass().getName();
     }
 
+    /**
+     * True when javac attributed this identifier and could not resolve it: the tree, or the symbol it left (an
+     * error ClassSymbol, possibly javac's shared {@code <any?>}), has an erroneous type. An identifier javac never
+     * attributed has no symbol at all, and is NOT covered: that is a stop-policy problem, not a missing type.
+     */
+    private static boolean isErroneous(JCTree.JCIdent jcIdent) {
+        return jcIdent.type != null && jcIdent.type.isErroneous()
+               || jcIdent.sym != null && jcIdent.sym.type != null && jcIdent.sym.type.isErroneous();
+    }
+
     private ImportStatement parseImportStatement(ImportTree importTree) {
         boolean isStatic = importTree.isStatic();
         String im = importTree.getQualifiedIdentifier().toString();
@@ -3198,6 +3208,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     explicitConstructorInvocation = false;
                 }
                 objectIsImplicit = true;
+            } else if (it instanceof JCTree.JCIdent jcIdent && isErroneous(jcIdent)) {
+                // an inherited method (or super()) of a type whose superclass is not on the class path: javac's
+                // error symbol, as at the qualified site below. TestUnqualifiedCallOnUnresolvedSupertype
+                throw new UnresolvedSymbolException("Unresolved method call '" + methodName + "'");
             } else throw new UnsupportedOperationException(unexpected("symbol for unqualified call to '"
                                                                      + methodName + "' (expected a method symbol)",
                     it instanceof JCTree.JCIdent ji ? ji.sym : it));
