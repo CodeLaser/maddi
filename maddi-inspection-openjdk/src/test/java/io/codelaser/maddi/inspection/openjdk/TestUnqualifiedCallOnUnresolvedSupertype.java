@@ -45,6 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ⚠ The production stop policy ({@code -XDshould-stop.ifError=FLOW}) matters here: maddi-java-openjdk's
  * CommonTest leaves such a unit unattributed, so its identifier carries no symbol at all and the error symbol
  * never reaches the scanner. That is why this test lives in maddi-inspection-openjdk.
+ * <p>
+ * ⚠ javac 26 takes a different path through the same source: the simple name of a failed single-type import
+ * resolves to an owner-less error symbol, so the unit is already dropped at its {@code extends} clause, before
+ * {@code continueType} sets a parent class. The abandoned type is still committed at the end of the source set,
+ * and used to be refused there for its null parent class -- a parse ERROR again. ClassSymbolScanner.loadType now
+ * finishes the parent from the symbol. Green on javac 27 alone proves nothing about that path; it was found on
+ * laser1 (JDK 26.0.1).
  */
 public class TestUnqualifiedCallOnUnresolvedSupertype {
 
