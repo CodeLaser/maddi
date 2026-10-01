@@ -16,12 +16,9 @@ package io.codelaser.maddi.java.openjdk.other;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.java.openjdk.CommonTest;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A local variable declared inside an arrow-form {@code switch} case block, and read by a LATER
@@ -38,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * }
  * </pre>
  *
- * and the scan reports, three times over and then once as a non-tolerable failure:
+ * and the scan reported, three times over and then once as a non-tolerable failure:
  *
  * <pre>
  * ERROR ScanCompilationUnit -- Caught exception in visitVariable
@@ -46,14 +43,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * java.lang.UnsupportedOperationException: Cannot find element 'constraint' on stack
  * </pre>
  *
- * ⛔ CONSEQUENCE: the whole compilation unit fails, which fails the source set, which fails the run.
- * hibernate-orm cannot be parsed at all, so it can have no recorded baseline and no corpus test —
- * even though its clone, build and configuration all succeed (49 source sets).
+ * ⛔ WHAT IT COST: the whole compilation unit failed, which failed the source set, which failed the
+ * run. hibernate-orm could not be parsed at all, so it could have no recorded baseline and no corpus
+ * test — even though its clone, build and configuration all succeeded (49 source sets).
  *
- * <p><b>THE LAMBDA IS PART OF THE TRIGGER.</b> The two tests below are the same case block in two
- * places. In a plain method body it PASSES; inside a lambda whose body is the switch expression it
- * FAILS. So the per-case block's scope is pushed on the ordinary path and not on the lambda path.
- * The stack trace says where:
+ * <p><b>THE LAMBDA WAS PART OF THE TRIGGER.</b> The two tests below are the same case block in two
+ * places. In a plain method body it passed; inside a lambda whose body is the switch expression it
+ * failed. The stack trace said where:
  *
  * <pre>
  * visitLambdaExpression       (ScanCompilationUnit:2780)
@@ -65,18 +61,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *             ElementStack.find (:29)   throws
  * </pre>
  *
- * <p><b>HOW THIS IS ARRANGED, AND WHY.</b> Three tests, and the suite stays green:
- * <ul>
- *   <li>{@link #theLambdaCaseFailsToday()} RUNS and asserts the exception. It is the proof that the
- *   defect exists, and it is the thing that will go red the day the defect is fixed — read its
- *   message then, and finish the job below.</li>
- *   <li>{@link #theSameBlockInAPlainMethodBody()} RUNS and passes. It is the contrast that narrows
- *   the defect to the lambda path.</li>
- *   <li>{@link #aLocalDeclaredInAnArrowCaseBlockIsVisibleToTheNextDeclaration()} is DISABLED and
- *   asserts what should happen. Enabling it, and deleting the first test, is what "fixed" means.</li>
- * </ul>
- * A permanently red test stops being information after a day, and the promotion battery would carry
- * it forever; a disabled test on its own proves nothing. This is both.
+ * <p><b>THE FIX.</b> {@code visitLambdaExpression} set {@code currentMethod} inside the STATEMENT
+ * branch only. It is now saved and set once AROUND the body-kind {@code if}, because the body of a
+ * lambda is a method body whichever form it takes. That also removed the save/restore the STATEMENT
+ * branch carried, so the change is two lines added and two removed.
+ *
+ * <p>Both tests below pass. The first is the regression guard for the construct that was broken; the
+ * second is the contrast that identified the lambda as the trigger, and it passed before the fix too —
+ * it is kept because it costs nothing and it is what makes the diagnosis above checkable.
  */
 public class TestSwitchArrowCaseLocalOnStack extends CommonTest {
 
@@ -105,18 +97,6 @@ public class TestSwitchArrowCaseLocalOnStack extends CommonTest {
             }
             """;
 
-    @Test
-    public void theLambdaCaseFailsToday() {
-        UnsupportedOperationException e = assertThrows(UnsupportedOperationException.class,
-                () -> scan("a.b.X", INPUT),
-                "the scan no longer loses the local: the defect is fixed, so enable the disabled test "
-                + "below and delete this one");
-        assertTrue(e.getMessage().contains("Cannot find element 'constraint' on stack"),
-                "same construct, different failure -- read it before assuming this is the known gap: "
-                + e.getMessage());
-    }
-
-    @Disabled("the defect this file documents; enable it, and delete theLambdaCaseFailsToday, when fixed")
     @Test
     public void aLocalDeclaredInAnArrowCaseBlockIsVisibleToTheNextDeclaration() {
         TypeInfo typeInfo = scan("a.b.X", INPUT);

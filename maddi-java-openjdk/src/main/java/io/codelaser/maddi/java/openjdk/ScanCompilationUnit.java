@@ -2776,6 +2776,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             } else throw new UnsupportedOperationException(unexpected("lambda parameter", parameter));
         }
         Block methodBody;
+        // ⛔ AROUND BOTH BRANCHES, NOT INSIDE ONE. The body of a lambda is a method body whichever form it
+        // takes, and `currentMethod` is what visitVariable uses to tell a local variable from a field: with
+        // it null, a declaration is classified as a field and never registered on the element stack, so the
+        // next statement that reads it fails with "Cannot find element '<name>' on stack".
+        //
+        // Only the STATEMENT branch used to set it, which was invisible while the EXPRESSION branch could
+        // not contain a declaration. A switch EXPRESSION with an arrow case block can:
+        //
+        //     static final Extractor E = e -> switch (code(e)) {
+        //         case 23505 -> { final String c = name(e); yield c == null ? "" : c; }
+        //         default -> null; };
+        //
+        // In a METHOD body that happened to work, because currentMethod was already the enclosing method; in
+        // a FIELD initialiser it is null and the parse of the whole compilation unit failed. Found in
+        // hibernate-orm's H2Dialect; see TestSwitchArrowCaseLocalOnStack for both halves.
+        MethodInfo outerMethod = currentMethod;
+        currentMethod = methodInfo;
         if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
             scan(lambda.body, unused);
             Expression tExpression = currentExpression;
@@ -2788,13 +2805,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setSource(sourceForNode(lambda.body))
                     .addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
-            MethodInfo outer = currentMethod;
-            currentMethod = methodInfo;
             methodBody = parseBlock("", lambda.body);
-            currentMethod = outer;
         } else {
             throw new UnsupportedOperationException("Unexpected lambda body kind: " + lambda.getBodyKind());
         }
+        currentMethod = outerMethod;
 
         elementStack.pop();
 
