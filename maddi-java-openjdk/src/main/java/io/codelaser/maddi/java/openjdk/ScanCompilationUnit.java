@@ -1734,7 +1734,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // `for (SolverLifecycleListenerermination : solverTerminationList)`: eight compilation errors out of
             // four loops. There is no written type token in a 'var' declaration to rewrite at all, so resolve the
             // type but throw its detailed sources away, and let the callers that ask "is there a token here?"
-            // (jfocus' hasWrittenTypeToken, on both the suggestion and the apply half) get the honest no.
+            // (a refactoring tool deciding whether a type can be rewritten in place) get the honest no.
             DetailedSources.Builder typeDsb = variableDecl.declaredUsingVar()
                     ? runtime.newDetailedSourcesBuilder() : dsb;
             ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), typeDsb,
