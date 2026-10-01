@@ -579,3 +579,10 @@ only), and the CLI launchers into mod, which 3a had left broken.
 - Proven on ws/split: the server and service composites compile pinned (resolving the 0.9.2 jars, not the
   projects) and from source; the five other repo composites configure both ways; 1,274 jfocus tests pass
   pinned (graalpy, metrics-dataflow, stdbase-parser, transform-common, standardize-encoder, refactor-impl).
+
+- **Moved to 0.9.3 (2026-10-01)**: maddi devel's fixes of that day (an unresolved unqualified call is an
+  unresolved symbol; abandoned types) cured jfocus's `TestGuavaStress`. maddi and maddi-mod 0.9.3 published to
+  `~/.m2`; the jfocus pins moved with gradle-conventions' `pinMaddi` task, run at each repository's root:
+  `./gradlew pinMaddi -PtoMaddi=0.9.3 -PtoMaddiMod=0.9.3` (only the two pin lines of every gradle.properties
+  change). ⚠ Done by hand, before `release-maddi` exists (jfocus-devops `gate/RELEASE-MADDI.md`, design only):
+  no gate record, no `-alpha.N`.
