@@ -978,6 +978,14 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public List<TypeInfo> translate(TranslationMap translationMapIn) {
+        return translate(translationMapIn, false);
+    }
+
+    /**
+     * @param force re-create this type even when the translation changes nothing in it: its enclosing type is being
+     *              re-created, and a subtype names its enclosing type.
+     */
+    private List<TypeInfo> translate(TranslationMap translationMapIn, boolean force) {
         TypeInfo direct = translationMapIn.translateTypeInfo(this);
         if (direct != this) {
             return List.of(direct);
@@ -986,7 +994,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         // if there is any change, this will be the new typeInfo.
         TypeInfo typeInfo = copyAllButConstructorsMethodsFieldsSubTypesAnnotations(translationMapIn);
         ParameterizedType simpleParameterizedType = asSimpleParameterizedType();
-        boolean change = !analysis().isEmpty() && translationMapIn.isClearAnalysis();
+        boolean change = force || !analysis().isEmpty() && translationMapIn.isClearAnalysis();
 
         TranslationMap.Builder tmb = new TranslationMapImpl.Builder()
                 .setClearAnalysis(translationMapIn.isClearAnalysis())
@@ -1053,6 +1061,16 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             change |= tAe != ae;
         }
         if (change) {
+            // A subtype the translation left as it was -- a member-less nested interface has nothing that can
+            // change -- still names THIS type as its enclosing type, so it is re-created too, at any depth.
+            // TestTranslateUnchangedSubType
+            List<TypeInfo> ownedSubTypes = new ArrayList<>(newSubTypes.size());
+            for (int i = 0; i < newSubTypes.size(); i++) {
+                TypeInfo newSub = newSubTypes.get(i);
+                ownedSubTypes.add(newSub == subTypeList.get(i) && newSub instanceof TypeInfoImpl impl
+                        ? impl.translate(translationMap, true).getFirst() : newSub);
+            }
+            newSubTypes = ownedSubTypes;
             TypeInfo.Builder builder = typeInfo.builder();
             newTypeParameters.forEach(builder::addOrSetTypeParameter);
             newConstructors.forEach(builder::addConstructor);
