@@ -32,6 +32,13 @@ class DelegatedMemberTypesTest : KotlinScanTestBase() {
         class StringStore(private val d: Store<String>) : Store<String> by d
         class IntRepo(private val r: Repo<Int>) : Repo<Int> by r
         class Passing<X>(private val r: Repo<List<X>>) : Repo<List<X>> by r
+        interface Tx {
+            suspend fun commit()
+            fun close()
+        }
+        class OwnCommit(private val t: Tx) : Tx by t {
+            override suspend fun commit() {}
+        }
     """.trimIndent()
 
     private fun signature(m: MethodInfo) = m.name() + "(" +
@@ -52,5 +59,19 @@ class DelegatedMemberTypesTest : KotlinScanTestBase() {
         assertEquals("name(): Integer", of("IntRepo", "name"))
         // the class's own type parameter survives
         assertEquals("find(int): java.util.List<X>", of("Passing", "find"))
+    }
+
+    /**
+     * kotlinc forwards only what the class does not override itself. A `suspend` override is `commit(Continuation)`
+     * on the JVM while the interface's signature has no value parameter, so an arity-0 test found no `commit` and a
+     * second one was forwarded: Exposed's R2dbcTransaction (`: R2dbcTransactionInterface by transactionImpl`,
+     * `override suspend fun commit()`) failed to commit with "Two methods with the same FQN".
+     */
+    @Test
+    fun aSuspendOverrideIsNotForwardedAgain() {
+        val types = KotlinScan(runtime, sourceSet).parse("Delegation.kt", source).associateBy { it.simpleName() }
+        val own = types.getValue("OwnCommit")
+        assertEquals(1, own.methods().count { it.name() == "commit" })
+        assertEquals(1, own.methods().count { it.name() == "close" }, "the member it does not override is forwarded")
     }
 }

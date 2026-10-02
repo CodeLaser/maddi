@@ -66,6 +66,24 @@ object JavaStubGenerator {
                 target.parameters().map { p -> p.parameterizedType().takeIf { it.typeParameter() == null } },
                 runCatching { target.exceptionTypes() }.getOrDefault(emptyList()))
         }
+
+        /**
+         * The Java return type to write for [method] instead of its own, or null to write its own. kotlinc compiles
+         * an override whose type does not fit what it overrides in JAVA's rules -- `List<List<X>>` for an
+         * `Iterable<Iterable<X>>` (Kotlin's are covariant, Java's invariant), `Nothing` for a `List<String>` -- with
+         * the declared type AND a bridge returning the overridden one's erasure (javap on Exposed: `List arguments()`,
+         * `List createStatement()`). A stub is SOURCE, which cannot hold both, so its caller supplies the bridge's
+         * type where javac refused the declared one.
+         */
+        fun returnType(method: MethodInfo): String? = null
+
+        /**
+         * Whole Java method declarations to add to [type]'s stub: members the JVM class has and the CST does not.
+         * A Kotlin class implementing a library interface whose defaults are compiled the `DefaultImpls` way (the
+         * stdlib's `CoroutineContext.Element`: `minusKey`, `get`, `fold`) gets forwarders from kotlinc; Java source
+         * implementing the same interface must declare them, so its caller supplies the ones javac asks for.
+         */
+        fun extraMethods(type: TypeInfo): List<String> = emptyList()
     }
 
     /**
@@ -111,8 +129,11 @@ object JavaStubGenerator {
     private fun parameterList(m: MethodInfo): String =
         m.parameters().withIndex().joinToString(", ") { (i, p) ->
             val type = javaType(p.parameterizedType())
-            // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve
-            (if (p.isVarArgs && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
+            // a `vararg` is `T...`: as `T[]`, a Java call passing the elements does not resolve. Only a TRAILING one:
+            // anywhere else it is a plain array on the JVM, and `T...` does not compile (Exposed's
+            // `create(vararg tables: Table, inBatch: Boolean = false)`)
+            val trailing = i == m.parameters().lastIndex
+            (if (p.isVarArgs && trailing && type.endsWith("[]")) type.dropLast(2) + "..." else type) + " p$i"
         }
 
     /**
@@ -180,6 +201,7 @@ object JavaStubGenerator {
         typeInfo.constructors().forEach { appendMethod(sb, typeInfo, it, isInterface, inner, hints, emitted) }
         typeInfo.methods().filter { isJavaName(it.name()) }
             .forEach { appendMethod(sb, typeInfo, it, isInterface, inner, hints, emitted) }
+        hints.extraMethods(typeInfo).forEach { sb.append(inner).append(it).append("\n") }
         typeInfo.subTypes().forEach { appendType(sb, it, inner, hints) } // nested types are static-nested in the stub
         sb.append(indent).append("}\n")
     }
@@ -206,7 +228,7 @@ object JavaStubGenerator {
             sb.append(inner).append("public ")
             if (m.isStatic) sb.append("static ")
             sb.append(typeParameters(m.typeParameters()))
-            sb.append(javaType(m.returnType())).append(" ").append(m.name())
+            sb.append(hints.returnType(m) ?: javaType(m.returnType())).append(" ").append(m.name())
             sb.append("(").append(parameterList(m)).append(")")
             sb.append(" { throw new RuntimeException(\"stub\"); }\n")
         }
@@ -242,7 +264,7 @@ object JavaStubGenerator {
             if (m.isAbstract && !ownerIsInterface) sb.append("abstract ")
             if (interfaceDefault) sb.append("default ")
             sb.append(typeParameters(m.typeParameters()))
-            if (!m.isConstructor) sb.append(javaType(m.returnType())).append(" ")
+            if (!m.isConstructor) sb.append(hints.returnType(m) ?: javaType(m.returnType())).append(" ")
             sb.append(if (m.isConstructor) owner.simpleName() else m.name())
             sb.append("(").append(parameterList(m)).append(")")
             val emitBody = m.isConstructor || isStatic || interfaceDefault || (!ownerIsInterface && !m.isAbstract)

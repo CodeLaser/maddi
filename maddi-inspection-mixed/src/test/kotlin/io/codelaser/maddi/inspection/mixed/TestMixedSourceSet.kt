@@ -229,6 +229,160 @@ class TestMixedSourceSet {
         }
     }
 
+    /**
+     * A mixed set downstream of a KOTLIN-ONLY set: Exposed's `exposed-maven-plugin` (a generated `HelpMojo.java`
+     * beside `GenerateMigrationsMojo.kt`) on `exposed-plugin-core`. The mixed set's stubs name the upstream set's
+     * types, so those must be declared and stubbed first. The interleave walked the REBUILT Java set's dependencies,
+     * from which every Kotlin-only set had been dropped, so the upstream set was never converted and the stub
+     * compilation failed: "package ...plugin.core.migration does not exist".
+     */
+    @Test
+    fun aMixedSetSeesTheKotlinOnlySetItDependsOn() {
+        val root = Files.createTempDirectory(tempRoot, "mixed-downstream")
+        val coreDir = root.resolve("core/src/main/kotlin")
+        Files.createDirectories(coreDir.resolve("core"))
+        Files.writeString(coreDir.resolve("core/Format.kt"), """
+            package core
+
+            enum class Format { SHORT, LONG }
+            class Config(val format: Format)
+            """.trimIndent())
+        val pluginDir = root.resolve("plugin/src/main/kotlin")
+        Files.createDirectories(pluginDir.resolve("plugin"))
+        Files.writeString(pluginDir.resolve("plugin/Help.java"), """
+            package plugin;
+
+            public class Help {
+                public String text() { return "help"; }
+            }
+            """.trimIndent())
+        Files.writeString(pluginDir.resolve("plugin/Mojo.kt"), """
+            package plugin
+
+            import core.Config
+            import core.Format
+
+            class Mojo(private val help: Help) {
+                var format: Format = Format.SHORT
+                fun config(): Config = Config(format)
+                fun describe(): String = help.text()
+            }
+            """.trimIndent())
+        val stdlib = Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        val stdlibSet = SourceSetImpl.Builder().setName("kotlin-stdlib").setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
+        val core = SourceSetImpl.Builder().setName("core").setSourceDirectories(listOf(coreDir))
+            .setUri(coreDir.toUri()).setDependencies(listOf(stdlibSet)).build()
+        val plugin = SourceSetImpl.Builder().setName("plugin").setSourceDirectories(listOf(pluginDir))
+            .setUri(pluginDir.toUri()).setDependencies(listOf(core, stdlibSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet)
+            .addSourceSets(core).addSourceSets(plugin).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val mojo = result.kotlinTypes.first { it.simpleName() == "Mojo" }
+        val format = result.kotlinTypes.first { it.simpleName() == "Format" }
+        assertEquals("core", format.compilationUnit().sourceSet().name())
+        assertSame(format, mojo.findUniqueMethod("getFormat", 0).returnType().typeInfo())
+        assertSame(result.javaTypes.single { it.simpleName() == "Help" },
+            mojo.findUniqueMethod("describe", 0).let { calls(it).single() }.typeInfo())
+    }
+
+    /**
+     * Overrides that kotlinc compiles with a BRIDGE (javap on Exposed): a covariant Kotlin return that Java's invariant
+     * generics refuse (`List<List<String>>` for `Iterable<Iterable<String>>`), and `Nothing` (`Void`) for a
+     * `List<String>`. Stubbed as declared, javac refused both overrides and the mixed parse failed; the stubs now carry
+     * the bridge's type where javac refuses the declared one -- `void` included, for a `Nothing` overriding a `Unit`.
+     */
+    @Test
+    fun overridesKotlincBridgesStillStub() {
+        val dir = Files.createTempDirectory(tempRoot, "mixed-bridges").resolve("src/main/java")
+        Files.createDirectories(dir.resolve("q"))
+        Files.writeString(dir.resolve("q/Statement.kt"), """
+            package q
+
+            abstract class Statement {
+                abstract fun arguments(): Iterable<Iterable<String>>
+                open fun create(): List<String> = listOf()
+                open fun <T, S : T?> update(t: T, s: S) {}
+            }
+
+            class Query : Statement() {
+                override fun arguments(): List<List<String>> = listOf(listOf("a"))
+                override fun create(): Nothing = throw UnsupportedOperationException()
+                // `Nothing` for `Unit`: kotlinc's bridge is `void update(Object, Object)`
+                override fun <T, S : T?> update(t: T, s: S) = error("unsupported")
+            }
+            """.trimIndent())
+        Files.writeString(dir.resolve("q/Runner.java"), """
+            package q;
+
+            public class Runner {
+                public int count(Statement s) {
+                    int n = 0;
+                    for (Iterable<String> row : s.arguments()) n++;
+                    return n;
+                }
+                public Object query(Query q) { return q.arguments(); }
+            }
+            """.trimIndent())
+        val stdlib = Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        // named after its jar: the Java side reaches stdlib types the other fixtures never touch
+        val stdlibSet = SourceSetImpl.Builder().setName(stdlib.fileName.toString()).setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
+        val main = SourceSetImpl.Builder().setName("main").setSourceDirectories(listOf(dir)).setUri(dir.toUri())
+            .setDependencies(listOf(stdlibSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet).addSourceSets(main).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val query = result.kotlinTypes.first { it.simpleName() == "Query" }
+        val runner = result.javaTypes.single { it.simpleName() == "Runner" }
+        assertSame(query.findUniqueMethod("arguments", 0), calls(runner.findUniqueMethod("query", 1)).single(),
+            "the Java call binds the Kotlin override itself, not a stub")
+    }
+
+    /**
+     * A Kotlin class implementing the stdlib's `CoroutineContext.Element`, whose `get`/`fold`/`minusKey` have Kotlin
+     * bodies but are ABSTRACT in the class file (DefaultImpls): kotlinc adds forwarders the CST does not have, so the
+     * stub was "not abstract and does not override abstract method minusKey(Key<?>)" (Exposed's
+     * TransactionContextHolderImpl). The stub now declares what javac asks for.
+     */
+    @Test
+    fun defaultImplsForwardersStillStub() {
+        val dir = Files.createTempDirectory(tempRoot, "mixed-defaultimpls").resolve("src/main/java")
+        Files.createDirectories(dir.resolve("r"))
+        Files.writeString(dir.resolve("r/Holder.kt"), """
+            package r
+
+            import kotlin.coroutines.CoroutineContext
+
+            class Holder(val name: String) : CoroutineContext.Element {
+                override val key: CoroutineContext.Key<*> get() = Key
+                companion object Key : CoroutineContext.Key<Holder>
+            }
+            """.trimIndent())
+        Files.writeString(dir.resolve("r/Use.java"), """
+            package r;
+
+            public class Use {
+                public String name() { return new Holder("h").getName(); }
+            }
+            """.trimIndent())
+        val stdlib = Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        val stdlibSet = SourceSetImpl.Builder().setName(stdlib.fileName.toString()).setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
+        val main = SourceSetImpl.Builder().setName("main").setSourceDirectories(listOf(dir)).setUri(dir.toUri())
+            .setDependencies(listOf(stdlibSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet).addSourceSets(main).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val holder = result.kotlinTypes.first { it.simpleName() == "Holder" }
+        assertSame(holder.findUniqueMethod("getName", 0),
+            calls(result.javaTypes.single { it.simpleName() == "Use" }.findUniqueMethod("name", 0)).single())
+    }
+
     private fun calls(method: MethodInfo): List<MethodInfo> {
         val found = mutableListOf<MethodInfo>()
         method.methodBody().visit { e: Element ->

@@ -56,7 +56,7 @@ artifacts that are not on Maven Central** (they come from the JetBrains reposito
 
 Therefore the Kotlin side **cannot be published to Maven Central** — a consumer could not resolve its
 transitive dependencies. Kotlin support is delivered only as a self-contained CLI distribution (below),
-where those jars are simply files in `lib/` and no Maven resolution is involved.
+where those jars are simply files in `lib-k2/` and no Maven resolution is involved.
 
 
 What we publish (Package 1)
@@ -125,13 +125,15 @@ descriptors do not matter.
 
 The runners apply the Gradle `application` plugin, so `distZip` / `installDist` produce self-contained
 bundles (launcher + every runtime jar in `lib/`, with the required javac `--add-exports` baked into the
-launcher). Publish these as **GitHub Release** assets:
+launcher; the Kotlin zip also carries `lib-k2/`, below). Publish these as **GitHub Release** assets:
 
 * `maddi` — the openjdk (Java) runner, from `maddi-cli:distZip` → `maddi-<version>.zip`, launcher
   `bin/maddi`.
 * `maddi-kotlin` — the mixed Java+Kotlin runner, from `maddi-cli-kotlin:distZip` →
   `maddi-kotlin-<version>.zip`, launcher `bin/maddi-kotlin`. **This is how Kotlin support ships**: the K2
-  "for-ide" jars ride along in `lib/` (verified: the 7 `*-for-ide` jars + `kotlin-compiler` are bundled).
+  "for-ide" jars ride along in `lib-k2/`, beside `lib/` and never on the launcher's CLASSPATH: the K2 realm
+  loads them in a classloader of its own (G46). The 7 `*-for-ide` jars + `kotlin-compiler` were verified bundled
+  when they still sat in `lib/`; they moved to `lib-k2/` on 2026-09-21 (e70270088).
   Since 2026-09-21 it takes the **same option surface** as `maddi` — literally
   `openjdkmain.Main.createOptions()`, asserted by `TestOneEntryPoint` — and routes on whether the project
   holds a `.kt` file, so it is a strict superset of `maddi` rather than a second tool. The two zips stay
