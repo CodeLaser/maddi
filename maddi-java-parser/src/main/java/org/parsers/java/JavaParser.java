@@ -167,6 +167,7 @@ import org.parsers.java.ast.LambdaExpression;
 import org.parsers.java.ast.LambdaLHS;
 import org.parsers.java.ast.LambdaParameters;
 import org.parsers.java.ast.LambdaParameter;
+import org.parsers.java.ast.ReceiverParameter;
 
 public class JavaParser { 
 
@@ -3324,25 +3325,38 @@ public class JavaParser {
             }
             // Code for ZeroOrOne specified at Java.ccc:523:24
             if (scan$Java_ccc$523$26()) { 
-                // Code for NonTerminal specified at Java.ccc:523:26
-                pushOntoCallStack("FormalParameters", "Java.ccc", 523, 26);
-                try { 
-                    FormalParameter();
-                } finally { 
-                    popCallStack();
+                if (scan$Java_ccc$523$28()) { 
+                    // Code for NonTerminal specified at Java.ccc:523:54
+                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 54);
+                    try { 
+                        ReceiverParameter();
+                    } finally { 
+                        popCallStack();
+                    }
+                } else if (scan$Java_ccc$523$74()) { 
+                    // Code for NonTerminal specified at Java.ccc:523:74
+                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 74);
+                    try { 
+                        FormalParameter();
+                    } finally { 
+                        popCallStack();
+                    }
+                } else { 
+                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 28);
+                    throw new ParseException(getToken(1), first_set$Java_ccc$523$28, parsingStack);
                 }
-                // Code for ZeroOrMore specified at Java.ccc:523:42
+                // Code for ZeroOrMore specified at Java.ccc:523:92
                 while (true) { 
                     if (!(typeMatches(COMMA, getToken(1)))) break;
-                    // Code for Terminal specified at Java.ccc:523:44
-                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 44);
+                    // Code for Terminal specified at Java.ccc:523:94
+                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 94);
                     try { 
                         consumeToken(COMMA);
                     } finally { 
                         popCallStack();
                     }
-                    // Code for NonTerminal specified at Java.ccc:523:48
-                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 48);
+                    // Code for NonTerminal specified at Java.ccc:523:98
+                    pushOntoCallStack("FormalParameters", "Java.ccc", 523, 98);
                     try { 
                         FormalParameter();
                     } finally { 
@@ -3350,8 +3364,8 @@ public class JavaParser {
                     }
                 }
             }
-            // Code for Terminal specified at Java.ccc:523:68
-            pushOntoCallStack("FormalParameters", "Java.ccc", 523, 68);
+            // Code for Terminal specified at Java.ccc:523:118
+            pushOntoCallStack("FormalParameters", "Java.ccc", 523, 118);
             try { 
                 consumeToken(RPAREN);
             } finally { 
@@ -11299,6 +11313,76 @@ public class JavaParser {
         }
     }
 
+    // Java.ccc:1585:1
+    final public void ReceiverParameter() { 
+        if (cancelled) throw new CancellationException();
+        this.currentlyParsedProduction = "ReceiverParameter";
+        // Code for BNFProduction specified at Java.ccc:1585:1
+        ReceiverParameter thisProduction = null;
+        if (buildTree) { 
+            thisProduction = new ReceiverParameter();
+            openNodeScope(thisProduction);
+        }
+        ParseException parseException3 = null;
+        int callStackSize4 = parsingStack.size();
+        try { 
+            // Code for ZeroOrMore specified at Java.ccc:1585:21
+            while (true) { 
+                if (!(scan$Java_ccc$1585$22())) break;
+                // Code for NonTerminal specified at Java.ccc:1585:22
+                pushOntoCallStack("ReceiverParameter", "Java.ccc", 1585, 22);
+                try { 
+                    Annotation();
+                } finally { 
+                    popCallStack();
+                }
+            }
+            // Code for NonTerminal specified at Java.ccc:1585:35
+            pushOntoCallStack("ReceiverParameter", "Java.ccc", 1585, 35);
+            try { 
+                Type();
+            } finally { 
+                popCallStack();
+            }
+            // Code for ZeroOrOne specified at Java.ccc:1585:40
+            if (typeMatches(IDENTIFIER, getToken(1))) { 
+                // Code for Terminal specified at Java.ccc:1585:42
+                pushOntoCallStack("ReceiverParameter", "Java.ccc", 1585, 42);
+                try { 
+                    consumeToken(IDENTIFIER);
+                } finally { 
+                    popCallStack();
+                }
+                // Code for Terminal specified at Java.ccc:1585:55
+                pushOntoCallStack("ReceiverParameter", "Java.ccc", 1585, 55);
+                try { 
+                    consumeToken(DOT);
+                } finally { 
+                    popCallStack();
+                }
+            }
+            // Code for Terminal specified at Java.ccc:1585:61
+            pushOntoCallStack("ReceiverParameter", "Java.ccc", 1585, 61);
+            try { 
+                consumeToken(_THIS);
+            } finally { 
+                popCallStack();
+            }
+        } catch (ParseException e) { 
+            parseException3 = e;
+            throw e;
+        } finally { 
+            restoreCallStack(callStackSize4);
+            if (thisProduction != null) { 
+                if (parseException3 == null) { 
+                    closeNodeScope(thisProduction, nodeArity() > 1);
+                } else { 
+                    clearNodeScope();
+                }
+            }
+        }
+    }
+
     private static final EnumSet<TokenType> first_set$Java_ccc$37$4 = first_set$Java_ccc$37$4_init();
 
     private static EnumSet<TokenType> first_set$Java_ccc$37$4_init() { 
@@ -11354,6 +11438,12 @@ public class JavaParser {
     }
 
     private static final EnumSet<TokenType> first_set$Java_ccc$519$5 = tokenTypeSet(LBRACE, SEMICOLON);
+    private static final EnumSet<TokenType> first_set$Java_ccc$523$28 = first_set$Java_ccc$523$28_init();
+
+    private static EnumSet<TokenType> first_set$Java_ccc$523$28_init() { 
+        return tokenTypeSet(SEALED, ABSTRACT, BOOLEAN, BYTE, CHAR, _DEFAULT, DOUBLE, FINAL, FLOAT, INT, LONG, NATIVE, PRIVATE, PROTECTED, PUBLIC, SHORT, STATIC, STRICTFP, SYNCHRONIZED, TRANSIENT, VOLATILE, NON_SEALED, AT, IDENTIFIER);
+    }
+
     private static final EnumSet<TokenType> first_set$Java_ccc$548$20 = tokenTypeSet(SUPER, _THIS);
     private static final EnumSet<TokenType> first_set$Java_ccc$552$4 = tokenTypeSet(LPAREN, IDENTIFIER);
     private static final EnumSet<TokenType> first_set$Java_ccc$562$4 = first_set$Java_ccc$562$4_init();
@@ -15163,31 +15253,48 @@ public class JavaParser {
             // skipping check
             if (hitFailure) return false;
             if (remainingLookahead <= 0) return true;
-            // Lookahead Code for NonTerminal specified at Java.ccc:523:26
-            // NonTerminal FormalParameter at Java.ccc:523:26
-            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 26);
-            currentLookaheadProduction = "FormalParameter";
-            try { 
-                if (!check$FormalParameter(false)) return false;
-            } finally { 
-                popLookaheadStack();
-            }
+            // Lookahead Code for ExpansionWithParentheses specified at Java.ccc:523:26
             if (hitFailure) return false;
             if (remainingLookahead <= 0) return true;
-            // Lookahead Code for ZeroOrMore specified at Java.ccc:523:42
+            // Lookahead Code for ExpansionChoice specified at Java.ccc:523:28
+            Token token4 = currentLookaheadToken;
+            int remainingLookahead4 = remainingLookahead;
+            boolean hitFailure4 = hitFailure;
             boolean passedPredicate4 = passedPredicate;
             try { 
-                while (remainingLookahead > 0 && !hitFailure) { 
-                    Token token5 = currentLookaheadToken;
+                passedPredicate = false;
+                if (!check$Java_ccc$523$28(false)) { 
+                    currentLookaheadToken = token4;
+                    remainingLookahead = remainingLookahead4;
+                    hitFailure = hitFailure4;
+                    if (passedPredicate) return false;
                     passedPredicate = false;
-                    if (!check$Java_ccc$523$44(false)) { 
-                        if (passedPredicate) return false;
-                        currentLookaheadToken = token5;
-                        break;
+                    if (!check$Java_ccc$523$74(false)) { 
+                        currentLookaheadToken = token4;
+                        remainingLookahead = remainingLookahead4;
+                        hitFailure = hitFailure4;
+                        return false;
                     }
                 }
             } finally { 
                 passedPredicate = passedPredicate4;
+            }
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for ZeroOrMore specified at Java.ccc:523:92
+            boolean passedPredicate6 = passedPredicate;
+            try { 
+                while (remainingLookahead > 0 && !hitFailure) { 
+                    Token token7 = currentLookaheadToken;
+                    passedPredicate = false;
+                    if (!check$Java_ccc$523$94(false)) { 
+                        if (passedPredicate) return false;
+                        currentLookaheadToken = token7;
+                        break;
+                    }
+                }
+            } finally { 
+                passedPredicate = passedPredicate6;
             }
             hitFailure = false;
         } finally { 
@@ -15201,9 +15308,47 @@ public class JavaParser {
     }
 
     // scanahead routine for expansion at:
-    // Java.ccc:523:44
+    // Java.ccc:523:28
     // BuildScanRoutine macro
-    private boolean check$Java_ccc$523$44(boolean scanToEnd) { 
+    private boolean check$Java_ccc$523$28(boolean scanToEnd) { 
+        boolean reachedScanCode = false;
+        int passedPredicateThreshold = remainingLookahead - 2147483647;
+        try { 
+            lookaheadRoutineNesting++;
+            // BuildPredicateCode macro
+            if (remainingLookahead <= 0) { 
+                passedPredicate = true;
+                return !hitFailure;
+            }
+            if (!check$Java_ccc$523$33(true)) return false;
+            // End BuildPredicateCode macro
+            reachedScanCode = true;
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for NonTerminal specified at Java.ccc:523:54
+            // NonTerminal ReceiverParameter at Java.ccc:523:54
+            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 54);
+            currentLookaheadProduction = "ReceiverParameter";
+            try { 
+                if (!check$ReceiverParameter(false)) return false;
+            } finally { 
+                popLookaheadStack();
+            }
+        } finally { 
+            lookaheadRoutineNesting--;
+            if (reachedScanCode && remainingLookahead <= passedPredicateThreshold) { 
+                passedPredicate = true;
+            }
+        }
+        passedPredicate = false;
+        return true;
+    }
+
+    // scanahead routine for expansion at:
+    // Java.ccc:523:74
+    // BuildScanRoutine macro
+    private boolean check$Java_ccc$523$74(boolean scanToEnd) { 
         boolean reachedScanCode = false;
         int passedPredicateThreshold = remainingLookahead - 1;
         try { 
@@ -15214,13 +15359,46 @@ public class JavaParser {
             // skipping check
             if (hitFailure) return false;
             if (remainingLookahead <= 0) return true;
-            // Lookahead Code for Terminal specified at Java.ccc:523:44
+            // Lookahead Code for NonTerminal specified at Java.ccc:523:74
+            // NonTerminal FormalParameter at Java.ccc:523:74
+            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 74);
+            currentLookaheadProduction = "FormalParameter";
+            try { 
+                if (!check$FormalParameter(false)) return false;
+            } finally { 
+                popLookaheadStack();
+            }
+        } finally { 
+            lookaheadRoutineNesting--;
+            if (reachedScanCode && remainingLookahead <= passedPredicateThreshold) { 
+                passedPredicate = true;
+            }
+        }
+        passedPredicate = false;
+        return true;
+    }
+
+    // scanahead routine for expansion at:
+    // Java.ccc:523:94
+    // BuildScanRoutine macro
+    private boolean check$Java_ccc$523$94(boolean scanToEnd) { 
+        boolean reachedScanCode = false;
+        int passedPredicateThreshold = remainingLookahead - 1;
+        try { 
+            lookaheadRoutineNesting++;
+            // BuildPredicateCode macro
+            // End BuildPredicateCode macro
+            reachedScanCode = true;
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for Terminal specified at Java.ccc:523:94
             if (!scanToken(COMMA)) return false;
             if (hitFailure) return false;
             if (remainingLookahead <= 0) return true;
-            // Lookahead Code for NonTerminal specified at Java.ccc:523:48
-            // NonTerminal FormalParameter at Java.ccc:523:48
-            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 48);
+            // Lookahead Code for NonTerminal specified at Java.ccc:523:98
+            // NonTerminal FormalParameter at Java.ccc:523:98
+            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 98);
             currentLookaheadProduction = "FormalParameter";
             try { 
                 if (!check$FormalParameter(true)) return false;
@@ -24054,6 +24232,69 @@ public class JavaParser {
         return true;
     }
 
+    // scanahead routine for expansion at:
+    // Java.ccc:1585:22
+    // BuildScanRoutine macro
+    private boolean check$Java_ccc$1585$22(boolean scanToEnd) { 
+        boolean reachedScanCode = false;
+        int passedPredicateThreshold = remainingLookahead - 2;
+        try { 
+            lookaheadRoutineNesting++;
+            // BuildPredicateCode macro
+            // End BuildPredicateCode macro
+            reachedScanCode = true;
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for NonTerminal specified at Java.ccc:1585:22
+            // NonTerminal Annotation at Java.ccc:1585:22
+            pushOntoLookaheadStack("ReceiverParameter", "Java.ccc", 1585, 22);
+            currentLookaheadProduction = "Annotation";
+            try { 
+                if (!check$Annotation(false)) return false;
+            } finally { 
+                popLookaheadStack();
+            }
+        } finally { 
+            lookaheadRoutineNesting--;
+            if (reachedScanCode && remainingLookahead <= passedPredicateThreshold) { 
+                passedPredicate = true;
+            }
+        }
+        passedPredicate = false;
+        return true;
+    }
+
+    // scanahead routine for expansion at:
+    // Java.ccc:1585:42
+    // BuildScanRoutine macro
+    private boolean check$Java_ccc$1585$42(boolean scanToEnd) { 
+        boolean reachedScanCode = false;
+        int passedPredicateThreshold = remainingLookahead - 1;
+        try { 
+            lookaheadRoutineNesting++;
+            // BuildPredicateCode macro
+            // End BuildPredicateCode macro
+            reachedScanCode = true;
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for Terminal specified at Java.ccc:1585:42
+            if (!scanToken(IDENTIFIER)) return false;
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for Terminal specified at Java.ccc:1585:55
+            if (!scanToken(DOT)) return false;
+        } finally { 
+            lookaheadRoutineNesting--;
+            if (reachedScanCode && remainingLookahead <= passedPredicateThreshold) { 
+                passedPredicate = true;
+            }
+        }
+        passedPredicate = false;
+        return true;
+    }
+
     // scanahead routine for assertion at:
     // Java.ccc:562:18
     // BuildAssertionRoutine macro
@@ -25295,33 +25536,99 @@ public class JavaParser {
             // skipping check
             if (hitFailure) return false;
             if (remainingLookahead <= 0) return true;
-            // Lookahead Code for NonTerminal specified at Java.ccc:523:26
-            // NonTerminal FormalParameter at Java.ccc:523:26
-            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 26);
+            // Lookahead Code for ExpansionWithParentheses specified at Java.ccc:523:26
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for ExpansionChoice specified at Java.ccc:523:28
+            Token token4 = currentLookaheadToken;
+            int remainingLookahead4 = remainingLookahead;
+            boolean hitFailure4 = hitFailure;
+            boolean passedPredicate4 = passedPredicate;
+            try { 
+                passedPredicate = false;
+                if (!check$Java_ccc$523$28(false)) { 
+                    currentLookaheadToken = token4;
+                    remainingLookahead = remainingLookahead4;
+                    hitFailure = hitFailure4;
+                    if (passedPredicate) return false;
+                    passedPredicate = false;
+                    if (!check$Java_ccc$523$74(false)) { 
+                        currentLookaheadToken = token4;
+                        remainingLookahead = remainingLookahead4;
+                        hitFailure = hitFailure4;
+                        return false;
+                    }
+                }
+            } finally { 
+                passedPredicate = passedPredicate4;
+            }
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for ZeroOrMore specified at Java.ccc:523:92
+            boolean passedPredicate6 = passedPredicate;
+            try { 
+                while (remainingLookahead > 0 && !hitFailure) { 
+                    Token token7 = currentLookaheadToken;
+                    passedPredicate = false;
+                    if (!check$Java_ccc$523$94(false)) { 
+                        if (passedPredicate) return false;
+                        currentLookaheadToken = token7;
+                        break;
+                    }
+                }
+            } finally { 
+                passedPredicate = passedPredicate6;
+            }
+            hitFailure = false;
+            return true;
+        } finally { 
+            lookaheadRoutineNesting = 0;
+            currentLookaheadToken = null;
+            hitFailure = false;
+        }
+    }
+
+    // BuildPredicateRoutine: ExpansionSequence at Java.ccc:523:28
+    private boolean scan$Java_ccc$523$28() { 
+        remainingLookahead = UNLIMITED;
+        currentLookaheadToken = lastConsumedToken;
+        final boolean scanToEnd = false;
+        try { 
+            // BuildPredicateCode macro
+            if (remainingLookahead <= 0) { 
+                passedPredicate = true;
+                return !hitFailure;
+            }
+            if (!check$Java_ccc$523$33(true)) return false;
+            // End BuildPredicateCode macro
+            return true;
+        } finally { 
+            lookaheadRoutineNesting = 0;
+            currentLookaheadToken = null;
+            hitFailure = false;
+        }
+    }
+
+    // BuildPredicateRoutine: ExpansionSequence at Java.ccc:523:74
+    private boolean scan$Java_ccc$523$74() { 
+        remainingLookahead = 1;
+        currentLookaheadToken = lastConsumedToken;
+        final boolean scanToEnd = false;
+        try { 
+            // BuildPredicateCode macro
+            // End BuildPredicateCode macro
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for NonTerminal specified at Java.ccc:523:74
+            // NonTerminal FormalParameter at Java.ccc:523:74
+            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 74);
             currentLookaheadProduction = "FormalParameter";
             try { 
                 if (!check$FormalParameter(false)) return false;
             } finally { 
                 popLookaheadStack();
             }
-            if (hitFailure) return false;
-            if (remainingLookahead <= 0) return true;
-            // Lookahead Code for ZeroOrMore specified at Java.ccc:523:42
-            boolean passedPredicate4 = passedPredicate;
-            try { 
-                while (remainingLookahead > 0 && !hitFailure) { 
-                    Token token5 = currentLookaheadToken;
-                    passedPredicate = false;
-                    if (!check$Java_ccc$523$44(false)) { 
-                        if (passedPredicate) return false;
-                        currentLookaheadToken = token5;
-                        break;
-                    }
-                }
-            } finally { 
-                passedPredicate = passedPredicate4;
-            }
-            hitFailure = false;
             return true;
         } finally { 
             lookaheadRoutineNesting = 0;
@@ -28869,6 +29176,34 @@ public class JavaParser {
         }
     }
 
+    // BuildPredicateRoutine: ExpansionSequence at Java.ccc:1585:22
+    private boolean scan$Java_ccc$1585$22() { 
+        remainingLookahead = 2;
+        currentLookaheadToken = lastConsumedToken;
+        final boolean scanToEnd = false;
+        try { 
+            // BuildPredicateCode macro
+            // End BuildPredicateCode macro
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for NonTerminal specified at Java.ccc:1585:22
+            // NonTerminal Annotation at Java.ccc:1585:22
+            pushOntoLookaheadStack("ReceiverParameter", "Java.ccc", 1585, 22);
+            currentLookaheadProduction = "Annotation";
+            try { 
+                if (!check$Annotation(false)) return false;
+            } finally { 
+                popLookaheadStack();
+            }
+            return true;
+        } finally { 
+            lookaheadRoutineNesting = 0;
+            currentLookaheadToken = null;
+            hitFailure = false;
+        }
+    }
+
     // lookahead routine for lookahead at:
     // Java.ccc:54:5
     private boolean check$Java_ccc$54$11(boolean scanToEnd) { 
@@ -28990,6 +29325,35 @@ public class JavaParser {
             lookaheadRoutineNesting++;
             // skipping check
             if (!scanToken(RBRACE)) return false;
+            return !hitFailure;
+        } finally { 
+            lookaheadRoutineNesting--;
+            currentLookaheadToken = prevScanAheadToken;
+            remainingLookahead = prevRemainingLookahead;
+            hitFailure = prevHitFailure;
+        }
+    }
+
+    // lookahead routine for lookahead at:
+    // Java.ccc:523:28
+    private boolean check$Java_ccc$523$33(boolean scanToEnd) { 
+        int prevRemainingLookahead = remainingLookahead;
+        boolean prevHitFailure = hitFailure;
+        Token prevScanAheadToken = currentLookaheadToken;
+        try { 
+            lookaheadRoutineNesting++;
+            // skipping check
+            if (hitFailure) return false;
+            if (remainingLookahead <= 0) return true;
+            // Lookahead Code for NonTerminal specified at Java.ccc:523:33
+            // NonTerminal ReceiverParameter at Java.ccc:523:33
+            pushOntoLookaheadStack("FormalParameters", "Java.ccc", 523, 33);
+            currentLookaheadProduction = "ReceiverParameter";
+            try { 
+                if (!check$ReceiverParameter(true)) return false;
+            } finally { 
+                popLookaheadStack();
+            }
             return !hitFailure;
         } finally { 
             lookaheadRoutineNesting--;
@@ -31548,7 +31912,7 @@ public class JavaParser {
         }
         if (hitFailure) return false;
         if (remainingLookahead <= 0) return true;
-        // Lookahead Code for Terminal specified at Java.ccc:523:68
+        // Lookahead Code for Terminal specified at Java.ccc:523:118
         if (!scanToken(RPAREN)) return false;
         return true;
     }
@@ -36079,6 +36443,60 @@ public class JavaParser {
         } finally { 
             passedPredicate = passedPredicate6;
         }
+        return true;
+    }
+
+    // BuildProductionLookaheadMethod macro
+    private boolean check$ReceiverParameter(boolean scanToEnd) { 
+        // skipping check
+        if (hitFailure) return false;
+        if (remainingLookahead <= 0) return true;
+        // Lookahead Code for ZeroOrMore specified at Java.ccc:1585:21
+        boolean passedPredicate3 = passedPredicate;
+        try { 
+            while (remainingLookahead > 0 && !hitFailure) { 
+                Token token4 = currentLookaheadToken;
+                passedPredicate = false;
+                if (!check$Java_ccc$1585$22(false)) { 
+                    if (passedPredicate) return false;
+                    currentLookaheadToken = token4;
+                    break;
+                }
+            }
+        } finally { 
+            passedPredicate = passedPredicate3;
+        }
+        hitFailure = false;
+        if (hitFailure) return false;
+        if (remainingLookahead <= 0) return true;
+        // Lookahead Code for NonTerminal specified at Java.ccc:1585:35
+        // NonTerminal Type at Java.ccc:1585:35
+        pushOntoLookaheadStack("ReceiverParameter", "Java.ccc", 1585, 35);
+        currentLookaheadProduction = "Type";
+        try { 
+            if (!check$Type(false)) return false;
+        } finally { 
+            popLookaheadStack();
+        }
+        if (hitFailure) return false;
+        if (remainingLookahead <= 0) return true;
+        // Lookahead Code for ZeroOrOne specified at Java.ccc:1585:40
+        Token token7 = currentLookaheadToken;
+        boolean passedPredicate7 = passedPredicate;
+        passedPredicate = false;
+        try { 
+            if (!check$Java_ccc$1585$42(false)) { 
+                if (passedPredicate) return false;
+                currentLookaheadToken = token7;
+                hitFailure = false;
+            }
+        } finally { 
+            passedPredicate = passedPredicate7;
+        }
+        if (hitFailure) return false;
+        if (remainingLookahead <= 0) return true;
+        // Lookahead Code for Terminal specified at Java.ccc:1585:61
+        if (!scanToken(_THIS)) return false;
         return true;
     }
 
