@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A nested type declared by a SUPERTYPE is inherited into the subclass's scope, so it needs no import — and
@@ -72,6 +74,15 @@ public class TestImportInheritedNestedType extends CommonTest2 {
                 List<String> list;
             }
             """;
+
+    // printed as split-method's generator prints: the file keeps its own import style, so the computer works on the
+    // types themselves rather than importing their primary types (QUALIFIED_FROM_PRIMARY_TYPE, print2's default,
+    // imports 'a.Base' and prints 'Base.Handle', which compiles -- neither defect below exists in that mode)
+    private String printExistingSources(ParseResult parseResult, String fqn) {
+        TypeInfo typeInfo = parseResult.findType(fqn);
+        return javaInspector.print2(typeInfo.compilationUnit(), javaInspector.runtime().qualificationExistingSources(),
+                javaInspector.importComputer(4, typeInfo.compilationUnit().sourceSet()));
+    }
 
     private String importsOf(ParseResult parseResult, String fqn) {
         TypeInfo typeInfo = parseResult.findType(fqn);
@@ -190,30 +201,55 @@ public class TestImportInheritedNestedType extends CommonTest2 {
      * unimported, but was then PRINTED down its declaring chain, {@code Base.Handle}, and {@code Base} does not
      * resolve in that file: javac says "package Base does not exist". Split-method's generator hit it writing a
      * helper parameter and a record component of the inherited type. Inside the body the bare name resolves,
-     * so that is what must be printed.
+     * so that is what must be printed -- in the record nested in that body too, which the printer prints at a
+     * qualification level of its own.
      */
     @Language("java")
     private static final String SUB_WITHOUT_IMPORT = """
             package b;
             public class Sub extends a.Base {
                 Handle handle;
+                record R(Handle h) { }
             }
             """;
 
     @Test
     public void anInheritedMemberTypeIsPrintedByItsSimpleName() throws IOException {
         ParseResult parseResult = init(Map.of("a.Base", BASE, "b.Sub", SUB_WITHOUT_IMPORT));
-        TypeInfo sub = parseResult.findType("b.Sub");
-        ImportComputer importComputer = javaInspector.importComputer(4, sub.compilationUnit().sourceSet());
-        ImportComputer.Result r = importComputer.go(sub.compilationUnit(),
-                javaInspector.runtime().qualificationExistingSources());
-        String printed = sub.getFieldByName("handle", true).type()
-                .print(r.qualification(), false, javaInspector.runtime().diamondShowAll()).toString();
-        assertEquals("Handle", printed, "how the field's type is printed in b.Sub, which imports nothing from a");
-        // a nested printer -- the one that prints a record declared in b.Sub, say -- works on a level of its own
-        String nested = sub.getFieldByName("handle", true).type()
-                .print(new io.codelaser.maddi.cst.impl.output.QualificationImpl(r.qualification()), false,
-                        javaInspector.runtime().diamondShowAll()).toString();
-        assertEquals("Handle", nested, "how the field's type is printed one qualification level further in");
+        String printed = printExistingSources(parseResult, "b.Sub");
+        assertTrue(printed.contains("Handle handle;"), printed);
+        assertTrue(printed.contains("record R(Handle h)"), "the nested record, a level of its own: " + printed);
+        assertFalse(printed.contains("Base.Handle"), printed);
+    }
+
+    /**
+     * ⛔ FOUND REVIEWING #100. The bare name is in scope in the body of the INHERITING type only (JLS 8.5, 6.3),
+     * not in every type of the file. Here {@code Sub} inherits {@code Route} and {@code Other}, a second
+     * top-level type of the same file, does not: inside {@code Other} the name must stay {@code Base.Route},
+     * which resolves through the import of {@code a.Base}; a bare {@code Route} there is "cannot find symbol".
+     * #100 first marked the name in scope once for the whole file, and printed exactly that.
+     */
+    @Language("java")
+    private static final String SUB_AND_OTHER = """
+            package b;
+            import a.Base;
+            public class Sub extends Base {
+                Route route;
+            }
+            class Other {
+                Base.Route route;
+            }
+            """;
+
+    @Test
+    public void anInheritedMemberTypeKeepsItsQualifierInATypeThatDoesNotInherit() throws IOException {
+        ParseResult parseResult = init(Map.of("a.Base", BASE, "b.Sub", SUB_AND_OTHER));
+        String printed = printExistingSources(parseResult, "b.Sub");
+        int other = printed.indexOf("class Other");
+        assertTrue(other > 0, printed);
+        String sub = printed.substring(0, other);
+        assertTrue(sub.contains("Route route;") && !sub.contains("Base.Route"), "in Sub, which inherits it: " + printed);
+        assertTrue(printed.substring(other).contains("Base.Route route;"),
+                "in Other, which does not inherit it: " + printed);
     }
 }

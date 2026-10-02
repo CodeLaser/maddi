@@ -40,7 +40,9 @@ public class QualificationImpl implements Qualification {
     private final Set<MethodInfo> unqualifiedMethods = new HashSet<>();
     private final Set<This> unqualifiedThis = new HashSet<>();
     private final Set<TypeInfo> unqualifiedTypes = new HashSet<>();
-    // top level only: member types the file's class inherits from a supertype; see addInheritedIntoScope
+    // top level only: member types SOME type of the file inherits from a supertype; see addInheritedMemberType
+    private final Set<TypeInfo> inheritedMemberTypes = new HashSet<>();
+    // this level and the levels below it: the inherited member types in scope by their simple name
     private final Set<TypeInfo> inheritedIntoScope = new HashSet<>();
     private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
     private final Set<String> simpleTypeNames;
@@ -93,7 +95,9 @@ public class QualificationImpl implements Qualification {
         // in scope, is the only way to reference it
         if (typeInfo.enclosingMethod() != null) return TypeNameImpl.Required.SIMPLE;
         if (unqualifiedTypes.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
-        if (top.inheritedIntoScope.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
+        for (QualificationImpl level = this; level != null; level = level.parent) {
+            if (level.inheritedIntoScope.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
+        }
         TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
         if (r != null) {
             return r;
@@ -159,17 +163,34 @@ public class QualificationImpl implements Qualification {
     }
 
     /**
-     * A member type the file's class inherits from a supertype: in scope by its simple name throughout the class
-     * body, so printed that way at EVERY level, a nested printer's included. Unlike {@link #addUnqualifiedType},
-     * which holds for one level only.
+     * A member type that some type of the file inherits from a supertype, and that is therefore not imported.
+     * Recorded by the import computer, for the file; it changes nothing by itself. Whether the simple name may be
+     * PRINTED depends on where: see {@link #addInheritedIntoScope}.
+     */
+    public void addInheritedMemberType(TypeInfo typeInfo) {
+        top.inheritedMemberTypes.add(typeInfo);
+    }
+
+    public Set<TypeInfo> inheritedMemberTypes() {
+        return top.inheritedMemberTypes;
+    }
+
+    /**
+     * An inherited member type is in scope by its simple name in the body of the type that inherits it, and in
+     * the types nested in that body (JLS 8.5, 6.3) -- not in the rest of the file. The type printer marks it on
+     * the level of each type it prints that inherits it, directly or through an enclosing type; the mark holds on
+     * that level and on every level below it (method bodies), unlike {@link #addUnqualifiedType}, which holds for
+     * one level only.
      * <p>
      * ⛔ Found 2026-09-25 by split-method's generator in a class written {@code extends a.base.Base}, which imports
      * nothing from {@code a.base}: the helper's parameter printed {@code Widget}, but the record printed next to
-     * it -- a nested printer, a level of its own -- printed {@code Base.Widget}, and javac said "package Base does
-     * not exist".
+     * it printed {@code Base.Widget}, and javac said "package Base does not exist" (#100).
+     * <p>
+     * ⛔ NOT FOR THE WHOLE FILE. #100 first marked it once, at the top: a second top-level type of the same file
+     * that does not inherit it then printed the bare name as well, which is "cannot find symbol" there.
      */
     public void addInheritedIntoScope(TypeInfo typeInfo) {
-        top.inheritedIntoScope.add(typeInfo);
+        inheritedIntoScope.add(typeInfo);
     }
 
     // reserve a declared type's simple name so a referenced type with the same simple name (e.g. an imported
