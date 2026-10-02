@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.kotlin.api.ConstructorDelegation
 import io.codelaser.maddi.kotlin.api.KotlinSourceScan
 import io.codelaser.maddi.kotlin.api.KotlinParseObserver
+import org.jetbrains.kotlin.analysis.api.components.allOverriddenSymbols
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotated
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -2275,7 +2276,12 @@ class KotlinScan(
                 .filter { (it.symbol as? KaNamedFunctionSymbol)?.modality == KaSymbolModality.ABSTRACT }
                 .forEach { signature ->
                     val function = signature.symbol as KaNamedFunctionSymbol
-                    if (!present.add(function.name.asString() to function.valueParameters.size)) return@forEach
+                    // the JVM arity, as `present` counts the class's own methods: a `suspend` override is
+                    // `commit(Continuation)`, and by its value parameters alone it did not match (Exposed's
+                    // R2dbcTransaction got a second `commit`)
+                    val jvmArity = function.contextParameters.size + (if (function.receiverParameter != null) 1 else 0) +
+                        function.valueParameters.size + (if (function.isSuspend) 1 else 0)
+                    if (!present.add(function.name.asString() to jvmArity)) return@forEach
                     val method = convertMethodSignature(typeInfo, function, forwarder = true, signature = signature)
                     typeInfo.builder().addMethod(method)
                     forwardTo(method, typeInfo, delegate, method.name())
@@ -2377,7 +2383,14 @@ class KotlinScan(
             return if (substituted != null && declared is KaTypeParameterType && mapped.isPrimitiveExcludingVoid)
                 mapped.ensureBoxed(runtime) else mapped
         }
-        val returnType = forwarded(function.returnType, signature?.returnType)
+        val returnType = forwarded(function.returnType, signature?.returnType).let { declared ->
+            // an override returning a primitive where what it overrides does not (a type parameter, a nullable,
+            // `Any`): kotlinc returns it BOXED, with a bridge for the erased signature -- javap on Exposed:
+            // `java.lang.Short valueFromDB(Object)` in ShortColumnType : ColumnType<Short>
+            if (declared.isPrimitiveExcludingVoid && function.allOverriddenSymbols.any { overridden ->
+                    !mapType(overridden.returnType, owner, method).isPrimitiveExcludingVoid
+                }) declared.ensureBoxed(runtime) else declared
+        }
         // context parameters come first, then an extension function's receiver, then the value parameters (the JVM model)
         contextParameters(builder, function, owner, method, synthetic = false)
         function.receiverParameter?.let { receiver ->

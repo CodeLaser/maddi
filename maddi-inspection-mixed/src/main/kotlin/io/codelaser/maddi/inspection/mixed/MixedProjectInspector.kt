@@ -32,6 +32,8 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import javax.tools.Diagnostic
+import javax.tools.DiagnosticCollector
 import javax.tools.JavaFileObject
 import javax.tools.SimpleJavaFileObject
 import javax.tools.StandardLocation
@@ -230,8 +232,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         // otherwise complete. detekt is where that bit: all 31 source sets parsed, then the run aborted on
         // stub errors for a compilation that had no consumer.
         if (primaryKotlinTypes.isNotEmpty() && javaSets.isNotEmpty()) {
-            compileStubs(primaryKotlinTypes.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it) },
-                libraryRoots)
+            compileStubs(primaryKotlinTypes, object : JavaStubGenerator.StubHints {}, libraryRoots)
         }
         val (javaTypes, javaSummary) = parseJava(javaInspector)
         return Result(kotlinBySourceSet, javaTypes, runtime, javaInspector, javaSummary)
@@ -294,6 +295,10 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         val javaOnlyRoots = javaSets.filter { it.name() !in kotlinSetNames }.flatMap { it.sourceDirectories() }
         val javaSourceDirs = javaSets.flatMap { it.sourceDirectories() }.filter { Files.exists(it) }
         val kotlinByName = orderedKotlin.associateBy { it.name() }
+        // ⛔ the CONFIGURATION's sets: the interleave hands over the rebuilt Java set, whose dependencies kept only
+        // libraries and other Java-scanned sets. Walking those, a Kotlin-only upstream set was never converted, so
+        // a mixed set's stubs could not name its types (Exposed: exposed-maven-plugin on exposed-plugin-core).
+        val originalByName = sourceSets.associateBy { it.name() }
         val stubbed = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<TypeInfo, Boolean>())
 
         frontEnd.projectScan(javaInspector.runtime(), javaInspector.infoByFqn(), javaInspector.compiledTypesManager())
@@ -308,7 +313,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
                 }
                 javaInspector.setInterleave(object : SourceSetInterleave {
                     override fun beforeAttribution(sourceSet: SourceSet, sourceTypes: java.util.function.Function<String, TypeInfo>) {
-                        convertUpstream(sourceSet)
+                        convertUpstream(originalByName[sourceSet.name()] ?: sourceSet)
                         kotlinByName[sourceSet.name()]?.let { k -> kotlin.declare(k) { fqn -> sourceTypes.apply(fqn) } }
                         // every Kotlin type made so far that javac has no class file for yet
                         val fresh = kotlin.declaredTypes().filter { it.primaryType() === it && stubbed.add(it) }
@@ -318,8 +323,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
                                 override fun hasBody(method: MethodInfo) = !method.isAbstract
                                 override fun delegation(constructor: MethodInfo) = kotlin.delegationOf(constructor)
                             }
-                            compileStubs(fresh.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it, hints) },
-                                libraryRoots, javaSourceDirs)
+                            compileStubs(fresh, hints, libraryRoots, javaSourceDirs)
                         }
                     }
 
@@ -379,8 +383,184 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
      *        declaration names the Java types it takes and returns, which have no class file yet. `-implicit:none`,
      *        so javac reads them to resolve the stubs and writes nothing for them.
      */
-    private fun compileStubs(stubsByFqn: Map<String, String>, libraryRoots: List<Path>,
+    /**
+     * @param types the primary types to stub, each into its own source; [hints] as [JavaStubGenerator.stub] takes them.
+     *
+     * ⭐ A javac refusal of an override's RETURN type is answered, not reported: kotlinc compiles such an override
+     * with a bridge returning the overridden member's erasure, which a source stub cannot hold beside the declared
+     * one (see [JavaStubGenerator.StubHints.returnType]). The refused methods are re-stubbed with the method's own
+     * erasure -- or, where that is `Void` (Kotlin's `Nothing`) or a primitive, with the erasure javac asked for --
+     * and the set is compiled again. Every other error still fails the compilation. Exposed: 45 refusals of this
+     * one kind (`List<List<X>> arguments()` overriding `Iterable<Iterable<X>>`, `Nothing` for `List<String>`).
+     */
+    private fun compileStubs(types: List<TypeInfo>, hints: JavaStubGenerator.StubHints, libraryRoots: List<Path>,
                              javaSourceDirs: List<Path> = emptyList()) {
+        val bridged = HashMap<MethodInfo, String>()
+        // per type, the forwarders kotlinc adds for a DefaultImpls interface: "name/arity" -> [return, parameters]
+        val forwarders = HashMap<TypeInfo, LinkedHashMap<String, Array<String>>>()
+        val withBridges = object : JavaStubGenerator.StubHints by hints {
+            override fun returnType(method: MethodInfo): String? = bridged[method] ?: hints.returnType(method)
+            override fun extraMethods(type: TypeInfo): List<String> = hints.extraMethods(type) +
+                    forwarders[type].orEmpty().map { (key, rp) ->
+                        "public ${rp[2]}${rp[0]} ${key.substringBefore('/')}(${rp[1]}) { throw new RuntimeException(\"stub\"); }"
+                    }
+        }
+        // the interfaces kotlinc forwards for are compiled library ones: their exact generic signatures are read here
+        val libraries = java.net.URLClassLoader(libraryRoots.map { it.toUri().toURL() }.toTypedArray(),
+            ClassLoader.getPlatformClassLoader())
+        try {
+            compileStubRounds(types, withBridges, bridged, forwarders, libraries, libraryRoots, javaSourceDirs)
+        } finally {
+            libraries.close()
+        }
+    }
+
+    private fun compileStubRounds(types: List<TypeInfo>, withBridges: JavaStubGenerator.StubHints,
+                                  bridged: HashMap<MethodInfo, String>,
+                                  forwarders: HashMap<TypeInfo, LinkedHashMap<String, Array<String>>>,
+                                  libraries: ClassLoader, libraryRoots: List<Path>, javaSourceDirs: List<Path>) {
+        val nested = types.flatMap { it.recursiveSubTypeStream().toList() }.associateBy { it.fullyQualifiedName() }
+        repeat(STUB_ROUNDS) {
+            val stubsByFqn = types.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it, withBridges) }
+            val diagnostics = DiagnosticCollector<JavaFileObject>()
+            if (compileStubsOnce(stubsByFqn, libraryRoots, javaSourceDirs, diagnostics)) return
+            val errors = diagnostics.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }
+            var progress = false
+            errors.filter { it.code == "compiler.err.override.incompatible.ret" }.forEach { d ->
+                val methods = refusedMethods(d, stubsByFqn, types)
+                methods.filter { it !in bridged }.forEach { bridged[it] = bridgeReturn(d, it); progress = true }
+                if (methods.isEmpty()) forwarderOnLine(d, stubsByFqn, nested, forwarders)?.let { rp ->
+                    REQUIRED_RETURN.find(d.getMessage(java.util.Locale.ROOT))?.groupValues?.get(1)?.trim()
+                        ?.let(::erase)?.takeIf { it != rp[0] }?.let { rp[0] = it; progress = true }
+                }
+            }
+            // a missing implementation only counts once no return was refused: a refused override does not implement
+            if (!progress) errors.filter { it.code == "compiler.err.does.not.override.abstract" }.forEach { d ->
+                val m = MISSING_ABSTRACT.find(d.getMessage(java.util.Locale.ROOT)) ?: return@forEach
+                val type = nested[m.groupValues[1]] ?: return@forEach
+                val parameters = splitTopLevel(m.groupValues[3]).map(::erase)
+                val key = m.groupValues[2] + "/" + parameters.size
+                val map = forwarders.getOrPut(type) { LinkedHashMap() }
+                if (key !in map) {
+                    map[key] = librarySignature(libraries, m.groupValues[4], m.groupValues[2], parameters.size)
+                        ?: arrayOf("java.lang.Object", parameters.withIndex().joinToString(", ") { (i, t) -> "$t p$i" }, "")
+                    progress = true
+                }
+            }
+            if (!progress || errors.any { it.code !in BRIDGEABLE }) failStubs(stubsByFqn, diagnostics)
+        }
+        val stubsByFqn = types.associate { it.fullyQualifiedName() to JavaStubGenerator.stub(it, withBridges) }
+        val diagnostics = DiagnosticCollector<JavaFileObject>()
+        if (!compileStubsOnce(stubsByFqn, libraryRoots, javaSourceDirs, diagnostics)) failStubs(stubsByFqn, diagnostics)
+    }
+
+    /** The methods a diagnostic's stub line declares: its type's (or a nested type's) methods of that name and arity. */
+    private fun refusedMethods(d: Diagnostic<out JavaFileObject>, stubsByFqn: Map<String, String>,
+                               types: List<TypeInfo>): List<MethodInfo> {
+        val fqn = d.source?.toUri()?.schemeSpecificPart?.removePrefix("///")?.removeSuffix(".java")?.replace('/', '.')
+            ?: return emptyList()
+        val line = stubsByFqn[fqn]?.lines()?.getOrNull(d.lineNumber.toInt() - 1) ?: return emptyList()
+        val match = STUB_METHOD.find(line) ?: return emptyList()
+        val name = match.groupValues[1]
+        val arity = Regex(" p\\d+\\b").findAll(match.groupValues[2]).count()
+        val type = types.firstOrNull { it.fullyQualifiedName() == fqn } ?: return emptyList()
+        return type.recursiveSubTypeStream().toList().flatMap { it.methods() }
+            .filter { it.name() == name && it.parameters().size == arity }
+    }
+
+    /** The forwarder [d]'s line declares, when it is one we added rather than a CST method. */
+    private fun forwarderOnLine(d: Diagnostic<out JavaFileObject>, stubsByFqn: Map<String, String>,
+                                nested: Map<String, TypeInfo>,
+                                forwarders: Map<TypeInfo, LinkedHashMap<String, Array<String>>>): Array<String>? {
+        val fqn = d.source?.toUri()?.schemeSpecificPart?.removePrefix("///")?.removeSuffix(".java")?.replace('/', '.')
+            ?: return null
+        val line = stubsByFqn[fqn]?.lines()?.getOrNull(d.lineNumber.toInt() - 1) ?: return null
+        val match = STUB_METHOD.find(line) ?: return null
+        val key = match.groupValues[1] + "/" + Regex(" p\\d+\\b").findAll(match.groupValues[2]).count()
+        return forwarders.entries.firstOrNull { (t, map) ->
+            (t.fullyQualifiedName() == fqn || t.fullyQualifiedName().startsWith("$fqn.")) && key in map
+        }?.value?.get(key)
+    }
+
+    /**
+     * [interfaceName]'s method [name] of [arity] as Java source -- [return, parameters, type parameters] -- read off
+     * the library class: `<E extends kotlin.coroutines.CoroutineContext.Element> E get(Key<E>)` cannot be written from
+     * javac's message, which prints `<E>get(Key<E>)` without the bound. Null when the class is not a library's.
+     */
+    private fun librarySignature(libraries: ClassLoader, interfaceName: String, name: String, arity: Int): Array<String>? {
+        val parts = interfaceName.split('.')
+        val type = (parts.size - 1 downTo 1).firstNotNullOfOrNull { i ->
+            runCatching {
+                Class.forName(parts.take(i).joinToString(".") + "$" + parts.drop(i).joinToString("$"), false, libraries)
+            }.getOrNull()
+        } ?: runCatching { Class.forName(interfaceName, false, libraries) }.getOrNull() ?: return null
+        val method = type.methods.firstOrNull { it.name == name && it.parameterCount == arity } ?: return null
+        fun java(t: java.lang.reflect.Type) = t.typeName.replace('$', '.')
+        val typeParameters = method.typeParameters.takeIf { it.isNotEmpty() }?.joinToString(", ", "<", "> ") { tv ->
+            tv.name + tv.bounds.filter { it != Any::class.java }.takeIf { it.isNotEmpty() }
+                ?.joinToString(" & ", " extends ") { java(it) }.orEmpty()
+        } ?: ""
+        return arrayOf(java(method.genericReturnType),
+            method.genericParameterTypes.withIndex().joinToString(", ") { (i, t) -> "${java(t)} p$i" }, typeParameters)
+    }
+
+    /** A Java type as javac prints it, erased: no type arguments; a type variable (no package) is Object. */
+    private fun erase(type: String): String {
+        var depth = 0
+        val sb = StringBuilder()
+        type.trim().removePrefix("? extends ").forEach { c ->
+            when (c) {
+                '<' -> depth++
+                '>' -> depth--
+                else -> if (depth == 0) sb.append(c)
+            }
+        }
+        val erased = sb.toString().replace("...", "[]")
+        val base = erased.substringBefore('[')
+        return if ('.' in base || base in PRIMITIVES) erased else "java.lang.Object" + erased.substring(base.length)
+    }
+
+    private fun splitTopLevel(parameters: String): List<String> {
+        if (parameters.isBlank()) return emptyList()
+        val parts = mutableListOf<String>()
+        var depth = 0
+        var start = 0
+        parameters.forEachIndexed { i, c ->
+            when (c) {
+                '<' -> depth++
+                '>' -> depth--
+                ',' -> if (depth == 0) { parts += parameters.substring(start, i); start = i + 1 }
+            }
+        }
+        parts += parameters.substring(start)
+        return parts.map { it.trim() }
+    }
+
+    /** The method's own erasure; where that cannot override anything (`Void`, a primitive), the erasure javac asked for. */
+    private fun bridgeReturn(d: Diagnostic<out JavaFileObject>, m: MethodInfo): String {
+        val own = m.returnType()
+        val ownErasure = (own.typeParameter()?.let { "java.lang.Object" } ?: own.typeInfo()?.fullyQualifiedName()
+            ?: "java.lang.Object") + "[]".repeat(own.arrays())
+        if (own.arrays() > 0 || !(own.isPrimitiveExcludingVoid || ownErasure == "java.lang.Void")) return ownErasure
+        val required = REQUIRED_RETURN.find(d.getMessage(java.util.Locale.ROOT))?.groupValues?.get(1)?.trim()
+        return required?.let(::erase) ?: ownErasure
+    }
+
+    private fun failStubs(stubsByFqn: Map<String, String>, diagnostics: DiagnosticCollector<JavaFileObject>): Nothing {
+        diagnostics.diagnostics.filter { it.kind == Diagnostic.Kind.ERROR }.forEach { System.err.println(it) }
+        // the diagnostics name `/p/K.java` lines of sources that exist only in memory: keep them where the
+        // lines can be read
+        val kept = Files.createTempDirectory("mixed-stub-sources")
+        stubsByFqn.forEach { (fqn, code) ->
+            val file = kept.resolve(fqn.replace('.', '/') + ".java")
+            Files.createDirectories(file.parent)
+            Files.writeString(file, code)
+        }
+        error("stub compilation failed; the stub sources are in $kept")
+    }
+
+    private fun compileStubsOnce(stubsByFqn: Map<String, String>, libraryRoots: List<Path>, javaSourceDirs: List<Path>,
+                                 diagnostics: DiagnosticCollector<JavaFileObject>): Boolean {
         val compiler = ToolProvider.getSystemJavaCompiler()
         compiler.getStandardFileManager(null, null, null).use { fm ->
             fm.setLocation(StandardLocation.CLASS_OUTPUT, listOf(stubDir.toFile()))
@@ -389,17 +569,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
             if (javaSourceDirs.isNotEmpty()) fm.setLocation(StandardLocation.SOURCE_PATH, javaSourceDirs.map { it.toFile() })
             val files = stubsByFqn.map { (fqn, code) -> inMemorySource(fqn, code) }
             val options = if (javaSourceDirs.isEmpty()) null else listOf("-implicit:none", "-proc:none")
-            if (!compiler.getTask(null, fm, null, options, null, files).call()) {
-                // the diagnostics name `/p/K.java` lines of sources that exist only in memory: keep them where the
-                // lines can be read
-                val kept = Files.createTempDirectory("mixed-stub-sources")
-                stubsByFqn.forEach { (fqn, code) ->
-                    val file = kept.resolve(fqn.replace('.', '/') + ".java")
-                    Files.createDirectories(file.parent)
-                    Files.writeString(file, code)
-                }
-                error("stub compilation failed; the stub sources are in $kept")
-            }
+            return compiler.getTask(null, fm, diagnostics, options, null, files).call()
         }
     }
 
@@ -410,3 +580,25 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
             override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence = code
         }
 }
+
+/**
+ * How often [MixedProjectInspector] re-stubs before giving up. javac names ONE missing implementation per class per
+ * round (`minusKey`, then `get`, then `fold`), and a forwarder's `Object` return may be refused once more; a round
+ * without progress fails at once.
+ */
+private const val STUB_ROUNDS = 12
+
+/** The refusal it answers, and the consequence that disappears with it (the refused override did not count). */
+private val BRIDGEABLE = setOf("compiler.err.override.incompatible.ret", "compiler.err.does.not.override.abstract")
+
+/** A stub method line: `public [static] [abstract] [default] [<T>] R name(T p0, U p1) ...`. */
+private val STUB_METHOD = Regex("""([A-Za-z_$][\w$]*)\(([^)]*)\)\s*(\{|;|throws)""")
+
+/** javac's "return type X is not compatible with Y", in the ROOT locale. */
+private val REQUIRED_RETURN = Regex("""is not compatible with ([^\n]+)""")
+
+/** javac's "C is not abstract and does not override abstract method [<R>]m(P) in I", in the ROOT locale. */
+private val MISSING_ABSTRACT = Regex("""^(\S+) is not abstract and does not override abstract method (?:<[^(]*>)?([\w$]+)\((.*)\) in (\S+)""")
+
+// `void` too: a `Nothing` override of a `Unit` member is bridged by `void` (javap on Exposed's BatchUpdateStatement)
+private val PRIMITIVES = setOf("int", "long", "short", "byte", "char", "boolean", "float", "double", "void")

@@ -1608,7 +1608,7 @@ internal class KotlinBodyConverter(
         val arrayType = call.expressionType?.let { mapType(it, method.typeInfo()) }?.takeIf { it.arrays() > 0 } ?: return null
 
         val newArray = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
-            .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+            .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
             .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(convertExpression(sizeExpression, method, locals)))
             .build()
         val array = runtime.newLocalVariable(name, arrayType, newArray)
@@ -2211,7 +2211,7 @@ internal class KotlinBodyConverter(
         val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource()).setCommonType(element)
             .setExpressions(arguments.subList(index, index + packedCount)).build()
         val array = runtime.newConstructorCallBuilder().setSource(runtime.noSource())
-            .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+            .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
             .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newEmptyExpression()))
             .setArrayInitializer(initializer).build()
         return arguments.subList(0, index) + array + arguments.subList(index + packedCount, arguments.size)
@@ -3603,7 +3603,7 @@ internal class KotlinBodyConverter(
             if (arguments.size != 1) return placeholder("k2-array-constructor-with-init", call)
             return runtime.newConstructorCallBuilder()
                 .setSource(runtime.noSource())
-                .setConstructor(runtime.newArrayCreationConstructor(type))
+                .setConstructor(arrayCreationConstructor(type))
                 .setConcreteReturnType(type)
                 .setDiamond(runtime.diamondNo())
                 .setParameterExpressions(arguments)
@@ -4187,7 +4187,7 @@ internal class KotlinBodyConverter(
         // `arrayOfNulls<T>(n)` is `new T[n]`
         if (id.callableName.asString() == "arrayOfNulls" && arguments.size == 1) {
             return runtime.newConstructorCallBuilder().setSource(runtime.noSource())
-                .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
                 .setDiamond(runtime.diamondNo()).setParameterExpressions(arguments).build()
         }
         if (id.callableName.asString() !in ARRAY_LITERALS || call.valueArguments.any { it.getSpreadElement() != null }) return null
@@ -4195,7 +4195,7 @@ internal class KotlinBodyConverter(
             .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1)).setExpressions(arguments).build()
         return runtime.newConstructorCallBuilder()
             .setSource(runtime.noSource())
-            .setConstructor(runtime.newArrayCreationConstructor(arrayType))
+            .setConstructor(arrayCreationConstructor(arrayType))
             .setConcreteReturnType(arrayType)
             .setDiamond(runtime.diamondNo())
             .setParameterExpressions(listOf(runtime.newEmptyExpression()))
@@ -4362,7 +4362,7 @@ internal class KotlinBodyConverter(
                     val initializer = runtime.newArrayInitializerBuilder().setSource(runtime.noSource())
                         .setCommonType(arrayType.copyWithArrays(arrayType.arrays() - 1)).setExpressions(converted).build()
                     listOf(runtime.newConstructorCallBuilder().setSource(runtime.noSource())
-                        .setConstructor(runtime.newArrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                        .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
                         .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newEmptyExpression()))
                         .setArrayInitializer(initializer).build())
                 }
@@ -4944,7 +4944,7 @@ internal class KotlinBodyConverter(
             (receiver?.first ?: implicitExtensionReceiver(call, method, locals))?.let { recv ->
                 val valueArguments = arguments.drop(contexts.size)
                 extensionCall(name, recv, contexts, valueArguments, calleeSymbol, call, method, defaults)?.let { return it }
-                if (defaults == null) memberExtensionCall(call, name, recv, contexts, valueArguments, method, locals)?.let { return it }
+                memberExtensionCall(call, name, recv, contexts, valueArguments, method, locals, defaults)?.let { return it }
             }
         }
         // a companion call `Outer.member(args)` routes through the singleton: `Outer.Companion.member(args)`
@@ -5188,6 +5188,22 @@ internal class KotlinBodyConverter(
     }
 
     /**
+     * `new E[]` for an array of [arrayType]. The constructor belongs to the element's type, and a type parameter has
+     * none: a packed `vararg xs: T` (Exposed's generic builders), `arrayOf<T>(…)` and `arrayOfNulls<T>(n)` threw a
+     * NullPointerException in the CST factory. On the JVM that array IS the erasure -- javac creates `Object[]` for a
+     * `T...` call -- so the constructor is the erasure's: the leftmost bound, else Object. The expression keeps
+     * [arrayType] as its concrete type.
+     */
+    private fun arrayCreationConstructor(arrayType: ParameterizedType): MethodInfo =
+        runtime.newArrayCreationConstructor(erasedElement(arrayType).copyWithArrays(arrayType.arrays()))
+
+    private fun erasedElement(type: ParameterizedType): ParameterizedType {
+        if (type.typeInfo() != null) return type
+        val bound = type.typeParameter()?.typeBounds()?.firstOrNull()?.let { erasedElement(it) }
+        return (bound?.takeIf { it.typeInfo() != null } ?: runtime.objectParameterizedType()).copyWithArrays(0)
+    }
+
+    /**
      * Build an extension-function call as a static call on the file facade with the receiver as argument 0
      * (the JVM shape): `recv.ext(args)` → `<File>Kt.ext(recv, args)`. A library extension has no source facade;
      * its JVM one is loaded from the class path, as a top-level library function's is. Returns null when neither
@@ -5196,6 +5212,10 @@ internal class KotlinBodyConverter(
     private fun KaSession.extensionCall(name: String, receiverExpr: Expression, contexts: List<Expression>,
                                         arguments: List<Expression>, symbol: KaNamedFunctionSymbol,
                                         call: KtCallExpression, method: MethodInfo, defaults: MethodInfo?): Expression? {
+        // ⛔ a MEMBER extension is never a facade static, even when its file HAS a facade: Exposed's Expression.kt
+        // declares QueryBuilder's member `Iterable<T>.appendTo` beside a top-level `appendTo`, and the member's
+        // `$default` was called on `ExpressionKt` -- an instance method on a type expression. [memberExtensionCall]
+        if (symbol.containingDeclaration is KaClassSymbol) return null
         val facade = extensionFacade(symbol) ?: with(typeMapper) { loadLibraryFacadeFor(symbol) } ?: return null
         val facadeArgs = contexts + listOf(receiverExpr) + arguments
         val callee = defaults ?: resolveCallee(facade, name, facadeArgs, callReturnFqn(call, method)) ?: return null
@@ -5221,7 +5241,8 @@ internal class KotlinBodyConverter(
     @OptIn(KaExperimentalApi::class)
     private fun KaSession.memberExtensionCall(call: KtCallExpression, name: String, receiverExpr: Expression,
                                               contexts: List<Expression>, arguments: List<Expression>,
-                                              method: MethodInfo, locals: Map<String, Variable>): Expression? {
+                                              method: MethodInfo, locals: Map<String, Variable>,
+                                              defaults: MethodInfo? = null): Expression? {
         val dispatch = call.resolveToCall()?.singleFunctionCallOrNull()?.partiallyAppliedSymbol?.dispatchReceiver
             ?: return null
         // a member extension of an `object` or companion, called from outside it through an import (okio's
@@ -5231,7 +5252,8 @@ internal class KotlinBodyConverter(
             ?: implicitReceiverValue(dispatch, method, locals)?.let { o -> receiverLookupType(dispatch, o, method)?.let { o to it } }
             ?: return null
         val memberArgs = contexts + listOf(receiverExpr) + arguments
-        val callee = resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
+        // an omitted argument: the member's own `$default`, an instance method of the same type, as a member call's is
+        val callee = defaults ?: resolveCallee(type, name, memberArgs, callReturnFqn(call, method)) ?: return null
         return runtime.newMethodCallBuilder()
             .setObject(obj).setObjectIsImplicit(singleton == null)
             .setMethodInfo(callee).setParameterExpressions(memberArgs)

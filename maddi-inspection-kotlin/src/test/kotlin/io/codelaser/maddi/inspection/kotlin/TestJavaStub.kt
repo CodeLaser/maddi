@@ -68,6 +68,39 @@ class TestJavaStub {
                 errors.joinToString("\n"))
     }
 
+    /**
+     * A `vararg` that is NOT the last parameter is a plain array on the JVM (kotlinc marks only a trailing one
+     * ACC_VARARGS), and `T...` anywhere but last does not compile: Exposed's
+     * `fun create(vararg tables: Table, inBatch: Boolean = false)` failed the mixed parse's stub compilation 108 times
+     * with "varargs parameter must be the last parameter". A trailing one stays `T...`, so Java can pass elements.
+     */
+    @Test
+    fun onlyATrailingVarargIsJavaVarargs() {
+        val runtime = RuntimeImpl()
+        val sourceSet = SourceSetImpl.Builder().setName("k").setUri(URI.create("file:/")).build()
+        val schema = KotlinScan(runtime, sourceSet).parse(
+            "Schema.kt",
+            "package a.b\n" +
+                "class Schema {\n" +
+                "    fun create(vararg tables: String, inBatch: Boolean): Int = tables.size\n" +
+                "    fun drop(vararg tables: String): Int = tables.size\n" +
+                "}\n"
+        ).first { it.simpleName() == "Schema" }
+
+        val stub = JavaStubGenerator.stub(schema)
+
+        val use = """
+            package a.b;
+            public class UseSchema {
+                public int create(Schema s) { return s.create(new String[]{"a", "b"}, true); }
+                public int drop(Schema s) { return s.drop("a", "b"); }
+            }
+        """.trimIndent()
+
+        val errors = attribute(mapOf("a.b.Schema" to stub, "a.b.UseSchema" to use))
+        assertTrue(errors.isEmpty(), "--- stub ---\n$stub\n--- errors ---\n" + errors.joinToString("\n"))
+    }
+
     /** Parse + attribute (no code generation) the given sources together; return ERROR diagnostics. */
     private fun attribute(sourcesByFqn: Map<String, String>): List<String> {
         val compiler = ToolProvider.getSystemJavaCompiler()
