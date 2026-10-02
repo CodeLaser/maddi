@@ -561,3 +561,28 @@ only), and the CLI launchers into mod, which 3a had left broken.
   Not covered pinned: maddi-dist's dogfood `slowTest` (it needs the included maddi build).
 - The default stays from source. Flipping it is the user's decision, after the refactor side is split and
   its census and ratchet workflows are re-pointed.
+
+### Pinning — the jfocus side pinned by default (2026-09-30)
+
+- maddi and maddi-mod are at 0.9.2; every jfocus build pins `maddiVersion=0.9.2` (maddi) and
+  `maddiModVersion=0.9.2` (maddi-mod), two properties since the split. The pinned jars come from each
+  machine's `~/.m2`: publish them with `./gradlew publishToMavenLocal` in maddi, then in maddi-mod, at
+  the commit the pin names — on every machine that builds the jfocus side, the gate's included.
+- The switch lives once, in gradle-conventions: the settings plugin `jfocus-maddi-source`, applied by
+  every jfocus build (each module is its own build, and a repository does not reach included builds).
+  Pinned, it adds `~/.m2` (or `-PmaddiRepo=<url>`) as the EXCLUSIVE source of maddi's coordinates.
+  `-PmaddiFromSource=true` includes `../maddi` and `../maddi-mod` instead, through `includeMaddiBuild`.
+- That function is not spelled `includeBuild` on purpose: `ws rdeps` reads the include graph from the
+  settings text, and a pinned dependency is not an edge. Now a maddi change retests maddi, maddi-mod and
+  maddi-dist; a maddi-mod change, maddi-mod and maddi-dist; the jfocus repos retest when the pin moves.
+- maddi-mod and maddi-dist still default to from source: their own switch (stage 6) is unchanged.
+- Proven on ws/split: the server and service composites compile pinned (resolving the 0.9.2 jars, not the
+  projects) and from source; the five other repo composites configure both ways; 1,274 jfocus tests pass
+  pinned (graalpy, metrics-dataflow, stdbase-parser, transform-common, standardize-encoder, refactor-impl).
+
+- **Moved to 0.9.3 (2026-10-01)**: maddi devel's fixes of that day (an unresolved unqualified call is an
+  unresolved symbol; abandoned types) cured jfocus's `TestGuavaStress`. maddi and maddi-mod 0.9.3 published to
+  `~/.m2`; the jfocus pins moved with gradle-conventions' `pinMaddi` task, run at each repository's root:
+  `./gradlew pinMaddi -PtoMaddi=0.9.3 -PtoMaddiMod=0.9.3` (only the two pin lines of every gradle.properties
+  change). ⚠ Done by hand, before `release-maddi` exists (jfocus-devops `gate/RELEASE-MADDI.md`, design only):
+  no gate record, no `-alpha.N`.
