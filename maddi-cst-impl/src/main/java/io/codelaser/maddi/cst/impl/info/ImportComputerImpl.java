@@ -227,10 +227,16 @@ public class ImportComputerImpl implements ImportComputer {
             // plus a bare 'Helpers'). A caller that pastes verbatim text the computer cannot read, as the
             // isolators do, adds such a type explicitly and does get the import.
             boolean sameUnit = ti.primaryType().compilationUnit() == compilationUnit;
+            boolean inherited = inheritedIntoScope(compilationUnit, ti);
+            // ⛔ NOT IMPORTED, SO PRINTED BY ITS SIMPLE NAME. Left alone, the printer renders an unimported nested
+            // type down its declaring chain, 'Base.Handle', and that resolves only when 'Base' does: in a class
+            // written 'extends a.Base' with no import of it, javac says "package Base does not exist". Found
+            // 2026-09-25 by split-method's generator, writing a helper parameter of an inherited protected type.
+            if (inherited) qualification.addInheritedIntoScope(ti);
             boolean inScopeWithoutImport = sameUnit
                                            || myPackage.equals(packageName)
                                               && (ti.isPrimaryType() || !extra.contains(ti))
-                                           || inheritedIntoScope(compilationUnit, ti);
+                                           || inherited;
             if (packageName != null && !inScopeWithoutImport && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);

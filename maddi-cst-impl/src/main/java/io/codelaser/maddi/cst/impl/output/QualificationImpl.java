@@ -40,6 +40,8 @@ public class QualificationImpl implements Qualification {
     private final Set<MethodInfo> unqualifiedMethods = new HashSet<>();
     private final Set<This> unqualifiedThis = new HashSet<>();
     private final Set<TypeInfo> unqualifiedTypes = new HashSet<>();
+    // top level only: member types the file's class inherits from a supertype; see addInheritedIntoScope
+    private final Set<TypeInfo> inheritedIntoScope = new HashSet<>();
     private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
     private final Set<String> simpleTypeNames;
     // simple names declared in this compilation unit; used only to block conflicting imports (a referenced type with
@@ -91,6 +93,7 @@ public class QualificationImpl implements Qualification {
         // in scope, is the only way to reference it
         if (typeInfo.enclosingMethod() != null) return TypeNameImpl.Required.SIMPLE;
         if (unqualifiedTypes.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
+        if (top.inheritedIntoScope.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
         TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
         if (r != null) {
             return r;
@@ -153,6 +156,20 @@ public class QualificationImpl implements Qualification {
     @Override
     public void addUnqualifiedType(TypeInfo typeInfo) {
         unqualifiedTypes.add(typeInfo);
+    }
+
+    /**
+     * A member type the file's class inherits from a supertype: in scope by its simple name throughout the class
+     * body, so printed that way at EVERY level, a nested printer's included. Unlike {@link #addUnqualifiedType},
+     * which holds for one level only.
+     * <p>
+     * ⛔ Found 2026-09-25 by split-method's generator in a class written {@code extends a.base.Base}, which imports
+     * nothing from {@code a.base}: the helper's parameter printed {@code Widget}, but the record printed next to
+     * it -- a nested printer, a level of its own -- printed {@code Base.Widget}, and javac said "package Base does
+     * not exist".
+     */
+    public void addInheritedIntoScope(TypeInfo typeInfo) {
+        top.inheritedIntoScope.add(typeInfo);
     }
 
     // reserve a declared type's simple name so a referenced type with the same simple name (e.g. an imported

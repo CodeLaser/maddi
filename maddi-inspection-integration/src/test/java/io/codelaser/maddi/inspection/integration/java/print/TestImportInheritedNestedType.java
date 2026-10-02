@@ -183,4 +183,37 @@ public class TestImportInheritedNestedType extends CommonTest2 {
         String imports = importsOf(parseResult, "b.Bound");
         assertEquals("a.Base, a.Base.Route", imports);
     }
+
+    /**
+     * ⛔ FOUND BY THE SPLIT-SEARCH ENGINE, 2026-09-25. A class that names its superclass fully qualified,
+     * {@code extends a.Base}, imports nothing from {@code a}. The inherited member type was correctly left
+     * unimported, but was then PRINTED down its declaring chain, {@code Base.Handle}, and {@code Base} does not
+     * resolve in that file: javac says "package Base does not exist". Split-method's generator hit it writing a
+     * helper parameter and a record component of the inherited type. Inside the body the bare name resolves,
+     * so that is what must be printed.
+     */
+    @Language("java")
+    private static final String SUB_WITHOUT_IMPORT = """
+            package b;
+            public class Sub extends a.Base {
+                Handle handle;
+            }
+            """;
+
+    @Test
+    public void anInheritedMemberTypeIsPrintedByItsSimpleName() throws IOException {
+        ParseResult parseResult = init(Map.of("a.Base", BASE, "b.Sub", SUB_WITHOUT_IMPORT));
+        TypeInfo sub = parseResult.findType("b.Sub");
+        ImportComputer importComputer = javaInspector.importComputer(4, sub.compilationUnit().sourceSet());
+        ImportComputer.Result r = importComputer.go(sub.compilationUnit(),
+                javaInspector.runtime().qualificationExistingSources());
+        String printed = sub.getFieldByName("handle", true).type()
+                .print(r.qualification(), false, javaInspector.runtime().diamondShowAll()).toString();
+        assertEquals("Handle", printed, "how the field's type is printed in b.Sub, which imports nothing from a");
+        // a nested printer -- the one that prints a record declared in b.Sub, say -- works on a level of its own
+        String nested = sub.getFieldByName("handle", true).type()
+                .print(new io.codelaser.maddi.cst.impl.output.QualificationImpl(r.qualification()), false,
+                        javaInspector.runtime().diamondShowAll()).toString();
+        assertEquals("Handle", nested, "how the field's type is printed one qualification level further in");
+    }
 }
