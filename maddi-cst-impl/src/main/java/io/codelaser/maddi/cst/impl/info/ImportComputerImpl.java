@@ -117,6 +117,17 @@ public class ImportComputerImpl implements ImportComputer {
         return typesOfUnit.stream().noneMatch(t -> namedInHeader(t, ti) && !nestedInAnInheritor(t, declaring));
     }
 
+    /**
+     * Is the member type {@code memberType} in scope by its simple name in the body of {@code t}? Yes when
+     * {@code t}, or a type enclosing it, inherits it from the type that declares it.
+     */
+    static boolean inScopeInBodyOf(TypeInfo t, TypeInfo memberType) {
+        var enclosing = memberType.compilationUnitOrEnclosingType();
+        if (enclosing.isLeft()) return false;
+        TypeInfo declaring = enclosing.getRight();
+        return inherits(t, declaring) || nestedInAnInheritor(t, declaring);
+    }
+
     private static boolean inherits(TypeInfo t, TypeInfo declaring) {
         return t.superTypesExcludingJavaLangObject().contains(declaring);
     }
@@ -227,10 +238,18 @@ public class ImportComputerImpl implements ImportComputer {
             // plus a bare 'Helpers'). A caller that pastes verbatim text the computer cannot read, as the
             // isolators do, adds such a type explicitly and does get the import.
             boolean sameUnit = ti.primaryType().compilationUnit() == compilationUnit;
+            boolean inherited = inheritedIntoScope(compilationUnit, ti);
+            // ⛔ NOT IMPORTED, SO PRINTED BY ITS SIMPLE NAME -- inside the types that inherit it. Left alone, the
+            // printer renders an unimported nested type down its declaring chain, 'Base.Handle', and that resolves
+            // only when 'Base' does: in a class written 'extends a.Base' with no import of it, javac says "package
+            // Base does not exist". Found 2026-09-25 by split-method's generator, writing a helper parameter of an
+            // inherited protected type. Recorded for the file here; the type printer marks it in scope per type
+            // (inScopeInBodyOf), because another type of the same file need not inherit it.
+            if (inherited) qualification.addInheritedMemberType(ti);
             boolean inScopeWithoutImport = sameUnit
                                            || myPackage.equals(packageName)
                                               && (ti.isPrimaryType() || !extra.contains(ti))
-                                           || inheritedIntoScope(compilationUnit, ti);
+                                           || inherited;
             if (packageName != null && !inScopeWithoutImport && !doNotImport.contains(ti)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
                 LOGGER.debug("Do import of {}? {}", ti, doImport);

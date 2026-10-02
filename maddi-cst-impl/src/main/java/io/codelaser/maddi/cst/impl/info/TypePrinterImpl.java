@@ -49,6 +49,16 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         }
     }
 
+    // the member types this type inherits, directly or through an enclosing type, are in scope by their simple name
+    // in its body -- and only there, not in the other types of the file (see QualificationImpl.addInheritedIntoScope)
+    private static void addInheritedMemberTypesToQualification(TypeInfo typeInfo, Qualification insideType) {
+        if (insideType instanceof QualificationImpl qi) {
+            qi.inheritedMemberTypes().stream()
+                    .filter(memberType -> ImportComputerImpl.inScopeInBodyOf(typeInfo, memberType))
+                    .forEach(qi::addInheritedIntoScope);
+        }
+    }
+
     private static void addMethodsToQualification(TypeInfo typeInfo, Qualification qualification) {
         typeInfo.methods().forEach(qualification::addMethodUnlessOverride);
         if (!typeInfo.isJavaLangObject()) {
@@ -79,6 +89,7 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         typeInfo.fields().forEach(insideType::addField);
         addMethodsToQualification(typeInfo, insideType);
         addThisToQualification(typeInfo, insideType);
+        addInheritedMemberTypesToQualification(typeInfo, insideType);
 
         boolean isRecord = typeInfo.typeNature().isRecord();
         OutputBuilder afterAnnotations = new OutputBuilderImpl();
