@@ -14,7 +14,6 @@
 
 package io.codelaser.maddi.inspection.openjdk;
 
-import lombok.Data;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -34,7 +33,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static io.codelaser.maddi.inspection.resource.SourceSetImpl.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,9 +51,9 @@ public class TestLombok {
     public void before() throws IOException {
         javaInspector = new JavaInspectorImpl();
         SourceSet javaBase = SourceSetImpl.javaBase();
-        // the lombok-*.jar (resolved from lombok.Data's code source) goes on the parsed classpath, so javac can both
-        // resolve the @Data/@Getter annotations and load the annotation processor from it
-        SourceSet lombok = sourceSetOf(Data.class, javaBase);
+        // the lombok-*.jar goes on the parsed classpath (and only there, see LombokJar), so javac both resolves the
+        // @Data/@Getter annotations and loads the annotation processor from it
+        SourceSet lombok = LombokJar.sourceSet(javaBase);
         sourceSet = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "1").setUri(URI.create("file:/"))
                 .setDependencies(List.of(javaBase, lombok)).build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
