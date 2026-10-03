@@ -23,10 +23,16 @@ source:
   patches: [patches/pulsar/lombok-1.18.48-builder.patch]
 
 build:
-  # ⛔ -PskipJavaVersionCheck OR THE BUILD REFUSES TO CONFIGURE. pulsar's settings script rejects
-  # JDK 26 before any task exists, so this is not a convenience flag: without it nothing runs, and
-  # the failure is a configuration error rather than anything about the code.
-  cmd: ./gradlew compileTestJava -PskipJavaVersionCheck
+  # ⛔ JDK 25, and on the Mac it has to be asked for: the Mac's ~/.gradle/gradle.properties pins Gradle
+  # to JDK 27, where pulsar's own Lombok 1.18.42 dies (EndPosTable; ExceptionInInitializerError in
+  # :pulsar-client-api:compileJava, 2026-10-03 -- and that failed task had already emptied its
+  # classes directory). catalogue.py hands the profile's 25 to Gradle as -Dorg.gradle.java.home,
+  # which beats that file. Why 25: pulsar's settings script accepts exactly 21 or 25, both machines'
+  # profiles hold a 25, Lombok 1.18.42 runs on it, and the Mac's tree was rebuilt on it by hand first.
+  # So no -PskipJavaVersionCheck any more: on the wrong JDK the build now stops at once, in pulsar's
+  # own words ("This build requires Java 21 or 25"), instead of dying later inside Lombok.
+  cmd: ./gradlew compileTestJava
+  jdk: {version: 25}
   expect: complete
   provides:
     - managed-ledger/build/classes/java/main
@@ -34,8 +40,10 @@ build:
 
 config:
   route: gradle-log
-  # The flag rides along in `tasks`, which the route interpolates straight into the gradlew line.
-  tasks: compileTestJava -PskipJavaVersionCheck
+  # The capture re-runs the whole compile (--rerun-tasks), so it needs build.jdk's 25 for the same
+  # reason; `config.jdk` is how the route is told.
+  tasks: compileTestJava
+  jdk: {version: 25}
   baseline: baselines/pulsar.tsv
   generates: [compile.log, inputConfiguration.json]
 

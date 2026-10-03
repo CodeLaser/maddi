@@ -445,12 +445,29 @@ class TestMachineProfile(CatalogueTest):
             ''')
         self.entry(self.public, 'new', 'build:\n  cmd: ./gradlew build\n')
         self.profile('jdks:\n  - {version: 21, home: /opt/jdk21}\n')
-        self.assertEqual('JAVA_HOME=/opt/jdk21 ./gradlew build',
+        self.assertEqual('JAVA_HOME=/opt/jdk21 ./gradlew -Dorg.gradle.java.home=/opt/jdk21 build',
                          catalogue.plan(catalogue.load_one('old'), 'build'))
         self.assertEqual('./gradlew build', catalogue.plan(catalogue.load_one('new'), 'build'))
         os.environ['BUILD_JAVA_HOME'] = '/opt/override'
-        self.assertEqual('JAVA_HOME=/opt/override ./gradlew build',
+        self.assertEqual('JAVA_HOME=/opt/override ./gradlew -Dorg.gradle.java.home=/opt/override build',
                          catalogue.plan(catalogue.load_one('old'), 'build'))
+
+    def test_a_gradle_build_names_its_jdk_to_gradle_and_a_maven_build_does_not_need_to(self):
+        # The Mac's ~/.gradle/gradle.properties pins org.gradle.java.home to 27, which JAVA_HOME does not
+        # override: only the command-line property does. Maven reads JAVA_HOME, so it gets nothing more.
+        self.entry(self.public, 'g', 'build:\n  cmd: ./gradlew\n  jdk: {version: 25}\n')
+        self.entry(self.public, 'm', 'build:\n  cmd: ./mvnw -q install\n  jdk: {version: 25}\n')
+        self.profile('jdks:\n  - {version: 25, home: /opt/jdk25}\n')
+        self.assertEqual('JAVA_HOME=/opt/jdk25 ./gradlew -Dorg.gradle.java.home=/opt/jdk25',
+                         catalogue.plan(catalogue.load_one('g'), 'build'))
+        self.assertEqual('JAVA_HOME=/opt/jdk25 ./mvnw -q install', catalogue.plan(catalogue.load_one('m'), 'build'))
+
+    def test_the_gradle_routes_launch_gradle_on_config_jdk(self):
+        for route in ('gradle-log', 'gradle-plugin'):
+            with self.subTest(route=route):
+                self.entry(self.public, 'p', f'config:\n  route: {route}\n  tasks: build\n  jdk: {{version: 25}}\n')
+                self.profile('jdks:\n  - {version: 25, home: /opt/jdk25}\n')
+                self.assertIn(' -Dorg.gradle.java.home=/opt/jdk25', catalogue.plan(catalogue.load_one('p'), 'config'))
 
     def test_the_maven_log_capture_runs_on_the_build_phases_jdk(self):
         # dolphinscheduler on laser1: built on the profile's 17, then captured on the ambient 26.

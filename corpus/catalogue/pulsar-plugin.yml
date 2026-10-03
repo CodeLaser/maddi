@@ -29,9 +29,9 @@ config:
   # Relative, so this entry owns its own file beside the sources rather than overwriting `pulsar`'s.
   output: inputConfiguration.plugin.json
   generates: [inputConfiguration.json]
-  # ⛔ The same JDK-26 opt-out the build needs. `gradle_args` exists because this route BUILDS the
-  # task name itself, so a build's own flags have nowhere else to ride.
-  gradle_args: -PskipJavaVersionCheck
+  # ⛔ The JDK pulsar's build needs, for the same reasons (see pulsar.yml's build): this route builds
+  # the project too, and on the Mac Gradle would otherwise run on 27, where pulsar's Lombok dies.
+  jdk: {version: 25}
 
   # ⛔⛔ SIBLINGS AS ARTIFACTS, NOT AS SOURCE, AND THE CHOICE IS DELIBERATE. Applying the plugin to
   # every project (the init script's default) makes each sibling publish its SOURCES, which is the

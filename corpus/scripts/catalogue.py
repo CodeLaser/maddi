@@ -329,7 +329,10 @@ def discover_jdks():
     """-> {major: home} over the usual install locations, first found per version. For `machine --init`."""
     globs = ['/usr/lib/jvm/*', '/Library/Java/JavaVirtualMachines/*/Contents/Home',
              '~/Library/Java/JavaVirtualMachines/*/Contents/Home', '~/.sdkman/candidates/java/*',
-             '~/.gradle/jdks/*']
+             '~/.gradle/jdks/*',
+             # Homebrew's opt/ links survive a `brew upgrade`; the Cellar paths behind them do not.
+             # openjdk@25 is linked nowhere else on the Mac.
+             '/opt/homebrew/opt/openjdk*/libexec/openjdk.jdk/Contents/Home']
     found = {}
     for g in globs:
         base = Path(os.path.expanduser(g))
@@ -1151,9 +1154,13 @@ def _route_cmd(entry, c, route):
         jmods_prop = f' -Dmaddi.jmods=java.se,{",".join(extra)}' if extra else ''
         # ⚠ A CORPUS'S BUILD MAY REFUSE TO CONFIGURE WITHOUT ITS OWN FLAGS, and this route builds
         # the task name itself, so there is nowhere for them to ride along -- `gradle-log` smuggles
-        # them through `tasks`, which is a string it interpolates whole. pulsar is the case:
-        # `-PskipJavaVersionCheck` or its settings script rejects JDK 26 before any task exists.
+        # them through `tasks`, which is a string it interpolates whole. pulsar was the case until
+        # 2026-10-03 (`-PskipJavaVersionCheck`, for JDK 26); it now names its JDK with `config.jdk`.
         args = f' {c["gradle_args"]}' if c.get('gradle_args') else ''
+        # `config.jdk`, as in gradle-log: this route builds the project too, on the JDK Gradle runs on.
+        gjh = gradle_java_home(entry)
+        if gjh:
+            args += f' -Dorg.gradle.java.home={gjh}'
         # Which projects the init script applies the plugin to -- `all` (its default, the dogfood
         # pattern: siblings publish SOURCES and are co-parsed) or one project path (siblings arrive
         # as ordinary class-path artifacts). Two different tests; see the init script's comment.
@@ -1237,7 +1244,17 @@ def plan(entry, phase):
         if not b.get('cmd'):
             return None
         jh = build_java_home(entry)
-        return f'JAVA_HOME={jh} {b["cmd"]}' if jh else b['cmd']
+        if not jh:
+            return b['cmd']
+        cmd = b['cmd']
+        # ⛔ A Gradle build also gets -Dorg.gradle.java.home: JAVA_HOME alone does not choose the JDK
+        # Gradle runs on when the user's gradle.properties pins one, and the Mac's ~/.gradle/
+        # gradle.properties pins JDK 27 -- where pulsar's own Lombok 1.18.42 dies (2026-10-03). A
+        # command-line system property beats that file. Same flag as the config route's `config.jdk`.
+        if re.match(r'(\./gradlew|gradle)(\s|$)', cmd):
+            first, _, rest = cmd.partition(' ')
+            cmd = f'{first} -Dorg.gradle.java.home={jh}' + (f' {rest}' if rest else '')
+        return f'JAVA_HOME={jh} {cmd}'
 
     if phase == 'config':
         c = entry.get('config') or {}
