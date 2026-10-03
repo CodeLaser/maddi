@@ -585,8 +585,10 @@ only), and the CLI launchers into mod, which 3a had left broken.
   unresolved symbol; abandoned types) cured jfocus's `TestGuavaStress`. maddi and maddi-mod 0.9.3 published to
   `~/.m2`; the jfocus pins moved with gradle-conventions' `pinMaddi` task, run at each repository's root:
   `./gradlew pinMaddi -PtoMaddi=0.9.3 -PtoMaddiMod=0.9.3` (only the two pin lines of every gradle.properties
-  change). ⚠ Done by hand, before `release-maddi` exists (jfocus-devops `gate/RELEASE-MADDI.md`, design only):
-  no gate record, no `-alpha.N`.
+  change). ⚠ Done by hand, before `release-maddi` existed: no gate record, no `-alpha.N`. That path is now
+  jfocus-devops `gate/RELEASE.md` Part C (cutting: §C6). It was built 2026-10-02, and first used 2026-10-03
+  to cut maddi and maddi-mod `0.9.5-alpha.1`. There is no public maddi release yet, because no maddi
+  `slowTest` green exists (§C4).
 
 ### corpus/ back to base (2026-10-03)
 
