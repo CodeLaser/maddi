@@ -82,6 +82,7 @@ class TestVendorLibraries(unittest.TestCase):
         return table[url]
 
     def vendor(self, *configs, **kw):
+        kw.setdefault("jdk", 27)  # the JDK that makes a Lombok <= 1.18.46 unusable; the JDK-26 cases say so
         v = vendor_libraries.Vendor(self.corpus, fetch=self.fetch, out=io.StringIO(), home=self.home, **kw)
         ok = all([v.vendor(c) for c in configs])
         return v, ok
@@ -395,6 +396,53 @@ class TestVendorLibraries(unittest.TestCase):
         with open(cfg) as f:
             self.assertEqual(before, f.read())
         self.assertFalse(os.path.exists(self.lib("p")))
+
+    def test_on_jdk_26_the_declared_lombok_runs_and_is_kept(self):
+        self.lombok_new_in_gradle_cache()
+        old = self.gradle_jar("org.projectlombok", "lombok", "1.18.42", LOMBOK_OLD)
+        cfg = self.config("p", [old], source_sets=[("a/main", ["lombok-1.18.42.jar"])])
+        v, ok = self.vendor(cfg, jdk=26)
+        self.assertTrue(ok)
+        self.assertEqual(0, v.stats["lombok"])
+        self.assertEqual("file:" + self.lib("p", "org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar"),
+                         self.uris(cfg)[1])  # vendored as itself, like any other jar
+        self.assertEqual([["lombok-1.18.42.jar"]], self.names(cfg)[1])
+
+    def test_on_jdk_27_a_lombok_after_1_18_46_is_kept(self):
+        newer = self.gradle_jar("org.projectlombok", "lombok", "1.18.50", b"a later lombok")
+        cfg = self.config("p", [newer])
+        v, ok = self.vendor(cfg, jdk=27)
+        self.assertTrue(ok)
+        self.assertEqual(0, v.stats["lombok"])
+        self.assertEqual(["java.base", "lombok-1.18.50.jar"], self.names(cfg)[0])
+
+    def test_the_rule(self):
+        r = vendor_libraries.lombok_needs_replacing
+        self.assertTrue(r("lombok-1.18.46.jar", 27))
+        self.assertTrue(r("lombok-1.18.30.jar", 28))
+        self.assertFalse(r("lombok-1.18.46.jar", 26))
+        self.assertFalse(r("lombok-1.18.48.jar", 27))
+        self.assertFalse(r("rewrite-java-lombok-8.84.0.jar", 27))
+
+    def test_the_jdk_comes_from_java_version(self):
+        f = vendor_libraries.java_feature_version
+        self.assertEqual(27, f('openjdk version "27" 2026-09-15\nOpenJDK Runtime Environment'))
+        self.assertEqual(26, f('openjdk version "26.0.2" 2026-07-21'))
+        self.assertEqual(8, f('java version "1.8.0_462"'))
+        self.assertIsNone(f("no version here"))
+
+    def test_without_a_jdk_only_a_configuration_naming_lombok_is_refused(self):
+        saved = vendor_libraries.detect_jdk
+        vendor_libraries.detect_jdk = lambda: None
+        try:
+            plain = self.config("p", [self.gradle_jar("g", "a", "1", b"x")])
+            _, ok = self.vendor(plain, jdk=None)
+            self.assertTrue(ok)
+            with_lombok = self.config("q", [self.gradle_jar("org.projectlombok", "lombok", "1.18.42", LOMBOK_OLD)])
+            with self.assertRaises(ValueError):
+                self.vendor(with_lombok, jdk=None)
+        finally:
+            vendor_libraries.detect_jdk = saved
 
     def test_the_pinned_digest_is_the_real_one(self):
         self.assertEqual("6858f13541bab505384f07053c5a7b539bbfd3e3", self._pinned)

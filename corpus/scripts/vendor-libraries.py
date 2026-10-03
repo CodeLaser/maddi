@@ -56,20 +56,28 @@ Without this the cache cleanup took 22 of its 25 jars and TestElasticsearchServe
 The rewrite is textual -- each old `uri` string replaced by the new one -- so the configuration
 keeps whatever formatting its generator gave it, and a diff shows only the paths that moved.
 
-LOMBOK IS REPLACED BY 1.18.48
------------------------------
-Whatever Lombok a configuration names (org.projectlombok:lombok, the annotation processor), it is
-vendored as lombok-1.18.48.jar instead: the copy, the `uri` and every reference to the jar's
-`name` (the source sets' dependencies) all say 1.18.48. Also for a configuration vendored before,
-whose Lombok already sits in lib/.
-
+LOMBOK THAT CANNOT RUN ON THE TARGET JDK IS REPLACED BY 1.18.48
+---------------------------------------------------------------
 JDK 27 removed com.sun.tools.javac.tree.EndPosTable, and Lombok up to 1.18.46 needs it: its
-processor dies with an ExceptionInInitializerError, and maddi then records a parse error for every
-source set that uses Lombok (pulsar declares 1.18.42: 105 source sets; timefold-solver and
-dolphinscheduler 1.18.46). 1.18.48 runs on JDK 24, 26 and 27. These corpora are pinned upstream
-checkouts, and their own builds cannot compile on JDK 27 with the Lombok they declare either, so
-parsing with it would reproduce nothing; for what they use (@Slf4j, @Getter, builders, ...) 1.18.48
-generates the same members. This changes test data, not maddi: maddi parses with the Lombok a
+processor dies with an ExceptionInInitializerError (ClassNotFoundException: ...EndPosTable), and
+maddi records a parse error for every source set that uses Lombok (pulsar declares 1.18.42: 105
+source sets; timefold-solver and dolphinscheduler 1.18.46). 1.18.48 runs on JDK 24, 26 and 27.
+
+So when -- and only when -- the TARGET JDK is 27 or later and a configuration names a Lombok of
+1.18.46 or earlier, that Lombok is vendored as lombok-1.18.48.jar instead: the copy, the `uri` and
+every reference to the jar's `name` (the source sets' dependencies) all say 1.18.48, also for a
+configuration vendored before, whose Lombok already sits in lib/. On an older JDK the declared
+Lombok runs, and is kept: 1.18.48 is not a drop-in -- it rejects
+`@Builder(builderClassName = "Builder")` ("builderClassName cannot be "Builder" when using
+@Builder; use @lombok.Builder or choose another builder class name"), which pulsar's
+PulsarTestContext uses (the pulsar catalogue entry carries the corpus patch that makes it parse).
+
+The target JDK is the one that will parse the configuration: --jdk N, else $JAVA_HOME/bin/java,
+else `java` on PATH, asked for its version only when a configuration names a Lombok. The
+configurations are per machine already, so each machine decides for itself.
+
+These corpora are pinned upstream checkouts; their own builds cannot compile on JDK 27 with the
+Lombok they declare either. This changes test data, not maddi: maddi parses with the Lombok a
 configuration names, and says so when that Lombok cannot run.
 
 The jar is taken from the Gradle cache or ~/.m2 when either holds it, else downloaded from Maven
@@ -84,6 +92,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -99,6 +108,43 @@ LOMBOK_SHA1 = "6858f13541bab505384f07053c5a7b539bbfd3e3"  # repo1.maven.org's .s
 LOMBOK_RELATIVE = f"org/projectlombok/lombok/{LOMBOK_VERSION}/lombok-{LOMBOK_VERSION}.jar"
 # the processor jar, lombok-<version>.jar; not rewrite-java-lombok-*.jar, not lombok-<version>-sources.jar
 LOMBOK_JAR = re.compile(r"^lombok-\d+(\.\d+)*(-SNAPSHOT)?\.jar$")
+LOMBOK_LAST_BEFORE_JDK27 = (1, 18, 46)  # the newest Lombok that needs com.sun.tools.javac.tree.EndPosTable
+JDK_WITHOUT_ENDPOSTABLE = 27
+
+
+def lombok_version(name):
+    """'lombok-1.18.42.jar' -> (1, 18, 42); None for anything else."""
+    m = re.match(r"^lombok-(\d+(?:\.\d+)*)(?:-SNAPSHOT)?\.jar$", name)
+    return tuple(int(x) for x in m.group(1).split(".")) if m else None
+
+
+def java_feature_version(version_output):
+    """The feature version out of `java -version`'s output: 'openjdk version "26.0.2" ...' -> 26, '"1.8.0_462"' -> 8."""
+    m = re.search(r'version "(\d+)(?:\.(\d+))?', version_output)
+    if not m:
+        return None
+    major = int(m.group(1))
+    return int(m.group(2)) if major == 1 and m.group(2) else major
+
+
+def detect_jdk():
+    """The feature version of $JAVA_HOME/bin/java, else of `java` on PATH; None when neither answers."""
+    home = os.environ.get("JAVA_HOME")
+    java = os.path.join(home, "bin", "java") if home and os.path.isfile(os.path.join(home, "bin", "java")) \
+        else shutil.which("java")
+    if not java:
+        return None
+    try:
+        r = subprocess.run([java, "-version"], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return java_feature_version(r.stderr + r.stdout)
+
+
+def lombok_needs_replacing(name, jdk):
+    """Can the Lombok `name` not run on JDK `jdk`? Then it is vendored as LOMBOK_VERSION instead."""
+    version = lombok_version(name)
+    return version is not None and version <= LOMBOK_LAST_BEFORE_JDK27 and jdk >= JDK_WITHOUT_ENDPOSTABLE
 
 
 def sha1(path):
@@ -156,7 +202,7 @@ def default_fetch(url):
 class Vendor:
 
     def __init__(self, corpus, dry_run=False, offline=False, fetch=default_fetch, out=sys.stdout,
-                 home=os.path.expanduser("~")):
+                 home=os.path.expanduser("~"), jdk=None):
         self.corpus = os.path.realpath(corpus)
         self.home = os.path.realpath(home)
         self.lib_root = os.path.join(self.corpus, LIB)
@@ -164,6 +210,7 @@ class Vendor:
         self.offline = offline
         self.fetch = fetch
         self.out = out
+        self._jdk = jdk  # the target JDK's feature version; detected on first need when None
         self.stats = {"copied": 0, "linked": 0, "downloaded": 0, "present": 0, "unrecovered": 0,
                       "lombok": 0}
 
@@ -248,6 +295,15 @@ class Vendor:
             os.replace(target + ".part", target)
         return target
 
+    def jdk(self):
+        if self._jdk is None:
+            self._jdk = detect_jdk()
+            if self._jdk is None:
+                raise ValueError("a configuration names a Lombok, and whether it can run depends on the JDK that will"
+                                 " parse it: none found in JAVA_HOME or on PATH; pass --jdk N")
+            self.say(f"target JDK {self._jdk} (JAVA_HOME / java on PATH; --jdk overrides)")
+        return self._jdk
+
     def lombok_source(self):
         """A local lombok-1.18.48.jar with the pinned digest, or a path that does not exist (place() downloads)."""
         candidates = sorted(glob.glob(os.path.join(self.home, ".gradle", MODULES.strip("/"), "org.projectlombok",
@@ -268,7 +324,7 @@ class Vendor:
             uri = part.get("uri", "")
             path = strip_scheme(uri)
             name = os.path.basename(path) if path is not None else None
-            if name and LOMBOK_JAR.match(name) and name != f"lombok-{LOMBOK_VERSION}.jar":
+            if name and LOMBOK_JAR.match(name) and lombok_needs_replacing(name, self.jdk()):
                 lombok[uri] = part.get("name", name)  # replaced, inside the corpus or not -- see the docstring
                 if not self.inside_corpus(path):
                     external.append(uri)  # still counts for the another-machine check below
@@ -387,6 +443,9 @@ def main(argv=None):
     ap.add_argument("--coordinates", action="store_true",
                     help="CONFIG names gradle-cache: coordinates; fill lib/<--project>/, never rewrite CONFIG")
     ap.add_argument("--project", help="with --coordinates: the lib/<project>/ the configuration's reader looks in")
+    ap.add_argument("--jdk", type=int, help="the feature version of the JDK that will parse the configurations "
+                                            "(default: $JAVA_HOME/bin/java, else java on PATH); decides whether a "
+                                            "Lombok is replaced")
     a = ap.parse_args(argv)
     if a.coordinates:
         if a.all or not a.configs or not a.project:
@@ -401,7 +460,7 @@ def main(argv=None):
     configs = all_configs(a.corpus) if a.all else a.configs
     if not configs:
         ap.error("name the configuration(s), or --all")
-    v = Vendor(a.corpus, a.dry_run, a.offline)
+    v = Vendor(a.corpus, a.dry_run, a.offline, jdk=a.jdk)
     ok = all([v.vendor(c) for c in configs])
     s = v.stats
     print(f"{'(dry run) ' if a.dry_run else ''}{len(configs)} configuration(s): "
