@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Generate the checked-in, machine-independent input configuration for the elasticsearch
-*server* slice: maddi-run-openjdk/src/test/resources/corpus/elasticsearch-server.json.
+*server* slice: maddi-mod's maddi-run-analysis/src/test/resources/corpus/elasticsearch-server.json
+(MADDI_MOD_REPO, else the maddi-mod checkout next to this maddi one).
 
 Run via `task config:elasticsearch-server`, after `task elasticsearch` has built the corpus
 and `task config:elasticsearch` has captured the whole-reactor configuration.
@@ -157,9 +158,14 @@ def main() -> int:
         "dependencies": [n for n in server.get("dependencies", []) if n in kept],
     }
 
-    out_dir = pathlib.Path(__file__).resolve().parent.parent.parent \
-        / "maddi-run-openjdk" / "src" / "test" / "resources" / "corpus"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # TestElasticsearchServer, which reads it, is in maddi-mod. This path named maddi-run-openjdk (base) until
+    # 2026-10-03, which since the split has been neither where the file is nor where its test is; mkdir then made
+    # the wrong directory instead of failing.
+    maddi = pathlib.Path(__file__).resolve().parent.parent.parent
+    mod = pathlib.Path(os.environ.get("MADDI_MOD_REPO") or maddi.parent / "maddi-mod").resolve()
+    out_dir = mod / "maddi-run-analysis" / "src" / "test" / "resources" / "corpus"
+    if not out_dir.is_dir():
+        sys.exit(f"no {out_dir}: set MADDI_MOD_REPO to the maddi-mod checkout")
     out = out_dir / "elasticsearch-server.json"
     out.write_text(json.dumps({
         # every path below is relative to the corpus root; the test resolves them

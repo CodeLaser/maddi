@@ -917,11 +917,22 @@ def _mvn_exclusions(cfg):
 # find the modification analysis as a service; the launchers that carry it (`run`) are maddi-cli and
 # maddi-cli-kotlin, and the corpus tests (`slowTest`) live beside the engine. run-main has no such launcher: its
 # `run` parses, and refuses any analysis step.
+def _maddi_repo():
+    """The maddi (base) checkout this script lives in (<repo>/corpus/scripts/): it parses the corpora. MADDI_REPO
+    overrides."""
+    return Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
+
+
+def _mod_repo():
+    """The maddi-mod checkout: the analysis and the corpus tests (`slowTest`). MADDI_MOD_REPO, else the sibling of this
+    maddi checkout. corpus/ itself lived in maddi-mod from the split until 2026-10-03."""
+    return Path(os.environ.get('MADDI_MOD_REPO') or _maddi_repo().parent / 'maddi-mod').resolve()
+
+
 def _dist_repo():
     """The maddi-dist checkout: the CLI launchers and the build plugins live there since the split. MADDI_DIST_REPO,
-    else the sibling of this maddi-mod checkout."""
-    mod = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-    return Path(os.environ.get('MADDI_DIST_REPO') or mod.parent / 'maddi-dist').resolve()
+    else the sibling of this maddi checkout."""
+    return Path(os.environ.get('MADDI_DIST_REPO') or _maddi_repo().parent / 'maddi-dist').resolve()
 
 
 def _runner(entry):
@@ -978,7 +989,6 @@ def _route_cmd(entry, c, route):
     """The config phase's command for `route`, before any `config.then`."""
     name = entry['name']
     d = project_dir(entry)
-    maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
     dist = _dist_repo()  # the CLI launchers (maddi-cli, maddi-cli-kotlin)
     # A corpus project's config sits beside its sources, where TestOssCorpus.config() looks.
     # A private project's belongs in the refactor server's work dir, which is what
@@ -1157,8 +1167,8 @@ def plan(entry, phase):
         # nothing read: vavr, camel and the -plugin entries had no analyse phase at all.
         p = entry.get('parse') or {}
         if p.get('test'):
-            maddi = Path(os.environ.get('MADDI_REPO') or HERE.parent.parent).resolve()
-            return (f'{maddi}/gradlew -p {maddi} :{_corpus_test_module(entry)}:slowTest '
+            mod = _mod_repo()  # the corpus tests live beside the analysis
+            return (f'{mod}/gradlew -p {mod} :{_corpus_test_module(entry)}:slowTest '
                     f"--tests '*{p['test']}' --rerun-tasks")
         if p.get('steps'):
             return _run_maddi(entry, ','.join(p['steps']))
@@ -1347,7 +1357,7 @@ def baseline_cmd(entry, record, all_=None, if_declared=False):
         p.parent.mkdir(parents=True, exist_ok=True)
         # WHERE it was measured, so a disagreement between machines has an explanation to start from.
         r = rev_state(entry, all_)
-        maddi = _git(Path(os.environ.get('MADDI_REPO') or HERE.parent.parent), 'rev-parse', 'HEAD')
+        maddi = _git(_maddi_repo(), 'rev-parse', 'HEAD')  # the parser: a baseline counts parsed types
         p.write_text('# source set\tprimary types -- `catalogue.py baseline <name> --record`\n'
                      f"# recorded {datetime.date.today()} on {host_name()}, corpus "
                      f"{(r['head'] or '?')[:12]}, maddi {(maddi or '?')[:12]}\n"

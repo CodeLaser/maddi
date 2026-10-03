@@ -42,8 +42,11 @@ vars:
   # repo root, Task evaluates the globals once with TASKFILE_DIR empty before the real pass, and a
   # failing shell in that throwaway pass aborts every task. The `/..` stays un-normalized; every
   # consumer below handles that fine.
-  # The maddi checkout this Taskfile lives in (<repo>/corpus/Taskfile.yml).
+  # The maddi checkout this Taskfile lives in (<repo>/corpus/Taskfile.yml): the base tier, which parses the corpora.
   MADDI_REPO: '{{.TASKFILE_DIR}}/..'
+  # The maddi-mod checkout: the analysis and its corpus tests (maddi-run-analysis, maddi-run-kotlin-analysis), which
+  # `test:slow` and `sweep` run. Sibling by default. corpus/ lived there from the split until 2026-10-03.
+  MADDI_MOD_REPO: '{{.MADDI_MOD_REPO | default (print .TASKFILE_DIR "/../../maddi-mod")}}'
   # The maddi-dist checkout: the CLI launchers and the build plugins (split stage 5). Sibling by default.
   MADDI_DIST_REPO: '{{.MADDI_DIST_REPO | default (print .TASKFILE_DIR "/../../maddi-dist")}}'
   # Root under which every corpus project is cloned. Resolution order:
@@ -94,6 +97,7 @@ tasks:
     cmds:
       - 'echo "TEST_OSS_ROOT = {{.TEST_OSS_ROOT}}"'
       - 'echo "MADDI_REPO    = {{.MADDI_REPO}}"'
+      - 'echo "MADDI_MOD_REPO= {{.MADDI_MOD_REPO}}"'
       - 'echo "PLUGIN VER    = {{.MADDI_PLUGIN_VERSION}}"'
       - 'echo "JDK21_HOME    = {{.JDK21_HOME | default "<none — only sonarqube needs it>"}}"'
       - 'echo "JAVA_HOME     = ${JAVA_HOME:-<unset — set it in .env>}"'
@@ -536,8 +540,8 @@ tasks:
   # the Maven/Gradle plugins on a private project).
 
   test:slow:
-    desc: 'Run the large-corpus smoke tests (JUnit tag "slow") against the corpus'
-    dir: '{{.MADDI_REPO}}'
+    desc: 'Run the large-corpus smoke tests (JUnit tag "slow") of maddi-mod against the corpus'
+    dir: '{{.MADDI_MOD_REPO}}'
     cmds:
       # --rerun-tasks: a cached green proves nothing, and absent corpora skip silently — force the
       # run and read the per-test roll-call (AGENTS.md §Commands).
@@ -545,7 +549,7 @@ tasks:
 
   sweep:
     desc: 'First-contact sweep (TestCorpusSweep) over every corpus with a config: task sweep [SWEEP=name1,name2]'
-    dir: '{{.MADDI_REPO}}'
+    dir: '{{.MADDI_MOD_REPO}}'
     cmds:
       - SWEEP={{.SWEEP | default "1"}} ./gradlew :maddi-run-analysis:slowTest --tests '*TestCorpusSweep' --rerun-tasks
 

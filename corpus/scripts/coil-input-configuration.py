@@ -129,7 +129,7 @@ def main():
         sys.exit("TEST_OSS_ROOT is not set (the Taskfile exports it)")
     corpus = os.path.join(root, "coil")
     if not os.path.isdir(corpus):
-        sys.exit("no coil checkout at %s; obtain it with `task catalogue:obtain NAME=coil` (maddi-mod/corpus), "
+        sys.exit("no coil checkout at %s; obtain it with `task catalogue:obtain NAME=coil` (maddi/corpus), "
                  "or check that TEST_OSS_ROOT is an expanded path" % corpus)
 
     source_dirs = []

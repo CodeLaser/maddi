@@ -98,8 +98,9 @@ Facts that decide the edge cases:
   properties are already in cst-analysis, which depends on cst-api only — nothing to do there.
 - **Non-module entries in `settings.gradle.kts`:** `platform` (the BOM; base, the other two import it),
   `road-to-immutability` and `maddi-manual` (docs; base), `buildSrc` (one conventions plugin applied by
-  36 modules; stage 5), `corpus/` (configs for the slow-test battery; mod), `dogfood/` (runs the
-  analyzer plugin over maddi's own modules; ext, it depends on the plugin).
+  36 modules; stage 5), `corpus/` (configs for the slow-test battery; mod -- ⚠ moved back to base on
+  2026-10-03, see §7 "corpus/ back to base"), `dogfood/` (runs the analyzer plugin over maddi's own modules;
+  ext, it depends on the plugin).
 - **ext's compile-time footprint on mod is nine files, and each use has a base-side home.** The
   client, IntelliJ, Eclipse and VS Code modules import nothing from mod. The rest:
   - daemon `WarmAnalysisService`: the whole pipeline by hand (`PrepAnalyzer`, call graph and order,
@@ -586,3 +587,29 @@ only), and the CLI launchers into mod, which 3a had left broken.
   `./gradlew pinMaddi -PtoMaddi=0.9.3 -PtoMaddiMod=0.9.3` (only the two pin lines of every gradle.properties
   change). ⚠ Done by hand, before `release-maddi` exists (jfocus-devops `gate/RELEASE-MADDI.md`, design only):
   no gate record, no `-alpha.N`.
+
+### corpus/ back to base (2026-10-03)
+
+`corpus/` (the catalogue, its scripts and `corpus/Taskfile.yml`) went to maddi-mod at stage 5 as "configs for
+the slow-test battery", because that battery runs the analysis. It moved back to maddi; the reason no longer
+held, for three reasons:
+
+1. **The base tier consumes the corpora.** maddi-run-openjdk, maddi-run-kotlin and maddi-util read them --
+   maddi-util holds the `Corpora` locator every corpus test resolves through -- so the code that reads them
+   was in base while the tooling that produces them sat one tier up. An upward dependency, and one
+   `check_tiers.py` cannot see: it reads Gradle files and `module-info.java` only.
+2. **The tooling is parser-level work**: obtain each checkout at its pin, generate `inputConfiguration.json`
+   from a compile log (maddi's parse-only CLI route), vendor the jars it names (the Lombok substitution of
+   2026-10-03 is a parser concern too).
+3. **maddi's own documents never followed the move**: `CONTRIBUTING.md`, `docs/status/kotlin-corpora.md`,
+   `docs/status/kotlin-gap-analysis-2026-09-21.md` and aapi-archive's GUAVA.md, ECLIPSECOLLECTIONS.md and
+   ENGINE-WORKLIST.md all say `corpus/...` as if it were here. Now they are right again.
+
+No Java code reads files under `corpus/` at run time (only comments name it). maddi gets a root Taskfile
+(`task corpus:*`); maddi-mod's keeps a `corpus:` include of `../maddi/corpus`, because the analysis's corpus
+tests -- `test:slow`, `sweep`, a catalogue entry's `parse.test` -- still run there: the corpus Taskfile and
+`catalogue.py` find maddi-mod as `MADDI_MOD_REPO`, the sibling `../maddi-mod` by default, beside
+`MADDI_DIST_REPO`. maddi's copy is verbatim from maddi-mod `0bb09066`; the history before it stays in
+maddi-mod (`git log -- corpus`). jfocus-devops (`corpus/Taskfile.yml`'s `MADDI_CORPUS`, `gate/lib.sh`'s
+corpus pre-flight, `gate/corpus-refs.py`, the private catalogue overlays' headers) and diagnostics (README,
+`scoreboard/catalogue.py`) name the new place in the same change.

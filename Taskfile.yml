@@ -1,0 +1,21 @@
+# Taskfile.yml — maddi: the open-source corpus tooling lives in corpus/ (https://taskfile.dev).
+#   task corpus:doctor · task corpus:install:wired · task corpus:config:all · task corpus:test:slow
+# The corpus tasks that run the CLI or the build plugins use the sibling checkout ../maddi-dist
+# (MADDI_DIST_REPO overrides); the analysis's corpus tests (test:slow, sweep) run in the sibling
+# ../maddi-mod (MADDI_MOD_REPO overrides).
+
+version: '3'
+
+includes:
+  corpus:
+    taskfile: ./corpus/Taskfile.yml
+    dir: ./corpus
+
+# Task does not read an included Taskfile's dotenv, so load the corpus .env (written by
+# `task corpus:init`; optional) here — `task corpus:*` then behaves exactly like running
+# task from corpus/ itself.
+dotenv: ['corpus/.env']
+
+tasks:
+  default:
+    cmds: [task --list]
