@@ -279,6 +279,98 @@ class TestPinning(CatalogueTest):
         self.assertEqual('edited', (d / 'f').read_text())
 
 
+
+class TestPatches(CatalogueTest):
+    """source.patches: a declared edit is part of the corpus (pulsar: Lombok 1.18.48 on JDK 27)."""
+
+    def patched(self, where, commits=2):
+        """A checkout `lib`, pinned at its first commit, declaring one patch kept beside `where`'s
+        catalogue file. The patch is a header (the docs every real one carries) plus a git diff."""
+        d, shas = self.checkout('lib', commits)
+        git(d, 'checkout', '-q', shas[0])
+        (d / 'f').write_text('patched')
+        diff = subprocess.run(['git', '-C', str(d), 'diff'], check=True, capture_output=True,
+                              text=True).stdout
+        git(d, 'checkout', '--', 'f')
+        (where / 'patches').mkdir()
+        (where / 'patches' / 'fix.patch').write_text('Why this patch exists.\n\n' + diff)
+        self.entry(where, 'lib', f'''
+            source:
+              kind: git
+              url: file://{d}
+              rev: {shas[0]}
+              patches: [patches/fix.patch]
+            ''')
+        return d, shas
+
+    def test_obtain_applies_the_patch_once_and_the_pin_checks_accept_it(self):
+        d, shas = self.patched(self.public)
+        e = catalogue.load_one('lib')
+        r = catalogue.rev_state(e)
+        self.assertEqual((True, False, False), (r['at_pin'], r['patched'], r['dirty']))
+        self.assertEqual(1, catalogue.check_rev(e), 'the declared patch, unapplied, is a different corpus')
+        self.assertEqual('ok+UNPATCHED', catalogue._pin_word(r))
+
+        self.assertEqual(0, catalogue.obtain(e))
+        self.assertEqual('patched', (d / 'f').read_text())
+        self.assertEqual(0, catalogue.obtain(e), 'a second obtain is a no-op, not a failed re-apply')
+        self.assertEqual('patched', (d / 'f').read_text())
+        r = catalogue.rev_state(e)
+        self.assertEqual((True, True, False), (r['at_pin'], r['patched'], r['dirty']))
+        self.assertEqual(0, catalogue.check_rev(e))
+        self.assertEqual('ok+patched', catalogue._pin_word(r))
+        self.assertEqual(f'{shas[0]}+fix.patch', catalogue.record_rev(r))
+
+    def test_obtain_moves_an_off_pin_checkout_to_the_pin_and_patches_it(self):
+        d, shas = self.patched(self.public)
+        git(d, 'checkout', '-q', shas[1])
+        self.assertEqual(0, catalogue.obtain(catalogue.load_one('lib')))
+        self.assertEqual((shas[0], 'patched'), (git(d, 'rev-parse', 'HEAD'), (d / 'f').read_text()))
+
+    def test_the_same_edit_made_by_hand_is_the_patched_tree(self):
+        # Trees are compared, not diffs: what is parsed is what matters.
+        d, _ = self.patched(self.public)
+        (d / 'f').write_text('patched')
+        r = catalogue.rev_state(catalogue.load_one('lib'))
+        self.assertEqual((True, False), (r['patched'], r['dirty']))
+
+    def test_any_other_edit_is_dirt_and_obtain_will_not_patch_over_it(self):
+        d, shas = self.patched(self.public)
+        e = catalogue.load_one('lib')
+        self.assertEqual(0, catalogue.obtain(e))
+        (d / 'g').write_text('another file')
+        git(d, 'add', 'g')
+        r = catalogue.rev_state(e)
+        self.assertEqual((False, True), (r['patched'], r['dirty']))
+        self.assertEqual(shas[0], catalogue.record_rev(r), 'an unpatched record names no patch')
+        self.assertEqual(1, catalogue.obtain(e))
+        self.assertTrue((d / 'g').exists(), 'obtain never discards an edit')
+
+    def test_clean_returns_to_the_pin_plus_the_patch(self):
+        d, shas = self.patched(self.public)
+        (d / 'f').write_text('an edit an earlier run left behind')
+        self.assertEqual(0, catalogue.clean(catalogue.load_one('lib')))
+        self.assertEqual((shas[0], 'patched'), (git(d, 'rev-parse', 'HEAD'), (d / 'f').read_text()))
+        self.assertTrue(catalogue.rev_state(catalogue.load_one('lib'))['patched'])
+
+    def test_a_patch_is_found_beside_the_file_that_declared_it(self):
+        # A private overlay's patch lives in the private catalogue, not in the public one.
+        self.entry(self.public, 'lib', 'status: active\n')
+        d, _ = self.patched(self.private)
+        f = self.private / 'lib.yml'
+        f.write_text('extends: lib\n' + f.read_text())
+        e = catalogue.load_one('lib')
+        self.assertEqual([self.private / 'patches' / 'fix.patch'], catalogue.declared_patches(e))
+        self.assertEqual(0, catalogue.obtain(e))
+        self.assertEqual('patched', (d / 'f').read_text())
+
+    def test_a_shared_checkout_carries_its_owners_patches(self):
+        self.patched(self.public)
+        self.entry(self.public, 'lib-plugin', 'dir: lib\n')
+        e = catalogue.load_one('lib-plugin')
+        self.assertEqual(0, catalogue.obtain(e))
+        self.assertTrue(catalogue.rev_state(e)['patched'])
+
 class TestMachineProfile(CatalogueTest):
 
     def setUp(self):

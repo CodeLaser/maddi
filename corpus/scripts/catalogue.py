@@ -43,6 +43,13 @@ PINNING
     off-pin checkout; `doctor` reports it. An entry without `source` that shares a checkout
     (fernflower-plugin) is pinned by the entry that owns that checkout.
 
+    `source.patches` lists patch files (relative to the catalogue file that declares them) that are
+    part of the corpus: `obtain` and `clean` apply them after checking out the pin, and the pin
+    checks accept exactly HEAD + those patches -- any other edit is dirt, and so is a declared patch
+    left unapplied. Each patch says in its header what it changes, why, and when it can go; the gate
+    records such a tree as `<sha>+<patch>`. Kept for upstream code a tool we cannot avoid rejects
+    (pulsar: Lombok 1.18.48 on JDK 27), never to make maddi's numbers better.
+
     catalogue.py list   [--status active] [--held] [--names]
                                               one line per entry; --held: what this machine holds
     catalogue.py show   <name>                the resolved entry, and which file each field came from
@@ -50,10 +57,10 @@ PINNING
                                               and, with a machine profile, is what it holds complete
     catalogue.py machine [--init]             check this host's profile; --init drafts one
     catalogue.py plan   <phase> <name>        print the shell command a phase would run
-    catalogue.py obtain <name>                clone if absent, check out source.rev
+    catalogue.py obtain <name>                clone if absent, check out source.rev (+ source.patches)
     catalogue.py pin    <name> [--rev REV]    write the checkout's HEAD (or REV) as source.rev
     catalogue.py clean  <name> [--also-ours]  discard edits, delete the directories source.generated
-                                              names, and return to source.rev
+                                              names, and return to source.rev (+ source.patches)
     catalogue.py register <name>              make it loadable by the engine: a link under
                                               <workspace>/projects and a project.yml under work/
     catalogue.py vendor <name> [--dry-run]    move the jars its configuration names into lib/<project>
@@ -76,6 +83,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 
@@ -362,11 +370,80 @@ def _git(d, *args):
     return p.stdout.strip() if p.returncode == 0 else None
 
 
+def declared_patches(entry, all_=None):
+    """The `source.patches` of the entry that owns this checkout, as paths: each is relative to the
+    catalogue file that declared it (a private overlay keeps its patches beside itself)."""
+    owner = checkout_owner(entry, all_)
+    names = ((owner or {}).get('source') or {}).get('patches') or []
+    if not names:
+        return []
+    base = origin_of(owner, 'source.patches').parent
+    return [base / n for n in names]
+
+
+def _tree(d, *steps, start=('read-tree', 'HEAD')):
+    """-> the tree hash a scratch index holds after `start` and `steps`, or None. A scratch index, so
+    neither the checkout's own index nor its files are touched. `start=None` begins from a copy of
+    the checkout's index, which is what `git status` compares: a staged new file is in it, not in HEAD."""
+    with tempfile.TemporaryDirectory() as tmp:
+        index = Path(tmp) / 'index'
+        env = dict(os.environ, GIT_INDEX_FILE=str(index))
+        if start is None:
+            own = _git(d, 'rev-parse', '--path-format=absolute', '--git-path', 'index')
+            if own and Path(own).is_file():
+                shutil.copyfile(own, index)
+            start = ('read-tree', 'HEAD') if not index.exists() else None
+        for args in ([start] if start else []) + list(steps):
+            if subprocess.run(['git', '-C', str(d), *args], env=env, capture_output=True).returncode:
+                return None
+        p = subprocess.run(['git', '-C', str(d), 'write-tree'], env=env, capture_output=True, text=True)
+        return p.stdout.strip() if p.returncode == 0 else None
+
+
+def patch_state(d, patches):
+    """'applied' when the tracked files are exactly HEAD plus `patches`, 'unapplied' when they are
+    exactly HEAD, else 'other' -- an edit nobody declared, or patches that no longer apply.
+    Compares trees, not diffs: the same edit made by hand is the same corpus."""
+    actual = _tree(d, ['add', '--update'], start=None)
+    if actual is None:
+        return 'other'
+    if actual == _tree(d):
+        return 'unapplied'
+    expected = _tree(d, ['apply', '--cached', *map(str, patches)])
+    return 'applied' if expected == actual else 'other'
+
+
+def apply_patches(entry, d, patches):
+    """Bring a checkout that is exactly at HEAD to HEAD + `source.patches`. 0 when it already is."""
+    name = entry['name']
+    st = patch_state(d, patches)
+    if st == 'applied':
+        return 0
+    if st == 'other':
+        print(f'{name}: tracked files in {d} are neither HEAD nor HEAD + source.patches; refusing to '
+              f'patch over them -- `catalogue.py clean {name}`', file=sys.stderr)
+        return 1
+    if subprocess.run(['git', '-C', str(d), 'apply', *map(str, patches)]).returncode:
+        print(f'{name}: source.patches do not apply at {_git(d, "rev-parse", "--short", "HEAD")}',
+              file=sys.stderr)
+        return 1
+    print(f'{name}: applied {", ".join(p.name for p in patches)}', file=sys.stderr)
+    if any((d / rel).exists() for rel in (entry.get('build') or {}).get('provides') or []):
+        # ⚠ The build output predates the patched sources. maddi checks class files against their
+        # sources and drops the units that reference a stale one (pulsar, 2026-10-03: 5 test source
+        # sets), so a tree patched after it was built must be built again before it is measured.
+        print(f'{name}: ⚠ patched AFTER it was built -- rebuild before measuring: '
+              f'`task catalogue:build NAME={name}`', file=sys.stderr)
+    return 0
+
+
 def rev_state(entry, all_=None):
-    """-> {owner, pinned, head, at_pin, dirty}, all computed on THIS machine.
+    """-> {owner, pinned, head, at_pin, dirty, patches, patched}, all computed on THIS machine.
 
     `dirty` counts TRACKED modifications only: every corpus carries untracked files of ours
     (inputConfiguration.json, compile.log -- see `generates`), and those do not change what is parsed.
+    With `source.patches` declared, the declared edit is not dirt: `patched` says whether it is
+    applied, and `dirty` is any OTHER modification (or the patches failing to apply).
     `at_pin` is None when there is nothing to compare (unpinned, absent, or not a git checkout).
     """
     owner = checkout_owner(entry, all_)
@@ -379,8 +456,20 @@ def rev_state(entry, all_=None):
         # `pin` itself always writes the full SHA.
         at_pin = _git(d, 'rev-parse', '--verify', '--quiet', f'{pinned}^{{commit}}') == head
     dirty = bool(head) and bool(_git(d, 'status', '--porcelain', '--untracked-files=no'))
+    patches = declared_patches(entry, all_)
+    patched = None
+    if patches and head:
+        st = patch_state(d, patches)
+        patched, dirty = st == 'applied', st == 'other'
     return {'owner': (owner or {}).get('name'), 'pinned': pinned, 'head': head,
-            'at_pin': at_pin, 'dirty': dirty}
+            'at_pin': at_pin, 'dirty': dirty, 'patches': [p.name for p in patches], 'patched': patched}
+
+
+def record_rev(r):
+    """The commit a measurement ran on, as the gate records it: the head, plus the declared patches
+    when they were applied -- `<sha>+<patch>[+<patch>...]`, so the record says the tree was not the
+    bare commit."""
+    return r['head'] and '+'.join([r['head'], *(r['patches'] if r['patched'] else [])])
 
 
 def check_rev(entry, all_=None, require_pin=False):
@@ -404,6 +493,10 @@ def check_rev(entry, all_=None, require_pin=False):
         print(f"{name}: checkout is at {r['head'][:12]}, pinned at {r['pinned'][:12]} "
               f"(by {r['owner']}) -- `catalogue.py obtain {r['owner']}`, or move the pin with "
               f'`catalogue.py pin {r["owner"]}` and re-record the baseline', file=sys.stderr)
+        return 1
+    if r['patched'] is False:
+        print(f"{name}: at its pin, but source.patches are not applied -- `catalogue.py obtain "
+              f"{r['owner']}`", file=sys.stderr)
         return 1
     if r['dirty']:
         print(f'{name}: at its pin, but tracked files are modified -- `git -C {project_dir(entry)} '
@@ -442,12 +535,19 @@ def obtain(entry):
         if _git(d, 'rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}') is None:
             print(f'{name}: {rev} is not in {s["url"]}', file=sys.stderr)
             return 1
+    patches = declared_patches(entry)
+    if (patches and _git(d, 'rev-parse', '--verify', '--quiet', f'{rev}^{{commit}}')
+            == _git(d, 'rev-parse', 'HEAD') and patch_state(d, patches) == 'applied'):
+        print(f'{name}: at {rev[:12]} + {", ".join(p.name for p in patches)}', file=sys.stderr)
+        return 0
     if _git(d, 'status', '--porcelain', '--untracked-files=no'):
         # Never discard someone's edits to a checkout; a reset is theirs to decide.
         print(f'{name}: tracked files are modified in {d}; refusing to check out {rev[:12]} over '
               f'them', file=sys.stderr)
         return 1
     if subprocess.run(['git', '-C', str(d), 'checkout', '--quiet', '--detach', rev]).returncode:
+        return 1
+    if patches and apply_patches(entry, d, patches):
         return 1
     print(f'{name}: at {rev[:12]}', file=sys.stderr)
     return 0
@@ -533,6 +633,10 @@ def clean(entry, also_ours=False):
     dirty = _git(d, 'status', '--porcelain', '--untracked-files=no')
     if dirty:
         print(f'{name}: {d} is STILL modified after the reset:\n{dirty[:400]}', file=sys.stderr)
+        return 1
+    # The declared patches are part of the corpus, so a clean tree is the PATCHED tree.
+    patches = declared_patches(entry)
+    if patches and apply_patches(entry, d, patches):
         return 1
     print(f"{name}: clean, at {(rev or _git(d, 'rev-parse', 'HEAD'))[:12]}", file=sys.stderr)
     return 0
@@ -1402,7 +1506,8 @@ def _pin_word(r):
     """A short verdict on rev_state(): ok, OFF (at another commit), unpinned, or n/a."""
     if r['at_pin'] is None:
         return 'unpinned' if r['owner'] and not r['pinned'] else 'n/a' if not r['pinned'] else 'absent'
-    return ('ok' if r['at_pin'] else 'OFF') + ('+dirty' if r['dirty'] else '')
+    return (('ok' if r['at_pin'] else 'OFF') + ('+patched' if r['patched'] else '')
+            + ('+UNPATCHED' if r['patched'] is False else '') + ('+dirty' if r['dirty'] else ''))
 
 
 def cmd_list(args):
@@ -1481,8 +1586,13 @@ def cmd_doctor(args):
         if r['at_pin'] is False:
             notes.append(f"!! at {r['head'][:12]}, pinned {r['pinned'][:12]}")
             rc = 1
+        if r['patched'] is False:
+            notes.append(f"!! source.patches not applied: `catalogue:obtain NAME={r['owner']}`")
+            rc = 1
         if r['dirty']:
-            notes.append('!! tracked files modified')
+            # An undeclared edit is a different corpus from the one the baseline was recorded on.
+            notes.append('!! tracked files modified' + (' beyond source.patches' if r['patches'] else ''))
+            rc = 1
         if not s['present']:
             notes.append('clone it' if s['obtainable'] else 'COPY-ONLY: rsync from a machine that has it')
         elif s['buildable'] and not s['built']:

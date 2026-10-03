@@ -1,0 +1,44 @@
+pulsar @ 8576283da4ad: make PulsarTestContext compile under Lombok 1.18.48.
+
+Applied by `catalogue.py obtain` and `clean` after the checkout is at source.rev (declared in
+catalogue/pulsar.yml, source.patches). Remove it, and the declaration, when the pin moves past a
+pulsar commit that does the same.
+
+WHY. JDK 27 removed com.sun.tools.javac.tree.EndPosTable, so every Lombok up to 1.18.46 dies on it
+and vendor-libraries.py replaces it there with 1.18.48 (the oldest Lombok that runs on 27). 1.18.48
+rejects the one construct below, which earlier versions accepted:
+
+  PulsarTestContext.java:138: error: builderClassName cannot be "Builder" when using @Builder;
+  use @lombok.Builder or choose another builder class name.
+
+javac then reports the Lombok round as failed, maddi falls back to parsing without Lombok, and the
+@Builder/@Getter members of PulsarTestContext go missing: TestCycleMeasurementRatchetPulsar lost
+types and failed on the Mac (JDK 27), 2026-10-03.
+
+THE EDIT is the one Lombok's message asks for, and the one pulsar already uses next door
+(SpyConfig.java:40, `@lombok.Builder(builderClassName = "Builder", toBuilder = true)`): drop the
+import, qualify the annotation. Same annotation, same generated code; neutral under 1.18.42/46 on
+JDK 24 and 26 (checked on a reduced reproduction), so the patch is applied on every machine and
+the corpus is the same tree everywhere.
+
+diff --git a/pulsar-broker/src/test/java/org/apache/pulsar/broker/testcontext/PulsarTestContext.java b/pulsar-broker/src/test/java/org/apache/pulsar/broker/testcontext/PulsarTestContext.java
+index c7136fcb84..54a6a61df5 100644
+--- a/pulsar-broker/src/test/java/org/apache/pulsar/broker/testcontext/PulsarTestContext.java
++++ b/pulsar-broker/src/test/java/org/apache/pulsar/broker/testcontext/PulsarTestContext.java
+@@ -32,7 +32,6 @@ import java.util.Optional;
+ import java.util.function.Consumer;
+ import java.util.function.Function;
+ import lombok.AccessLevel;
+-import lombok.Builder;
+ import lombok.CustomLog;
+ import lombok.Getter;
+ import lombok.Singular;
+@@ -135,7 +134,7 @@ import org.mockito.internal.util.MockUtil;
+ @CustomLog
+ @ToString
+ @Getter
+-@Builder(builderClassName = "Builder")
++@lombok.Builder(builderClassName = "Builder")
+ @SuppressWarnings("try")
+ public class PulsarTestContext implements AutoCloseable {
+     private final ServiceConfiguration config;
