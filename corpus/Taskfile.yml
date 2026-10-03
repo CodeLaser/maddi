@@ -1,8 +1,9 @@
 # Taskfile.yml — install & manage the maddi "test-oss" corpus, and run the analyzer on it.
+# The manual is README.md, next to this file.
 #
 #   https://taskfile.dev   (install: `brew install go-task`)
 #   Quick start (from the repo root, prefix with `corpus:`, e.g. `task corpus:doctor`):
-#     task doctor            # check JDK 26 / env / where the corpus will live
+#     task doctor            # check the JDK (26+) / env / where the corpus will live
 #     task init              # write a .env you can edit (sets TEST_OSS_ROOT)
 #     task install:wired     # obtain (at its pin) + build + configure every corpus this machine holds
 #     task config:all        # regenerate each held corpus's configuration, then diff its baseline
@@ -13,8 +14,7 @@
 # WHERE THINGS GO
 #   Projects are cloned under TEST_OSS_ROOT. By default that is a `test-oss` directory NEXT TO
 #   this maddi checkout (e.g. ~/git/test-oss when maddi is at ~/git/maddi) — the same
-#   `../../test-oss` convention the corpus tests use (see TestOssCorpus in maddi-run-openjdk's
-#   test fixtures). Override it in .env (recommended; `task init` writes one) or per-invocation:
+#   `test-oss` the corpus tests look for (see Corpora in maddi-util's test fixtures). Override it in .env (recommended; `task init` writes one) or per-invocation:
 #   `task guava TEST_OSS_ROOT=/data/oss`.
 #
 # HOW THIS CONNECTS TO THE TESTS
@@ -25,7 +25,8 @@
 #   (AGENTS.md §Commands).
 #
 # PREREQUISITES (see `task doctor`)
-#   - JDK 26 on PATH and JAVA_HOME (temurin-26 here). Put JAVA_HOME in .env.
+#   - JDK 26 or newer on PATH and JAVA_HOME, for maddi itself. Put JAVA_HOME in .env. The JDKs
+#     individual corpora build on come from the machine profile (build.jdk; README §Machine profiles).
 #   - Maven / Gradle wrappers come with each project; Tomcat needs `ant`.
 #   - CodeLaser GitHub SSH access is NOT needed here (these are public OSS repos);
 #     it IS needed for the separate testarchive / testtransform corpora.
@@ -92,7 +93,7 @@ tasks:
   # ---------------------------------------------------------------- environment
 
   doctor:
-    desc: 'Check prerequisites: JDK 26, task, JAVA_HOME, corpus root'
+    desc: 'Check prerequisites: JDK 26+, task, JAVA_HOME, corpus root'
     silent: true
     cmds:
       - 'echo "TEST_OSS_ROOT = {{.TEST_OSS_ROOT}}"'
@@ -103,7 +104,9 @@ tasks:
       - 'echo "JAVA_HOME     = ${JAVA_HOME:-<unset — set it in .env>}"'
       - 'echo "MADDI_EXPORTS = set ($(echo $MADDI_EXPORTS | wc -w | tr -d " ") words)"'
       - 'echo -n "java:           "; java -version 2>&1 | head -1'
-      - 'java -version 2>&1 | grep -q ''"26'' && echo "JDK 26          OK" || echo "JDK 26          *** NOT DETECTED — maddi needs JDK 26 ***"'
+      # 26 OR NEWER: some maddi modules compile at source level 26. This once matched "26" exactly and
+      # reported the Mac's JDK 27 as missing.
+      - 'v=$(java -XshowSettings:properties -version 2>&1 | sed -n "s/.*java.specification.version = //p"); [ "${v:-0}" -ge 26 ] 2>/dev/null && echo "JDK $v          OK" || echo "JDK ${v:-?}          *** maddi needs JDK 26 or newer ***"'
       - 'echo -n "task:           "; task --version'
 
   env:
@@ -122,7 +125,8 @@ tasks:
         cat > '{{.TASKFILE_DIR}}/.env' <<EOF
         # Corpus location and JDK for the maddi corpus Taskfile. Not committed (.gitignore).
         TEST_OSS_ROOT={{.TEST_OSS_ROOT}}
-        JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-26.jdk/Contents/Home
+        # The JDK maddi runs on: 26 or newer. Corpus builds take theirs from the machine profile.
+        JAVA_HOME=${JAVA_HOME}
         EOF
       - 'echo "Wrote {{.TASKFILE_DIR}}/.env — review it, then run: task doctor"'
 
@@ -613,7 +617,7 @@ tasks:
         cd "$dir" && eval "$cmd"
 
   catalogue:list:
-    desc: 'Every catalogue entry: status, and P/B/C for present/built/configured on this machine'
+    desc: 'Every catalogue entry: status, and P/R/B/C/E for present/at its pin/built/configured/engine-registered on this machine'
     cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py list {{if .STATUS}}--status {{.STATUS}}{{end}}']
 
   catalogue:doctor:

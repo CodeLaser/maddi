@@ -164,6 +164,8 @@ done; the citing code comments now name the test that pins the behaviour.
   [`maddi-inspection-openjdk/parsing-stability.md`](../maddi-inspection-openjdk/parsing-stability.md).
 - **Calling the inspector from code**:
   [`maddi-inspection-openjdk/calling-the-javainspector.md`](../maddi-inspection-openjdk/calling-the-javainspector.md).
+- **The test corpus** (the catalogue of real projects behind `slowTest`: pins, builds, configurations,
+  baselines, machine profiles): [`corpus/README.md`](../corpus/README.md).
 
 Module-specific working notes (bug reports, dated audits, sv-engine journals) stay inside their
 module, typically in a `notes/` subdirectory or as `sv-*.md` files in `maddi-modification-link/`.
