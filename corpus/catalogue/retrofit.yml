@@ -1,0 +1,36 @@
+name: retrofit
+status: active
+summary: >-
+  Java/JVM with Kotlin INSIDE the same source sets — the MIXED corpus. `retrofit/main` is Java plus
+  KotlinExtensions.kt, and the calls cross both ways in one source set: Java's HttpServiceMethod calls
+  KotlinExtensions.await/awaitNullable/awaitUnit/awaitResponse/suspendAndThrow, and those call back
+  into Java's Call/Callback. detekt and coil are pure Kotlin; this is the corpus for MixedInspector.
+  22 javac + 6 kotlinc invocations -> 24 source sets, 176 files / ~15k lines, three of them mixed
+  (retrofit, retrofit-mock, samples: .kt beside .java in src/main/java). MAIN ONLY (`classes`), as detekt.
+  Consumed by TestRetrofitCorpus.
+
+source:
+  kind: git
+  url: https://github.com/square/retrofit.git
+  rev: 3ab0f1a2c18666adb79ebf4eacef6fbc40d3e801
+  # 3.0.0 (released 2025-05-15). Gradle 8.14, Kotlin 2.1.21.
+
+# No `build`: the config route IS the build, as for detekt.
+#
+# ⚠ GRADLE 8.14 RUNS ON JDK 24 AT MOST. `config.jdk` launches it on the machine profile's 21 (what it
+# was configured with), passed as -Dorg.gradle.java.home so it also beats a global gradle.properties pin;
+# maddi's own side still runs on its own JDK.
+
+config:
+  route: gradle-log-kotlin
+  tasks: classes
+  jdk: {version: 21}
+  # retrofit pins JDK 8 (every subproject) and Azul 14/16 (retrofit's multi-release source sets); foojay
+  # cannot provision 8 on Apple silicon. The init script moves all three to one installed JDK (21) and
+  # turns errorprone off -- the checkout is not edited. See the script.
+  init_script: ../scripts/retrofit-toolchains.init.gradle
+
+parse:
+  runner: kotlin
+  steps: [prep, modification]
+  # ⚠ NO config.baseline, for the reason detekt.yml gives: the Kotlin driver cannot parse-only yet.

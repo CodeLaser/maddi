@@ -1,0 +1,703 @@
+# Taskfile.yml — install & manage the maddi "test-oss" corpus, and run the analyzer on it.
+#
+#   https://taskfile.dev   (install: `brew install go-task`)
+#   Quick start (from the repo root, prefix with `corpus:`, e.g. `task corpus:doctor`):
+#     task doctor            # check JDK 26 / env / where the corpus will live
+#     task init              # write a .env you can edit (sets TEST_OSS_ROOT)
+#     task install:wired     # obtain (at its pin) + build + configure every corpus this machine holds
+#     task config:all        # regenerate each held corpus's configuration, then diff its baseline
+#     task verify            # per held corpus: present? at its pin? built? configured?
+#     task test:slow         # run the @Tag("slow") corpus tests against it
+#     task --list            # everything else
+#
+# WHERE THINGS GO
+#   Projects are cloned under TEST_OSS_ROOT. By default that is a `test-oss` directory NEXT TO
+#   this maddi checkout (e.g. ~/git/test-oss when maddi is at ~/git/maddi) — the same
+#   `../../test-oss` convention the corpus tests use (see TestOssCorpus in maddi-run-openjdk's
+#   test fixtures). Override it in .env (recommended; `task init` writes one) or per-invocation:
+#   `task guava TEST_OSS_ROOT=/data/oss`.
+#
+# HOW THIS CONNECTS TO THE TESTS
+#   The @Tag("slow") corpus tests (maddi-run-analysis, maddi-run-kotlin-analysis) resolve the corpus root
+#   via TEST_OSS_ROOT / -Dtest.oss.root and *skip silently* (JUnit assumptions) when a project or
+#   its inputConfiguration.json is missing. So: `task install:wired` + `task config:all` first,
+#   then `task test:slow` — and read the per-test roll-call, not just the build outcome
+#   (AGENTS.md §Commands).
+#
+# PREREQUISITES (see `task doctor`)
+#   - JDK 26 on PATH and JAVA_HOME (temurin-26 here). Put JAVA_HOME in .env.
+#   - Maven / Gradle wrappers come with each project; Tomcat needs `ant`.
+#   - CodeLaser GitHub SSH access is NOT needed here (these are public OSS repos);
+#     it IS needed for the separate testarchive / testtransform corpora.
+
+version: '3'
+
+# NOTE on .env: Task refuses dotenv declarations in included Taskfiles, so the REPO-ROOT Taskfile
+# loads corpus/.env (written by `task init`; optional). Run the corpus tasks from the repo root
+# (`task corpus:*`) to get it; when invoking this file directly (`task -d corpus …`), export
+# TEST_OSS_ROOT / JAVA_HOME yourself or pass them on the command line.
+
+vars:
+  # Path vars are static templates, not `sh: cd … && pwd`: when this file is included from the
+  # repo root, Task evaluates the globals once with TASKFILE_DIR empty before the real pass, and a
+  # failing shell in that throwaway pass aborts every task. The `/..` stays un-normalized; every
+  # consumer below handles that fine.
+  # The maddi checkout this Taskfile lives in (<repo>/corpus/Taskfile.yml).
+  MADDI_REPO: '{{.TASKFILE_DIR}}/..'
+  # The maddi-dist checkout: the CLI launchers and the build plugins (split stage 5). Sibling by default.
+  MADDI_DIST_REPO: '{{.MADDI_DIST_REPO | default (print .TASKFILE_DIR "/../../maddi-dist")}}'
+  # Root under which every corpus project is cloned. Resolution order:
+  #   1. TEST_OSS_ROOT from the environment / .env / CLI (`task X TEST_OSS_ROOT=…`)
+  #   2. fallback: `test-oss` next to the maddi checkout (created on first clone)
+  DEFAULT_ROOT: '{{.TASKFILE_DIR}}/../../test-oss'
+  TEST_OSS_ROOT: '{{.TEST_OSS_ROOT | default .DEFAULT_ROOT}}'
+  # maddi Maven plugin coordinates, used by the `config:*` tasks below. Follows the repo version
+  # (gradle.properties) — the version `task config:plugin` publishes to ~/.m2. The `|| true`
+  # guards the throwaway first pass described above.
+  DEFAULT_PLUGIN_VERSION:
+    sh: sed -n 's/^version=//p' "{{.TASKFILE_DIR}}/../../maddi-dist/gradle.properties" 2>/dev/null || true
+  MADDI_PLUGIN_VERSION: '{{.MADDI_PLUGIN_VERSION | default .DEFAULT_PLUGIN_VERSION}}'
+  # JDK 21 home, used ONLY by projects that cannot build on JDK 26 (sonarqube). macOS default;
+  # override in .env for other platforms. Empty if no JDK 21 is installed.
+  DEFAULT_JDK21_HOME:
+    sh: /usr/libexec/java_home -v 21 2>/dev/null || true
+  JDK21_HOME: '{{.JDK21_HOME | default .DEFAULT_JDK21_HOME}}'
+
+env:
+  # Exported to every command a task runs (builds, plugin invocations, and any
+  # `maddi` you drive through this Taskfile). The 5 javac --add-exports the
+  # openjdk front-end needs are bundled here as MADDI_EXPORTS.
+  TEST_OSS_ROOT: '{{.TEST_OSS_ROOT}}'
+  MADDI_EXPORTS: >-
+    --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+    --add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+    --add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+    --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
+    --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+
+tasks:
+
+  default:
+    cmds: [{ task: help }]
+
+  help:
+    desc: 'List available tasks'
+    silent: true
+    cmds:
+      - task --list
+
+  # ---------------------------------------------------------------- environment
+
+  doctor:
+    desc: 'Check prerequisites: JDK 26, task, JAVA_HOME, corpus root'
+    silent: true
+    cmds:
+      - 'echo "TEST_OSS_ROOT = {{.TEST_OSS_ROOT}}"'
+      - 'echo "MADDI_REPO    = {{.MADDI_REPO}}"'
+      - 'echo "PLUGIN VER    = {{.MADDI_PLUGIN_VERSION}}"'
+      - 'echo "JDK21_HOME    = {{.JDK21_HOME | default "<none — only sonarqube needs it>"}}"'
+      - 'echo "JAVA_HOME     = ${JAVA_HOME:-<unset — set it in .env>}"'
+      - 'echo "MADDI_EXPORTS = set ($(echo $MADDI_EXPORTS | wc -w | tr -d " ") words)"'
+      - 'echo -n "java:           "; java -version 2>&1 | head -1'
+      - 'java -version 2>&1 | grep -q ''"26'' && echo "JDK 26          OK" || echo "JDK 26          *** NOT DETECTED — maddi needs JDK 26 ***"'
+      - 'echo -n "task:           "; task --version'
+
+  env:
+    desc: 'Print export lines for your shell:  eval "$(task env)"'
+    silent: true
+    cmds:
+      - 'echo "export TEST_OSS_ROOT={{.TEST_OSS_ROOT}}"'
+      - 'echo "export MADDI_EXPORTS=\"$MADDI_EXPORTS\""'
+
+  init:
+    desc: 'Write a starter .env (TEST_OSS_ROOT + JAVA_HOME) — edit to taste'
+    status:
+      - test -f '{{.TASKFILE_DIR}}/.env'
+    cmds:
+      - |
+        cat > '{{.TASKFILE_DIR}}/.env' <<EOF
+        # Corpus location and JDK for the maddi corpus Taskfile. Not committed (.gitignore).
+        TEST_OSS_ROOT={{.TEST_OSS_ROOT}}
+        JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-26.jdk/Contents/Home
+        EOF
+      - 'echo "Wrote {{.TASKFILE_DIR}}/.env — review it, then run: task doctor"'
+
+  # ---------------------------------------------------------------- the catalogue's corpora
+  # Every corpus in catalogue/ is driven from its entry: no per-project task. "Held" is what this
+  # machine's profile says it must hold ($CORPUS_MACHINES; see catalogue.py machine), or every entry
+  # when there is no profile. The per-project tasks these replace were retired on 2026-09-26, after
+  # every catalogued corpus on laser1 had regenerated through `catalogue:config` to its recorded
+  # baseline (or, without one, to the same source sets).
+
+  verify:
+    desc: 'Per corpus this machine holds: present? at its pin? built? configured? (= catalogue:doctor)'
+    cmds: [{ task: catalogue:doctor }]
+
+  # ---------------------------------------------------- the five commands
+  #
+  # One corpus, from nothing to loadable by the engine. Everything else in this file is either a
+  # composite over these (install:wired, config:all) or the mechanics they call. The longer
+  # `catalogue:*` names stay because AGENTS.md, CONTRIBUTING.md and TestOssCorpus's failure messages
+  # name them; they are the same code, not a second copy of it.
+
+  pull:
+    desc: 'Clone one corpus and check out its pinned commit: task corpus:pull NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:obtain, vars: { NAME: '{{.NAME}}' } }]
+
+  build:
+    desc: 'Build one corpus and verify it produced what the next step needs: task corpus:build NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:build, vars: { NAME: '{{.NAME}}' } }]
+
+  clean:
+    desc: 'Discard edits, delete generated sources, return to the pinned commit: task corpus:clean NAME=guava [ALSO_OURS=1]'
+    requires: { vars: [NAME] }
+    cmds:
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py clean {{.NAME}} {{if .ALSO_OURS}}--also-ours{{end}}'
+
+  config:
+    desc: 'Generate the input configuration and register the corpus with the engine: task corpus:config NAME=guava'
+    requires: { vars: [NAME] }
+    cmds: [{ task: catalogue:config, vars: { NAME: '{{.NAME}}' } }]
+
+  check:
+    desc: 'Per corpus: pulled? at its pin? built? configured? registered?: task corpus:check [NAME=guava]'
+    # NOT `task: catalogue:doctor`: that one passes {{.CLI_ARGS}}, so a NAME= handed to it would be
+    # silently ignored and the report would cover every corpus while naming one.
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.NAME}}']
+
+  ready:
+    desc: 'One corpus, end to end: pull -> build -> config (incl. register) -> check'
+    requires: { vars: [NAME] }
+    cmds:
+      - { task: pull,   vars: { NAME: '{{.NAME}}' } }
+      - { task: build,  vars: { NAME: '{{.NAME}}' } }
+      - { task: config, vars: { NAME: '{{.NAME}}' } }
+      - { task: check,  vars: { NAME: '{{.NAME}}' } }
+
+  install:wired:
+    desc: 'Obtain (at its pin), build and configure every corpus this machine holds -- hours. FROM=<name> resumes there'
+    vars:
+      # FROM=<name>: the held list from that entry on, in the same order -- to resume after a failure
+      # without rebuilding everything before it. A name not in the list is refused, not an empty run.
+      HELD:
+        sh: >-
+          {{.TASKFILE_DIR}}/scripts/catalogue.py list --held --names
+          {{if .FROM}}| sed -n '/^{{.FROM}}$/,$p'{{end}}
+    preconditions:
+      - sh: '[ -n "{{.HELD}}" ]'
+        msg: '{{if .FROM}}FROM={{.FROM}} is not an entry this machine holds (catalogue.py list --held --names){{else}}this machine holds no corpus{{end}}'
+    cmds:
+      - { task: config:plugin }
+      - for: { var: HELD }
+        task: catalogue:provision
+        vars: { NAME: '{{.ITEM}}' }
+
+  config:all:
+    desc: "Regenerate every held corpus's configuration and diff its baseline (projects must be built)"
+    vars:
+      HELD: { sh: '{{.TASKFILE_DIR}}/scripts/catalogue.py list --held --names' }
+    cmds:
+      - { task: config:plugin }
+      - for: { var: HELD }
+        task: catalogue:config
+        vars: { NAME: '{{.ITEM}}' }
+
+  install:extra:
+    desc: 'Clone + build the projects not yet in the catalogue (large; hours of build time)'
+    cmds:
+      - { task: gradle }
+      - { task: hadoop }
+      - { task: hazelcast }
+      - { task: hibernate-orm }
+      - { task: hive }
+      - { task: keycloak }
+      - { task: quarkus }
+
+  install:all:
+    desc: 'install:wired + install:extra (does NOT include tomcat/trino/wildfly — those need special setup, run them individually)'
+    cmds:
+      - { task: install:wired }
+      - { task: install:extra }
+
+  # ---------------------------------------------------- extra "Built" projects
+
+  gradle:
+    desc: 'gradle — Gradle'
+    cmds:
+      - { task: _clone, vars: { NAME: gradle, URL: 'https://github.com/gradle/gradle.git' } }
+      - { task: _build, vars: { NAME: gradle, BUILD: './gradlew compileTestJava' } }
+
+  hadoop:
+    desc: 'hadoop — Maven wrapper (slow; shaded builds take ages)'
+    cmds:
+      - { task: _clone, vars: { NAME: hadoop, URL: 'https://github.com/apache/hadoop.git' } }
+      - { task: _build, vars: { NAME: hadoop, BUILD: './mvnw install -DskipTests' } }
+
+  hazelcast:
+    desc: 'hazelcast — Maven wrapper'
+    cmds:
+      - { task: _clone, vars: { NAME: hazelcast, URL: 'https://github.com/hazelcast/hazelcast.git' } }
+      - { task: _build, vars: { NAME: hazelcast, BUILD: './mvnw clean install -DskipTests' } }
+
+  hibernate-orm:
+    desc: 'hibernate-orm — Gradle'
+    cmds:
+      - { task: _clone, vars: { NAME: hibernate-orm, URL: 'https://github.com/hibernate/hibernate-orm.git' } }
+      - { task: _build, vars: { NAME: hibernate-orm, BUILD: './gradlew compileTestJava' } }
+
+  hive:
+    desc: 'hive — Maven (54/57 modules build)'
+    cmds:
+      - { task: _clone, vars: { NAME: hive, URL: 'https://github.com/apache/hive.git' } }
+      - { task: _build, vars: { NAME: hive, BUILD: 'mvn install -DskipTests' } }
+
+  # Apache Ignite 2.x — the apache/ignite repo IS the 2.x line (Ignite 3 is apache/ignite-3). master,
+  # not a release branch: upstream is carving ignite-core by hand (IEP-119), so a release is stale.
+  # Cloned as `ignite-core` (the modularization campaign's name for it). The build itself happens in
+  # config:ignite-core — one pass builds AND captures, as for trino.
+  ignite-core:
+    desc: 'ignite-core — Apache Ignite 2.x master (clone only; build + capture is config:ignite-core)'
+    cmds:
+      - { task: _clone, vars: { NAME: ignite-core, URL: 'https://github.com/apache/ignite.git' } }
+
+  keycloak:
+    desc: 'keycloak — Maven wrapper'
+    cmds:
+      - { task: _clone, vars: { NAME: keycloak, URL: 'https://github.com/keycloak/keycloak.git' } }
+      - { task: _build, vars: { NAME: keycloak, BUILD: './mvnw clean install -DskipTests' } }
+
+  quarkus:
+    desc: 'quarkus — Maven wrapper'
+    cmds:
+      - { task: _clone, vars: { NAME: quarkus, URL: 'https://github.com/quarkusio/quarkus.git' } }
+      - { task: _build, vars: { NAME: quarkus, BUILD: './mvnw clean install -DskipTests' } }
+
+  # ---------------------------------------------- special-setup projects (manual)
+
+  tomcat:
+    desc: 'tomcat — Ant build (needs `ant` on PATH)'
+    cmds:
+      - { task: _clone, vars: { NAME: tomcat, URL: 'https://github.com/apache/tomcat.git' } }
+      - { task: _build, vars: { NAME: tomcat, BUILD: 'ant' } }
+
+  # ⚠ CHECK THE JDK BEFORE BUILDING. Trino pins its build JDK hard and moves it often; the
+  # `-Duse.jdk17=true` below is inherited from an older revision and is very likely stale. Read
+  # `.java-version` / `pom.xml` in the clone first, and pass the matching JDK rather than assuming the
+  # JDK 26 that `task doctor` checks for. Unlike Elasticsearch (Gradle toolchains, which provision the
+  # right JDK themselves) Maven will not fix this for you — it will simply fail, or worse, build with
+  # the wrong release level.
+  #
+  # ⚠ `install`, not `test-compile`, and deliberately. Measured on camel: `test-compile` over the whole
+  # reactor died at module 126 because camel-spring-xml unpacks a SOURCES jar of a sibling module, and
+  # only `install` publishes those to ~/.m2. Large Maven reactors routinely have such steps; assume
+  # `install` is required until proven otherwise. Note this writes trino's artifacts into the global
+  # ~/.m2 — a side effect a compile-only build would not have.
+  trino:
+    desc: 'trino — Maven wrapper; check the required JDK in the clone first (see comment)'
+    cmds:
+      - { task: _clone, vars: { NAME: trino, URL: 'https://github.com/trinodb/trino.git' } }
+      - { task: _build, vars: { NAME: trino, BUILD: './mvnw clean install -DskipTests=true' } }
+
+  wildfly:
+    desc: 'wildfly — Maven wrapper. NOTE: needs a commons-collections license edit first (see java_kotlin_refactoring_projects.md).'
+    cmds:
+      - { task: _clone, vars: { NAME: wildfly, URL: 'https://github.com/wildfly/wildfly.git' } }
+      - 'echo "Before building: apply the commons-collections license fix from java_kotlin_refactoring_projects.md, then run: cd {{.TEST_OSS_ROOT}}/wildfly && ./mvnw clean install -DskipTests"'
+
+  sonarqube:
+    desc: 'sonarqube — Gradle, JDK 21 ONLY (does NOT build on the JDK 26 used elsewhere; pins the Gradle JVM to JDK21_HOME)'
+    preconditions:
+      - sh: 'test -n "{{.JDK21_HOME}}"'
+        msg: "sonarqube needs JDK 21 — it does not build on JDK 26. Install a JDK 21, or set JDK21_HOME in .env (macOS: /usr/libexec/java_home -v 21)."
+    cmds:
+      - { task: _clone, vars: { NAME: sonarqube, URL: 'https://github.com/SonarSource/sonarqube.git' } }
+      - { task: _build, vars: { NAME: sonarqube, BUILD: './gradlew -Dorg.gradle.java.home={{.JDK21_HOME}} compileTestJava' } }
+
+  # --------------------------------------------------------- internal helpers
+
+  _clone:
+    internal: true
+    dir: '{{.TEST_OSS_ROOT}}'
+    requires: { vars: [NAME, URL] }
+    status:
+      - test -d '{{.TEST_OSS_ROOT}}/{{.NAME}}/.git'
+    cmds:
+      - 'echo ">>> cloning {{.NAME}} from {{.URL}}"'
+      - git clone '{{.URL}}' '{{.NAME}}'
+
+  _build:
+    internal: true
+    dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
+    requires: { vars: [NAME, BUILD] }
+    cmds:
+      - 'echo ">>> building {{.NAME}}:  {{.BUILD}}"'
+      - '{{.BUILD}}'
+
+  # ============================= input-configuration generation ===============
+  # The maddi corpus tests read <TEST_OSS_ROOT>/<project>/inputConfiguration.json. These files carry
+  # THIS machine's absolute paths, so each machine regenerates them locally after building the
+  # project (run `task <project>` first). Two generation paths, matching how each pinned config was
+  # produced — the module / scope below are taken from the checked-in baselines, not guessed:
+  #   - Maven projects: the maddi Maven plugin's write-input-configuration on ONE module.
+  #   - Gradle projects: capture the compile log, feed it to `maddi --compile-log` (whole project).
+  # A third path, catalogue.py's `gradle-plugin` route, runs the maddi GRADLE plugin on one project
+  # -- the A/B against `gradle-log` on the same checkout is what tests that plugin against something
+  # other than dogfood.
+  # All three plugin paths need a plugin in ~/.m2 (task config:plugin).
+
+  config:plugin:
+    desc: 'Publish both maddi build plugins to ~/.m2 (needed by the plugin config:* routes)'
+    dir: '{{.MADDI_DIST_REPO}}'
+    cmds:
+      # BOTH, deliberately: the two are one option surface with one shared implementation, and a
+      # task that published only one is how a route comes to run last week's plugin.
+      - ./gradlew :maddi-mvnplugin:publishToMavenLocal :maddi-gradleplugin:publishToMavenLocal
+
+  # ignite-core: `install` + REWRITE_REACTOR_JARS, the guava route, for a plainer reason: the reactor
+  # is known to build under `install` (43/43, ~2 min), and the later modules then name siblings as
+  # target/*.jar and *-tests.jar (measured: ignite-core, -tests, commons, binary-api/impl, nio, ...),
+  # which the rewrite turns back into their output directories.
+  # JDK 17 for the BUILD: parent/pom.xml sets maven.compiler.source/target 17, and core's compilerArgs
+  # carry --add-exports java.base/jdk.internal.misc (et al.) — so the parse needs maddi 302a7c397+
+  # ("Carry javac's --add-exports per source set"), or core's users of those packages drop.
+  # ⚠ core runs three annotation processors from modules/codegen (MessageProcessor,
+  # IgniteDataTransferObjectProcessor, SystemViewRowAttributeWalkerProcessor) into
+  # core/target/generated-sources/codegen — ~796 generated files beside ~3,900 hand-written ones.
+  config:ignite-core:
+    desc: 'ignite-core config (Maven compile-log over `install`, whole default reactor, JDK 17 build)'
+    vars:
+      IGNITE_JAVA_HOME:
+        sh: /usr/libexec/java_home -v 17 2>/dev/null || true
+    preconditions:
+      - sh: 'test -x "{{.IGNITE_JAVA_HOME}}/bin/javac"'
+        msg: 'No JDK 17 found — set IGNITE_JAVA_HOME (ignite master targets 17).'
+      - sh: 'test -f "{{.IGNITE_JAVA_HOME}}/jmods/java.base.jmod"'
+        msg: 'maddi reads an alternative JRE from its jmods/ — {{.IGNITE_JAVA_HOME}} has none.'
+    cmds:
+      - task: _config:maven-log
+        vars: { NAME: ignite-core, TASKS: 'install -DskipTests -Dstyle.color=never', REWRITE_REACTOR_JARS: 'true',
+                BUILD_JAVA_HOME: '{{.IGNITE_JAVA_HOME}}', MADDI_ARGS: '--jre {{.IGNITE_JAVA_HOME}}' }
+
+  # The whole-reactor capture above is 521 source sets and cannot be checked in (560 of its
+  # class-path entries are absolute paths into ~/.gradle/caches). TestElasticsearchServer wants
+  # the SERVER closure only, so this derives that slice from it with every path made relative,
+  # and writes it into maddi's test resources -- one file, identical on every machine.
+  # Re-run it when elasticsearch's own module layout moves, and commit the result.
+  config:elasticsearch-server:
+    desc: 'elasticsearch SERVER slice -> maddi test resources (checked in, relative paths)'
+    deps: [{ task: catalogue:config, vars: { NAME: elasticsearch } }]
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/elasticsearch-server-input-configuration.py'
+
+  # One pass builds AND captures: `install` is what trino's reactor needs (see the trino task), and the
+  # -X log of that same run is what maddi consumes. Do NOT run `task trino` first and then this — the
+  # second `clean` throws away the first build for nothing.
+  # ⛔ TRINO ENFORCES THE JDK **VENDOR**, NOT ONLY THE VERSION, and it fails 30 s into the build with a
+  # maven-enforcer stack trace rather than anything readable:
+  #     Rule 8: RequireJavaVendor -- "Trino requires Temurin or Oracle JDK for development."
+  # A distribution OpenJDK (java.vendor = Ubuntu / Debian / Red Hat) is REJECTED at the correct version.
+  # .java-version pins 25, and .mvn/jvm.config asks for 8G.
+  #
+  # Finding one: Gradle's toolchain auto-provisioning downloads Temurin builds into
+  # <gradle-user-home>/jdks/eclipse_adoptium-<v>-amd64-linux.N — elasticsearch's build pulls them, so a
+  # usable Temurin may already be on the machine. Otherwise install one from adoptium.net.
+  # The precondition below checks the vendor so this fails immediately, with a message that says what
+  # to do, instead of after a clean+enforce cycle.
+  config:trino:
+    desc: 'trino config (Maven compile-log, whole reactor — long; needs Temurin/Oracle JDK 25)'
+    vars:
+      TRINO_JAVA_HOME: '{{.TRINO_JAVA_HOME | default "/usr/lib/jvm/java-25-openjdk-amd64"}}'
+    preconditions:
+      - sh: 'test -x "{{.TRINO_JAVA_HOME}}/bin/javac"'
+        msg: 'No javac at {{.TRINO_JAVA_HOME}}/bin — set TRINO_JAVA_HOME to a Temurin or Oracle JDK 25.'
+      - sh: '"{{.TRINO_JAVA_HOME}}/bin/java" -XshowSettings:properties -version 2>&1 | grep -qE "java.vendor = (Eclipse Adoptium|Oracle)"'
+        msg: >-
+          {{.TRINO_JAVA_HOME}} is not a Temurin or Oracle JDK, and trino's maven-enforcer rejects any
+          other vendor. Set TRINO_JAVA_HOME — try <gradle-user-home>/jdks/eclipse_adoptium-25-amd64-linux.*
+          if elasticsearch has been built here, else install one from adoptium.net.
+    # ⚠ trino-docs is EXCLUDED, and not for convenience. It shells out to Sphinx (a Python doc tool)
+    # via exec-maven-plugin, which exits 127 "command not found" unless Sphinx is installed, and that
+    # aborts the whole reactor at ~module 100 of 110 — after ten minutes of real compilation. It is a
+    # documentation module: nothing depends on it (only its own pom names trino-docs) and it contains
+    # no Java we want to parse, so excluding it costs no coverage at all.
+    #
+    # ⛔ `test-compile`, NOT `install`, and this is the opposite of camel's lesson — do not "fix" it by
+    # copying camel. `install` publishes each module to ~/.m2, after which later modules in the reactor
+    # resolve their siblings from the JAR rather than from target/classes. The captured -classpath then
+    # names the jar, and the parse sees 74 of trino's own modules defined TWICE: once as a parsed source
+    # set, once as a classpath jar. That is the duplication maddi's own error warns about ("if a type is
+    # defined BOTH in your sources and in a jar on the classpath"). timefold is configured with
+    # test-compile and has no such duplication, which is why it loads.
+    #
+    # trino-server / trino-server-core are excluded too: they use `provisio` packaging and depend on
+    # each other as a tar.gz, which only exists after `package`. Under test-compile they abort the
+    # reactor with "Could not find artifact io.trino:trino-server-core:tar.gz". They are distribution
+    # assembly modules holding ONE Java file each, and neither is a parsed source set (the Java lives
+    # in trino-server-main / trino-server-dev), so excluding them costs nothing measurable.
+    cmds:
+      - task: _config:maven-log
+        vars: { NAME: trino, TASKS: "test-compile -pl '!:trino-docs,!:trino-server,!:trino-server-core'",
+                BUILD_JAVA_HOME: '{{.TRINO_JAVA_HOME}}', MVN_XMX: '8G' }
+
+  # The compile-log capture for the Maven projects not yet in the catalogue (ignite-core, trino); the
+  # catalogue's `maven-log` route is its port. For reactors the single-module plugin path cannot
+  # cover. `mvn -X` prints "[DEBUG] Command line options:" followed by the javac line for EVERY
+  # module it compiles, which is exactly what `maddi --compile-log` consumes — so one capture over
+  # the whole reactor yields every source set at once (timefold: 65).
+  #
+  # `clean` is NOT optional, and this is the trap the Gradle path solves with --rerun-tasks:
+  # maven-compiler-plugin skips a module whose classes are up to date, and a skipped module emits
+  # no "Command line options:" line at all. Capturing without `clean` on an already-built reactor
+  # silently yields a PARTIAL config — measured on timefold: 22 source sets instead of 65, missing
+  # core/main, the module everything else depends on. The result loads and analyses without
+  # complaint, so nothing downstream reveals the loss.
+  _config:maven-log:
+    internal: true
+    requires: { vars: [NAME, TASKS] }
+    dir: '{{.TEST_OSS_ROOT}}/{{.NAME}}'
+    cmds:
+      - 'echo ">>> {{.NAME}}: capturing Maven compile log (clean {{.TASKS}}) — full rebuild, slow"'
+      # ⚠ TWO DIFFERENT JDKs IN ONE TASK. The project's build may pin a JDK that is NOT the one maddi
+      # runs on (trino: .java-version says 25; maddi needs 26). BUILD_JAVA_HOME applies to the Maven
+      # step only — the maddi step below deliberately keeps the ambient JAVA_HOME. Unset, the project
+      # builds on whatever is on PATH, which is right for the projects that do not pin one.
+      # MVN_XMX exists because a project's own .mvn/jvm.config may ask for more than the 6G default
+      # (trino asks for 8G) and the last -Xmx wins.
+      - '{{if .BUILD_JAVA_HOME}}JAVA_HOME={{.BUILD_JAVA_HOME}} {{end}}MAVEN_OPTS="$MADDI_EXPORTS -Xmx{{.MVN_XMX | default "6G"}}" ./mvnw -X clean {{.TASKS}} > compile.log 2>&1'
+      # ⛔ FILTER BEFORE FEEDING IT TO maddi, ALWAYS. ParseJavacList does Files.readString on the whole
+      # file, so a log over ~2 GB dies with "OutOfMemoryError: Required array size too large" — that is
+      # the JVM's maximum array size, not a heap setting, and no -Xmx fixes it. Measured on camel:
+      # 1607 compile invocations produced a 2.5 GB -X log. The .gz branch decompresses into one array
+      # too, so gzipping does not help either.
+      # Filtering is EQUIVALENT input, not a shortcut: ParseJavacList matches every line whole against
+      # MAVEN_PATTERN "\[DEBUG] (-d (.+))" and discards the rest, so the surviving lines are exactly
+      # what it would have consumed. 2.5 GB -> 11 MB on camel, same 1607 invocations.
+      - grep -aE '^\[DEBUG] -d ' compile.log > compile.javac.log
+      # REWRITE_REACTOR_JARS: only for reactors that MUST be captured under `install` (guava — see
+      # catalogue/guava.yml; ignite-core). Once a module is packaged, Maven hands its siblings the JAR as the resolved
+      # artifact instead of target/classes, so the captured -classpath names it. maddi then finds
+      # those types TWICE: once in the source set built from that module's own javac line, once in
+      # the jar — the duplication the trino comment above refuses `install` to avoid. Measured on
+      # guava: 8 javac invocations carrying 18 such entries.
+      #
+      # ⛔ DELETING them is WRONG, and it fails in a way that looks like a corpus problem. The
+      # classpath entry is not merely a duplicate: it is the ONLY thing linking a module to the
+      # sibling it depends on. Remove it and guava-testlib can no longer see guava at all —
+      # "package com.google.common.annotations does not exist", "Type GwtIncompatible not found",
+      # and TestGuava dies in 17 s having parsed nothing. Measured, not feared.
+      #
+      # REWRITING is the resolution: <module>/target/<a>.jar -> <module>/target/classes, and
+      # <module>/target/<a>-tests.jar -> <module>/target/test-classes. That is byte-for-byte what
+      # `test-compile` would have emitted for the same reactor, so the dependency survives and
+      # resolves to the PARSED source set instead of to bytecode. -tests first: it is the more
+      # specific pattern and the plain rule would otherwise swallow it.
+      #
+      # Anchored at the project directory, so third-party jars from ~/.m2 are untouched; `realpath`
+      # because TEST_OSS_ROOT may hold ../.. segments while the log is normalised, and a mismatched
+      # pattern would silently rewrite nothing.
+      - |
+        {{if .REWRITE_REACTOR_JARS}}d=$(realpath .)
+        before=$(grep -oE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log | wc -l)
+        sed -E "s#($d/[^:]*)/target/[^:]*-tests\.jar#\1/target/test-classes#g; \
+                s#($d/[^:]*)/target/[^:]*\.jar#\1/target/classes#g" \
+            compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log
+        after=$(grep -cE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log || true)
+        echo ">>> {{.NAME}}: rewrote $before reactor-jar classpath entries to output dirs (remaining: $after)"
+        test "$after" -eq 0{{end}}
+      - 'echo ">>> {{.NAME}}: $(wc -l < compile.javac.log) compile invocations captured"'
+      - 'echo ">>> {{.NAME}}: maddi --compile-log -> inputConfiguration.json"'
+      # MADDI_ARGS: extra maddi options for this project's configuration, e.g. ignite-core's `--jre <JDK 17>`.
+      - '{{.MADDI_DIST_REPO}}/gradlew -p {{.MADDI_DIST_REPO}} :maddi-cli:run --args="--compile-log {{.TEST_OSS_ROOT}}/{{.NAME}}/compile.javac.log --write-input-configuration {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json{{if .MADDI_ARGS}} {{.MADDI_ARGS}}{{end}}"'
+      - 'echo "Wrote {{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json"'
+      - task: _vendor
+        vars: { CONFIG: '{{.TEST_OSS_ROOT}}/{{.NAME}}/inputConfiguration.json' }
+
+  # A generated configuration names its class path in the build tools' caches, which are not ours:
+  # Gradle deletes an entry it has not used for 30 days (18 jars on 2026-09-25, three corpora), ~/.m2
+  # gets cleared by hand. `_config:maven-log` therefore ends by copying those jars to
+  # <TEST_OSS_ROOT>/lib/<project>/ and pointing the configuration there; `catalogue:config` does the same through `catalogue.py vendor`, which knows where the entry's
+  # configuration is.
+  vendor:
+    desc: 'Move jars a config names out of ~/.gradle / ~/.m2 into TEST_OSS_ROOT/lib/<project>: task vendor [CONFIG=path] [DRY=1]'
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/vendor-libraries.py --corpus "{{.TEST_OSS_ROOT}}" {{if .DRY}}--dry-run{{end}} {{if .CONFIG}}"{{.CONFIG}}"{{else}}--all{{end}}'
+
+  _vendor:
+    internal: true
+    requires: { vars: [CONFIG] }
+    cmds:
+      - 'python3 {{.TASKFILE_DIR}}/scripts/vendor-libraries.py --corpus "{{.TEST_OSS_ROOT}}" "{{.CONFIG}}"'
+
+  # ========================= running the analyzer / slow tests ================
+  # The consumption side of the corpus: the @Tag("slow") tests, the batch sweep, and ad-hoc
+  # analyzer runs on any inputConfiguration.json (corpus-generated or produced elsewhere, e.g. by
+  # the Maven/Gradle plugins on a private project).
+
+  test:slow:
+    desc: 'Run the large-corpus smoke tests (JUnit tag "slow") against the corpus'
+    dir: '{{.MADDI_REPO}}'
+    cmds:
+      # --rerun-tasks: a cached green proves nothing, and absent corpora skip silently — force the
+      # run and read the per-test roll-call (AGENTS.md §Commands).
+      - ./gradlew slowTest --rerun-tasks
+
+  sweep:
+    desc: 'First-contact sweep (TestCorpusSweep) over every corpus with a config: task sweep [SWEEP=name1,name2]'
+    dir: '{{.MADDI_REPO}}'
+    cmds:
+      - SWEEP={{.SWEEP | default "1"}} ./gradlew :maddi-run-analysis:slowTest --tests '*TestCorpusSweep' --rerun-tasks
+
+  run:prep:
+    desc: 'Analyse one input configuration: task run:prep PROJECT=<corpus dir> | CONFIG=/path/to/inputConfiguration.json  [STEPS=prep] [XMX=24G]'
+    dir: '{{.MADDI_DIST_REPO}}'
+    vars:
+      CONFIG: '{{.CONFIG | default (printf "%s/%s/inputConfiguration.json" .TEST_OSS_ROOT (default "<project>" .PROJECT))}}'
+    preconditions:
+      - sh: 'test -f "{{.CONFIG}}"'
+        msg: 'No input configuration at {{.CONFIG}} — pass CONFIG=<path> or PROJECT=<corpus project> (generate with task config:<project>).'
+    cmds:
+      - ./gradlew :maddi-cli:run {{if .XMX}}-PjvmArgs="-Xmx{{.XMX}}"{{end}} --args="--input-configuration={{.CONFIG}} --parallel --analysis-steps={{.STEPS | default "prep"}} --debug=memory"
+
+  # ======================== the catalogue (new; see corpus/catalogue/) =======
+  # Generic over catalogue/<name>.yml — no per-project task. These run alongside the hand-written
+  # tasks above until `catalogue:doctor` agrees with reality for every corpus, then those go.
+  #
+  # The scripts print the command and Task runs it, so output streams, the exit code is Task's,
+  # and `task --dry` shows something real rather than an opaque python call.
+
+  _cat:
+    internal: true
+    requires: { vars: [NAME, PHASE] }
+    # `silent`, because this task ALREADY reports itself: the `echo ">>> <name> [<phase>] in <dir>:
+    # <command>"` below is the one line worth reading, and without silent Task prints the whole
+    # eight-line block verbatim before running it, on every phase of every corpus. The phase's own
+    # output and catalogue.py's messages are unaffected -- silent suppresses the echo of the script,
+    # not what the script writes.
+    silent: true
+    # NO `dir:`. It can only be a static template, so it could only ever compose
+    # TEST_OSS_ROOT/<name> -- and a PRIVATE entry's distinguishing mark is an absolute `dir`
+    # outside the corpus root (callforpapers: ~/git/callforpapers). Task then made the wrong
+    # answer silent by CREATING the missing directory instead of failing, so the phase ran in a
+    # brand-new empty dir in the corpus root and failed on a missing ./mvnw. Ask the catalogue,
+    # which resolves ~ and $VARS and knows relative-vs-absolute, and cd here instead.
+    #
+    # ⚠ EXIT 2 FROM `plan` MEANS "this corpus HAS no such phase", which is a normal state and not a
+    # failure: guava, detekt and caffeine declare no `build:` because their config route IS the build,
+    # and vavr declares no `tests:`. Treating it as a failure stopped the composites
+    # (`catalogue:provision`, `corpus:ready`) at the first such corpus -- `corpus:ready NAME=caffeine`
+    # died on a build phase caffeine is not supposed to have. Every other non-zero still stops.
+    #
+    # `|| rc=$?`, NOT `; rc=$?`: Task's shell stops the script at a command substitution that fails, so
+    # with `;` the lines below are never reached and the phase exits 2 anyway. That is the bug this
+    # block was added to fix, written once by hand and caught only because the skip message never
+    # appeared in the output.
+    #
+    # These notes live in a YAML comment, NOT in the shell block: Task echoes the block it runs, so a
+    # comment down there is reprinted on every phase of every corpus -- eleven lines of explanation
+    # before each of five phases, which is how a useful note becomes noise.
+    cmds:
+      - |
+        dir="$({{.TASKFILE_DIR}}/scripts/catalogue.py dir {{.NAME}})" || exit $?
+        rc=0
+        cmd="$({{.TASKFILE_DIR}}/scripts/catalogue.py plan {{.PHASE}} {{.NAME}})" || rc=$?
+        if [ "$rc" -eq 2 ]; then echo ">>> {{.NAME}}: no {{.PHASE}} phase in this entry -- skipped, the chain goes on" >&2; exit 0; fi
+        [ "$rc" -eq 0 ] || exit "$rc"
+        [ -d "$dir" ] || { echo ">>> {{.NAME}}: $dir does not exist -- clone/obtain it first, the message below is not the reason" >&2; exit 1; }
+        echo ">>> {{.NAME}} [{{.PHASE}}] in $dir: $cmd"
+        cd "$dir" && eval "$cmd"
+
+  catalogue:list:
+    desc: 'Every catalogue entry: status, and P/B/C for present/built/configured on this machine'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py list {{if .STATUS}}--status {{.STATUS}}{{end}}']
+
+  catalogue:doctor:
+    desc: 'Per corpus: obtained? built? configured? loadable by the engine? how many source sets'
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py doctor {{.CLI_ARGS}}']
+
+  catalogue:machine:
+    desc: "Check this host's profile in $CORPUS_MACHINES; INIT=1 drafts one from what is installed here"
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py machine {{if .INIT}}--init{{end}}']
+
+  catalogue:show:
+    desc: 'The resolved entry: task catalogue:show NAME=timefold-solver'
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py show {{.NAME}}']
+
+  catalogue:obtain:
+    desc: 'Clone one corpus if absent and check out its pinned source.rev: task catalogue:obtain NAME=camel'
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py obtain {{.NAME}}']
+
+  catalogue:pin:
+    # It does NOT re-record the baseline, whatever this description used to say: `pin` writes
+    # source.rev and stops. Recording is a separate, deliberate step, so that moving a pin shows you
+    # what upstream changed before you accept it.
+    desc: "Write the checkout's HEAD (or REV=...) as source.rev; re-record the baseline separately with `catalogue:baseline NAME=… RECORD=1`"
+    requires: { vars: [NAME] }
+    cmds: ['{{.TASKFILE_DIR}}/scripts/catalogue.py pin {{.NAME}} {{if .REV}}--rev {{.REV}}{{end}}']
+
+  catalogue:build:
+    desc: 'Build one corpus, then assert build.provides: task catalogue:build NAME=langchain4j'
+    requires: { vars: [NAME] }
+    cmds:
+      # Before anything slow: a build of the wrong commit costs the full build and then a baseline
+      # diff that is about upstream, not about maddi.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-rev {{.NAME}}'
+      # JDK first: trino's enforcer fails 30s in with a stack trace, and sonarqube simply will not
+      # build on 26. Checking up front costs nothing and the message says what to install.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-jdk {{.NAME}}'
+      # ⚠ `- ` prefix: a NON-ZERO EXIT IS NOT A FAILURE HERE. langchain4j's reactor stops on
+      # provider modules that do not resolve, and that is expected. The build is judged by
+      # check-provides below — what the next phase needs, not what the command returned.
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: build }
+        ignore_error: true
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py check-provides {{.NAME}}'
+
+  catalogue:config:
+    desc: 'Generate one inputConfiguration.json, then diff the source-set inventory'
+    requires: { vars: [NAME] }
+    cmds:
+      - task: _cat
+        vars: { NAME: '{{.NAME}}', PHASE: config }
+      # As every `_config:*` above does: the configuration must stop naming the build tools' caches.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py vendor {{.NAME}}'
+      # Only where one is declared: an entry without a baseline has nothing to diff, and that is not
+      # a failed configuration.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} --if-declared'
+      # ⛔ HERE, NOT IN A SEPARATE TASK SOMEONE MUST REMEMBER. Registration is what makes the
+      # configuration readable by the engine, and a corpus that is configured but not registered looks
+      # exactly like one that is ready until the script runner says "project not found". Every caller
+      # of the config phase gets it: config:all, catalogue:provision, install:wired.
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py register {{.NAME}}'
+
+  catalogue:parse:
+    desc: 'Parse-only run (--analysis-steps=none) over the configuration parse.config names'
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: parse } }]
+
+  catalogue:analyse:
+    desc: "The analyzer over one corpus: its parse.test if it has one, else a run at parse.steps"
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: analyse } }]
+
+  catalogue:tests:
+    desc: "Run the corpus project's own reachable tests (those in the config's test source sets)"
+    requires: { vars: [NAME] }
+    cmds: [{ task: _cat, vars: { NAME: '{{.NAME}}', PHASE: tests } }]
+
+  catalogue:baseline:
+    desc: 'Diff the source-set inventory against the recorded one; RECORD=1 to accept the diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - '{{.TASKFILE_DIR}}/scripts/catalogue.py baseline {{.NAME}} {{if .RECORD}}--record{{end}}'
+
+  catalogue:provision:
+    desc: 'One corpus, end to end: obtain at its pin -> build -> assert provides -> config -> inventory diff'
+    requires: { vars: [NAME] }
+    cmds:
+      - { task: catalogue:obtain, vars: { NAME: '{{.NAME}}' } }
+      - { task: catalogue:build,  vars: { NAME: '{{.NAME}}' } }
+      - { task: catalogue:config, vars: { NAME: '{{.NAME}}' } }

@@ -1,0 +1,77 @@
+name: eclipse-collections
+status: active
+summary: >-
+  Maven, 2 of ~20 modules (eclipse-collections-api + eclipse-collections), 3,592 main primary types,
+  ~75 % of them GENERATED primitive specialisations. Second target of the analysis-hints campaign
+  (after vavr): a library whose type NAMES state the expected verdict — Immutable* should come out
+  @Immutable(hc=true), Mutable* / Synchronized* / Unmodifiable* not — so, as with vavr, a
+  disagreement is either a library subtlety worth a hint or an analyzer defect worth a fixture.
+  API + IMPLEMENTATION BOTH AS SOURCE — see the ⛔ under `config`.
+
+source:
+  kind: git
+  url: https://github.com/eclipse-collections/eclipse-collections.git
+  # 13.0.0 (commit cff067d). `git clone --depth 1 --branch 13.0.0` builds fine: nothing reads
+  # history.
+
+build:
+  cmd: mvn -B install -DskipTests -pl eclipse-collections-api,eclipse-collections -am
+  expect: complete
+  provides:
+    - eclipse-collections-api/target/classes
+    - eclipse-collections-api/target/generated-sources/java
+    - eclipse-collections/target/classes
+    - eclipse-collections/target/generated-sources/java
+  # -pl … -am: the reactor has ~20 modules (tests, test-coverage, jmh, osgi, …); the two we need
+  # pull in only the parent and eclipse-collections-code-generator(-maven-plugin). Measured
+  # 2026-09-25 on JDK 27 / Maven 3.9.16: rc 0, a few minutes. The project targets release 17.
+  #
+  # ⚠ THE BUILD IS A PREREQUISITE OF THE PARSE, not just of the tests: ~2,800 of the 3,726 main
+  # compilation units are written by eclipse-collections-code-generator-maven-plugin (StringTemplate
+  # → target/generated-sources/java: the Int*/Long*/Char*… specialisations). A parse on an unbuilt
+  # checkout does not fail — a source ROOT that does not exist contributes nothing — it analyses
+  # the quarter of the library that is hand-written and says nothing. The config script refuses a
+  # missing root for that reason.
+
+config:
+  route: script
+  script: ../scripts/eclipse-collections-config.py
+  generates: [inputConfiguration.json]
+  # ⛔ THE PER-MODULE ROUTE WOULD ANALYSE THE API AS BYTE CODE. The maven-plugin route writes one
+  # configuration per module, and the implementation's sees its reactor sibling only as a class-path
+  # entry, 'org.eclipse.collections:eclipse-collections-api/classes' (api/target/classes). The API's
+  # 169 hand-written public interfaces — RichIterable, ImmutableList, MutableMap, …, heavy with
+  # DEFAULT methods — are exactly what the hints annotate, and as byte code they get no computed
+  # verdicts at all.
+  # scripts/eclipse-collections-config.py therefore runs the route over BOTH modules (one mvn
+  # invocation, `-pl eclipse-collections-api,eclipse-collections generate-test-sources
+  # …:write-input-configuration`, MAVEN_OPTS=$MADDI_EXPORTS) and DERIVES one configuration: the
+  # API's main source set is added, the implementation's dependency on the API's classes is
+  # re-pointed to it, and the class-path entry is DROPPED — kept, it would put the same types on the
+  # class path and in a source set, the shape of the 2026-08-12 sibling-jar shadowing.
+  #
+  # Unlike vavr, the route's phase does NOT clean target/: measured, the build's classes and
+  # generated sources survive it, so build-then-config is the right order here.
+  #
+  # Main source sets only; the route writes none for tests (these two modules have none — EC's
+  # tests live in the unit-tests module, which is not built here).
+  #
+  # Each main source set has three roots: src/main/java, target/generated-sources/java (the code
+  # generator) and target/generated-sources/annotations (empty in 13.0.0, recorded anyway).
+
+parse:
+  runner: openjdk
+  steps: [prep, modification]
+  config: inputConfiguration.json
+  # Parse-only, 2026-09-25: API/main 1,537 primary types, Main Library/main 2,055; 26 s.
+  # ⚠ 8 WARN "Detailed-source pre-scan failed … ParseException" — all Synchronized*/
+  # AbstractSynchronized* files, all at `super.<V>collect(function)`: explicit type arguments on a
+  # `super.` method call, which maddi-java-parser's grammar rejects. javac parses them, so the
+  # verdicts are unaffected; those files lose detailed sources (refactoring positions) only.
+  #
+  # No corpus test: driven by hand from the analysis-hints campaign. Preload the analysis hints
+  # (--preload-analysis-results-dirs jdk,libs/test,libs/log), as for vavr.
+
+# tests: not wired. EC's tests are the separate unit-tests module (+ generated tests), outside the
+# two modules configured here; `mvn -B -pl unit-tests -am test` runs them against the full reactor.
+# The analysis-hints campaign does not need them.

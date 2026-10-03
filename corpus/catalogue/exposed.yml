@@ -1,0 +1,29 @@
+name: exposed
+status: active
+summary: >-
+  Kotlin/JVM, JetBrains' SQL library — VOLUME in a different style: a plain multi-module Gradle build,
+  24 kotlinc invocations -> 24 source sets, 309 files / ~50k lines (detekt: 1,029 / ~86k), written
+  DSL-heavy (operator overloads, extension functions, generic column types) where detekt is visitor-heavy.
+  MAIN ONLY (`classes`). documentation-website/ and samples/ (167 more .kt files) are separate builds
+  that settings.gradle.kts does not include, so they are not in it. Consumed by TestExposedCorpus.
+
+source:
+  kind: git
+  url: https://github.com/JetBrains/Exposed.git
+  rev: 84361204b6639cad5696506a26595c97afac3531
+  # 1.5.0 (released 2026-08-26). Gradle 8.14.4, Kotlin 2.3.20.
+
+# No `build`: the config route IS the build, as for detekt.
+#
+# ⚠ GRADLE 8.14 RUNS ON JDK 24 AT MOST -- hence config.jdk; see retrofit.yml.
+
+config:
+  route: gradle-log-kotlin
+  tasks: classes
+  jdk: {version: 21}
+  # Gradle's own JDK, resolved through the machine profile; the ambient one (26, 27) is refused.
+
+parse:
+  runner: kotlin
+  steps: [prep, modification]
+  # ⚠ NO config.baseline, for the reason detekt.yml gives: the Kotlin driver cannot parse-only yet.

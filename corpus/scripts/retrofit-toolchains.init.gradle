@@ -1,0 +1,37 @@
+// Moves every Java toolchain retrofit asks for to ONE installed JDK, without editing its checkout (see
+// maddi-plugin.init.gradle.kts for why the checkout is not ours to edit). Named by retrofit.yml's
+// `config.init_script`; catalogue.py's gradle-log routes pass it as --init-script.
+//
+// retrofit 3.0.0 pins THREE toolchains: JDK 8 for every subproject (root build.gradle) and Azul 14 / 16
+// for retrofit's multi-release source sets (retrofit/build.gradle). Gradle's foojay resolver cannot
+// provision JDK 8 on Apple silicon -- it picks Temurin's x64 mac archive and fails with "Unpacked JDK
+// archive does not contain a Java home" -- and the Azul ones are rarely installed. What the corpus needs
+// is the compiler's ARGUMENTS (the source sets, the class path), not bytecode for an old JVM, so one
+// JDK is enough: -Dcorpus.toolchain=<n> (default 21).
+//
+// errorprone goes off too. Its plugin wires errorproneJavac for a JDK 8 toolchain and
+// -Xplugin:ErrorProne into every javac line; neither is anything maddi reads, and its ERROR-level
+// checks are upstream's gate, not ours.
+//
+// ⚠ afterEvaluate, NOT a plain configureEach: an init script's actions are registered BEFORE the
+// project's build script runs, so the project's own `languageVersion.set(8)` and its
+// `tasks.named("compileJava14Java") { javaCompiler = ... }` would run later and win.
+def version = Integer.parseInt(System.getProperty('corpus.toolchain', '21'))
+
+allprojects {
+    afterEvaluate { p ->
+        def java = p.extensions.findByName('java')
+        if (java != null) {
+            java.toolchain.languageVersion.set(JavaLanguageVersion.of(version))
+            java.toolchain.vendor.set(JvmVendorSpec.matching(''))
+        }
+        p.tasks.withType(JavaCompile).configureEach { t ->
+            def toolchains = p.extensions.findByName('javaToolchains')
+            if (toolchains != null) {
+                t.javaCompiler.set(toolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(version)) })
+            }
+            def ep = t.options.extensions.findByName('errorprone')
+            if (ep != null) ep.enabled.set(false)
+        }
+    }
+}
