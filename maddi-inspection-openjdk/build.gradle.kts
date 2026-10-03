@@ -37,8 +37,20 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
-    // for TestLombok: the lombok jar goes on the parsed classpath so javac can run the real Lombok processor
-    testImplementation("org.projectlombok:lombok:1.18.48")
+}
+
+// The real Lombok jar, for TestLombok and TestStopPolicy: on the class path maddi PARSES, so javac runs the Lombok
+// processor from it -- and deliberately NOT on the test JVM's own class path. javac's processor class loader asks
+// its parent first, so a Lombok on the test class path answers for every source set's Lombok jar: the tests then
+// never load the processor the way production does (from the source set's jar), and TestLombokFallback's broken
+// processor would be shadowed by the working one.
+val lombokJar = configurations.create("lombokJar") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+    isTransitive = false
+}
+dependencies {
+    lombokJar("org.projectlombok:lombok:1.18.48")
 }
 
 tasks.withType<JavaCompile> {
@@ -56,6 +68,10 @@ tasks.withType<JavaCompile> {
 tasks.test {
     useJUnitPlatform()
     maxParallelForks = 4
+    inputs.files(lombokJar).withPropertyName("lombokJar")
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.lombokJar=" + lombokJar.singleFile.absolutePath)
+    })
     // Alternative-JRE test (TestAlternativeJRE): forward a JDK 21 home to the forked test JVM so it can
     // exercise --system against a JDK where java.applet.Applet still exists. Absent -> the test skips.
     System.getProperty("test.jdk21.home")?.let { systemProperty("test.jdk21.home", it) }

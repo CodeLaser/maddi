@@ -492,6 +492,7 @@ public class JavaInspectorImpl implements JavaInspector {
         // `uses`/`provides` and ComputeCallGraph lost every module→service edge in silence. It runs here, once,
         // after all source sets are scanned: a descriptor may name a type that lives in another source set.
         ResolveModuleDirectives.go(summary, compiledTypesManager);
+        reportLombokFallbacks(summary);
         return summary;
     }
 
@@ -769,6 +770,7 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
         ResolveModuleDirectives.go(summary, compiledTypesManager);   // #201, as in parse()
+        reportLombokFallbacks(summary);
         return summary;
     }
 
@@ -861,6 +863,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     !parseOptions.failFast(), parseOptions.ignoreModule(),
                     parseOptions.parameterNames() || parameterNames, parseOptions.syntheticListField(),
                     parseOptions.lombok());
+            reportLombokFallbacks(summary);
             return summary;
         } catch (IOException e) {
             LOGGER.error("Caught exception", e);
@@ -916,10 +919,19 @@ public class JavaInspectorImpl implements JavaInspector {
             if (!lombok || !lombokFailure(re) || interleave != null) throw re;
             // The Lombok processor itself crashed inside javac -- typically a corpus pins a lombok version too
             // old for the embedded compiler (langchain4j's 1.18.30 reflects on TypeTag.UNKNOWN, gone in recent
-            // JDKs). Degrade to the pre-processor behavior: parse without Lombok; its generated members are then
-            // partially re-synthesized by the in-house support, as before the real-processor integration.
-            LOGGER.warn("Lombok processor failed for source set {}; retrying without Lombok. Cause: {}",
-                    sourceSet.name(), String.valueOf(re.getCause()));
+            // JDKs; 1.18.42 and 1.18.46 need com.sun.tools.javac.tree.EndPosTable, gone in JDK 27). Degrade to the
+            // pre-processor behavior: parse without Lombok; its generated members are then only partially
+            // re-synthesized by the in-house support, as before the real-processor integration.
+            //
+            // ⛔ AND SAY SO AS AN ERROR. This used to be one WARN per source set, and nothing else: the parse carried
+            // on and reported success. Without Lombok, @Slf4j's 'log', the generated getters and the builders do
+            // not exist, so a corpus either fails a thousand units later for reasons that name no Lombok
+            // (pulsar on JDK 27: 1086 errors, "Type 'log' not found") or, worse, goes GREEN on a model with those
+            // members missing (five timefold-solver corpus tests). Recorded as a parse error, so haveErrors()
+            // holds and parseResult() refuses; parseResultIgnoringErrors() still has everything the retry parsed
+            // (the IDE's path), and fail-fast throws here. Logged once per parse, see reportLombokFallbacks.
+            LOGGER.debug("Lombok processor failed for source set {}; retrying without Lombok", sourceSet.name(), re);
+            summary.addParseException(new LombokFallback(sourceSet, re));
             diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
             javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics, false, classOutput, false,
                     false);
@@ -1657,6 +1669,78 @@ public class JavaInspectorImpl implements JavaInspector {
             if (jar != null) jars.add(jar);
         }
         return jars;
+    }
+
+    /**
+     * A source set parsed WITHOUT Lombok because the Lombok processor it declares could not run. A parse ERROR: the
+     * members Lombok generates are missing from the result. Its own type, so {@link #reportLombokFallbacks} can
+     * find it among the other errors, and a test can assert on its absence.
+     */
+    public static final class LombokFallback extends Summary.ParseException {
+        private final String sourceSetName;
+        private final String lombokJar;
+        private final String rootCause;
+
+        LombokFallback(SourceSet sourceSet, Throwable failure) {
+            this(sourceSet, lombokJar(sourceSet), rootCause(failure), failure);
+        }
+
+        private LombokFallback(SourceSet sourceSet, String lombokJar, String rootCause, Throwable failure) {
+            super(sourceSet.uri(), sourceSet.name(), "Lombok processor (" + lombokJar + ") failed on JDK "
+                    + java.lang.Runtime.version().feature() + ": " + rootCause + ". Source set " + sourceSet.name()
+                    + " parsed WITHOUT Lombok: the members it generates (getters, @Slf4j's 'log', builders, ...) are"
+                    + " missing", failure);
+            this.sourceSetName = sourceSet.name();
+            this.lombokJar = lombokJar;
+            this.rootCause = rootCause;
+        }
+
+        public String sourceSetName() {
+            return sourceSetName;
+        }
+
+        public String lombokJar() {
+            return lombokJar;
+        }
+
+        public String rootCause() {
+            return rootCause;
+        }
+
+        private static String lombokJar(SourceSet sourceSet) {
+            return sourceSet.dependencies().stream()
+                    .filter(d -> d.externalLibrary() && d.name().startsWith("lombok-"))
+                    .map(SourceSet::name).findFirst().orElse("lombok");
+        }
+
+        // the exception that actually explains it: an ExceptionInInitializerError says only that a static
+        // initialiser threw, its cause says what (e.g. ClassNotFoundException: ...EndPosTable)
+        private static String rootCause(Throwable t) {
+            Throwable c = t;
+            while (c.getCause() != null && c.getCause() != c) c = c.getCause();
+            return String.valueOf(c);
+        }
+    }
+
+    /**
+     * One ERROR line per parse for all source sets that fell back, instead of one WARN per source set that scrolls
+     * past among thousands of lines. Names the source sets, the Lombok jar(s) and the distinct root causes.
+     */
+    private static void reportLombokFallbacks(Summary summary) {
+        List<LombokFallback> fallbacks = summary.parseExceptions().stream()
+                .filter(e -> e instanceof LombokFallback).map(e -> (LombokFallback) e).toList();
+        if (fallbacks.isEmpty()) return;
+        Set<String> jars = new TreeSet<>();
+        Set<String> causes = new TreeSet<>();
+        fallbacks.forEach(f -> {
+            jars.add(f.lombokJar());
+            causes.add(f.rootCause());
+        });
+        LOGGER.error("Lombok processor failed in {} source set(s); they were parsed WITHOUT Lombok and its generated"
+                     + " members are missing. Lombok: {}; JDK: {}; cause: {}. Use a Lombok that supports this JDK,"
+                     + " or run on an older JDK. Source sets: {}", fallbacks.size(), jars,
+                java.lang.Runtime.version().feature(), causes,
+                fallbacks.stream().map(LombokFallback::sourceSetName).toList());
     }
 
     // does the cause chain point into Lombok's own code? (processor init/handler crash, not a source problem)
