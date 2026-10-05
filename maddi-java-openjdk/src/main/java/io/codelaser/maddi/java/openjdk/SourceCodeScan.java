@@ -522,6 +522,29 @@ public final class SourceCodeScan {
                 }
             }
         }
+        addConstructorBodyTrailingComments(md);
+    }
+
+    /*
+    A constructor's body is not a CodeBlock in the parser's tree: its '{', its statements and its '}' are children of the
+    ConstructorDeclaration itself (Java.ccc, ConstructorDeclaration), where a method's body is one CodeBlock child. The
+    comments in front of a body's closing '}' -- the body's trailing comments -- are recorded for CodeBlocks only
+    (scanCodeBlock), so in a constructor they were recorded nowhere: `C() { // inside }` parsed and printed as `C(){}`,
+    and `C() { int i = 0; // after }` as `C(){int i=0;}` (TestCommentInEmptyConstructor). Recorded here under the body's
+    source, from '{' to '}', which is where ScanCompilationUnit.parseBlock looks them up for the javac block.
+     */
+    private void addConstructorBodyTrailingComments(Node md) {
+        if (!(md instanceof ConstructorDeclaration)) return;
+        Node open = null;
+        for (Node child : md.children()) {
+            if (child instanceof Delimiter d && d.getType() == Token.TokenType.LBRACE) {
+                open = child;
+                break;
+            }
+        }
+        Node close = md.getLastChild();
+        if (open == null || !(close instanceof Delimiter d && d.getType() == Token.TokenType.RBRACE)) return;
+        addTrailingComments(source(open, close), close);
     }
 
     // collects the comma delimiters that are direct children of listNode, in the same shape as ARGUMENT_COMMAS
