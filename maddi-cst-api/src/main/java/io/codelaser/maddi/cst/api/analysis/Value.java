@@ -17,6 +17,8 @@ package io.codelaser.maddi.cst.api.analysis;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.util.ParSeq;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
@@ -140,6 +142,20 @@ public interface Value extends Comparable<Value> {
         Map<Integer, Integer> linkToParametersReturnValue();
 
         List<MethodInfo> dependentMethods();
+    }
+
+    /**
+     * The inferred nullability of a declaration's type: the state of the value itself and, recursively, of each type
+     * argument ({@code Map<String, String?>}). The declared type is not stored: it is the field's, parameter's or
+     * return type, and {@link #applyTo} puts the states onto it. {@link NullableState#UNSPECIFIED} is "undecided".
+     */
+    interface Nullability extends Value {
+        NullableState state();
+
+        List<? extends Nullability> arguments();
+
+        /** The declared type with these states; arguments beyond those stored stay as declared. */
+        ParameterizedType applyTo(ParameterizedType declared);
     }
 
     interface NotNullProperty extends Value {

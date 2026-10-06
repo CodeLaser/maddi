@@ -69,6 +69,31 @@ public class TestDeclaredNullability extends CommonTest {
             public @interface ParametersAreNonnullByDefault {}
             """;
 
+    // maddi's own, with the attributes that change the meaning (io.codelaser.maddi.annotation, trimmed)
+    private static final String MADDI_NOT_NULL = """
+            package io.codelaser.maddi.annotation;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
+            public @interface NotNull {
+                boolean absent() default false;
+                boolean contract() default false;
+                boolean content() default false;
+                boolean implied() default false;
+            }
+            """;
+    private static final String MADDI_NULLABLE = """
+            package io.codelaser.maddi.annotation;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
+            public @interface Nullable {
+                boolean absent() default false;
+                boolean contract() default false;
+                boolean implied() default true;
+            }
+            """;
+
     private Map<String, TypeInfo> parse(Map<String, String> subjects) {
         Map<String, String> src = new LinkedHashMap<>();
         src.put("org.jspecify.annotations.Nullable", JS_NULLABLE);
@@ -77,6 +102,8 @@ public class TestDeclaredNullability extends CommonTest {
         src.put("org.jspecify.annotations.NullUnmarked", JS_NULL_UNMARKED);
         src.put("javax.annotation.Nullable", JX_NULLABLE);
         src.put("javax.annotation.ParametersAreNonnullByDefault", JX_PARAMS);
+        src.put("io.codelaser.maddi.annotation.NotNull", MADDI_NOT_NULL);
+        src.put("io.codelaser.maddi.annotation.Nullable", MADDI_NULLABLE);
         src.putAll(subjects);
         return scan(false, src).primaryTypes().stream()
                 .collect(Collectors.toMap(TypeInfo::fullyQualifiedName, t -> t, (a, b) -> a));
@@ -253,5 +280,41 @@ public class TestDeclaredNullability extends CommonTest {
         TypeInfo z = types.get("a.b.Z");
         assertEquals("f: String!", fields(z, dn));
         assertEquals("m(p: String, q: String?): String!", method(z, "m", dn));
+    }
+
+    @DisplayName("maddi's own: 'absent = true' denies the annotation; '@NotNull(content = true)' is about the content")
+    @Test
+    public void maddiAnnotations() {
+        Map<String, TypeInfo> types = parse(Map.of("a.b.M", """
+                package a.b;
+                import io.codelaser.maddi.annotation.NotNull;
+                import io.codelaser.maddi.annotation.Nullable;
+                import java.util.List;
+                import java.util.Map;
+                public class M {
+                    @NotNull String nn;
+                    @Nullable String n;
+                    @NotNull(absent = true) String notNn;
+                    @Nullable(absent = true) String notN;
+                    @NotNull(contract = true) String contract;
+                    @NotNull(content = true) List<String> elems;
+                    @NotNull(content = true) Map<String, @org.jspecify.annotations.Nullable String> mixed;
+                    @NotNull(content = true) String[] arr;
+                    @Nullable String m(@NotNull String p, @NotNull(content = true) List<String> q) { return null; }
+                }
+                """));
+        DeclaredNullability dn = declared(types);
+        TypeInfo m = types.get("a.b.M");
+        // content: the reference is the scope's (unmarked: unspecified); an array's content has no slot
+        assertEquals("""
+                nn: String
+                n: String?
+                notNn: String!
+                notN: String!
+                contract: String
+                elems: List<String>!
+                mixed: Map<String, String?>!
+                arr: String[]!""", fields(m, dn));
+        assertEquals("m(p: String, q: List<String>!): String?", method(m, "m", dn));
     }
 }

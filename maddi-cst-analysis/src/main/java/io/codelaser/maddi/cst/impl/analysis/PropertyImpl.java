@@ -61,6 +61,12 @@ public class PropertyImpl implements Property {
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);
+    /**
+     * The inferred nullability of the return value, per type argument (maddi-mod docs/design/nullability.md B2).
+     * Written by the nullability pass when the analyzer runs with nullability; independent of {@link #NOT_NULL_METHOD}.
+     */
+    public static final Property NULLABILITY_METHOD = new PropertyImpl("nullabilityMethod",
+            ValueImpl.NullabilityImpl.UNSPECIFIED);
     public static final Property IGNORE_MODIFICATION_METHOD = new PropertyImpl("ignoreModMethod");
     public static final Property POST_CONDITIONS_METHOD = new PropertyImpl("postConditionsMethod",
             ValueImpl.PostConditionsImpl.EMPTY);
@@ -137,6 +143,9 @@ public class PropertyImpl implements Property {
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);
     public static final Property NOT_NULL_PARAMETER = new PropertyImpl("notNullParameter", ValueImpl.NotNullImpl.NULLABLE);
+    /** See {@link #NULLABILITY_METHOD}. */
+    public static final Property NULLABILITY_PARAMETER = new PropertyImpl("nullabilityParameter",
+            ValueImpl.NullabilityImpl.UNSPECIFIED);
     public static final Property IMMUTABLE_PARAMETER = new PropertyImpl("immutableParameter"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_PARAMETER = new PropertyImpl("containerParameter");
@@ -153,6 +162,9 @@ public class PropertyImpl implements Property {
     public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
             AnalysisTier.INTRINSIC);
     public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
+    /** See {@link #NULLABILITY_METHOD}. */
+    public static final Property NULLABILITY_FIELD = new PropertyImpl("nullabilityField",
+            ValueImpl.NullabilityImpl.UNSPECIFIED);
     /**
      * The mark label(s) of {@code @Final(after="…")} / {@code @NotModified(after="…")}: the field is not final
      * (resp. is modified) before the mark, and is final (resp. unmodified) after it. {@link #FINAL_FIELD} keeps

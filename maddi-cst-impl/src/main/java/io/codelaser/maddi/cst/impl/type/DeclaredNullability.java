@@ -49,6 +49,12 @@ import java.util.function.Function;
  * {@code @ParametersAreNonnullByDefault} marks parameters only. Outside any marked scope an unannotated use is
  * {@link NullableState#UNSPECIFIED}. A primitive is always {@link NullableState#NONNULL}.
  * <p>
+ * <b>maddi's own annotations</b> ({@code io.codelaser.maddi.annotation}) carry attributes that change their meaning:
+ * {@code absent = true} denies the annotation, so it is read as not written; {@code @NotNull(content = true)} speaks
+ * about the CONTENT, not the reference: the type arguments of the declared type become non-null (unless a type-use
+ * annotation on an argument says otherwise), and the reference is left to the scope. Content of an array, and the
+ * return value of a functional interface (the annotation's other readings of "content"), have no slot.
+ * <p>
  * Known limitation: an array type is one {@link ParameterizedType}, so the array and its elements share one state;
  * the state is the ARRAY's, and an annotation on the elements ({@code @Nullable String[] a}) is not represented.
  * Another front-end fact: javac normalizes {@code ? extends Object} to {@code ?}, losing an annotation on that
@@ -61,6 +67,7 @@ public final class DeclaredNullability {
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULL_UNMARKED = "NullUnmarked";
     private static final String PARAMETERS_NON_NULL_BY_DEFAULT = "ParametersAreNonnullByDefault";
+    private static final String MADDI_ANNOTATIONS = "io.codelaser.maddi.annotation";
 
     private final Function<String, List<AnnotationExpression>> packageAnnotations;
 
@@ -103,7 +110,26 @@ public final class DeclaredNullability {
         List<AnnotationExpression> aboutTheDeclaration = declared.arrays() == 0 ? declarationAnnotations
                 : declarationAnnotations.stream().filter(ae -> !isTypeUse(ae)).toList();
         NullableState state = fromTypeUse != null ? fromTypeUse : explicit(aboutTheDeclaration);
-        return withArguments.withNullable(state != null ? state : implicit(declared, marked));
+        ParameterizedType withContent = contentNonNull(declarationAnnotations) ? nonNullContent(withArguments)
+                : withArguments;
+        return withContent.withNullable(state != null ? state : implicit(declared, marked));
+    }
+
+    // maddi's @NotNull(content = true): the type arguments are non-null, except where one is annotated itself
+    private static ParameterizedType nonNullContent(ParameterizedType pt) {
+        if (pt.parameters().isEmpty() || pt.arrays() > 0) return pt;
+        return pt.withParameters(pt.parameters().stream()
+                .map(p -> explicit(p.annotations()) != null ? p : p.withNullable(NullableState.NONNULL))
+                .toList());
+    }
+
+    private static boolean contentNonNull(List<AnnotationExpression> annotations) {
+        return annotations.stream().anyMatch(ae -> isMaddi(ae) && NON_NULL.contains(ae.typeInfo().simpleName())
+                                                   && ae.extractBoolean("content") && !ae.extractBoolean("absent"));
+    }
+
+    private static boolean isMaddi(AnnotationExpression ae) {
+        return MADDI_ANNOTATIONS.equals(ae.typeInfo().packageName());
     }
 
     private ParameterizedType use(ParameterizedType pt, boolean marked) {
@@ -131,11 +157,19 @@ public final class DeclaredNullability {
     static NullableState explicit(List<AnnotationExpression> annotations) {
         boolean nonNull = false;
         for (AnnotationExpression ae : annotations) {
+            // maddi's: 'absent = true' denies the annotation; 'content = true' is about the content (top)
+            if (isMaddi(ae) && (ae.extractBoolean("absent") || ae.extractBoolean("content"))) continue;
             String name = ae.typeInfo().simpleName();
             if (NULLABLE.contains(name)) return NullableState.NULLABLE;
             if (NON_NULL.contains(name)) nonNull = true;
         }
         return nonNull ? NullableState.NONNULL : null;
+    }
+
+    /** An annotation B1 reads as a nullness annotation (nullable or non-null), by simple name. */
+    public static boolean isNullnessAnnotation(AnnotationExpression ae) {
+        String name = ae.typeInfo().simpleName();
+        return NULLABLE.contains(name) || NON_NULL.contains(name);
     }
 
     // the annotation type's @Target includes TYPE_USE
