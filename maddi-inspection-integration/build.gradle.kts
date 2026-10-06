@@ -22,6 +22,9 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
+    testImplementation(project(":maddi-annotation"))
+    implementation(project(":maddi-cst-api"))
+    implementation(project(":maddi-support"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-cst-impl"))
@@ -33,18 +36,16 @@ dependencies {
     implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-java-bytecode"))
 
-    testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-inspection-resource"))
 
     implementation("ch.qos.logback:logback-classic")
 
     // libraries interpreted by maddi tests
-    testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.springframework:spring-test:6.1.19")
     testImplementation("org.springframework:spring-core:6.1.19")
     testImplementation("org.projectlombok:lombok:1.18.48")
-    testImplementation("org.mockito:mockito-core:5.23.0")
+    // the tests PARSE sources that use Mockito (TestMethodCall13): input on the class path, not a use
+    testRuntimeOnly("org.mockito:mockito-core:5.23.0")
 }
 tasks.withType<Test> {
     maxParallelForks = 4

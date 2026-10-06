@@ -30,6 +30,7 @@ java {
 
 dependencies {
     api(project(":maddi-cst-api"))
+    testImplementation(project(":maddi-support"))
     api(project(":maddi-graph"))
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-cst-analysis"))
@@ -38,7 +39,6 @@ dependencies {
     testImplementation(project(":maddi-inspection-integration"))
     testImplementation(project(":maddi-inspection-resource"))
     testImplementation(project(":maddi-inspection-openjdk"))
-    testImplementation(project(":maddi-java-openjdk"))
     testImplementation("ch.qos.logback:logback-classic")
 }
 

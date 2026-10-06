@@ -22,4 +22,5 @@ java {
 }
 dependencies {
     api(project(":maddi-cst-api"))
+    implementation(project(":maddi-support"))
 }

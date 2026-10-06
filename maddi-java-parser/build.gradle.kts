@@ -23,6 +23,8 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
+    implementation(project(":maddi-cst-api"))
+    implementation(project(":maddi-support"))
     implementation(project(":maddi-util"))
 
     testImplementation(project(":maddi-cst-impl"))

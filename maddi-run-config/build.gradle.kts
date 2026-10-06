@@ -20,8 +20,8 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
+    implementation(project(":maddi-cst-api"))
     implementation(project(":maddi-graph"))
-    implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-inspection-resource"))
     implementation("com.fasterxml.jackson.core:jackson-databind")

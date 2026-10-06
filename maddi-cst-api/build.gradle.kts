@@ -22,4 +22,5 @@ java {
 }
 dependencies {
     api(project(":maddi-support"))
+    implementation(project(":maddi-annotation"))
 }

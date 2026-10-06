@@ -26,6 +26,7 @@ to the build graph but no new reachability.
  */
 dependencies {
     implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
+    implementation(project(":maddi-cst-api"))
     api(project(":maddi-inspection-api"))                   // JavaInspector, ParseResult, InputConfiguration
     implementation(project(":maddi-graph"))                 // G<Info>
     // slf4j-api comes from java-library-conventions

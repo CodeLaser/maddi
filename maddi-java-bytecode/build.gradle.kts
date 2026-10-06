@@ -22,6 +22,9 @@ java {
 }
 dependencies {
     implementation(project(":maddi-util"))
+    implementation(project(":maddi-annotation"))
+    implementation(project(":maddi-cst-api"))
+    implementation(project(":maddi-support"))
     api(project(":maddi-inspection-api"))
     implementation("org.ow2.asm:asm")
 

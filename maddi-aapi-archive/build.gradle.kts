@@ -25,6 +25,7 @@ java {
 
 dependencies {
     api(project(":maddi-support"))
+    implementation(project(":maddi-annotation"))
     // to express contracts for Kotlin library types (kotlin.Pair): parsed, never run -- hence compileOnly
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.4.0")
     // the side-loaded vavr hints (libs/vavr) name vavr types in their signatures; parsed, never run

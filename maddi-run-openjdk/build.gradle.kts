@@ -21,6 +21,8 @@ java {
 }
 dependencies {
     implementation(project(":maddi-callgraph"))  // ComputeCallGraph & co., moved out of prepwork (split stage 2)
+    implementation(project(":maddi-cst-api"))
+    testImplementation(project(":maddi-support"))
     implementation(project(":maddi-analysis-api"))  // the modification analysis, as a service (split stage 3)
     // Corpora, the corpus locator (it moved here from this module's own test fixtures)
     testImplementation(testFixtures(project(":maddi-util")))
@@ -31,12 +33,8 @@ dependencies {
     implementation(project(":maddi-cst-analysis"))
 
     implementation(project(":maddi-cst-impl"))
-    implementation(project(":maddi-cst-io"))
-    implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-inspection-openjdk"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-java-openjdk"))
-    implementation(project(":maddi-java-parser"))
 
     // to access resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar
     runtimeOnly(project(":maddi-aapi-archive"))

@@ -22,6 +22,8 @@ java {
 }
 dependencies {
     api(project(":maddi-cst-api"))
+    implementation(project(":maddi-annotation"))
+    implementation(project(":maddi-support"))
 
     implementation(project(":maddi-cst-analysis"))
     implementation(project(":maddi-util"))

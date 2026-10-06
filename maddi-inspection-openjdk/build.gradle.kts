@@ -22,7 +22,10 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
-    implementation(project(":maddi-util"))
+    testImplementation(project(":maddi-annotation"))
+    implementation(project(":maddi-cst-api"))
+    testImplementation(project(":maddi-support"))
+    testImplementation(project(":maddi-util"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-java-openjdk"))
     // the home-made (congocc) parser + its Context building blocks: used ONLY to parse a module-info.java
@@ -30,13 +33,12 @@ dependencies {
     // ModuleInfo of its own. See JavaInspectorImpl.parseModuleInfoDescriptor.
     implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-inspection-parser"))
-    implementation(project(":maddi-cst-io"))
+    testImplementation(project(":maddi-cst-io"))
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-cst-analysis"))
     implementation(project(":maddi-inspection-resource"))
 
-    testImplementation(project(":maddi-cst-impl"))
 }
 
 // The real Lombok jar, for TestLombok and TestStopPolicy: on the class path maddi PARSES, so javac runs the Lombok

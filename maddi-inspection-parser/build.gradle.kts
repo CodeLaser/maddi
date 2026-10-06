@@ -22,7 +22,9 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
+    implementation(project(":maddi-annotation"))
+    implementation(project(":maddi-cst-api"))
+    implementation(project(":maddi-support"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-graph"))
-    implementation(project(":maddi-inspection-resource"))
 }

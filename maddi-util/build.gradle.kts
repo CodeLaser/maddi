@@ -25,6 +25,7 @@ java {
 }
 dependencies {
     api(project(":maddi-support"))
+    implementation(project(":maddi-annotation"))
 
     // Corpora skips (or, under -Dmaddi.corpus.required, fails) when a corpus is absent, so the
     // fixture needs the assumption API; the convention plugin only puts junit on `test`.
