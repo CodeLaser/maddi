@@ -53,9 +53,34 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   `java.lang.Object`→`Any`, …); arrays → `Array<…>`; generics recurse; a **nullable** type (the front-end
   records `NullableState.NULLABLE` on the `ParameterizedType`) gets a trailing `?`.
 - **Control flow** — `while`/`do`-`while`/`for (x in …)`/`throw`; `switch`→`when (sel) { c -> …; else -> … }`
-  (statement and expression, arms unwrapped); `try`/`catch (e: T)`/`finally`. C-style `for` and try-with-resources
-  are follow-ups.
-- **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined).
+  (statement and expression, arms unwrapped); `try`/`catch (e: T)`/`finally`; labels (`outer@ for`,
+  `continue@outer`); `synchronized(x) { }`; `assert(c) { msg }`; local classes. Java forms without a Kotlin
+  counterpart (`KotlinStatementPrinter`'s javadoc has the details):
+  - **C-style `for`** → `for (i in a until n)` / `downTo` / `step` when that is the same loop (one integral
+    counter the body does not assign, a bound it cannot change: a range reads its bound once); otherwise
+    `run { init; while (cond) { body; updates } }`, and when the body `continue`s, a `while (true)` that runs
+    the updates at the top of every iteration but the first;
+  - **old-style `switch`** → `when`: a falling-through case gets the following cases' statements copied, a
+    case's final `break` goes, a `break` in the middle becomes `return@label` out of a `run label@{ }` around the
+    `when` (a Kotlin `break` there would leave the enclosing loop); enum case labels are qualified;
+  - **try-with-resources** → `resource.use { r -> … }`, nested per resource, inside a `try` when there are
+    `catch`/`finally` clauses; **multi-catch** → one `catch` per type;
+  - **constructors** → `constructor(…) : super(…)` / `: this(…)` from the explicit constructor call; the
+    superclass is called in the header (`: Base()`) only when there is no secondary constructor.
+- **Expressions without a Kotlin counterpart** — `(int) l`→`l.toInt()` (a primitive cast converts; `as` would
+  throw), `(int) c`→`c.code`; `&`/`|`/`^`/`<<`/`~`→`and`/`or`/`xor`/`shl`/`inv()`; `==` on references→`===`;
+  `new int[n]`→`IntArray(n)`, `new T[n]`→`arrayOfNulls<T>(n)`, `{1, 2}`→`intArrayOf(1, 2)`; `X.class`→
+  `X::class.java`; an assignment used as a value→`v.also { x = it }`; an anonymous class→`object : T(…) { }`;
+  `super.m()` and `Outer.this` keep their qualifier (`super.m()`, `this@Outer`); `$` in literals is escaped.
+- **Names** — a Java identifier that is a Kotlin hard keyword (`fun`, `in`, `object`, …) is written in
+  backticks; a field without initializer gets Java's default (`= 0`, `= false`) or `lateinit`; a non-final,
+  non-private method of an open class is `open`.
+- **Line breaks** — the formatter may break *after* a binary operator and never before one: Kotlin ends a
+  statement at a newline in front of `+` or `or` (`SpaceEnum.ONE_NO_SPLIT_BEFORE`, `KotlinSymbols`).
+- **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined); a block body's last `return x` is the value
+  `x`, any other `return` is `return@lambda` out of a `lambda@ { }`.
+- **Files** — `KotlinCompilationUnitPrinter`: `package`, the imports the import computer finds (a static import
+  is an ordinary Kotlin import), and the types.
 - **Idioms via structure** — `!(x is T)`→`x !is T`; an `else` branch that is a lone `if/else` flattens to
   `else if …` (not `else { if … }`); and elvis `a ?: b` recovered from the desugared `InlineConditional`
   marked `NULL_COALESCING` in `DetailedSources` (rather than `if (a == null) b else a`).
@@ -95,10 +120,7 @@ open class Calc {
 }
 ```
 
-Two limitation classes the first harness surfaced (both intentional):
-- **Old-style (fall-through) `switch`** stays as Java. Its labels anchor at positions inside one body block with
-  C-style fall-through; a safe `when` conversion would need to reconstruct label→statement groups and could emit
-  *wrong* Kotlin, so it is left recognizably Java. Arrow-switches *are* converted to `when`.
+A limitation the first harness surfaced:
 - **Java-API vs Kotlin-API** — e.g. `s.length()`/`i.intValue()` print verbatim (Kotlin wants `s.length`/`i`).
   These are *semantic* (member) differences, not syntax; out of scope for a printer.
 
@@ -106,11 +128,10 @@ Two limitation classes the first harness surfaced (both intentional):
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
-- **Expression/statement coverage is incremental.** Handled: block, return, expression-statement, `val`/`var`,
-  `if`/`else`, `while`/`do`/`for-in`/`throw`, `when`, `try`/`catch`/`finally`, `yield`; new/cast/instanceof/
-  ternary/elvis/`!is`, lambdas, and the binary/logical/unary/negation operator families (operand recursion).
-  Not yet: C-style `for`, try-with-resources, old-style (fall-through) `switch`; anything else falls back to the
-  Java `print()`.
+- **Syntax coverage is complete for fernflower** (maddi-run-openjdk's `TestJavaToKotlinFernflower` compiles the
+  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files). Not yet translated, so the
+  output does not type-check: static members and interface constants (a `companion object`), `instanceof`
+  patterns, SAM conversion of a lambda to a Java interface, Java-API vs Kotlin-API members, nullability.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not

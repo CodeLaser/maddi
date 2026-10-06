@@ -17,7 +17,12 @@ package io.codelaser.maddi.cst.print.kotlin;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
+
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Renders a {@link ParameterizedType} as a Kotlin type reference: JVM primitives and common JDK types are
@@ -40,9 +45,27 @@ public class KotlinTypeName {
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
             Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
 
+    private static final Map<String, String> PRIMITIVE_ARRAY = Map.of("int", "IntArray", "long", "LongArray",
+            "short", "ShortArray", "byte", "ByteArray", "char", "CharArray", "boolean", "BooleanArray",
+            "float", "FloatArray", "double", "DoubleArray");
+
     /** The Kotlin type reference as a string (no leading/trailing space); a nullable type gets a trailing `?`. */
     public static String of(ParameterizedType pt) {
-        return nullable(pt, base(pt));
+        return of(pt, null);
+    }
+
+    /**
+     * As {@link #of(ParameterizedType)}, with the type's name written the way the qualification says the Java
+     * printer would (`Outer.Inner` where `Inner` alone does not resolve). Without a qualification: the simple name.
+     */
+    public static String of(ParameterizedType pt, Qualification q) {
+        return nullable(pt, base(pt, q));
+    }
+
+    /** {@code IntArray} for {@code int[]}, {@code Array<String>} for {@code String[]}, null when not an array. */
+    public static String primitiveArray(ParameterizedType elementType) {
+        if (elementType.arrays() > 0 || elementType.typeInfo() == null) return null;
+        return PRIMITIVE_ARRAY.get(elementType.typeInfo().fullyQualifiedName());
     }
 
     private static String nullable(ParameterizedType pt, String s) {
@@ -50,26 +73,48 @@ public class KotlinTypeName {
         return pt.nullable() == NullableState.NULLABLE ? s + "?" : s;
     }
 
-    private static String base(ParameterizedType pt) {
+    private static String base(ParameterizedType pt, Qualification q) {
         if (pt.arrays() > 0) {
-            String s = of(pt.copyWithArrays(0));
-            for (int i = 0; i < pt.arrays(); i++) s = "Array<" + s + ">";
-            return s;
+            ParameterizedType element = pt.copyWithArrays(pt.arrays() - 1);
+            String primitive = primitiveArray(element);
+            return primitive != null ? primitive : "Array<" + of(element, q) + ">";
+        }
+        if (pt.wildcard() != null) {
+            if (pt.wildcard().isUnbound()) return "*";
+            String bound = pt.typeInfo() == null && !pt.isTypeParameter() ? "Any" : withoutWildcard(pt, q);
+            return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {
             return pt.typeParameter().simpleName();
         }
         if (pt.typeInfo() == null) {
-            return "Any"; // unbound wildcard / no type
+            return "Any"; // no type
         }
         String fqn = pt.typeInfo().fullyQualifiedName();
-        String base = KOTLIN.getOrDefault(fqn, pt.typeInfo().simpleName());
+        String base = KOTLIN.get(fqn);
+        if (base == null) base = name(pt.typeInfo(), q);
         if (pt.parameters().isEmpty()) return base;
         StringBuilder sb = new StringBuilder(base).append('<');
         for (int i = 0; i < pt.parameters().size(); i++) {
             if (i > 0) sb.append(", ");
-            sb.append(of(pt.parameters().get(i)));
+            sb.append(of(pt.parameters().get(i), q));
         }
         return sb.append('>').toString();
+    }
+
+    private static String withoutWildcard(ParameterizedType pt, Qualification q) {
+        if (pt.isTypeParameter()) return pt.typeParameter().simpleName();
+        String base = KOTLIN.get(pt.typeInfo().fullyQualifiedName());
+        if (base == null) base = name(pt.typeInfo(), q);
+        if (pt.parameters().isEmpty()) return base;
+        return base + pt.parameters().stream().map(p -> of(p, q)).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
+    public static String name(TypeInfo typeInfo, Qualification q) {
+        String mapped = KOTLIN.get(typeInfo.fullyQualifiedName());
+        if (mapped != null) return mapped;
+        if (q == null) return KotlinNames.name(typeInfo.simpleName());
+        return KotlinNames.dotted(TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal());
     }
 }

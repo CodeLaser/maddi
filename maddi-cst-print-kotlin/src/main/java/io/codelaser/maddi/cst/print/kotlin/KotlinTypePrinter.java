@@ -90,7 +90,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
-            KotlinModifiers.visibility(typeInfo.access()).ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
+            if (!isLocal(typeInfo)) {
+                KotlinModifiers.visibility(typeInfo.access()).ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
+            }
             Set<TypeModifier> mods = typeInfo.typeModifiers();
             if (typeInfo.typeNature().isClass()) {
                 if (mods.contains(TypeModifierEnum.ABSTRACT)) out.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
@@ -106,7 +108,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else {
                 out.add(KeywordImpl.CLASS);
             }
-            out.add(SpaceEnum.ONE).add(new TextImpl(typeInfo.simpleName()));
+            out.add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(typeInfo.simpleName())));
 
             if (!typeInfo.typeParameters().isEmpty()) {
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
@@ -119,12 +121,14 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
                                 .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
-                                .add(SpaceEnum.ONE).add(new TextImpl(p.name())).add(SymbolEnum.COLON_LABEL)
-                                .add(new TextImpl(KotlinTypeName.of(p.parameterizedType()))))
+                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
+                                .add(SymbolEnum.COLON_LABEL)
+                                .add(new TextImpl(KotlinTypeName.of(p.parameterizedType(), insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             }
-            List<OutputBuilder> supers = superTypes();
+            List<OutputBuilder> supers = superTypes(primary != null || constructors.stream()
+                    .allMatch(KotlinTypePrinter::isImplicitDefaultConstructor), insideType);
             if (!supers.isEmpty()) {
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -172,7 +176,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** `RED, GREEN, BLUE` (with `(args)` where a constant has constructor arguments); `;`-terminated if more follows. */
     private OutputBuilder enumEntries(boolean moreMembersFollow, Qualification q) {
         OutputBuilder entries = enumConstants().stream().map(f -> {
-            OutputBuilder e = new OutputBuilderImpl().add(new TextImpl(f.name()));
+            OutputBuilder e = new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(f.name())));
             if (f.initializer() instanceof ConstructorCall cc && !cc.parameterExpressions().isEmpty()) {
                 e.add(cc.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
@@ -198,17 +202,42 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return typeInfo.methods().stream().anyMatch(m -> m.parameters().isEmpty() && m.name().matches("component\\d+"));
     }
 
-    private List<OutputBuilder> superTypes() {
+    /**
+     * The supertypes after {@code :}. The superclass is called, {@code Super()}, only by a primary constructor (or the
+     * implicit one); with secondary constructors only, each of those delegates, and the header names the type.
+     */
+    private List<OutputBuilder> superTypes(boolean callSuperclass, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
-        ParameterizedType parent = typeInfo.parentClass();
-        if (parent != null && !parent.isJavaLangObject() && parent.typeInfo() != null) {
-            String fqn = parent.typeInfo().fullyQualifiedName();
-            if (!"java.lang.Enum".equals(fqn) && !"java.lang.Record".equals(fqn)) {
-                supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(parent) + "()")));
-            }
+        if (hasWrittenSuperclass(typeInfo)) {
+            supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(typeInfo.parentClass(), q)
+                                                                + (callSuperclass ? "()" : ""))));
         }
         typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(i)))));
+                supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(i, q)))));
         return supers;
+    }
+
+    /** A class declared in a method body: not reachable as a member type from its primary type. No visibility in Kotlin. */
+    static boolean isLocal(TypeInfo typeInfo) {
+        return !typeInfo.isAnonymous() && !typeInfo.isPrimaryType() && !isMemberOf(typeInfo.primaryType(), typeInfo);
+    }
+
+    private static boolean isMemberOf(TypeInfo outer, TypeInfo typeInfo) {
+        return outer.subTypes().stream().anyMatch(st -> st == typeInfo || isMemberOf(st, typeInfo));
+    }
+
+    /** The type extends a class Kotlin writes: not Object, Enum or Record, which are implicit. */
+    static boolean hasWrittenSuperclass(TypeInfo typeInfo) {
+        ParameterizedType parent = typeInfo.parentClass();
+        if (parent == null || parent.isJavaLangObject() || parent.typeInfo() == null) return false;
+        String fqn = parent.typeInfo().fullyQualifiedName();
+        return !"java.lang.Enum".equals(fqn) && !"java.lang.Record".equals(fqn);
+    }
+
+    /** A class that can be extended: printed {@code open} (or abstract/sealed), so its methods may be open too. */
+    static boolean isOpen(TypeInfo typeInfo) {
+        Set<TypeModifier> mods = typeInfo.typeModifiers();
+        return typeInfo.typeNature().isClass() && !mods.contains(TypeModifierEnum.FINAL)
+               && !typeInfo.typeNature().isRecord() && !typeInfo.typeNature().isEnum();
     }
 }

@@ -21,7 +21,7 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.cst.print.kotlin.KotlinTypePrinter;
+import io.codelaser.maddi.cst.print.kotlin.KotlinCompilationUnitPrinter;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
@@ -68,8 +68,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  *
  * <h2>What is not the printer's yet</h2>
  * <ul>
- *   <li>The {@code package} line and the imports are written here, from the original Java file. A compilation-unit
- *   printer for Kotlin is part of the translation work.</li>
  *   <li>⚠ No prepwork. The printer's getter/setter collapse and primary-constructor reconstruction need it, and it
  *   is moving from maddi-mod to maddi (2026-10). When it lands, run it here before printing: the numbers move, and
  *   the ratchet records that like any other improvement.</li>
@@ -131,11 +129,13 @@ public class TestJavaToKotlinFernflower {
         List<String> crashes = new ArrayList<>();
         Runtime runtime = javaInspector.runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        Set<Object> printed = new HashSet<>();
         for (TypeInfo type : types) {
+            if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
             try {
-                OutputBuilder ob = new KotlinTypePrinter(type, true)
-                        .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType(), true);
-                String kotlin = header(type) + formatter.write(ob) + "\n";
+                OutputBuilder ob = new KotlinCompilationUnitPrinter(type.compilationUnit(), true)
+                        .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+                String kotlin = formatter.write(ob) + "\n";
                 Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
                 Files.createDirectories(file.getParent());
                 Files.writeString(file, kotlin);
@@ -180,16 +180,6 @@ public class TestJavaToKotlinFernflower {
     // ---------------------------------------------------------------- translation scaffolding
 
     /** The package line, and the original file's imports in Kotlin syntax (see the class comment). */
-    private static String header(TypeInfo type) throws IOException {
-        List<String> imports = Files.readAllLines(Path.of(type.compilationUnit().uri())).stream()
-                .map(String::trim)
-                .filter(l -> l.startsWith("import "))
-                .map(l -> l.replaceFirst("^import\\s+(static\\s+)?", "").replaceFirst(";\\s*$", "").trim())
-                .map(l -> "import " + l)
-                .toList();
-        return "package " + type.packageName() + "\n\n" + String.join("\n", imports) + "\n\n";
-    }
-
     /** Every jar the configuration names; the JDK comes from the compiler's own JVM. */
     private static List<String> libraries(InputConfigurationImpl config) {
         return config.classPathParts().stream()

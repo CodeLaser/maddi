@@ -30,17 +30,41 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     @Override
     public OutputBuilder print(Qualification qualification, boolean asParameterInPrimaryConstructor) {
+        boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
+        // a Kotlin property is initialized where it is declared; Java's is zero/false/null until assigned
+        boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !fieldInfo.isFinal()
+                               && !fieldInfo.owner().isInterface();
+        String zero = needsDefault ? defaultValue(fieldInfo.type()) : null;
+
         OutputBuilder builder = new OutputBuilderImpl();
         KotlinModifiers.visibility(fieldInfo.access()).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
+        if (needsDefault && zero == null) builder.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
         builder.add(fieldInfo.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl(fieldInfo.name()))
+                .add(new TextImpl(KotlinNames.name(fieldInfo.name())))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
-                .add(new TextImpl(KotlinTypeName.of(fieldInfo.type())));
-        if (!asParameterInPrimaryConstructor && fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
-            builder.add(SpaceEnum.ONE).add(SymbolEnum.assignment("=")).add(SpaceEnum.ONE)
-                    .add(fieldInfo.initializer().print(qualification));
+                .add(new TextImpl(KotlinTypeName.of(fieldInfo.type(), qualification)));
+        if (asParameterInPrimaryConstructor) return builder;
+        if (hasInitializer) {
+            builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(fieldInfo.initializer(), qualification));
+        } else if (zero != null) {
+            builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         return builder;
+    }
+
+    /** Java's default value of a primitive field, as Kotlin writes it; null for a reference type. */
+    static String defaultValue(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        if (type.arrays() > 0 || type.typeInfo() == null) return null;
+        return switch (type.typeInfo().fullyQualifiedName()) {
+            case "boolean" -> "false";
+            case "char" -> "'\\u0000'";
+            case "byte", "short", "int" -> "0";
+            case "long" -> "0L";
+            case "float" -> "0f";
+            case "double" -> "0.0";
+            default -> null;
+        };
     }
 }

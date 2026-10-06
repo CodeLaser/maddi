@@ -14,67 +14,379 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
-import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.*;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
-import java.util.List;
+import java.util.*;
 
 /**
- * Prints a {@link Statement} as Kotlin — no trailing semicolons; `val`/`var` local declarations; expression
- * statements and blocks via {@link KotlinExpressionPrinter}. Statement forms not yet handled fall back to the
- * shared Java {@link Statement#print}. Uses the same block guide as the Java printer, so indentation/newlines
- * come out of the shared formatter.
+ * Prints a {@link Statement} as Kotlin: no semicolons, {@code val}/{@code var}, and every Java statement form
+ * translated. A form this class does not know falls back to the Java {@link Statement#print}.
+ * <p>
+ * The translations that are not one-to-one:
+ * <ul>
+ *   <li><b>C-style {@code for}</b>: a range loop ({@code for (i in 0 until n)}) when the loop variable is a counter
+ *   nobody else assigns and the bound cannot change; otherwise a {@code while} with the updates at the end of the
+ *   body, or, when the body {@code continue}s, a {@code while (true)} that runs the updates at the TOP of every
+ *   iteration but the first, so that a {@code continue} still updates. Loop variables live in {@code run { }}, the
+ *   one block Kotlin has.</li>
+ *   <li><b>old-style {@code switch}</b>: a {@code when}. A case that falls through gets the statements of the cases
+ *   it falls into, copied; the {@code break} that ends a case disappears; a {@code break} in the middle of one
+ *   becomes {@code return@label} out of a {@code run label@{ }} around the {@code when}, because a Kotlin
+ *   {@code break} in a {@code when} leaves the enclosing loop.</li>
+ *   <li><b>try-with-resources</b> (#104): {@code resource.use { r -> … }}, nested per resource, inside a
+ *   {@code try} when there are {@code catch} or {@code finally} clauses (Java closes the resources before they
+ *   run, and so does this).</li>
+ *   <li><b>multi-catch</b>: one {@code catch} per type, the block repeated.</li>
+ * </ul>
  */
 public class KotlinStatementPrinter {
 
     public static OutputBuilder print(Statement s, Qualification q) {
         return switch (s) {
-            case Block block -> block(block, q);
-            case ReturnStatement rs -> {
-                /*
-                 `return@forEach` keeps its label: without it a return inside a lambda prints as a bare `return`,
-                 which in Kotlin is a NON-LOCAL return. A non-local return (exitLevels > 0) is exactly the bare
-                 form, or `return@outer`. A local return in a lambda that carries no label (one that did not come
-                 from Kotlin source) still prints bare; this printer does not track whether it is inside a lambda.
-                 */
-                OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.RETURN);
-                if (rs.goToLabel() != null) b.add(new TextImpl("@" + rs.goToLabel()));
-                if (!rs.hasNoValue()) {
-                    b.add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(rs.expression(), q));
-                }
-                yield b;
-            }
-            case ExpressionAsStatement es -> KotlinExpressionPrinter.print(es.expression(), q);
-            case LocalVariableCreation lvc -> localVariable(lvc, q);
+            case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
+                    : new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE).add(block(block, q));
+            case ReturnStatement rs -> returnStatement(rs, q);
+            case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
+            case LocalVariableCreation lvc -> localVariables(lvc, q);
             case IfElseStatement ife -> ifElse(ife, q);
             case ThrowStatement ts -> new OutputBuilderImpl().add(KotlinKeyword.THROW).add(SpaceEnum.ONE)
                     .add(KotlinExpressionPrinter.print(ts.expression(), q));
-            case WhileStatement ws -> new OutputBuilderImpl()
+            case WhileStatement ws -> loop(ws, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                    .add(SpaceEnum.ONE).add(block(ws.block(), q));
-            case DoStatement ds -> new OutputBuilderImpl()
+                    .add(SpaceEnum.ONE).add(block(ws.block(), q)));
+            case DoStatement ds -> loop(ds, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
-            case ForEachStatement fe -> new OutputBuilderImpl()
+                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+            case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(fe.initializer().localVariable().simpleName()))
+                    .add(new TextImpl(KotlinNames.name(fe.initializer().localVariable().simpleName())))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
                     .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                    .add(SpaceEnum.ONE).add(block(fe.block(), q));
-            case SwitchStatementNewStyle sw -> whenExpression(sw.expression(), sw.entries(), q);
+                    .add(SpaceEnum.ONE).add(block(fe.block(), q)));
+            case ForStatement fs -> forStatement(fs, q);
+            case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
+            case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
             case YieldStatement ys -> KotlinExpressionPrinter.print(ys.expression(), q); // a `when` arm's value
             case TryStatement ts -> tryStatement(ts, q);
-            default -> s.print(q); // not-yet-translated statement forms: Java rendering (valid enough)
+            case BreakStatement bs -> breakStatement(bs);
+            case ContinueStatement cs -> new OutputBuilderImpl().add(new TextImpl("continue"
+                    + (cs.goToLabel() == null ? "" : "@" + cs.goToLabel())));
+            case EmptyStatement es -> new OutputBuilderImpl();
+            case SynchronizedStatement ss -> new OutputBuilderImpl().add(new TextImpl("synchronized"))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(ss.expression(), q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(block(ss.block(), q));
+            case AssertStatement as -> assertStatement(as, q);
+            case LocalTypeDeclaration ltd -> new KotlinTypePrinter(ltd.typeInfo(), true) // a local type has no visibility
+                    .print(new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q), true);
+            default -> s.print(q); // not-yet-translated statement forms: Java rendering
         };
     }
 
-    /** Render `when (selector) { conditions -> arm; … else -> arm }`; shared by switch statement and expression. */
+    // ---------------------------------------------------------------- blocks
+
+    /** The statements of a block without the enclosing braces; NEWLINE-separated (Kotlin has no `;`). */
+    static OutputBuilder statementsNoBraces(Block block, Qualification q) {
+        return statements(block.statements().stream().filter(st -> !st.isSynthetic()).toList(), q);
+    }
+
+    private static OutputBuilder statements(List<Statement> statements, Qualification q) {
+        return statements.stream().map(st -> print(st, q))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+    }
+
+    static OutputBuilder block(Block block, Qualification q) {
+        return block(block.statements(), q);
+    }
+
+    static OutputBuilder block(List<Statement> statements, Qualification q) {
+        return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+    }
+
+    private static OutputBuilder braces(List<OutputBuilder> printed) {
+        List<OutputBuilder> nonEmpty = printed.stream().filter(b -> !b.isEmpty()).toList();
+        if (nonEmpty.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE)
+                .add(nonEmpty.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock())))
+                .add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /** A block body of a lambda: the final {@code return x} becomes the value {@code x}, as a lambda's last line is. */
+    static OutputBuilder lambdaBody(List<Statement> statements, Qualification q) {
+        List<OutputBuilder> printed = new ArrayList<>();
+        for (int i = 0; i < statements.size(); i++) {
+            Statement s = statements.get(i);
+            if (i == statements.size() - 1 && s instanceof ReturnStatement rs && rs.goToLabel() == null) {
+                if (!rs.hasNoValue()) printed.add(KotlinExpressionPrinter.print(rs.expression(), q));
+            } else {
+                printed.add(print(s, q));
+            }
+        }
+        return printed.stream().filter(b -> !b.isEmpty())
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+    }
+
+    /** {@code label: { … break label; }}: a {@code run label@{ }} left with {@code return@label}. */
+    private static OutputBuilder labelledBlock(Block block, String label, Qualification q) {
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, block, label));
+        try {
+            return new OutputBuilderImpl().add(new TextImpl("run " + label + "@")).add(block(block, q));
+        } finally {
+            KotlinContext.pop();
+        }
+    }
+
+    // ---------------------------------------------------------------- jumps
+
+    /**
+     * {@code return@lambda} inside a lambda (a bare {@code return} there would return from the enclosing function);
+     * a label from Kotlin source is kept as it was.
+     */
+    private static OutputBuilder returnStatement(ReturnStatement rs, Qualification q) {
+        // one token: the formatter puts a space between a keyword and the text after it
+        String label = rs.goToLabel() != null ? rs.goToLabel()
+                : KotlinContext.inLambda() ? KotlinContext.LAMBDA_LABEL : null;
+        OutputBuilder b = new OutputBuilderImpl().add(label == null ? KotlinKeyword.RETURN : new TextImpl("return@" + label));
+        if (!rs.hasNoValue()) b.add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(rs.expression(), q));
+        return b;
+    }
+
+    /**
+     * A {@code break} that leaves a loop stays {@code break}; one that leaves a switch or a labelled block returns
+     * from the {@code run label@{ }} around it.
+     */
+    private static OutputBuilder breakStatement(BreakStatement bs) {
+        KotlinContext.Frame target = bs.goToLabel() == null ? KotlinContext.breakTarget()
+                : KotlinContext.frameLabelled(bs.goToLabel());
+        if (target != null && target.kind() == KotlinContext.Kind.SWITCH) {
+            target.markLeftEarly();
+            return new OutputBuilderImpl().add(new TextImpl("return@" + target.label()));
+        }
+        return new OutputBuilderImpl().add(new TextImpl("break" + (bs.goToLabel() == null ? "" : "@" + bs.goToLabel())));
+    }
+
+    // ---------------------------------------------------------------- loops
+
+    private static OutputBuilder loop(Statement loop, Qualification q, java.util.function.Supplier<OutputBuilder> body) {
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, loop, loop.label()));
+        try {
+            OutputBuilder printed = body.get();
+            if (loop.label() == null) return printed;
+            return new OutputBuilderImpl().add(new TextImpl(loop.label() + "@")).add(SpaceEnum.ONE).add(printed);
+        } finally {
+            KotlinContext.pop();
+        }
+    }
+
+    private static OutputBuilder forStatement(ForStatement fs, Qualification q) {
+        OutputBuilder range = rangeLoop(fs, q);
+        if (range != null) return range;
+
+        List<OutputBuilder> init = new ArrayList<>();
+        boolean declares = false;
+        for (Element e : fs.initializers()) {
+            if (e instanceof LocalVariableCreation lvc) {
+                lvc.localVariableStream().forEach(lv -> init.add(localVariable(lvc, lv, q)));
+                declares = true;
+            } else if (e instanceof Expression x) {
+                init.add(KotlinExpressionPrinter.printStatement(x, q));
+            }
+        }
+        Expression condition = fs.expression();
+        boolean hasCondition = condition != null && !condition.isEmpty();
+        List<Expression> updates = fs.updaters();
+        String label = fs.label();
+        boolean continues = !updates.isEmpty() && continuesItself(fs);
+
+        OutputBuilder whileLoop;
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, fs, label));
+        try {
+            List<OutputBuilder> body = new ArrayList<>();
+            String first = null;
+            if (continues) {
+                // the updates at the top of every iteration but the first, so that `continue` runs them
+                first = KotlinContext.freshLabel("first");
+                body.add(new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl(first)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                        .add(SpaceEnum.ONE).add(new TextImpl(first)).add(KotlinSymbols.assignment("="))
+                        .add(new TextImpl("false")).add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
+                        .add(braces(updates.stream().map(u -> KotlinExpressionPrinter.printStatement(u, q)).toList())));
+                if (hasCondition) {
+                    body.add(new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE)
+                            .add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.UNARY_BOOLEAN_NOT)
+                            .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(condition, q))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                            .add(new TextImpl("break" + (label == null ? "" : "@" + label))));
+                }
+            }
+            fs.block().statements().stream().filter(st -> !st.isSynthetic()).forEach(st -> body.add(print(st, q)));
+            if (!continues) updates.forEach(u -> body.add(KotlinExpressionPrinter.printStatement(u, q)));
+
+            whileLoop = new OutputBuilderImpl();
+            if (label != null) whileLoop.add(new TextImpl(label + "@")).add(SpaceEnum.ONE);
+            whileLoop.add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(continues || !hasCondition ? new OutputBuilderImpl().add(new TextImpl("true"))
+                            : KotlinExpressionPrinter.print(condition, q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(braces(body));
+            if (first != null) {
+                init.add(new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(first))
+                        .add(KotlinSymbols.assignment("=")).add(new TextImpl("true")));
+            }
+        } finally {
+            KotlinContext.pop();
+        }
+        if (!declares && init.isEmpty()) return whileLoop;
+        List<OutputBuilder> all = new ArrayList<>(init);
+        all.add(whileLoop);
+        if (!declares) {
+            return all.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+        }
+        // the loop variables are the loop's: `run { }` is the only block Kotlin has
+        return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE).add(braces(all));
+    }
+
+    /** A {@code continue} that targets this loop: one not inside a nested loop, or one labelled with this loop's. */
+    private static boolean continuesItself(ForStatement fs) {
+        boolean[] found = {false};
+        fs.block().visit((Element e) -> {
+            if (found[0] || e instanceof Lambda) return false;
+            if (e instanceof ContinueStatement cs) {
+                if (cs.goToLabel() == null || cs.goToLabel().equals(fs.label())) found[0] = true;
+                return false;
+            }
+            if (e instanceof LoopStatement inner && inner != fs) {
+                // an unlabelled continue in here is the inner loop's; only a labelled one can still be ours
+                if (fs.label() != null) inner.visit((Element x) -> {
+                    if (x instanceof ContinueStatement cs && fs.label().equals(cs.goToLabel())) found[0] = true;
+                    return !found[0];
+                });
+                return false;
+            }
+            return true;
+        });
+        return found[0];
+    }
+
+    /**
+     * {@code for (int i = a; i < n; i++)} as {@code for (i in a until n)}, when that is the same loop: one integral
+     * counter, compared with a bound that cannot change during the loop, stepped by a positive constant in the
+     * direction of the comparison, and assigned nowhere in the body (a Kotlin range variable is a val). A Kotlin
+     * range evaluates its bound ONCE, which is why the bound must be stable.
+     */
+    private static OutputBuilder rangeLoop(ForStatement fs, Qualification q) {
+        if (fs.initializers().size() != 1 || !(fs.initializers().getFirst() instanceof LocalVariableCreation lvc)
+            || !lvc.hasSingleDeclaration() || fs.updaters().size() != 1) return null;
+        LocalVariable v = lvc.localVariable();
+        ParameterizedType type = v.parameterizedType();
+        if (!(type.isInt() || type.isLong()) || v.assignmentExpression() == null || v.assignmentExpression().isEmpty()) {
+            return null;
+        }
+        if (!(fs.expression() instanceof BinaryOperator cmp) || cmp.operator() == null
+            || !(cmp.lhs() instanceof VariableExpression lhs) || !v.equals(lhs.variable())) return null;
+        String op = cmp.operator().name();
+        long step = step(fs.updaters().getFirst(), v);
+        if (step == 0) return null;
+        boolean up = step > 0;
+        String range = switch (op) {
+            case "<" -> up ? "until" : null;
+            case "<=" -> up ? ".." : null;
+            case ">", ">=" -> up ? null : "downTo";
+            default -> null;
+        };
+        if (range == null || !stable(cmp.rhs(), fs) || assignedIn(fs.block(), v)) return null;
+
+        OutputBuilder bound = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
+                cmp.rhs(), q);
+        if (">".equals(op)) bound = new OutputBuilderImpl().add(bound).add(KotlinSymbols.binary("+"))
+                .add(new TextImpl("1"));
+        OutputBuilder from = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
+                v.assignmentExpression(), q);
+        OutputBuilder header = new OutputBuilderImpl().add(KotlinKeyword.FOR).add(SpaceEnum.ONE)
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl(KotlinNames.name(v.simpleName())))
+                .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE).add(from);
+        if ("..".equals(range)) header.add(new TextImpl("..")); else header.add(SpaceEnum.ONE).add(new TextImpl(range)).add(SpaceEnum.ONE);
+        header.add(bound);
+        if (Math.abs(step) != 1) {
+            header.add(SpaceEnum.ONE).add(new TextImpl("step")).add(SpaceEnum.ONE).add(new TextImpl(Long.toString(Math.abs(step))));
+        }
+        header.add(SymbolEnum.RIGHT_PARENTHESIS);
+        OutputBuilder finalHeader = header;
+        return loop(fs, q, () -> new OutputBuilderImpl().add(finalHeader).add(SpaceEnum.ONE).add(block(fs.block(), q)));
+    }
+
+    /** +1/-1 for {@code i++}/{@code i--}, +c/-c for {@code i += c}/{@code i -= c} with c a positive constant; else 0. */
+    private static long step(Expression update, LocalVariable v) {
+        if (!(update instanceof Assignment a) || !v.equals(a.variableTarget())) return 0;
+        if (a.prefixPrimitiveOperator() != null) return a.assignmentOperatorIsPlus() ? 1 : -1;
+        if (a.assignmentOperator() == null) return 0;
+        long c;
+        if (a.value() instanceof IntConstant ic) c = ic.constant();
+        else if (a.value() instanceof LongConstant lc) c = lc.constant();
+        else return 0;
+        if (c <= 0) return 0;
+        return switch (a.assignmentOperator().name()) {
+            case "+=" -> c;
+            case "-=" -> -c;
+            default -> 0;
+        };
+    }
+
+    /** A bound the loop cannot change: a constant, a final field, a local or parameter the loop does not assign. */
+    private static boolean stable(Expression bound, ForStatement fs) {
+        return switch (bound) {
+            case IntConstant ic -> true;
+            case LongConstant lc -> true;
+            case ArrayLength al -> stable(al.scope(), fs);
+            case VariableExpression ve -> switch (ve.variable()) {
+                case FieldReference fr -> fr.fieldInfo().isFinal()
+                                          && (fr.isStatic() || fr.scope() == null || stable(fr.scope(), fs)
+                                              || fr.scopeIsThis());
+                case LocalVariable lv -> !assignedIn(fs.block(), lv);
+                case io.codelaser.maddi.cst.api.info.ParameterInfo pi -> !assignedIn(fs.block(), pi);
+                case io.codelaser.maddi.cst.api.variable.This t -> true;
+                default -> false;
+            };
+            default -> false;
+        };
+    }
+
+    private static boolean assignedIn(Element element, Variable v) {
+        boolean[] found = {false};
+        element.visit((Element e) -> {
+            if (e instanceof Assignment a && v.equals(a.variableTarget())) found[0] = true;
+            return !found[0];
+        });
+        return found[0];
+    }
+
+    // ---------------------------------------------------------------- switch
+
+    private static OutputBuilder switchNewStyle(SwitchStatementNewStyle sw, Qualification q) {
+        String label = KotlinContext.freshLabel("switch");
+        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
+        KotlinContext.push(frame);
+        OutputBuilder when;
+        try {
+            when = whenExpression(sw.expression(), sw.entries(), q);
+        } finally {
+            KotlinContext.pop();
+        }
+        return wrapIfLeftEarly(frame, when);
+    }
+
+    /** {@code when (selector) { conditions -> arm; … else -> arm }}; shared by switch statement and expression. */
     static OutputBuilder whenExpression(Expression selector, List<SwitchEntry> entries, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
@@ -91,28 +403,129 @@ public class KotlinStatementPrinter {
         if (isElse) {
             b.add(KotlinKeyword.ELSE_ARROW);
         } else {
-            b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> KotlinExpressionPrinter.print(c, q))
+            b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
         }
         return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
     }
 
+    /**
+     * A case label. An enum constant is written unqualified in a Java case and must be qualified in Kotlin, where
+     * {@code when}'s branches are ordinary expressions.
+     */
+    private static OutputBuilder condition(Expression c, Qualification q) {
+        if (c instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.isStatic()) {
+            FieldInfo f = fr.fieldInfo();
+            if (f.owner().typeNature().isEnum()) {
+                return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.name(f.owner(), q) + "."
+                                                                + KotlinNames.name(f.name())));
+            }
+        }
+        return KotlinExpressionPrinter.print(c, q);
+    }
+
     /** A `when` arm: a single-statement block is unwrapped to its value (`1 -> "a"`, not `1 -> { "a" }`). */
     private static OutputBuilder arm(Statement s, Qualification q) {
         if (s instanceof Block block) {
-            List<Statement> body = block.statements().stream().filter(x -> !x.isSynthetic()).toList();
-            if (body.size() == 1) return print(body.getFirst(), q);
+            List<Statement> body = withoutFinalBreak(block.statements().stream().filter(x -> !x.isSynthetic()).toList());
+            if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation)) return print(body.getFirst(), q);
+            return braces(body.stream().map(st -> print(st, q)).toList());
+        }
+        if (s instanceof BreakStatement bs && bs.goToLabel() == null) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         }
         return print(s, q);
     }
 
+    private static List<Statement> withoutFinalBreak(List<Statement> statements) {
+        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement bs && bs.goToLabel() == null) {
+            return statements.subList(0, statements.size() - 1);
+        }
+        return statements;
+    }
+
+    private static OutputBuilder wrapIfLeftEarly(KotlinContext.Frame frame, OutputBuilder when) {
+        if (!frame.leftEarly()) return when;
+        return new OutputBuilderImpl().add(new TextImpl("run " + frame.label() + "@")).add(SpaceEnum.ONE)
+                .add(SymbolEnum.LEFT_BRACE).add(when).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /**
+     * Groups of case labels with the statements from their position up to the next group's; a group that does not
+     * end in a jump falls through, and gets the following groups' statements copied up to the first that does.
+     */
+    private static OutputBuilder switchOldStyle(SwitchStatementOldStyle sw, Qualification q) {
+        List<Statement> statements = sw.block().statements();
+        TreeMap<Integer, List<SwitchStatementOldStyle.SwitchLabel>> byStart = new TreeMap<>();
+        for (SwitchStatementOldStyle.SwitchLabel l : sw.switchLabels()) {
+            byStart.computeIfAbsent(l.startFromPosition(), _ -> new ArrayList<>()).add(l);
+        }
+        List<Integer> starts = new ArrayList<>(byStart.keySet());
+        List<List<Statement>> own = new ArrayList<>();
+        for (int i = 0; i < starts.size(); i++) {
+            int from = Math.min(starts.get(i), statements.size());
+            int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
+            own.add(statements.subList(from, to).stream().filter(s -> !s.isSynthetic()).toList());
+        }
+
+        String label = KotlinContext.freshLabel("switch");
+        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
+        KotlinContext.push(frame);
+        List<OutputBuilder> arms = new ArrayList<>();
+        try {
+            for (int i = 0; i < starts.size(); i++) {
+                List<Statement> arm = new ArrayList<>(own.get(i));
+                for (int j = i + 1; j < starts.size() && !endsInJump(arm); j++) arm.addAll(own.get(j));
+                arm = withoutFinalBreak(arm);
+                List<SwitchStatementOldStyle.SwitchLabel> labels = byStart.get(starts.get(i));
+                OutputBuilder head;
+                if (labels.stream().anyMatch(l -> l.literal() == null || l.literal().isEmpty())) {
+                    head = new OutputBuilderImpl().add(KotlinKeyword.ELSE_ARROW);
+                } else {
+                    head = labels.stream().map(l -> condition(l.literal(), q))
+                            .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+                }
+                arms.add(new OutputBuilderImpl().add(head).add(SymbolEnum.LAMBDA)
+                        .add(braces(arm.stream().map(st -> print(st, q)).toList())));
+            }
+        } finally {
+            KotlinContext.pop();
+        }
+        OutputBuilder when = new OutputBuilderImpl().add(KotlinKeyword.WHEN).add(SpaceEnum.ONE)
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(sw.expression(), q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                .add(arms.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE,
+                        SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
+        return wrapIfLeftEarly(frame, when);
+    }
+
+    /** Control cannot fall out of the end of these statements. */
+    private static boolean endsInJump(List<Statement> statements) {
+        if (statements.isEmpty()) return false;
+        Statement last = statements.getLast();
+        return last instanceof BreakStatement || last instanceof ContinueStatement || last instanceof ReturnStatement
+               || last instanceof ThrowStatement || last instanceof YieldStatement
+               || last instanceof Block b && endsInJump(b.statements());
+    }
+
+    // ---------------------------------------------------------------- try
+
     private static OutputBuilder tryStatement(TryStatement ts, Qualification q) {
-        OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.TRY).add(SpaceEnum.ONE).add(block(ts.block(), q));
+        OutputBuilder body = ts.resources().isEmpty() ? block(ts.block(), q) : braces(List.of(use(ts, 0, q)));
+        boolean plainTry = ts.catchClauses().isEmpty() && (ts.finallyBlock() == null || ts.finallyBlock().isEmpty());
+        if (!ts.resources().isEmpty() && plainTry) return use(ts, 0, q);
+
+        OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.TRY).add(SpaceEnum.ONE).add(body);
         for (TryStatement.CatchClause cc : ts.catchClauses()) {
-            String type = cc.exceptionTypes().isEmpty() ? "Throwable" : KotlinTypeName.of(cc.exceptionTypes().getFirst());
-            b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(cc.catchVariable().simpleName())).add(SymbolEnum.COLON_LABEL)
-                    .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(block(cc.block(), q));
+            List<ParameterizedType> types = cc.exceptionTypes().isEmpty() ? List.of() : cc.exceptionTypes();
+            List<String> names = types.isEmpty() ? List.of("Throwable")
+                    : types.stream().map(t -> KotlinTypeName.of(t, q)).toList();
+            for (String type : names) { // Kotlin has no multi-catch: one clause per type
+                b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(new TextImpl(KotlinNames.name(cc.catchVariable().simpleName()))).add(SymbolEnum.COLON_LABEL)
+                        .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                        .add(block(cc.block(), q));
+            }
         }
         if (ts.finallyBlock() != null && !ts.finallyBlock().isEmpty()) {
             b.add(SpaceEnum.ONE).add(KotlinKeyword.FINALLY).add(SpaceEnum.ONE).add(block(ts.finallyBlock(), q));
@@ -120,32 +533,70 @@ public class KotlinStatementPrinter {
         return b;
     }
 
-    /** The statements of a block without the enclosing braces; NEWLINE-separated (Kotlin has no `;`). */
-    static OutputBuilder statementsNoBraces(Block block, Qualification q) {
-        return block.statements().stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q))
+    /**
+     * ⛔ #104: {@code init.use { r -> … }} per resource, innermost the body. The resources used to be dropped, which
+     * left the body naming variables nobody declared and nothing closing them.
+     */
+    private static OutputBuilder use(TryStatement ts, int index, Qualification q) {
+        if (index == ts.resources().size()) return statementsNoBraces(ts.block(), q);
+        Statement resource = ts.resources().get(index);
+        OutputBuilder receiver;
+        String parameter;
+        if (resource instanceof LocalVariableCreation lvc) {
+            receiver = KotlinExpressionPrinter.receiver(lvc.localVariable().assignmentExpression(), q);
+            parameter = KotlinNames.name(lvc.localVariable().simpleName());
+        } else if (resource instanceof ExpressionAsStatement eas) {
+            receiver = KotlinExpressionPrinter.receiver(eas.expression(), q);
+            parameter = null; // an existing variable: still in scope inside the lambda
+        } else {
+            receiver = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(resource, q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+            parameter = null;
+        }
+        OutputBuilder b = receiver.add(SymbolEnum.DOT).add(new TextImpl("use")).add(SpaceEnum.ONE)
+                .add(SymbolEnum.LEFT_BRACE);
+        if (parameter != null) {
+            b.add(SpaceEnum.ONE).add(new TextImpl(parameter)).add(SpaceEnum.ONE).add(SymbolEnum.LAMBDA).add(SpaceEnum.ONE);
+        }
+        OutputBuilder inner = use(ts, index + 1, q);
+        if (inner.isEmpty()) return b.add(SymbolEnum.RIGHT_BRACE);
+        return b.add(new OutputBuilderImpl().add(GuideImpl.generatorForBlock().start()).add(inner)
+                .add(GuideImpl.generatorForBlock().end())).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    // ---------------------------------------------------------------- the rest
+
+    private static OutputBuilder assertStatement(AssertStatement as, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl().add(new TextImpl("assert")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinExpressionPrinter.print(as.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        if (as.message() != null && !as.message().isEmpty()) {
+            b.add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(as.message(), q)).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        }
+        return b;
+    }
+
+    /**
+     * One {@code val}/{@code var} per declared variable. The type is written when there is no initializer, and when
+     * it differs from the initializer's: Kotlin infers {@code Int} for {@code long x = 0}.
+     */
+    private static OutputBuilder localVariables(LocalVariableCreation lvc, Qualification q) {
+        return lvc.localVariableStream().map(lv -> localVariable(lvc, lv, q))
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
-    static OutputBuilder block(Block block, Qualification q) {
-        OutputBuilder ob = new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE);
-        if (!block.statements().isEmpty()) {
-            ob.add(statementsNoBraces(block, q));
-        }
-        return ob.add(SymbolEnum.RIGHT_BRACE);
-    }
-
-    private static OutputBuilder localVariable(LocalVariableCreation lvc, Qualification q) {
-        LocalVariable lv = lvc.localVariable();
+    private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(lvc.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(lv.simpleName()));
-        boolean hasInitializer = lv.assignmentExpression() != null && !lv.assignmentExpression().isEmpty();
+                .add(new TextImpl(KotlinNames.name(lv.simpleName())));
+        Expression init = lv.assignmentExpression();
+        boolean hasInitializer = init != null && !init.isEmpty();
+        boolean writeType = !hasInitializer || !lvc.isVar()
+                                               && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
+        if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(lv.parameterizedType(), q)));
         if (hasInitializer) {
-            // type is inferred from the initializer
-            b.add(SpaceEnum.ONE).add(SymbolEnum.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(lv.assignmentExpression(), q));
-        } else {
-            b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(lv.parameterizedType())));
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(init, q));
         }
         return b;
     }
@@ -167,6 +618,6 @@ public class KotlinStatementPrinter {
     /** If a block's only (non-synthetic) statement is an if/else, return it — for `else if` chain flattening. */
     private static IfElseStatement soleIfElse(Block block) {
         List<Statement> body = block.statements().stream().filter(x -> !x.isSynthetic()).toList();
-        return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife ? ife : null;
+        return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife && ife.label() == null ? ife : null;
     }
 }

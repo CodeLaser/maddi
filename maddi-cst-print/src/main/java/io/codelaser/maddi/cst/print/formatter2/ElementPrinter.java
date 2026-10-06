@@ -55,7 +55,9 @@ public class ElementPrinter {
                                         FormattingOptions options,
                                         Symbol symbol,
                                         boolean lastElement) {
-        if (!lastElement && !symbol.left().split().isNever()) {
+        if (symbol.left().withdrawsSplitBefore()) {
+            removeSplitPoints(splitInfo, line.length());
+        } else if (!lastElement && !symbol.left().split().isNever()) {
             addSplitPoint(splitInfo, line.length(), symbol.left());
         }
         Line.SpaceLevel left = computeSpaceLevel(options, symbol.left(), symbol, true);
@@ -183,6 +185,12 @@ public class ElementPrinter {
             }
         }
         return pos;
+    }
+
+    /** Withdraws the split points registered at this position, of every rank: see {@link Space#withdrawsSplitBefore()}. */
+    private static void removeSplitPoints(BlockPrinter.SplitInfo splitInfo, int length) {
+        splitInfo.map().values().forEach(points -> points.remove(length));
+        splitInfo.map().values().removeIf(TreeMap::isEmpty);
     }
 
     static void addSplitPoint(BlockPrinter.SplitInfo splitInfo, int length, Space space) {

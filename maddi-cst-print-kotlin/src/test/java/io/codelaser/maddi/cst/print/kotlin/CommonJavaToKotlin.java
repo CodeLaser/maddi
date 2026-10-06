@@ -30,13 +30,11 @@ import org.junit.jupiter.api.BeforeEach;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
- * Java in, Kotlin out: parses a Java primary type with the openjdk front end and prints it with
- * {@link KotlinTypePrinter}. The corpus-scale counterpart, which also compiles the result, is maddi-run-openjdk's
+ * Java in, Kotlin out: parses a Java compilation unit with the openjdk front end and prints it with
+ * {@link KotlinCompilationUnitPrinter}. The corpus-scale counterpart, which also compiles the result, is maddi-run-openjdk's
  * TestJavaToKotlinFernflower.
  */
 public abstract class CommonJavaToKotlin {
@@ -52,22 +50,20 @@ public abstract class CommonJavaToKotlin {
         javaInspector.onlyPreload();
     }
 
-    /** The Kotlin printing of every primary type declared in {@code java}, in source order, blank-line separated. */
+    /** The Kotlin printing of the compilation unit {@code java}: package, imports, and every type in it. */
     protected String kotlin(String java) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
-        List<TypeInfo> types = javaInspector.parse(Map.of(pkg + "." + first, java),
+        TypeInfo typeInfo = javaInspector.parse(Map.of(pkg + "." + first, java),
                         new JavaInspector.ParseOptions.Builder().build())
                 .parseResult().primaryTypes().stream()
-                .sorted(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
-                .toList();
+                .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
+                .orElseThrow();
         Runtime runtime = javaInspector.runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        return types.stream().map(typeInfo -> {
-            OutputBuilder ob = new KotlinTypePrinter(typeInfo, true)
-                    .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType(), true);
-            return formatter.write(ob);
-        }).collect(Collectors.joining("\n"));
+        OutputBuilder ob = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true)
+                .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+        return formatter.write(ob);
     }
 }

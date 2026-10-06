@@ -6,8 +6,11 @@
 # 2026-10-06, first record, no prepwork: 199 types; 0 printer crashes; 8,458 syntax errors in 149 files; 50 files
 # syntax-clean, 12 of them compiling against fernflower's original classes (all small interfaces and stubs).
 # kotlinc itself crashes on MergeHelper.kt (`fun` as a variable name); counted as that file's failure.
+# 2026-10-06, step 2, syntax coverage: every statement and expression form translated, a Kotlin compilation-unit
+# printer, no line break in front of an operator. 0 syntax errors, all 199 files syntax-clean, 22 compiling. The
+# type errors that now surface (8,585, not ratcheted) are step 3's: statics, SAM conversion, Java-API members.
 types	199
 printerCrashes	0
-syntaxErrors	8394
-syntaxCleanFiles	51
-compilingFiles	12
+syntaxErrors	0
+syntaxCleanFiles	199
+compilingFiles	22

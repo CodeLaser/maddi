@@ -23,4 +23,12 @@ public interface Space extends OutputElement {
     ElementarySpace nice();
 
     Split split();
+
+    /**
+     * True when a line break is not allowed here even where the element before allows one: the formatter withdraws
+     * the split point at this position. For a language that ends a statement at a newline in front of an operator.
+     */
+    default boolean withdrawsSplitBefore() {
+        return false;
+    }
 }

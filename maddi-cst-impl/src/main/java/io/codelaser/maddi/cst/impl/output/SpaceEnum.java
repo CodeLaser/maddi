@@ -51,7 +51,12 @@ public enum SpaceEnum implements Space {
     // e.g. && either at beginning of line in sequence, or always at end
     // in nice formatting, one space is used
     ONE_IS_NICE_EASY_L(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.EASY_L),
-    ONE_IS_NICE_EASY_R(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.EASY_R);
+    ONE_IS_NICE_EASY_R(ElementarySpaceEnum.RELAXED_NONE, ElementarySpaceEnum.NICE, SplitEnum.EASY_R),
+
+    // exactly one space, and no line break here even where the previous element allows one: the formatter drops
+    // the split point at this position. Kotlin ends a statement at a newline in front of a binary operator
+    // (`a\n + b` is two statements), so its printer puts this before an operator, and splits after it.
+    ONE_NO_SPLIT_BEFORE(ElementarySpaceEnum.ONE, ElementarySpaceEnum.ONE, SplitEnum.NEVER);
 
     private final ElementarySpace minimal;
     private final ElementarySpace nice;
@@ -61,6 +66,11 @@ public enum SpaceEnum implements Space {
         this.minimal = Objects.requireNonNull(minimal);
         this.nice = Objects.requireNonNull(nice);
         this.split = Objects.requireNonNull(split);
+    }
+
+    @Override
+    public boolean withdrawsSplitBefore() {
+        return this == ONE_NO_SPLIT_BEFORE;
     }
 
     @Override

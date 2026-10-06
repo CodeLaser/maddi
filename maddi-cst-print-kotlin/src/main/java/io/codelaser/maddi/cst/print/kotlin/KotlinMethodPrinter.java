@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -40,11 +41,18 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     @Override
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder b = new OutputBuilderImpl();
+        if (methodInfo.isStaticInitializer() || methodInfo.isInstanceInitializer()) {
+            // a static initializer belongs in the companion object (step 3); until then it reads as an `init`
+            return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
+                    .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
+        }
         KotlinModifiers.visibility(methodInfo.access()).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         if (!methodInfo.overrides().isEmpty()) {
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
         } else if (methodInfo.isAbstract() && !typeInfo.isInterface()) {
             b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
+        } else if (isOpen()) {
+            b.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
         }
 
         if (methodInfo.isConstructor()) {
@@ -58,14 +66,14 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }
-            b.add(new TextImpl(methodInfo.name()));
+            b.add(new TextImpl(KotlinNames.name(methodInfo.name())));
         }
 
         if (methodInfo.parameters().isEmpty()) {
             b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         } else {
             b.add(methodInfo.parameters().stream()
-                    .map(this::parameter)
+                    .map(pi -> parameter(pi, qualification))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                             SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
         }
@@ -73,21 +81,59 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (!methodInfo.isConstructor()) {
             ParameterizedType rt = methodInfo.returnType();
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
-                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(rt)));
+                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(rt, qualification)));
             }
         }
 
         if (!methodInfo.isAbstract()) {
             Block body = methodInfo.methodBody();
-            Expression expressionBody = methodInfo.isConstructor() ? null : expressionBody(body);
+            if (methodInfo.isConstructor()) {
+                constructorBody(b, body, qualification);
+                return b;
+            }
+            Expression expressionBody = expressionBody(body);
             if (expressionBody != null) {
-                b.add(SpaceEnum.ONE).add(SymbolEnum.assignment("=")).add(SpaceEnum.ONE)
+                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(KotlinExpressionPrinter.print(expressionBody, qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
             }
         }
         return b;
+    }
+
+    /**
+     * A Java {@code super(…)}/{@code this(…)} first statement is Kotlin's delegation in the header:
+     * {@code constructor(x: Int) : super(x) { … }}. A class without a primary constructor must have every secondary
+     * one delegate to the superclass, so an implicit {@code super()} is written out when the class has a parent.
+     */
+    private void constructorBody(OutputBuilder b, Block body, Qualification q) {
+        List<Statement> statements = body == null ? List.of()
+                : body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        ExplicitConstructorInvocation eci = !statements.isEmpty()
+                                            && statements.getFirst() instanceof ExplicitConstructorInvocation e ? e : null;
+        if (eci != null) {
+            b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
+                    .add(eci.isSuper() ? KeywordImpl.SUPER : KeywordImpl.THIS)
+                    .add(eci.parameterExpressions().isEmpty() ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
+                            : eci.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
+                            .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                                    SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+            statements = statements.subList(1, statements.size());
+        } else if (KotlinTypePrinter.hasWrittenSuperclass(typeInfo)) {
+            b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE).add(KeywordImpl.SUPER)
+                    .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        if (!statements.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(statements, q));
+        }
+    }
+
+    /** A Java method that can be overridden must say so in Kotlin, where {@code final} is the default. */
+    private boolean isOpen() {
+        return !methodInfo.isFinal() && !methodInfo.isStatic() && !methodInfo.isConstructor()
+               && !methodInfo.access().isPrivate() && !typeInfo.isInterface()
+               && KotlinTypePrinter.isOpen(typeInfo);
     }
 
     /** The expression of a single-`return` body (Kotlin `fun … = expr`), or {@code null} for a block body. */
@@ -100,12 +146,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return null;
     }
 
-    private OutputBuilder parameter(ParameterInfo pi) {
+    private OutputBuilder parameter(ParameterInfo pi, Qualification q) {
         OutputBuilder ob = new OutputBuilderImpl();
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType type = pi.isVarArgs() ? pi.parameterizedType().copyWithArrays(0) : pi.parameterizedType();
-        ob.add(new TextImpl(pi.name())).add(SymbolEnum.COLON_LABEL)
-                .add(new TextImpl(KotlinTypeName.of(type)));
+        ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL)
+                .add(new TextImpl(KotlinTypeName.of(type, q)));
         return ob;
     }
 }
