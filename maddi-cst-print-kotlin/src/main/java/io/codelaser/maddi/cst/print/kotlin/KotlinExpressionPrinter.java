@@ -272,6 +272,10 @@ public class KotlinExpressionPrinter {
      * integral type by itself.
      */
     static OutputBuilder widened(Expression e, ParameterizedType target, Qualification q) {
+        if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
+            // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
+            return arrayInitializer(ai, target, q);
+        }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
         if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN

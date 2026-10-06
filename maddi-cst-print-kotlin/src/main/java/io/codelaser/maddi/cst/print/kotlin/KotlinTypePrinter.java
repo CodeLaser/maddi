@@ -283,9 +283,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(st -> !typeInfo.typeNature().isRecord() || !isComponentAssignment(st))
                 .toList();
         if (statements.isEmpty()) return null;
-        return new OutputBuilderImpl().add(new TextImpl("init")).add(SpaceEnum.ONE)
-                .add(KotlinStatementPrinter.block(KotlinStatementPrinter.reassignedParameters(c.parameters(), c.methodBody()),
-                        statements, q));
+        // the constructor's own scope: its locals' verdicts are asked for with it, its pattern variables are its own
+        var scope = KotlinContext.enterMethod(c);
+        try {
+            c.parameters().forEach(p -> KotlinContext.declared(p.name()));
+            return new OutputBuilderImpl().add(new TextImpl("init")).add(SpaceEnum.ONE)
+                    .add(KotlinStatementPrinter.block(KotlinStatementPrinter.reassignedParameters(c.parameters(),
+                            c.methodBody()), statements, q));
+        } finally {
+            KotlinContext.exitMethod(scope);
+        }
     }
 
     private static boolean isComponentAssignment(io.codelaser.maddi.cst.api.statement.Statement st) {

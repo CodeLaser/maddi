@@ -91,6 +91,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 java.util.List<String> names() { return null; }
             }
+            class D {
+                D(java.util.List<String> in) {
+                    String x = null;
+                    for (String s : in) x = s;
+                }
+            }
             """;
 
     private static final KotlinPrintOptions VERDICTS = new KotlinPrintOptions(
@@ -106,7 +112,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "var x: String? = null");
         // no verdict for y: Kotlin infers String? from Map.get, so its use as a non-null argument is asserted
         contains(kotlin, "var y = m.get(\"k\")");
-        contains(kotlin, "for (s in names()!!) {"); // Kotlin does not loop over a nullable collection
+        contains(kotlin, "for (s in names()!!) {");
+        // a constructor body is an init block: its locals get their verdicts too
+        contains(kotlin, """
+                init {
+                    var x: String? = null
+                """); // Kotlin does not loop over a nullable collection
     }
 
     @Test
