@@ -1548,7 +1548,7 @@ public class JavaUtil {
 
         //frequency 4
         @NotModified
-        boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object object) { return false; }
+        boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object object) { return false; }
 
         //override from java.lang.Iterable
         //override has frequency 2
@@ -1574,7 +1574,7 @@ public class JavaUtil {
         boolean add(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { return false; }
 
         //override has frequency 3
-        boolean remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) {
+        boolean remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) {
             return false;
         }
 
@@ -2048,8 +2048,10 @@ public class JavaUtil {
     //public interface Deque<E> extends Queue<E>, SequencedCollection<E>
     @Container
     class Deque$<E> {
-        @NotModified E peekFirst() { return null; }
-        @NotModified E peekLast() { return null; }
+        @Nullable E pollFirst() { return null; }
+        @Nullable E pollLast() { return null; }
+        @Nullable @NotModified E peekFirst() { return null; }
+        @Nullable @NotModified E peekLast() { return null; }
         @NotModified E element() { return null; }
         @NotModified E peek() { return null; }
         @NotModified Iterator<E> descendingIterator() { return null; }
@@ -2536,9 +2538,9 @@ public class JavaUtil {
         //@Independent(hc=true)[T]
         E remove(int i) { return null; }
         @NotModified
-        int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) { return 0; }
+        int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
         @NotModified
-        int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) { return 0; }
+        int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
         @NotModified ListIterator<E> listIterator() { return null; }
         @NotModified ListIterator<E> listIterator(int i) { return null; }
         //frequency 3
@@ -2948,26 +2950,26 @@ public class JavaUtil {
         @NotModified boolean isEmpty() { return false; }
         //frequency 5
         @NotModified
-        boolean containsKey(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object object) { return false; }
+        boolean containsKey(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object object) { return false; }
 
         @NotModified
-        boolean containsValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) {
+        boolean containsValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) {
             return false;
         }
 
         //frequency 57
         @Independent(hc = true) @NotModified
-        V get(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object object) { return null; }
+        @Nullable V get(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object object) { return null; }
 
         //frequency 17
         //@Independent(hc=true)[T]
 
-        V put(/*@Independent(hc=true)[T] @NotModified[O]*/ K k, /*@Independent(hc=true)[T] @NotModified[O]*/ V v) {
+        @Nullable V put(/*@Independent(hc=true)[T] @NotModified[O]*/ K k, /*@Independent(hc=true)[T] @NotModified[O]*/ V v) {
             return null;
         }
 
         //@Independent(hc=true)[T]
-        V remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object object) { return null; }
+        @Nullable V remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return null; }
         void putAll(/*@NotModified[O]*/ Map<? extends K, ? extends V> map) { }
         void clear() { }
         @NotModified Set<K> keySet() { return null; }
@@ -2991,7 +2993,7 @@ public class JavaUtil {
         @NotModified
 
         V getOrDefault(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object key,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object key,
             @Independent(hcReturnValue = true)  /* @NotModified[O]*/ V defaultValue) { return null; }
 
         //frequency 1
@@ -3001,13 +3003,13 @@ public class JavaUtil {
         //frequency 1
         //@Independent(hc=true)[T]
 
-        V putIfAbsent(
+        @Nullable V putIfAbsent(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[T] @NotModified[O]*/ V value) { return null; }
 
         boolean remove(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object key,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ Object value) { return false; }
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object key,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object value) { return false; }
 
         boolean replace(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
@@ -3015,7 +3017,7 @@ public class JavaUtil {
             /*@Independent(hc=true)[T] @NotModified[O]*/ V newValue) { return false; }
 
         //@Independent(hc=true)[T]
-        V replace(
+        @Nullable V replace(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[T] @NotModified[O]*/ V value) { return null; }
 
@@ -3025,19 +3027,19 @@ public class JavaUtil {
             /*@IgnoreModifications[T]*/ Function<? super K, ? extends V> mappingFunction) { return null; }
 
         //@Independent(hc=true)[T]
-        V computeIfPresent(
+        @Nullable V computeIfPresent(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@IgnoreModifications[T]*/ BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //@Independent(hc=true)[T]
-        V compute(
+        @Nullable V compute(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@IgnoreModifications[T]*/ BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //frequency 2
         //@Independent(hc=true)[T]
 
-        V merge(
+        @Nullable V merge(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[T] @NotModified[O]*/ V value,
             /*@IgnoreModifications[T]*/ @Independent(hc = true) @NotModified BiFunction<
@@ -3209,36 +3211,36 @@ public class JavaUtil {
     //public interface NavigableMap implements SortedMap<K,V>
     @Container
     class NavigableMap$<K, V> {
-        @NotModified Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable @NotModified Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
-        K lowerKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @NotModified Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable K lowerKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable @NotModified Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
-        K floorKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @NotModified Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable K floorKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable @NotModified Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
-        K ceilingKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @NotModified Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable K ceilingKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable @NotModified Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
-        K higherKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Nullable K higherKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
 
         //override from java.util.SequencedMap
         @NotModified
-        Map.Entry<K, V> firstEntry() { return null; }
+        @Nullable Map.Entry<K, V> firstEntry() { return null; }
 
         //override from java.util.SequencedMap
         @NotModified
-        Map.Entry<K, V> lastEntry() { return null; }
+        @Nullable Map.Entry<K, V> lastEntry() { return null; }
 
         //override from java.util.SequencedMap
-        Map.Entry<K, V> pollFirstEntry() { return null; }
+        @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
 
         //override from java.util.SequencedMap
-        Map.Entry<K, V> pollLastEntry() { return null; }
+        @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
         @NotModified NavigableMap<K, V> descendingMap() { return null; }
         @NotModified NavigableSet<K> navigableKeySet() { return null; }
         @NotModified NavigableSet<K> descendingKeySet() { return null; }
@@ -3273,10 +3275,12 @@ public class JavaUtil {
     //public interface NavigableSet<E> extends SortedSet<E>
     @Container
     class NavigableSet$<E> {
-        @NotModified E lower(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
-        @NotModified E floor(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
-        @NotModified E ceiling(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
-        @NotModified E higher(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @Nullable E pollFirst() { return null; }
+        @Nullable E pollLast() { return null; }
+        @Nullable @NotModified E lower(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @Nullable @NotModified E floor(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @Nullable @NotModified E ceiling(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
+        @Nullable @NotModified E higher(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
         @NotModified NavigableSet<E> descendingSet() { return null; }
         @NotModified Iterator<E> descendingIterator() { return null; }
         @NotModified
@@ -3627,7 +3631,7 @@ public class JavaUtil {
     @Container
     class PriorityQueue$<E> {
         PriorityQueue$(@Independent(hc = true) @NotModified Collection<? extends E> c) { }
-        @NotModified Comparator<? super E> comparator() { return null; }
+        @Nullable @NotModified Comparator<? super E> comparator() { return null; }
     }
 
     //public class Properties extends Hashtable<Object, Object>
@@ -3641,7 +3645,8 @@ public class JavaUtil {
     //public interface Queue<E> extends Collection<E>
     @Container
     class Queue$<E> {
-        @NotModified E peek() { return null; }
+        @Nullable E poll() { return null; }
+        @Nullable @NotModified E peek() { return null; }
         @NotModified E element() { return null; }
     }
 
@@ -3944,7 +3949,7 @@ public class JavaUtil {
     @Container
     class SortedMap$<K, V> {
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        @NotModified Comparator<? super K> comparator() { return null; }
+        @Nullable @NotModified Comparator<? super K> comparator() { return null; }
 
         @NotModified
         SortedMap<K, V> subMap(
@@ -3992,7 +3997,7 @@ public class JavaUtil {
     //public interface SortedSet<E> extends Set<E>, SequencedCollection<E>
     @Container
     class SortedSet$<E> {
-        @NotModified Comparator<? super E> comparator() { return null; }
+        @Nullable @NotModified Comparator<? super E> comparator() { return null; }
         @NotModified
         SortedSet<E> subSet(
             /*@Independent[M] @NotModified[O]*/ E fromElement,

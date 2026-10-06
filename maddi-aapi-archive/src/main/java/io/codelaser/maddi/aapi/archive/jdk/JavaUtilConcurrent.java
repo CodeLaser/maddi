@@ -20,6 +20,7 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
@@ -1052,5 +1053,17 @@ public class JavaUtilConcurrent {
 
         //override from java.util.Random, java.util.random.RandomGenerator
         DoubleStream doubles(double randomNumberOrigin, double d) { return null; }
+    }
+
+    // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
+    class BlockingDeque$<E> {
+        @Nullable E pollFirst(long timeout, TimeUnit unit) { return null; }
+        @Nullable E pollLast(long timeout, TimeUnit unit) { return null; }
+    }
+    class BlockingQueue$<E> {
+        @Nullable E poll(long timeout, TimeUnit unit) { return null; }
+    }
+    class PriorityBlockingQueue$<E> {
+        @Nullable @NotModified Comparator<? super E> comparator() { return null; }
     }
 }

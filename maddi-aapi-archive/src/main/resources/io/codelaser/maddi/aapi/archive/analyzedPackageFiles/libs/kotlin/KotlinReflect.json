@@ -16,7 +16,7 @@
 
 {"name": "Tkotlin.reflect.KClass", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mequals(0,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "MgetConstructors(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
  {"name": "MgetMembers(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
  {"name": "MgetNestedClasses(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},

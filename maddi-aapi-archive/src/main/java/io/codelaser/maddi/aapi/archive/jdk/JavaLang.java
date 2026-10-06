@@ -34,6 +34,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.Immutable;
@@ -251,7 +252,7 @@ public class JavaLang {
         String getName() { return null; }
 
         //@Independent[O] @NotModified[T]
-        ClassLoader getClassLoader() { return null; }
+        @Nullable ClassLoader getClassLoader() { return null; }
 
         //@Independent[O] @NotModified[T]
         Module getModule() { return null; }
@@ -261,13 +262,13 @@ public class JavaLang {
         TypeVariable<Class<T>> [] getTypeParameters() { return null; }
 
         //@NotModified[T]
-        Class<? super T> getSuperclass() { return null; }
+        @Nullable Class<? super T> getSuperclass() { return null; }
 
         //@Independent[O] @NotModified[T]
         Type getGenericSuperclass() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Package getPackage() { return null; }
+        @Nullable Package getPackage() { return null; }
 
         //@NotModified[T]
         String getPackageName() { return null; }
@@ -279,7 +280,7 @@ public class JavaLang {
         Type [] getGenericInterfaces() { return null; }
 
         //@NotModified[T]
-        Class<?> getComponentType() { return null; }
+        @Nullable Class<?> getComponentType() { return null; }
 
         //@NotModified[T]
         int getModifiers() { return 0; }
@@ -297,10 +298,10 @@ public class JavaLang {
         Constructor<?> getEnclosingConstructor() { return null; }
 
         //@NotModified[T]
-        Class<?> getDeclaringClass() { return null; }
+        @Nullable Class<?> getDeclaringClass() { return null; }
 
         //@NotModified[T]
-        Class<?> getEnclosingClass() { return null; }
+        @Nullable Class<?> getEnclosingClass() { return null; }
 
         //@NotModified[T]
         String getSimpleName() { return null; }
@@ -1593,7 +1594,7 @@ public class JavaLang {
 
         //frequency 1
         //@NotModified[T]
-        public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return false; }
+        public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object obj) { return false; }
 
         //frequency 10
         //@NotModified[T]
@@ -2618,13 +2619,13 @@ public class JavaLang {
         static void setProperties(/*@Independent[T]*/ Properties props) { }
         //frequency 2
         @NotModified
-        static String getProperty(String key) { return null; }
+        @Nullable static String getProperty(String key) { return null; }
         static String getProperty(String key, String def) { return null; }
         static String setProperty(String key, String value) { return null; }
         static String clearProperty(String key) { return null; }
         //frequency 1
         @NotModified
-        static String getenv(String name) { return null; }
+        @Nullable static String getenv(String name) { return null; }
 
         //@Independent[O]
         static Map<String, String> getenv() { return null; }
@@ -2794,11 +2795,11 @@ public class JavaLang {
 
         //frequency 17
         @NotModified
-        String getMessage() { return null; }
-        String getLocalizedMessage() { return null; }
+        @Nullable String getMessage() { return null; }
+        @Nullable String getLocalizedMessage() { return null; }
         //frequency 7
         @NotModified
-        Throwable getCause() { return null; }
+        @Nullable Throwable getCause() { return null; }
         Throwable initCause(Throwable cause) { return null; }
         public String toString() { return null; }
         @IgnoreModifications void printStackTrace() { }
@@ -2809,5 +2810,10 @@ public class JavaLang {
         void setStackTrace(StackTraceElement [] stackTrace) { }
         void addSuppressed(Throwable exception) { }
         Throwable [] getSuppressed() { return null; }
+    }
+
+    // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
+    class ThreadLocal$<T> {
+        @Nullable T get() { return null; }
     }
 }

@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
+import io.codelaser.maddi.annotation.Nullable;
+import java.lang.reflect.Method;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
@@ -139,5 +141,10 @@ public class JavaLangReflect {
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/@Modified Object object,
             int i,
             double d) { }
+    }
+
+    // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
+    class InvocationHandler$ {
+        @Nullable Object invoke(Object proxy, Method method, Object[] args) { return null; }
     }
 }

@@ -1,0 +1,11 @@
+[
+{"name": "Tjava.lang.ref.Reference", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mclear(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Menqueue(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "Mget(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MisEnqueued(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "MreachabilityFence(5,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MrefersTo(6,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]}
+]

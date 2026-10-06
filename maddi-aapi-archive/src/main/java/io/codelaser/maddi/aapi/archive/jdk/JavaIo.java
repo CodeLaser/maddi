@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
@@ -45,7 +46,7 @@ public class JavaIo {
         //override from java.io.Reader
         //@AllowsInterrupt[H]
         int read(/*@Independent[H] @NotNull[H]*/ char [] cbuf, int off, int len) { return 0; }
-        @AllowsInterrupt String readLine() { return null; }
+        @Nullable @AllowsInterrupt String readLine() { return null; }
         //override from java.io.Reader
         //@AllowsInterrupt[H]
         long skip(long n) { return 0L; }
@@ -770,5 +771,10 @@ public class JavaIo {
         //override from java.io.Closeable, java.lang.AutoCloseable
         //@AllowsInterrupt[H]
         void close() { }
+    }
+
+    // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
+    class DataInput$ {
+        @Nullable String readLine() { return null; }
     }
 }

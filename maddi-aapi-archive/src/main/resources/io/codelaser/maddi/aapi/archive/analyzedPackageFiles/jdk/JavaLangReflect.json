@@ -120,6 +120,15 @@
 {"name": "Tjava.lang.reflect.GenericDeclaration", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "sub":
  {"name": "MgetTypeParameters(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}}},
 
+{"name": "Tjava.lang.reflect.InvocationHandler", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Minvoke(0,java.lang.Object,java.lang.reflect.Method,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"Q"}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MinvokeDefault(1,java.lang.Object,java.lang.reflect.Method,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":1}}]}]},
+
 {"name": "Tjava.lang.reflect.Type", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "sub":
  {"name": "MgetTypeName(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}}}
 ]

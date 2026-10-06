@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Set;
@@ -47,13 +48,35 @@ public final class NullAnnotations {
 
     /** A field, parameter or method (its return) whose declaration or declared type carries a null annotation. */
     public static boolean hasNullnessAnnotation(Info info) {
+        return annotations(info).anyMatch(NullAnnotations::isNullnessAnnotation);
+    }
+
+    /**
+     * What the null annotations on a field, parameter or method (its return) state explicitly, ignoring any
+     * {@code @NullMarked} scope: NULLABLE (which wins over a conflicting non-null), NONNULL, or null for nothing.
+     * maddi's {@code absent = true} denies the annotation. (An element annotation on an array written in
+     * declaration position is read as being about the array.)
+     */
+    public static NullableState explicitState(Info info) {
+        boolean nonNull = false;
+        for (AnnotationExpression ae : annotations(info).toList()) {
+            if (MADDI.equals(ae.typeInfo().packageName()) && ae.extractBoolean("absent")) continue;
+            String name = ae.typeInfo().simpleName();
+            if (NULLABLE.contains(name)) return NullableState.NULLABLE;
+            if (NON_NULL.contains(name)) nonNull = true;
+        }
+        return nonNull ? NullableState.NONNULL : null;
+    }
+
+    private static final String MADDI = "io.codelaser.maddi.annotation";
+
+    private static Stream<AnnotationExpression> annotations(Info info) {
         ParameterizedType type = switch (info) {
             case FieldInfo fi -> fi.type();
             case ParameterInfo pi -> pi.parameterizedType();
             case MethodInfo mi -> mi.returnType();
             default -> null;
         };
-        return Stream.concat(info.annotations().stream(), type == null ? Stream.empty() : type.annotations().stream())
-                .anyMatch(NullAnnotations::isNullnessAnnotation);
+        return Stream.concat(info.annotations().stream(), type == null ? Stream.empty() : type.annotations().stream());
     }
 }
