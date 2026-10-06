@@ -57,7 +57,7 @@ public final class PropertyVerdicts implements NullabilityVerdicts {
         return n.isDefault() ? null : n.applyTo(declared);
     }
 
-    /** These verdicts for fields, parameters and returns, {@code locals} for local variables. */
+    /** These verdicts for fields, parameters and returns; {@code locals} for local variables and use-site facts. */
     public static NullabilityVerdicts withLocals(NullabilityVerdicts locals) {
         return new NullabilityVerdicts() {
             @Override
@@ -79,6 +79,12 @@ public final class PropertyVerdicts implements NullabilityVerdicts {
             public ParameterizedType local(MethodInfo method, io.codelaser.maddi.cst.api.element.Element declaration,
                                            io.codelaser.maddi.cst.api.variable.LocalVariable variable) {
                 return locals.local(method, declaration, variable);
+            }
+
+            @Override
+            public boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
+                                     io.codelaser.maddi.cst.api.variable.Variable variable) {
+                return locals.nonNullAt(statement, variable);
             }
         };
     }

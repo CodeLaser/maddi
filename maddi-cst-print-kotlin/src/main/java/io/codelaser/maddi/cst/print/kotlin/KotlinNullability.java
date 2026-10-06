@@ -136,13 +136,19 @@ final class KotlinNullability {
             case MethodCall mc -> isNullable(returnType(mc.methodInfo())) || nullableJdkResult(mc.methodInfo());
             case VariableExpression ve -> switch (ve.variable()) {
                 case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()));
-                case ParameterInfo pi -> isNullable(parameterType(pi));
-                case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName()));
+                case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi);
+                case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv);
                 default -> false;
             };
             case InlineConditional ic -> nullableInKotlin(ic.ifTrue()) || nullableInKotlin(ic.ifFalse());
             default -> false;
         };
+    }
+
+    /** A use-site fact: known non-null where the current statement starts, and smart-cast there by Kotlin. */
+    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
+        io.codelaser.maddi.cst.api.statement.Statement statement = KotlinContext.currentStatement();
+        return statement != null && verdicts().nonNullAt(statement, variable);
     }
 
     private static boolean nullableJdkResult(MethodInfo methodInfo) {

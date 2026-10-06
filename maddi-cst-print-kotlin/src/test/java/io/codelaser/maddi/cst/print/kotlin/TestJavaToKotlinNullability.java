@@ -46,7 +46,19 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /** NULLABLE for the declarations named here: fields and parameters by name, returns by method, locals by name. */
-    private record ByName(Set<String> nullable) implements NullabilityVerdicts {
+    private record ByName(Set<String> nullable, Set<String> checked) implements NullabilityVerdicts {
+        ByName(Set<String> nullable) {
+            this(nullable, Set.of());
+        }
+
+        /** Known non-null in every statement but the one that checks it, as after {@code if (v == null) return;}. */
+        @Override
+        public boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
+                                 io.codelaser.maddi.cst.api.variable.Variable variable) {
+            return checked.contains(variable.simpleName())
+                   && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
+        }
+
         private ParameterizedType verdict(String name, ParameterizedType type) {
             return nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
         }
@@ -151,5 +163,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "constructor(a: Int, b: Int)");
         contains(kotlin, "constructor(a: Int?, b: Int?) : this(a!!.toInt(), b!!.toInt())");
         assertFalse(kotlin.contains("constructor(a: Int, b: Int) : this"), kotlin);
+    }
+
+    @Language("java")
+    private static final String CHECKED = """
+            package a;
+            class C {
+                int m(String p, String q) {
+                    if (p == null) return 0;
+                    return p.length() + q.length();
+                }
+            }
+            """;
+
+    /** A use-site fact: after the null check, Kotlin smart-casts p, and the printer writes no `!!`. */
+    @Test
+    public void useSiteFacts() {
+        String kotlin = kotlin(CHECKED, new KotlinPrintOptions(new ByName(Set.of("p", "q"), Set.of("p")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "open fun m(p: String?, q: String?): Int {");
+        contains(kotlin, "return p.length + q!!.length");
     }
 }
