@@ -24,4 +24,20 @@ dependencies {
     // the Kotlin printers reuse the OutputElement building blocks (OutputBuilderImpl, SymbolEnum, KeywordImpl,
     // TextImpl, …) and the import computation, exactly as the Java printers in cst-impl do
     implementation(project(":maddi-cst-impl"))
+
+    // the tests print Java parsed by the openjdk front end (Java -> Kotlin translation)
+    testImplementation(project(":maddi-cst-print"))
+    testImplementation(project(":maddi-inspection-api"))
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-inspection-resource"))
+}
+
+tasks.test {
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
 }

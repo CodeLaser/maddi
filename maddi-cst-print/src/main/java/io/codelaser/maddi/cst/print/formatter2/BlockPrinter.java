@@ -157,6 +157,14 @@ public class BlockPrinter {
                 // TODO is this a hack? to ensure that the NEWLINE of '//' passes
                 hasBeenSplit = true;
             }
+            // The boundary AFTER a sub-block that ends in a mandatory newline (a '//' comment; the statement
+            // separator of the Kotlin printer, which has no ';') must break, whatever its own split level: the
+            // check above only sees it when that level happens to be SINGLE_NEWLINE. Without this, a Kotlin method
+            // body that fitted on one line came out as `{ map.put(key, size()) add(element)lstKeys.add(key) }`.
+            // The same rule as the last-element check below, applied between elements.
+            if (prevOutput != null && prevOutput.spaceLevel().isNewLine()) {
+                hasBeenSplit = true;
+            }
             guideSplits.put(sb.length(), splitLevel);
             sb.append(output.string);
             hasBeenSplit |= output.hasBeenSplit;
