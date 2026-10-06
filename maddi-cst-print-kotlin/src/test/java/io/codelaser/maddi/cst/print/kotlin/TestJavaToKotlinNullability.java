@@ -87,12 +87,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     x = "a";
                     String y = m.get("k");
                     use(y);
+                    for (String s : names()) use(s);
                 }
+                java.util.List<String> names() { return null; }
             }
             """;
 
     private static final KotlinPrintOptions VERDICTS = new KotlinPrintOptions(
-            new ByName(Set.of("name", "find()", "x")), KotlinPrintOptions.NullCheck.ASSERT);
+            new ByName(Set.of("name", "find()", "x", "names()")), KotlinPrintOptions.NullCheck.ASSERT);
 
     @Test
     public void declarationsAndAssertions() {
@@ -104,6 +106,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "var x: String? = null");
         // no verdict for y: Kotlin infers String? from Map.get, so its use as a non-null argument is asserted
         contains(kotlin, "var y = m.get(\"k\")");
+        contains(kotlin, "for (s in names()!!) {"); // Kotlin does not loop over a nullable collection
     }
 
     @Test

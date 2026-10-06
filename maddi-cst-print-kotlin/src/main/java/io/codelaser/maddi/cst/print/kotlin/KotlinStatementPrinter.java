@@ -74,7 +74,7 @@ public class KotlinStatementPrinter {
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(new TextImpl(declareForEach(fe)))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(fe.block(), q)));
             case ForStatement fs -> forStatement(fs, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);

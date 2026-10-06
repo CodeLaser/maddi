@@ -158,6 +158,12 @@ final class KotlinNullability {
         return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
     }
 
+    /** What a for-each loops over: {@code xs!!} when Kotlin types it nullable (a loop over null throws in Java too). */
+    static OutputBuilder iterable(Expression e, Qualification q) {
+        if (!nullableInKotlin(e) || e instanceof NullConstant) return KotlinExpressionPrinter.print(e, q);
+        return KotlinExpressionPrinter.receiver(e, q).add(NOT_NULL);
+    }
+
     /** A receiver: {@code x!!.} or {@code x?.} when Kotlin types it nullable, else {@code x.}. */
     static OutputBuilder receiverWithDot(Expression object, Qualification q) {
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(object, q);
