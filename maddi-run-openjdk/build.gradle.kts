@@ -47,6 +47,29 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
+// TestJavaToKotlinFernflower: the Kotlin printer under test, and the Kotlin compiler that judges its output. The
+// compiler runs in a CHILD JVM, so it is resolved into a configuration of its own and handed over as a path: on the
+// test class path it would sit beside the Java front end and the analysis, and a compile error would then say as
+// much about class-path clashes as about the printer. 2.4.0: the Kotlin of maddi-kotlin-k2's build.
+dependencies {
+    testImplementation(project(":maddi-cst-print-kotlin"))
+    testImplementation(project(":maddi-cst-print"))  // the language-neutral formatter
+}
+val kotlinCompiler = configurations.create("kotlinCompiler") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    kotlinCompiler("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
+}
+// withType, not tasks.test: slowTest copies test's jvmArgs and system properties, not its argument providers.
+tasks.withType<Test>().configureEach {
+    inputs.files(kotlinCompiler).withPropertyName("kotlinCompiler")
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.kotlinCompilerClasspath=" + kotlinCompiler.asPath)
+    })
+}
+
 // The `maddi` launcher and distribution moved to maddi-cli (mod): this driver finds the modification analysis as
 // a service, and a base module cannot carry it (split stage 3).
 

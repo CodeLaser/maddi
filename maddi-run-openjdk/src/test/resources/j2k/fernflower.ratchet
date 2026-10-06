@@ -1,0 +1,13 @@
+# TestJavaToKotlinFernflower: fernflower's main sources printed as Kotlin by maddi-cst-print-kotlin and judged by
+# kotlinc 2.4.0 (see the test's javadoc for the two compiles). Lower is better for printerCrashes and syntaxErrors,
+# higher for syntaxCleanFiles and compilingFiles; `types` must not move.
+# Write a better value here in the commit that earns it.
+#
+# 2026-10-06, first record, no prepwork: 199 types; 0 printer crashes; 8,458 syntax errors in 149 files; 50 files
+# syntax-clean, 12 of them compiling against fernflower's original classes (all small interfaces and stubs).
+# kotlinc itself crashes on MergeHelper.kt (`fun` as a variable name); counted as that file's failure.
+types	199
+printerCrashes	0
+syntaxErrors	8458
+syntaxCleanFiles	50
+compilingFiles	12
