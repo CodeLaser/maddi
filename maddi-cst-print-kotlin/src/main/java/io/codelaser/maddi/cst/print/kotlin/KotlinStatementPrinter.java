@@ -72,7 +72,7 @@ public class KotlinStatementPrinter {
                     .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
             case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(declare(fe.initializer().localVariable().simpleName())))
+                    .add(new TextImpl(declareForEach(fe)))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
                     .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(fe.block(), q)));
@@ -187,6 +187,11 @@ public class KotlinStatementPrinter {
         if (!rs.hasNoValue()) {
             Expression value = rs.expression();
             OutputBuilder printed = KotlinExpressionPrinter.print(value, q);
+            io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
+            if (label == null && method != null && !method.isConstructor()) {
+                printed = KotlinNullability.toTarget(value, KotlinNullability.returnType(method),
+                        KotlinNullability.translated(method.typeInfo()), printed, q);
+            }
             if (value instanceof And || value instanceof Or) {
                 // a long && chain is laid out one operand per line, and `return` at the end of a line returns Unit
                 printed = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -655,6 +660,12 @@ public class KotlinStatementPrinter {
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
+    private static String declareForEach(ForEachStatement fe) {
+        String name = declare(fe.initializer().localVariable().simpleName());
+        KotlinNullability.localType(fe, fe.initializer().localVariable());
+        return name;
+    }
+
     /** The escaped name of a variable declared here, which from now on is not a pattern variable of that name. */
     static String declare(String name) {
         KotlinContext.declared(name);
@@ -667,12 +678,14 @@ public class KotlinStatementPrinter {
                 .add(new TextImpl(declare(lv.simpleName())));
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
-        boolean writeType = !hasInitializer || !lvc.isVar()
-                                               && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
-        if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(lv.parameterizedType(), q)));
+        ParameterizedType type = KotlinNullability.localType(lvc, lv);
+        // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
+        boolean writeType = !hasInitializer || KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)
+                            || !lvc.isVar() && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
+        if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.widened(init, lv.parameterizedType(), q));
+                    .add(KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
         }
         return b;
     }

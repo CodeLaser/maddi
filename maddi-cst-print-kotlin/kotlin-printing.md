@@ -101,6 +101,13 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
 - **Implicit conversions** — Java widens `short`→`int`, `int`→`long`, `char`→`int` silently; Kotlin does not, so
   arguments, assignments, initializers, `==` and arithmetic on a `char` get the conversion. A `when` statement over
   an enum or boolean gets `else -> {}`: Kotlin requires it to be exhaustive.
+- **Nullability** — the printer does not decide it; `KotlinPrintOptions` carries `NullabilityVerdicts` (fields,
+  parameters, returns, locals by declaring element), computed by maddi-mod's `NullabilityPass`. A NULLABLE verdict
+  is the `?` on the declaration; a nullable field without initializer is `= null`. Where Kotlin types a value as
+  nullable (a NULLABLE declaration, `Map.get`, `Queue.poll`, …) and its use needs it non-null (a receiver, an
+  argument for a non-null parameter of translated code, a non-null return or declaration), the `NullCheck`
+  policy writes `x!!` (`ASSERT`, the default) or `x?.m()` on a receiver (`SAFE_CALL`). Without verdicts every
+  declaration is non-null, as Kotlin reads a platform type. An `Integer` overload of an `int` one takes `Int?`.
 - **Files** — `KotlinCompilationUnitPrinter`: `package`, the imports the import computer finds (a static import
   is an ordinary Kotlin import), and the types.
 - **Idioms via structure** — `!(x is T)`→`x !is T`; an `else` branch that is a lone `if/else` flattens to
@@ -150,11 +157,9 @@ is a `MutableMap`.)
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
 - **Syntax coverage is complete for fernflower** (maddi-run-openjdk's `TestJavaToKotlinFernflower` compiles the
-  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files, 73 of which compile against
-  fernflower's own classes). Most of what keeps the rest from compiling is nullability, which is not this
-  printer's to guess: Java's types are platform types, and `null` assigned to a field or returned from a
-  method needs a `?` that a nullability analysis has to decide. Also not done: a Java `Integer` overload next to
-  an `int` one (both are `Int`), wildcard-typed overrides (`addAll(Collection<? extends E>)`), Java's
+  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files, 73 of which compiled against
+  fernflower's own classes; 84 with the nullability seam and no verdicts). Most of what keeps the rest from
+  compiling is `null` into a declaration no verdict made nullable. Also not done: wildcard-typed overrides (`addAll(Collection<? extends E>)`), Java's
   `String.split` semantics.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and

@@ -84,6 +84,11 @@ final class KotlinContext {
     private static final ThreadLocal<Deque<Frame>> FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<int[]> COUNTER = ThreadLocal.withInitial(() -> new int[1]);
     private static final ThreadLocal<Deque<TypeInfo>> TYPES = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<KotlinPrintOptions> OPTIONS = ThreadLocal.withInitial(() -> KotlinPrintOptions.DEFAULT);
+    private static final ThreadLocal<Deque<io.codelaser.maddi.cst.api.info.MethodInfo>> METHODS =
+            ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType>> LOCAL_TYPES =
+            ThreadLocal.withInitial(HashMap::new);
     private static final ThreadLocal<java.util.Set<String>> SHADOWING = ThreadLocal.withInitial(java.util.Set::of);
     // by name: a local variable's equality is its name, and so is its scope as far as Kotlin is concerned
     private static final ThreadLocal<Map<String, Supplier<OutputBuilder>>> PATTERNS =
@@ -126,6 +131,30 @@ final class KotlinContext {
     }
 
     /** Numbers the labels from 1 again: once per file, so that printing the same file twice gives the same text. */
+    static KotlinPrintOptions options() {
+        return OPTIONS.get();
+    }
+
+    /** Set for a file; returns the previous options, to restore. */
+    static KotlinPrintOptions options(KotlinPrintOptions options) {
+        KotlinPrintOptions previous = OPTIONS.get();
+        OPTIONS.set(options);
+        return previous;
+    }
+
+    static io.codelaser.maddi.cst.api.info.MethodInfo currentMethod() {
+        return METHODS.get().peek();
+    }
+
+    /** The type a local variable was printed with, by name (the innermost declaration of that name wins). */
+    static void localType(String name, io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        LOCAL_TYPES.get().put(name, type);
+    }
+
+    static io.codelaser.maddi.cst.api.type.ParameterizedType localType(String name) {
+        return LOCAL_TYPES.get().get(name);
+    }
+
     static void resetLabels() {
         COUNTER.get()[0] = 0;
         PATTERNS.get().clear();
@@ -178,18 +207,28 @@ final class KotlinContext {
     /** A local variable, parameter or catch variable of this name is declared: it is not the pattern's any more. */
     static void declared(String name) {
         PATTERNS.get().remove(name);
+        LOCAL_TYPES.get().remove(name);
     }
 
     /** A method body starts: the pattern variables of the enclosing method are not in scope. Restore with the result. */
-    static Map<String, Supplier<OutputBuilder>> enterMethod() {
-        Map<String, Supplier<OutputBuilder>> saved = new HashMap<>(PATTERNS.get());
+    record MethodScope(Map<String, Supplier<OutputBuilder>> patterns,
+                       Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType> localTypes) {
+    }
+
+    static MethodScope enterMethod(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
+        MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()));
         PATTERNS.get().clear();
+        LOCAL_TYPES.get().clear();
+        METHODS.get().push(methodInfo);
         return saved;
     }
 
-    static void exitMethod(Map<String, Supplier<OutputBuilder>> saved) {
+    static void exitMethod(MethodScope saved) {
+        METHODS.get().pop();
         PATTERNS.get().clear();
-        PATTERNS.get().putAll(saved);
+        PATTERNS.get().putAll(saved.patterns());
+        LOCAL_TYPES.get().clear();
+        LOCAL_TYPES.get().putAll(saved.localTypes());
     }
 
     /** A label no enclosing construct uses, for a {@code run label@{ }} the translation introduces. */

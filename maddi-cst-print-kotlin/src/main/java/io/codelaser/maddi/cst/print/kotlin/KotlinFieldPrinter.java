@@ -37,7 +37,9 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                                                 || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()));
         boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
-        String zero = needsDefault ? defaultValue(fieldInfo.type()) : null;
+        io.codelaser.maddi.cst.api.type.ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
+        // Java's default for a reference is null: written out when the verdict allows it, else lateinit
+        String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null" : defaultValue(type);
 
         OutputBuilder builder = new OutputBuilderImpl();
         KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner()).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
@@ -47,11 +49,13 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 .add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinNames.name(fieldInfo.name())))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
-                .add(new TextImpl(KotlinTypeName.of(fieldInfo.type(), qualification)));
+                .add(new TextImpl(KotlinTypeName.of(type, qualification)));
         if (asParameterInPrimaryConstructor) return builder;
         if (hasInitializer) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.widened(fieldInfo.initializer(), fieldInfo.type(), qualification));
+                    .add(KotlinNullability.toTarget(fieldInfo.initializer(), type,
+                            KotlinNullability.translated(fieldInfo.owner()),
+                            KotlinExpressionPrinter.widened(fieldInfo.initializer(), type, qualification), qualification));
         } else if (zero != null) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }

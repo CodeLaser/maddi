@@ -171,7 +171,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(components.stream()
                         .map(f -> new OutputBuilderImpl().add(KotlinKeyword.VAL).add(SpaceEnum.ONE)
                                 .add(new TextImpl(KotlinNames.name(f.name()))).add(SymbolEnum.COLON_LABEL)
-                                .add(new TextImpl(KotlinTypeName.of(f.type(), insideType))))
+                                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(f), insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {

@@ -27,9 +27,23 @@ import io.codelaser.maddi.cst.impl.output.*;
  * import ({@code import a.B.c}); names that are Kotlin keywords are escaped segment by segment. Comments are not
  * printed: the CST's comments are Java's, the licence header first among them.
  */
-public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2,
+                                           KotlinPrintOptions options) {
+
+    public KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+        this(compilationUnit, formatter2, KotlinPrintOptions.DEFAULT);
+    }
 
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification) {
+        KotlinPrintOptions previous = KotlinContext.options(options);
+        try {
+            return printFile(importComputer, qualification);
+        } finally {
+            KotlinContext.options(previous);
+        }
+    }
+
+    private OutputBuilder printFile(ImportComputer importComputer, Qualification qualification) {
         CompilationUnitPrinterImpl.ImportDataImpl importData = new CompilationUnitPrinterImpl(compilationUnit, formatter2)
                 .computeImportData(importComputer, qualification);
         KotlinContext.resetLabels();
