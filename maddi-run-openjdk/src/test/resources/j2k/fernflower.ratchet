@@ -9,8 +9,12 @@
 # 2026-10-06, step 2, syntax coverage: every statement and expression form translated, a Kotlin compilation-unit
 # printer, no line break in front of an operator. 0 syntax errors, all 199 files syntax-clean, 22 compiling. The
 # type errors that now surface (8,585, not ratcheted) are step 3's: statics, SAM conversion, Java-API members.
+# 2026-10-06, step 3, structure: statics in companion objects, constructors as primary + init, records as data
+# classes, inner classes, pattern variables, Java collections as Kotlin's mutable ones, the JDK members Kotlin maps,
+# fun interfaces, numeric widening. 73 files compile (were 22); type errors 8,585 -> 1,264, of which about 1,090
+# are nullability (not this printer's: a nullability analysis is being built separately).
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	22
+compilingFiles	73

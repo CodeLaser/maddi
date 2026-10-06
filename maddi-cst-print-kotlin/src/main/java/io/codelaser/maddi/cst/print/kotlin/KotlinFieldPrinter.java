@@ -32,14 +32,18 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     public OutputBuilder print(Qualification qualification, boolean asParameterInPrimaryConstructor) {
         boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
         // a Kotlin property is initialized where it is declared; Java's is zero/false/null until assigned
-        boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !fieldInfo.isFinal()
+        // a final field the secondary constructors assign cannot be a val: Kotlin assigns those in an init block only
+        boolean isVal = fieldInfo.isFinal() && (hasInitializer || fieldInfo.isStatic()
+                                                || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()));
+        boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
         String zero = needsDefault ? defaultValue(fieldInfo.type()) : null;
 
         OutputBuilder builder = new OutputBuilderImpl();
-        KotlinModifiers.visibility(fieldInfo.access()).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
+        KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner()).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
         if (needsDefault && zero == null) builder.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
-        builder.add(fieldInfo.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
+        if (isConst()) builder.add(new TextImpl("const")).add(SpaceEnum.ONE);
+        builder.add(isVal ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                 .add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinNames.name(fieldInfo.name())))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
@@ -47,11 +51,21 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         if (asParameterInPrimaryConstructor) return builder;
         if (hasInitializer) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(fieldInfo.initializer(), qualification));
+                    .add(KotlinExpressionPrinter.widened(fieldInfo.initializer(), fieldInfo.type(), qualification));
         } else if (zero != null) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         return builder;
+    }
+
+    /** A static final primitive or String with a constant initializer: {@code const val}, usable in annotations. */
+    private boolean isConst() {
+        if (!fieldInfo.isStatic() || !fieldInfo.isFinal() || fieldInfo.initializer() == null
+            || !fieldInfo.initializer().isConstant() || KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())) {
+            return false;
+        }
+        io.codelaser.maddi.cst.api.type.ParameterizedType t = fieldInfo.type();
+        return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
     }
 
     /** Java's default value of a primitive field, as Kotlin writes it; null for a reference type. */

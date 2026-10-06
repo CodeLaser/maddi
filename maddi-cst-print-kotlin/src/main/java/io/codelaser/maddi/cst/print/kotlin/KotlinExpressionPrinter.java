@@ -67,9 +67,7 @@ public class KotlinExpressionPrinter {
         return switch (e) {
             case ConstructorCall cc -> constructorCall(cc, q);
             case Cast cast -> cast(cast, q);
-            case InstanceOf io -> new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
-                    .add(KotlinSymbols.binary("is"))
-                    .add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+            case InstanceOf io -> instanceOf(io, q);
             case InlineConditional ic when isElvis(ic) ->
                 // desugared elvis `a ?: b` = InlineConditional(a==null, ifTrue=b, ifFalse=a); recover the `?:`
                     new OutputBuilderImpl().add(operand(ic.precedence(), ic.ifFalse(), q))
@@ -81,7 +79,7 @@ public class KotlinExpressionPrinter {
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(print(ic.ifFalse(), q));
             case MethodCall mc -> methodCall(mc, q);
             case MethodReference mr -> methodReference(mr, q);
-            case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), q);
+            case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
             case Lambda lambda -> lambda(lambda, q);
             case Assignment a -> assignmentAsValue(a, q);
             case BitwiseNegation bn -> new OutputBuilderImpl().add(receiver(bn.expression(), q)).add(SymbolEnum.DOT)
@@ -136,7 +134,10 @@ public class KotlinExpressionPrinter {
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
-            default -> new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(v.simpleName())));
+            default -> {
+                java.util.function.Supplier<OutputBuilder> pattern = KotlinContext.patternVariable(v);
+                yield pattern != null ? pattern.get() : new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(v.simpleName())));
+            }
         };
     }
 
@@ -151,11 +152,16 @@ public class KotlinExpressionPrinter {
         String name = KotlinNames.name(fr.fieldInfo().name());
         Expression scope = fr.scope();
         if (fr.isStatic()) {
-            if (fr.isDefaultScope()) return text(name);
             TypeInfo owner = fr.fieldInfo().owner();
-            return text(KotlinTypeName.name(owner, q) + "." + name);
+            // Kotlin inherits no statics: unqualified only when the owner's companion is in scope
+            if (fr.isDefaultScope() && (KotlinContext.typeInScope(owner) || KotlinTypePrinter.fromKotlinSource(owner))) {
+                return text(name);
+            }
+            return text(KotlinTypeName.staticOwner(owner, q) + "." + name);
         }
-        if (fr.isDefaultScope() || scope == null) return text(name);
+        if (fr.isDefaultScope() || scope == null) {
+            return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name()) ? "this." + name : name);
+        }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(new TextImpl(name));
     }
 
@@ -175,25 +181,111 @@ public class KotlinExpressionPrinter {
                 b.add(new TextImpl(thisOrSuper(t))).add(SymbolEnum.DOT);
             }
         } else if (object instanceof TypeExpression te) {
-            if (!mc.objectIsImplicit()) {
-                b.add(new TextImpl(KotlinTypeName.name(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
+            TypeInfo owner = mc.methodInfo().typeInfo();
+            if (!mc.objectIsImplicit() || !KotlinContext.typeInScope(owner) && !KotlinTypePrinter.fromKotlinSource(owner)) {
+                b.add(new TextImpl(KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(receiver(object, q)).add(SymbolEnum.DOT);
+        }
+        if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo())) {
+            return b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()))); // a data class property
+        }
+        if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
+            return b.add(new TextImpl("removeAt")).add(arguments(mc.parameterExpressions(), q));
+        }
+        String mapped = KotlinMappedMembers.property(mc.methodInfo());
+        if (mapped != null) return b.add(new TextImpl(mapped));
+        if (KotlinMappedMembers.isIndexGet(mc.methodInfo())) {
+            // s.charAt(i) -> s[i]; the receiver was written above, with a dot that must go
+            OutputBuilder indexed = new OutputBuilderImpl();
+            if (object != null && !mc.objectIsImplicit()) indexed.add(receiver(object, q)); else indexed.add(text("this"));
+            return indexed.add(SymbolEnum.LEFT_BRACKET).add(print(mc.parameterExpressions().getFirst(), q))
+                    .add(SymbolEnum.RIGHT_BRACKET);
+        }
+        String renamed = KotlinMappedMembers.function(mc.methodInfo());
+        if (renamed != null) {
+            return b.add(new TextImpl(renamed)).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        String sameArguments = KotlinMappedMembers.renamed(mc.methodInfo());
+        if (sameArguments != null) {
+            return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), q));
+        }
+        KotlinMappedMembers.Regex regex = KotlinMappedMembers.regex(mc.methodInfo());
+        if (regex != null) {
+            // s.replaceAll(r, x) -> s.replace(r.toRegex(), x): Kotlin's replace(String, String) is literal
+            List<Expression> args = mc.parameterExpressions();
+            OutputBuilder call = b.add(new TextImpl(regex.kotlinName())).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(receiver(args.getFirst(), q)).add(SymbolEnum.DOT).add(new TextImpl("toRegex"))
+                    .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            for (Expression a : args.subList(1, args.size())) call.add(SymbolEnum.COMMA).add(print(a, q));
+            return call.add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())) {
+            return b.add(new TextImpl("equals")).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(print(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.COMMA)
+                    .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name())));
         if (!mc.typeArguments().isEmpty()) {
             b.add(new TextImpl(mc.typeArguments().stream().map(t -> KotlinTypeName.of(t, q))
                     .collect(java.util.stream.Collectors.joining(", ", "<", ">"))));
         }
-        return b.add(arguments(mc.parameterExpressions(), q));
+        return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
     }
 
     private static OutputBuilder arguments(List<Expression> args, Qualification q) {
+        return arguments(args, null, q);
+    }
+
+    /** The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). */
+    private static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                           Qualification q) {
         if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        return args.stream().map(a -> print(a, q))
-                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+        // a member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there
+        if (method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName())) method = null;
+        List<OutputBuilder> printed = new ArrayList<>();
+        for (int i = 0; i < args.size(); i++) {
+            ParameterizedType target = method == null || i >= method.parameters().size()
+                                       || method.parameters().get(i).isVarArgs()
+                    ? null : method.parameters().get(i).parameterizedType();
+            // an argument converts to the parameter's interface by itself; no SAM constructor needed
+            printed.add(unwrap(args.get(i)) instanceof Lambda l ? lambda(l, false, q) : widened(args.get(i), target, q));
+        }
+        return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /**
+     * {@code e}, converted to {@code target} when Java widens it implicitly and Kotlin does not: {@code s.toInt()}
+     * for a short where an int is expected, {@code i.toLong()}, {@code c.code}. A Kotlin integer literal adapts to an
+     * integral type by itself.
+     */
+    static OutputBuilder widened(Expression e, ParameterizedType target, Qualification q) {
+        Primitive to = target == null ? null : primitive(target);
+        Primitive from = primitive(e.parameterizedType());
+        if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN
+            || to == Primitive.CHAR || rank(to) < rank(from)) {
+            return print(e, q);
+        }
+        if (unwrap(e) instanceof IntConstant && to != Primitive.FLOAT && to != Primitive.DOUBLE) return print(e, q);
+        OutputBuilder receiver = receiver(e, q);
+        for (String call : conversion(from, to).split("\\.")) {
+            if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
+        }
+        return receiver;
+    }
+
+    private static int rank(Primitive p) {
+        return switch (p) {
+            case BYTE -> 1;
+            case SHORT, CHAR -> 2;
+            case INT -> 3;
+            case LONG -> 4;
+            case FLOAT -> 5;
+            case DOUBLE -> 6;
+            case BOOLEAN -> 0;
+        };
     }
 
     private static OutputBuilder methodReference(MethodReference mr, Qualification q) {
@@ -205,7 +297,8 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (scope instanceof TypeExpression te) {
-            b.add(new TextImpl(KotlinTypeName.name(te.parameterizedType().typeInfo(), q)));
+            TypeInfo owner = te.parameterizedType().typeInfo();
+            b.add(new TextImpl(mr.methodInfo().isStatic() ? KotlinTypeName.staticOwner(owner, q) : KotlinTypeName.name(owner, q)));
         } else {
             b.add(receiver(scope, q));
         }
@@ -229,7 +322,7 @@ public class KotlinExpressionPrinter {
         String name = KotlinTypeName.of(type, q);
         if (name.endsWith("?")) name = name.substring(0, name.length() - 1); // a constructor call is never null
         return b.add(new TextImpl(name))
-                .add(arguments(cc.parameterExpressions(), q));
+                .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
     private static OutputBuilder anonymousClass(ConstructorCall cc, Qualification q) {
@@ -310,8 +403,31 @@ public class KotlinExpressionPrinter {
      * inside it would return from the enclosing FUNCTION in Kotlin, so the lambda gets the label {@code lambda@}
      * and those returns print as {@code return@lambda} (KotlinStatementPrinter, through {@link KotlinContext}).
      */
+    /**
+     * The interface a Java lambda implements, as a SAM constructor in front of it: {@code Runnable { … }}, where the
+     * lambda is not an argument. Kotlin converts a lambda argument to the parameter's Java interface or
+     * {@code fun interface} by itself; anywhere else ({@code val r: Runnable = { … }}) it needs the constructor,
+     * which also gives the lambda's parameters their types. Not with type
+     * projections, which a constructor call cannot take, and not for a lambda parsed from Kotlin.
+     */
+    private static String samConstructor(Lambda lambda, Qualification q) {
+        if (!KotlinContext.translatingJava()) return null;
+        if (lambda.methodInfo().typeInfo().interfacesImplemented().isEmpty()) return null;
+        ParameterizedType type = lambda.concreteFunctionalType();
+        if (type == null || type.typeInfo() == null || !type.typeInfo().isInterface()
+            || type.parameters().stream().anyMatch(p -> p.wildcard() != null)) {
+            return null;
+        }
+        return KotlinTypeName.of(type, q);
+    }
+
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
+        return lambda(lambda, true, q);
+    }
+
+    private static OutputBuilder lambda(Lambda lambda, boolean samConstructor, Qualification q) {
         List<ParameterInfo> params = lambda.parameters();
+        params.forEach(p -> KotlinContext.declared(p.name()));
         Block body = lambda.methodBody();
         List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
 
@@ -329,6 +445,8 @@ public class KotlinExpressionPrinter {
             KotlinContext.pop();
         }
         OutputBuilder b = new OutputBuilderImpl();
+        String sam = samConstructor ? samConstructor(lambda, q) : null;
+        if (sam != null) b.add(new TextImpl(sam)).add(SpaceEnum.ONE);
         if (labelled) b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
         b.add(SymbolEnum.LEFT_BRACE);
         if (!params.isEmpty()) {
@@ -372,7 +490,7 @@ public class KotlinExpressionPrinter {
                     .add(infix(variableAsExpression(a), INFIX.get(binary), a.value(), q));
         }
         return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
-                .add(print(a.value(), q));
+                .add("=".equals(op) ? widened(a.value(), a.variableTarget().parameterizedType(), q) : print(a.value(), q));
     }
 
     /** {@code value.also { target = it }}: the assignment happens, once, and the expression is its value. */
@@ -409,10 +527,45 @@ public class KotlinExpressionPrinter {
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
             op = op + "="; // Java's identity comparison of references is Kotlin's === (Kotlin's == calls equals)
         }
+        if ("==".equals(op) || "!=".equals(op)) {
+            // Kotlin compares numbers of one type only: the narrower side widens, as Java's does implicitly
+            Primitive l = primitive(bo.lhs().parameterizedType());
+            Primitive r = primitive(bo.rhs().parameterizedType());
+            if (l != null && r != null && l != r && l != Primitive.BOOLEAN && r != Primitive.BOOLEAN) {
+                boolean widenLeft = rank(l) < rank(r) || l == Primitive.CHAR;
+                OutputBuilder left = widenLeft ? widened(bo.lhs(), bo.rhs().parameterizedType(), q) : operand(bo.precedence(), bo.lhs(), q);
+                OutputBuilder right = widenLeft ? operand(bo.precedence(), bo.rhs(), q) : widened(bo.rhs(), bo.lhs().parameterizedType(), q);
+                return new OutputBuilderImpl().add(left).add(KotlinSymbols.binary(op)).add(right);
+            }
+        }
+        ParameterizedType lhsType = bo.lhs().parameterizedType();
+        if ("+".equals(op) && bo.parameterizedType() != null && bo.parameterizedType().isJavaLangString()
+            && lhsType != null && !lhsType.isJavaLangString()) {
+            // 1 + "a": Kotlin's + takes its meaning from the left operand, so a non-String left side converts
+            return new OutputBuilderImpl().add(receiver(bo.lhs(), q)).add(SymbolEnum.DOT).add(new TextImpl("toString"))
+                    .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS).add(KotlinSymbols.binary(op))
+                    .add(operand(bo.precedence(), bo.rhs(), q));
+        }
+        if (ARITHMETIC.contains(op) && primitive(bo.parameterizedType()) != null
+            && primitive(bo.parameterizedType()) != Primitive.CHAR) {
+            // Java promotes a char operand to int; Kotlin's Char + Int is a Char, and Int + Char does not exist
+            return new OutputBuilderImpl().add(promoted(bo.lhs(), bo.precedence(), q)).add(KotlinSymbols.binary(op))
+                    .add(promoted(bo.rhs(), bo.precedence(), q));
+        }
         return new OutputBuilderImpl()
                 .add(operand(bo.precedence(), bo.lhs(), q))
                 .add(KotlinSymbols.binary(op))
                 .add(operand(bo.precedence(), bo.rhs(), q));
+    }
+
+    private static final java.util.Set<String> ARITHMETIC = java.util.Set.of("+", "-", "*", "/", "%");
+
+    /** An operand of an int (or wider) operation: a char becomes its code. */
+    private static OutputBuilder promoted(Expression e, Precedence precedence, Qualification q) {
+        if (primitive(e.parameterizedType()) == Primitive.CHAR) {
+            return receiver(e, q).add(SymbolEnum.DOT).add(new TextImpl("code"));
+        }
+        return operand(precedence, e, q);
     }
 
     /** Both sides references (not primitives), and neither the null literal: identity, not equality. */
@@ -466,7 +619,34 @@ public class KotlinExpressionPrinter {
                 .add(SymbolEnum.plusPlusPrefix(uo.operator().name())).add(operand(uo.precedence(), uo.expression(), q));
     }
 
+    private static OutputBuilder instanceOf(InstanceOf io, Qualification q) {
+        registerPattern(io, q);
+        return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
+                .add(KotlinSymbols.binary("is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+    }
+
+    /**
+     * {@code x instanceof T t}: Kotlin's {@code is} declares nothing, so {@code t} prints as {@code x}, which Kotlin
+     * smart-casts to {@code T} where the test holds, when {@code x} is a local variable or a parameter; otherwise as
+     * {@code (x as T)}. The cast is safe, but re-evaluates {@code x}: fine for the field reads and getters it meets.
+     */
+    private static void registerPattern(InstanceOf io, Qualification q) {
+        if (io.patternVariable() == null || io.patternVariable().unnamedPattern()
+            || io.patternVariable().localVariable() == null) return;
+        Expression tested = unwrap(io.expression());
+        boolean smartCast = tested instanceof VariableExpression ve
+                            && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                                || ve.variable() instanceof ParameterInfo);
+        String type = KotlinTypeName.of(io.testType(), q);
+        KotlinContext.patternVariable(io.patternVariable().localVariable(), smartCast
+                ? () -> print(tested, q)
+                : () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, tested, q))
+                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
+                .add(SymbolEnum.RIGHT_PARENTHESIS));
+    }
+
     private static OutputBuilder notInstanceOf(InstanceOf io, Qualification q) {
+        registerPattern(io, q);
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
                 .add(KotlinSymbols.binary("!is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
     }

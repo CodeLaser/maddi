@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.info.Access;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 
@@ -30,5 +31,16 @@ public class KotlinModifiers {
         if (access.isProtected()) return Optional.of(KeywordImpl.PROTECTED);
         if (access.isInternal()) return Optional.of(KotlinKeyword.INTERNAL);
         return Optional.empty();
+    }
+
+    /**
+     * As {@link #visibility(Access)}, for a member of {@code owner}. Java lets a class read the private members of the
+     * classes nested in it, Kotlin does not: a private member of a nested Java class is {@code internal}.
+     */
+    public static Optional<Keyword> visibility(Access access, TypeInfo owner) {
+        if (access != null && access.isPrivate() && !owner.isPrimaryType() && !KotlinTypePrinter.fromKotlinSource(owner)) {
+            return Optional.of(KotlinKeyword.INTERNAL);
+        }
+        return visibility(access);
     }
 }

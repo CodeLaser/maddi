@@ -99,7 +99,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     public void primitiveCasts() {
         String kotlin = kotlin(CASTS);
         contains(kotlin, "var i = l.toInt()");
-        contains(kotlin, "var next = (ch + 1).toChar()");
+        contains(kotlin, "var next = (ch.code + 1).toChar()"); // Java's ch + 1 is an int
         contains(kotlin, "var code = ch.code");
         contains(kotlin, "var b = d.toInt().toByte()");
         contains(kotlin, "var s = o as String");
@@ -208,7 +208,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "lambda@ {");
         contains(kotlin, "return@lambda");
         contains(kotlin, """
-                        var n = s.length()
+                        var n = s.length
                         n * 2
                 """);
     }

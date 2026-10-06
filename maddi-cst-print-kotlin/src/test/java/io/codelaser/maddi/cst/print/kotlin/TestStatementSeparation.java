@@ -47,7 +47,7 @@ public class TestStatementSeparation extends CommonJavaToKotlin {
     public void shortBlock() {
         String kotlin = kotlin(SHORT_BLOCK);
         assertTrue(kotlin.contains("""
-                        map.put(key, size())
+                        map.put(key, size)
                 """), kotlin);
         assertTrue(kotlin.contains("""
                         lstKeys.add(key)

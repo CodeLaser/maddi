@@ -40,13 +40,28 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     @Override
     public OutputBuilder print(Qualification qualification) {
+        var patterns = KotlinContext.enterMethod();
+        try {
+            methodInfo.parameters().forEach(p -> KotlinContext.declared(p.name()));
+            return printMethod(qualification);
+        } finally {
+            KotlinContext.exitMethod(patterns);
+        }
+    }
+
+    private OutputBuilder printMethod(Qualification qualification) {
         OutputBuilder b = new OutputBuilderImpl();
         if (methodInfo.isStaticInitializer() || methodInfo.isInstanceInitializer()) {
             // a static initializer belongs in the companion object (step 3); until then it reads as an `init`
             return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
-        KotlinModifiers.visibility(methodInfo.access()).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        if (methodInfo.isStatic() && methodInfo.access() != null && methodInfo.access().isProtected()
+            && !KotlinTypePrinter.fromKotlinSource(typeInfo)) {
+            // Kotlin cannot call a protected companion member of a superclass unless it is @JvmStatic
+            b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
+        }
+        KotlinModifiers.visibility(methodInfo.access(), typeInfo).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         if (!methodInfo.overrides().isEmpty()) {
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
         } else if (methodInfo.isAbstract() && !typeInfo.isInterface()) {
@@ -69,14 +84,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(new TextImpl(KotlinNames.name(methodInfo.name())));
         }
 
-        if (methodInfo.parameters().isEmpty()) {
-            b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        } else {
-            b.add(methodInfo.parameters().stream()
-                    .map(pi -> parameter(pi, qualification))
-                    .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                            SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
-        }
+        b.add(parameters(methodInfo, qualification));
 
         if (!methodInfo.isConstructor()) {
             ParameterizedType rt = methodInfo.returnType();
@@ -91,8 +99,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 constructorBody(b, body, qualification);
                 return b;
             }
-            Expression expressionBody = expressionBody(body);
-            if (expressionBody != null) {
+            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body);
+            Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
+            if (!reassigned.isEmpty()) {
+                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
+            } else if (expressionBody != null) {
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(KotlinExpressionPrinter.print(expressionBody, qualification));
             } else {
@@ -124,8 +135,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE).add(KeywordImpl.SUPER)
                     .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
-        if (!statements.isEmpty()) {
-            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(statements, q));
+        List<OutputBuilder> reassigned = body == null ? List.of()
+                : KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body);
+        if (!statements.isEmpty() || !reassigned.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, statements, q));
         }
     }
 
@@ -146,12 +159,40 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return null;
     }
 
-    private OutputBuilder parameter(ParameterInfo pi, Qualification q) {
+    /** {@code (a: Int, vararg b: String)}. */
+    static OutputBuilder parameters(MethodInfo methodInfo, Qualification q) {
+        if (methodInfo.parameters().isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        return methodInfo.parameters().stream()
+                .map(pi -> parameter(pi, isEqualsOverride(methodInfo) ? "Any?" : null, q))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+    }
+
+    /** The {@code super(…)}/{@code this(…)} a constructor body starts with; null when it has none. */
+    static ExplicitConstructorInvocation explicitConstructorInvocation(MethodInfo constructor) {
+        Block body = constructor.methodBody();
+        if (body == null) return null;
+        return body.statements().stream().filter(s -> !s.isSynthetic()).findFirst()
+                .filter(s -> s instanceof ExplicitConstructorInvocation)
+                .map(s -> (ExplicitConstructorInvocation) s).orElse(null);
+    }
+
+    /**
+     * {@code equals(Object)}: Kotlin declares {@code Any.equals(other: Any?)}, and an override must take the same
+     * parameter type. (A signature Kotlin fixes; what other parameters may be null is not decided here.)
+     */
+    private static boolean isEqualsOverride(MethodInfo methodInfo) {
+        return "equals".equals(methodInfo.name()) && methodInfo.parameters().size() == 1 && !methodInfo.isStatic()
+               && methodInfo.parameters().getFirst().parameterizedType().isJavaLangObject()
+               && !KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo());
+    }
+
+    private static OutputBuilder parameter(ParameterInfo pi, String typeOverride, Qualification q) {
         OutputBuilder ob = new OutputBuilderImpl();
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType type = pi.isVarArgs() ? pi.parameterizedType().copyWithArrays(0) : pi.parameterizedType();
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL)
-                .add(new TextImpl(KotlinTypeName.of(type, q)));
+                .add(new TextImpl(typeOverride != null ? typeOverride : KotlinTypeName.of(type, q)));
         return ob;
     }
 }

@@ -45,6 +45,38 @@ public class KotlinTypeName {
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
             Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
 
+    /**
+     * Java's collection interfaces are mutable; Kotlin's {@code List} is read-only, and {@code ArrayList} is not one.
+     * Only for a translation from Java: a {@code List} parsed from Kotlin source is printed back as {@code List}.
+     */
+    private static final Map<String, String> MUTABLE = Map.ofEntries(
+            Map.entry("java.util.List", "MutableList"), Map.entry("java.util.Map", "MutableMap"),
+            Map.entry("java.util.Set", "MutableSet"), Map.entry("java.util.Collection", "MutableCollection"),
+            Map.entry("java.util.Map.Entry", "MutableMap.MutableEntry"),
+            Map.entry("java.util.Iterator", "MutableIterator"), Map.entry("java.util.ListIterator", "MutableListIterator"),
+            Map.entry("java.lang.Iterable", "MutableIterable"));
+
+    /** A JDK type Kotlin replaces by its own: never imported, and its static members are reached by its Java name. */
+    public static boolean isMapped(String fullyQualifiedName) {
+        return KOTLIN.containsKey(fullyQualifiedName) || MUTABLE.containsKey(fullyQualifiedName);
+    }
+
+    private static String mapped(String fullyQualifiedName) {
+        if (KotlinContext.translatingJava()) {
+            String mutable = MUTABLE.get(fullyQualifiedName);
+            if (mutable != null) return mutable;
+        }
+        return KOTLIN.get(fullyQualifiedName);
+    }
+
+    /**
+     * The qualifier of a static member: {@code java.lang.Integer.parseInt}, not {@code Int.parseInt}, because a
+     * Kotlin type has none of its Java counterpart's statics.
+     */
+    public static String staticOwner(TypeInfo typeInfo, Qualification q) {
+        return isMapped(typeInfo.fullyQualifiedName()) ? typeInfo.fullyQualifiedName() : name(typeInfo, q);
+    }
+
     private static final Map<String, String> PRIMITIVE_ARRAY = Map.of("int", "IntArray", "long", "LongArray",
             "short", "ShortArray", "byte", "ByteArray", "char", "CharArray", "boolean", "BooleanArray",
             "float", "FloatArray", "double", "DoubleArray");
@@ -91,7 +123,7 @@ public class KotlinTypeName {
             return "Any"; // no type
         }
         String fqn = pt.typeInfo().fullyQualifiedName();
-        String base = KOTLIN.get(fqn);
+        String base = mapped(fqn);
         if (base == null) base = name(pt.typeInfo(), q);
         if (pt.parameters().isEmpty()) return base;
         StringBuilder sb = new StringBuilder(base).append('<');
@@ -104,7 +136,7 @@ public class KotlinTypeName {
 
     private static String withoutWildcard(ParameterizedType pt, Qualification q) {
         if (pt.isTypeParameter()) return pt.typeParameter().simpleName();
-        String base = KOTLIN.get(pt.typeInfo().fullyQualifiedName());
+        String base = mapped(pt.typeInfo().fullyQualifiedName());
         if (base == null) base = name(pt.typeInfo(), q);
         if (pt.parameters().isEmpty()) return base;
         return base + pt.parameters().stream().map(p -> of(p, q)).collect(Collectors.joining(", ", "<", ">"));
@@ -112,7 +144,7 @@ public class KotlinTypeName {
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
     public static String name(TypeInfo typeInfo, Qualification q) {
-        String mapped = KOTLIN.get(typeInfo.fullyQualifiedName());
+        String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
         return KotlinNames.dotted(TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal());
