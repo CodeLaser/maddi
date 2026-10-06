@@ -166,6 +166,12 @@ public final class DeclaredNullability {
         return nonNull ? NullableState.NONNULL : null;
     }
 
+    /** An annotation B1 reads as a nullness annotation (nullable or non-null), by simple name. */
+    public static boolean isNullnessAnnotation(AnnotationExpression ae) {
+        String name = ae.typeInfo().simpleName();
+        return NULLABLE.contains(name) || NON_NULL.contains(name);
+    }
+
     // the annotation type's @Target includes TYPE_USE
     private static boolean isTypeUse(AnnotationExpression ae) {
         return ae.typeInfo().annotations().stream()

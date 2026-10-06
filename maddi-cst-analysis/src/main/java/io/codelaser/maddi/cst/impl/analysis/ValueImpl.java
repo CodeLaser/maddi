@@ -20,6 +20,8 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.util.ParSeq;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -1141,6 +1143,102 @@ public abstract class ValueImpl implements Value {
     static {
         decoderMap.put(NotNullImpl.class, (di, encodedValue) ->
                 NotNullImpl.from(di.codec().decodeInt(di.context(), encodedValue)));
+    }
+
+    /**
+     * Encoded as a compact shape string: {@code N} non-null, {@code Q} nullable, {@code U} unspecified, the type
+     * arguments in parentheses: {@code U(N,Q)} is {@code Map<String, String?>!}.
+     */
+    public record NullabilityImpl(NullableState state, List<NullabilityImpl> arguments) implements Nullability {
+        public static final NullabilityImpl UNSPECIFIED = new NullabilityImpl(NullableState.UNSPECIFIED, List.of());
+
+        public NullabilityImpl {
+            arguments = List.copyOf(arguments);
+        }
+
+        /** The states of {@code pt} and its type arguments, recursively. */
+        public static NullabilityImpl of(ParameterizedType pt) {
+            return new NullabilityImpl(pt.nullable(), pt.parameters().stream().map(NullabilityImpl::of).toList());
+        }
+
+        @Override
+        public ParameterizedType applyTo(ParameterizedType declared) {
+            ParameterizedType withArguments = declared;
+            if (!arguments.isEmpty() && !declared.parameters().isEmpty()) {
+                List<ParameterizedType> parameters = new ArrayList<>(declared.parameters());
+                for (int i = 0; i < Math.min(parameters.size(), arguments.size()); i++) {
+                    parameters.set(i, arguments.get(i).applyTo(parameters.get(i)));
+                }
+                withArguments = declared.withParameters(parameters);
+            }
+            return withArguments.withNullable(state);
+        }
+
+        @Override
+        public boolean isDefault() {
+            return equals(UNSPECIFIED);
+        }
+
+        public String shape() {
+            String s = switch (state) {
+                case NONNULL -> "N";
+                case NULLABLE -> "Q";
+                case UNSPECIFIED -> "U";
+            };
+            return arguments.isEmpty() ? s : s + arguments.stream().map(NullabilityImpl::shape)
+                    .collect(Collectors.joining(",", "(", ")"));
+        }
+
+        public static NullabilityImpl fromShape(String shape) {
+            int[] pos = {0};
+            NullabilityImpl n = parse(shape, pos);
+            if (pos[0] != shape.length()) throw new IllegalArgumentException("Trailing input in " + shape);
+            return n;
+        }
+
+        private static NullabilityImpl parse(String shape, int[] pos) {
+            NullableState state = switch (shape.charAt(pos[0]++)) {
+                case 'N' -> NullableState.NONNULL;
+                case 'Q' -> NullableState.NULLABLE;
+                case 'U' -> NullableState.UNSPECIFIED;
+                default -> throw new IllegalArgumentException("Bad nullability shape " + shape);
+            };
+            List<NullabilityImpl> arguments = new ArrayList<>();
+            if (pos[0] < shape.length() && shape.charAt(pos[0]) == '(') {
+                do {
+                    pos[0]++; // '(' or ','
+                    arguments.add(parse(shape, pos));
+                } while (shape.charAt(pos[0]) == ',');
+                if (shape.charAt(pos[0]++) != ')') throw new IllegalArgumentException("Bad nullability shape " + shape);
+            }
+            return new NullabilityImpl(state, arguments);
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            return codec.encodeString(context, shape());
+        }
+
+        // one-shot, post-convergence: a re-run of the pass (a re-analysis) recomputes from complete facts
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            return newValue instanceof NullabilityImpl;
+        }
+
+        @Override
+        public Value rewire(InfoMapView infoMap) {
+            return this; // states only
+        }
+
+        @Override
+        public String toString() {
+            return shape();
+        }
+    }
+
+    static {
+        decoderMap.put(NullabilityImpl.class, (di, ev) ->
+                NullabilityImpl.fromShape(di.codec().decodeString(di.context(), ev)));
     }
 
     public record SetOfStringsImpl(Set<String> set) implements SetOfStrings {
