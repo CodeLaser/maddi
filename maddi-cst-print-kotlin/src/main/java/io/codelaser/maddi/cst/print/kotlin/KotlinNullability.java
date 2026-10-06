@@ -46,7 +46,11 @@ final class KotlinNullability {
     private static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
             new SymbolEnum("!!", SpaceEnum.NONE, SpaceEnum.NONE, null);
 
-    /** JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). */
+    /**
+     * JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). The analysis
+     * knows them from its hint archives and stores NULLABILITY_METHOD on them, which {@link PropertyVerdicts}
+     * reads; this list is for a translation without the analysis.
+     */
     private static final Map<String, Set<String>> NULLABLE_JDK_RESULTS = Map.of(
             "java.util.Map", Set.of("get", "remove", "put", "putIfAbsent"),
             "java.util.Queue", Set.of("poll", "peek"),
@@ -109,6 +113,11 @@ final class KotlinNullability {
     static ParameterizedType localType(Element declaration, LocalVariable variable) {
         MethodInfo method = KotlinContext.currentMethod();
         ParameterizedType verdict = method == null ? null : verdicts().local(method, declaration, variable);
+        if (verdict != null && verdict.nullable() == NullableState.UNSPECIFIED && !verdict.isPrimitiveExcludingVoid()) {
+            // a verdict that is no decision (a degraded method's unreached local): Kotlin has no platform type for
+            // a local, and nullable is the choice that compiles; without any verdict the declared type stands
+            verdict = verdict.withNullable(NullableState.NULLABLE);
+        }
         ParameterizedType type = verdict != null ? verdict : variable.parameterizedType();
         KotlinContext.localType(variable.simpleName(), type);
         return type;

@@ -68,6 +68,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
         @Override
         public ParameterizedType local(MethodInfo method, Element declaration, LocalVariable variable) {
+            // "undecided*": a verdict that is no decision, as the pass gives for a degraded method's unreached local
+            if (variable.simpleName().startsWith("undecided")) return variable.parameterizedType();
             return verdict(variable.simpleName(), variable.parameterizedType());
         }
     }
@@ -88,6 +90,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     String y = m.get("k");
                     use(y);
                     for (String s : names()) use(s);
+                    String undecided = "u";
+                    int undecidedCount = 0;
                 }
                 java.util.List<String> names() { return null; }
             }
@@ -113,6 +117,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // no verdict for y: Kotlin infers String? from Map.get, so its use as a non-null argument is asserted
         contains(kotlin, "var y = m.get(\"k\")");
         contains(kotlin, "for (s in names()!!) {");
+        // an UNSPECIFIED local verdict is no decision: nullable, except for a primitive
+        contains(kotlin, "var undecided: String? = \"u\"");
+        contains(kotlin, "var undecidedCount = 0");
         // a constructor body is an init block: its locals get their verdicts too
         contains(kotlin, """
                 init {
