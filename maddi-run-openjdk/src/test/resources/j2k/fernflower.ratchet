@@ -16,8 +16,9 @@
 # 2026-10-06, nullability seam (no verdicts yet): `!!` on Map.get & co. where Kotlin needs non-null, Int? for the
 # boxed overload of an int one. 84 files compile; 921 type errors, 701 of them null into a non-null declaration,
 # which the verdicts of maddi-mod's NullabilityPass address (a with-nullability ratchet belongs in maddi-mod).
+# 2026-10-06, `!!` on nullable arguments of collection members and of super(…)/this(…): 85 compile, 904 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	84
+compilingFiles	85

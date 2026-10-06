@@ -268,9 +268,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (eci == null || eci.parameterExpressions().isEmpty()) {
             return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
-        return eci.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
-                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+        return KotlinExpressionPrinter.arguments(eci.parameterExpressions(), eci.methodInfo(), q);
     }
 
     /**
@@ -349,9 +347,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         OutputBuilder entries = enumConstants().stream().map(f -> {
             OutputBuilder e = new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(f.name())));
             if (f.initializer() instanceof ConstructorCall cc && !cc.parameterExpressions().isEmpty()) {
-                e.add(cc.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
-                        .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+                e.add(KotlinExpressionPrinter.arguments(cc.parameterExpressions(), cc.constructor(), q));
             }
             return e;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
