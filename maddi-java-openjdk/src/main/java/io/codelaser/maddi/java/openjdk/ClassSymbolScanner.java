@@ -1719,10 +1719,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // preserve the bound's array dimension and type arguments: e.g. '? extends byte[]' must stay byte[]
             // (an array), not collapse to the primitive byte (which is an illegal type argument), and
             // '? extends List<String>' must keep its String argument.
-            if (base.isTypeParameter()) {
-                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
-            }
-            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+            // ⛔ AND ITS TYPE-USE ANNOTATIONS: '? extends @Nullable CharSequence' converts the bound through the
+            // JCAnnotatedType branch, which puts @Nullable on 'base'; rebuilding from base.typeInfo() dropped it --
+            // the JCTypeApply defect again (see that branch). TestDeclaredNullability pins it.
+            ParameterizedType bounded = base.isTypeParameter()
+                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard)
+                    : runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+            return base.annotations().isEmpty() ? bounded : bounded.withAnnotations(base.annotations());
         }
         if (type instanceof Type.TypeVar typeVar) {
             String typeParameterName = typeVar.tsym.toString();
@@ -1946,10 +1949,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // isPrimitiveExcludingVoid() is 'arrays == 0 && typeInfo.isPrimitiveExcludingVoid()', so for
             // reference elements nothing fired at all and the wrong model was simply used. The crash was the
             // lucky case; the silent corruption was the wider one.
-            if (base.isTypeParameter()) {
-                return runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard);
-            }
-            return runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+            // ⛔ AND ITS TYPE-USE ANNOTATIONS: '? extends @Nullable CharSequence' converts the bound through the
+            // JCAnnotatedType branch, which puts @Nullable on 'base'; rebuilding from base.typeInfo() dropped it --
+            // the JCTypeApply defect again (see that branch). TestDeclaredNullability pins it.
+            ParameterizedType bounded = base.isTypeParameter()
+                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays(), wildCard)
+                    : runtime.newParameterizedType(base.typeInfo(), base.arrays(), wildCard, base.parameters());
+            return base.annotations().isEmpty() ? bounded : bounded.withAnnotations(base.annotations());
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
             /*
