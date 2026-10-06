@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -175,17 +176,13 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     @Override
     public boolean isPropertyNotNull() {
         if (returnType().isPrimitiveExcludingVoid()) return true;
-        return analysis().getOrDefault(PropertyImpl.NOT_NULL_METHOD, ValueImpl.NotNullImpl.NULLABLE).isAtLeastNotNull();
+        return analysis().getOrDefault(PropertyImpl.NULLABILITY_METHOD, ValueImpl.NullabilityImpl.UNSPECIFIED).state()
+               == NullableState.NONNULL;
     }
 
     @Override
     public JavaDoc javaDoc() {
         return inspection.get().javaDoc();
-    }
-
-    @Override
-    public boolean isPropertyNullable() {
-        return analysis().getOrDefault(PropertyImpl.NOT_NULL_METHOD, ValueImpl.NotNullImpl.NULLABLE).isNullable();
     }
 
     public void commit(MethodInspection methodInspection) {

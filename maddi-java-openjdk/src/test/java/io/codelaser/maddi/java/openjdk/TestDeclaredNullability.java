@@ -282,7 +282,7 @@ public class TestDeclaredNullability extends CommonTest {
         assertEquals("m(p: String, q: String?): String!", method(z, "m", dn));
     }
 
-    @DisplayName("maddi's own: 'absent = true' denies the annotation; '@NotNull(content = true)' is about the content")
+    @DisplayName("maddi's own: 'absent = true' denies the annotation; '@NotNull(content = true)' adds the content")
     @Test
     public void maddiAnnotations() {
         Map<String, TypeInfo> types = parse(Map.of("a.b.M", """
@@ -305,16 +305,16 @@ public class TestDeclaredNullability extends CommonTest {
                 """));
         DeclaredNullability dn = declared(types);
         TypeInfo m = types.get("a.b.M");
-        // content: the reference is the scope's (unmarked: unspecified); an array's content has no slot
+        // content: the value and its type arguments; an array's content has no slot
         assertEquals("""
                 nn: String
                 n: String?
                 notNn: String!
                 notN: String!
                 contract: String
-                elems: List<String>!
-                mixed: Map<String, String?>!
-                arr: String[]!""", fields(m, dn));
-        assertEquals("m(p: String, q: List<String>!): String?", method(m, "m", dn));
+                elems: List<String>
+                mixed: Map<String, String?>
+                arr: String[]""", fields(m, dn));
+        assertEquals("m(p: String, q: List<String>): String?", method(m, "m", dn));
     }
 }

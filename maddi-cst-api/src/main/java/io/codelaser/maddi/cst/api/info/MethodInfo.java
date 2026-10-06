@@ -381,12 +381,6 @@ public interface MethodInfo extends Info {
      */
     boolean isPropertyNotNull();
 
-    /**
-     * Returns {@code true} if the analyzer determined this method may return {@code null},
-     * as a property (derived from annotations or analysis).
-     */
-    boolean isPropertyNullable();
-
     /** Returns the compilation unit of the owning type. */
     default CompilationUnit compilationUnit() {
         return typeInfo().compilationUnit();

@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -161,7 +162,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     @Override
     public boolean isPropertyNotNull() {
         if (type.isPrimitiveExcludingVoid()) return true;
-        return analysis().getOrDefault(PropertyImpl.NOT_NULL_FIELD, ValueImpl.NotNullImpl.NULLABLE).isAtLeastNotNull();
+        return analysis().getOrDefault(PropertyImpl.NULLABILITY_FIELD, ValueImpl.NullabilityImpl.UNSPECIFIED).state()
+               == NullableState.NONNULL;
     }
 
     @Override

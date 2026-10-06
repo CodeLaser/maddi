@@ -46,7 +46,7 @@
  {"name": "Fmutable(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}}]},
 
 {"name": "Torg.eclipse.collections.api.factory.ThrowingInvocationHandler", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "C<init>(0,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "C<init>(0,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
   {"name": "Perror(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Minvoke(0,java.lang.Object,java.lang.reflect.Method,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pproxy(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
