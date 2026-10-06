@@ -40,8 +40,9 @@ import java.util.stream.Stream;
  *
  * <p>Best-effort reconstruction (requires the analyzer's prepwork phase, which populates {@code getSetField}):
  * <ul>
- *   <li>getter/setter methods (a non-empty {@code getSetField}) are collapsed away — the backing field prints as
- *       a `val`/`var` property, avoiding the Kotlin platform-declaration clash of a property + its `getX()`;</li>
+ *   <li>for a type parsed from Kotlin, getter/setter methods (a non-empty {@code getSetField}) are collapsed away —
+ *       the backing field prints as a `val`/`var` property, avoiding the Kotlin platform-declaration clash of a
+ *       property + its `getX()`. A Java getter stays a method: its callers print as calls;</li>
  *   <li>a single constructor whose parameters all name a field becomes the <b>primary constructor</b>
  *       (`class Foo(val id: Int)`); those fields and that constructor are then omitted from the body.</li>
  * </ul>
@@ -171,7 +172,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(components.stream()
                         .map(f -> new OutputBuilderImpl().add(KotlinKeyword.VAL).add(SpaceEnum.ONE)
                                 .add(new TextImpl(KotlinNames.name(f.name()))).add(SymbolEnum.COLON_LABEL)
-                                .add(new TextImpl(KotlinTypeName.of(f.type(), insideType))))
+                                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(f), insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {
@@ -216,7 +217,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(c -> c != primaryFinal && c != initConstructor && !isImplicitDefaultConstructor(c))
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType)));
         typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !isAccessor(m)) // data-class componentN/copy are synthetic (front-end)
+                // data-class componentN/copy are synthetic (front-end). A Kotlin property's accessors are its own; a Java
+                // getter stays a method, because its callers print as calls (prepwork marks it all the same)
+                .filter(m -> !m.isSynthetic() && (companion || !isAccessor(m)))
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
                 .filter(m -> !isRecordAccessor(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));

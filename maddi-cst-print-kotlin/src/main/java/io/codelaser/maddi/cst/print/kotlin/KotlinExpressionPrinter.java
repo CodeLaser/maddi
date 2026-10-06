@@ -162,7 +162,7 @@ public class KotlinExpressionPrinter {
         if (fr.isDefaultScope() || scope == null) {
             return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name()) ? "this." + name : name);
         }
-        return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(new TextImpl(name));
+        return new OutputBuilderImpl().add(KotlinNullability.receiverWithDot(scope, q)).add(new TextImpl(name));
     }
 
     // ---------------------------------------------------------------- calls
@@ -186,7 +186,7 @@ public class KotlinExpressionPrinter {
                 b.add(new TextImpl(KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
-            b.add(receiver(object, q)).add(SymbolEnum.DOT);
+            b.add(KotlinNullability.receiverWithDot(object, q));
         }
         if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo())) {
             return b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()))); // a data class property
@@ -244,13 +244,20 @@ public class KotlinExpressionPrinter {
         if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         // a member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there
         if (method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName())) method = null;
+        boolean translated = method != null && KotlinNullability.translated(method.typeInfo());
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
             ParameterizedType target = method == null || i >= method.parameters().size()
                                        || method.parameters().get(i).isVarArgs()
                     ? null : method.parameters().get(i).parameterizedType();
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
-            printed.add(unwrap(args.get(i)) instanceof Lambda l ? lambda(l, false, q) : widened(args.get(i), target, q));
+            if (unwrap(args.get(i)) instanceof Lambda l) {
+                printed.add(lambda(l, false, q));
+            } else {
+                ParameterizedType declared = target == null ? null : KotlinNullability.parameterType(method.parameters().get(i));
+                printed.add(KotlinNullability.toTarget(args.get(i), declared, translated,
+                        widened(args.get(i), target, q), q));
+            }
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
@@ -489,8 +496,25 @@ public class KotlinExpressionPrinter {
             return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment("="))
                     .add(infix(variableAsExpression(a), INFIX.get(binary), a.value(), q));
         }
+        if (!"=".equals(op)) return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op)).add(print(a.value(), q));
+        ParameterizedType targetType = declaredType(a.variableTarget());
+        boolean translated = !(a.variableTarget() instanceof FieldReference fr) || KotlinNullability.translated(fr.fieldInfo().owner());
         return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
-                .add("=".equals(op) ? widened(a.value(), a.variableTarget().parameterizedType(), q) : print(a.value(), q));
+                .add(KotlinNullability.toTarget(a.value(), targetType, translated,
+                        widened(a.value(), a.variableTarget().parameterizedType(), q), q));
+    }
+
+    /** The type a variable was declared with in Kotlin: the nullability verdict's, where there is one. */
+    private static ParameterizedType declaredType(Variable v) {
+        return switch (v) {
+            case FieldReference fr -> KotlinNullability.fieldType(fr.fieldInfo());
+            case ParameterInfo pi -> KotlinNullability.parameterType(pi);
+            case io.codelaser.maddi.cst.api.variable.LocalVariable lv -> {
+                ParameterizedType t = KotlinContext.localType(lv.simpleName());
+                yield t != null ? t : lv.parameterizedType();
+            }
+            default -> v.parameterizedType();
+        };
     }
 
     /** {@code value.also { target = it }}: the assignment happens, once, and the expression is its value. */
@@ -772,7 +796,7 @@ public class KotlinExpressionPrinter {
                && source.detailedSources().detail(DetailedSources.NULL_COALESCING) != null;
     }
 
-    private static Expression unwrap(Expression e) {
+    static Expression unwrap(Expression e) {
         while (e instanceof EnclosedExpression ee) e = ee.inner();
         return e;
     }

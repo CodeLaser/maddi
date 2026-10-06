@@ -52,6 +52,11 @@ public abstract class CommonJavaToKotlin {
 
     /** The Kotlin printing of the compilation unit {@code java}: package, imports, and every type in it. */
     protected String kotlin(String java) {
+        return kotlin(java, KotlinPrintOptions.DEFAULT);
+    }
+
+    /** As {@link #kotlin(String)}, with print options: nullability verdicts, the null-check policy. */
+    protected String kotlin(String java, KotlinPrintOptions options) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
@@ -62,7 +67,7 @@ public abstract class CommonJavaToKotlin {
                 .orElseThrow();
         Runtime runtime = javaInspector.runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        OutputBuilder ob = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true)
+        OutputBuilder ob = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options)
                 .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
         return formatter.write(ob);
     }

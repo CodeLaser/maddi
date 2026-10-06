@@ -13,8 +13,11 @@
 # classes, inner classes, pattern variables, Java collections as Kotlin's mutable ones, the JDK members Kotlin maps,
 # fun interfaces, numeric widening. 73 files compile (were 22); type errors 8,585 -> 1,264, of which about 1,090
 # are nullability (not this printer's: a nullability analysis is being built separately).
+# 2026-10-06, nullability seam (no verdicts yet): `!!` on Map.get & co. where Kotlin needs non-null, Int? for the
+# boxed overload of an int one. 84 files compile; 921 type errors, 701 of them null into a non-null declaration,
+# which the verdicts of maddi-mod's NullabilityPass address (a with-nullability ratchet belongs in maddi-mod).
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	73
+compilingFiles	84

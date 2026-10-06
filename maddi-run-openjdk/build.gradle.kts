@@ -14,6 +14,8 @@
 
 plugins {
     id("java-library-conventions")
+    // JavaToKotlinRatchet: the Java -> Kotlin translation ratchet, shared with maddi-mod's run with nullability
+    `java-test-fixtures`
 }
 java {
     sourceCompatibility = JavaVersion.VERSION_25
@@ -52,8 +54,18 @@ dependencies {
 // test class path it would sit beside the Java front end and the analysis, and a compile error would then say as
 // much about class-path clashes as about the printer. 2.4.0: the Kotlin of maddi-kotlin-k2's build.
 dependencies {
-    testImplementation(project(":maddi-cst-print-kotlin"))
-    testImplementation(project(":maddi-cst-print"))  // the language-neutral formatter
+    testFixturesApi(project(":maddi-cst-print-kotlin"))
+    testFixturesApi(project(":maddi-inspection-api"))
+    testFixturesImplementation(project(":maddi-cst-api"))
+    testFixturesImplementation(project(":maddi-cst-impl"))
+    testFixturesImplementation(project(":maddi-cst-print"))  // the language-neutral formatter
+    testFixturesImplementation(project(":maddi-inspection-openjdk"))
+    testFixturesImplementation(project(":maddi-inspection-resource"))
+    testFixturesImplementation(project(":maddi-run-config"))
+    testFixturesImplementation(testFixtures(project(":maddi-util")))
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
+    testFixturesImplementation("org.slf4j:slf4j-api")
+    testFixturesImplementation("com.fasterxml.jackson.core:jackson-databind")
 }
 val kotlinCompiler = configurations.create("kotlinCompiler") {
     isCanBeResolved = true

@@ -40,7 +40,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        var patterns = KotlinContext.enterMethod();
+        var patterns = KotlinContext.enterMethod(methodInfo);
         try {
             methodInfo.parameters().forEach(p -> KotlinContext.declared(p.name()));
             return printMethod(qualification);
@@ -87,7 +87,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         b.add(parameters(methodInfo, qualification));
 
         if (!methodInfo.isConstructor()) {
-            ParameterizedType rt = methodInfo.returnType();
+            ParameterizedType rt = KotlinNullability.returnType(methodInfo);
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
                 b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(rt, qualification)));
             }
@@ -105,7 +105,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
             } else if (expressionBody != null) {
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(KotlinExpressionPrinter.print(expressionBody, qualification));
+                        .add(KotlinNullability.toTarget(expressionBody, KotlinNullability.returnType(methodInfo),
+                                KotlinNullability.translated(typeInfo),
+                                KotlinExpressionPrinter.print(expressionBody, qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
             }
@@ -190,7 +192,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static OutputBuilder parameter(ParameterInfo pi, String typeOverride, Qualification q) {
         OutputBuilder ob = new OutputBuilderImpl();
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
-        ParameterizedType type = pi.isVarArgs() ? pi.parameterizedType().copyWithArrays(0) : pi.parameterizedType();
+        ParameterizedType declared = KotlinNullability.parameterType(pi);
+        ParameterizedType type = pi.isVarArgs() ? declared.copyWithArrays(0) : declared;
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL)
                 .add(new TextImpl(typeOverride != null ? typeOverride : KotlinTypeName.of(type, q)));
         return ob;
