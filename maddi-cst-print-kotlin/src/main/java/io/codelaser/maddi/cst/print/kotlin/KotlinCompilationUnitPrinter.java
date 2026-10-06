@@ -39,7 +39,9 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             out.add(KeywordImpl.PACKAGE).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(packageName)))
                     .add(SpaceEnum.NEWLINE);
         }
-        importData.imports().forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE)
+        // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
+        importData.imports().stream().filter(i -> !KotlinTypeName.isMapped(i.importString()))
+                .forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinNames.dotted(i.importString().replaceFirst("^static\\s+", ""))))
                 .add(SpaceEnum.NEWLINE));
         for (TypeInfo typeInfo : compilationUnit.types()) {

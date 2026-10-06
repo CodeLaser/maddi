@@ -79,6 +79,28 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   statement at a newline in front of `+` or `or` (`SpaceEnum.ONE_NO_SPLIT_BEFORE`, `KotlinSymbols`).
 - **Lambdas** — `{ p1, p2 -> body }` (single-expression body inlined); a block body's last `return x` is the value
   `x`, any other `return` is `return@lambda` out of a `lambda@ { }`.
+- **Structure** (Java source only; a type parsed from a `.kt` file keeps its own shape) —
+  - static members go to a `companion object` (`const val` for a constant primitive or String, `@JvmStatic` on a
+    protected method); a static member written unqualified is qualified with its owner unless that owner, or one
+    around it, is being printed: Kotlin inherits no statics. A static of a JDK type Kotlin maps is reached by its
+    Java name (`java.lang.Integer.parseInt`);
+  - one constructor becomes the primary constructor, its `super(…)` the superclass call, its body an `init` block
+    (where final fields may be assigned); a field of the same name as a parameter is `this.x` in initializers.
+    With more constructors, final fields without initializer become `var`s with Java's default or `lateinit`;
+  - a record is a `data class` with its components as `val`s; `p.x()` is `p.x`;
+  - a non-static nested class is `inner`; a private member or nested type of a nested class is `internal`
+    (Java lets the outer class see it);
+  - `x instanceof T t`: `t` prints as `x` (smart cast) when `x` is a local or parameter, else as `(x as T)`;
+  - a parameter the body assigns gets `var p = p`; `equals(Object)` overrides with `Any?`.
+- **Types and members Kotlin maps** — `java.util.List`/`Map`/`Set`/`Collection`/`Iterator` print as
+  `MutableList`/… and are not imported; `s.length()`→`s.length`, `c.size()`→`c.size`, `m.entrySet()`→
+  `m.entries`, `e.getKey()`→`e.key`, `n.intValue()`→`n.toInt()`, `s.charAt(i)`→`s[i]`, `list.remove(int)`→
+  `removeAt`, `s.replaceAll(r, x)`→`s.replace(r.toRegex(), x)`, `equalsIgnoreCase`, `getFirst`… (`KotlinMappedMembers`).
+- **Functional interfaces** — a Java functional interface is a `fun interface`; a lambda that is not an argument
+  names its interface (`Runnable { … }`).
+- **Implicit conversions** — Java widens `short`→`int`, `int`→`long`, `char`→`int` silently; Kotlin does not, so
+  arguments, assignments, initializers, `==` and arithmetic on a `char` get the conversion. A `when` statement over
+  an enum or boolean gets `else -> {}`: Kotlin requires it to be exhaustive.
 - **Files** — `KotlinCompilationUnitPrinter`: `package`, the imports the import computer finds (a static import
   is an ordinary Kotlin import), and the types.
 - **Idioms via structure** — `!(x is T)`→`x !is T`; an `else` branch that is a lone `if/else` flattens to
@@ -120,18 +142,20 @@ open class Calc {
 }
 ```
 
-A limitation the first harness surfaced:
-- **Java-API vs Kotlin-API** — e.g. `s.length()`/`i.intValue()` print verbatim (Kotlin wants `s.length`/`i`).
-  These are *semantic* (member) differences, not syntax; out of scope for a printer.
+(Both examples predate the Java-only rules above: today the methods of an open class are `open`, and Java's `Map`
+is a `MutableMap`.)
 
 ## Requirements / limitations (first slice)
 
 - **Requires prepwork** for the accessor collapse (agreed restriction). Without it, a Kotlin-parsed type prints
   both the property and its `getX()` (a Kotlin clash).
 - **Syntax coverage is complete for fernflower** (maddi-run-openjdk's `TestJavaToKotlinFernflower` compiles the
-  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files). Not yet translated, so the
-  output does not type-check: static members and interface constants (a `companion object`), `instanceof`
-  patterns, SAM conversion of a lambda to a Java interface, Java-API vs Kotlin-API members, nullability.
+  translation with kotlinc and ratchets the result: 0 syntax errors in 199 files, 73 of which compile against
+  fernflower's own classes). Most of what keeps the rest from compiling is nullability, which is not this
+  printer's to guess: Java's types are platform types, and `null` assigned to a field or returned from a
+  method needs a `?` that a nullability analysis has to decide. Also not done: a Java `Integer` overload next to
+  an `int` one (both are `Int`), wildcard-typed overrides (`addAll(Collection<? extends E>)`), Java's
+  `String.split` semantics.
 - **Language-specific hints live in `DetailedSources`.** The Kotlin parser records source-form markers there
   (e.g. `NULL_COALESCING` for elvis `?:`); a printer reaches them via `element.source().detailedSources()` and
   can reconstruct the idiomatic Kotlin form. This is the channel for things the (JVM-shaped) CST does not

@@ -72,7 +72,7 @@ public class KotlinStatementPrinter {
                     .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
             case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(KotlinNames.name(fe.initializer().localVariable().simpleName())))
+                    .add(new TextImpl(declare(fe.initializer().localVariable().simpleName())))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
                     .add(KotlinExpressionPrinter.print(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(fe.block(), q)));
@@ -113,6 +113,31 @@ public class KotlinStatementPrinter {
 
     static OutputBuilder block(List<Statement> statements, Qualification q) {
         return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+    }
+
+    /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
+    static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
+        List<OutputBuilder> all = new ArrayList<>(prefix);
+        statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.add(print(st, q)));
+        return braces(all);
+    }
+
+    /**
+     * {@code var p = p} for each parameter the body assigns: a Kotlin parameter is a val. The local shadows the
+     * parameter (Kotlin warns, and accepts).
+     */
+    static List<OutputBuilder> reassignedParameters(List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters,
+                                                    Element body) {
+        if (body == null || parameters.isEmpty()) return List.of();
+        List<OutputBuilder> result = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.ParameterInfo p : parameters) {
+            if (assignedIn(body, p)) {
+                String name = KotlinNames.name(p.name());
+                result.add(new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(name))
+                        .add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));
+            }
+        }
+        return result;
     }
 
     private static OutputBuilder braces(List<OutputBuilder> printed) {
@@ -159,7 +184,15 @@ public class KotlinStatementPrinter {
         String label = rs.goToLabel() != null ? rs.goToLabel()
                 : KotlinContext.inLambda() ? KotlinContext.LAMBDA_LABEL : null;
         OutputBuilder b = new OutputBuilderImpl().add(label == null ? KotlinKeyword.RETURN : new TextImpl("return@" + label));
-        if (!rs.hasNoValue()) b.add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(rs.expression(), q));
+        if (!rs.hasNoValue()) {
+            Expression value = rs.expression();
+            OutputBuilder printed = KotlinExpressionPrinter.print(value, q);
+            if (value instanceof And || value instanceof Or) {
+                // a long && chain is laid out one operand per line, and `return` at the end of a line returns Unit
+                printed = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+            b.add(SpaceEnum.ONE).add(printed);
+        }
         return b;
     }
 
@@ -379,7 +412,7 @@ public class KotlinStatementPrinter {
         KotlinContext.push(frame);
         OutputBuilder when;
         try {
-            when = whenExpression(sw.expression(), sw.entries(), q);
+            when = whenExpression(sw.expression(), sw.entries(), true, q);
         } finally {
             KotlinContext.pop();
         }
@@ -387,13 +420,31 @@ public class KotlinStatementPrinter {
     }
 
     /** {@code when (selector) { conditions -> arm; … else -> arm }}; shared by switch statement and expression. */
-    static OutputBuilder whenExpression(Expression selector, List<SwitchEntry> entries, Qualification q) {
+    static OutputBuilder whenExpression(Expression selector, List<SwitchEntry> entries, boolean statement,
+                                        Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(KotlinExpressionPrinter.print(selector, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
-        return b.add(entries.stream().map(e -> whenEntry(e, q))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
-                        GuideImpl.generatorForBlock())));
+                .add(selector(selector, entries.stream().flatMap(e -> e.conditions().stream()).toList(), q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
+        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, q)).toList());
+        boolean hasElse = entries.stream().anyMatch(e -> e.conditions().isEmpty()
+                                                         || e.conditions().stream().allMatch(Expression::isEmpty));
+        if (statement && !hasElse) addElseWhenRequired(selector, arms);
+        return b.add(arms.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE,
+                SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
+    }
+
+    /**
+     * {@code else -> {}}: Kotlin requires a {@code when} statement over an enum or a boolean to be exhaustive, where a
+     * Java switch simply does nothing for the missing cases.
+     */
+    private static void addElseWhenRequired(Expression selector, List<OutputBuilder> arms) {
+        ParameterizedType type = selector.parameterizedType();
+        if (type == null || type.typeInfo() == null || type.arrays() > 0) return;
+        if (type.typeInfo().typeNature().isEnum() || type.isBoolean()) {
+            arms.add(new OutputBuilderImpl().add(KotlinKeyword.ELSE_ARROW).add(SymbolEnum.LAMBDA)
+                    .add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE));
+        }
     }
 
     private static OutputBuilder whenEntry(SwitchEntry e, Qualification q) {
@@ -491,12 +542,31 @@ public class KotlinStatementPrinter {
         } finally {
             KotlinContext.pop();
         }
+        if (byStart.values().stream().flatMap(List::stream).noneMatch(l -> l.literal() == null || l.literal().isEmpty())) {
+            addElseWhenRequired(sw.expression(), arms);
+        }
         OutputBuilder when = new OutputBuilderImpl().add(KotlinKeyword.WHEN).add(SpaceEnum.ONE)
-                .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(sw.expression(), q))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(selector(sw.expression(),
+                        sw.switchLabels().stream().map(SwitchStatementOldStyle.SwitchLabel::literal).toList(), q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                 .add(arms.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE,
                         SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
         return wrapIfLeftEarly(frame, when);
+    }
+
+    /**
+     * The subject of a {@code when}. Java compares a {@code byte}, {@code short} or {@code char} with {@code int}
+     * case constants after widening; Kotlin compares only equal types, so the subject widens: {@code b.toInt()},
+     * {@code c.code}.
+     */
+    private static OutputBuilder selector(Expression selector, List<Expression> labels, Qualification q) {
+        ParameterizedType type = selector.parameterizedType();
+        boolean intLabels = labels.stream().anyMatch(l -> l != null && !l.isEmpty() && l.parameterizedType() != null
+                                                          && l.parameterizedType().isInt());
+        if (type == null || !intLabels) return KotlinExpressionPrinter.print(selector, q);
+        String widen = type.typeInfo() != null && "char".equals(type.typeInfo().fullyQualifiedName()) && type.arrays() == 0 ? "code" : type.isByte() || type.isShort() ? "toInt()" : null;
+        if (widen == null) return KotlinExpressionPrinter.print(selector, q);
+        return KotlinExpressionPrinter.receiver(selector, q).add(SymbolEnum.DOT).add(new TextImpl(widen));
     }
 
     /** Control cannot fall out of the end of these statements. */
@@ -522,7 +592,7 @@ public class KotlinStatementPrinter {
                     : types.stream().map(t -> KotlinTypeName.of(t, q)).toList();
             for (String type : names) { // Kotlin has no multi-catch: one clause per type
                 b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                        .add(new TextImpl(KotlinNames.name(cc.catchVariable().simpleName()))).add(SymbolEnum.COLON_LABEL)
+                        .add(new TextImpl(declare(cc.catchVariable().simpleName()))).add(SymbolEnum.COLON_LABEL)
                         .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                         .add(block(cc.block(), q));
             }
@@ -585,10 +655,16 @@ public class KotlinStatementPrinter {
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
+    /** The escaped name of a variable declared here, which from now on is not a pattern variable of that name. */
+    static String declare(String name) {
+        KotlinContext.declared(name);
+        return KotlinNames.name(name);
+    }
+
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(lvc.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinNames.name(lv.simpleName())));
+                .add(new TextImpl(declare(lv.simpleName())));
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
         boolean writeType = !hasInitializer || !lvc.isVar()
@@ -596,7 +672,7 @@ public class KotlinStatementPrinter {
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(lv.parameterizedType(), q)));
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(init, q));
+                    .add(KotlinExpressionPrinter.widened(init, lv.parameterizedType(), q));
         }
         return b;
     }

@@ -13,10 +13,16 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * What a statement needs to know about where it is printed, which the CST does not say: the printers are static
@@ -28,6 +34,10 @@ import java.util.Deque;
  *   {@code run label@{ }} around the {@code when}.</li>
  *   <li><b>lambdas.</b> A Kotlin {@code return} inside a lambda returns from the enclosing FUNCTION, so a Java
  *   {@code return} inside a lambda body prints as {@code return@lambda}.</li>
+ *   <li><b>the types being printed</b>, innermost first. Their companion objects are in scope, so a static member
+ *   of one of them is written unqualified; any other static member, an inherited one included, gets its owner.</li>
+ *   <li><b>pattern variables.</b> Kotlin has no {@code x instanceof T t}; {@code t} prints as what the
+ *   {@code instanceof} tested, smart-cast or cast.</li>
  * </ul>
  */
 final class KotlinContext {
@@ -73,6 +83,11 @@ final class KotlinContext {
 
     private static final ThreadLocal<Deque<Frame>> FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<int[]> COUNTER = ThreadLocal.withInitial(() -> new int[1]);
+    private static final ThreadLocal<Deque<TypeInfo>> TYPES = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<java.util.Set<String>> SHADOWING = ThreadLocal.withInitial(java.util.Set::of);
+    // by name: a local variable's equality is its name, and so is its scope as far as Kotlin is concerned
+    private static final ThreadLocal<Map<String, Supplier<OutputBuilder>>> PATTERNS =
+            ThreadLocal.withInitial(HashMap::new);
 
     private KotlinContext() {
     }
@@ -113,6 +128,68 @@ final class KotlinContext {
     /** Numbers the labels from 1 again: once per file, so that printing the same file twice gives the same text. */
     static void resetLabels() {
         COUNTER.get()[0] = 0;
+        PATTERNS.get().clear();
+    }
+
+    /**
+     * The primary constructor's parameter names, while printing property initializers and init blocks: there a field
+     * of the same name must be written {@code this.x}, or it reads the parameter.
+     */
+    static void shadowingParameters(java.util.Set<String> names) {
+        SHADOWING.set(names);
+    }
+
+    static java.util.Set<String> shadowingParameters() {
+        return SHADOWING.get();
+    }
+
+    static boolean shadowedByParameter(String name) {
+        return SHADOWING.get().contains(name);
+    }
+
+    static void pushType(TypeInfo typeInfo) {
+        TYPES.get().push(typeInfo);
+    }
+
+    static void popType() {
+        TYPES.get().pop();
+    }
+
+    /** The innermost type being printed comes from Java: its {@code java.util.List} is a {@code MutableList}. */
+    static boolean translatingJava() {
+        TypeInfo top = TYPES.get().peek();
+        return top != null && !KotlinTypePrinter.fromKotlinSource(top);
+    }
+
+    /** A static member of this type can be written unqualified: the type, or one around it, is being printed. */
+    static boolean typeInScope(TypeInfo typeInfo) {
+        return TYPES.get().contains(typeInfo);
+    }
+
+    /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */
+    static void patternVariable(Variable variable, Supplier<OutputBuilder> replacement) {
+        PATTERNS.get().put(variable.simpleName(), replacement);
+    }
+
+    static Supplier<OutputBuilder> patternVariable(Variable variable) {
+        return PATTERNS.get().get(variable.simpleName());
+    }
+
+    /** A local variable, parameter or catch variable of this name is declared: it is not the pattern's any more. */
+    static void declared(String name) {
+        PATTERNS.get().remove(name);
+    }
+
+    /** A method body starts: the pattern variables of the enclosing method are not in scope. Restore with the result. */
+    static Map<String, Supplier<OutputBuilder>> enterMethod() {
+        Map<String, Supplier<OutputBuilder>> saved = new HashMap<>(PATTERNS.get());
+        PATTERNS.get().clear();
+        return saved;
+    }
+
+    static void exitMethod(Map<String, Supplier<OutputBuilder>> saved) {
+        PATTERNS.get().clear();
+        PATTERNS.get().putAll(saved);
     }
 
     /** A label no enclosing construct uses, for a {@code run label@{ }} the translation introduces. */
