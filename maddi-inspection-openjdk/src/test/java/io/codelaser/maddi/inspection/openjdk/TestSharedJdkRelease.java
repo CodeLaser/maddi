@@ -225,4 +225,61 @@ public class TestSharedJdkRelease {
                 """), JavaInspectorImpl.DETAILED_SOURCES).parseResult().findType("p.UsesApplet");
         assertNotNull(usesApplet, "the set states release 21, where java.applet.Applet still exists");
     }
+
+    /**
+     * A nested JDK type reached through a method of a type the shared-JDK task loads lazily is the MEMBER type, as
+     * it is everywhere else. The shared task (under {@code --release}) read {@code com.sun.source.util.Trees} and
+     * gave {@code instance(JavaCompiler.CompilationTask)} a parameter whose javac symbol carries the flat name,
+     * owned by the package; maddi made a second, primary type {@code javax.tools.JavaCompiler$CompilationTask} of
+     * it. The next set to reach {@code Trees.instance} through its own javac, with the real member type, found no
+     * such method among the committed members, and the parse of maddi's own tree failed on it (2026-10-07).
+     */
+    @DisplayName("a nested type in a lazily loaded platform type's signature is the member type, not a flat-named primary")
+    @Test
+    public void nestedTypeOfALazilyLoadedPlatformTypeIsTheMemberType() throws java.io.IOException {
+        int running = Runtime.version().feature();
+        Assumptions.assumeTrue(running >= 21, "the shared task needs a release below the running JDK's ("
+                                              + running + ")");
+
+        JavaInspector javaInspector = new JavaInspectorImpl();
+        SourceSet low = new SourceSetImpl.Builder()
+                .setName(TEST_PROTOCOL)
+                .setUri(URI.create("file:/low"))
+                .setSourceRelease(17)
+                .build();
+        SourceSet silent = new SourceSetImpl.Builder()
+                .setName("silent")
+                .setUri(URI.create("file:/silent"))
+                .build();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addSourceSets(low, silent)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .addClassPath("jmod:java.compiler")
+                .addClassPath("jmod:jdk.compiler")
+                .build();
+        javaInspector.initialize(inputConfiguration);
+        List<TypeInfo> parsed = javaInspector.parse(Map.of("p.UsesTrees", """
+                package p;
+                import com.sun.source.util.Trees;
+                import javax.tools.JavaCompiler;
+                public class UsesTrees {
+                    Trees trees(JavaCompiler.CompilationTask task) {
+                        return Trees.instance(task);
+                    }
+                }
+                """), JavaInspectorImpl.DETAILED_SOURCES).parseResult().typeByFullyQualifiedName("p.UsesTrees");
+        assertTrue(!parsed.isEmpty(), "the unit parses: " + parsed);
+
+        TypeInfo trees = javaInspector.compiledTypesManager().get("com.sun.source.util.Trees", null);
+        assertNotNull(trees, "com.sun.source.util.Trees is loaded");
+        List<TypeInfo> parameterTypes = trees.methodStream().filter(m -> "instance".equals(m.name()))
+                .flatMap(m -> m.parameters().stream()).map(pi -> pi.parameterizedType().typeInfo()).toList();
+        TypeInfo task = parameterTypes.stream()
+                .filter(t -> t.simpleName().endsWith("CompilationTask")).findFirst().orElse(null);
+        assertNotNull(task, "Trees.instance(CompilationTask); parameter types seen: " + parameterTypes);
+        assertTrue("javax.tools.JavaCompiler.CompilationTask".equals(task.fullyQualifiedName())
+                   && !task.isPrimaryType(),
+                "the parameter's type is the member type JavaCompiler.CompilationTask, not "
+                + task.fullyQualifiedName() + (task.isPrimaryType() ? " (a primary type)" : ""));
+    }
 }

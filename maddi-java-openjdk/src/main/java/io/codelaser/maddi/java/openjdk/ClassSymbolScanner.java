@@ -2187,9 +2187,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private TypeInfo classTypeInfo(Type.ClassType ct) {
-        String fullyQualifiedType = ct.tsym.toString();
+        Symbol.ClassSymbol cs = nested((Symbol.ClassSymbol) ct.tsym);
+        String fullyQualifiedType = cs.toString();
         TypeInfo known = getType(fullyQualifiedType);
-        Symbol.ClassSymbol cs = (Symbol.ClassSymbol) ct.tsym;
         TypeInfo typeInfo;
         Symbol.ClassSymbol topCs;
         if (known == null) {
@@ -2253,6 +2253,35 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
         return typeInfo;
+    }
+
+    /**
+     * The member-type symbol for a nested class that javac presents under its FLAT name, as a top-level class of
+     * the package: {@code javax.tools.JavaCompiler$CompilationTask}, owned by {@code javax.tools}. javac re-homes
+     * such a symbol to its enclosing class when it reads an {@code InnerClasses} attribute that names it; the
+     * shared-JDK task, which runs under {@code --release}, reads {@code com.sun.source.util.Trees} without doing
+     * so. Taken at face value the symbol became a second, PRIMARY type named {@code JavaCompiler$CompilationTask},
+     * so {@code Trees.instance(CompilationTask)} was committed with a parameter of that type, and the next source
+     * set to reach the method through its own javac (with the real nested type) could not find it among the
+     * committed members: "a second definition ... with a member the committed one does not have", and maddi
+     * could not parse its own source tree.
+     * <p>
+     * Re-homed only when the canonical name resolves to the same class file (equal flat names), so a top-level
+     * class whose own name contains a {@code $} is left as it is.
+     */
+    private Symbol.ClassSymbol nested(Symbol.ClassSymbol cs) {
+        if (!(cs.owner instanceof Symbol.PackageSymbol) || cs.name.toString().indexOf('$') <= 0) return cs;
+        String canonical = cs.getQualifiedName().toString().replace('$', '.');
+        try {
+            if (elements.getTypeElement(canonical) instanceof Symbol.ClassSymbol member
+                && member.owner instanceof Symbol.ClassSymbol
+                && member.flatName().contentEquals(cs.flatName())) {
+                return member;
+            }
+        } catch (Symbol.CompletionFailure e) {
+            // the canonical name does not complete: keep what javac gave
+        }
+        return cs;
     }
 
     private static Symbol.ClassSymbol primary(Symbol.ClassSymbol csIn) {
