@@ -271,6 +271,21 @@ final class KotlinContext {
         LOCAL_TYPES.get().putAll(saved.localTypes());
     }
 
+    private static final ThreadLocal<Map<io.codelaser.maddi.cst.api.info.ParameterInfo,
+            io.codelaser.maddi.cst.api.type.ParameterizedType>> LAMBDA_PARAMETERS = ThreadLocal.withInitial(HashMap::new);
+
+    /** The type Kotlin gives this lambda parameter, from the call the lambda is an argument of; null if unknown. */
+    static io.codelaser.maddi.cst.api.type.ParameterizedType lambdaParameterType(
+            io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+        return LAMBDA_PARAMETERS.get().get(parameter);
+    }
+
+    static void lambdaParameterType(io.codelaser.maddi.cst.api.info.ParameterInfo parameter,
+                                    io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        if (type == null) LAMBDA_PARAMETERS.get().remove(parameter);
+        else LAMBDA_PARAMETERS.get().put(parameter, type);
+    }
+
     /** A method or lambda body starts: the scope of the local variables declared in it. */
     static void pushScope(io.codelaser.maddi.cst.api.element.Element body) {
         SCOPES.get().push(java.util.Optional.ofNullable(body));

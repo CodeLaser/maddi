@@ -352,6 +352,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     Node node = new Node(label);
                     for (Map.Entry<String, String> entry : values.entrySet()) use(entry.getValue());
                     String[] pair = { label, "x" };
+                    long longOnes = maybe.stream().filter(s -> s.length() > 3).count();
+                    maybe.forEach(s -> use(s));
                     return n + map.get(k) + 1;
                 }
                 @Override public String toString() { return label; }
@@ -378,6 +380,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // through a nested type argument: map.entries is a Set<Entry<String, String?>>
         contains(kotlin, "for (entry in values.entries) {use(entry.value!!) }");
         contains(kotlin, "val node = Node(label)");
+        // a lambda's parameters are typed by the call: a Stream<String?> filters String?s
+        contains(kotlin, ".filter( { s -> s!!.length > 3 })");
+        contains(kotlin, "maybe.forEach( { s -> use(s!!) })");
         // array elements into a non-null element type are asserted
         contains(kotlin, "arrayOf<String>(label!!, \"x\")");
         contains(kotlin, "override fun toString(): String = label!!");

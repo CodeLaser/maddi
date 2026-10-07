@@ -70,6 +70,8 @@ final class KotlinNullability {
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {
+        ParameterizedType lambdaParameter = KotlinContext.lambdaParameterType(parameterInfo);
+        if (lambdaParameter != null) return lambdaParameter;
         FieldInfo property = KotlinTypePrinter.propertyOf(parameterInfo);
         if (property != null) return fieldType(property); // class Foo(val id: T): the property's type
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
@@ -268,11 +270,36 @@ final class KotlinNullability {
         List<ParameterizedType> arguments = new java.util.ArrayList<>();
         boolean changed = false;
         for (ParameterizedType p : declared.parameters()) {
-            ParameterizedType s = p == null || p.wildcard() != null ? p : substitute(p, receiver);
+            // a bounded wildcard on a type parameter (? super T) is that parameter's argument for nullability
+            ParameterizedType s = p == null || p.wildcard() != null && !p.isTypeParameter() ? p : substitute(p, receiver);
             changed |= s != p;
             arguments.add(s);
         }
         return changed ? declared.withParameters(arguments) : declared;
+    }
+
+    /**
+     * The types Kotlin gives a lambda's parameters where the lambda is an argument: the functional interface's
+     * single abstract method, seen through the parameter's type, itself seen through the call's receiver
+     * ({@code stream.filter { e -> … }} on a {@code Stream<Exprent?>}: {@code Predicate<? super T>} is a
+     * {@code Predicate<Exprent?>}, whose {@code test(T)} takes an {@code Exprent?}). Empty when not known.
+     */
+    static List<ParameterizedType> lambdaParameterTypes(MethodCall call, ParameterizedType functional) {
+        ParameterizedType seen = throughReceiver(functional, call);
+        if (seen == null || seen == functional || seen.typeInfo() == null || seen.arrays() > 0) return List.of();
+        MethodInfo sam;
+        try {
+            sam = seen.typeInfo().singleAbstractMethod();
+        } catch (RuntimeException e) {
+            sam = null;
+        }
+        if (sam == null) {
+            // not computed for every library interface (java.util.function.Predicate): its one abstract method
+            List<MethodInfo> abstracts = seen.typeInfo().methodStream().filter(MethodInfo::isAbstract).toList();
+            if (abstracts.size() != 1) return List.of();
+            sam = abstracts.getFirst();
+        }
+        return sam.parameters().stream().map(p -> substitute(p.parameterizedType(), seen)).toList();
     }
 
     /** A use-site fact: known non-null where the current statement starts, and smart-cast there by Kotlin. */

@@ -305,7 +305,20 @@ public class KotlinExpressionPrinter {
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
             if (unwrap(args.get(i)) instanceof Lambda l) {
-                printed.add(lambda(l, false, q));
+                // Kotlin types the parameters from the call: a nullable element makes them nullable
+                List<ParameterizedType> types = call == null || !hasParameter ? List.of()
+                        : KotlinNullability.lambdaParameterTypes(call, method.parameters().get(i).parameterizedType());
+                List<ParameterInfo> params = l.parameters();
+                boolean typed = types.size() == params.size();
+                for (int j = 0; typed && j < params.size(); j++) {
+                    ParameterizedType t = types.get(j);
+                    if (t != null && KotlinNullability.isNullable(t)) KotlinContext.lambdaParameterType(params.get(j), t);
+                }
+                try {
+                    printed.add(lambda(l, false, q));
+                } finally {
+                    if (typed) params.forEach(p -> KotlinContext.lambdaParameterType(p, null));
+                }
             } else {
                 ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
                 boolean argumentTranslated = translated;
