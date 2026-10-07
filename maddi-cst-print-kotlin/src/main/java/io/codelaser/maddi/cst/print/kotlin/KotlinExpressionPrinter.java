@@ -367,9 +367,21 @@ public class KotlinExpressionPrinter {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
         }
+        if (e instanceof InlineConditional ic && target != null && !isElvis(ic)) {
+            // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
+            return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                    .add(widened(ic.ifTrue(), target, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(widened(ic.ifFalse(), target, q));
+        }
         if (unwrap(e) instanceof ConstructorCall cc && target != null && cc.anonymousClass() == null) {
             ParameterizedType withStates = withTargetStates(cc.parameterizedType(), target);
             if (withStates != null) return inCall(cc, () -> constructorCall(cc, withStates, q));
+        }
+        if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() == null && cc.anonymousClass() == null
+            && target != null && cc.parameterizedType().arrays() > 0 && rawOf(cc.parameterizedType(), target)) {
+            // new FastSparseSet[n][]: Kotlin's arrays are invariant, so the elements are the declaration's, <Int> not <*>
+            return inCall(cc, () -> constructorCall(cc, target, q));
         }
         if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() != null && target != null
             && target.arrays() == cc.parameterizedType().arrays()) {
@@ -425,6 +437,17 @@ public class KotlinExpressionPrinter {
             if (!sameUpToStates(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /** {@code raw} is {@code typed} without its type arguments: the same type, the same arrays, no arguments written. */
+    static boolean rawOf(ParameterizedType raw, ParameterizedType typed) {
+        if (raw == null || typed == null || raw.arrays() != typed.arrays() || raw.typeInfo() == null
+            || raw.typeInfo() != typed.typeInfo() || raw.typeInfo().typeParameters().isEmpty()) {
+            return false;
+        }
+        // Class<?> is not raw, and Class.forName's Class<*> is nothing to adopt
+        return raw.parameters().isEmpty() && !typed.parameters().isEmpty()
+               && typed.parameters().stream().noneMatch(p -> p.wildcard() != null || p.isTypeParameter() && p.typeParameter() == null);
     }
 
     private static int rank(Primitive p) {
@@ -613,7 +636,8 @@ public class KotlinExpressionPrinter {
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body);
             if (reassigned.isEmpty() && statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
                 && !rs.hasNoValue()) {
-                inner = printStatement(rs.expression(), q);
+                inner = unwrap(rs.expression()) instanceof ConstructorCall cc && inferred(cc)
+                        ? inferredConstructorCall(cc, q) : printStatement(rs.expression(), q);
             } else {
                 labelled = hasInnerReturn(statements);
                 OutputBuilder lines = KotlinStatementPrinter.lambdaBody(statements, q);
@@ -636,6 +660,24 @@ public class KotlinExpressionPrinter {
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA))).add(SpaceEnum.ONE).add(SymbolEnum.LAMBDA);
         }
         return b.add(SpaceEnum.ONE).add(inner).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /**
+     * A diamond {@code new HashMap<>()} as a lambda's result: Kotlin infers the arguments from what the lambda must
+     * return, the receiver's states included ({@code computeIfAbsent(k) { HashMap() }}); written out, they lose them.
+     */
+    private static boolean inferred(ConstructorCall cc) {
+        return cc.diamond() != null && cc.diamond().isYes() && cc.anonymousClass() == null
+               && cc.parameterizedType().arrays() == 0 && cc.parameterizedType().typeInfo() != null;
+    }
+
+    private static OutputBuilder inferredConstructorCall(ConstructorCall cc, Qualification q) {
+        return inCall(cc, () -> {
+            OutputBuilder b = new OutputBuilderImpl();
+            if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
+            return b.add(new TextImpl(KotlinTypeName.name(cc.parameterizedType().typeInfo(), q)))
+                    .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        });
     }
 
     /** A {@code return} other than a final one, outside nested lambdas: it needs {@code return@lambda}. */
@@ -701,7 +743,11 @@ public class KotlinExpressionPrinter {
         if (a.prefixPrimitiveOperator() != null) return assignmentAsStatement(a, q); // ++i and i++ are expressions
         OutputBuilder value;
         String op = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
-        if ("=".equals(op)) {
+        if ("=".equals(op) && unwrap(a.value()) instanceof ConstructorCall cc && cc.anonymousClass() == null
+            && cc.parameterizedType().arrays() == 0) {
+            // ArrayList<Int?>().also { lst = it }: the constructed type takes the target's states, as an assignment's
+            value = widened(a.value(), declaredType(a.variableTarget()), q);
+        } else if ("=".equals(op)) {
             value = receiver(a.value(), q);
         } else {
             String binary = op.substring(0, op.length() - 1);

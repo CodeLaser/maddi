@@ -21,8 +21,11 @@
 # leave type arguments to inference, char labels over an int, Long literals in ==, monitor methods through
 # java.lang.Object, renamed JDK members, reassigned for-each variables, abstract overrides, new int[3][]:
 # 89 compile, 885 type errors.
+#
+# 2026-10-07, protected as public (Java's is package access too), Cloneable for an override of Object.clone(),
+# Kotlin's signatures for collection overrides (removeAt, val size, remove(element: E), Collection<E>): 90 files.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	89
+compilingFiles	90

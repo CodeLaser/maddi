@@ -14,8 +14,11 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Map;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -93,6 +96,74 @@ final class KotlinMappedMembers {
             new Key("java.lang.String", "charAt", 1), true);
 
     private KotlinMappedMembers() {
+    }
+
+    /** The mapped getters a class can override: as Kotlin properties ({@code override val size: Int get() = …}). */
+    private static final Set<String> OVERRIDABLE_PROPERTIES = Set.of("size", "keys", "values", "entries", "key", "value",
+            "message", "cause");
+
+    /**
+     * The parameters Java declares as {@code Object} where Kotlin's mapped member takes a type parameter of its owner:
+     * the index of that type parameter ({@code Collection.contains(Object)} is {@code contains(element: E)}).
+     */
+    private static final Map<Key, Integer> OBJECT_PARAMETER = Map.ofEntries(
+            Map.entry(new Key("java.util.Collection", "contains", 1), 0),
+            Map.entry(new Key("java.util.Collection", "remove", 1), 0),
+            Map.entry(new Key("java.util.List", "indexOf", 1), 0),
+            Map.entry(new Key("java.util.List", "lastIndexOf", 1), 0),
+            Map.entry(new Key("java.util.Map", "containsKey", 1), 0),
+            Map.entry(new Key("java.util.Map", "containsValue", 1), 1),
+            Map.entry(new Key("java.util.Map", "get", 1), 0),
+            Map.entry(new Key("java.util.Map", "remove", 1), 0));
+
+    /** The {@code Collection<?>}/{@code Collection<? extends E>} parameters Kotlin declares {@code Collection<E>}. */
+    private static final Set<Key> COLLECTION_PARAMETER = Set.of(
+            new Key("java.util.Collection", "containsAll", 1), new Key("java.util.Collection", "addAll", 1),
+            new Key("java.util.Collection", "removeAll", 1), new Key("java.util.Collection", "retainAll", 1),
+            new Key("java.util.List", "addAll", 2));
+
+    /**
+     * The Kotlin property a translated override of a mapped getter declares ({@code public int size()} in an
+     * ArrayList subclass is {@code override val size: Int}); null otherwise. Kotlin has no {@code size()} to override.
+     */
+    static String overriddenProperty(MethodInfo methodInfo) {
+        if (methodInfo.overrides().isEmpty() || !methodInfo.parameters().isEmpty() || methodInfo.isStatic()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return null;
+        }
+        String property = property(methodInfo);
+        return property != null && OVERRIDABLE_PROPERTIES.contains(property) ? property : null;
+    }
+
+    /**
+     * The Kotlin type of parameter {@code i} of a translated override of a mapped collection member, where it is not
+     * Java's: {@code remove(element: E)} for {@code remove(Object)}, {@code addAll(elements: Collection<E>)} for
+     * {@code addAll(Collection<? extends E>)}. Null when the parameter keeps its own type.
+     */
+    static ParameterizedType overriddenParameterType(MethodInfo methodInfo, int i) {
+        if (methodInfo.overrides().isEmpty() || methodInfo.isStatic()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return null;
+        }
+        for (MethodInfo m : methodInfo.overrides()) {
+            Key key = new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size());
+            Integer index = OBJECT_PARAMETER.get(key);
+            boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
+            if (index == null && !collection) continue;
+            ParameterizedType asOwner;
+            try {
+                asOwner = methodInfo.typeInfo().asParameterizedType()
+                        .concreteSuperType(m.typeInfo().asParameterizedType());
+            } catch (RuntimeException e) {
+                return null;
+            }
+            if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
+            if (index != null) return asOwner.parameters().get(index);
+            ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
+            return collectionType.typeInfo() == null ? null
+                    : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
+        }
+        return null;
     }
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */

@@ -57,7 +57,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void staticsInCompanion() {
         String kotlin = kotlin(STATICS);
         contains(kotlin, "const val TYPE_INT: Int = 4");
-        contains(kotlin, "@JvmStatic protected fun helper(x: Int): Int = x + 1");
+        // Java's protected is also package access, which Kotlin's is not: public, as package-private is
+        contains(kotlin, "    fun helper(x: Int): Int = x + 1");
         contains(kotlin, """
                 companion object {
                     const val NAME: String = "c"
@@ -93,6 +94,97 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
      * One constructor is the primary one, its body an {@code init} block, which may assign vals; the parameters are in
      * scope in property initializers, where the Java meant the field. A record is a data class.
      */
+    @Language("java")
+    private static final String VISIBILITY = """
+            package a;
+            import java.util.*;
+            class V {
+                static class Base extends AbstractList<String> {
+                    protected final List<String> items = new ArrayList<>();
+                    protected Base() { }
+                    public String get(int i) { return items.get(i); }
+                    public int size() { return items.size(); }
+                    @Override protected void removeRange(int from, int to) { }
+                }
+                static class Copy {
+                    final int n;
+                    Copy(int n) { this.n = n; }
+                    @Override public Copy clone() { return new Copy(n); }
+                }
+                static int sibling(Base b) { return b.items.size(); }
+            }
+            """;
+
+    @Language("java")
+    private static final String COLLECTION = """
+            package a;
+            import java.util.*;
+            class Coll<E> extends ArrayList<E> {
+                @Override public boolean remove(Object o) { return super.remove(o); }
+                @Override public E remove(int i) { return super.remove(i); }
+                @Override public boolean addAll(Collection<? extends E> c) { return super.addAll(c); }
+                @Override public int size() { return super.size(); }
+                @Override public boolean contains(Object o) { return super.contains(o); }
+                static class Entry implements Map.Entry<String, Integer> {
+                    public String getKey() { return "k"; }
+                    public Integer getValue() { return 1; }
+                    public Integer setValue(Integer v) { return v; }
+                }
+            }
+            """;
+
+    /** Overrides of Java collection members take Kotlin's mapped signatures, which are the ones it can override. */
+    @Test
+    public void collectionOverrides() {
+        String kotlin = kotlin(COLLECTION);
+        contains(kotlin, "override fun remove(o: E): Boolean");
+        contains(kotlin, "override fun removeAt(i: Int): E");
+        contains(kotlin, "override fun addAll(c: Collection<E>): Boolean");
+        contains(kotlin, "override val size: Int get() = super.size");
+        contains(kotlin, "override fun contains(o: E): Boolean");
+        contains(kotlin, "override val key: String get() = \"k\"");
+        contains(kotlin, "override val value: Int get() = 1");
+        contains(kotlin, "override fun setValue(v: Int): Int");
+    }
+
+    @Language("java")
+    private static final String RAW_ARRAYS = """
+            package a;
+            class R {
+                static class Box<T> { }
+                private final Box<Integer>[][] grid = new Box[3][];
+                int m() {
+                    Box[][] g = grid;
+                    Box<Integer>[] row = new Box[2];
+                    g[0] = row;
+                    return g.length;
+                }
+            }
+            """;
+
+    /** Kotlin has no raw types and its arrays are invariant: a raw array creation or local takes the typed side's arguments. */
+    @Test
+    public void rawArrays() {
+        String kotlin = kotlin(RAW_ARRAYS);
+        assertFalse(kotlin.contains("<*>"), kotlin);
+        contains(kotlin, "private val grid: Array<Array<Box<Int>>> = arrayOfNulls<Array<Box<Int>>>(3)");
+        contains(kotlin, "val row: Array<Box<Int>> = arrayOfNulls<Box<Int>>(2)");
+        contains(kotlin, "val g = grid");
+    }
+
+    @Test
+    public void protectedAndClone() {
+        String kotlin = kotlin(VISIBILITY);
+        // protected Java members are package-visible: public in Kotlin, a library override keeps its protected
+        contains(kotlin, "val items: MutableList<String> = ArrayList<String>()");
+        assertFalse(kotlin.contains("protected val items"), kotlin);
+        assertFalse(kotlin.contains("protected constructor"), kotlin);
+        contains(kotlin, "protected override fun removeRange(from: Int, to: Int)");
+        // a clone() of Object's: Kotlin's Any declares none, kotlin.Cloneable does
+        contains(kotlin, "class Copy(val n: Int) : Cloneable {");
+        contains(kotlin, "override fun clone(): Copy");
+    }
+
     @Test
     public void constructorsAndRecords() {
         String kotlin = kotlin(CONSTRUCTORS);

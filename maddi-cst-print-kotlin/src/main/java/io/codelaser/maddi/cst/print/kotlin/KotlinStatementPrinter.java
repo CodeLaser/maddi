@@ -730,8 +730,13 @@ public class KotlinStatementPrinter {
                 .add(new TextImpl(declare(lv.simpleName())));
         ParameterizedType type = KotlinNullability.localType(lvc, lv);
         // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
-        boolean writeType = !hasInitializer || KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)
-                            || !lvc.isVar() && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
+        boolean nullableFromNonNull = hasInitializer && KotlinNullability.isNullable(type)
+                                      && !KotlinNullability.nullableInKotlin(init);
+        // a raw Java local (FastSparseSet[][] m = map.elements) takes its initializer's arguments: Kotlin has no raw types
+        boolean rawLocal = hasInitializer && !nullableFromNonNull
+                           && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
+        boolean writeType = !hasInitializer || nullableFromNonNull
+                            || !rawLocal && !lvc.isVar() && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,

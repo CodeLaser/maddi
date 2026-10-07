@@ -56,12 +56,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
-        if (methodInfo.isStatic() && methodInfo.access() != null && methodInfo.access().isProtected()
-            && !KotlinTypePrinter.fromKotlinSource(typeInfo)) {
-            // Kotlin cannot call a protected companion member of a superclass unless it is @JvmStatic
-            b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
-        }
-        KotlinModifiers.visibility(methodInfo.access(), typeInfo).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        KotlinModifiers.visibility(methodInfo, typeInfo).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         if (!methodInfo.overrides().isEmpty()) {
             // an abstract class re-declaring an interface method, to narrow its return type
             if (methodInfo.isAbstract() && !typeInfo.isInterface()) b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
@@ -72,8 +67,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
         }
 
+        String property = KotlinMappedMembers.overriddenProperty(methodInfo);
         if (methodInfo.isConstructor()) {
             b.add(KotlinKeyword.CONSTRUCTOR);
+        } else if (property != null) {
+            // Kotlin's member is a property: override val size: Int get() = …
+            b.add(new TextImpl("val")).add(SpaceEnum.ONE).add(new TextImpl(property));
         } else {
             b.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
             if (!methodInfo.typeParameters().isEmpty()) {
@@ -83,10 +82,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }
-            b.add(new TextImpl(KotlinNames.name(methodInfo.name())));
+            // List.remove(int) is Kotlin's removeAt: there is no remove(index) to override
+            boolean removeAt = !methodInfo.overrides().isEmpty() && KotlinMappedMembers.isRemoveAt(methodInfo)
+                               && !KotlinTypePrinter.fromKotlinSource(typeInfo);
+            b.add(new TextImpl(removeAt ? "removeAt" : KotlinNames.name(methodInfo.name())));
         }
 
-        b.add(parameters(methodInfo, qualification));
+        if (property == null) b.add(parameters(methodInfo, qualification));
 
         if (!methodInfo.isConstructor()) {
             ParameterizedType rt = KotlinNullability.returnType(methodInfo);
@@ -95,6 +97,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
         }
 
+        if (property != null && !methodInfo.isAbstract()) b.add(SpaceEnum.ONE).add(new TextImpl("get()"));
         if (!methodInfo.isAbstract()) {
             Block body = methodInfo.methodBody();
             if (methodInfo.isConstructor()) {
@@ -167,9 +170,20 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     static OutputBuilder parameters(MethodInfo methodInfo, Qualification q) {
         if (methodInfo.parameters().isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         return methodInfo.parameters().stream()
-                .map(pi -> parameter(pi, isEqualsOverride(methodInfo) ? "Any?" : null, q))
+                .map(pi -> parameter(pi, isEqualsOverride(methodInfo) ? "Any?" : mappedParameterType(methodInfo, pi, q), q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+    }
+
+    /** Kotlin's parameter type for an override of a mapped collection member: {@code E}, {@code Collection<E>}. */
+    private static String mappedParameterType(MethodInfo methodInfo, ParameterInfo pi, Qualification q) {
+        ParameterizedType t = KotlinMappedMembers.overriddenParameterType(methodInfo, pi.index());
+        if (t == null) return null;
+        if (t.typeInfo() != null && "java.util.Collection".equals(t.typeInfo().fullyQualifiedName())) {
+            // read-only, invariant: Kotlin's MutableCollection<E>.addAll(elements: Collection<E>)
+            return "Collection<" + KotlinTypeName.of(t.parameters().getFirst(), q) + ">";
+        }
+        return KotlinTypeName.of(t, q);
     }
 
     /** The {@code super(…)}/{@code this(…)} a constructor body starts with; null when it has none. */

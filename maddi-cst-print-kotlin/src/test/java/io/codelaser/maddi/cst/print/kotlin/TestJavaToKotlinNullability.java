@@ -351,6 +351,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String TARGETS = """
+            package a;
+            import java.util.*;
+            class G {
+                private final Map<String, Map<String, Integer>> nested = new HashMap<>();
+                private List<String> lst;
+                private List<String> pairs;
+                Map<String, Integer> m(String k, List<String> src) {
+                    pairs = src != null ? new ArrayList<>(src) : null;
+                    use(lst = new ArrayList<>());
+                    return nested.computeIfAbsent(k, x -> new HashMap<>());
+                }
+                static void use(List<String> l) { }
+            }
+            """;
+
+    /** A constructed type takes its target's states through a conditional, an assignment's value, a lambda's result. */
+    @Test
+    public void constructorTargets() {
+        String kotlin = kotlin(TARGETS, new KotlinPrintOptions(new ByName(Set.of("lst", "lst<>", "pairs", "pairs<>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "pairs = if (src != null) ArrayList<String?>(src) else null");
+        contains(kotlin, "ArrayList<String?>().also { lst = it }");
+        // the diamond as the lambda's result: Kotlin infers HashMap's arguments, the map's states included
+        contains(kotlin, "{ x -> HashMap() }");
+    }
+
+    @Language("java")
     private static final String ITERATOR = """
             package a;
             import java.util.*;

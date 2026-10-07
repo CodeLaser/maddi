@@ -412,7 +412,27 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         typeInfo.interfacesImplemented().forEach(i ->
                 supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(i, q)))));
+        if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
+            // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
+            supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));
+        }
         return supers;
+    }
+
+    private static boolean overridesObjectClone(TypeInfo typeInfo) {
+        // Object's directly: a subclass overriding its parent's clone() inherits the parent's Cloneable, and a second
+        // one makes `super.clone()` ambiguous ("multiple supertypes available")
+        return typeInfo.methods().stream().anyMatch(m -> "clone".equals(m.name()) && m.parameters().isEmpty()
+                && !m.isStatic() && !m.overrides().isEmpty() && m.overrides().stream()
+                        .allMatch(o -> "java.lang.Object".equals(o.typeInfo().fullyQualifiedName())));
+    }
+
+    private static boolean cloneable(TypeInfo typeInfo) {
+        if ("java.lang.Cloneable".equals(typeInfo.fullyQualifiedName())) return true;
+        if (typeInfo.parentClass() != null && typeInfo.parentClass().typeInfo() != null
+            && cloneable(typeInfo.parentClass().typeInfo())) return true;
+        return typeInfo.interfacesImplemented().stream()
+                .anyMatch(i -> i.typeInfo() != null && cloneable(i.typeInfo()));
     }
 
     /** A class declared in a method body: not reachable as a member type from its primary type. No visibility in Kotlin. */
