@@ -526,7 +526,9 @@ public class KotlinExpressionPrinter {
         OutputBuilder args = ai.expressions().isEmpty()
                 ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                 : ai.expressions().stream()
-                .map(x -> x instanceof ArrayInitializer nested ? arrayInitializer(nested, element, q) : print(x, q))
+                .map(x -> x instanceof ArrayInitializer nested ? arrayInitializer(nested, element, q)
+                        // an element into a non-null element type is asserted, as a write a[i] = x is
+                        : KotlinNullability.toTarget(x, element, true, print(x, q), q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
         return new OutputBuilderImpl().add(new TextImpl(factory)).add(args);

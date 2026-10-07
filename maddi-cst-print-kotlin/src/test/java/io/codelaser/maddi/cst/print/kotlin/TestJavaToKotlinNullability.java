@@ -66,17 +66,18 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                    && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
         }
 
-        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are; {@code "x<>"}: x's first type argument is. */
+        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are; {@code "x<>"}, {@code "x<,>"}: its first, second type argument. */
         private ParameterizedType verdict(String name, ParameterizedType type) {
             ParameterizedType verdict = nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
             if (nullable.contains(name + "[]")) {
                 ParameterizedType array = verdict != null ? verdict : type;
                 verdict = array.withComponentType(array.componentType().withNullable(NullableState.NULLABLE));
             }
-            if (nullable.contains(name + "<>")) {
+            for (int i = 0; i < 2; i++) {
+                if (!nullable.contains(name + (i == 0 ? "<>" : "<,>"))) continue;
                 ParameterizedType generic = verdict != null ? verdict : type;
                 java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
-                arguments.set(0, arguments.getFirst().withNullable(NullableState.NULLABLE));
+                arguments.set(i, arguments.get(i).withNullable(NullableState.NULLABLE));
                 verdict = generic.withParameters(arguments);
             }
             return verdict;
@@ -338,6 +339,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 private final Queue<String> queue = new ArrayDeque<>();
                 private String label;
                 static void take(List<String> list) { }
+                static class Node { final String value; Node(String value) { this.value = value; } }
+                private final Map<String, String> values = new HashMap<>();
+                static void use(String s) { }
                 int m(Map<String, Integer> map, String k) {
                     int n = 0;
                     for (String s : maybe) n += s.length();
@@ -345,6 +349,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     for (String t : copy) n += t.length();
                     queue.add(label);
                     take(new ArrayList<>());
+                    Node node = new Node(label);
+                    for (Map.Entry<String, String> entry : values.entrySet()) use(entry.getValue());
+                    String[] pair = { label, "x" };
                     return n + map.get(k) + 1;
                 }
                 @Override public String toString() { return label; }
@@ -359,13 +366,20 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     @Test
     public void usesKotlinTypes() {
         String kotlin = kotlin(USES, new KotlinPrintOptions(
-                new ByName(Set.of("maybe<>", "label", "toString()", "list<>")), KotlinPrintOptions.NullCheck.ASSERT));
+                new ByName(Set.of("maybe<>", "label", "toString()", "list<>", "value", "values<,>")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "for (s in maybe) { n += s!!.length }");
         // an untyped local has its initializer's type: copy is a MutableList<String?> too
         contains(kotlin, "for (t in copy) { n += t!!.length }");
         contains(kotlin, "queue.add(label!!)");
         contains(kotlin, "take(ArrayList<String?>())");
         contains(kotlin, "return n + map.get(k)!! + 1");
+        // a primary-constructor property has its field's type, and its argument is checked against it
+        contains(kotlin, "class Node(val value: String?)");
+        // through a nested type argument: map.entries is a Set<Entry<String, String?>>
+        contains(kotlin, "for (entry in values.entries) {use(entry.value!!) }");
+        contains(kotlin, "val node = Node(label)");
+        // array elements into a non-null element type are asserted
+        contains(kotlin, "arrayOf<String>(label!!, \"x\")");
         contains(kotlin, "override fun toString(): String = label!!");
     }
 }

@@ -703,7 +703,11 @@ public class KotlinStatementPrinter {
         ParameterizedType type = KotlinNullability.localType(fe, lv);
         // Kotlin types the loop variable from the iterable: a nullable element makes it nullable, whatever its verdict
         ParameterizedType element = KotlinNullability.elementType(fe.expression());
-        if (KotlinNullability.isNullable(element) && !KotlinNullability.isNullable(type)) {
+        if (element != null && element.typeInfo() != null && element.arrays() == type.arrays()) {
+            // the element's own type arguments too (for (entry in map.entries): an Entry<K, V?>)
+            KotlinContext.localType(lv.simpleName(), KotlinNullability.isNullable(element) || KotlinNullability.isNullable(type)
+                    ? element.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : element);
+        } else if (KotlinNullability.isNullable(element) && !KotlinNullability.isNullable(type)) {
             KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
         }
         return name;

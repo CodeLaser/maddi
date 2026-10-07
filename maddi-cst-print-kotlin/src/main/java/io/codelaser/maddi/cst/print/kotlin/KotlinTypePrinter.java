@@ -165,7 +165,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                                 .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
                                 .add(SymbolEnum.COLON_LABEL)
-                                .add(new TextImpl(KotlinTypeName.of(p.parameterizedType(), insideType))))
+                                // a property: the field's type, with its verdict, as every use of it reads it
+                                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(fieldByName.get(p.name())),
+                                        insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (!components.isEmpty()) {
@@ -244,6 +246,27 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /** {@code this.x = x; …} and nothing else: the parameters ARE the properties. */
+    /**
+     * The property a constructor parameter declares, when its constructor is printed as the primary constructor
+     * {@code class Foo(val id: Int)} or is a record's canonical one: the field of the same name. Null otherwise. A
+     * call's argument for that parameter goes into the property, so it is checked against the field's type.
+     */
+    static FieldInfo propertyOf(ParameterInfo parameter) {
+        MethodInfo c = parameter.methodInfo();
+        if (!c.isConstructor()) return null;
+        TypeInfo owner = c.typeInfo();
+        FieldInfo field = owner.fields().stream().filter(f -> f.name().equals(parameter.name()) && !f.isStatic())
+                .findFirst().orElse(null);
+        if (field == null) return null;
+        boolean companion = !fromKotlinSource(owner);
+        if (companion && owner.typeNature().isRecord()) return field;
+        List<MethodInfo> constructors = owner.constructors().stream().filter(x -> !x.isSynthetic()).toList();
+        if (constructors.size() != 1 || constructors.getFirst() != c) return null;
+        boolean allFields = c.parameters().stream()
+                .allMatch(p -> owner.fields().stream().anyMatch(f -> f.name().equals(p.name())));
+        return allFields && (!companion || onlyAssignsParameters(c)) ? field : null;
+    }
+
     private static boolean onlyAssignsParameters(MethodInfo c) {
         return c.methodBody() != null && c.methodBody().statements().stream().filter(s -> !s.isSynthetic())
                 .allMatch(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas

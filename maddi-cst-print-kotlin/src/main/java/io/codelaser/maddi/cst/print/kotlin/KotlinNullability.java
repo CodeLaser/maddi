@@ -70,6 +70,8 @@ final class KotlinNullability {
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {
+        FieldInfo property = KotlinTypePrinter.propertyOf(parameterInfo);
+        if (property != null) return fieldType(property); // class Foo(val id: T): the property's type
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
         if (verdict != null) return verdict;
         ParameterizedType declared = parameterInfo.parameterizedType();
@@ -226,14 +228,14 @@ final class KotlinNullability {
      * {@code Collection.add(E)}); anything else keeps the declared type.
      */
     static ParameterizedType throughReceiver(ParameterizedType declared, MethodCall call) {
-        if (declared == null || !declared.isTypeParameter() || declared.arrays() > 0
+        if (declared == null || !declared.isTypeParameter() && declared.parameters().isEmpty() || declared.arrays() > 0
             || call.objectIsImplicit() || call.object() == null) {
             return declared;
         }
         ParameterizedType receiver = kotlinType(call.object());
         if (receiver == null || receiver.typeInfo() == null || receiver.arrays() > 0) return declared;
         TypeInfo declaring = call.methodInfo().typeInfo();
-        if (receiver.typeInfo() != declaring && declaring.typeParameters().contains(declared.typeParameter())) {
+        if (receiver.typeInfo() != declaring && !declaring.typeParameters().isEmpty()) {
             // an inherited member (ArrayList<E> calling Collection.add(E)): the receiver as its declaring type
             try {
                 receiver = receiver.concreteSuperType(declaring.asParameterizedType());
@@ -242,14 +244,35 @@ final class KotlinNullability {
             }
             if (receiver == null || receiver.typeInfo() != declaring) return declared;
         }
-        int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
-        if (index < 0 || index >= receiver.parameters().size()) return declared;
-        ParameterizedType argument = receiver.parameters().get(index);
-        if (argument == null || argument.wildcard() != null || argument.typeInfo() == null && !argument.isTypeParameter()) {
-            return declared;
+        return substitute(declared, receiver);
+    }
+
+    /**
+     * {@code declared} with the receiver's type parameters replaced by its arguments, nested ones included
+     * ({@code entrySet(): Set<Entry<K, V>>} on a {@code Map<String, VarVersion?>}). The member's own {@code ?}
+     * stays: {@code getWithKey(k): E?} on a collection of {@code MethodWrapper} is a {@code MethodWrapper?}.
+     */
+    private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver) {
+        if (declared == null) return null;
+        if (declared.isTypeParameter() && declared.arrays() == 0) {
+            int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
+            if (index < 0 || index >= receiver.parameters().size()) return declared;
+            ParameterizedType argument = receiver.parameters().get(index);
+            if (argument == null || argument.wildcard() != null
+                || argument.typeInfo() == null && !argument.isTypeParameter()) {
+                return declared;
+            }
+            return isNullable(declared) ? argument.withNullable(NullableState.NULLABLE) : argument;
         }
-        // the member's own '?' stays: getWithKey(k): E? on a Collection<MethodWrapper> is a MethodWrapper?
-        return isNullable(declared) ? argument.withNullable(NullableState.NULLABLE) : argument;
+        if (declared.arrays() > 0 || declared.parameters().isEmpty()) return declared;
+        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        boolean changed = false;
+        for (ParameterizedType p : declared.parameters()) {
+            ParameterizedType s = p == null || p.wildcard() != null ? p : substitute(p, receiver);
+            changed |= s != p;
+            arguments.add(s);
+        }
+        return changed ? declared.withParameters(arguments) : declared;
     }
 
     /** A use-site fact: known non-null where the current statement starts, and smart-cast there by Kotlin. */
