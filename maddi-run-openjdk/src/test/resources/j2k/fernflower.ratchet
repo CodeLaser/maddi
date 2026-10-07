@@ -24,8 +24,10 @@
 #
 # 2026-10-07, protected as public (Java's is package access too), Cloneable for an override of Object.clone(),
 # Kotlin's signatures for collection overrides (removeAt, val size, remove(element: E), Collection<E>): 90 files.
+# 2026-10-07, unchecked casts for raw values, kotlin.run { } (smart casts survive it), type-parameter bounds,
+# imports for the types only the Kotlin names, target-typed locals and lambda results: 91 files, 852 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	90
+compilingFiles	91

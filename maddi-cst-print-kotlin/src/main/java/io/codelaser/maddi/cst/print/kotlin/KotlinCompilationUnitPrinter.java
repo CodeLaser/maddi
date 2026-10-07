@@ -21,6 +21,11 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Prints a {@link CompilationUnit} as a Kotlin file: the {@code package} line, the imports the
  * {@link ImportComputer} finds the printed code needs, and the types. A Java static import is an ordinary Kotlin
@@ -53,16 +58,43 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             out.add(KeywordImpl.PACKAGE).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(packageName)))
                     .add(SpaceEnum.NEWLINE);
         }
-        // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
-        importData.imports().stream().filter(i -> !KotlinTypeName.isMapped(i.importString()))
-                .forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinNames.dotted(i.importString().replaceFirst("^static\\s+", ""))))
-                .add(SpaceEnum.NEWLINE));
+        KotlinContext.takeReferencedTypes();
+        OutputBuilder types = new OutputBuilderImpl();
         for (TypeInfo typeInfo : compilationUnit.types()) {
             if (typeInfo.typeNature().isPackageInfo()) continue;
-            out.add(SpaceEnum.NEWLINE).add(new KotlinTypePrinter(typeInfo, formatter2).print(importData, true))
+            types.add(SpaceEnum.NEWLINE).add(new KotlinTypePrinter(typeInfo, formatter2).print(importData, true))
                     .add(SpaceEnum.NEWLINE);
         }
+        // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
+        List<String> imports = new ArrayList<>(importData.imports().stream().map(i -> i.importString())
+                .filter(i -> !KotlinTypeName.isMapped(i)).map(i -> i.replaceFirst("^static\\s+", "")).toList());
+        imports.addAll(missingImports(KotlinContext.takeReferencedTypes(), imports));
+        imports.forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(i)))
+                .add(SpaceEnum.NEWLINE));
+        out.add(types);
         return out;
+    }
+
+    /**
+     * The types the Kotlin names by their simple name, but Java did not import: a diamond's arguments
+     * ({@code bstat.setExprents(new ArrayList<>())} is {@code ArrayList<Exprent?>()}), a verdict's. Not those Kotlin
+     * sees anyway (this package, java.lang), and not one whose simple name an import or a declaration already takes.
+     */
+    private List<String> missingImports(Set<TypeInfo> referenced, List<String> imports) {
+        Set<String> taken = new HashSet<>();
+        imports.forEach(i -> taken.add(i.substring(i.lastIndexOf('.') + 1)));
+        compilationUnit.types().forEach(t -> taken.add(t.simpleName()));
+        List<String> missing = new ArrayList<>();
+        for (TypeInfo type : referenced) {
+            String fqn = type.fullyQualifiedName();
+            String packageName = type.packageName();
+            if (packageName.equals(compilationUnit.packageName()) || "java.lang".equals(packageName)
+                || KotlinTypeName.isMapped(fqn) || imports.contains(fqn) || imports.contains(packageName + ".*")
+                || !taken.add(type.simpleName())) {
+                continue;
+            }
+            missing.add(fqn);
+        }
+        return missing;
     }
 }

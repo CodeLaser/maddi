@@ -152,12 +152,15 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             package a;
             class R {
                 static class Box<T> { }
+                static final Box[] EMPTY = new Box[0];
                 private final Box<Integer>[][] grid = new Box[3][];
                 int m() {
                     Box[][] g = grid;
                     Box<Integer>[] row = new Box[2];
                     g[0] = row;
-                    return g.length;
+                    Box<Integer>[] empty = EMPTY;
+                    g[1] = EMPTY;
+                    return g.length + empty.length;
                 }
             }
             """;
@@ -166,10 +169,92 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void rawArrays() {
         String kotlin = kotlin(RAW_ARRAYS);
-        assertFalse(kotlin.contains("<*>"), kotlin);
         contains(kotlin, "private val grid: Array<Array<Box<Int>>> = arrayOfNulls<Array<Box<Int>>>(3)");
         contains(kotlin, "val row: Array<Box<Int>> = arrayOfNulls<Box<Int>>(2)");
         contains(kotlin, "val g = grid");
+        // a raw value where a typed one is expected: Java's unchecked conversion, Kotlin's unchecked cast
+        contains(kotlin, "val empty: Array<Box<Int>> = (EMPTY as Array<Box<Int>>)");
+        contains(kotlin, "g[1] = (EMPTY as Array<Box<Int>>)");
+    }
+
+    @Language("java")
+    private static final String GENERIC_ARRAYS = """
+            package a;
+            import java.util.Map;
+            class G {
+                static final Map<Integer, Integer[]> M = Map.of(1, new Integer[]{1, 2}, 2, new Integer[]{null, 3});
+            }
+            """;
+
+    /** An array for a method's type parameter: one V for all of Map.of's values, so no arrayOf<Int> fixes one of them. */
+    @Test
+    public void arraysForMethodTypeParameters() {
+        String kotlin = kotlin(GENERIC_ARRAYS);
+        contains(kotlin, "Map.of(1, arrayOf(1, 2), 2, arrayOf(null, 3))");
+    }
+
+    @Language("java")
+    private static final String UNIMPORTED = """
+            package a;
+            import java.util.ArrayList;
+            import javax.net.ssl.SSLParameters;
+            class U {
+                void m(SSLParameters params) {
+                    params.setServerNames(new ArrayList<>());
+                }
+            }
+            """;
+
+    /** The diamond's argument is written out in Kotlin: a type the Java file never named, so never imported. */
+    @Test
+    public void importsWhatOnlyKotlinNames() {
+        String kotlin = kotlin(UNIMPORTED);
+        contains(kotlin, "import javax.net.ssl.SNIServerName");
+        contains(kotlin, "ArrayList<SNIServerName>()");
+    }
+
+    @Language("java")
+    private static final String TARGET_TYPED = """
+            package a;
+            import java.util.*;
+            class W {
+                List<String> m(boolean b) {
+                    List<String> elements = Collections.emptyList();
+                    if (b) elements = new ArrayList<>();
+                    return elements;
+                }
+                Comparator<String> c() {
+                    return Comparator.comparingLong(s -> s.isEmpty() ? s.length() : Long.MIN_VALUE);
+                }
+            }
+            """;
+
+    /** What Java infers from the target: a call's type arguments, a lambda result's widening to the interface's long. */
+    @Test
+    public void typedByTheTarget() {
+        String kotlin = kotlin(TARGET_TYPED);
+        contains(kotlin, "var elements: MutableList<String> = Collections.emptyList()");
+        contains(kotlin, "s.length.toLong()");
+    }
+
+    @Language("java")
+    private static final String BOUNDS = """
+            package a;
+            import java.util.Collection;
+            class Bounded<N extends Number> {
+                <T extends Collection<String>> T fill(T c) {
+                    c.add("x");
+                    return c;
+                }
+            }
+            """;
+
+    /** A bound is what makes its members callable on a T. */
+    @Test
+    public void typeParameterBounds() {
+        String kotlin = kotlin(BOUNDS);
+        contains(kotlin, "class Bounded<N : Number>");
+        contains(kotlin, "fun <T : MutableCollection<String>> fill(c: T): T");
     }
 
     @Test

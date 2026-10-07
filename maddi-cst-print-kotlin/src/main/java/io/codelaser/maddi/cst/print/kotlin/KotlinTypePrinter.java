@@ -155,7 +155,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (!typeInfo.typeParameters().isEmpty()) {
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 out.add(typeInfo.typeParameters().stream()
-                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(tp.simpleName())))
+                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }

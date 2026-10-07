@@ -130,7 +130,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "for (i in 0 until a.size) {");
         contains(kotlin, "for (i in n downTo 0 step 2) {");
         contains(kotlin, """
-                        run {
+                        kotlin.run {
                             var i = 0
                             while (i < n) {
                                 n--

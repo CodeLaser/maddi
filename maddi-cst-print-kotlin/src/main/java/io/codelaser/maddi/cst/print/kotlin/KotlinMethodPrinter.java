@@ -78,7 +78,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (!methodInfo.typeParameters().isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(methodInfo.typeParameters().stream()
-                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(tp.simpleName())))
+                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }

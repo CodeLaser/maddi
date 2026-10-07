@@ -331,6 +331,15 @@ public class KotlinExpressionPrinter {
                     if (seen != declared) argumentTranslated = true;
                     declared = seen;
                 }
+                if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null
+                    && cc.parameterizedType().arrays() == 1 && !cc.parameterizedType().componentType().isPrimitiveExcludingVoid()
+                    && method.parameters().get(i).parameterizedType().typeParameter() != null
+                    && method.parameters().get(i).parameterizedType().typeParameter().isMethodTypeParameter()) {
+                    // Map.of(k1, new Integer[]{1, 2}, k2, new Integer[]{null, 3}): V is one type for all of them,
+                    // Array<Int?> as the target says; Kotlin infers it when no arrayOf<Int> fixes one array's
+                    printed.add(arrayInitializer(cc.arrayInitializer(), null, q));
+                    continue;
+                }
                 // a constructor call takes the target's states (Kotlin's generics are invariant)
                 ParameterizedType widenTo = unwrap(args.get(i)) instanceof ConstructorCall && declared != null
                         ? declared : target;
@@ -388,6 +397,14 @@ public class KotlinExpressionPrinter {
             // new Object[]{…}: as {…}, with the element state of what it initializes (Array<Any?>)
             return arrayInitializer(cc.arrayInitializer(), target, q);
         }
+        if (target != null && !(unwrap(e) instanceof ConstructorCall) && !(unwrap(e) instanceof NullConstant)
+            && rawOf(rawValueType(e), target)) {
+            // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
+            // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
         if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN
@@ -437,6 +454,12 @@ public class KotlinExpressionPrinter {
             if (!sameUpToStates(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /** The type Kotlin sees for {@code e}, where the printer knows it (a local typed from its initializer is not raw). */
+    private static ParameterizedType rawValueType(Expression e) {
+        ParameterizedType kotlin = KotlinNullability.kotlinType(e);
+        return kotlin != null ? kotlin : e.parameterizedType();
     }
 
     /** {@code raw} is {@code typed} without its type arguments: the same type, the same arrays, no arguments written. */
@@ -636,8 +659,16 @@ public class KotlinExpressionPrinter {
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body);
             if (reassigned.isEmpty() && statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
                 && !rs.hasNoValue()) {
-                inner = unwrap(rs.expression()) instanceof ConstructorCall cc && inferred(cc)
-                        ? inferredConstructorCall(cc, q) : printStatement(rs.expression(), q);
+                ParameterizedType returnType = lambda.methodInfo().returnType();
+                if (unwrap(rs.expression()) instanceof ConstructorCall cc && inferred(cc)) {
+                    inner = inferredConstructorCall(cc, q);
+                } else if (primitive(returnType) != null && !(unwrap(rs.expression()) instanceof Assignment)) {
+                    // thenComparingLong { o -> if (c) o.intValue() else Long.MIN_VALUE }: Java widens to the
+                    // functional interface's long, branch by branch; Kotlin's branches stay Int and Long
+                    inner = widened(rs.expression(), returnType, q);
+                } else {
+                    inner = printStatement(rs.expression(), q);
+                }
             } else {
                 labelled = hasInnerReturn(statements);
                 OutputBuilder lines = KotlinStatementPrinter.lambdaBody(statements, q);

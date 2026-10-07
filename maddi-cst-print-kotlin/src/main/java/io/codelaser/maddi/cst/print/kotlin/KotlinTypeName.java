@@ -174,11 +174,26 @@ public class KotlinTypeName {
         return s.endsWith("?") ? s.substring(0, s.length() - 1) : s;
     }
 
+    /**
+     * A type parameter's declaration: {@code T : MutableCollection<E>} for {@code <T extends Collection<E>>}, or the
+     * members of its bound do not resolve on a T. Only a single bound: more than one needs a {@code where} clause.
+     */
+    static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp, Qualification q) {
+        java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        String name = KotlinNames.name(tp.simpleName());
+        return bounds.size() == 1 ? name + " : " + of(bounds.getFirst(), q) : name;
+    }
+
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
-        return KotlinNames.dotted(TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal());
+        String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
+        TypeInfo primary = typeInfo.primaryType();
+        if (primary != null && (minimal.equals(primary.simpleName()) || minimal.startsWith(primary.simpleName() + "."))) {
+            KotlinContext.referencedType(primary);
+        }
+        return KotlinNames.dotted(minimal);
     }
 }

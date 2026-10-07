@@ -17,6 +17,7 @@ package io.codelaser.maddi.cst.print.kotlin;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
@@ -39,7 +40,7 @@ import java.util.stream.Stream;
  *   <li><b>C-style {@code for}</b>: a range loop ({@code for (i in 0 until n)}) when the loop variable is a counter
  *   nobody else assigns and the bound cannot change; otherwise a {@code while} with the updates at the end of the
  *   body, or, when the body {@code continue}s, a {@code while (true)} that runs the updates at the TOP of every
- *   iteration but the first, so that a {@code continue} still updates. Loop variables live in {@code run { }}, the
+ *   iteration but the first, so that a {@code continue} still updates. Loop variables live in {@code kotlin.run { }}, the
  *   one block Kotlin has.</li>
  *   <li><b>old-style {@code switch}</b>: a {@code when}. A case that falls through gets the statements of the cases
  *   it falls into, copied; the {@code break} that ends a case disappears; a {@code break} in the middle of one
@@ -62,10 +63,34 @@ public class KotlinStatementPrinter {
         }
     }
 
+    /**
+     * {@code Collections.emptyList()}: a call whose type arguments only the target determines, no argument does. Java
+     * infers them from the declaration; Kotlin's {@code val elements = emptyList()} has nothing to infer them from.
+     */
+    static boolean onlyTargetTyped(Expression e) {
+        if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
+        List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
+        return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
+                mentions(mc.methodInfo().returnType(), tp)
+                && mc.methodInfo().parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp)));
+    }
+
+    private static boolean mentions(ParameterizedType type, TypeParameter tp) {
+        if (type == null) return false;
+        if (tp.equals(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(p -> mentions(p, tp));
+    }
+
+    /**
+     * A block of its own. Qualified: inside a class an unqualified {@code run { }} is {@code this.run { }}, whose lambda
+     * receiver is a fresh {@code this} to the data flow, and {@code this.signature} loses its smart cast in there.
+     */
+    private static final String RUN = "kotlin.run";
+
     private static OutputBuilder printStatement(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
-                    : new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE).add(block(block, q));
+                    : new OutputBuilderImpl().add(new TextImpl(RUN)).add(SpaceEnum.ONE).add(block(block, q));
             case ReturnStatement rs -> returnStatement(rs, q);
             case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
             case LocalVariableCreation lvc -> localVariables(lvc, q);
@@ -306,7 +331,7 @@ public class KotlinStatementPrinter {
             return all.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
         }
         // the loop variables are the loop's: `run { }` is the only block Kotlin has
-        return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE).add(braces(all));
+        return new OutputBuilderImpl().add(new TextImpl(RUN)).add(SpaceEnum.ONE).add(braces(all));
     }
 
     /** A {@code continue} that targets this loop: one not inside a nested loop, or one labelled with this loop's. */
@@ -736,7 +761,8 @@ public class KotlinStatementPrinter {
         boolean rawLocal = hasInitializer && !nullableFromNonNull
                            && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
         boolean writeType = !hasInitializer || nullableFromNonNull
-                            || !rawLocal && !lvc.isVar() && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
+                            || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
+                                                             || onlyTargetTyped(init));
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,

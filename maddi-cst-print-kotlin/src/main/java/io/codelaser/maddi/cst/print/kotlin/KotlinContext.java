@@ -188,6 +188,22 @@ final class KotlinContext {
         return LOCAL_TYPES.get().get(name);
     }
 
+    // the top-level types a file names by their simple name: the printer writes types Java never did (a diamond's
+    // arguments, a verdict's), and the file must import those
+    private static final ThreadLocal<java.util.Set<TypeInfo>> REFERENCED_TYPES =
+            ThreadLocal.withInitial(java.util.LinkedHashSet::new);
+
+    static void referencedType(TypeInfo primaryType) {
+        REFERENCED_TYPES.get().add(primaryType);
+    }
+
+    /** The types referenced since the last call, which starts a new record. */
+    static java.util.Set<TypeInfo> takeReferencedTypes() {
+        java.util.Set<TypeInfo> taken = REFERENCED_TYPES.get();
+        REFERENCED_TYPES.set(new java.util.LinkedHashSet<>());
+        return taken;
+    }
+
     static void resetLabels() {
         COUNTER.get()[0] = 0;
         PATTERNS.get().clear();
