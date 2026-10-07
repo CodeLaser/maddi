@@ -94,6 +94,10 @@ public class KotlinExpressionPrinter {
             case UnaryOperator uo -> unaryOperator(uo, q);
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            // a field or array access is where its own per-expression fact is asked: before the dereference
+            case VariableExpression ve when ve.variable() instanceof DependentVariable
+                                            || ve.variable() instanceof FieldReference fr && !fr.isStatic() ->
+                    inCall(ve, () -> variable(ve.variable(), q));
             case VariableExpression ve -> variable(ve.variable(), q);
             case ArrayLength al -> new OutputBuilderImpl().add(receiver(al.scope(), q)).add(SymbolEnum.DOT)
                     .add(new TextImpl("size"));
@@ -209,7 +213,8 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isIndexGet(mc.methodInfo())) {
             // s.charAt(i) -> s[i]; the receiver was written above, with a dot that must go
             OutputBuilder indexed = new OutputBuilderImpl();
-            if (object != null && !mc.objectIsImplicit()) indexed.add(receiver(object, q)); else indexed.add(text("this"));
+            if (object != null && !mc.objectIsImplicit()) indexed.add(KotlinNullability.asserted(object, q));
+            else indexed.add(text("this"));
             return indexed.add(SymbolEnum.LEFT_BRACKET).add(print(mc.parameterExpressions().getFirst(), q))
                     .add(SymbolEnum.RIGHT_BRACKET);
         }
@@ -459,11 +464,17 @@ public class KotlinExpressionPrinter {
         boolean labelled = false;
         KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LAMBDA, null, KotlinContext.LAMBDA_LABEL));
         try {
-            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+            // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
+            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body);
+            if (reassigned.isEmpty() && statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
+                && !rs.hasNoValue()) {
                 inner = printStatement(rs.expression(), q);
             } else {
                 labelled = hasInnerReturn(statements);
-                inner = KotlinStatementPrinter.lambdaBody(statements, q);
+                OutputBuilder lines = KotlinStatementPrinter.lambdaBody(statements, q);
+                inner = reassigned.isEmpty() ? lines : java.util.stream.Stream.concat(reassigned.stream(),
+                        java.util.stream.Stream.of(lines)).filter(o -> !o.isEmpty())
+                        .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
             }
         } finally {
             KotlinContext.pop();

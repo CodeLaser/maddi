@@ -210,4 +210,24 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun equals(o: Any?): Boolean = o === this");
         contains(kotlin, "else -> { }");
     }
+
+    @Language("java")
+    private static final String LAMBDA_PARAMETER = """
+            package a;
+            import java.util.*;
+            class C {
+                void m(Map<String, List<String>> map) {
+                    map.compute("k", (k, v) -> { if (v == null) v = new ArrayList<>(); v.add(k); return v; });
+                }
+            }
+            """;
+
+    /** A lambda parameter the body assigns is a `var` copy, as a method's: Kotlin's lambda parameters are vals. */
+    @Test
+    public void reassignedLambdaParameter() {
+        contains(kotlin(LAMBDA_PARAMETER), """
+                { k, v ->
+                var v = v
+                if (v == null) {""");
+    }
 }

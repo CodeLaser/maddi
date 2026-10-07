@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -150,7 +151,38 @@ final class KotlinNullability {
         io.codelaser.maddi.cst.api.statement.Statement statement = KotlinContext.currentStatement();
         if (statement != null && verdicts().nonNullAt(statement, variable)) return true;
         Expression call = KotlinContext.currentCall();
-        return call != null && verdicts().nonNullAt(call, variable);
+        return call != null && !dereferencedInArguments(call, variable) && verdicts().nonNullAt(call, variable);
+    }
+
+    /**
+     * The fact at a call holds after its receiver AND arguments are evaluated; Kotlin evaluates them left to right,
+     * so a dereference of the variable in an argument would make the fact claim a smart cast the receiver or an
+     * earlier argument does not have yet ({@code stack.add(g.first)}: at the call g is non-null, at g it is not).
+     */
+    private static boolean dereferencedInArguments(Expression call, io.codelaser.maddi.cst.api.variable.Variable variable) {
+        List<Expression> arguments = switch (call) {
+            case MethodCall mc -> mc.parameterExpressions();
+            case ConstructorCall cc -> cc.parameterExpressions();
+            default -> List.of();
+        };
+        boolean[] found = {false};
+        for (Expression argument : arguments) {
+            argument.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                Expression scope = switch (e) {
+                    case MethodCall mc -> mc.object();
+                    case VariableExpression ve when ve.variable() instanceof FieldReference fr -> fr.scope();
+                    case VariableExpression ve when ve.variable() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
+                            -> dv.arrayExpression();
+                    default -> null;
+                };
+                if (scope != null && KotlinExpressionPrinter.unwrap(scope) instanceof VariableExpression sv
+                    && variable.equals(sv.variable())) {
+                    found[0] = true;
+                }
+                return !found[0];
+            });
+        }
+        return found[0];
     }
 
     private static boolean nullableJdkResult(MethodInfo methodInfo) {
