@@ -136,13 +136,39 @@ final class KotlinNullability {
             case NullConstant nc -> true;
             case MethodCall mc -> isNullable(returnType(mc.methodInfo())) || nullableJdkResult(mc.methodInfo());
             case VariableExpression ve -> switch (ve.variable()) {
-                case FieldReference fr -> isNullable(fieldType(fr.fieldInfo())) && !knownNonNull(fr);
+                // Kotlin smart-casts a val property, never a var one: a fact about a var field does not hold there
+                case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()))
+                                          && !(KotlinFieldPrinter.printsAsVal(fr.fieldInfo()) && knownNonNull(fr));
                 case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi);
                 case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv);
+                // nor does it smart-cast an element read: only the element's state counts
+                case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
+                    ParameterizedType array = kotlinType(dv.arrayExpression());
+                    yield array != null && array.arrays() > 0 && isNullable(array.componentType());
+                }
                 default -> false;
             };
             case InlineConditional ic -> nullableInKotlin(ic.ifTrue()) || nullableInKotlin(ic.ifFalse());
             default -> false;
+        };
+    }
+
+    /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
+    private static ParameterizedType kotlinType(Expression e) {
+        return switch (KotlinExpressionPrinter.unwrap(e)) {
+            case MethodCall mc -> returnType(mc.methodInfo());
+            case VariableExpression ve -> switch (ve.variable()) {
+                case FieldReference fr -> fieldType(fr.fieldInfo());
+                case ParameterInfo pi -> parameterType(pi);
+                case LocalVariable lv -> KotlinContext.localType(lv.simpleName()) != null
+                        ? KotlinContext.localType(lv.simpleName()) : lv.parameterizedType();
+                case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
+                    ParameterizedType array = kotlinType(dv.arrayExpression());
+                    yield array == null || array.arrays() == 0 ? null : array.componentType();
+                }
+                default -> null;
+            };
+            default -> null;
         };
     }
 

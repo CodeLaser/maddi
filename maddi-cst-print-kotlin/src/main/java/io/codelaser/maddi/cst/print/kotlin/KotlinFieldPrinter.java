@@ -33,9 +33,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
         // a Kotlin property is initialized where it is declared; Java's is zero/false/null until assigned
         // a final field the secondary constructors assign cannot be a val: Kotlin assigns those in an init block only
-        boolean isVal = fieldInfo.isFinal() && (hasInitializer || fieldInfo.isStatic()
-                                                || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()))
-                        || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
+        boolean isVal = isVal(fieldInfo, hasInitializer, asParameterInPrimaryConstructor);
         boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
         io.codelaser.maddi.cst.api.type.ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
@@ -61,6 +59,18 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         return builder;
+    }
+
+    private static boolean isVal(FieldInfo fieldInfo, boolean hasInitializer, boolean asParameterInPrimaryConstructor) {
+        return fieldInfo.isFinal() && (hasInitializer || fieldInfo.isStatic()
+                                       || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()))
+               || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
+    }
+
+    /** The property is a {@code val}, which Kotlin can smart-cast; a {@code var} property it cannot. */
+    static boolean printsAsVal(FieldInfo fieldInfo) {
+        boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
+        return isVal(fieldInfo, hasInitializer, false);
     }
 
     /** A static final primitive or String with a constant initializer: {@code const val}, usable in annotations. */

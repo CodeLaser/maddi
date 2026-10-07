@@ -196,11 +196,14 @@ public class KotlinStatementPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(label == null ? KotlinKeyword.RETURN : new TextImpl("return@" + label));
         if (!rs.hasNoValue()) {
             Expression value = rs.expression();
-            OutputBuilder printed = KotlinExpressionPrinter.print(value, q);
+            OutputBuilder printed;
             io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
             if (label == null && method != null && !method.isConstructor()) {
-                printed = KotlinNullability.toTarget(value, KotlinNullability.returnType(method),
-                        KotlinNullability.translated(method.typeInfo()), printed, q);
+                ParameterizedType returnType = KotlinNullability.returnType(method);
+                printed = KotlinNullability.toTarget(value, returnType, KotlinNullability.translated(method.typeInfo()),
+                        KotlinExpressionPrinter.widened(value, returnType, q), q);
+            } else {
+                printed = KotlinExpressionPrinter.print(value, q);
             }
             if (value instanceof And || value instanceof Or) {
                 // a long && chain is laid out one operand per line, and `return` at the end of a line returns Unit

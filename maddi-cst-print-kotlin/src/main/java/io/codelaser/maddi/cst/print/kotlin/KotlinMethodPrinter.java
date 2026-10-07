@@ -109,7 +109,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(KotlinNullability.toTarget(expressionBody, KotlinNullability.returnType(methodInfo),
                                 KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.print(expressionBody, qualification), qualification));
+                                KotlinExpressionPrinter.widened(expressionBody, KotlinNullability.returnType(methodInfo),
+                                        qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
             }
@@ -193,7 +194,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         OutputBuilder ob = new OutputBuilderImpl();
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType declared = KotlinNullability.parameterType(pi);
-        ParameterizedType type = pi.isVarArgs() ? declared.copyWithArrays(0) : declared;
+        ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL)
                 .add(new TextImpl(typeOverride != null ? typeOverride : KotlinTypeName.of(type, q)));
         return ob;

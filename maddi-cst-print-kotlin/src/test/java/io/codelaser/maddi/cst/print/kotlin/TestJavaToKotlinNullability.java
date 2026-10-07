@@ -66,8 +66,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                    && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
         }
 
+        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are. */
         private ParameterizedType verdict(String name, ParameterizedType type) {
-            return nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
+            ParameterizedType verdict = nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
+            if (nullable.contains(name + "[]")) {
+                ParameterizedType array = verdict != null ? verdict : type;
+                verdict = array.withComponentType(array.componentType().withNullable(NullableState.NULLABLE));
+            }
+            return verdict;
         }
 
         @Override
@@ -227,5 +233,43 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin(CONDITION, new KotlinPrintOptions(new ByName(Set.of("v"), Set.of("&&v")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "v != null && v.isEmpty()");
+    }
+
+    @Language("java")
+    private static final String ELEMENTS = """
+            package a;
+            class D {
+                private final int[][] table = { null, {1, 2} };
+                private String label;
+                private final String fixed;
+                D(String fixed, String label) { this.fixed = fixed; this.label = label; }
+                Object[] pair(String s) { return new Object[]{null, s}; }
+                int m(int i) {
+                    int[] row = table[i];
+                    int n = table[i].length;
+                    if (label != null) n += label.length();
+                    if (fixed != null) n += fixed.length();
+                    return n + row.length;
+                }
+            }
+            """;
+
+    /**
+     * An array's elements have their own state: {@code Array<IntArray?>}, and an element read is nullable in Kotlin,
+     * which never smart-casts it. Nor does Kotlin smart-cast a {@code var} property, whatever the fact says; a
+     * {@code val} one it does.
+     */
+    @Test
+    public void arrayElementsAndProperties() {
+        String kotlin = kotlin(ELEMENTS, new KotlinPrintOptions(
+                new ByName(Set.of("table[]", "row", "label", "fixed", "pair()[]"), Set.of("label", "fixed")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "private val table: Array<IntArray?> = arrayOf<IntArray?>(null, intArrayOf(1, 2))");
+        contains(kotlin, "table[i]!!.size");
+        contains(kotlin, "label!!.length");
+        contains(kotlin, "n += fixed.length");
+        contains(kotlin, "row!!.size");
+        // an array created with its elements takes the element state of the type it is returned as
+        contains(kotlin, "fun pair(s: String): Array<Any?> = arrayOf<Any?>(null, s)");
     }
 }

@@ -23,9 +23,7 @@ import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
 
 /**
  * Which variables are assigned after their declaration, for {@code val} versus {@code var}. Syntactic, and exact
@@ -34,8 +32,12 @@ import java.util.WeakHashMap;
  */
 final class KotlinAssignments {
 
-    private static final ThreadLocal<Map<TypeInfo, Set<FieldInfo>>> ASSIGNED_FIELDS =
-            ThreadLocal.withInitial(WeakHashMap::new);
+    /** The fields assigned in the compilation unit of {@code primary}, which is compared by identity. */
+    private record AssignedFields(TypeInfo primary, Set<FieldInfo> fields) {
+    }
+
+    // one entry, for the file being printed: a TypeInfo equals another of the same name from another parse
+    private static final ThreadLocal<AssignedFields> ASSIGNED_FIELDS = new ThreadLocal<>();
 
     private KotlinAssignments() {
     }
@@ -54,7 +56,12 @@ final class KotlinAssignments {
     static boolean neverReassigned(FieldInfo fieldInfo) {
         if (fieldInfo.access() == null || !fieldInfo.access().isPrivate()) return false;
         TypeInfo primary = fieldInfo.owner().primaryType();
-        return !ASSIGNED_FIELDS.get().computeIfAbsent(primary, KotlinAssignments::assignedFields).contains(fieldInfo);
+        AssignedFields cached = ASSIGNED_FIELDS.get();
+        if (cached == null || cached.primary() != primary) {
+            cached = new AssignedFields(primary, assignedFields(primary));
+            ASSIGNED_FIELDS.set(cached);
+        }
+        return !cached.fields().contains(fieldInfo);
     }
 
     private static Set<FieldInfo> assignedFields(TypeInfo primary) {

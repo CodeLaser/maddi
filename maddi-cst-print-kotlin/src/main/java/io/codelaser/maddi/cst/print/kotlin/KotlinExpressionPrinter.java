@@ -102,7 +102,7 @@ public class KotlinExpressionPrinter {
                                             || ve.variable() instanceof FieldReference fr && !fr.isStatic() ->
                     inCall(ve, () -> variable(ve.variable(), q));
             case VariableExpression ve -> variable(ve.variable(), q);
-            case ArrayLength al -> new OutputBuilderImpl().add(receiver(al.scope(), q)).add(SymbolEnum.DOT)
+            case ArrayLength al -> new OutputBuilderImpl().add(KotlinNullability.receiverWithDot(al.scope(), q))
                     .add(new TextImpl("size"));
             case ArrayInitializer ai -> arrayInitializer(ai, ai.parameterizedType(), q);
             case ClassExpression ce -> new OutputBuilderImpl().add(new TextImpl(classLiteral(ce.type(), q)));
@@ -332,6 +332,11 @@ public class KotlinExpressionPrinter {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
         }
+        if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() != null && target != null
+            && target.arrays() == cc.parameterizedType().arrays()) {
+            // new Object[]{…}: as {…}, with the element state of what it initializes (Array<Any?>)
+            return arrayInitializer(cc.arrayInitializer(), target, q);
+        }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
         if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN
@@ -439,7 +444,7 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder arrayCreation(ParameterizedType type, List<Expression> dimensions, int level,
                                                Qualification q) {
-        ParameterizedType element = type.copyWithArrays(type.arrays() - 1);
+        ParameterizedType element = type.componentType();
         OutputBuilder size = print(dimensions.get(level), q);
         String primitive = KotlinTypeName.primitiveArray(element);
         if (primitive != null) {
@@ -458,7 +463,8 @@ public class KotlinExpressionPrinter {
 
     /** {@code intArrayOf(1, 2)}, {@code arrayOf<String>("a")}; nested initializers recurse with the element type. */
     private static OutputBuilder arrayInitializer(ArrayInitializer ai, ParameterizedType type, Qualification q) {
-        ParameterizedType element = type != null && type.arrays() > 0 ? type.copyWithArrays(type.arrays() - 1) : null;
+        // the element type with its own nullability: arrayOf<IntArray?>(null, intArrayOf(1))
+        ParameterizedType element = type != null && type.arrays() > 0 ? type.componentType() : null;
         String primitive = element == null ? null : KotlinTypeName.primitiveArray(element);
         String factory;
         if (primitive != null) {

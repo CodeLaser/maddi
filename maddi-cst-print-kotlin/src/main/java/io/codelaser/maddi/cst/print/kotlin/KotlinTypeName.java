@@ -107,9 +107,8 @@ public class KotlinTypeName {
 
     private static String base(ParameterizedType pt, Qualification q) {
         if (pt.arrays() > 0) {
-            // the state on an array type is the array's, not its elements' (the element slot is not inferred yet)
-            ParameterizedType element = pt.copyWithArrays(pt.arrays() - 1)
-                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED);
+            // the state on an array type is the array's; its elements' is on its component type
+            ParameterizedType element = pt.componentType();
             String primitive = primitiveArray(element);
             return primitive != null ? primitive : "Array<" + of(element, q) + ">";
         }
