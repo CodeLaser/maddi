@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 
 import java.util.List;
 import java.util.Set;
@@ -38,10 +39,8 @@ import java.util.function.Function;
  * {@link Element#annotations()} for a declaration): their identity is what a printer needs to write them back. This
  * class only INTERPRETS them; it does not write {@code nullable()} into the model.
  * <p>
- * <b>Recognition is by simple name</b>, the way the annotation families are actually used: JSpecify, JetBrains,
- * JSR-305, Jakarta, Checker Framework, FindBugs/SpotBugs, Android, Lombok, Eclipse JDT, maddi's own, and a project's
- * private copy (elasticsearch's {@code org.elasticsearch.core.Nullable}) all spell nullable as {@code Nullable} or
- * {@code CheckForNull}, non-null as {@code NonNull}, {@code NotNull} or {@code Nonnull}.
+ * <b>Recognition is by simple name</b> ({@link NullAnnotations}), e.g. elasticsearch's private
+ * {@code org.elasticsearch.core.Nullable} too.
  * <p>
  * <b>Scope.</b> Inside a {@code @NullMarked} scope (the method, an enclosing type, or the package, the nearest
  * {@code @NullMarked}/{@code @NullUnmarked} winning) an unannotated type use is non-null, except a type-variable use
@@ -50,10 +49,11 @@ import java.util.function.Function;
  * {@link NullableState#UNSPECIFIED}. A primitive is always {@link NullableState#NONNULL}.
  * <p>
  * <b>maddi's own annotations</b> ({@code io.codelaser.maddi.annotation}) carry attributes that change their meaning:
- * {@code absent = true} denies the annotation, so it is read as not written; {@code @NotNull(content = true)} speaks
- * about the CONTENT, not the reference: the type arguments of the declared type become non-null (unless a type-use
- * annotation on an argument says otherwise), and the reference is left to the scope. Content of an array, and the
- * return value of a functional interface (the annotation's other readings of "content"), have no slot.
+ * {@code absent = true} denies the annotation, so it is read as not written; {@code @NotNull(content = true)} is
+ * non-null AND non-null content, as maddi has always used it ({@code List.of}, {@code Map.of}, {@code stream()} in
+ * the JDK hints): the type arguments become non-null too (unless a type-use annotation on an argument says
+ * otherwise). Content of an array, and the return value of a functional interface (the annotation's other readings
+ * of "content"), have no slot.
  * <p>
  * Known limitation: an array type is one {@link ParameterizedType}, so the array and its elements share one state;
  * the state is the ARRAY's, and an annotation on the elements ({@code @Nullable String[] a}) is not represented.
@@ -62,8 +62,8 @@ import java.util.function.Function;
  */
 public final class DeclaredNullability {
 
-    private static final Set<String> NULLABLE = Set.of("Nullable", "CheckForNull", "NullableDecl", "NullableType");
-    private static final Set<String> NON_NULL = Set.of("NonNull", "NotNull", "Nonnull", "NonNullDecl", "NonNullType");
+    private static final Set<String> NULLABLE = NullAnnotations.NULLABLE;
+    private static final Set<String> NON_NULL = NullAnnotations.NON_NULL;
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULL_UNMARKED = "NullUnmarked";
     private static final String PARAMETERS_NON_NULL_BY_DEFAULT = "ParametersAreNonnullByDefault";
@@ -115,7 +115,7 @@ public final class DeclaredNullability {
         return withContent.withNullable(state != null ? state : implicit(declared, marked));
     }
 
-    // maddi's @NotNull(content = true): the type arguments are non-null, except where one is annotated itself
+    // maddi's @NotNull(content = true): the type arguments are non-null too, except where one is annotated itself
     private static ParameterizedType nonNullContent(ParameterizedType pt) {
         if (pt.parameters().isEmpty() || pt.arrays() > 0) return pt;
         return pt.withParameters(pt.parameters().stream()
@@ -157,19 +157,13 @@ public final class DeclaredNullability {
     static NullableState explicit(List<AnnotationExpression> annotations) {
         boolean nonNull = false;
         for (AnnotationExpression ae : annotations) {
-            // maddi's: 'absent = true' denies the annotation; 'content = true' is about the content (top)
-            if (isMaddi(ae) && (ae.extractBoolean("absent") || ae.extractBoolean("content"))) continue;
+            // maddi's: 'absent = true' denies the annotation ('content = true' adds the content: top)
+            if (isMaddi(ae) && ae.extractBoolean("absent")) continue;
             String name = ae.typeInfo().simpleName();
             if (NULLABLE.contains(name)) return NullableState.NULLABLE;
             if (NON_NULL.contains(name)) nonNull = true;
         }
         return nonNull ? NullableState.NONNULL : null;
-    }
-
-    /** An annotation B1 reads as a nullness annotation (nullable or non-null), by simple name. */
-    public static boolean isNullnessAnnotation(AnnotationExpression ae) {
-        String name = ae.typeInfo().simpleName();
-        return NULLABLE.contains(name) || NON_NULL.contains(name);
     }
 
     // the annotation type's @Target includes TYPE_USE

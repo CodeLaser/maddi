@@ -60,10 +60,11 @@ public class PropertyImpl implements Property {
     public static final Property RECURSIVE_METHOD = new PropertyImpl("recursiveMethod", ValueImpl.BoolImpl.FALSE);
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
-    public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);
     /**
-     * The inferred nullability of the return value, per type argument (maddi-mod docs/design/nullability.md B2).
-     * Written by the nullability pass when the analyzer runs with nullability; independent of {@link #NOT_NULL_METHOD}.
+     * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
+     * from a null annotation (a contract: maddi's {@code @NotNull}/{@code @Nullable}, Lombok's {@code @NonNull}),
+     * a shallow default (primitive, fluent, inherited from an overridden method), or the nullability pass.
+     * {@link io.codelaser.maddi.cst.api.type.NullableState#UNSPECIFIED} (the default) means nobody said.
      */
     public static final Property NULLABILITY_METHOD = new PropertyImpl("nullabilityMethod",
             ValueImpl.NullabilityImpl.UNSPECIFIED);
@@ -142,7 +143,6 @@ public class PropertyImpl implements Property {
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);
-    public static final Property NOT_NULL_PARAMETER = new PropertyImpl("notNullParameter", ValueImpl.NotNullImpl.NULLABLE);
     /** See {@link #NULLABILITY_METHOD}. */
     public static final Property NULLABILITY_PARAMETER = new PropertyImpl("nullabilityParameter",
             ValueImpl.NullabilityImpl.UNSPECIFIED);
@@ -161,7 +161,6 @@ public class PropertyImpl implements Property {
     // INTRINSIC: prepwork's ComputePartOfConstructionFinalField re-derives this from the type's own body every run.
     public static final Property FINAL_FIELD = new PropertyImpl("finalField", ValueImpl.BoolImpl.FALSE,
             AnalysisTier.INTRINSIC);
-    public static final Property NOT_NULL_FIELD = new PropertyImpl("notNullField", ValueImpl.NotNullImpl.NULLABLE);
     /** See {@link #NULLABILITY_METHOD}. */
     public static final Property NULLABILITY_FIELD = new PropertyImpl("nullabilityField",
             ValueImpl.NullabilityImpl.UNSPECIFIED);

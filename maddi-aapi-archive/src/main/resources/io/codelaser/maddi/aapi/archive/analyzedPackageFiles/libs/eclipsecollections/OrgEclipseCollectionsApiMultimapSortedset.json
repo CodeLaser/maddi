@@ -60,10 +60,10 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectKeysValues(13,org.eclipse.collections.api.block.predicate.Predicate2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MwithKeyMultiValues(14,K,V[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MwithKeyMultiValues(14,K,V[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pkey(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pvalues(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MwithKeyValue(15,K,V)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+ {"name": "MwithKeyValue(15,K,V)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pkey(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pvalue(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 

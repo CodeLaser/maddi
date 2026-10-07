@@ -1083,74 +1083,20 @@ public abstract class ValueImpl implements Value {
     }
 
 
-    public record NotNullImpl(int value) implements NotNullProperty {
-        public static final NotNullProperty NO_VALUE = new NotNullImpl(-1);
-        public static final NotNullProperty NULLABLE = new NotNullImpl(0);
-        public static final NotNullProperty NOT_NULL = new NotNullImpl(1);
-        public static final NotNullProperty CONTENT_NOT_NULL = new NotNullImpl(2);
-
-        public static Value from(int level) {
-            return switch (level) {
-                case -1 -> NO_VALUE;
-                case 0 -> NULLABLE;
-                case 1 -> NOT_NULL;
-                case 2 -> CONTENT_NOT_NULL;
-                default -> throw new UnsupportedOperationException();
-            };
-        }
-
-        @Override
-        public boolean isDefault() {
-            return value == 0;
-        }
-
-        @Override
-        public boolean isAtLeastNotNull() {
-            return value >= 1;
-        }
-
-        @Override
-        public boolean isNullable() {
-            return value == 0;
-        }
-
-        @Override
-        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            if (value <= 0) return null;
-            return codec.encodeInt(context, value);
-        }
-
-        @Override
-        public int compareTo(Value o) {
-            if (o instanceof NotNullImpl(int value1)) {
-                return value - value1;
-            }
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public NotNullProperty max(NotNullProperty other) {
-            int v = ((NotNullImpl) other).value;
-            return value >= v ? this : other;
-        }
-
-        @Override
-        public Value rewire(InfoMapView infoMap) {
-            return this; // an int
-        }
-    }
-
-    static {
-        decoderMap.put(NotNullImpl.class, (di, encodedValue) ->
-                NotNullImpl.from(di.codec().decodeInt(di.context(), encodedValue)));
-    }
-
     /**
      * Encoded as a compact shape string: {@code N} non-null, {@code Q} nullable, {@code U} unspecified, the type
      * arguments in parentheses: {@code U(N,Q)} is {@code Map<String, String?>!}.
      */
     public record NullabilityImpl(NullableState state, List<NullabilityImpl> arguments) implements Nullability {
         public static final NullabilityImpl UNSPECIFIED = new NullabilityImpl(NullableState.UNSPECIFIED, List.of());
+        public static final NullabilityImpl NONNULL = new NullabilityImpl(NullableState.NONNULL, List.of());
+        public static final NullabilityImpl NULLABLE = new NullabilityImpl(NullableState.NULLABLE, List.of());
+
+        /** Non-null, and so is every type argument of {@code declared}: maddi's {@code @NotNull(content = true)}. */
+        public static NullabilityImpl contentNonNull(ParameterizedType declared) {
+            return new NullabilityImpl(NullableState.NONNULL,
+                    declared.parameters().stream().map(_ -> NONNULL).toList());
+        }
 
         public NullabilityImpl {
             arguments = List.copyOf(arguments);

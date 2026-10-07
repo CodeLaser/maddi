@@ -158,15 +158,6 @@ public interface Value extends Comparable<Value> {
         ParameterizedType applyTo(ParameterizedType declared);
     }
 
-    interface NotNullProperty extends Value {
-
-        boolean isAtLeastNotNull();
-
-        boolean isNullable();
-
-        NotNullProperty max(NotNullProperty other);
-    }
-
     /*
     the strings are arbitrary labels.
     at least two methods should have the same label, of the same kind (seq, par, multi).

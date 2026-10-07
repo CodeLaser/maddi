@@ -1320,8 +1320,9 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
 
     @Override
     public void setNonNullProperty(FieldInfo fieldInfo) {
-        if (!fieldInfo.analysis().haveAnalyzedValueFor(PropertyImpl.NOT_NULL_FIELD)) {
-            fieldInfo.analysis().set(PropertyImpl.NOT_NULL_FIELD, ValueImpl.NotNullImpl.NOT_NULL);
+        if (!fieldInfo.analysis().haveAnalyzedValueFor(PropertyImpl.NULLABILITY_FIELD)) {
+            fieldInfo.analysis().set(PropertyImpl.NULLABILITY_FIELD,
+                    ValueImpl.NullabilityImpl.NONNULL);
         }
     }
 
