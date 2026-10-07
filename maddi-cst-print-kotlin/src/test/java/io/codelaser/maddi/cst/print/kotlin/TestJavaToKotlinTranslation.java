@@ -260,4 +260,21 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                 kotlin);
         assertTrue(kotlin.lines().anyMatch(l -> l.endsWith(" or") || l.endsWith(" +")), kotlin);
     }
+
+    @Language("java")
+    private static final String ARRAY_INITIALIZERS = """
+            package a;
+            class C {
+                static final int[][][] TABLE = { {null, {1, 2}}, null };
+                String[][] names = { {"a"}, {} };
+            }
+            """;
+
+    /** An array initializer takes its type from what it initializes, not from its (possibly null) elements. */
+    @Test
+    public void arrayInitializers() {
+        String kotlin = kotlin(ARRAY_INITIALIZERS);
+        contains(kotlin, "val TABLE: Array<Array<IntArray>> = arrayOf<Array<IntArray>>(arrayOf<IntArray>(null, intArrayOf(1, 2)), null)");
+        contains(kotlin, "var names: Array<Array<String>> = arrayOf<Array<String>>(arrayOf<String>(\"a\"), arrayOf<String>())");
+    }
 }

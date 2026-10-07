@@ -24,6 +24,8 @@ dependencies {
     // the Kotlin printers reuse the OutputElement building blocks (OutputBuilderImpl, SymbolEnum, KeywordImpl,
     // TextImpl, …) and the import computation, exactly as the Java printers in cst-impl do
     implementation(project(":maddi-cst-impl"))
+    // the analyzer's NULLABILITY_* properties: the default nullability verdicts
+    implementation(project(":maddi-cst-analysis"))
 
     // the tests print Java parsed by the openjdk front end (Java -> Kotlin translation)
     testImplementation(project(":maddi-cst-print"))

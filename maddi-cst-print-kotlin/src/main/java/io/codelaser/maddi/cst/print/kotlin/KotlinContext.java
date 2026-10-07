@@ -142,6 +142,21 @@ final class KotlinContext {
         return previous;
     }
 
+    private static final ThreadLocal<Deque<Statement>> STATEMENTS = ThreadLocal.withInitial(ArrayDeque::new);
+
+    /** The innermost statement being printed: where a use-site fact is asked for. */
+    static Statement currentStatement() {
+        return STATEMENTS.get().peek();
+    }
+
+    static void pushStatement(Statement statement) {
+        STATEMENTS.get().push(statement);
+    }
+
+    static void popStatement() {
+        STATEMENTS.get().pop();
+    }
+
     static io.codelaser.maddi.cst.api.info.MethodInfo currentMethod() {
         return METHODS.get().peek();
     }

@@ -239,22 +239,25 @@ public class KotlinExpressionPrinter {
     }
 
     /** The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). */
-    private static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
-                                           Qualification q) {
+    static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                   Qualification q) {
         if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        // a member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there
-        if (method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName())) method = null;
-        boolean translated = method != null && KotlinNullability.translated(method.typeInfo());
+        // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
+        // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
+        // argument is asserted like one for translated code. equals takes Any? everywhere.
+        boolean mapped = method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName());
+        boolean translated = method != null && (mapped ? !"equals".equals(method.name())
+                : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
-            ParameterizedType target = method == null || i >= method.parameters().size()
-                                       || method.parameters().get(i).isVarArgs()
-                    ? null : method.parameters().get(i).parameterizedType();
+            boolean hasParameter = method != null && i < method.parameters().size()
+                                   && !method.parameters().get(i).isVarArgs();
+            ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
             if (unwrap(args.get(i)) instanceof Lambda l) {
                 printed.add(lambda(l, false, q));
             } else {
-                ParameterizedType declared = target == null ? null : KotlinNullability.parameterType(method.parameters().get(i));
+                ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
                 printed.add(KotlinNullability.toTarget(args.get(i), declared, translated,
                         widened(args.get(i), target, q), q));
             }
@@ -269,6 +272,10 @@ public class KotlinExpressionPrinter {
      * integral type by itself.
      */
     static OutputBuilder widened(Expression e, ParameterizedType target, Qualification q) {
+        if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
+            // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
+            return arrayInitializer(ai, target, q);
+        }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
         if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN

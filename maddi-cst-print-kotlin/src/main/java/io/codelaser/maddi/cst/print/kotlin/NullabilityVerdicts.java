@@ -50,4 +50,19 @@ public interface NullabilityVerdicts {
     default ParameterizedType local(MethodInfo method, Element declaration, LocalVariable variable) {
         return null;
     }
+
+    /**
+     * The local variable or parameter is known non-null when {@code statement} starts: after
+     * {@code if (v == null) return;}, inside {@code if (v != null)}, after {@code v.m()}. Kotlin smart-casts it there
+     * as well, so a nullable {@code v} needs no {@code !!}. (Java requires a local a lambda captures to be
+     * effectively final, so the smart cast cannot be lost to a lambda.)
+     * <p>
+     * ⚠ Only facts Kotlin's smart cast follows: NullabilityPass's {@code Report.smartCasts()}, not
+     * {@code Report.useSites()}, which also counts {@code Objects.requireNonNull(v)}, {@code assert v != null} and
+     * a non-null Java contract, after which Kotlin still needs the {@code !!}.
+     */
+    default boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
+                              io.codelaser.maddi.cst.api.variable.Variable variable) {
+        return false;
+    }
 }

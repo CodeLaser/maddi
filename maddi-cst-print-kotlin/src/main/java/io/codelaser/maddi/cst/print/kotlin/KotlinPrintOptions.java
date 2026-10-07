@@ -18,12 +18,14 @@ import java.util.Objects;
 /**
  * How Java is printed as Kotlin, beyond the formatter's options.
  *
- * @param verdicts  the nullability of declarations ({@link NullabilityVerdicts#NONE}: every type as declared)
+ * @param verdicts  the nullability of declarations ({@link PropertyVerdicts}: what the analysis stored, if it ran;
+ *                  {@link NullabilityVerdicts#NONE}: every type as declared)
  * @param nullCheck what to write where Kotlin types a value as nullable and its use needs it non-null
  */
 public record KotlinPrintOptions(NullabilityVerdicts verdicts, NullCheck nullCheck) {
 
-    public static final KotlinPrintOptions DEFAULT = new KotlinPrintOptions(NullabilityVerdicts.NONE, NullCheck.ASSERT);
+    /** The verdicts the analysis stored as properties, if it ran; {@code !!} where needed. */
+    public static final KotlinPrintOptions DEFAULT = new KotlinPrintOptions(PropertyVerdicts.INSTANCE, NullCheck.ASSERT);
 
     /**
      * A nullable value used where Kotlin needs a non-null one: as a receiver, an argument for a non-null

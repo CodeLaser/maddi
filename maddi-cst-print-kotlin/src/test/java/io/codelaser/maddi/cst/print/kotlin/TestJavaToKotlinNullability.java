@@ -46,7 +46,19 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /** NULLABLE for the declarations named here: fields and parameters by name, returns by method, locals by name. */
-    private record ByName(Set<String> nullable) implements NullabilityVerdicts {
+    private record ByName(Set<String> nullable, Set<String> checked) implements NullabilityVerdicts {
+        ByName(Set<String> nullable) {
+            this(nullable, Set.of());
+        }
+
+        /** Known non-null in every statement but the one that checks it, as after {@code if (v == null) return;}. */
+        @Override
+        public boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
+                                 io.codelaser.maddi.cst.api.variable.Variable variable) {
+            return checked.contains(variable.simpleName())
+                   && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
+        }
+
         private ParameterizedType verdict(String name, ParameterizedType type) {
             return nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
         }
@@ -68,6 +80,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
         @Override
         public ParameterizedType local(MethodInfo method, Element declaration, LocalVariable variable) {
+            // "undecided*": a verdict that is no decision, as the pass gives for a degraded method's unreached local
+            if (variable.simpleName().startsWith("undecided")) return variable.parameterizedType();
             return verdict(variable.simpleName(), variable.parameterizedType());
         }
     }
@@ -88,8 +102,16 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     String y = m.get("k");
                     use(y);
                     for (String s : names()) use(s);
+                    String undecided = "u";
+                    int undecidedCount = 0;
                 }
                 java.util.List<String> names() { return null; }
+            }
+            class D {
+                D(java.util.List<String> in) {
+                    String x = null;
+                    for (String s : in) x = s;
+                }
             }
             """;
 
@@ -106,7 +128,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "var x: String? = null");
         // no verdict for y: Kotlin infers String? from Map.get, so its use as a non-null argument is asserted
         contains(kotlin, "var y = m.get(\"k\")");
-        contains(kotlin, "for (s in names()!!) {"); // Kotlin does not loop over a nullable collection
+        contains(kotlin, "for (s in names()!!) {");
+        // an UNSPECIFIED local verdict is no decision: nullable, except for a primitive
+        contains(kotlin, "var undecided: String? = \"u\"");
+        contains(kotlin, "var undecidedCount = 0");
+        // a constructor body is an init block: its locals get their verdicts too
+        contains(kotlin, """
+                init {
+                    var x: String? = null
+                """); // Kotlin does not loop over a nullable collection
     }
 
     @Test
@@ -133,5 +163,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "constructor(a: Int, b: Int)");
         contains(kotlin, "constructor(a: Int?, b: Int?) : this(a!!.toInt(), b!!.toInt())");
         assertFalse(kotlin.contains("constructor(a: Int, b: Int) : this"), kotlin);
+    }
+
+    @Language("java")
+    private static final String CHECKED = """
+            package a;
+            class C {
+                int m(String p, String q) {
+                    if (p == null) return 0;
+                    return p.length() + q.length();
+                }
+            }
+            """;
+
+    /** A use-site fact: after the null check, Kotlin smart-casts p, and the printer writes no `!!`. */
+    @Test
+    public void useSiteFacts() {
+        String kotlin = kotlin(CHECKED, new KotlinPrintOptions(new ByName(Set.of("p", "q"), Set.of("p")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "open fun m(p: String?, q: String?): Int {");
+        contains(kotlin, "return p.length + q!!.length");
     }
 }

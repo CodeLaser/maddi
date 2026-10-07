@@ -53,6 +53,15 @@ import java.util.*;
 public class KotlinStatementPrinter {
 
     public static OutputBuilder print(Statement s, Qualification q) {
+        KotlinContext.pushStatement(s);
+        try {
+            return printStatement(s, q);
+        } finally {
+            KotlinContext.popStatement();
+        }
+    }
+
+    private static OutputBuilder printStatement(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
                     : new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE).add(block(block, q));

@@ -102,7 +102,9 @@ its own — exactly as for the Java `TypePrinterImpl`. The Kotlin printers imple
   arguments, assignments, initializers, `==` and arithmetic on a `char` get the conversion. A `when` statement over
   an enum or boolean gets `else -> {}`: Kotlin requires it to be exhaustive.
 - **Nullability** — the printer does not decide it; `KotlinPrintOptions` carries `NullabilityVerdicts` (fields,
-  parameters, returns, locals by declaring element), computed by maddi-mod's `NullabilityPass`. A NULLABLE verdict
+  parameters, returns, locals by declaring element), computed by maddi-mod's `NullabilityPass`. By default
+  (`PropertyVerdicts`) the printer reads the `NULLABILITY_FIELD`/`_PARAMETER`/`_METHOD` properties the analyzer
+  stores when it runs with nullability; locals come from the pass's report (`PropertyVerdicts.withLocals`). A NULLABLE verdict
   is the `?` on the declaration; a nullable field without initializer is `= null`. Where Kotlin types a value as
   nullable (a NULLABLE declaration, `Map.get`, `Queue.poll`, …) and its use needs it non-null (a receiver, an
   argument for a non-null parameter of translated code, a non-null return or declaration), the `NullCheck`

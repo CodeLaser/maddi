@@ -129,9 +129,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                     .add(eci.isSuper() ? KeywordImpl.SUPER : KeywordImpl.THIS)
                     .add(eci.parameterExpressions().isEmpty() ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
-                            : eci.parameterExpressions().stream().map(x -> KotlinExpressionPrinter.print(x, q))
-                            .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                    SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+                            : KotlinExpressionPrinter.arguments(eci.parameterExpressions(), eci.methodInfo(), q));
             statements = statements.subList(1, statements.size());
         } else if (KotlinTypePrinter.hasWrittenSuperclass(typeInfo)) {
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE).add(KeywordImpl.SUPER)
