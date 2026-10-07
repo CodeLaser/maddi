@@ -204,6 +204,9 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             return KotlinNullability.asserted(object, q);
         }
+        if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
+            return KotlinNullability.asserted(mc.parameterExpressions().getFirst(), q);
+        }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || (t.explicitlyWriteType() != null && !mc.objectIsImplicit())) {
                 b.add(new TextImpl(thisOrSuper(t))).add(SymbolEnum.DOT);
@@ -388,10 +391,11 @@ public class KotlinExpressionPrinter {
     }
 
     /**
-     * {@code ArrayList<BasicBlock?>()} where a {@code MutableList<BasicBlock?>} is initialized: the constructed
-     * type's arguments with the target's states, when they are the target's arguments up to those states (same
-     * number, same types: {@code ArrayList<E>} for {@code List<E>}, {@code HashMap<K, V>} for {@code Map<K, V>}).
-     * Kotlin's generics are invariant, so {@code ArrayList<BasicBlock>} is no {@code MutableList<BasicBlock?>}.
+     * {@code ArrayList<BasicBlock?>()} where a {@code MutableList<BasicBlock?>} is initialized: the target's arguments,
+     * when they are the constructed type's arguments up to their states at any depth (same number, same types:
+     * {@code ArrayList<E>} for {@code List<E>}, {@code HashMap<K, V>} for {@code Map<K, V>}). Kotlin's generics are
+     * invariant, so {@code ArrayList<BasicBlock>} is no {@code MutableList<BasicBlock?>}, and neither is
+     * {@code ArrayList<MutableList<Exprent>>} a {@code MutableList<MutableList<Exprent?>>} (fernflower: 25 initializers).
      * Null when there is nothing to change.
      */
     private static ParameterizedType withTargetStates(ParameterizedType constructed, ParameterizedType target) {
@@ -399,20 +403,28 @@ public class KotlinExpressionPrinter {
             || constructed.parameters().size() != target.parameters().size()) {
             return null;
         }
-        List<ParameterizedType> arguments = new ArrayList<>();
         boolean changed = false;
         for (int i = 0; i < constructed.parameters().size(); i++) {
             ParameterizedType mine = constructed.parameters().get(i);
             ParameterizedType theirs = target.parameters().get(i);
-            if (mine == null || theirs == null || mine.wildcard() != null || theirs.wildcard() != null
-                || !java.util.Objects.equals(mine.typeInfo(), theirs.typeInfo()) || mine.arrays() != theirs.arrays()
-                || mine.isTypeParameter() != theirs.isTypeParameter()) {
-                return null;
-            }
-            changed |= mine.nullable() != theirs.nullable();
-            arguments.add(mine.withNullable(theirs.nullable()));
+            if (!sameUpToStates(mine, theirs)) return null;
+            changed |= !mine.equals(theirs);
         }
-        return changed ? constructed.withParameters(arguments) : null;
+        return changed ? constructed.withParameters(target.parameters()) : null;
+    }
+
+    /** The same type, ignoring the nullable states of it and its arguments; a wildcard is never the same. */
+    private static boolean sameUpToStates(ParameterizedType a, ParameterizedType b) {
+        if (a == null || b == null || a.wildcard() != null || b.wildcard() != null
+            || !java.util.Objects.equals(a.typeInfo(), b.typeInfo()) || a.arrays() != b.arrays()
+            || !java.util.Objects.equals(a.typeParameter(), b.typeParameter())
+            || a.parameters().size() != b.parameters().size()) {
+            return false;
+        }
+        for (int i = 0; i < a.parameters().size(); i++) {
+            if (!sameUpToStates(a.parameters().get(i), b.parameters().get(i))) return false;
+        }
+        return true;
     }
 
     private static int rank(Primitive p) {

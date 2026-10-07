@@ -200,8 +200,9 @@ public class KotlinStatementPrinter {
             io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
             if (label == null && method != null && !method.isConstructor()) {
                 ParameterizedType returnType = KotlinNullability.returnType(method);
-                printed = KotlinNullability.toTarget(value, returnType, KotlinNullability.translated(method.typeInfo()),
-                        KotlinExpressionPrinter.widened(value, returnType, q), q);
+                OutputBuilder cast = KotlinNullability.typeVariableReturn(method, value, q);
+                printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
+                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.widened(value, returnType, q), q);
             } else {
                 printed = KotlinExpressionPrinter.print(value, q);
             }

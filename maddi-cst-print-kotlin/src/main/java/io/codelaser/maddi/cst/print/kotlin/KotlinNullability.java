@@ -25,8 +25,10 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
 
 import java.util.List;
 import java.util.Map;
@@ -111,11 +113,40 @@ final class KotlinNullability {
 
     static ParameterizedType returnType(MethodInfo methodInfo) {
         ParameterizedType verdict = verdicts().returnType(methodInfo);
-        if (verdict != null && isNullable(verdict) && overridesMappedMember(methodInfo)) {
-            // Kotlin declares the member it overrides, non-null: Any.toString(): String
+        if (verdict != null && isNullable(verdict)
+            && (overridesMappedMember(methodInfo) || returnsNullForTypeVariable(methodInfo))) {
+            // Kotlin declares the member it overrides, non-null: Any.toString(): String; Iterator<E>.next(): E
             return verdict.withNullable(NullableState.NONNULL);
         }
         return verdict != null ? verdict : methodInfo.returnType();
+    }
+
+    /**
+     * A nullable override of a member returning a type variable that is not nullable itself: fernflower's
+     * {@code FastSparseSetIterator<E>.next()} returns null past the end, but Kotlin's {@code Iterator<E>.next(): E}
+     * cannot be overridden by {@code E?}. The override keeps {@code E}, and a returned null is cast to it
+     * ({@link #typeVariableReturn}), unchecked, as Java's is.
+     */
+    static boolean returnsNullForTypeVariable(MethodInfo methodInfo) {
+        if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
+        return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
+                && !isNullable(declaredReturnType(m)));
+    }
+
+    /** A translated method's return verdict; a library's or a Kotlin source's return type as declared. */
+    private static ParameterizedType declaredReturnType(MethodInfo m) {
+        ParameterizedType verdict = translated(m.typeInfo()) ? verdicts().returnType(m) : null;
+        return verdict != null ? verdict : m.returnType();
+    }
+
+    /** {@code (value) as E}, for a return from a method {@link #returnsNullForTypeVariable}; null otherwise. */
+    static OutputBuilder typeVariableReturn(MethodInfo methodInfo, Expression value, Qualification q) {
+        if (!(value instanceof NullConstant) && !nullableInKotlin(value)) return null;
+        ParameterizedType verdict = verdicts().returnType(methodInfo);
+        if (verdict == null || !isNullable(verdict) || !returnsNullForTypeVariable(methodInfo)) return null;
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                .add(new TextImpl(KotlinTypeName.of(methodInfo.returnType(), q)));
     }
 
     /** An override of a member of a type Kotlin maps to its own (Object, String, the collections): no platform type. */

@@ -66,7 +66,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                    && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
         }
 
-        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are; {@code "x<>"}, {@code "x<,>"}: its first, second type argument. */
+        /**
+         * {@code "x"}: x is nullable; {@code "x[]"}: x's elements are; {@code "x<>"}, {@code "x<,>"}: its first, second
+         * type argument; {@code "x<<>>"}: its first type argument's first.
+         */
         private ParameterizedType verdict(String name, ParameterizedType type) {
             ParameterizedType verdict = nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
             if (nullable.contains(name + "[]")) {
@@ -78,6 +81,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 ParameterizedType generic = verdict != null ? verdict : type;
                 java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
                 arguments.set(i, arguments.get(i).withNullable(NullableState.NULLABLE));
+                verdict = generic.withParameters(arguments);
+            }
+            if (nullable.contains(name + "<<>>")) {
+                ParameterizedType generic = verdict != null ? verdict : type;
+                java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
+                ParameterizedType inner = arguments.getFirst();
+                java.util.List<ParameterizedType> innerArguments = new java.util.ArrayList<>(inner.parameters());
+                innerArguments.set(0, innerArguments.getFirst().withNullable(NullableState.NULLABLE));
+                arguments.set(0, inner.withParameters(innerArguments));
                 verdict = generic.withParameters(arguments);
             }
             return verdict;
@@ -293,8 +305,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 private final Keyed<String> keyed = new Keyed<>();
                 private final List<String> names = new ArrayList<>();
                 private final List<String> maybe = new ArrayList<>();
+                private final List<List<String>> rows = new ArrayList<>();
                 private final String[] slots = new String[2];
                 int m(Map<String, String> map, String k) {
+                    rows.add(new ArrayList<>());
+                    rows.get(0).add(map.get(k));
+                    int checked = Objects.requireNonNull(maybe.get(0)).length() + Objects.requireNonNull(names.get(0)).length();
                     names.add(map.get(k));
                     maybe.add(map.get(k));
                     slots[0] = map.get(k);
@@ -313,11 +329,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void containerContent() {
-        String kotlin = kotlin(CONTENT, new KotlinPrintOptions(new ByName(Set.of("maybe<>", "find()", "loose<>")),
+        String kotlin = kotlin(CONTENT, new KotlinPrintOptions(new ByName(Set.of("maybe<>", "find()", "loose<>", "rows<<>>")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         // Kotlin's generics are invariant: the constructor call takes the declaration's states
         contains(kotlin, "private val maybe: MutableList<String?> = ArrayList<String?>()");
         contains(kotlin, "private val names: MutableList<String> = ArrayList<String>()");
+        // ...at any depth: ArrayList<MutableList<String>> is no MutableList<MutableList<String?>> (fernflower: 25)
+        contains(kotlin, "private val rows: MutableList<MutableList<String?>> = ArrayList<MutableList<String?>>()");
+        // Objects.requireNonNull(x): T is inferred nullable from a nullable x, so the call is x!!
+        contains(kotlin, "val checked = maybe.get(0)!!.length + names.get(0).length");
         contains(kotlin, "names.add(map.get(k)!!)");
         contains(kotlin, "maybe.add(map.get(k))");
         contains(kotlin, "slots[0] = map.get(k)!!");
@@ -328,6 +348,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "loose.put(map.get(k))");
         contains(kotlin, "strict.put(map.get(k)!!)");
         contains(kotlin, "loose.take()!!.length + strict.take().length");
+    }
+
+    @Language("java")
+    private static final String ITERATOR = """
+            package a;
+            import java.util.*;
+            class It<E> implements Iterator<E> {
+                private final List<E> items = new ArrayList<>();
+                private int pos;
+                public boolean hasNext() { return true; }
+                public E next() { return pos < items.size() ? items.get(pos++) : null; }
+            }
+            """;
+
+    /**
+     * fernflower's FastSparseSetIterator: next() really returns null, but Kotlin's Iterator<E>.next(): E cannot be
+     * overridden by E?. The override keeps E and casts the null, unchecked, as Java does; a `!!` would throw.
+     */
+    @Test
+    public void nullForATypeVariable() {
+        String kotlin = kotlin(ITERATOR, new KotlinPrintOptions(new ByName(Set.of("next()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun next(): E");
+        contains(kotlin, ") as E");
+        assertFalse(kotlin.contains("next(): E?"), kotlin);
     }
 
     @Language("java")

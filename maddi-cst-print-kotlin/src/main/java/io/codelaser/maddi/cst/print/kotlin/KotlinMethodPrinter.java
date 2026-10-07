@@ -106,9 +106,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (!reassigned.isEmpty()) {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
             } else if (expressionBody != null) {
+                OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(KotlinNullability.toTarget(expressionBody, KotlinNullability.returnType(methodInfo),
-                                KotlinNullability.translated(typeInfo),
+                        .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
+                                KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
                                 KotlinExpressionPrinter.widened(expressionBody, KotlinNullability.returnType(methodInfo),
                                         qualification), qualification));
             } else {

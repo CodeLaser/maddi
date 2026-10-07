@@ -127,6 +127,15 @@ final class KotlinMappedMembers {
      * {@code wait}, {@code notify}, {@code notifyAll}: members of {@code java.lang.Object} that Kotlin's {@code Any}
      * does not have; reached through a cast to {@code java.lang.Object}.
      */
+    /**
+     * {@code Objects.requireNonNull(x)}: Kotlin infers its {@code T} from the argument, so for a nullable {@code x} the
+     * result is nullable too; {@code x!!} throws the same NullPointerException and is non-null.
+     */
+    static boolean isRequireNonNull(MethodInfo methodInfo) {
+        return methodInfo.isStatic() && "requireNonNull".equals(methodInfo.name()) && methodInfo.parameters().size() == 1
+               && "java.util.Objects".equals(methodInfo.typeInfo().fullyQualifiedName());
+    }
+
     static boolean isMonitorMethod(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.Object".equals(methodInfo.typeInfo().fullyQualifiedName())
                && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
