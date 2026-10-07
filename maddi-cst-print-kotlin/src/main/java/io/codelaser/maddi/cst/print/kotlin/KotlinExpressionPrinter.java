@@ -68,7 +68,7 @@ public class KotlinExpressionPrinter {
     /** An expression whose value is used. */
     public static OutputBuilder print(Expression e, Qualification q) {
         return switch (e) {
-            case ConstructorCall cc -> inCall(cc, () -> constructorCall(cc, q));
+            case ConstructorCall cc -> inCall(cc, () -> constructorCall(cc, cc.parameterizedType(), q));
             case Cast cast -> cast(cast, q);
             case InstanceOf io -> instanceOf(io, q);
             case InlineConditional ic when isElvis(ic) ->
@@ -268,16 +268,25 @@ public class KotlinExpressionPrinter {
             b.add(new TextImpl(mc.typeArguments().stream().map(t -> KotlinTypeName.of(t, q))
                     .collect(java.util.stream.Collectors.joining(", ", "<", ">"))));
         }
-        return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
+        return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
     }
 
     private static OutputBuilder arguments(List<Expression> args, Qualification q) {
         return arguments(args, null, q);
     }
 
-    /** The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). */
     static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
                                    Qualification q) {
+        return arguments(args, method, null, q);
+    }
+
+    /**
+     * The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). A
+     * parameter typed by the receiver's type parameter takes the receiver's type argument as its target
+     * ({@code list.add(x)} on a {@code List<String>}: x is asserted non-null when Kotlin types it nullable).
+     */
+    static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                   MethodCall call, Qualification q) {
         if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
         // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
@@ -299,6 +308,7 @@ public class KotlinExpressionPrinter {
                 printed.add(lambda(l, false, q));
             } else {
                 ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
+                if (call != null) declared = KotlinNullability.throughReceiver(declared, call);
                 printed.add(KotlinNullability.toTarget(args.get(i), declared, translated,
                         widened(args.get(i), target, q), q));
             }
@@ -332,6 +342,10 @@ public class KotlinExpressionPrinter {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
         }
+        if (unwrap(e) instanceof ConstructorCall cc && target != null && cc.anonymousClass() == null) {
+            ParameterizedType withStates = withTargetStates(cc.parameterizedType(), target);
+            if (withStates != null) return inCall(cc, () -> constructorCall(cc, withStates, q));
+        }
         if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() != null && target != null
             && target.arrays() == cc.parameterizedType().arrays()) {
             // new Object[]{…}: as {…}, with the element state of what it initializes (Array<Any?>)
@@ -349,6 +363,34 @@ public class KotlinExpressionPrinter {
             if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
         }
         return receiver;
+    }
+
+    /**
+     * {@code ArrayList<BasicBlock?>()} where a {@code MutableList<BasicBlock?>} is initialized: the constructed
+     * type's arguments with the target's states, when they are the target's arguments up to those states (same
+     * number, same types: {@code ArrayList<E>} for {@code List<E>}, {@code HashMap<K, V>} for {@code Map<K, V>}).
+     * Kotlin's generics are invariant, so {@code ArrayList<BasicBlock>} is no {@code MutableList<BasicBlock?>}.
+     * Null when there is nothing to change.
+     */
+    private static ParameterizedType withTargetStates(ParameterizedType constructed, ParameterizedType target) {
+        if (constructed.arrays() > 0 || target.arrays() > 0 || constructed.parameters().isEmpty()
+            || constructed.parameters().size() != target.parameters().size()) {
+            return null;
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        boolean changed = false;
+        for (int i = 0; i < constructed.parameters().size(); i++) {
+            ParameterizedType mine = constructed.parameters().get(i);
+            ParameterizedType theirs = target.parameters().get(i);
+            if (mine == null || theirs == null || mine.wildcard() != null || theirs.wildcard() != null
+                || !java.util.Objects.equals(mine.typeInfo(), theirs.typeInfo()) || mine.arrays() != theirs.arrays()
+                || mine.isTypeParameter() != theirs.isTypeParameter()) {
+                return null;
+            }
+            changed |= mine.nullable() != theirs.nullable();
+            arguments.add(mine.withNullable(theirs.nullable()));
+        }
+        return changed ? constructed.withParameters(arguments) : null;
     }
 
     private static int rank(Primitive p) {
@@ -406,8 +448,7 @@ public class KotlinExpressionPrinter {
      * {@code Foo(a)} for {@code new Foo(a)}; {@code outer.Inner()} for {@code outer.new Inner()}; an anonymous class
      * becomes an object expression; arrays become their Kotlin factory calls.
      */
-    private static OutputBuilder constructorCall(ConstructorCall cc, Qualification q) {
-        ParameterizedType type = cc.parameterizedType();
+    private static OutputBuilder constructorCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) return anonymousClass(cc, q);
         if (type.arrays() > 0) {
             if (cc.arrayInitializer() != null) return arrayInitializer(cc.arrayInitializer(), type, q);
@@ -604,6 +645,11 @@ public class KotlinExpressionPrinter {
     /** The type a variable was declared with in Kotlin: the nullability verdict's, where there is one. */
     private static ParameterizedType declaredType(Variable v) {
         return switch (v) {
+            // an element written: the array's element type, with its state (slots[0] = map.get(k)!!)
+            case DependentVariable dv -> {
+                ParameterizedType array = KotlinNullability.kotlinType(dv.arrayExpression());
+                yield array != null && array.arrays() > 0 ? array.componentType() : v.parameterizedType();
+            }
             case FieldReference fr -> KotlinNullability.fieldType(fr.fieldInfo());
             case ParameterInfo pi -> KotlinNullability.parameterType(pi);
             case io.codelaser.maddi.cst.api.variable.LocalVariable lv -> {

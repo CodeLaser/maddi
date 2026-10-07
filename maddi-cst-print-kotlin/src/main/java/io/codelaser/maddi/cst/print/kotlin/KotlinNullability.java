@@ -134,7 +134,8 @@ final class KotlinNullability {
         Expression x = KotlinExpressionPrinter.unwrap(e);
         return switch (x) {
             case NullConstant nc -> true;
-            case MethodCall mc -> isNullable(returnType(mc.methodInfo())) || nullableJdkResult(mc.methodInfo());
+            case MethodCall mc -> isNullable(throughReceiver(returnType(mc.methodInfo()), mc))
+                                  || nullableJdkResult(mc.methodInfo());
             case VariableExpression ve -> switch (ve.variable()) {
                 // Kotlin smart-casts a val property, never a var one: a fact about a var field does not hold there
                 case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()))
@@ -154,9 +155,9 @@ final class KotlinNullability {
     }
 
     /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
-    private static ParameterizedType kotlinType(Expression e) {
+    static ParameterizedType kotlinType(Expression e) {
         return switch (KotlinExpressionPrinter.unwrap(e)) {
-            case MethodCall mc -> returnType(mc.methodInfo());
+            case MethodCall mc -> throughReceiver(returnType(mc.methodInfo()), mc);
             case VariableExpression ve -> switch (ve.variable()) {
                 case FieldReference fr -> fieldType(fr.fieldInfo());
                 case ParameterInfo pi -> parameterType(pi);
@@ -170,6 +171,30 @@ final class KotlinNullability {
             };
             default -> null;
         };
+    }
+
+    /**
+     * A member's parameter or result type as the receiver instantiates it: {@code E} of {@code list.add(e)} or
+     * {@code list.get(i)} is the receiver's type argument, with that argument's state ({@code List<String?>}: the
+     * element may be null; {@code List<String>}: a nullable value is asserted where it is written). Only for a type
+     * parameter of the receiver's own type, the case of a member called on a declared {@code List} or {@code Map};
+     * anything else keeps the declared type.
+     */
+    static ParameterizedType throughReceiver(ParameterizedType declared, MethodCall call) {
+        if (declared == null || !declared.isTypeParameter() || declared.arrays() > 0
+            || call.objectIsImplicit() || call.object() == null) {
+            return declared;
+        }
+        ParameterizedType receiver = kotlinType(call.object());
+        if (receiver == null || receiver.typeInfo() == null || receiver.arrays() > 0) return declared;
+        int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
+        if (index < 0 || index >= receiver.parameters().size()) return declared;
+        ParameterizedType argument = receiver.parameters().get(index);
+        if (argument == null || argument.wildcard() != null || argument.typeInfo() == null && !argument.isTypeParameter()) {
+            return declared;
+        }
+        // the member's own '?' stays: getWithKey(k): E? on a Collection<MethodWrapper> is a MethodWrapper?
+        return isNullable(declared) ? argument.withNullable(NullableState.NULLABLE) : argument;
     }
 
     /** A use-site fact: known non-null where the current statement starts, and smart-cast there by Kotlin. */

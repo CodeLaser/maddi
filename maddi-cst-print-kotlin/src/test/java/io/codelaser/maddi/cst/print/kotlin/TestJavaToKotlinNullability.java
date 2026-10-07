@@ -66,12 +66,18 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                    && !(statement instanceof io.codelaser.maddi.cst.api.statement.IfElseStatement);
         }
 
-        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are. */
+        /** {@code "x"}: x is nullable; {@code "x[]"}: x's elements are; {@code "x<>"}: x's first type argument is. */
         private ParameterizedType verdict(String name, ParameterizedType type) {
             ParameterizedType verdict = nullable.contains(name) ? type.withNullable(NullableState.NULLABLE) : null;
             if (nullable.contains(name + "[]")) {
                 ParameterizedType array = verdict != null ? verdict : type;
                 verdict = array.withComponentType(array.componentType().withNullable(NullableState.NULLABLE));
+            }
+            if (nullable.contains(name + "<>")) {
+                ParameterizedType generic = verdict != null ? verdict : type;
+                java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(generic.parameters());
+                arguments.set(0, arguments.getFirst().withNullable(NullableState.NULLABLE));
+                verdict = generic.withParameters(arguments);
             }
             return verdict;
         }
@@ -271,5 +277,44 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "row!!.size");
         // an array created with its elements takes the element state of the type it is returned as
         contains(kotlin, "fun pair(s: String): Array<Any?> = arrayOf<Any?>(null, s)");
+    }
+
+    @Language("java")
+    private static final String CONTENT = """
+            package a;
+            import java.util.*;
+            class E {
+                static class Keyed<T> { T find(String k) { return null; } }
+                private final Keyed<String> keyed = new Keyed<>();
+                private final List<String> names = new ArrayList<>();
+                private final List<String> maybe = new ArrayList<>();
+                private final String[] slots = new String[2];
+                int m(Map<String, String> map, String k) {
+                    names.add(map.get(k));
+                    maybe.add(map.get(k));
+                    slots[0] = map.get(k);
+                    return maybe.get(0).length() + names.get(0).length() + keyed.find(k).length();
+                }
+            }
+            """;
+
+    /**
+     * Content takes its state from the type argument or element type: a nullable value is asserted where it is
+     * written into a non-null slot ({@code List<String>}, {@code Array<String>}), and passes into a nullable one
+     * ({@code List<String?>}), whose reads are then asserted where they are dereferenced.
+     */
+    @Test
+    public void containerContent() {
+        String kotlin = kotlin(CONTENT, new KotlinPrintOptions(new ByName(Set.of("maybe<>", "find()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        // Kotlin's generics are invariant: the constructor call takes the declaration's states
+        contains(kotlin, "private val maybe: MutableList<String?> = ArrayList<String?>()");
+        contains(kotlin, "private val names: MutableList<String> = ArrayList<String>()");
+        contains(kotlin, "names.add(map.get(k)!!)");
+        contains(kotlin, "maybe.add(map.get(k))");
+        contains(kotlin, "slots[0] = map.get(k)!!");
+        contains(kotlin, "maybe.get(0)!!.length + names.get(0).length");
+        // a member's own '?' survives its receiver's non-null type argument: find(k): T? on a Keyed<String>
+        contains(kotlin, "keyed.find(k)!!.length");
     }
 }
