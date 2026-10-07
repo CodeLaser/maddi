@@ -132,7 +132,7 @@ public class KotlinExpressionPrinter {
         return switch (v) {
             case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t)));
             case FieldReference fr -> fieldReference(fr, q);
-            case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
+            case DependentVariable dv -> new OutputBuilderImpl().add(KotlinNullability.asserted(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
             default -> {
                 java.util.function.Supplier<OutputBuilder> pattern = KotlinContext.patternVariable(v);

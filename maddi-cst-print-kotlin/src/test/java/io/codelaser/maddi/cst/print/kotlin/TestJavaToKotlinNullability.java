@@ -130,7 +130,11 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "var y = m.get(\"k\")");
         contains(kotlin, "for (s in names()!!) {");
         // an UNSPECIFIED local verdict is no decision: nullable, except for a primitive
-        contains(kotlin, "var undecided: String? = \"u\"");
+        // declared, then assigned: Kotlin smart-casts after an assignment, not after a typed declaration's initializer
+        contains(kotlin, """
+                var undecided: String?
+                undecided = "u"
+                """);
         contains(kotlin, "var undecidedCount = 0");
         // a constructor body is an init block: its locals get their verdicts too
         contains(kotlin, """
@@ -183,5 +187,22 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "open fun m(p: String?, q: String?): Int {");
         contains(kotlin, "return p.length + q!!.length");
+    }
+
+    @Language("java")
+    private static final String ARRAYS = """
+            package a;
+            class C {
+                String[] names;
+                int first() { return names[0].length(); }
+            }
+            """;
+
+    /** A nullable array is indexed with `!!`; its elements are not nullable for it (no element verdict yet). */
+    @Test
+    public void nullableArray() {
+        String kotlin = kotlin(ARRAYS, new KotlinPrintOptions(new ByName(Set.of("names")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "var names: Array<String>? = null");
+        contains(kotlin, "names!![0].length");
     }
 }

@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * Prints a {@link Statement} as Kotlin: no semicolons, {@code val}/{@code var}, and every Java statement form
@@ -692,6 +693,14 @@ public class KotlinStatementPrinter {
         boolean writeType = !hasInitializer || KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)
                             || !lvc.isVar() && !Objects.equals(lv.parameterizedType(), init.parameterizedType());
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+        if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
+            // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,
+            // and the uses that follow need no `!!` (kotlinc 2.4; the use-site facts assume the assignment's cast)
+            OutputBuilder assignment = new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(lv.simpleName())))
+                    .add(KotlinSymbols.assignment("=")).add(KotlinExpressionPrinter.widened(init, type, q));
+            return Stream.of(b, assignment).collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
+                    GuideImpl.generatorForBlock()));
+        }
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));

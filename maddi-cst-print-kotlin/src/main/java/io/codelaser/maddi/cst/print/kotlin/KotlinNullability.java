@@ -179,6 +179,12 @@ final class KotlinNullability {
         return KotlinExpressionPrinter.receiver(e, q).add(NOT_NULL);
     }
 
+    /** An array that is indexed: {@code a!![i]} when Kotlin types it nullable ({@code ?.} cannot index a target). */
+    static OutputBuilder asserted(Expression array, Qualification q) {
+        OutputBuilder receiver = KotlinExpressionPrinter.receiver(array, q);
+        return nullableInKotlin(array) && !(array instanceof NullConstant) ? receiver.add(NOT_NULL) : receiver;
+    }
+
     /** A receiver: {@code x!!.} or {@code x?.} when Kotlin types it nullable, else {@code x.}. */
     static OutputBuilder receiverWithDot(Expression object, Qualification q) {
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(object, q);
