@@ -143,6 +143,21 @@ final class KotlinContext {
     }
 
     private static final ThreadLocal<Deque<Statement>> STATEMENTS = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<Deque<io.codelaser.maddi.cst.api.expression.Expression>> CALLS =
+            ThreadLocal.withInitial(ArrayDeque::new);
+
+    /** The innermost method or constructor call being printed: where a per-expression fact is asked for. */
+    static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
+        return CALLS.get().peek();
+    }
+
+    static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
+        CALLS.get().push(call);
+    }
+
+    static void popCall() {
+        CALLS.get().pop();
+    }
 
     /** The innermost statement being printed: where a use-site fact is asked for. */
     static Statement currentStatement() {

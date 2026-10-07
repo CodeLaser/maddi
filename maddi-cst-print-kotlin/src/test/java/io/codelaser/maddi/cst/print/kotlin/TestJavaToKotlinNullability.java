@@ -51,6 +51,13 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             this(nullable, Set.of());
         }
 
+        /** In a call that is an operand of {@code &&}, as {@code v.m()} in {@code v != null && v.m()}. */
+        @Override
+        public boolean nonNullAt(io.codelaser.maddi.cst.api.expression.Expression expression,
+                                 io.codelaser.maddi.cst.api.variable.Variable variable) {
+            return checked.contains("&&" + variable.simpleName());
+        }
+
         /** Known non-null in every statement but the one that checks it, as after {@code if (v == null) return;}. */
         @Override
         public boolean nonNullAt(io.codelaser.maddi.cst.api.statement.Statement statement,
@@ -204,5 +211,21 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin(ARRAYS, new KotlinPrintOptions(new ByName(Set.of("names")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "var names: Array<String>? = null");
         contains(kotlin, "names!![0].length");
+    }
+
+    @Language("java")
+    private static final String CONDITION = """
+            package a;
+            class C {
+                boolean m(String v) { return v != null && v.isEmpty(); }
+            }
+            """;
+
+    /** A per-expression fact: within one statement, the call after the null test needs no `!!`. */
+    @Test
+    public void expressionFacts() {
+        String kotlin = kotlin(CONDITION, new KotlinPrintOptions(new ByName(Set.of("v"), Set.of("&&v")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "v != null && v.isEmpty()");
     }
 }

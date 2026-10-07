@@ -65,4 +65,15 @@ public interface NullabilityVerdicts {
                               io.codelaser.maddi.cst.api.variable.Variable variable) {
         return false;
     }
+
+    /**
+     * As {@link #nonNullAt(io.codelaser.maddi.cst.api.statement.Statement, io.codelaser.maddi.cst.api.variable.Variable)},
+     * at a method or constructor call: also what the enclosing condition establishes ({@code v.m()} in
+     * {@code v != null && v.m()}, {@code f(w)} in {@code w == null ? 0 : f(w)}). For a field: a final one of
+     * {@code this}, which Kotlin smart-casts as a val. Report.smartCasts() again.
+     */
+    default boolean nonNullAt(io.codelaser.maddi.cst.api.expression.Expression expression,
+                              io.codelaser.maddi.cst.api.variable.Variable variable) {
+        return false;
+    }
 }

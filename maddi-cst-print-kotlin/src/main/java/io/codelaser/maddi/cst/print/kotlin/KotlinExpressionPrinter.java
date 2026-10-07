@@ -65,7 +65,7 @@ public class KotlinExpressionPrinter {
     /** An expression whose value is used. */
     public static OutputBuilder print(Expression e, Qualification q) {
         return switch (e) {
-            case ConstructorCall cc -> constructorCall(cc, q);
+            case ConstructorCall cc -> inCall(cc, () -> constructorCall(cc, q));
             case Cast cast -> cast(cast, q);
             case InstanceOf io -> instanceOf(io, q);
             case InlineConditional ic when isElvis(ic) ->
@@ -77,7 +77,7 @@ public class KotlinExpressionPrinter {
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                     .add(print(ic.ifTrue(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(print(ic.ifFalse(), q));
-            case MethodCall mc -> methodCall(mc, q);
+            case MethodCall mc -> inCall(mc, () -> methodCall(mc, q));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
             case Lambda lambda -> lambda(lambda, q);
@@ -166,6 +166,16 @@ public class KotlinExpressionPrinter {
     }
 
     // ---------------------------------------------------------------- calls
+
+    /** A call is printed: the per-expression nullability facts are asked for with it (its receiver, its arguments). */
+    private static OutputBuilder inCall(Expression call, java.util.function.Supplier<OutputBuilder> printer) {
+        KotlinContext.pushCall(call);
+        try {
+            return printer.get();
+        } finally {
+            KotlinContext.popCall();
+        }
+    }
 
     /**
      * ⛔ #103: a call on {@code super} keeps its {@code super.}. The object is the same {@code This} pseudo-variable

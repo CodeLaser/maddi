@@ -86,6 +86,12 @@ public final class PropertyVerdicts implements NullabilityVerdicts {
                                      io.codelaser.maddi.cst.api.variable.Variable variable) {
                 return locals.nonNullAt(statement, variable);
             }
+
+            @Override
+            public boolean nonNullAt(io.codelaser.maddi.cst.api.expression.Expression expression,
+                                     io.codelaser.maddi.cst.api.variable.Variable variable) {
+                return locals.nonNullAt(expression, variable);
+            }
         };
     }
 }
