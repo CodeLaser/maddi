@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.impl.expression.eval;
 
+import java.util.concurrent.CancellationException;
+
 /**
  * A work budget over one top-level And/Or evaluation, counting every nested {@link EvalAnd}/{@link EvalOr}
  * entry. {@code maxAndOrComplexity} bounds the operand size of a single evaluation; it does NOT bound the
@@ -41,8 +43,13 @@ public class EvalBudget {
     private EvalBudget() {
     }
 
-    /** Call on evaluator entry; pair with {@link #exit()} in a finally block. */
+    /**
+     * Call on evaluator entry, before the try; pair with {@link #exit()} in its finally block. Throws a
+     * {@link CancellationException} when the thread is interrupted (maddi-mod#20): the evaluator never blocks,
+     * so the flag is its only cancellation signal. The flag is read, not cleared, so the caller sees it too.
+     */
     public static void enter() {
+        checkInterrupted();
         int[] state = STATE.get();
         if (state[0]++ == 0) {
             state[1] = 0;
@@ -67,7 +74,14 @@ public class EvalBudget {
     public static boolean tickNested() {
         int[] state = STATE.get();
         if (state[0] == 0) return false;
+        checkInterrupted();
         return ++state[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+    }
+
+    private static void checkInterrupted() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new CancellationException("boolean evaluation interrupted");
+        }
     }
 
     /**
@@ -78,5 +92,15 @@ public class EvalBudget {
      */
     public static boolean overBudget() {
         return STATE.get()[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+    }
+
+    /**
+     * Inside a budgeted evaluation that is over budget. Unlike {@link #overBudget()}, false between top-level
+     * operations, where the count still holds the last operation's total until the next {@link #enter()}: a
+     * standalone call must not degrade because of the operation before it.
+     */
+    public static boolean nestedOverBudget() {
+        int[] state = STATE.get();
+        return state[0] > 0 && state[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
     }
 }

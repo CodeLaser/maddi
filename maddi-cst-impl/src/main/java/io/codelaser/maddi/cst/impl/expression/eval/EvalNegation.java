@@ -99,6 +99,11 @@ public class EvalNegation {
         if (v.isEmpty()) {
             return v;
         }
+        // over budget, De Morgan re-enters the And/Or fixed point once per operand, and without the cache a
+        // subtree shared by several operands is negated once per path to it: exponential (maddi-mod#20)
+        if ((v instanceof Or || v instanceof And) && EvalBudget.nestedOverBudget()) {
+            return new NegationImpl(runtime.logicalNotOperatorBool(), runtime.precedenceUnary(), v);
+        }
         if (v instanceof Or or) {
             List<Expression> negated = or.expressions().stream().map(runtime::negate).toList();
             return runtime.and(negated);

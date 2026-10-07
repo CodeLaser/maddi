@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.expression.eval;
 
 import io.codelaser.maddi.cst.api.expression.And;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Negation;
 import io.codelaser.maddi.cst.api.expression.Or;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 
@@ -72,6 +73,12 @@ public class EvalBoolean {
         }
         if (e1 instanceof Or && e2 instanceof Or) {
             return false;
+        }
+        // over budget, negate is the unsimplified Negation of an And/Or: compare structurally rather than
+        // negate every pair of the sorted operands (maddi-mod#20)
+        if (EvalBudget.nestedOverBudget()) {
+            return e1 instanceof Negation n1 && n1.expression().equals(e2)
+                   || e2 instanceof Negation n2 && n2.expression().equals(e1);
         }
         return e1.equals(runtime.negate(e2));
     }
