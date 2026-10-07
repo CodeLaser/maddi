@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
@@ -58,6 +59,8 @@ import java.util.Map;
  * </ul>
  */
 public class KotlinExpressionPrinter {
+
+    private static final Symbol SPREAD = new SymbolEnum("*", SpaceEnum.NONE, SpaceEnum.NONE, null);
 
     private static final Map<String, String> INFIX = Map.of("&", "and", "|", "or", "^", "xor",
             "<<", "shl", ">>", "shr", ">>>", "ushr");
@@ -190,6 +193,17 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder methodCall(MethodCall mc, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
         Expression object = mc.object();
+        if (KotlinMappedMembers.isMonitorMethod(mc.methodInfo())) {
+            // lock.notifyAll() -> (lock as java.lang.Object).notifyAll()
+            OutputBuilder receiver = object == null || mc.objectIsImplicit() ? text("this") : print(object, q);
+            return b.add(SymbolEnum.LEFT_PARENTHESIS).add(receiver).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl("java.lang.Object")).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
+                    .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
+        }
+        if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+            return KotlinNullability.asserted(object, q);
+        }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || (t.explicitlyWriteType() != null && !mc.objectIsImplicit())) {
                 b.add(new TextImpl(thisOrSuper(t))).add(SymbolEnum.DOT);
@@ -225,6 +239,14 @@ public class KotlinExpressionPrinter {
         String sameArguments = KotlinMappedMembers.renamed(mc.methodInfo());
         if (sameArguments != null) {
             return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), q));
+        }
+        if (KotlinMappedMembers.isSplit(mc.methodInfo())) {
+            // Java's split drops trailing empty strings, and returns an array
+            return b.add(new TextImpl("split")).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(receiver(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.DOT)
+                    .add(new TextImpl("toRegex")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SymbolEnum.DOT).add(new TextImpl("dropLastWhile { it.isEmpty() }"))
+                    .add(SymbolEnum.DOT).add(new TextImpl("toTypedArray")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
         KotlinMappedMembers.Regex regex = KotlinMappedMembers.regex(mc.methodInfo());
         if (regex != null) {
@@ -265,6 +287,10 @@ public class KotlinExpressionPrinter {
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
+            if (spread(args, method, i)) {
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(KotlinNullability.asserted(args.get(i), q)));
+                continue;
+            }
             boolean hasParameter = method != null && i < method.parameters().size()
                                    && !method.parameters().get(i).isVarArgs();
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
@@ -279,6 +305,21 @@ public class KotlinExpressionPrinter {
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /**
+     * The array that Java passes as the varargs themselves: Kotlin takes it spread, {@code *names}. That is the last
+     * argument in the varargs position, with as many array dimensions as the parameter; not {@code null}.
+     */
+    private static boolean spread(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (method == null || method.parameters().isEmpty() || i != args.size() - 1
+            || i != method.parameters().size() - 1) {
+            return false;
+        }
+        ParameterInfo varargs = method.parameters().getLast();
+        ParameterizedType type = args.get(i).parameterizedType();
+        return varargs.isVarArgs() && type != null && !(unwrap(args.get(i)) instanceof NullConstant)
+               && type.arrays() == varargs.parameterizedType().arrays();
     }
 
     /**
@@ -324,6 +365,8 @@ public class KotlinExpressionPrinter {
             String name = type.arrays() > 0 ? KotlinTypeName.of(type, q) : KotlinTypeName.name(type.typeInfo(), q);
             return text("::" + name);
         }
+        String member = mappedMember(mr);
+        if (member != null) return text("{ it" + member + " }");
         OutputBuilder b = new OutputBuilderImpl();
         if (scope instanceof TypeExpression te) {
             TypeInfo owner = te.parameterizedType().typeInfo();
@@ -332,6 +375,26 @@ public class KotlinExpressionPrinter {
             b.add(receiver(scope, q));
         }
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
+    }
+
+    /**
+     * {@code Map.Entry::getValue}: Kotlin has a property {@code value} and no function to refer to, so the reference
+     * becomes the lambda {@code { it.value }}. So does a reference through a raw type, {@code Collection::stream},
+     * where {@code MutableCollection<*>::stream} would lose the element type. The member's text after {@code it}, or
+     * null when the reference stays one.
+     */
+    private static String mappedMember(MethodReference mr) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (!(mr.scope() instanceof TypeExpression te) || m.isStatic() || !m.parameters().isEmpty()) return null;
+        if (KotlinMappedMembers.isUnboxing(m)) return "";
+        String property = KotlinMappedMembers.property(m);
+        if (property != null) return "." + property;
+        String function = KotlinMappedMembers.function(m);
+        if (function == null) function = KotlinMappedMembers.renamed(m);
+        if (function != null) return "." + function + "()";
+        ParameterizedType type = te.parameterizedType();
+        boolean raw = type.typeInfo() != null && type.parameters().isEmpty() && !type.typeInfo().typeParameters().isEmpty();
+        return raw && KotlinContext.translatingJava() ? "." + KotlinNames.name(m.name()) + "()" : null;
     }
 
     /**
@@ -348,9 +411,7 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
-        String name = KotlinTypeName.of(type, q);
-        if (name.endsWith("?")) name = name.substring(0, name.length() - 1); // a constructor call is never null
-        return b.add(new TextImpl(name))
+        return b.add(new TextImpl(KotlinTypeName.constructed(type, q)))
                 .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
@@ -585,8 +646,8 @@ public class KotlinExpressionPrinter {
             Primitive r = primitive(bo.rhs().parameterizedType());
             if (l != null && r != null && l != r && l != Primitive.BOOLEAN && r != Primitive.BOOLEAN) {
                 boolean widenLeft = rank(l) < rank(r) || l == Primitive.CHAR;
-                OutputBuilder left = widenLeft ? widened(bo.lhs(), bo.rhs().parameterizedType(), q) : operand(bo.precedence(), bo.lhs(), q);
-                OutputBuilder right = widenLeft ? operand(bo.precedence(), bo.rhs(), q) : widened(bo.rhs(), bo.lhs().parameterizedType(), q);
+                OutputBuilder left = widenLeft ? compared(bo.lhs(), bo.rhs().parameterizedType(), q) : operand(bo.precedence(), bo.lhs(), q);
+                OutputBuilder right = widenLeft ? operand(bo.precedence(), bo.rhs(), q) : compared(bo.rhs(), bo.lhs().parameterizedType(), q);
                 return new OutputBuilderImpl().add(left).add(KotlinSymbols.binary(op)).add(right);
             }
         }
@@ -608,6 +669,21 @@ public class KotlinExpressionPrinter {
                 .add(operand(bo.precedence(), bo.lhs(), q))
                 .add(KotlinSymbols.binary(op))
                 .add(operand(bo.precedence(), bo.rhs(), q));
+    }
+
+    /**
+     * The narrower side of {@code ==}, widened. An int literal does not adapt to a Long there, as it does in an
+     * assignment: {@code x == -1L}.
+     */
+    private static OutputBuilder compared(Expression e, ParameterizedType target, Qualification q) {
+        Expression inner = unwrap(e);
+        if (primitive(target) == Primitive.LONG) {
+            if (inner instanceof IntConstant ic) return text(ic.constant() + "L");
+            if (inner instanceof Negation n && unwrap(n.expression()) instanceof IntConstant ic) {
+                return text("-" + ic.constant() + "L");
+            }
+        }
+        return widened(e, target, q);
     }
 
     private static final java.util.Set<String> ARITHMETIC = java.util.Set.of("+", "-", "*", "/", "%");

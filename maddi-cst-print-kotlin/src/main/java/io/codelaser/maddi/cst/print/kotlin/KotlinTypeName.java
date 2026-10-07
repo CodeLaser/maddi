@@ -127,7 +127,7 @@ public class KotlinTypeName {
         String fqn = pt.typeInfo().fullyQualifiedName();
         String base = mapped(fqn);
         if (base == null) base = name(pt.typeInfo(), q);
-        if (pt.parameters().isEmpty()) return base;
+        if (pt.parameters().isEmpty()) return base + starProjections(pt.typeInfo());
         StringBuilder sb = new StringBuilder(base).append('<');
         for (int i = 0; i < pt.parameters().size(); i++) {
             if (i > 0) sb.append(", ");
@@ -140,8 +140,39 @@ public class KotlinTypeName {
         if (pt.isTypeParameter()) return pt.typeParameter().simpleName();
         String base = mapped(pt.typeInfo().fullyQualifiedName());
         if (base == null) base = name(pt.typeInfo(), q);
-        if (pt.parameters().isEmpty()) return base;
+        if (pt.parameters().isEmpty()) return base + starProjections(pt.typeInfo());
         return base + pt.parameters().stream().map(p -> of(p, q)).collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * {@code <*>} for a raw use of a generic Java type: Kotlin has no raw types, and a star projection is what accepts
+     * every instantiation. Not for a constructor call, which leaves its type arguments to inference instead.
+     */
+    static String starProjections(TypeInfo typeInfo) {
+        if (!KotlinContext.translatingJava() || typeInfo.typeParameters().isEmpty()) return "";
+        return typeInfo.typeParameters().stream().map(tp -> "*").collect(Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * The type of a constructor call, {@code ArrayList<String>}; just {@code ArrayList} where Kotlin must infer the
+     * arguments: a raw type, a projection (which a call cannot take), or an unresolved diamond that still carries
+     * a type parameter that is not in scope (the class's own, or a called method's).
+     */
+    static String constructed(ParameterizedType pt, Qualification q) {
+        if (pt.typeInfo() == null || pt.arrays() > 0 || pt.isTypeParameter()) return withoutNullable(of(pt, q));
+        boolean infer = pt.parameters().isEmpty() || pt.parameters().stream()
+                .anyMatch(p -> p.wildcard() != null || p.isTypeParameter() && !inScope(p.typeParameter()));
+        return infer ? name(pt.typeInfo(), q) : withoutNullable(of(pt, q));
+    }
+
+    private static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
+        return tp.isMethodTypeParameter() ? method != null && method.typeParameters().contains(tp)
+                : KotlinContext.typeParameterInScope(tp);
+    }
+
+    private static String withoutNullable(String s) {
+        return s.endsWith("?") ? s.substring(0, s.length() - 1) : s;
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */

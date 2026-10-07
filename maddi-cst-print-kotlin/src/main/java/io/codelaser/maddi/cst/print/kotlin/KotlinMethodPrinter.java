@@ -63,6 +63,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         KotlinModifiers.visibility(methodInfo.access(), typeInfo).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         if (!methodInfo.overrides().isEmpty()) {
+            // an abstract class re-declaring an interface method, to narrow its return type
+            if (methodInfo.isAbstract() && !typeInfo.isInterface()) b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
         } else if (methodInfo.isAbstract() && !typeInfo.isInterface()) {
             b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);

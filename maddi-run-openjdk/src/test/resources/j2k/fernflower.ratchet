@@ -17,8 +17,12 @@
 # boxed overload of an int one. 84 files compile; 921 type errors, 701 of them null into a non-null declaration,
 # which the verdicts of maddi-mod's NullabilityPass address (a with-nullability ratchet belongs in maddi-mod).
 # 2026-10-06, `!!` on nullable arguments of collection members and of super(…)/this(…): 85 compile, 904 type errors.
+# 2026-10-07, calls and types: varargs spread, String.split as a regex, raw types as <*>, constructor calls that
+# leave type arguments to inference, char labels over an int, Long literals in ==, monitor methods through
+# java.lang.Object, renamed JDK members, reassigned for-each variables, abstract overrides, new int[3][]:
+# 89 compile, 885 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	85
+compilingFiles	89

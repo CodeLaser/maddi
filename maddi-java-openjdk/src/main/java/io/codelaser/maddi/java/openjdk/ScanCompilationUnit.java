@@ -3358,7 +3358,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             arrayInitializer = null;
         }
-        ParameterizedType concreteReturnType = elementType.copyWithArrays(dimensions.size());
+        // new int[3][]: javac's element type is int[], its trailing [] are no dimensions of their own
+        int arrays = arrayInitializer == null ? elementType.arrays() + dimensions.size() : dimensions.size();
+        ParameterizedType concreteReturnType = elementType.copyWithArrays(arrays);
         MethodInfo constructor = runtime.newArrayCreationConstructor(concreteReturnType);
         currentExpression = runtime.newConstructorCallBuilder()
                 .setSource(sourceForNode(node, dsb))

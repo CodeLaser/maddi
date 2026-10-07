@@ -85,7 +85,7 @@ public class KotlinStatementPrinter {
                     .add(new TextImpl(declareForEach(fe)))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
                     .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                    .add(SpaceEnum.ONE).add(block(fe.block(), q)));
+                    .add(SpaceEnum.ONE).add(forEachBody(fe, q)));
             case ForStatement fs -> forStatement(fs, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
             case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
@@ -437,11 +437,13 @@ public class KotlinStatementPrinter {
     /** {@code when (selector) { conditions -> arm; … else -> arm }}; shared by switch statement and expression. */
     static OutputBuilder whenExpression(Expression selector, List<SwitchEntry> entries, boolean statement,
                                         Qualification q) {
+        List<Expression> labels = entries.stream().flatMap(e -> e.conditions().stream()).toList();
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(selector(selector, entries.stream().flatMap(e -> e.conditions().stream()).toList(), q))
+                .add(selector(selector, labels, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
-        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, q)).toList());
+        boolean intSelector = isIntSelector(selector, labels);
+        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, intSelector, q)).toList());
         boolean hasElse = entries.stream().anyMatch(e -> e.conditions().isEmpty()
                                                          || e.conditions().stream().allMatch(Expression::isEmpty));
         if (statement && !hasElse) addElseWhenRequired(selector, arms);
@@ -462,14 +464,14 @@ public class KotlinStatementPrinter {
         }
     }
 
-    private static OutputBuilder whenEntry(SwitchEntry e, Qualification q) {
+    private static OutputBuilder whenEntry(SwitchEntry e, boolean intSelector, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
         // the default arm has no conditions, or a single empty-expression sentinel
         boolean isElse = e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty);
         if (isElse) {
             b.add(KotlinKeyword.ELSE_ARROW);
         } else {
-            b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, q))
+            b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, intSelector, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
         }
         return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
@@ -477,9 +479,13 @@ public class KotlinStatementPrinter {
 
     /**
      * A case label. An enum constant is written unqualified in a Java case and must be qualified in Kotlin, where
-     * {@code when}'s branches are ordinary expressions.
+     * {@code when}'s branches are ordinary expressions. A char label compared with an int is its code: Java
+     * compares them as ints, Kotlin rejects a Char where an Int is expected.
      */
-    private static OutputBuilder condition(Expression c, Qualification q) {
+    private static OutputBuilder condition(Expression c, boolean intSelector, Qualification q) {
+        if (intSelector && c instanceof CharConstant) {
+            return KotlinExpressionPrinter.print(c, q).add(SymbolEnum.DOT).add(new TextImpl("code"));
+        }
         if (c instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.isStatic()) {
             FieldInfo f = fr.fieldInfo();
             if (f.owner().typeNature().isEnum()) {
@@ -536,6 +542,8 @@ public class KotlinStatementPrinter {
 
         String label = KotlinContext.freshLabel("switch");
         KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
+        boolean intSelector = isIntSelector(sw.expression(),
+                sw.switchLabels().stream().map(SwitchStatementOldStyle.SwitchLabel::literal).toList());
         KotlinContext.push(frame);
         List<OutputBuilder> arms = new ArrayList<>();
         try {
@@ -548,7 +556,7 @@ public class KotlinStatementPrinter {
                 if (labels.stream().anyMatch(l -> l.literal() == null || l.literal().isEmpty())) {
                     head = new OutputBuilderImpl().add(KotlinKeyword.ELSE_ARROW);
                 } else {
-                    head = labels.stream().map(l -> condition(l.literal(), q))
+                    head = labels.stream().map(l -> condition(l.literal(), intSelector, q))
                             .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
                 }
                 arms.add(new OutputBuilderImpl().add(head).add(SymbolEnum.LAMBDA)
@@ -569,6 +577,19 @@ public class KotlinStatementPrinter {
         return wrapIfLeftEarly(frame, when);
     }
 
+    /** The selector is printed as an integer: it is one, or a char that {@link #selector} widens for int labels. */
+    private static boolean isIntSelector(Expression selector, List<Expression> labels) {
+        ParameterizedType type = selector.parameterizedType();
+        if (type == null || type.typeInfo() == null || type.arrays() > 0) return false;
+        return type.isInt() || type.isShort() || type.isByte() || "java.lang.Integer".equals(type.typeInfo().fullyQualifiedName())
+               || "char".equals(type.typeInfo().fullyQualifiedName()) && intLabels(labels);
+    }
+
+    private static boolean intLabels(List<Expression> labels) {
+        return labels.stream().anyMatch(l -> l != null && !l.isEmpty() && l.parameterizedType() != null
+                                             && l.parameterizedType().isInt());
+    }
+
     /**
      * The subject of a {@code when}. Java compares a {@code byte}, {@code short} or {@code char} with {@code int}
      * case constants after widening; Kotlin compares only equal types, so the subject widens: {@code b.toInt()},
@@ -576,8 +597,7 @@ public class KotlinStatementPrinter {
      */
     private static OutputBuilder selector(Expression selector, List<Expression> labels, Qualification q) {
         ParameterizedType type = selector.parameterizedType();
-        boolean intLabels = labels.stream().anyMatch(l -> l != null && !l.isEmpty() && l.parameterizedType() != null
-                                                          && l.parameterizedType().isInt());
+        boolean intLabels = intLabels(labels);
         if (type == null || !intLabels) return KotlinExpressionPrinter.print(selector, q);
         String widen = type.typeInfo() != null && "char".equals(type.typeInfo().fullyQualifiedName()) && type.arrays() == 0 ? "code" : type.isByte() || type.isShort() ? "toInt()" : null;
         if (widen == null) return KotlinExpressionPrinter.print(selector, q);
@@ -668,6 +688,15 @@ public class KotlinStatementPrinter {
     private static OutputBuilder localVariables(LocalVariableCreation lvc, Qualification q) {
         return lvc.localVariableStream().map(lv -> localVariable(lvc, lv, q))
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+    }
+
+    /** A loop variable is a val in Kotlin: one the body assigns is copied into a {@code var} of the same name. */
+    private static OutputBuilder forEachBody(ForEachStatement fe, Qualification q) {
+        LocalVariable lv = fe.initializer().localVariable();
+        if (!assignedIn(fe.block(), lv)) return block(fe.block(), q);
+        String name = KotlinNames.name(lv.simpleName());
+        return block(List.of(new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(name))
+                .add(KotlinSymbols.assignment("=")).add(new TextImpl(name))), fe.block().statements(), q);
     }
 
     private static String declareForEach(ForEachStatement fe) {

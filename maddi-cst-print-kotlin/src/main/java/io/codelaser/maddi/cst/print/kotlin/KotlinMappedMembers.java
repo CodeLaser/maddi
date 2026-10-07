@@ -66,7 +66,15 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.lang.String", "toLowerCase", 1), "lowercase"),
             Map.entry(new Key("java.lang.String", "toUpperCase", 1), "uppercase"),
             Map.entry(new Key("java.lang.String", "getBytes", 0), "toByteArray"),
-            Map.entry(new Key("java.lang.String", "getBytes", 1), "toByteArray"));
+            Map.entry(new Key("java.lang.String", "getBytes", 1), "toByteArray"),
+            Map.entry(new Key("java.lang.String", "formatted", 1), "format"),
+            Map.entry(new Key("java.lang.String", "concat", 1), "plus"),
+            Map.entry(new Key("java.util.List", "sort", 1), "sortWith"));
+
+    /** The unboxing calls: in Kotlin the value already is its primitive. */
+    private static final Map<Key, Boolean> UNBOXED = Map.of(
+            new Key("java.lang.Boolean", "booleanValue", 0), true,
+            new Key("java.lang.Character", "charValue", 0), true);
 
     /** A regular expression as its first argument: Kotlin takes a {@code Regex} there. */
     record Regex(String kotlinName) {
@@ -108,6 +116,26 @@ final class KotlinMappedMembers {
 
     static boolean isEqualsIgnoreCase(MethodInfo methodInfo) {
         return lookup(EQUALS_IGNORE_CASE, methodInfo) != null;
+    }
+
+    /** {@code b.booleanValue()} is {@code b}. */
+    static boolean isUnboxing(MethodInfo methodInfo) {
+        return lookup(UNBOXED, methodInfo) != null;
+    }
+
+    /**
+     * {@code wait}, {@code notify}, {@code notifyAll}: members of {@code java.lang.Object} that Kotlin's {@code Any}
+     * does not have; reached through a cast to {@code java.lang.Object}.
+     */
+    static boolean isMonitorMethod(MethodInfo methodInfo) {
+        return !methodInfo.isStatic() && "java.lang.Object".equals(methodInfo.typeInfo().fullyQualifiedName())
+               && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
+    }
+
+    /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */
+    static boolean isSplit(MethodInfo methodInfo) {
+        return "split".equals(methodInfo.name()) && methodInfo.parameters().size() == 1
+               && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName());
     }
 
     /** {@code list.remove(int)}: Kotlin's {@code remove} takes the element, {@code removeAt} the index. */

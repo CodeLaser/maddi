@@ -225,6 +225,11 @@ final class KotlinContext {
         return TYPES.get().contains(typeInfo);
     }
 
+    /** A type parameter of one of the types being printed. */
+    static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+        return TYPES.get().stream().anyMatch(t -> t.typeParameters().contains(typeParameter));
+    }
+
     /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */
     static void patternVariable(Variable variable, Supplier<OutputBuilder> replacement) {
         PATTERNS.get().put(variable.simpleName(), replacement);
