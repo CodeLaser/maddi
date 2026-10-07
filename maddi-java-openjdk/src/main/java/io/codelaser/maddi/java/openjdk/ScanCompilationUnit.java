@@ -868,7 +868,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     ParameterizedType treeBuiltReturnType = convertTypeWithAnnotations(jcMethod.getReturnType(),
                             dsb, declFromType::add);
                     ParameterizedType returnType = transplantAnnotations(methodInfo.returnType(),
-                            withExtraAnnotations(treeBuiltReturnType,
+                            withElementAnnotations(treeBuiltReturnType,
                                     typeOnlyModifierAnnotations(jcMethod.getModifiers())));
                     if (returnType != methodInfo.returnType()) builder.setReturnType(returnType);
                     declFromType.forEach(builder::addAnnotation);
@@ -910,7 +910,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         // uncommitted parameter by one carrying the declaration's annotations, in the builder
                         // AND in parameterMap, which the body resolves against. Nothing else holds it yet.
                         ParameterizedType annotated = transplantAnnotations(parameterInfo.parameterizedType(),
-                                withExtraAnnotations(treeBuiltParamType,
+                                withElementAnnotations(treeBuiltParamType,
                                         typeOnlyModifierAnnotations(jcVariableDecl.getModifiers())));
                         if (annotated != parameterInfo.parameterizedType()) {
                             ParameterInfo replacement = parameterInfo.withParameterizedType(annotated);
@@ -1018,7 +1018,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     List<AnnotationExpression> declFromType = new ArrayList<>();
                     ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb,
                             declFromType::add);
-                    builder.setReturnType(withExtraAnnotations(returnType,
+                    builder.setReturnType(withElementAnnotations(returnType,
                             typeOnlyModifierAnnotations(jcMethod.getModifiers())));
                     /*
                      Added HERE rather than merged into the modifiers loop below: the two routes are
@@ -1036,7 +1036,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     // same as the return type above: the parameter's declaration annotations come from
                     // jcVariableDecl.getModifiers().getAnnotations() below, not from its type.
                     List<AnnotationExpression> paramDeclFromType = new ArrayList<>();
-                    ParameterizedType type = withExtraAnnotations(
+                    ParameterizedType type = withElementAnnotations(
                             convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam,
                                     paramDeclFromType::add),
                             typeOnlyModifierAnnotations(jcVariableDecl.getModifiers()));
@@ -1318,7 +1318,27 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             if (changed) result = result.withParameters(List.copyOf(merged));
         }
+        if (source.arrays() > 0 && source.arrays() == result.arrays()
+            && !source.componentType().equals(source.copyWithOneFewerArrays())) {
+            ParameterizedType component = transplantAnnotations(result.componentType(), source.componentType());
+            if (component != result.componentType()) result = result.withComponentType(component);
+        }
         return withExtraAnnotations(result, source.annotations());
+    }
+
+    /**
+     * A type-use annotation in declaration position belongs to the ELEMENT type of an array (JLS 9.7.4:
+     * {@code @Nullable String[] a} has nullable elements), so on an array it goes to the innermost component.
+     */
+    private static ParameterizedType withElementAnnotations(ParameterizedType pt, List<AnnotationExpression> extra) {
+        if (extra.isEmpty()) return pt;
+        return mapElement(pt, element -> withExtraAnnotations(element, extra));
+    }
+
+    /** {@code f} applied to the innermost component of an array type (to the type itself when not an array). */
+    static ParameterizedType mapElement(ParameterizedType pt, java.util.function.UnaryOperator<ParameterizedType> f) {
+        if (pt.arrays() == 0) return f.apply(pt);
+        return pt.withComponentType(mapElement(pt.componentType(), f));
     }
 
     /** Adds {@code extra} to the type's own annotations, skipping any annotation type already present. */

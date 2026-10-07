@@ -1928,7 +1928,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
             }
             ParameterizedType withoutArray = convertTree(t, dsb);
-            ParameterizedType withArray = withoutArray.copyWithArrays(withoutArray.arrays() + n);
+            // an annotation on the element ('@Nullable String[]' inside a type argument) is the ELEMENTS', not
+            // the array's: it goes to the innermost component (ParameterizedType.componentType)
+            List<AnnotationExpression> elementAnnotations = withoutArray.annotations();
+            ParameterizedType plain = elementAnnotations.isEmpty() ? withoutArray
+                    : withoutArray.withAnnotations(List.of());
+            ParameterizedType withArray = plain.copyWithArrays(plain.arrays() + n);
+            if (!elementAnnotations.isEmpty()) {
+                withArray = ScanCompilationUnit.mapElement(withArray, e -> e.withAnnotations(elementAnnotations));
+            }
             dsb.putWithArrayToWithoutArray(withArray, withoutArray);
             return withArray;
         }
