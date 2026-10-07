@@ -89,6 +89,9 @@ final class KotlinContext {
             ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType>> LOCAL_TYPES =
             ThreadLocal.withInitial(HashMap::new);
+    // the body a local variable is declared in: the method's, or a lambda's
+    private static final ThreadLocal<Deque<java.util.Optional<io.codelaser.maddi.cst.api.element.Element>>> SCOPES =
+            ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<java.util.Set<String>> SHADOWING = ThreadLocal.withInitial(java.util.Set::of);
     // by name: a local variable's equality is its name, and so is its scope as far as Kotlin is concerned
     private static final ThreadLocal<Map<String, Supplier<OutputBuilder>>> PATTERNS =
@@ -255,15 +258,32 @@ final class KotlinContext {
         PATTERNS.get().clear();
         LOCAL_TYPES.get().clear();
         METHODS.get().push(methodInfo);
+        pushScope(methodInfo.methodBody());
         return saved;
     }
 
     static void exitMethod(MethodScope saved) {
         METHODS.get().pop();
+        popScope();
         PATTERNS.get().clear();
         PATTERNS.get().putAll(saved.patterns());
         LOCAL_TYPES.get().clear();
         LOCAL_TYPES.get().putAll(saved.localTypes());
+    }
+
+    /** A method or lambda body starts: the scope of the local variables declared in it. */
+    static void pushScope(io.codelaser.maddi.cst.api.element.Element body) {
+        SCOPES.get().push(java.util.Optional.ofNullable(body));
+    }
+
+    static void popScope() {
+        SCOPES.get().pop();
+    }
+
+    /** A local variable of the current body is assigned after its declaration; true when there is no body to scan. */
+    static boolean reassigned(Variable local) {
+        var scope = SCOPES.get().peek();
+        return scope == null || scope.isEmpty() || KotlinAssignments.assignedIn(scope.get(), local);
     }
 
     /** A label no enclosing construct uses, for a {@code run label@{ }} the translation introduces. */

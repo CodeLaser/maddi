@@ -411,12 +411,7 @@ public class KotlinStatementPrinter {
     }
 
     private static boolean assignedIn(Element element, Variable v) {
-        boolean[] found = {false};
-        element.visit((Element e) -> {
-            if (e instanceof Assignment a && v.equals(a.variableTarget())) found[0] = true;
-            return !found[0];
-        });
-        return found[0];
+        return KotlinAssignments.assignedIn(element, v);
     }
 
     // ---------------------------------------------------------------- switch
@@ -712,11 +707,13 @@ public class KotlinStatementPrinter {
     }
 
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
-        OutputBuilder b = new OutputBuilderImpl()
-                .add(lvc.isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(declare(lv.simpleName())));
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
+        // effectively final: a val (one declared without a value stays a var: which assignment comes first is flow)
+        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv);
+        OutputBuilder b = new OutputBuilderImpl()
+                .add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
+                .add(new TextImpl(declare(lv.simpleName())));
         ParameterizedType type = KotlinNullability.localType(lvc, lv);
         // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
         boolean writeType = !hasInitializer || KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)

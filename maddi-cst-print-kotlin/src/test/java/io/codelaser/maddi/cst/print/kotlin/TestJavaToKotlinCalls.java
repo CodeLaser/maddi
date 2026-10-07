@@ -86,7 +86,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "arrayOfNulls<IntArray>(3)");
         contains(kotlin, "arrayOfNulls<Box<*>>(2)");
         contains(kotlin, "Collections.synchronizedMap(HashMap())");
-        contains(kotlin, "var cls: Class<*> = ");
+        contains(kotlin, "val cls: Class<*> = ");
         contains(kotlin, "ArrayList(numbers)");
         contains(kotlin, "o is Box<*>");
     }

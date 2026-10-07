@@ -524,6 +524,7 @@ public class KotlinExpressionPrinter {
         OutputBuilder inner;
         boolean labelled = false;
         KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LAMBDA, null, KotlinContext.LAMBDA_LABEL));
+        KotlinContext.pushScope(body);
         try {
             // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body);
@@ -538,6 +539,7 @@ public class KotlinExpressionPrinter {
                         .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
             }
         } finally {
+            KotlinContext.popScope();
             KotlinContext.pop();
         }
         OutputBuilder b = new OutputBuilderImpl();

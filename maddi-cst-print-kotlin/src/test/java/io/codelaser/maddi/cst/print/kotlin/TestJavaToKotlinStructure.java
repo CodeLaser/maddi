@@ -136,7 +136,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "if (o is String && !o.isEmpty()) { return o.length }");
         contains(kotlin, "if (f is String) { return (f as String).length }");
         contains(kotlin, """
-                var s = "local"
+                val s = "local"
                 return s.length
                 """);
     }
@@ -162,7 +162,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(MAPPED);
         assertFalse(kotlin.contains("import java.util.List"), kotlin);
         contains(kotlin, "open fun m(list: MutableList<String>, map: MutableMap<String, Int>, s: String): Int {");
-        contains(kotlin, "var copy: MutableList<String> = ArrayList<String>(list)");
+        contains(kotlin, "val copy: MutableList<String> = ArrayList<String>(list)");
         contains(kotlin, "copy.removeAt(0)");
         contains(kotlin, "for (e in map.entries) { n += e.key.length + e.value }");
         contains(kotlin, "copy.size + s[0].code + s.indexOf('x') + s.replace(\"a+\".toRegex(), \"b\").length");
@@ -199,7 +199,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void conversions() {
         String kotlin = kotlin(FUNCTIONAL);
         contains(kotlin, "fun interface Visitor {");
-        contains(kotlin, "var v: Visitor = Visitor { s -> s.length + p0() }");
+        contains(kotlin, "val v: Visitor = Visitor { s -> s.length + p0() }");
         contains(kotlin, """
                 open fun m(p: Int): Int {
                     var p = p
@@ -229,5 +229,46 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 { k, v ->
                 var v = v
                 if (v == null) {""");
+    }
+
+    @Language("java")
+    private static final String VALS = """
+            package a;
+            import java.util.function.Supplier;
+            class C {
+                private int fixed = 1;
+                private int counted = 0;
+                private int byAnonymous = 0;
+                int visible = 2;
+                int m(int p) {
+                    int a = p + 1;
+                    int b = 0;
+                    b += a;
+                    int c;
+                    c = 3;
+                    Supplier<Integer> s = () -> { int x = 1; x++; int y = 2; return x + y; };
+                    Runnable r = new Runnable() { public void run() { byAnonymous = 1; } };
+                    counted++;
+                    return a + b + c + fixed + s.get();
+                }
+            }
+            """;
+
+    /**
+     * A variable that is never assigned after its declaration is a {@code val}: a local in its own body (a lambda's
+     * included), a private field with an initializer anywhere in its compilation unit (anonymous classes included).
+     */
+    @Test
+    public void vals() {
+        String kotlin = kotlin(VALS);
+        contains(kotlin, "private val fixed: Int = 1");
+        contains(kotlin, "private var counted: Int = 0");
+        contains(kotlin, "private var byAnonymous: Int = 0");
+        contains(kotlin, "var visible: Int = 2"); // not private: another class may assign it
+        contains(kotlin, "val a = p + 1");
+        contains(kotlin, "var b = 0");
+        contains(kotlin, "var c: Int"); // declared without a value: which assignment comes first is flow
+        contains(kotlin, "var x = 1");
+        contains(kotlin, "val y = 2");
     }
 }

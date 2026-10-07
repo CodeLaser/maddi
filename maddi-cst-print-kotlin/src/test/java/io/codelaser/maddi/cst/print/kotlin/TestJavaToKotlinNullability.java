@@ -134,15 +134,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "use(name!!)");
         contains(kotlin, "var x: String? = null");
         // no verdict for y: Kotlin infers String? from Map.get, so its use as a non-null argument is asserted
-        contains(kotlin, "var y = m.get(\"k\")");
+        contains(kotlin, "val y = m.get(\"k\")");
         contains(kotlin, "for (s in names()!!) {");
         // an UNSPECIFIED local verdict is no decision: nullable, except for a primitive
-        // declared, then assigned: Kotlin smart-casts after an assignment, not after a typed declaration's initializer
+        // declared, then assigned (a val all the same): Kotlin smart-casts after an assignment, not after a typed declaration's initializer
         contains(kotlin, """
-                var undecided: String?
+                val undecided: String?
                 undecided = "u"
                 """);
-        contains(kotlin, "var undecidedCount = 0");
+        contains(kotlin, "val undecidedCount = 0");
         // a constructor body is an init block: its locals get their verdicts too
         contains(kotlin, """
                 init {

@@ -34,7 +34,8 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         // a Kotlin property is initialized where it is declared; Java's is zero/false/null until assigned
         // a final field the secondary constructors assign cannot be a val: Kotlin assigns those in an init block only
         boolean isVal = fieldInfo.isFinal() && (hasInitializer || fieldInfo.isStatic()
-                                                || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()));
+                                                || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()))
+                        || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
         boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
         io.codelaser.maddi.cst.api.type.ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
