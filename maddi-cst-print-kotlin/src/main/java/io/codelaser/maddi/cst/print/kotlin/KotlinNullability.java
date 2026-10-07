@@ -107,7 +107,52 @@ final class KotlinNullability {
 
     static ParameterizedType returnType(MethodInfo methodInfo) {
         ParameterizedType verdict = verdicts().returnType(methodInfo);
+        if (verdict != null && isNullable(verdict) && overridesMappedMember(methodInfo)) {
+            // Kotlin declares the member it overrides, non-null: Any.toString(): String
+            return verdict.withNullable(NullableState.NONNULL);
+        }
         return verdict != null ? verdict : methodInfo.returnType();
+    }
+
+    /** An override of a member of a type Kotlin maps to its own (Object, String, the collections): no platform type. */
+    private static boolean overridesMappedMember(MethodInfo methodInfo) {
+        return methodInfo.overrides().stream()
+                .anyMatch(m -> KotlinTypeName.isMapped(m.typeInfo().fullyQualifiedName()) && !m.returnType().isTypeParameter());
+    }
+
+    /**
+     * The element type a for-each loop variable gets in Kotlin, which takes it from what it loops over and cannot be
+     * told otherwise: an array's component type, or an {@code Iterable}'s type argument (found through the
+     * hierarchy: {@code VBStyleCollection<Statement?, Int?>} is an {@code Iterable<Statement?>}). Null when unknown.
+     */
+    static ParameterizedType elementType(Expression iterable) {
+        ParameterizedType type = kotlinType(iterable);
+        if (type == null) return null;
+        if (type.arrays() > 0) return type.componentType();
+        TypeInfo iterableType = supertype(type.typeInfo(), "java.lang.Iterable", new java.util.HashSet<>());
+        if (iterableType == null) return null;
+        try {
+            ParameterizedType asIterable = type.typeInfo() == iterableType ? type
+                    : type.concreteSuperType(iterableType.asParameterizedType());
+            if (asIterable == null || asIterable.parameters().size() != 1) return null;
+            ParameterizedType element = asIterable.parameters().getFirst();
+            return element == null || element.wildcard() != null ? null : element;
+        } catch (RuntimeException | AssertionError e) {
+            return null;
+        }
+    }
+
+    private static TypeInfo supertype(TypeInfo typeInfo, String fullyQualifiedName, Set<TypeInfo> visited) {
+        if (typeInfo == null || !visited.add(typeInfo)) return null;
+        if (fullyQualifiedName.equals(typeInfo.fullyQualifiedName())) return typeInfo;
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo found = parent == null ? null : supertype(parent.typeInfo(), fullyQualifiedName, visited);
+        if (found != null) return found;
+        for (ParameterizedType i : typeInfo.interfacesImplemented()) {
+            found = supertype(i.typeInfo(), fullyQualifiedName, visited);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     /** The type of a local variable declared by {@code declaration}; remembered for the uses that follow. */

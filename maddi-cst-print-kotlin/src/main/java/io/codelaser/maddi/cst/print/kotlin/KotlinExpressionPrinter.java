@@ -308,9 +308,18 @@ public class KotlinExpressionPrinter {
                 printed.add(lambda(l, false, q));
             } else {
                 ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
-                if (call != null) declared = KotlinNullability.throughReceiver(declared, call);
-                printed.add(KotlinNullability.toTarget(args.get(i), declared, translated,
-                        widened(args.get(i), target, q), q));
+                boolean argumentTranslated = translated;
+                if (call != null) {
+                    ParameterizedType seen = KotlinNullability.throughReceiver(declared, call);
+                    // the receiver's type argument is a declaration of ours, even on a library member (queue.add)
+                    if (seen != declared) argumentTranslated = true;
+                    declared = seen;
+                }
+                // a constructor call takes the target's states (Kotlin's generics are invariant)
+                ParameterizedType widenTo = unwrap(args.get(i)) instanceof ConstructorCall && declared != null
+                        ? declared : target;
+                printed.add(KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
+                        widened(args.get(i), widenTo, q), q));
             }
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
@@ -639,7 +648,7 @@ public class KotlinExpressionPrinter {
         boolean translated = !(a.variableTarget() instanceof FieldReference fr) || KotlinNullability.translated(fr.fieldInfo().owner());
         return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
                 .add(KotlinNullability.toTarget(a.value(), targetType, translated,
-                        widened(a.value(), a.variableTarget().parameterizedType(), q), q));
+                        widened(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q));
     }
 
     /** The type a variable was declared with in Kotlin: the nullability verdict's, where there is one. */
@@ -719,11 +728,19 @@ public class KotlinExpressionPrinter {
             return new OutputBuilderImpl().add(promoted(bo.lhs(), bo.precedence(), q)).add(KotlinSymbols.binary(op))
                     .add(promoted(bo.rhs(), bo.precedence(), q));
         }
+        if (RELATIONAL.contains(op) && (primitive(bo.lhs().parameterizedType()) != null
+                                        || primitive(bo.rhs().parameterizedType()) != null)) {
+            // numbers only: Kotlin's String? + String is fine, and prints "null" as Java does
+            return new OutputBuilderImpl().add(numericOperand(bo.precedence(), bo.lhs(), q))
+                    .add(KotlinSymbols.binary(op)).add(numericOperand(bo.precedence(), bo.rhs(), q));
+        }
         return new OutputBuilderImpl()
                 .add(operand(bo.precedence(), bo.lhs(), q))
                 .add(KotlinSymbols.binary(op))
                 .add(operand(bo.precedence(), bo.rhs(), q));
     }
+
+    private static final java.util.Set<String> RELATIONAL = java.util.Set.of("<", ">", "<=", ">=", "+", "-", "*", "/", "%");
 
     /**
      * The narrower side of {@code ==}, widened. An int literal does not adapt to a Long there, as it does in an
@@ -745,9 +762,28 @@ public class KotlinExpressionPrinter {
     /** An operand of an int (or wider) operation: a char becomes its code. */
     private static OutputBuilder promoted(Expression e, Precedence precedence, Qualification q) {
         if (primitive(e.parameterizedType()) == Primitive.CHAR) {
-            return receiver(e, q).add(SymbolEnum.DOT).add(new TextImpl("code"));
+            return valueOperand(e, q).add(SymbolEnum.DOT).add(new TextImpl("code"));
+        }
+        return numericOperand(precedence, e, q);
+    }
+
+    /**
+     * An operand of an arithmetic, comparison or bit operator: Java unboxes it, and throws there when it is null;
+     * Kotlin has no operator on a nullable type, so a value Kotlin types nullable is asserted
+     * ({@code collinstr.getKey(p)!! + offset}).
+     */
+    private static OutputBuilder numericOperand(Precedence precedence, Expression e, Qualification q) {
+        if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
+            return KotlinNullability.asserted(e, q);
         }
         return operand(precedence, e, q);
+    }
+
+    private static OutputBuilder valueOperand(Expression e, Qualification q) {
+        if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
+            return KotlinNullability.asserted(e, q);
+        }
+        return receiver(e, q);
     }
 
     /** Both sides references (not primitives), and neither the null literal: identity, not equality. */
@@ -763,8 +799,8 @@ public class KotlinExpressionPrinter {
 
     /** {@code a and b}: Kotlin's infix functions bind tighter than comparisons, so anything compound is enclosed. */
     private static OutputBuilder infix(Expression lhs, String function, Expression rhs, Qualification q) {
-        return new OutputBuilderImpl().add(atomic(lhs, q)).add(KotlinSymbols.binary(function))
-               .add(atomic(rhs, q));
+        return new OutputBuilderImpl().add(valueOperand(lhs, q)).add(KotlinSymbols.binary(function))
+               .add(valueOperand(rhs, q));
     }
 
     /** Java's {@code 1 + "a"}: Kotlin's {@code +} takes its type from the left, so a non-String left side converts. */

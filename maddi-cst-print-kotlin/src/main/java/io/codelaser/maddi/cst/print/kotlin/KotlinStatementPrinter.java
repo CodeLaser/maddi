@@ -698,8 +698,14 @@ public class KotlinStatementPrinter {
     }
 
     private static String declareForEach(ForEachStatement fe) {
-        String name = declare(fe.initializer().localVariable().simpleName());
-        KotlinNullability.localType(fe, fe.initializer().localVariable());
+        LocalVariable lv = fe.initializer().localVariable();
+        String name = declare(lv.simpleName());
+        ParameterizedType type = KotlinNullability.localType(fe, lv);
+        // Kotlin types the loop variable from the iterable: a nullable element makes it nullable, whatever its verdict
+        ParameterizedType element = KotlinNullability.elementType(fe.expression());
+        if (KotlinNullability.isNullable(element) && !KotlinNullability.isNullable(type)) {
+            KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+        }
         return name;
     }
 
@@ -733,6 +739,15 @@ public class KotlinStatementPrinter {
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
+            if (!writeType) {
+                // Kotlin infers an untyped local's type from its initializer, type arguments and element states
+                // included (val params = f.getLstOperands(): a List<Exprent?> whatever the local's verdict says);
+                // only the top level is the verdict's, which the initializer was asserted to above
+                ParameterizedType inferred = KotlinNullability.kotlinType(init);
+                if (inferred != null && inferred.typeInfo() != null && inferred.arrays() == type.arrays()) {
+                    KotlinContext.localType(lv.simpleName(), inferred.withNullable(type.nullable()));
+                }
+            }
         }
         return b;
     }

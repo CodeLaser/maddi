@@ -328,4 +328,44 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "strict.put(map.get(k)!!)");
         contains(kotlin, "loose.take()!!.length + strict.take().length");
     }
+
+    @Language("java")
+    private static final String USES = """
+            package a;
+            import java.util.*;
+            class F {
+                private final List<String> maybe = new ArrayList<>();
+                private final Queue<String> queue = new ArrayDeque<>();
+                private String label;
+                static void take(List<String> list) { }
+                int m(Map<String, Integer> map, String k) {
+                    int n = 0;
+                    for (String s : maybe) n += s.length();
+                    List<String> copy = maybe;
+                    for (String t : copy) n += t.length();
+                    queue.add(label);
+                    take(new ArrayList<>());
+                    return n + map.get(k) + 1;
+                }
+                @Override public String toString() { return label; }
+            }
+            """;
+
+    /**
+     * Where Kotlin decides a type the printer cannot write: a loop variable is typed by what it loops over, an
+     * operator has no nullable operand, a library member's type argument is ours, and an override of a Kotlin
+     * member keeps its non-null result.
+     */
+    @Test
+    public void usesKotlinTypes() {
+        String kotlin = kotlin(USES, new KotlinPrintOptions(
+                new ByName(Set.of("maybe<>", "label", "toString()", "list<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "for (s in maybe) { n += s!!.length }");
+        // an untyped local has its initializer's type: copy is a MutableList<String?> too
+        contains(kotlin, "for (t in copy) { n += t!!.length }");
+        contains(kotlin, "queue.add(label!!)");
+        contains(kotlin, "take(ArrayList<String?>())");
+        contains(kotlin, "return n + map.get(k)!! + 1");
+        contains(kotlin, "override fun toString(): String = label!!");
+    }
 }
