@@ -26,8 +26,10 @@
 # Kotlin's signatures for collection overrides (removeAt, val size, remove(element: E), Collection<E>): 90 files.
 # 2026-10-07, unchecked casts for raw values, kotlin.run { } (smart casts survive it), type-parameter bounds,
 # imports for the types only the Kotlin names, target-typed locals and lambda results: 91 files, 852 type errors.
+# 2026-10-07, `!!` where Java unboxes (a library's int parameter, && and ||), `out` arguments through a receiver,
+# an assignment as an if-branch's value as a block: 92 files, 850 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	91
+compilingFiles	92

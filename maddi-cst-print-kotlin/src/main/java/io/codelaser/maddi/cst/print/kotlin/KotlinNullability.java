@@ -291,6 +291,11 @@ final class KotlinNullability {
             int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
             if (index < 0 || index >= receiver.parameters().size()) return declared;
             ParameterizedType argument = receiver.parameters().get(index);
+            if (argument != null && argument.wildcard() != null && argument.wildcard().isExtendsNoIntersection()
+                && (argument.typeInfo() != null || argument.isTypeParameter())) {
+                // List<? extends Statement?>.get(i): what comes out is a Statement?, a Kotlin `out` projection's
+                argument = argument.withWildcard(null);
+            }
             if (argument == null || argument.wildcard() != null
                 || argument.typeInfo() == null && !argument.isTypeParameter()) {
                 return declared;
@@ -387,7 +392,10 @@ final class KotlinNullability {
     /** {@code value}, asserted non-null when Kotlin types it nullable and {@code target} is a non-null declaration. */
     static OutputBuilder toTarget(Expression value, ParameterizedType target, boolean targetTranslated,
                                   OutputBuilder printed, Qualification q) {
-        if (!targetTranslated || target == null || isNullable(target) || value instanceof NullConstant
+        // a library's int parameter is Kotlin's Int all the same: Java unboxes an Integer into it (Math.min(map.get(k), 1))
+        boolean unboxed = target != null && target.arrays() == 0 && target.isPrimitiveExcludingVoid()
+                          && KotlinExpressionPrinter.primitive(target) == KotlinExpressionPrinter.primitive(value.parameterizedType());
+        if (!targetTranslated && !unboxed || target == null || isNullable(target) || value instanceof NullConstant
             || !nullableInKotlin(value)) {
             return printed;
         }

@@ -257,6 +257,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun <T : MutableCollection<String>> fill(c: T): T");
     }
 
+    @Language("java")
+    private static final String UNBOXING = """
+            package a;
+            import java.util.*;
+            class N {
+                int low(Map<String, Integer> m, String k) { return Math.min(m.get(k), 3); }
+                boolean both(boolean b, Map<String, Boolean> m, String k) { return b && m.get(k); }
+                int count(Map<String, Integer> m, String name) {
+                    Integer counter = m.get(name);
+                    m.put(name, counter == null ? counter = 0 : ++counter);
+                    return counter;
+                }
+            }
+            """;
+
+    /** Java unboxes into a library's int and into &&; an assignment as a branch's value keeps its smart casts. */
+    @Test
+    public void unboxingAndBranchAssignments() {
+        String kotlin = kotlin(UNBOXING);
+        contains(kotlin, "Math.min(m.get(k)!!, 3)");
+        contains(kotlin, "b && m.get(k)!!");
+        contains(kotlin, "if (counter == null) { counter = 0; counter } else ++counter");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

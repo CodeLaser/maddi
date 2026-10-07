@@ -78,8 +78,8 @@ public class KotlinExpressionPrinter {
             case InlineConditional ic -> new OutputBuilderImpl()
                     .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                    .add(print(ic.ifTrue(), q)).add(SpaceEnum.ONE)
-                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(print(ic.ifFalse(), q));
+                    .add(branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q));
             case MethodCall mc -> inCall(mc, () -> methodCall(mc, q));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
@@ -90,9 +90,9 @@ public class KotlinExpressionPrinter {
             case Negation neg -> negation(neg, q);
             case StringConcat sc -> stringConcat(sc, q);
             case BinaryOperator bo when bo.operator() != null -> binaryOperator(bo, q);
-            case And and -> and.expressions().stream().map(x -> operand(and.precedence(), x, q))
+            case And and -> and.expressions().stream().map(x -> condition(and.precedence(), x, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_AND));
-            case Or or -> or.expressions().stream().map(x -> operand(or.precedence(), x, q))
+            case Or or -> or.expressions().stream().map(x -> condition(or.precedence(), x, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_OR));
             case UnaryOperator uo -> unaryOperator(uo, q);
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
@@ -380,8 +380,9 @@ public class KotlinExpressionPrinter {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
             return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                    .add(widened(ic.ifTrue(), target, q)).add(SpaceEnum.ONE)
-                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(widened(ic.ifFalse(), target, q));
+                    .add(branch(ic.ifTrue(), () -> widened(ic.ifTrue(), target, q), q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
+                    .add(branch(ic.ifFalse(), () -> widened(ic.ifFalse(), target, q), q));
         }
         if (unwrap(e) instanceof ConstructorCall cc && target != null && cc.anonymousClass() == null) {
             ParameterizedType withStates = withTargetStates(cc.parameterizedType(), target);
@@ -769,6 +770,22 @@ public class KotlinExpressionPrinter {
         };
     }
 
+    /**
+     * A branch of {@code if … else}: an assignment to a local as {@code { counter = 0; counter }}, a block's value, not
+     * {@code 0.also { counter = it }}. A local that a lambda assigns gets no smart casts anywhere, also not in the
+     * other branch's {@code ++counter} (fernflower's {@code counter == null ? counter = 0 : ++counter}).
+     */
+    private static OutputBuilder branch(Expression e, java.util.function.Supplier<OutputBuilder> otherwise, Qualification q) {
+        if (unwrap(e) instanceof Assignment a && a.prefixPrimitiveOperator() == null
+            && (a.assignmentOperator() == null || "=".equals(a.assignmentOperator().name()))
+            && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(assignmentAsStatement(a, q))
+                    .add(SymbolEnum.SEMICOLON).add(SpaceEnum.ONE).add(variable(a.variableTarget(), q)).add(SpaceEnum.ONE)
+                    .add(SymbolEnum.RIGHT_BRACE);
+        }
+        return otherwise.get();
+    }
+
     /** {@code value.also { target = it }}: the assignment happens, once, and the expression is its value. */
     private static OutputBuilder assignmentAsValue(Assignment a, Qualification q) {
         if (a.prefixPrimitiveOperator() != null) return assignmentAsStatement(a, q); // ++i and i++ are expressions
@@ -931,6 +948,14 @@ public class KotlinExpressionPrinter {
                 .add(operand(neg.precedence(), neg.expression(), q));
     }
 
+    /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
+    private static OutputBuilder condition(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e, Qualification q) {
+        if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
+            return KotlinNullability.asserted(e, q);
+        }
+        return operand(precedence, e, q);
+    }
+
     private static OutputBuilder unaryOperator(UnaryOperator uo, Qualification q) {
         Expression inner = unwrap(uo.expression());
         if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // a unary op wrapping `is` is `!` -> `!is`
@@ -975,9 +1000,9 @@ public class KotlinExpressionPrinter {
 
     // ---------------------------------------------------------------- casts (#105)
 
-    private enum Primitive {BOOLEAN, CHAR, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE}
+    enum Primitive {BOOLEAN, CHAR, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE}
 
-    private static Primitive primitive(ParameterizedType pt) {
+    static Primitive primitive(ParameterizedType pt) {
         if (pt == null || pt.arrays() > 0 || pt.typeInfo() == null) return null;
         return switch (pt.typeInfo().fullyQualifiedName()) {
             case "boolean", "java.lang.Boolean" -> Primitive.BOOLEAN;
