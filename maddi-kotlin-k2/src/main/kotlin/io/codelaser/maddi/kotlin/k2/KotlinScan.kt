@@ -1095,7 +1095,19 @@ class KotlinScan(
         companionSymbol.declaredMemberScope.declarations.filterIsInstance<KaNamedFunctionSymbol>()
             .filter { it.annotations.contains(JVM_STATIC) }
             .forEach { function ->
-                companionTarget(companion, enclosing, function)?.let { staticForwarder(enclosing, companionField, it) }
+                val target = companionTarget(companion, enclosing, function) ?: return@forEach
+                staticForwarder(enclosing, companionField, target)
+                // ...and its @JvmOverloads overloads, which kotlinc makes static on the enclosing class as well: maddi's
+                // `KotlinFrontEnd.load()` is one, and a Java call of it found nothing to bind to
+                val full = target.parameters().map { erasedName(it.parameterizedType()) }
+                overloadParameters(0, function.valueParameters.map { it.hasDefaultValue },
+                    function.annotations.contains(JVM_OVERLOADS), false).forEach { kept ->
+                    val types = kept.map { full[it] }
+                    companion.methods().firstOrNull { m ->
+                        m !== target && m.name() == target.name()
+                                && m.parameters().map { erasedName(it.parameterizedType()) } == types
+                    }?.let { staticForwarder(enclosing, companionField, it) }
+                }
             }
     }
 

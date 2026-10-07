@@ -34,8 +34,11 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import javax.tools.Diagnostic
 import javax.tools.DiagnosticCollector
+import javax.tools.ForwardingJavaFileManager
+import javax.tools.JavaFileManager
 import javax.tools.JavaFileObject
 import javax.tools.SimpleJavaFileObject
+import javax.tools.StandardJavaFileManager
 import javax.tools.StandardLocation
 import javax.tools.ToolProvider
 
@@ -54,10 +57,12 @@ import javax.tools.ToolProvider
  *   Kotlin resolves those references to the same instances (the project scan gets the Java dirs as source
  *   roots so K2 resolves the symbols; the `TypeInfo` comes from the shared CTM).
  *
- * Current scope: a Java set's Kotlin-set dependencies are satisfied via the stubs (dropped from the Java
- * inspector's view). Java→Java dependencies across withDependencies-rebuilt sets, and a project that mixes
- * *both* cross-language directions (an intra-module Kotlin↔Java cycle — the skeleton-pre-pass case), are
- * follow-ups. Single-threaded (javac); needs the openjdk `--add-exports`.
+ * - **Both directions** across sets, or a set holding both languages: neither can go first, so the sets are
+ *   interleaved in one dependency order ([parseInterleaved]).
+ *
+ * A Java set's Kotlin-set dependencies are satisfied via the stubs (dropped from the Java inspector's view). An
+ * intra-module Kotlin↔Java cycle within ONE set's declarations (the skeleton-pre-pass case) is a follow-up.
+ * Single-threaded (javac); needs the openjdk `--add-exports`.
  */
 class MixedProjectInspector @JvmOverloads constructor(private val settings: Settings = Settings()) {
 
@@ -72,11 +77,15 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
      * @param beforeInitialize called on the Java inspector just before `initialize`, the only point at which a
      *        `preload(...)` registration still takes effect (the daemon's hint loader needs the JDK packages it
      *        decodes parsed first)
+     * @param newJavaInspector the Java inspector that owns the shared core: a host that reparses incrementally
+     *        needs one that computes fingerprints (the refactor server's `JavaInspectorImpl(true, true)`)
      */
     data class Settings @JvmOverloads constructor(
         val parseOptions: JavaInspector.ParseOptions = JavaInspector.ParseOptions.Builder().build(),
         val tolerateParseErrors: Boolean = false,
         val beforeInitialize: java.util.function.Consumer<JavaInspector>? = null,
+        val newJavaInspector: java.util.function.Supplier<JavaInspectorImpl> =
+            java.util.function.Supplier { JavaInspectorImpl() },
     )
 
     /** The Kotlin front end: the contract only. Its implementation may live in a realm of its own. */
@@ -126,6 +135,14 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         val javaSets = sourceSets.filter { !hasExtension(it, ".kt") && hasExtension(it, ".java") }
         val javaSetIdentity = javaSets.toSet()
         val kotlinSetIdentity = kotlinSets.toSet()
+        val kotlinDependsOnJava = kotlinSets.any { it.dependencies().any { d -> d in javaSetIdentity } }
+        val javaDependsOnKotlin = javaSets.any { it.dependencies().any { d -> d in kotlinSetIdentity } }
+        // ⛔ BOTH DIRECTIONS, ACROSS SETS: neither language can go first either. Kotlin first, K2 met the upstream Java
+        // sets' types before javac had parsed them -- unresolved, or read off their build output, after which the
+        // source commit and a downstream set's class-file read disagreed and the parse was refused (82 errors on the
+        // jfocus workspace: 173 Kotlin->Java and 34 Java->Kotlin set dependencies). The interleave runs the sets in
+        // one dependency order, converting a Kotlin set just before the first Java set that needs it.
+        if (kotlinDependsOnJava && javaDependsOnKotlin) return parseInterleaved(config, observers)
 
         val stubSet: SourceSet = SourceSetImpl.Builder().setName("mixed-stubs")
             .setUri(stubDir.toUri()).setExternalLibrary(true).build()
@@ -134,7 +151,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         // dropped), its library + Java-set deps are kept, plus the stub directory. withDependencies() mints new
         // SourceSet instances, so rebuild in dependency order and remap a Java-set dep to its rebuilt instance —
         // otherwise a dependent would point at the original (not-in-config) set and the linearization misses it.
-        val javaInspector = JavaInspectorImpl()
+        val javaInspector = settings.newJavaInspector.get()
         // The Java half needs the SAME class path as the Kotlin half, because it is the half that loads library
         // types from bytecode for both. It used to get `jmod:java.base` and nothing else, which was survivable
         // only while nothing ever asked it to load anything: with the loader alive (below), K2 delegates real
@@ -203,10 +220,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         val jdkHome = Paths.get(System.getProperty("java.home"))
         val orderedKotlin = dependencyOrder(kotlinSets)
 
-        val kotlinDependsOnJava = kotlinSets.any { it.dependencies().any { d -> d in javaSetIdentity } }
-        val javaDependsOnKotlin = javaSets.any { it.dependencies().any { d -> d in kotlinSetIdentity } }
-
-        if (kotlinDependsOnJava && !javaDependsOnKotlin) {
+        if (kotlinDependsOnJava) {
             // Kotlin→Java only: parse Java first (its source types commit to the shared CTM), then Kotlin
             // resolves those references to the same instances (K2 sees the Java dirs as source roots).
             val (javaTypes, javaSummary) = parseJava(javaInspector)
@@ -259,7 +273,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
 
         val stubSet: SourceSet = SourceSetImpl.Builder().setName("mixed-stubs")
             .setUri(stubDir.toUri()).setExternalLibrary(true).build()
-        val javaInspector = JavaInspectorImpl()
+        val javaInspector = settings.newJavaInspector.get()
         val javaBase = SourceSetImpl.javaBase()
         val projectClassPath = config.classPathParts()
         val javaConfig = InputConfigurationImpl.Builder().addClassPathParts(stubSet)
@@ -293,7 +307,13 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         // a Kotlin-only set reads the Java-only sets' sources through K2's java-sources module; a mixed set's own
         // Java files are in its own module's roots already
         val javaOnlyRoots = javaSets.filter { it.name() !in kotlinSetNames }.flatMap { it.sourceDirectories() }
-        val javaSourceDirs = javaSets.flatMap { it.sourceDirectories() }.filter { Files.exists(it) }
+        // what a stub may name besides libraries: a Java-only set's types by its build output, on the class path; a
+        // mixed set's own Java (no class file yet), or a Java-only set that has no output, by its sources. ⛔ Not every
+        // set by its sources: javac then compiled whatever the stubs reached without that set's options (on the
+        // jfocus workspace, maddi-java-openjdk's javac internals without its --add-exports), and the parse failed
+        val (builtJava, unbuiltJava) = javaSets.partition { it.name() !in kotlinSetNames && outputOf(it) != null }
+        val javaOutputDirs = builtJava.mapNotNull { outputOf(it) }
+        val javaSourceDirs = unbuiltJava.flatMap { it.sourceDirectories() }.filter { Files.exists(it) }
         val kotlinByName = orderedKotlin.associateBy { it.name() }
         // ⛔ the CONFIGURATION's sets: the interleave hands over the rebuilt Java set, whose dependencies kept only
         // libraries and other Java-scanned sets. Walking those, a Kotlin-only upstream set was never converted, so
@@ -323,7 +343,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
                                 override fun hasBody(method: MethodInfo) = !method.isAbstract
                                 override fun delegation(constructor: MethodInfo) = kotlin.delegationOf(constructor)
                             }
-                            compileStubs(fresh, hints, libraryRoots, javaSourceDirs)
+                            compileStubs(fresh, hints, libraryRoots + javaOutputDirs, javaSourceDirs)
                         }
                     }
 
@@ -368,6 +388,10 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         sourceSets.forEach { visit(it) }
         return ordered.toList()
     }
+
+    /** A source set's build output, when its `uri` names a directory or jar that exists. */
+    private fun outputOf(sourceSet: SourceSet): Path? =
+        sourceSet.uri()?.takeIf { it.scheme == "file" }?.let(::uriToPath)?.takeIf { Files.exists(it) && it != Path.of("/") }
 
     private fun uriToPath(uri: URI): Path? =
         runCatching { if (uri.scheme == "file") Paths.get(uri) else Paths.get(uri.schemeSpecificPart) }.getOrNull()
@@ -569,7 +593,7 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
             if (javaSourceDirs.isNotEmpty()) fm.setLocation(StandardLocation.SOURCE_PATH, javaSourceDirs.map { it.toFile() })
             val files = stubsByFqn.map { (fqn, code) -> inMemorySource(fqn, code) }
             val options = if (javaSourceDirs.isEmpty()) null else listOf("-implicit:none", "-proc:none")
-            return compiler.getTask(null, fm, diagnostics, options, null, files).call()
+            return compiler.getTask(null, UnnamedModule(fm), diagnostics, options, null, files).call()
         }
     }
 
@@ -579,6 +603,27 @@ class MixedProjectInspector @JvmOverloads constructor(private val settings: Sett
         ) {
             override fun getCharContent(ignoreEncodingErrors: Boolean): CharSequence = code
         }
+}
+
+/**
+ * The stub compiler's file manager with every `module-info` on the source path hidden. A source directory holding one
+ * puts javac in module mode, and it then asks whether each in-memory stub (`string:///k/K.java`) lies in that module's
+ * source location, which the standard file manager answers with an IllegalArgumentException: "An exception has
+ * occurred in the compiler", on the jfocus workspace, whose sets are named modules. The Java parse compiles in the
+ * unnamed module too (`ignoreModule`).
+ */
+private class UnnamedModule(fm: StandardJavaFileManager) : ForwardingJavaFileManager<StandardJavaFileManager>(fm) {
+    override fun getJavaFileForInput(location: JavaFileManager.Location, className: String, kind: JavaFileObject.Kind)
+            : JavaFileObject? =
+        if (location == StandardLocation.SOURCE_PATH && className == "module-info") null
+        else super.getJavaFileForInput(location, className, kind)
+
+    override fun list(location: JavaFileManager.Location, packageName: String, kinds: Set<JavaFileObject.Kind>,
+                      recurse: Boolean): Iterable<JavaFileObject> {
+        val listed = super.list(location, packageName, kinds, recurse)
+        return if (location != StandardLocation.SOURCE_PATH) listed
+        else listed.filter { !it.isNameCompatible("module-info", JavaFileObject.Kind.SOURCE) }
+    }
 }
 
 /**

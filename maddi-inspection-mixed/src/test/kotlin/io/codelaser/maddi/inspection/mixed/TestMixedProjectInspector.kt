@@ -263,6 +263,110 @@ class TestMixedProjectInspector {
     }
 
     /**
+     * Both directions at once, in the shape of the jfocus workspace (173 Kotlin->Java and 34 Java->Kotlin set
+     * dependencies): Kotlin set K uses Java set A, a named module, and Java set B uses K and A. Each set's `uri` is its
+     * compiled output, as a Gradle configuration has it. Four defects, each of which stopped that workspace's parse:
+     * - Kotlin first, K2 did not see A at all (`K.api` typed Object): the sets are now interleaved;
+     * - with modules on, B's javac read A's types from A's class files, which disagreed with the source commit
+     *   ("already committed ... FROM A COMPILED ARTIFACT"): the host's options carry ignoreModule, as the CLI's do;
+     * - A's module-info on the stub compiler's source path crashed javac ("An exception has occurred in the
+     *   compiler"); a Java-only set's types now reach the stubs through its build output;
+     * - `Front.load()`, kotlinc's @JvmOverloads overload of a @JvmStatic companion function, had no static forwarder.
+     */
+    @Test
+    fun javaToKotlinToJava() {
+        val tmp = Files.createTempDirectory(tempRoot, "mixed-jkj")
+        val aDir = tmp.resolve("a/src/main/java")
+        val aClasses = tmp.resolve("a/build/classes")
+        val kDir = tmp.resolve("k/src/main/kotlin")
+        val bDir = tmp.resolve("b/src/main/java")
+        Files.createDirectories(aDir.resolve("a"))
+        Files.createDirectories(aClasses)
+        Files.createDirectories(kDir.resolve("k"))
+        Files.createDirectories(bDir.resolve("b"))
+        Files.writeString(aDir.resolve("a/Element.java"), "package a;\npublic interface Element { }\n")
+        // a named module, as maddi's own sets are: on the stub compiler's source path it put javac in module mode
+        Files.writeString(aDir.resolve("module-info.java"), "module a { exports a; }\n")
+        Files.writeString(aDir.resolve("a/Api.java"), """
+            package a;
+            public interface Api {
+                String name();
+                default <T extends CharSequence> T handle(T original, T translated) { return translated; }
+                default <T extends CharSequence> java.util.List<T> handle(T original, java.util.List<T> translated) { return translated; }
+                default <T extends Element> T post(T original, T translated) { return translated; }
+            }
+            """.trimIndent() + "\n")
+        val javac = javax.tools.ToolProvider.getSystemJavaCompiler()
+        assertEquals(0, javac.run(null, null, null, "-d", aClasses.toString(), aDir.resolve("a/Api.java").toString(),
+            aDir.resolve("a/Element.java").toString(), aDir.resolve("module-info.java").toString()))
+        Files.writeString(kDir.resolve("k/K.kt"), """
+            package k
+            import a.Api
+            class K(val api: Api) {
+                fun twice(s: String): String = api.handle(s, s + s)
+            }
+            """.trimIndent() + "\n")
+        // the shape of maddi's KotlinFrontEnd.kt: an interface whose companion has a @JvmStatic @JvmOverloads function
+        Files.writeString(kDir.resolve("k/Front.kt"), """
+            package k
+            interface Front {
+                fun name(): String
+                companion object {
+                    @JvmStatic
+                    @JvmOverloads
+                    fun load(n: Int = 1): Front = object : Front { override fun name() = "f" + n }
+                }
+            }
+            object Fronts {
+                @JvmStatic
+                fun installed(): Boolean = false
+            }
+            """.trimIndent() + "\n")
+        Files.writeString(bDir.resolve("b/UseBoth.java"), """
+            package b;
+            public class UseBoth {
+                public k.K kay; // not `k`: a field obscures the package of that name
+                public String go(a.Api api, a.Element e) { return api.handle("x", "y") + kay.twice("z") + api.post(e, e); }
+                // a @JvmStatic of an interface's companion: javac found no load() in the stub, and the parse failed
+                public k.Front front() { return k.Fronts.installed() ? k.Front.load(2) : k.Front.load(); }
+            }
+            """.trimIndent() + "\n")
+        // kotlin-stdlib: without it K2 resolves neither @JvmStatic nor @JvmOverloads
+        val stdlib = java.nio.file.Path.of(JvmOverloads::class.java.protectionDomain.codeSource.location.toURI())
+        val stdlibSet = SourceSetImpl.Builder().setName("kotlin-stdlib").setSourceDirectories(listOf())
+            .setUri(stdlib.toUri()).setLibrary(true).setExternalLibrary(true).build()
+        val javaA = SourceSetImpl.Builder().setName("a/main")
+            .setSourceDirectories(listOf(aDir)).setUri(aClasses.toUri()).build()
+        val kotlinSet = SourceSetImpl.Builder().setName("k/main")
+            .setSourceDirectories(listOf(kDir)).setUri(tmp.resolve("k/build/classes").toUri())
+            .setDependencies(listOf(javaA, stdlibSet)).build()
+        val javaB = SourceSetImpl.Builder().setName("b/main")
+            .setSourceDirectories(listOf(bDir)).setUri(tmp.resolve("b/build/classes").toUri())
+            .setDependencies(listOf(kotlinSet, javaA, stdlibSet)).build()
+        val config = InputConfigurationImpl.Builder().addClassPathParts(stdlibSet)
+            .addSourceSets(javaA).addSourceSets(kotlinSet).addSourceSets(javaB).build()
+
+        val ignoreModule = io.codelaser.maddi.inspection.api.integration.JavaInspector.ParseOptions.Builder()
+            .setIgnoreModule(true).build()
+        val result = MixedProjectInspector(MixedProjectInspector.Settings(ignoreModule)).parse(config)
+
+        val api = result.javaTypes.first { it.simpleName() == "Api" }
+        assertEquals(2, api.methods().count { it.name() == "handle" })
+        val post = api.methods().single { it.name() == "post" }
+        // the bound is a type of the same set: lost, the source commit had post(Object,Object), the class file
+        // post(Element,Element), and the downstream set's read of the class file was refused
+        val t = post.parameters()[0].parameterizedType().typeParameter()
+        assertEquals(listOf("a.Element"), t.typeBounds().map { it.typeInfo()?.fullyQualifiedName() })
+        val k = result.kotlinBySourceSet.getValue(kotlinSet).first { it.simpleName() == "K" }
+        val useBoth = result.javaTypes.first { it.simpleName() == "UseBoth" }
+        assertSame(api, k.getFieldByName("api", true).type().typeInfo())
+        assertSame(k, useBoth.getFieldByName("kay", true).type().typeInfo())
+        // the static forwarders of Front's companion, all three of them: load(int), and kotlinc's load()
+        val front = result.kotlinTypes.first { it.simpleName() == "Front" }
+        assertEquals(listOf(0, 1), front.methods().filter { it.name() == "load" && it.isStatic }.map { it.parameters().size }.sorted())
+    }
+
+    /**
      * A Kotlin reference to a Java-source declaration is recorded against the Java front end's Info, as one to a Kotlin
      * declaration is: the override's `super.run(n)`, a call, a call inside a lambda passed to a library function (which
      * the Kotlin CST keeps as a placeholder), the Java type in an import, and a field read. A rename of the Java

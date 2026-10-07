@@ -77,8 +77,11 @@ public class Main {
         int exitValue = execute(args);
         if (exitValue != EXIT_OK) {
             LOGGER.error(ExitCode.message(exitValue));
-            System.exit(exitValue);
         }
+        // ⛔ ALWAYS, success included: the Kotlin front end leaves a non-daemon thread behind (IntelliJ's
+        // "ApplicationImpl pooled thread"), so a run that returned from main never ended. The jfocus workspace's
+        // prep completed in 6 minutes and the JVM then sat idle, holding 14 GB, until it was killed.
+        System.exit(exitValue);
     }
 
     /**

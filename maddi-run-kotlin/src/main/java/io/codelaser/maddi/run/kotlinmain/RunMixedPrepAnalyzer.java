@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus;
+import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.mixed.MixedProjectInspector;
 import io.codelaser.maddi.kotlin.realm.K2Realm;
 import io.codelaser.maddi.graph.G;
@@ -130,7 +131,17 @@ public class RunMixedPrepAnalyzer {
         AnalysisEngine engine = AnalysisEngines.require("the mixed Java+Kotlin runner's prep");
         boolean modification = options.modification();
         List<String> analysisResultsDirs = options.analysisResultsDirs();
-        MixedProjectInspector.Result parsed = new MixedProjectInspector().parse(inputConfiguration);
+        // ⛔ the Java CLI's parse options, ignoreModule above all: with modules on, javac resolved a set's upstream
+        // project types as modules, from their build output, and refused the parse wherever that class file and
+        // the source commit disagreed (the jfocus workspace: 321 "already committed ... FROM A COMPILED ARTIFACT")
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
+                .setDetailedSources(true)
+                .setFailFast(false)
+                .setLombok(inputConfiguration.containsLombok())
+                .setIgnoreModule(true)
+                .build();
+        MixedProjectInspector.Result parsed = new MixedProjectInspector(new MixedProjectInspector.Settings(parseOptions))
+                .parse(inputConfiguration);
         Runtime runtime = parsed.getRuntime();
 
         Set<TypeInfo> primaryTypes = Stream.concat(parsed.getKotlinTypes().stream(), parsed.getJavaTypes().stream())
