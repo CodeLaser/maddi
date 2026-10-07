@@ -177,8 +177,8 @@ final class KotlinNullability {
      * A member's parameter or result type as the receiver instantiates it: {@code E} of {@code list.add(e)} or
      * {@code list.get(i)} is the receiver's type argument, with that argument's state ({@code List<String?>}: the
      * element may be null; {@code List<String>}: a nullable value is asserted where it is written). Only for a type
-     * parameter of the receiver's own type, the case of a member called on a declared {@code List} or {@code Map};
-     * anything else keeps the declared type.
+     * parameter of the receiver's type or of the supertype that declares the member ({@code ArrayList<E>} calling
+     * {@code Collection.add(E)}); anything else keeps the declared type.
      */
     static ParameterizedType throughReceiver(ParameterizedType declared, MethodCall call) {
         if (declared == null || !declared.isTypeParameter() || declared.arrays() > 0
@@ -187,6 +187,16 @@ final class KotlinNullability {
         }
         ParameterizedType receiver = kotlinType(call.object());
         if (receiver == null || receiver.typeInfo() == null || receiver.arrays() > 0) return declared;
+        TypeInfo declaring = call.methodInfo().typeInfo();
+        if (receiver.typeInfo() != declaring && declaring.typeParameters().contains(declared.typeParameter())) {
+            // an inherited member (ArrayList<E> calling Collection.add(E)): the receiver as its declaring type
+            try {
+                receiver = receiver.concreteSuperType(declaring.asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                return declared;
+            }
+            if (receiver == null || receiver.typeInfo() != declaring) return declared;
+        }
         int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
         if (index < 0 || index >= receiver.parameters().size()) return declared;
         ParameterizedType argument = receiver.parameters().get(index);

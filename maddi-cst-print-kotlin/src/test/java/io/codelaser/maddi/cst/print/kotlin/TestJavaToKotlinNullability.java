@@ -285,6 +285,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             import java.util.*;
             class E {
                 static class Keyed<T> { T find(String k) { return null; } }
+                static class Bag<T> { void put(T t) { } T take() { throw new UnsupportedOperationException(); } }
+                static class Sub<X> extends Bag<X> { }
+                private final Sub<String> loose = new Sub<>();
+                private final Sub<String> strict = new Sub<>();
                 private final Keyed<String> keyed = new Keyed<>();
                 private final List<String> names = new ArrayList<>();
                 private final List<String> maybe = new ArrayList<>();
@@ -293,6 +297,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     names.add(map.get(k));
                     maybe.add(map.get(k));
                     slots[0] = map.get(k);
+                    loose.put(map.get(k));
+                    strict.put(map.get(k));
+                    int inherited = loose.take().length() + strict.take().length();
                     return maybe.get(0).length() + names.get(0).length() + keyed.find(k).length();
                 }
             }
@@ -305,7 +312,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void containerContent() {
-        String kotlin = kotlin(CONTENT, new KotlinPrintOptions(new ByName(Set.of("maybe<>", "find()")),
+        String kotlin = kotlin(CONTENT, new KotlinPrintOptions(new ByName(Set.of("maybe<>", "find()", "loose<>")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         // Kotlin's generics are invariant: the constructor call takes the declaration's states
         contains(kotlin, "private val maybe: MutableList<String?> = ArrayList<String?>()");
@@ -316,5 +323,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "maybe.get(0)!!.length + names.get(0).length");
         // a member's own '?' survives its receiver's non-null type argument: find(k): T? on a Keyed<String>
         contains(kotlin, "keyed.find(k)!!.length");
+        // an inherited member is seen through the supertype that declares it: Sub<String?> calling Bag.put(T)
+        contains(kotlin, "loose.put(map.get(k))");
+        contains(kotlin, "strict.put(map.get(k)!!)");
+        contains(kotlin, "loose.take()!!.length + strict.take().length");
     }
 }
