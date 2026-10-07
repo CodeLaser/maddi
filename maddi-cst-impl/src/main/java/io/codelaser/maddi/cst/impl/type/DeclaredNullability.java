@@ -52,12 +52,15 @@ import java.util.function.Function;
  * {@code absent = true} denies the annotation, so it is read as not written; {@code @NotNull(content = true)} is
  * non-null AND non-null content, as maddi has always used it ({@code List.of}, {@code Map.of}, {@code stream()} in
  * the JDK hints): the type arguments become non-null too (unless a type-use annotation on an argument says
- * otherwise). Content of an array, and the return value of a functional interface (the annotation's other readings
- * of "content"), have no slot.
+ * otherwise); on an array, the elements become non-null. The return value of a functional interface (the
+ * annotation's other reading of "content") has no slot.
  * <p>
- * Known limitation: an array type is one {@link ParameterizedType}, so the array and its elements share one state;
- * the state is the ARRAY's, and an annotation on the elements ({@code @Nullable String[] a}) is not represented.
- * Another front-end fact: javac normalizes {@code ? extends Object} to {@code ?}, losing an annotation on that
+ * <b>Arrays</b>: the array's state is on the type, its elements' on {@link ParameterizedType#componentType()},
+ * recursively. A type-use annotation in declaration position ({@code @Nullable String[] a}) is about the ELEMENTS
+ * (JLS 9.7.4), whether the front end left it with the declaration or moved it to the component; the array's own
+ * is written {@code String @Nullable [] a}, or is a declaration-only annotation (JSR-305's, maddi's).
+ * <p>
+ * A front-end fact: javac normalizes {@code ? extends Object} to {@code ?}, losing an annotation on that
  * bound; an unbounded wildcard is parametric anyway.
  */
 public final class DeclaredNullability {
@@ -101,18 +104,40 @@ public final class DeclaredNullability {
 
     private ParameterizedType top(ParameterizedType declared, List<AnnotationExpression> declarationAnnotations,
                                   boolean marked) {
+        if (declared.arrays() > 0) return topArray(declared, declarationAnnotations, marked);
         ParameterizedType withArguments = arguments(declared, marked);
         NullableState fromTypeUse = explicit(declared.annotations());
-        // On an array, a TYPE_USE annotation written in declaration position ('@Nullable String[] a') qualifies the
-        // ELEMENTS (JLS 9.7.4), but javac stores it with the declaration's annotations: only 'String @Nullable [] a'
-        // reaches the type. The element state has no slot (class comment), so such annotations are skipped here;
-        // a pure declaration annotation (JSR-305's @Nullable) still speaks about the array itself.
-        List<AnnotationExpression> aboutTheDeclaration = declared.arrays() == 0 ? declarationAnnotations
-                : declarationAnnotations.stream().filter(ae -> !isTypeUse(ae)).toList();
-        NullableState state = fromTypeUse != null ? fromTypeUse : explicit(aboutTheDeclaration);
+        NullableState state = fromTypeUse != null ? fromTypeUse : explicit(declarationAnnotations);
         ParameterizedType withContent = contentNonNull(declarationAnnotations) ? nonNullContent(withArguments)
                 : withArguments;
         return withContent.withNullable(state != null ? state : implicit(declared, marked));
+    }
+
+    private ParameterizedType topArray(ParameterizedType declared, List<AnnotationExpression> declarationAnnotations,
+                                       boolean marked) {
+        NullableState state = explicit(declared.annotations());
+        if (state == null) state = explicit(declarationAnnotations.stream().filter(ae -> !isTypeUse(ae)).toList());
+        List<AnnotationExpression> aboutTheElements = declarationAnnotations.stream()
+                .filter(DeclaredNullability::isTypeUse).toList();
+        ParameterizedType component = element(declared.componentType(), aboutTheElements, marked,
+                contentNonNull(declarationAnnotations));
+        return declared.withComponentType(component).withNullable(state != null ? state : implicit(declared, marked));
+    }
+
+    // the innermost component gets the declaration's type-use annotations; content = true makes it non-null
+    private ParameterizedType element(ParameterizedType component, List<AnnotationExpression> extra, boolean marked,
+                                      boolean contentNonNull) {
+        if (component.arrays() > 0) {
+            ParameterizedType inner = element(component.componentType(), extra, marked, contentNonNull);
+            NullableState state = explicit(component.annotations());
+            return component.withComponentType(inner).withNullable(state != null ? state : implicit(component, marked));
+        }
+        ParameterizedType withArguments = arguments(component, marked);
+        java.util.ArrayList<AnnotationExpression> all = new java.util.ArrayList<>(component.annotations());
+        all.addAll(extra);
+        NullableState state = explicit(all);
+        if (state == null && contentNonNull) state = NullableState.NONNULL;
+        return withArguments.withNullable(state != null ? state : implicit(component, marked));
     }
 
     // maddi's @NotNull(content = true): the type arguments are non-null too, except where one is annotated itself
@@ -133,6 +158,11 @@ public final class DeclaredNullability {
     }
 
     private ParameterizedType use(ParameterizedType pt, boolean marked) {
+        if (pt.arrays() > 0) {
+            NullableState state = explicit(pt.annotations());
+            return pt.withComponentType(use(pt.componentType(), marked))
+                    .withNullable(state != null ? state : implicit(pt, marked));
+        }
         ParameterizedType withArguments = arguments(pt, marked);
         NullableState state = explicit(pt.annotations());
         return withArguments.withNullable(state != null ? state : implicit(pt, marked));

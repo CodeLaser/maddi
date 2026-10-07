@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <p>
  * Two front-end facts these tests pin: javac normalizes {@code ? extends @Nullable Object} to {@code ?} (the
  * annotation is gone; an unbounded wildcard is parametric, so {@code ?!}); and {@code @Nullable String[] a} speaks
- * about the ELEMENTS, which one {@code ParameterizedType} cannot hold, so the array keeps its scope's state.
+ * about the ELEMENTS, which sit on {@code componentType()}: an array renders as its element, {@code []}, and its own
+ * suffix ({@code String?[]!}: nullable elements, unspecified array).
  */
 public class TestDeclaredNullability extends CommonTest {
 
@@ -119,6 +120,7 @@ public class TestDeclaredNullability extends CommonTest {
     // Kotlin notation: '?' nullable, '' non-null, '!' unspecified
     static String k(ParameterizedType pt) {
         if (pt == null) return "-";
+        if (pt.arrays() > 0) return k(pt.componentType()) + "[]" + suffix(pt);
         String base;
         if (pt.wildcard() != null && pt.typeInfo() == null && pt.typeParameter() == null) {
             base = "?";
@@ -134,7 +136,15 @@ public class TestDeclaredNullability extends CommonTest {
             case NONNULL -> "";
             case UNSPECIFIED -> "!";
         };
-        return base + args + "[]".repeat(pt.arrays()) + suffix;
+        return base + args + suffix;
+    }
+
+    private static String suffix(ParameterizedType pt) {
+        return switch (pt.nullable()) {
+            case NULLABLE -> "?";
+            case NONNULL -> "";
+            case UNSPECIFIED -> "!";
+        };
     }
 
     private static String fields(TypeInfo t, DeclaredNullability dn) {
@@ -192,9 +202,9 @@ public class TestDeclaredNullability extends CommonTest {
                 nested: Map<String!, List<String?>?>!
                 wild: List<?!>!
                 wildCs: List<? extends CharSequence?>!
-                arrElem: String[]!
-                arrItself: String[]?
-                declArr: String[]?
+                arrElem: String?[]!
+                arrItself: String![]?
+                declArr: String![]?
                 tv: T!
                 ntv: T?
                 qualified: String?
@@ -202,11 +212,10 @@ public class TestDeclaredNullability extends CommonTest {
         assertEquals("m(p: String?, q: String?, r: String!): String?", method(x, "m", dn));
         assertEquals("declM(): String?", method(x, "declM", dn));
         assertEquals("v(): -", method(x, "v", dn));
-        // GAP, pinned: on a PARAMETER (and a return), javac's modifier-position type-use annotation is routed onto
-        // the type (ScanCompilationUnit.typeOnlyModifierAnnotations), so '@Nullable String[] a' -- elements
-        // nullable, JLS 9.7.4 -- arrives exactly like 'String @Nullable [] b' and reads as a nullable ARRAY. A
-        // field keeps it among its declaration annotations instead, where it can be told apart (arrElem above).
-        assertEquals("arrs(a: String[]?, b: String[]?): String[]!", method(x, "arrs", dn));
+        // on a PARAMETER (and a return) javac's modifier-position type-use annotation is routed to the element
+        // type (ScanCompilationUnit.withElementAnnotations); a field keeps it among its declaration annotations,
+        // which DeclaredNullability reads as the elements' too (arrElem above)
+        assertEquals("arrs(a: String?[]!, b: String![]?): String![]!", method(x, "arrs", dn));
     }
 
     @DisplayName("@NullMarked package: unannotated uses become non-null, type variables and wildcards stay parametric")
@@ -227,7 +236,7 @@ public class TestDeclaredNullability extends CommonTest {
                 nested: Map<String, List<String?>?>
                 wild: List<?!>
                 wildCs: List<? extends CharSequence?>
-                arrElem: String[]
+                arrElem: String?[]
                 arrItself: String[]?
                 declArr: String[]?
                 tv: T!
@@ -305,7 +314,7 @@ public class TestDeclaredNullability extends CommonTest {
                 """));
         DeclaredNullability dn = declared(types);
         TypeInfo m = types.get("a.b.M");
-        // content: the value and its type arguments; an array's content has no slot
+        // content: the value and its type arguments, or an array's elements
         assertEquals("""
                 nn: String
                 n: String?

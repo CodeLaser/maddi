@@ -105,8 +105,17 @@ public class ParameterizedTypePrinter {
          at all: every generated file would silently state something weaker than its source, and only a
          nullness checker at the consumer's build would ever say so.
          */
-        List<AnnotationExpression> typeAnnotations = printAnnotations ? parameterizedType.annotations()
-                : List.of();
+        /*
+         On an array the annotations before the type name are the ELEMENTS' (the innermost component type's); the
+         array's own, and each inner dimension's, are printed before its '[]': 'String @Nullable []' (JLS 9.7.4).
+         */
+        List<ParameterizedType> dimensions = new ArrayList<>(); // the array, then each component that is an array
+        ParameterizedType element = parameterizedType;
+        while (element.arrays() > 0) {
+            dimensions.add(element);
+            element = element.componentType();
+        }
+        List<AnnotationExpression> typeAnnotations = printAnnotations ? element.annotations() : List.of();
         if (!typeAnnotations.isEmpty()) {
             OutputBuilder ab = typeAnnotations.stream().map(ae -> ae.print(qualification))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.ONE));
@@ -143,9 +152,28 @@ public class ParameterizedTypePrinter {
                 if (parameterizedType.arrays() == 0) {
                     throw new UnsupportedOperationException("Varargs parameterized types must have arrays>0!");
                 }
-                outputBuilder.add(new TextImpl(("[]".repeat(parameterizedType.arrays() - 1) + "...")));
-            } else if (parameterizedType.arrays() > 0) {
-                outputBuilder.add(new TextImpl("[]".repeat(parameterizedType.arrays())));
+            }
+            for (int i = 0; i < dimensions.size(); i++) {
+                List<AnnotationExpression> dimensionAnnotations = printAnnotations ? dimensions.get(i).annotations()
+                        : List.of();
+                if (!dimensionAnnotations.isEmpty()) {
+                    outputBuilder.add(dimensionAnnotations.stream().map(ae -> ae.print(qualification))
+                            .collect(OutputBuilderImpl.joining(SpaceEnum.ONE))).add(SpaceEnum.ONE);
+                }
+                boolean last = i == dimensions.size() - 1;
+                if (dimensionAnnotations.isEmpty()) {
+                    // unannotated dimensions print as before: '[][]', 'String[]...'
+                    int j = i;
+                    while (j < dimensions.size() - 1 && (!printAnnotations
+                                                         || dimensions.get(j + 1).annotations().isEmpty())) j++;
+                    int count = j - i + 1;
+                    boolean reachesEnd = j == dimensions.size() - 1;
+                    outputBuilder.add(new TextImpl(varargs && reachesEnd ? "[]".repeat(count - 1) + "..."
+                            : "[]".repeat(count)));
+                    i = j;
+                } else {
+                    outputBuilder.add(new TextImpl(varargs && last ? "..." : "[]"));
+                }
             }
         }
         return outputBuilder;

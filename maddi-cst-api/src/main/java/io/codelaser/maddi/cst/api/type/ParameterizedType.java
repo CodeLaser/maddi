@@ -113,6 +113,26 @@ public interface ParameterizedType {
 
     ParameterizedType copyWithOneFewerArrays();
 
+    /**
+     * For an array type, the type of its elements AS THIS USE STATES IT: its own {@link #nullable()} and TYPE-USE
+     * {@link #annotations()}, which belong to the elements, not to the array ({@code @Nullable String[]}: the
+     * elements are nullable; {@code String @Nullable []}: the array is). Recursively, for a nested array. Equal to
+     * {@link #copyWithOneFewerArrays()} unless a state or annotation was given with
+     * {@link #withComponentType(ParameterizedType)}.
+     * <p>
+     * ⚠ Like {@link #nullable()}, part of {@code equals} and not of {@code hashCode}. Only {@code withNullable},
+     * {@code withAnnotations} and {@code withComponentType} keep it; every other copy starts from the plain
+     * component again.
+     */
+    default ParameterizedType componentType() {
+        return copyWithOneFewerArrays();
+    }
+
+    /** This array type with the given element type: {@link #copyWithOneFewerArrays()} up to states and annotations. */
+    default ParameterizedType withComponentType(ParameterizedType component) {
+        return this;
+    }
+
     ParameterizedType copyWithOneMoreArray();
 
     ParameterizedType copyWithoutArrays();

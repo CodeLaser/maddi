@@ -80,9 +80,13 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
             """;
 
     private String parseAndPrint() {
-        TypeInfo x = scan(false, Map.of("ann.Nullable", NULLABLE, "a.b.X", SUBJECT))
+        return parseAndPrint("a.b.X", SUBJECT);
+    }
+
+    private String parseAndPrint(String fqn, String subject) {
+        TypeInfo x = scan(false, Map.of("ann.Nullable", NULLABLE, fqn, subject))
                 .primaryTypes().stream()
-                .filter(t -> "a.b.X".equals(t.fullyQualifiedName())).findFirst().orElseThrow();
+                .filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst().orElseThrow();
         OutputBuilder ob = runtime.newCompilationUnitPrinter(x.compilationUnit(), true)
                 .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
         FormattingOptions options = new FormattingOptionsImpl.Builder()
@@ -122,5 +126,32 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
                 """;
         // trailing newline: the text block always ends with one, the printer does not always emit one.
         assertEquals(expected.stripTrailing(), parseAndPrint().stripTrailing());
+    }
+
+    /**
+     * Arrays (JLS 9.7.4): before the type name the annotation is about the ELEMENTS, before a {@code []} about that
+     * array. Both are kept apart in the model ({@code ParameterizedType.componentType()}) and printed where they
+     * were written; a declaration-position annotation on a parameter or return is printed before the element type.
+     */
+    @DisplayName("array annotations: on the elements and on the array, each printed in its place")
+    @Test
+    public void arrays() {
+        @Language("java")
+        String subject = """
+                package a.b;
+                import ann.Nullable;
+                import java.util.List;
+                public class Y {
+                    public @Nullable String[] elements() { return null; }
+                    public String @Nullable [] array() { return null; }
+                    public void params(@Nullable String[] a, String @Nullable [] b, @Nullable String... rest) { }
+                    public List<@Nullable String[]> argumentElements() { return null; }
+                    public List<String @Nullable []> argumentArray() { return null; }
+                    public @Nullable String @Nullable [] both() { return null; }
+                }
+                """;
+        // the printer's own layout puts a space before an unannotated '[]' and before '...'
+        String expected = subject.replace("String[]", "String []").replace("String...", "String ...");
+        assertEquals(expected.stripTrailing(), parseAndPrint("a.b.Y", subject).stripTrailing());
     }
 }

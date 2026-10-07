@@ -64,6 +64,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final List<ParameterizedType> parameters;
     private final NullableState nullable;
     private final List<AnnotationExpression> annotations;
+    // an array's element type, when it carries a state or annotations of its own (componentType()); else null
+    private final ParameterizedType component;
 
     public ParameterizedTypeImpl(TypeParameter typeParameter, int arrays) {
         this(null, typeParameter, List.of(), arrays, null);
@@ -121,6 +123,18 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                                  Wildcard wildcard,
                                  NullableState nullable,
                                  List<AnnotationExpression> annotations) {
+        this(typeInfo, typeParameter, parameters, arrays, wildcard, nullable, annotations, null);
+    }
+
+    private ParameterizedTypeImpl(TypeInfo typeInfo,
+                                  TypeParameter typeParameter,
+                                  List<ParameterizedType> parameters,
+                                  int arrays,
+                                  Wildcard wildcard,
+                                  NullableState nullable,
+                                  List<AnnotationExpression> annotations,
+                                  ParameterizedType component) {
+        this.component = component;
         this.annotations = List.copyOf(annotations);
         this.typeParameter = typeParameter;
         this.typeInfo = typeInfo;
@@ -140,7 +154,23 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public ParameterizedType withNullable(NullableState nullable) {
         if (this.nullable == nullable) return this;
         return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable,
-                annotations);
+                annotations, component);
+    }
+
+    @Override
+    public ParameterizedType componentType() {
+        return component != null ? component : copyWithOneFewerArrays();
+    }
+
+    @Override
+    public ParameterizedType withComponentType(ParameterizedType componentType) {
+        assert arrays > 0;
+        ParameterizedType plain = copyWithOneFewerArrays();
+        // normalized: a component that states nothing is not stored, so equals sees no difference
+        ParameterizedType c = componentType.equals(plain) ? null : componentType;
+        if (Objects.equals(c, component)) return this;
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable,
+                annotations, c);
     }
 
     @Override
@@ -152,7 +182,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public ParameterizedType withAnnotations(List<AnnotationExpression> annotations) {
         if (this.annotations.equals(annotations)) return this;
         return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays, wildcard, nullable,
-                annotations);
+                annotations, component);
     }
 
     @Override
@@ -166,7 +196,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                && Objects.equals(wildcard, that.wildcard)
                && Objects.equals(parameters, that.parameters)
                && nullable == that.nullable
-               && Objects.equals(annotations, that.annotations);
+               && Objects.equals(annotations, that.annotations)
+               && Objects.equals(component, that.component);
     }
 
     @Override

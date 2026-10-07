@@ -1092,8 +1092,12 @@ public abstract class ValueImpl implements Value {
         public static final NullabilityImpl NONNULL = new NullabilityImpl(NullableState.NONNULL, List.of());
         public static final NullabilityImpl NULLABLE = new NullabilityImpl(NullableState.NULLABLE, List.of());
 
-        /** Non-null, and so is every type argument of {@code declared}: maddi's {@code @NotNull(content = true)}. */
+        /**
+         * Non-null, and so is every type argument of {@code declared}, or for an array its elements: maddi's
+         * {@code @NotNull(content = true)}.
+         */
         public static NullabilityImpl contentNonNull(ParameterizedType declared) {
+            if (declared.arrays() > 0) return new NullabilityImpl(NullableState.NONNULL, List.of(NONNULL));
             return new NullabilityImpl(NullableState.NONNULL,
                     declared.parameters().stream().map(_ -> NONNULL).toList());
         }
@@ -1102,13 +1106,23 @@ public abstract class ValueImpl implements Value {
             arguments = List.copyOf(arguments);
         }
 
-        /** The states of {@code pt} and its type arguments, recursively. */
+        /**
+         * The states of {@code pt} and its type arguments, recursively. For an array the one argument is its
+         * element type ({@link ParameterizedType#componentType()}): {@code String?[]} is {@code N(Q)}, and the type
+         * arguments of {@code List<String>[]} sit one level down, {@code N(N(N))}.
+         */
         public static NullabilityImpl of(ParameterizedType pt) {
+            if (pt.arrays() > 0) return new NullabilityImpl(pt.nullable(), List.of(of(pt.componentType())));
             return new NullabilityImpl(pt.nullable(), pt.parameters().stream().map(NullabilityImpl::of).toList());
         }
 
         @Override
         public ParameterizedType applyTo(ParameterizedType declared) {
+            if (declared.arrays() > 0) {
+                ParameterizedType array = arguments.isEmpty() ? declared
+                        : declared.withComponentType(arguments.getFirst().applyTo(declared.copyWithOneFewerArrays()));
+                return array.withNullable(state);
+            }
             ParameterizedType withArguments = declared;
             if (!arguments.isEmpty() && !declared.parameters().isEmpty()) {
                 List<ParameterizedType> parameters = new ArrayList<>(declared.parameters());
