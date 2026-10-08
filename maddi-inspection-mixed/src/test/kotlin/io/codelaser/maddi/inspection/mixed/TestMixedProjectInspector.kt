@@ -115,6 +115,38 @@ class TestMixedProjectInspector {
     }
 
     /**
+     * A Kotlin class extending a generic Java (here JDK, bytecode) class whose constructor takes the class's type
+     * parameter: `ForwardingJavaFileManager<M>(M fileManager)`. Kotlin sees that parameter as `M!`; until 2026-10-08
+     * only a bare type parameter was recognised, the stub called `super((java.lang.Object) null)`, and javac refused
+     * it ("Object cannot be converted to StandardJavaFileManager"), failing the whole-tree audit on maddi's own
+     * `MixedProjectInspector.UnnamedModule`.
+     */
+    @Test
+    fun aKotlinSubclassOfAGenericJavaClassPassesATypeParameterArgument() {
+        // one set holding both languages: the interleaved flow, whose stubs come from the Kotlin session's hints
+        val dir = Files.createTempDirectory(tempRoot, "mixed-generic-super").resolve("src/main/java")
+        Files.createDirectories(dir.resolve("p"))
+        Files.writeString(dir.resolve("p/Forwarding.kt"), """
+            package p
+
+            import javax.tools.ForwardingJavaFileManager
+            import javax.tools.StandardJavaFileManager
+
+            class Forwarding(fm: StandardJavaFileManager) : ForwardingJavaFileManager<StandardJavaFileManager>(fm)
+            """.trimIndent() + "\n")
+        Files.writeString(dir.resolve("p/UseForwarding.java"),
+            "package p;\npublic class UseForwarding {\n    public Forwarding forwarding;\n}\n")
+        val main = SourceSetImpl.Builder().setName("main").setSourceDirectories(listOf(dir)).setUri(dir.toUri()).build()
+        val config = InputConfigurationImpl.Builder().addSourceSets(main).build()
+
+        val result = MixedProjectInspector().parse(config)
+
+        val forwarding = result.kotlinTypes.first { it.simpleName() == "Forwarding" }
+        val use = result.javaTypes.first { it.simpleName() == "UseForwarding" }
+        assertSame(forwarding, use.getFieldByName("forwarding", true).type().typeInfo())
+    }
+
+    /**
      * kotlinc gives a primary constructor with default values for ALL its parameters a no-argument overload, whose
      * body calls the `$default` constructor the stub leaves out. The stub must delegate where THAT one delegates:
      * `this(...)` to the primary constructor, or, one level up, the primary's `super(...)`. A delegation copied as is

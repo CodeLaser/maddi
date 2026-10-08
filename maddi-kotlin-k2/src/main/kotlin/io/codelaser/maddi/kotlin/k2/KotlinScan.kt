@@ -77,6 +77,8 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.contextParameters
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
+import org.jetbrains.kotlin.analysis.api.types.KaDefinitelyNotNullType
+import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
@@ -1347,6 +1349,21 @@ class KotlinScan(
 
     fun delegationOf(constructor: MethodInfo): ConstructorDelegation? = delegationOf[constructor]
 
+    /**
+     * A type parameter, also as a Java one is seen from Kotlin: `M!` (flexible) or `M & Any`.
+     *
+     * ⛔ Until 2026-10-08 only a bare [KaTypeParameterType] counted. A Java parent's `M fileManager` arrives
+     * flexible, was mapped to `java.lang.Object`, and the stub of `class UnnamedModule(fm: StandardJavaFileManager) :
+     * ForwardingJavaFileManager<StandardJavaFileManager>(fm)` called `super((java.lang.Object) null)`, which javac
+     * refuses (maddi-inspection-mixed's own `MixedProjectInspector`, in the whole-tree audit).
+     */
+    private fun isTypeParameter(type: KaType): Boolean = when (type) {
+        is KaTypeParameterType -> true
+        is KaFlexibleType -> isTypeParameter(type.lowerBound)
+        is KaDefinitelyNotNullType -> isTypeParameter(type.original)
+        else -> false
+    }
+
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
     private fun KaSession.recordDelegation(declaration: KtClassOrObject, ctor: KaConstructorSymbol, constructor: MethodInfo) {
         val (isSuper, call) = when (val psi = ctor.psi) {
@@ -1361,7 +1378,7 @@ class KotlinScan(
         val target = call.resolveSymbol() as? KaConstructorSymbol ?: return
         val owner = constructor.typeInfo()
         val parameterTypes = target.valueParameters.map { p ->
-            if (p.returnType is KaTypeParameterType) null
+            if (isTypeParameter(p.returnType)) null
             else mapType(p.returnType, owner).let { if (p.isVararg) it.copyWithArrays(it.arrays() + 1) else it }
         }
         // a bytecode parent is loaded with its members; a source parent (Kotlin, or Java not yet parsed) throws nothing
