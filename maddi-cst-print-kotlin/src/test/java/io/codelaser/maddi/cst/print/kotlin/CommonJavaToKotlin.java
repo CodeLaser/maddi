@@ -72,7 +72,20 @@ public abstract class CommonJavaToKotlin {
         return translate(java, options).messages();
     }
 
+    /** As {@link #kotlin(String)}, after {@code beforePrint} has seen the parsed type (to set analysis results on it). */
+    protected String kotlin(String java, java.util.function.Consumer<TypeInfo> beforePrint) {
+        KotlinCompilationUnitPrinter.Result result = translate(java, KotlinPrintOptions.DEFAULT, beforePrint);
+        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
+        return formatter.write(result.output());
+    }
+
     private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options) {
+        return translate(java, options, t -> {
+        });
+    }
+
+    private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options,
+                                                          java.util.function.Consumer<TypeInfo> beforePrint) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
@@ -81,6 +94,7 @@ public abstract class CommonJavaToKotlin {
                 .parseResult().primaryTypes().stream()
                 .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
                 .orElseThrow();
+        beforePrint.accept(typeInfo);
         Runtime runtime = javaInspector.runtime();
         return new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options)
                 .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());

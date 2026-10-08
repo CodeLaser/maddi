@@ -392,6 +392,41 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "Comparator.comparing( { order.get(it)!! })");
     }
 
+    @Language("java")
+    private static final String READ_ONLY = """
+            package a;
+            import java.util.*;
+            class RO {
+                private static int count(List<String> items) {
+                    int n = 0;
+                    for (String s : items) n += s.length();
+                    return n;
+                }
+                private static void fill(List<String> items) { items.add("x"); }
+                private static List<String> same(List<String> items) { return items; }
+                int open(List<String> items) { return items.size(); }
+            }
+            """;
+
+    /**
+     * A collection parameter the modification analysis proves unmodified gets Kotlin's read-only (covariant) type, in
+     * a method nothing can override. Here the analysis result is set by hand on count's and open's parameters.
+     */
+    @Test
+    public void readOnlyParameters() {
+        String kotlin = kotlin(READ_ONLY, type -> type.methods().stream()
+                .filter(m -> !"fill".equals(m.name()))
+                .forEach(m -> m.parameters().forEach(p -> p.analysis().set(
+                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun count(items: List<String>): Int");
+        contains(kotlin, "fun fill(items: MutableList<String>)");
+        // unmodified, but returned where a MutableList is declared: only a parameter that is merely read
+        contains(kotlin, "fun same(items: MutableList<String>): MutableList<String>");
+        // open: overridable, so its parameter keeps Java's mutable type whatever the analysis says
+        contains(kotlin, "fun open(items: MutableList<String>): Int");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

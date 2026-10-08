@@ -54,6 +54,11 @@ public record KotlinPrintMessage(Code code, String type, int line, int position,
          * NullPointerException moves to the declaration, before what Java did with the null in between.
          */
         ASSERT_AT_DECLARATION(Severity.BEHAVIOUR_CHANGE),
+        /**
+         * As ASSERT_AT_DECLARATION, where the linking engine proves that nothing between the declaration and the first
+         * dereference refers to the local: the NullPointerException moves up, nothing observable changes with it.
+         */
+        ASSERT_AT_DECLARATION_UNOBSERVED(Severity.INFO),
         /** {@code x?.m()} (NullCheck.SAFE_CALL): where Java throws a NullPointerException, Kotlin goes on with null. */
         SAFE_CALL(Severity.BEHAVIOUR_CHANGE),
         /** {@code x!!.m()}, {@code a!![i]}, {@code for (e in xs!!)}: Java dereferences, and throws, at the same point. */

@@ -56,6 +56,21 @@ public class KotlinTypeName {
             Map.entry("java.util.Iterator", "MutableIterator"), Map.entry("java.util.ListIterator", "MutableListIterator"),
             Map.entry("java.lang.Iterable", "MutableIterable"));
 
+    /**
+     * {@code pt} with Kotlin's read-only collection interface on the outside, {@code List<Statement?>} for
+     * {@code MutableList<Statement?>}: covariant, so it takes a {@code MutableList<Statement>} too. Only the outer type:
+     * what is known unmodified is the collection itself, not the collections inside it. As {@link #of} otherwise.
+     */
+    static String readOnly(ParameterizedType pt, Qualification q) {
+        String printed = of(pt, q);
+        if (pt == null || pt.arrays() > 0 || pt.typeInfo() == null) return printed;
+        String fqn = pt.typeInfo().fullyQualifiedName();
+        String mutable = MUTABLE.get(fqn);
+        String readOnly = KOTLIN.get(fqn);
+        if (mutable == null || readOnly == null || !printed.startsWith(mutable)) return printed;
+        return readOnly + printed.substring(mutable.length());
+    }
+
     /** A JDK type Kotlin replaces by its own: never imported, and its static members are reached by its Java name. */
     public static boolean isMapped(String fullyQualifiedName) {
         return KOTLIN.containsKey(fullyQualifiedName) || MUTABLE.containsKey(fullyQualifiedName);

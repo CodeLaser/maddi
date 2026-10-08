@@ -244,8 +244,54 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType declared = KotlinNullability.parameterType(pi);
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
-        ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL)
-                .add(new TextImpl(typeOverride != null ? typeOverride : KotlinTypeName.of(type, q)));
+        String printed = typeOverride != null ? typeOverride
+                : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q) : KotlinTypeName.of(type, q);
+        ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
+    }
+
+    /**
+     * A collection parameter the modification analysis proves unmodified ({@link ParameterInfo#isUnmodified()}):
+     * Kotlin's read-only interface, covariant where MutableList is invariant. {@code changeEverywhere(…,
+     * List<Statement> statements)} only iterates, and is called with a {@code List<Statement?>} and with a
+     * {@code MutableList<Statement>}; only {@code List<Statement?>} takes both. Not without the analysis (unmodified
+     * is then false), and only for a method no other can override and that overrides none: Kotlin wants an
+     * override's parameter types exactly the overridden member's.
+     */
+    private static boolean readOnlyParameter(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
+        boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
+                         || m.typeInfo().isFinal();
+        return closed && pi.isUnmodified() && onlyRead(pi, m.methodBody());
+    }
+
+    /**
+     * Every use of {@code pi} reads it: the receiver of a call ({@code statements.size()}) or what a for-each
+     * iterates. Unmodified is not enough: returned, passed on or assigned, the read-only List lands where a
+     * MutableList is declared ({@code return items;} from a method that returns one).
+     */
+    private static boolean onlyRead(ParameterInfo pi, Block body) {
+        if (body == null) return false;
+        java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        int[] uses = {0};
+        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
+                && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null
+                && KotlinExpressionPrinter.unwrap(fe.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable())) {
+                uses[0]++;
+            }
+            return true;
+        });
+        return reads.size() == uses[0];
     }
 }

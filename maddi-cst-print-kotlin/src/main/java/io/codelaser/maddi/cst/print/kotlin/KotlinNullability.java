@@ -211,6 +211,12 @@ final class KotlinNullability {
         return method != null && verdicts().assertedAtDeclaration(method, declaration, variable);
     }
 
+    /** See {@link NullabilityVerdicts#unobservedBeforeDereference}. */
+    static boolean unobservedBeforeDereference(Element declaration, LocalVariable variable) {
+        MethodInfo method = KotlinContext.currentMethod();
+        return method != null && verdicts().unobservedBeforeDereference(method, declaration, variable);
+    }
+
     static boolean isNullable(ParameterizedType type) {
         return type != null && type.nullable() == NullableState.NULLABLE;
     }

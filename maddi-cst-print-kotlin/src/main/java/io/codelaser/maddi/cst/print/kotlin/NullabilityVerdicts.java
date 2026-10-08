@@ -63,6 +63,17 @@ public interface NullabilityVerdicts {
     }
 
     /**
+     * For a local {@link #assertedAtDeclaration asserted at its declaration}: proven, by the linking engine, that no
+     * statement between the declaration and the first dereference refers to the local, directly or through a variable
+     * linked to it. The earlier NullPointerException then changes nothing observable but which line throws, and the
+     * printer reports it as INFO (ASSERT_AT_DECLARATION_UNOBSERVED) rather than as a behaviour change. False without
+     * that proof.
+     */
+    default boolean unobservedBeforeDereference(MethodInfo method, Element declaration, LocalVariable variable) {
+        return false;
+    }
+
+    /**
      * The local variable or parameter is known non-null when {@code statement} starts: after
      * {@code if (v == null) return;}, inside {@code if (v != null)}, after {@code v.m()}. Kotlin smart-casts it there
      * as well, so a nullable {@code v} needs no {@code !!}. (Java requires a local a lambda captures to be

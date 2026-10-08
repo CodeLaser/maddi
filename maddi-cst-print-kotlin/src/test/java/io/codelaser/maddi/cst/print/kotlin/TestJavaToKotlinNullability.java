@@ -117,6 +117,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return checked.contains("!" + variable.simpleName());
         }
 
+        /** {@code "~x"} in checked: local x is proven unobserved before its first dereference. */
+        @Override
+        public boolean unobservedBeforeDereference(MethodInfo method, Element declaration, LocalVariable variable) {
+            return checked.contains("~" + variable.simpleName());
+        }
+
         @Override
         public ParameterizedType local(MethodInfo method, Element declaration, LocalVariable variable) {
             // "undecided*": a verdict that is no decision, as the pass gives for a degraded method's unreached local
@@ -158,6 +164,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         List<KotlinPrintMessage> messages = messages(EARLY.replace("class D", "class D2"), options);
         assertTrue(messages.stream().anyMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
                                                    && m.line() == 7), messages.toString());
+        // with the linking engine's proof that nothing in between refers to s: INFO, not a behaviour change
+        List<KotlinPrintMessage> proven = messages(EARLY.replace("class D", "class D3"), new KotlinPrintOptions(
+                new ByName(Set.of("find()"), Set.of("!s", "~s")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertTrue(proven.stream().anyMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION_UNOBSERVED
+                                                 && m.severity() == KotlinPrintMessage.Severity.INFO && m.line() == 7),
+                proven.toString());
         // t is not asserted at its declaration: its `!!`, if any, is an ordinary one
         assertTrue(messages.stream().noneMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
                                                     && m.line() == 12), messages.toString());
