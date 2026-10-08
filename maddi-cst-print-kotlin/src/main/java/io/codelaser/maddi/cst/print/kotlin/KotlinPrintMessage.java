@@ -39,8 +39,11 @@ public record KotlinPrintMessage(Code code, String type, int line, int position,
     }
 
     public enum Code {
-        /** {@code clone() { return null; }} throws CloneNotSupportedException: Kotlin's clone() returns a non-null Any. */
-        CLONE_NULL_THROWS(Severity.BEHAVIOUR_CHANGE),
+        /**
+         * An override that returns null where Kotlin's member cannot ({@code clone()}, {@code Map.Entry.setValue},
+         * {@code Iterator.next}, …) throws instead: CloneNotSupportedException, UnsupportedOperationException.
+         */
+        NULL_OVERRIDE_THROWS(Severity.BEHAVIOUR_CHANGE),
         /**
          * {@code x!!} into a non-null declaration: Java stores the null and may never fail, Kotlin throws here
          * (a parameter, a field, a return, an element). The nullability verdicts decide which declarations are non-null.

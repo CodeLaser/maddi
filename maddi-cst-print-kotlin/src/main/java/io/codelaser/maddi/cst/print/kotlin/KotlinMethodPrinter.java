@@ -93,6 +93,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
         if (!methodInfo.isConstructor()) {
             ParameterizedType rt = KotlinNullability.returnType(methodInfo);
+            // the body throws instead of returning null: the override keeps Kotlin's non-null result
+            if (rt != null && !methodInfo.isAbstract() && methodInfo.methodBody() != null
+                && nullOverride(expressionBody(methodInfo.methodBody())) != null) {
+                rt = rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+            }
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
                 b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(rt, qualification)));
             }
@@ -109,12 +114,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
             if (!reassigned.isEmpty()) {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
-            } else if (expressionBody != null && nullClone(expressionBody)) {
-                // Kotlin's clone() returns a non-null Any, so `return null` cannot be: a DELIBERATE behaviour change, the
-                // caller gets the exception instead of the null (fernflower's InstructionSequence, "to be overwritten")
-                KotlinContext.message(KotlinPrintMessage.Code.CLONE_NULL_THROWS, methodInfo, typeInfo.simpleName() + ".clone()");
+            } else if (nullOverride(expressionBody) != null) {
+                // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, the caller
+                // gets the exception instead of the null (fernflower's InstructionSequence.clone(), "to be overwritten")
+                KotlinContext.message(KotlinPrintMessage.Code.NULL_OVERRIDE_THROWS, methodInfo,
+                        typeInfo.simpleName() + "." + methodInfo.name() + "()");
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(new TextImpl("throw CloneNotSupportedException()"));
+                        .add(new TextImpl("throw " + nullOverride(expressionBody) + "()"));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -129,10 +135,25 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return b;
     }
 
-    /** {@code clone() { return null; }}, overriding: Kotlin's {@code Cloneable.clone()} has no nullable result. */
-    private boolean nullClone(Expression expressionBody) {
-        return "clone".equals(methodInfo.name()) && methodInfo.parameters().isEmpty()
-               && !methodInfo.overrides().isEmpty() && KotlinExpressionPrinter.unwrap(expressionBody) instanceof NullConstant;
+    /**
+     * {@code return null;} as the whole body of an override whose Kotlin member has no nullable result: the exception
+     * the printed body throws instead, or null. {@code clone()} (Cloneable's returns Any), and the collection members
+     * Kotlin types non-null: {@code Map.Entry.setValue} (an entry that cannot be set throws
+     * UnsupportedOperationException by Java's own contract), {@code Iterator.next}, {@code List.get} and {@code set}.
+     */
+    private String nullOverride(Expression expressionBody) {
+        if (methodInfo.isConstructor() || methodInfo.overrides().isEmpty() || expressionBody == null
+            || !(KotlinExpressionPrinter.unwrap(expressionBody) instanceof NullConstant)) {
+            return null;
+        }
+        if ("clone".equals(methodInfo.name()) && methodInfo.parameters().isEmpty()) return "CloneNotSupportedException";
+        boolean nonNullMember = methodInfo.overrides().stream().anyMatch(m -> switch (m.typeInfo().fullyQualifiedName()) {
+            case "java.util.Map.Entry" -> "setValue".equals(m.name());
+            case "java.util.Iterator", "java.util.ListIterator" -> "next".equals(m.name()) || "previous".equals(m.name());
+            case "java.util.List" -> "get".equals(m.name()) || "set".equals(m.name());
+            default -> false;
+        });
+        return nonNullMember ? "UnsupportedOperationException" : null;
     }
 
     /**

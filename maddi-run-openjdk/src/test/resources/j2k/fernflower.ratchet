@@ -32,6 +32,8 @@
 # non-null Any; a deliberate behaviour change): 93 files, 849 type errors.
 # 2026-10-08, no `!!` on nullable lookup arguments (contains, get, ...), blocks as when { else -> { } } (smart casts
 # survive them, unlike run { }), filter(Objects::nonNull) followed by map { it!! }: 93 files, 848 type errors.
+# 2026-10-08, Comparator.comparing(map::get) as comparing({ map.get(it)!! }); a Map.Entry.setValue (Iterator.next,
+# List.get/set) override returning null throws UnsupportedOperationException, deliberately: 93 files, 845 errors.
 types	199
 printerCrashes	0
 syntaxErrors	0

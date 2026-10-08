@@ -374,6 +374,10 @@ public class KotlinExpressionPrinter {
                                    && !method.parameters().get(i).isVarArgs();
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
+            if (hasParameter && comparingKey(method, args.get(i))) {
+                printed.add(comparingKeyLambda((MethodReference) unwrap(args.get(i)), q));
+                continue;
+            }
             if (unwrap(args.get(i)) instanceof Lambda l) {
                 // Kotlin types the parameters from the call: a nullable element makes them nullable
                 List<ParameterizedType> types = call == null || !hasParameter ? List.of()
@@ -455,6 +459,31 @@ public class KotlinExpressionPrinter {
 
     private static boolean isParameter(Expression e, ParameterInfo p) {
         return unwrap(e) instanceof VariableExpression ve && p.equals(ve.variable());
+    }
+
+    /**
+     * {@code Comparator.comparing(order::get)}: a key extractor whose result may be null. Kotlin wants a Comparable
+     * key, and an {@code Int?} is none; Java compares the null, and throws there. As
+     * {@code comparing({ order.get(it)!! })}, which throws at the same point (and takes an {@code Int?} element too).
+     */
+    private static boolean comparingKey(io.codelaser.maddi.cst.api.info.MethodInfo method, Expression argument) {
+        if (!"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
+            || !("comparing".equals(method.name()) || "thenComparing".equals(method.name()))
+            || !(unwrap(argument) instanceof MethodReference mr) || mr.methodInfo().isConstructor()
+            || mr.methodInfo().isStatic() || mr.methodInfo().parameters().size() != 1
+            || mr.scope() == null || mr.scope() instanceof TypeExpression) {
+            return false;
+        }
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        return KotlinNullability.nullableJdkResult(m) || KotlinNullability.isNullable(KotlinNullability.returnType(m));
+    }
+
+    private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
+        KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
+                .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(new TextImpl("!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
     private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",

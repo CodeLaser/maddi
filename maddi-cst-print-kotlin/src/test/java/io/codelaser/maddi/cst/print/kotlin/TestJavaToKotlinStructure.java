@@ -362,6 +362,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, ".also { lst = it }");
     }
 
+    @Language("java")
+    private static final String NULL_OVERRIDES = """
+            package a;
+            import java.util.*;
+            class E {
+                Map.Entry<Integer, String> entry(int k, String v) {
+                    return new Map.Entry<>() {
+                        public Integer getKey() { return k; }
+                        public String getValue() { return v; }
+                        public String setValue(String value) { return null; }
+                    };
+                }
+                void sort(List<Integer> ids, HashMap<Integer, Integer> order) {
+                    ids.sort(Comparator.comparing(order::get));
+                }
+            }
+            """;
+
+    /**
+     * Kotlin's Map.Entry.setValue returns a non-null V: a stub returning null throws UnsupportedOperationException, as
+     * Java's contract allows. A key extractor with a nullable result gets its `!!`: Java throws comparing the null.
+     */
+    @Test
+    public void nullOverridesAndComparingKeys() {
+        String kotlin = kotlin(NULL_OVERRIDES);
+        contains(kotlin, "override fun setValue(value: String): String = throw UnsupportedOperationException()");
+        contains(kotlin, "Comparator.comparing( { order.get(it)!! })");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

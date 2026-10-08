@@ -55,7 +55,7 @@ public class TestJavaToKotlinMessages extends CommonJavaToKotlin {
         Map<KotlinPrintMessage.Code, List<KotlinPrintMessage>> byCode = messages.stream()
                 .collect(Collectors.groupingBy(KotlinPrintMessage::code));
 
-        KotlinPrintMessage clone = first(byCode, KotlinPrintMessage.Code.CLONE_NULL_THROWS, all);
+        KotlinPrintMessage clone = first(byCode, KotlinPrintMessage.Code.NULL_OVERRIDE_THROWS, all);
         assertEquals(KotlinPrintMessage.Severity.BEHAVIOUR_CHANGE, clone.severity(), all);
         assertEquals("a.M.Placeholder", clone.type(), all);
         assertEquals(9, clone.line(), all);

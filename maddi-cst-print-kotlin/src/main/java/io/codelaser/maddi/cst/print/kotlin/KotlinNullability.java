@@ -378,7 +378,7 @@ final class KotlinNullability {
         return found[0];
     }
 
-    private static boolean nullableJdkResult(MethodInfo methodInfo) {
+    static boolean nullableJdkResult(MethodInfo methodInfo) {
         if (methodInfo.isStatic()) return false;
         return java.util.stream.Stream.concat(java.util.stream.Stream.of(methodInfo), methodInfo.overrides().stream())
                 .anyMatch(m -> NULLABLE_JDK_RESULTS.getOrDefault(m.typeInfo().fullyQualifiedName(), Set.of())
