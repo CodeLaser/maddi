@@ -185,6 +185,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 Optional<String> any(List<String> items) { return items.stream().filter(t -> t.isEmpty()).findAny(); }
                 Optional<String> last(Optional<String> o) { return o.map(t -> { if (t.isEmpty()) return null; return t; }); }
                 Optional<String> plain(List<String> names) { return names.stream().findFirst(); }
+                long nulls(List<String> items) { return items.stream().filter(Objects::isNull).count(); }
             }
             """;
 
@@ -200,6 +201,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "as Optional<String>)");
         // names' elements are non-null: no cast
         contains(kotlin, "= names.stream().findFirst()");
+        // a library's parameter takes the null
+        contains(kotlin, "filter(Objects ::isNull)");
     }
 
     @Language("java")

@@ -121,6 +121,10 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
+            if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()) {
+                // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
+                out.add(new TextImpl("@JvmRecord")).add(SpaceEnum.ONE);
+            }
             if (!isLocal(typeInfo)) {
                 // a private nested type is visible in the whole Java file; Kotlin's private stops at its outer type
                 Optional<Keyword> visibility = companion && !typeInfo.isPrimaryType()
@@ -163,7 +167,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
                                 // a record's component is read through its accessor, x(): a data class property
-                                .add(KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
+                                .add(!typeInfo.typeNature().isRecord()
+                                     && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
                                      || !typeInfo.typeNature().isRecord() && !hasComponentMethods(typeInfo)
                                         && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
                                                 fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))

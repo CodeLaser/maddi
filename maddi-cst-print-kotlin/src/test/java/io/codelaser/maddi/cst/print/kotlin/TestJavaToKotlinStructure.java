@@ -454,7 +454,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "open inner class Inner {");
-        contains(kotlin, "data class Point(val x: Int, val y: Int) {");
+        contains(kotlin, "@JvmRecord data class Point(val x: Int, val y: Int) {"); // a JVM record: Java calls p.x()
         contains(kotlin, "init { if (x < 0) {"); // the compact constructor's body
         contains(kotlin, "throw IllegalArgumentException() } }");
         contains(kotlin, "fun sum(): Int = x + y");

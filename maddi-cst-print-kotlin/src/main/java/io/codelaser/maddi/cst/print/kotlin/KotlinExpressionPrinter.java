@@ -542,7 +542,8 @@ public class KotlinExpressionPrinter {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
         if (m.isConstructor() || mappedMember(mr) != null || !(mr.scope() instanceof TypeExpression te)) return null;
         String name = KotlinNames.name(m.name());
-        if (m.isStatic() && m.parameters().size() == 1
+        // a library's parameter is a platform type, which takes the null: Objects::isNull stays a reference
+        if (m.isStatic() && m.parameters().size() == 1 && KotlinNullability.translated(m.typeInfo())
             && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {
             KotlinContext.message(KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
             return text("{ " + KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + name + "(it!!) }");
