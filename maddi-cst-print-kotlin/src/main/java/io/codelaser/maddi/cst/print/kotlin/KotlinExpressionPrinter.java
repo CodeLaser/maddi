@@ -444,8 +444,17 @@ public class KotlinExpressionPrinter {
                 // a constructor call takes the target's states (Kotlin's generics are invariant)
                 ParameterizedType widenTo = unwrap(args.get(i)) instanceof ConstructorCall && declared != null
                         ? declared : target;
-                printed.add(KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
-                        widened(args.get(i), widenTo, q), q));
+                OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
+                        widened(args.get(i), widenTo, q), q);
+                if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
+                    // new PrimitiveConstant(tag, Integer.valueOf(v)): Java's Integer takes (int, Object), Kotlin's
+                    // Int the (int, int) overload; the cast keeps Java's choice
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                }
+                printed.add(argument);
             }
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
@@ -672,6 +681,27 @@ public class KotlinExpressionPrinter {
         if (sub == sup) return true;
         if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
         return sub.interfacesImplemented().stream().anyMatch(i -> isSubtype(i.typeInfo(), sup, visited));
+    }
+
+    /**
+     * A boxed argument ({@code Integer}) into a reference parameter ({@code Object}) where an overload takes the
+     * primitive at that position: Kotlin's type for both is {@code Int}, and it picks the primitive overload.
+     */
+    private static boolean boxedIntoReference(io.codelaser.maddi.cst.api.info.MethodInfo method, int i, Expression arg) {
+        if (method == null || i >= method.parameters().size()) return false;
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        ParameterizedType a = arg.parameterizedType();
+        if (p == null || a == null || p.isPrimitiveExcludingVoid() || p.arrays() > 0 || method.parameters().get(i).isVarArgs()
+            || a.isPrimitiveExcludingVoid() || primitive(a) == null || primitive(p) != null) {
+            return false;
+        }
+        Primitive boxed = primitive(a);
+        List<io.codelaser.maddi.cst.api.info.MethodInfo> candidates = method.isConstructor()
+                ? method.typeInfo().constructors() : method.typeInfo().methods();
+        return candidates.stream().anyMatch(m -> m != method && m.name().equals(method.name())
+                && m.parameters().size() == method.parameters().size()
+                && m.parameters().get(i).parameterizedType().isPrimitiveExcludingVoid()
+                && primitive(m.parameters().get(i).parameterizedType()) == boxed);
     }
 
     /** The receiver's type argument {@code index} as the declaring type sees it: E of a Set<E>, K or V of a Map. */

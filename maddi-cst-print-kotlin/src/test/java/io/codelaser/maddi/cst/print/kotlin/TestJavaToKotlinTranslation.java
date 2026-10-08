@@ -318,4 +318,26 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "val u = \"u\"");
         assertFalse(kotlin.contains("return@run u"), kotlin);
     }
+
+    @Language("java")
+    private static final String BOXED_OVERLOAD = """
+            package a;
+            class P {
+                P(int type, Object value) { }
+                P(int type, int index) { }
+                static P of(int x) { return new P(1, Integer.valueOf(x)); }
+                static P at(int x) { return new P(2, x); }
+            }
+            """;
+
+    /**
+     * Java's {@code Integer} argument takes the {@code (int, Object)} constructor; Kotlin types it {@code Int} and
+     * would pick {@code (int, int)}: the argument is cast to the parameter's type.
+     */
+    @Test
+    public void boxedArgumentKeepsJavasOverload() {
+        String kotlin = kotlin(BOXED_OVERLOAD);
+        contains(kotlin, "valueOf(x) as Any)");
+        contains(kotlin, "P(2, x)");
+    }
 }
