@@ -40,8 +40,8 @@ import java.util.stream.Stream;
  *   <li><b>C-style {@code for}</b>: a range loop ({@code for (i in 0 until n)}) when the loop variable is a counter
  *   nobody else assigns and the bound cannot change; otherwise a {@code while} with the updates at the end of the
  *   body, or, when the body {@code continue}s, a {@code while (true)} that runs the updates at the TOP of every
- *   iteration but the first, so that a {@code continue} still updates. Loop variables live in {@code kotlin.run { }}, the
- *   one block Kotlin has.</li>
+ *   iteration but the first, so that a {@code continue} still updates. Loop variables live in {@code when { else -> { } }},
+ *   the one block Kotlin has that data flow sees through.</li>
  *   <li><b>old-style {@code switch}</b>: a {@code when}. A case that falls through gets the statements of the cases
  *   it falls into, copied; the {@code break} that ends a case disappears; a {@code break} in the middle of one
  *   becomes {@code return@label} out of a {@code run label@{ }} around the {@code when}, because a Kotlin
@@ -82,15 +82,22 @@ public class KotlinStatementPrinter {
     }
 
     /**
-     * A block of its own. Qualified: inside a class an unqualified {@code run { }} is {@code this.run { }}, whose lambda
-     * receiver is a fresh {@code this} to the data flow, and {@code this.signature} loses its smart cast in there.
+     * A block of its own, {@code when { else -> { … } }}: Kotlin has no block statement. Not {@code run { }}, a lambda:
+     * a smart cast made inside does not reach the code after it ({@code while (k < child!!.preds.size)} in one, then
+     * {@code child.preds} in the next; kotlinc 2.4), and inside a class an unqualified {@code run} is {@code this.run},
+     * whose receiver loses {@code this.field}'s smart casts. A {@code when} is not a loop: break and continue still
+     * reach the enclosing one.
      */
-    private static final String RUN = "kotlin.run";
+    private static OutputBuilder scope(OutputBuilder braces) {
+        return new OutputBuilderImpl().add(new TextImpl("when")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
+                .add(SpaceEnum.ONE).add(new TextImpl("else")).add(SymbolEnum.LAMBDA).add(braces).add(SpaceEnum.ONE)
+                .add(SymbolEnum.RIGHT_BRACE);
+    }
 
     private static OutputBuilder printStatement(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
-                    : new OutputBuilderImpl().add(new TextImpl(RUN)).add(SpaceEnum.ONE).add(block(block, q));
+                    : scope(block(block, q));
             case ReturnStatement rs -> returnStatement(rs, q);
             case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
             case LocalVariableCreation lvc -> localVariables(lvc, q);
@@ -126,7 +133,11 @@ public class KotlinStatementPrinter {
             case AssertStatement as -> assertStatement(as, q);
             case LocalTypeDeclaration ltd -> new KotlinTypePrinter(ltd.typeInfo(), true) // a local type has no visibility
                     .print(new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q), true);
-            default -> s.print(q); // not-yet-translated statement forms: Java rendering
+            default -> {
+                // not-yet-translated statement forms: Java rendering
+                KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, s, s.getClass().getSimpleName());
+                yield s.print(q);
+            }
         };
     }
 
@@ -330,8 +341,8 @@ public class KotlinStatementPrinter {
         if (!declares) {
             return all.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
         }
-        // the loop variables are the loop's: `run { }` is the only block Kotlin has
-        return new OutputBuilderImpl().add(new TextImpl(RUN)).add(SpaceEnum.ONE).add(braces(all));
+        // the loop variables are the loop's, in a block of their own
+        return scope(braces(all));
     }
 
     /** A {@code continue} that targets this loop: one not inside a nested loop, or one labelled with this loop's. */

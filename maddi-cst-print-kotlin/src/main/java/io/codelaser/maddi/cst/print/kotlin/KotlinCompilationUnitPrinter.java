@@ -39,10 +39,21 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         this(compilationUnit, formatter2, KotlinPrintOptions.DEFAULT);
     }
 
+    /** The Kotlin text, and the messages about what it does differently from the Java, or could not translate. */
+    public record Result(OutputBuilder output, List<KotlinPrintMessage> messages) {
+    }
+
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification) {
+        return printWithMessages(importComputer, qualification).output();
+    }
+
+    /** As {@link #print}, with the {@link KotlinPrintMessage}s of this file, in the order they were printed. */
+    public Result printWithMessages(ImportComputer importComputer, Qualification qualification) {
         KotlinPrintOptions previous = KotlinContext.options(options);
+        KotlinContext.takeMessages();
         try {
-            return printFile(importComputer, qualification);
+            OutputBuilder output = printFile(importComputer, qualification);
+            return new Result(output, KotlinContext.takeMessages());
         } finally {
             KotlinContext.options(previous);
         }

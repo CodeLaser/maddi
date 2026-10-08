@@ -80,7 +80,7 @@ public class KotlinExpressionPrinter {
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                     .add(branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q));
-            case MethodCall mc -> inCall(mc, () -> methodCall(mc, q));
+            case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
             case Lambda lambda -> lambda(lambda, q);
@@ -118,7 +118,13 @@ public class KotlinExpressionPrinter {
             case ShortConstant sc -> text(Short.toString(sc.constant()));
             case CommaExpression ce -> ce.expressions().stream().map(x -> printStatement(x, q))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
-            default -> e.print(q); // constants (int, long, boolean, null) and anything unknown: as in Java
+            default -> {
+                // constants (int, long, boolean, null) and anything unknown: as in Java
+                if (!(e instanceof ConstantExpression<?>)) {
+                    KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, e, e.getClass().getSimpleName());
+                }
+                yield e.print(q);
+            }
         };
     }
 
@@ -202,7 +208,7 @@ public class KotlinExpressionPrinter {
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
-            return KotlinNullability.asserted(object, q);
+            return KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
             return KotlinNullability.asserted(mc.parameterExpressions().getFirst(), q);
@@ -300,7 +306,8 @@ public class KotlinExpressionPrinter {
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
             if (spread(args, method, i)) {
-                printed.add(new OutputBuilderImpl().add(SPREAD).add(KotlinNullability.asserted(args.get(i), q)));
+                printed.add(new OutputBuilderImpl().add(SPREAD)
+                        .add(KotlinNullability.asserted(args.get(i), KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, q)));
                 continue;
             }
             boolean hasParameter = method != null && i < method.parameters().size()
@@ -331,6 +338,9 @@ public class KotlinExpressionPrinter {
                     if (seen != declared) argumentTranslated = true;
                     declared = seen;
                 }
+                // set.contains(x), map.get(k) with a nullable x or k: Java's take an Object, and null finds nothing;
+                // Kotlin's stdlib extensions take any supertype of the element or key, so no `!!` (which throws)
+                if (hasParameter && call != null && nullableLookup(method, call, args.get(i), i)) argumentTranslated = false;
                 if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null
                     && cc.parameterizedType().arrays() == 1 && !cc.parameterizedType().componentType().isPrimitiveExcludingVoid()
                     && method.parameters().get(i).parameterizedType().typeParameter() != null
@@ -349,6 +359,82 @@ public class KotlinExpressionPrinter {
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /**
+     * {@code stream.filter(Objects::nonNull)} followed by {@code .map { it!! }}: Java's filter leaves no null, Kotlin's
+     * keeps the element type nullable ({@code map(classes::get)} makes it a {@code StructClass?}), and every lambda
+     * further down the chain would need a {@code !!} it cannot be given. The {@code it!!} never throws.
+     */
+    private static OutputBuilder nonNullFilter(MethodCall mc, OutputBuilder printed) {
+        if (!"filter".equals(mc.methodInfo().name()) || mc.parameterExpressions().size() != 1
+            || !"java.util.stream.Stream".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
+            || !nonNullPredicate(unwrap(mc.parameterExpressions().getFirst()))) {
+            return printed;
+        }
+        return printed.add(SymbolEnum.DOT).add(new TextImpl("map")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
+                .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /** {@code Objects::nonNull}, or {@code x -> x != null}. */
+    private static boolean nonNullPredicate(Expression e) {
+        if (e instanceof MethodReference mr) {
+            return "nonNull".equals(mr.methodInfo().name())
+                   && "java.util.Objects".equals(mr.methodInfo().typeInfo().fullyQualifiedName());
+        }
+        if (e instanceof Lambda l && l.parameters().size() == 1) {
+            List<Statement> statements = l.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+            return statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
+                   && unwrap(rs.expression()) instanceof BinaryOperator bo && bo.operator() != null
+                   && "!=".equals(bo.operator().name())
+                   && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), l.parameters().getFirst())
+                       || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), l.parameters().getFirst()));
+        }
+        return false;
+    }
+
+    private static boolean isParameter(Expression e, ParameterInfo p) {
+        return unwrap(e) instanceof VariableExpression ve && p.equals(ve.variable());
+    }
+
+    private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",
+            "containsValue", "contains", "indexOf", "lastIndexOf", "remove");
+
+    /**
+     * The {@code Object} parameter of a lookup on a Java collection or map that Kotlin maps to its own: Kotlin's member
+     * takes the element or key type, its stdlib extension of the same name ({@code Map<out K, V>.get(key: K)},
+     * {@code Iterable<T>.contains(element: T)}, …) a nullable one too, and returns what Java's returns for a null.
+     * <p>
+     * Only for an argument of the element's (or key's) own type: the extension infers its T from its inputs alone, and
+     * {@code set.contains(exit)} with a {@code BasicBlockStatement?} into a {@code Set<Statement>} has none to infer
+     * from.
+     */
+    private static boolean nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
+                                          Expression argument, int i) {
+        if (!LOOKUPS.contains(method.name()) || !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
+            || "remove".equals(method.name()) && method.parameters().size() != 1
+            || call.object() == null || call.objectIsImplicit()) {
+            return false;
+        }
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return false;
+        ParameterizedType element = lookedUp(call.object().parameterizedType(), method.typeInfo(),
+                "containsValue".equals(method.name()) ? 1 : 0);
+        ParameterizedType argumentType = argument.parameterizedType();
+        return element != null && argumentType != null && element.arrays() == argumentType.arrays()
+               && element.wildcard() == null && element.typeInfo() != null && element.typeInfo() == argumentType.typeInfo();
+    }
+
+    /** The receiver's type argument {@code index} as the declaring type sees it: E of a Set<E>, K or V of a Map. */
+    private static ParameterizedType lookedUp(ParameterizedType receiver, TypeInfo declaring, int index) {
+        if (receiver == null || receiver.typeInfo() == null) return null;
+        try {
+            ParameterizedType seen = receiver.typeInfo() == declaring ? receiver
+                    : receiver.concreteSuperType(declaring.asParameterizedType());
+            return seen == null || index >= seen.parameters().size() ? null : seen.parameters().get(index);
+        } catch (RuntimeException | AssertionError e) {
+            return null;
+        }
     }
 
     /**
@@ -402,6 +488,7 @@ public class KotlinExpressionPrinter {
             && rawOf(rawValueType(e), target)) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
+            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, e, KotlinContext.describe(e));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -895,14 +982,14 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder numericOperand(Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }
 
     private static OutputBuilder valueOperand(Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return receiver(e, q);
     }
@@ -951,7 +1038,7 @@ public class KotlinExpressionPrinter {
     /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
     private static OutputBuilder condition(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }

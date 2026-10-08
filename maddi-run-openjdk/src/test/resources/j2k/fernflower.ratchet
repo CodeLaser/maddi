@@ -28,8 +28,12 @@
 # imports for the types only the Kotlin names, target-typed locals and lambda results: 91 files, 852 type errors.
 # 2026-10-07, `!!` where Java unboxes (a library's int parameter, && and ||), `out` arguments through a receiver,
 # an assignment as an if-branch's value as a block: 92 files, 850 type errors.
+# 2026-10-08, an overriding clone() { return null; } throws CloneNotSupportedException (Kotlin's clone() returns a
+# non-null Any; a deliberate behaviour change): 93 files, 849 type errors.
+# 2026-10-08, no `!!` on nullable lookup arguments (contains, get, ...), blocks as when { else -> { } } (smart casts
+# survive them, unlike run { }), filter(Objects::nonNull) followed by map { it!! }: 93 files, 848 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	92
+compilingFiles	93

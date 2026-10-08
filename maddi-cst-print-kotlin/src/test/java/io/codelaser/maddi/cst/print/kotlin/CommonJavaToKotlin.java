@@ -16,7 +16,6 @@ package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -57,6 +57,17 @@ public abstract class CommonJavaToKotlin {
 
     /** As {@link #kotlin(String)}, with print options: nullability verdicts, the null-check policy. */
     protected String kotlin(String java, KotlinPrintOptions options) {
+        KotlinCompilationUnitPrinter.Result result = translate(java, options);
+        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
+        return formatter.write(result.output());
+    }
+
+    /** The printer's messages about {@code java}'s translation. */
+    protected List<KotlinPrintMessage> messages(String java) {
+        return translate(java, KotlinPrintOptions.DEFAULT).messages();
+    }
+
+    private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
@@ -66,9 +77,7 @@ public abstract class CommonJavaToKotlin {
                 .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
                 .orElseThrow();
         Runtime runtime = javaInspector.runtime();
-        Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        OutputBuilder ob = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options)
-                .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
-        return formatter.write(ob);
+        return new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options)
+                .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
     }
 }

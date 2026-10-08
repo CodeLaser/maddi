@@ -144,6 +144,7 @@ final class KotlinNullability {
         if (!(value instanceof NullConstant) && !nullableInKotlin(value)) return null;
         ParameterizedType verdict = verdicts().returnType(methodInfo);
         if (verdict == null || !isNullable(verdict) || !returnsNullForTypeVariable(methodInfo)) return null;
+        KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, value, KotlinContext.describe(value));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinTypeName.of(methodInfo.returnType(), q)));
@@ -399,19 +400,29 @@ final class KotlinNullability {
             || !nullableInKotlin(value)) {
             return printed;
         }
+        KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintMessage.Code.ASSERT_AT_UNBOXING : KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL,
+                value, KotlinContext.describe(value));
         return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
     }
 
     /** What a for-each loops over: {@code xs!!} when Kotlin types it nullable (a loop over null throws in Java too). */
     static OutputBuilder iterable(Expression e, Qualification q) {
         if (!nullableInKotlin(e) || e instanceof NullConstant) return KotlinExpressionPrinter.print(e, q);
+        KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, e, KotlinContext.describe(e));
         return KotlinExpressionPrinter.receiver(e, q).add(NOT_NULL);
     }
 
     /** An array that is indexed: {@code a!![i]} when Kotlin types it nullable ({@code ?.} cannot index a target). */
     static OutputBuilder asserted(Expression array, Qualification q) {
-        OutputBuilder receiver = KotlinExpressionPrinter.receiver(array, q);
-        return nullableInKotlin(array) && !(array instanceof NullConstant) ? receiver.add(NOT_NULL) : receiver;
+        return asserted(array, KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, q);
+    }
+
+    /** As {@link #asserted(Expression, Qualification)}, the {@code !!} reported as {@code code}. */
+    static OutputBuilder asserted(Expression e, KotlinPrintMessage.Code code, Qualification q) {
+        OutputBuilder receiver = KotlinExpressionPrinter.receiver(e, q);
+        if (!nullableInKotlin(e) || e instanceof NullConstant) return receiver;
+        KotlinContext.message(code, e, KotlinContext.describe(e));
+        return receiver.add(NOT_NULL);
     }
 
     /** A receiver: {@code x!!.} or {@code x?.} when Kotlin types it nullable, else {@code x.}. */
@@ -419,8 +430,10 @@ final class KotlinNullability {
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(object, q);
         if (!nullableInKotlin(object) || object instanceof NullConstant) return receiver.add(SymbolEnum.DOT);
         if (KotlinContext.options().nullCheck() == KotlinPrintOptions.NullCheck.SAFE_CALL) {
+            KotlinContext.message(KotlinPrintMessage.Code.SAFE_CALL, object, KotlinContext.describe(object));
             return receiver.add(new SymbolEnum("?.", SpaceEnum.NO_SPACE_SPLIT_ALLOWED, SpaceEnum.NONE, null));
         }
+        KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, object, KotlinContext.describe(object));
         return receiver.add(NOT_NULL).add(SymbolEnum.DOT);
     }
 }

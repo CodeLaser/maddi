@@ -125,7 +125,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // a private nested type is visible in the whole Java file; Kotlin's private stops at its outer type
                 Optional<Keyword> visibility = companion && !typeInfo.isPrimaryType()
                                                && typeInfo.access() != null && typeInfo.access().isPrivate()
-                        ? Optional.of(KotlinKeyword.INTERNAL) : KotlinModifiers.visibility(typeInfo.access());
+                        ? Optional.of(KotlinKeyword.INTERNAL) : KotlinModifiers.visibility(typeInfo.access(), typeInfo);
                 visibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
             }
             Set<TypeModifier> mods = typeInfo.typeModifiers();
@@ -279,7 +279,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private OutputBuilder primaryConstructorHeader(MethodInfo c, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
         if (!typeInfo.typeNature().isEnum()) {
-            KotlinModifiers.visibility(c.access(), typeInfo).ifPresent(v -> b.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
+            KotlinModifiers.visibility(c.access(), typeInfo, c).ifPresent(v -> b.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.CONSTRUCTOR));
         }
         return b.add(KotlinMethodPrinter.parameters(c, q));

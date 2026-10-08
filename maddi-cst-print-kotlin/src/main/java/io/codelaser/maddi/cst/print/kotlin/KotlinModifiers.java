@@ -53,7 +53,7 @@ public class KotlinModifiers {
             // a Kotlin override without a modifier inherits the member's visibility: Cloneable.clone() is protected
             return Optional.of(KeywordImpl.PUBLIC);
         }
-        return visibility(methodInfo.access(), owner);
+        return visibility(methodInfo.access(), owner, methodInfo);
     }
 
     /**
@@ -61,9 +61,27 @@ public class KotlinModifiers {
      * classes nested in it, Kotlin does not: a private member of a nested Java class is {@code internal}.
      */
     public static Optional<Keyword> visibility(Access access, TypeInfo owner) {
+        return visibility(access, owner, null);
+    }
+
+    /** As {@link #visibility(Access, TypeInfo)}, reporting a protected {@code subject} that prints as public. */
+    public static Optional<Keyword> visibility(Access access, TypeInfo owner, io.codelaser.maddi.cst.api.element.Element subject) {
+        reportProtected(access, subject);
         if (access != null && access.isPrivate() && !owner.isPrimaryType() && !KotlinTypePrinter.fromKotlinSource(owner)) {
             return Optional.of(KotlinKeyword.INTERNAL);
         }
         return visibility(access);
+    }
+
+    /** As {@link #visibility(Access)}, reporting a protected {@code subject} that prints as public. */
+    static Optional<Keyword> visibility(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
+        reportProtected(access, subject);
+        return visibility(access);
+    }
+
+    private static void reportProtected(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
+        if (subject != null && access != null && access.isProtected() && KotlinContext.translatingJava()) {
+            KotlinContext.message(KotlinPrintMessage.Code.PROTECTED_AS_PUBLIC, subject, KotlinContext.describe(subject));
+        }
     }
 }

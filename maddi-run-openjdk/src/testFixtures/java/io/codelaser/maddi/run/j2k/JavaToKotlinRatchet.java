@@ -16,12 +16,12 @@ package io.codelaser.maddi.run.j2k;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.cst.print.kotlin.KotlinCompilationUnitPrinter;
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintMessage;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.Summary;
@@ -130,15 +130,17 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         Path src = out.resolve("src");
         List<Path> files = new ArrayList<>();
         List<String> crashes = new ArrayList<>();
+        List<KotlinPrintMessage> messages = new ArrayList<>();
         Runtime runtime = corpus.javaInspector().runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> printed = new HashSet<>();
         for (TypeInfo type : corpus.types()) {
             if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
             try {
-                OutputBuilder ob = new KotlinCompilationUnitPrinter(type.compilationUnit(), true, options)
-                        .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
-                String kotlin = formatter.write(ob) + "\n";
+                KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(type.compilationUnit(),
+                        true, options).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+                messages.addAll(result.messages());
+                String kotlin = formatter.write(result.output()) + "\n";
                 Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
                 Files.createDirectories(file.getParent());
                 Files.writeString(file, kotlin);
@@ -174,8 +176,9 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         measured.put("syntaxCleanFiles", (long) syntaxClean.size());
         measured.put("compilingFiles", compiling);
 
-        String report = report(measured, crashes, all, clean);
+        String report = report(measured, crashes, all, clean) + messageCounts(messages);
         Files.writeString(out.resolve("report.txt"), report);
+        Files.write(out.resolve("messages.txt"), messages.stream().map(KotlinPrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
         ratchet(measured);
     }
@@ -268,6 +271,18 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         sb.append("\ncompile 1 (all files), errors by kind:\n").append(byKind(all.errors));
         sb.append("\ncompile 2 (syntax-clean files against the original classes), errors by kind:\n")
                 .append(byKind(clean.errors));
+        return sb.toString();
+    }
+
+    /**
+     * The printer's own messages, by severity and code (all of them in messages.txt): what the Kotlin does differently,
+     * loses, or could not translate. Reported, not ratcheted: a better translation may well report more.
+     */
+    private static String messageCounts(List<KotlinPrintMessage> messages) {
+        Map<String, Long> byCode = messages.stream().collect(Collectors.groupingBy(
+                m -> String.format("%-16s %s", m.severity(), m.code()), TreeMap::new, Collectors.counting()));
+        StringBuilder sb = new StringBuilder("\nprinter messages, by severity and code (messages.txt has each):\n");
+        byCode.forEach((k, v) -> sb.append(String.format("  %6d  %s%n", v, k)));
         return sb.toString();
     }
 
