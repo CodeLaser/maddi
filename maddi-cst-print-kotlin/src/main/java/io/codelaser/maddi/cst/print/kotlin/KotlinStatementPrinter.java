@@ -785,7 +785,9 @@ public class KotlinStatementPrinter {
         }
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
+                    .add(KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
+                         ? KotlinNullability.asserted(init, KotlinPrintMessage.Code.ASSERT_AT_DECLARATION, q)
+                         : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
             if (!writeType) {
                 // Kotlin infers an untyped local's type from its initializer, type arguments and element states
                 // included (val params = f.getLstOperands(): a List<Exprent?> whatever the local's verdict says);

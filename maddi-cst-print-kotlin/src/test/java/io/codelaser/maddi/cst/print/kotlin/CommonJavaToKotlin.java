@@ -64,7 +64,12 @@ public abstract class CommonJavaToKotlin {
 
     /** The printer's messages about {@code java}'s translation. */
     protected List<KotlinPrintMessage> messages(String java) {
-        return translate(java, KotlinPrintOptions.DEFAULT).messages();
+        return messages(java, KotlinPrintOptions.DEFAULT);
+    }
+
+    /** As {@link #messages(String)}, with print options. */
+    protected List<KotlinPrintMessage> messages(String java, KotlinPrintOptions options) {
+        return translate(java, options).messages();
     }
 
     private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options) {

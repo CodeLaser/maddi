@@ -205,6 +205,12 @@ final class KotlinNullability {
         return type;
     }
 
+    /** The pass asserts this local at its declaration: see {@link NullabilityVerdicts#assertedAtDeclaration}. */
+    static boolean assertedAtDeclaration(Element declaration, LocalVariable variable) {
+        MethodInfo method = KotlinContext.currentMethod();
+        return method != null && verdicts().assertedAtDeclaration(method, declaration, variable);
+    }
+
     static boolean isNullable(ParameterizedType type) {
         return type != null && type.nullable() == NullableState.NULLABLE;
     }

@@ -49,6 +49,11 @@ public record KotlinPrintMessage(Code code, String type, int line, int position,
          * (a parameter, a field, a return, an element). The nullability verdicts decide which declarations are non-null.
          */
         ASSERT_INTO_NON_NULL(Severity.BEHAVIOUR_CHANGE),
+        /**
+         * {@code val b = blocks.getWithKey(j)!!}: Java dereferences the local unconditionally later in its block; the
+         * NullPointerException moves to the declaration, before what Java did with the null in between.
+         */
+        ASSERT_AT_DECLARATION(Severity.BEHAVIOUR_CHANGE),
         /** {@code x?.m()} (NullCheck.SAFE_CALL): where Java throws a NullPointerException, Kotlin goes on with null. */
         SAFE_CALL(Severity.BEHAVIOUR_CHANGE),
         /** {@code x!!.m()}, {@code a!![i]}, {@code for (e in xs!!)}: Java dereferences, and throws, at the same point. */

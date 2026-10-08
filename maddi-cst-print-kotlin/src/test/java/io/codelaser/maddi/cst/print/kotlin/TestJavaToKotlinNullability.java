@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -110,12 +111,56 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
 
+        /** {@code "!x"} in checked: local x is asserted at its declaration. */
+        @Override
+        public boolean assertedAtDeclaration(MethodInfo method, Element declaration, LocalVariable variable) {
+            return checked.contains("!" + variable.simpleName());
+        }
+
         @Override
         public ParameterizedType local(MethodInfo method, Element declaration, LocalVariable variable) {
             // "undecided*": a verdict that is no decision, as the pass gives for a degraded method's unreached local
             if (variable.simpleName().startsWith("undecided")) return variable.parameterizedType();
             return verdict(variable.simpleName(), variable.parameterizedType());
         }
+    }
+
+    @Language("java")
+    private static final String EARLY = """
+            package a;
+            import java.util.*;
+            class D {
+                final List<String> seen = new ArrayList<>();
+                String find(String k) { return k.isEmpty() ? null : k; }
+                int early(String k) {
+                    String s = find(k);
+                    seen.add(s);
+                    return s.length();
+                }
+                int late(String k) {
+                    String t = find(k);
+                    return t.length();
+                }
+            }
+            """;
+
+    /**
+     * A local the pass asserts at its declaration, because Java dereferences it unconditionally further on: the `!!`
+     * is the declaration's, a behaviour change of its own (the null no longer reaches `seen`), and reported as such.
+     */
+    @Test
+    public void assertedAtDeclaration() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("find()"), Set.of("!s")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin(EARLY, options);
+        contains(kotlin, "val s = find(k)!!");
+        contains(kotlin, "seen.add(s)");
+        List<KotlinPrintMessage> messages = messages(EARLY.replace("class D", "class D2"), options);
+        assertTrue(messages.stream().anyMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
+                                                   && m.line() == 7), messages.toString());
+        // t is not asserted at its declaration: its `!!`, if any, is an ordinary one
+        assertTrue(messages.stream().noneMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
+                                                    && m.line() == 12), messages.toString());
     }
 
     @Language("java")

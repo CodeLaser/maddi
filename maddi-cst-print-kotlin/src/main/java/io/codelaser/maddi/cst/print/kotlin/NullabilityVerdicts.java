@@ -52,6 +52,17 @@ public interface NullabilityVerdicts {
     }
 
     /**
+     * The local is non-null from its declaration on although its initializer may be null: Java dereferences it
+     * unconditionally later in the same block, with no reassignment in between ({@code BasicBlock block =
+     * blocks.getWithKey(j); protectedRange.add(block); block.addSuccessorException(h);}). The printer asserts the
+     * initializer, {@code blocks.getWithKey(j)!!}, so the NullPointerException moves to the declaration, before what
+     * Java did with the null in between; {@link #local} answers non-null for it, and its null flows no further.
+     */
+    default boolean assertedAtDeclaration(MethodInfo method, Element declaration, LocalVariable variable) {
+        return false;
+    }
+
+    /**
      * The local variable or parameter is known non-null when {@code statement} starts: after
      * {@code if (v == null) return;}, inside {@code if (v != null)}, after {@code v.m()}. Kotlin smart-casts it there
      * as well, so a nullable {@code v} needs no {@code !!}. (Java requires a local a lambda captures to be
