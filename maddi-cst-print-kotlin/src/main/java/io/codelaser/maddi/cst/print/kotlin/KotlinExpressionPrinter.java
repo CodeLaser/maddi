@@ -80,7 +80,7 @@ public class KotlinExpressionPrinter {
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                     .add(branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q));
-            case MethodCall mc -> inCall(mc, () -> methodCall(mc, q));
+            case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
             case Lambda lambda -> lambda(lambda, q);
@@ -359,6 +359,42 @@ public class KotlinExpressionPrinter {
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /**
+     * {@code stream.filter(Objects::nonNull)} followed by {@code .map { it!! }}: Java's filter leaves no null, Kotlin's
+     * keeps the element type nullable ({@code map(classes::get)} makes it a {@code StructClass?}), and every lambda
+     * further down the chain would need a {@code !!} it cannot be given. The {@code it!!} never throws.
+     */
+    private static OutputBuilder nonNullFilter(MethodCall mc, OutputBuilder printed) {
+        if (!"filter".equals(mc.methodInfo().name()) || mc.parameterExpressions().size() != 1
+            || !"java.util.stream.Stream".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
+            || !nonNullPredicate(unwrap(mc.parameterExpressions().getFirst()))) {
+            return printed;
+        }
+        return printed.add(SymbolEnum.DOT).add(new TextImpl("map")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
+                .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /** {@code Objects::nonNull}, or {@code x -> x != null}. */
+    private static boolean nonNullPredicate(Expression e) {
+        if (e instanceof MethodReference mr) {
+            return "nonNull".equals(mr.methodInfo().name())
+                   && "java.util.Objects".equals(mr.methodInfo().typeInfo().fullyQualifiedName());
+        }
+        if (e instanceof Lambda l && l.parameters().size() == 1) {
+            List<Statement> statements = l.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+            return statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
+                   && unwrap(rs.expression()) instanceof BinaryOperator bo && bo.operator() != null
+                   && "!=".equals(bo.operator().name())
+                   && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), l.parameters().getFirst())
+                       || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), l.parameters().getFirst()));
+        }
+        return false;
+    }
+
+    private static boolean isParameter(Expression e, ParameterInfo p) {
+        return unwrap(e) instanceof VariableExpression ve && p.equals(ve.variable());
     }
 
     private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",

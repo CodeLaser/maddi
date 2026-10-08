@@ -313,6 +313,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "names.get(k)!!)");
     }
 
+    @Language("java")
+    private static final String NON_NULL_FILTER = """
+            package a;
+            import java.util.*;
+            class F {
+                boolean any(List<String> names, Map<String, List<String>> m, String x) {
+                    return names.stream().map(m::get).filter(Objects::nonNull).anyMatch(l -> l.contains(x))
+                           || names.stream().map(m::get).filter(l -> l != null).anyMatch(l -> l.isEmpty());
+                }
+            }
+            """;
+
+    /** After Java's filter(Objects::nonNull) the elements are non-null; Kotlin's stream needs a map { it!! } to know. */
+    @Test
+    public void nonNullFilter() {
+        String kotlin = kotlin(NON_NULL_FILTER);
+        contains(kotlin, "filter(Objects ::nonNull).map { it!! }");
+        contains(kotlin, "filter( { l -> l != null }).map { it!! }");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);
