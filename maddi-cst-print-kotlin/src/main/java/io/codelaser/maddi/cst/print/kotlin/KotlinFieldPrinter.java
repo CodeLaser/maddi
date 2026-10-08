@@ -50,7 +50,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 // a lateinit property cannot be a @JvmField: its accessors get names no Java method has
                 builder.add(new TextImpl("@get:JvmName(\"" + fieldInfo.name() + "\\$get\") @set:JvmName(\""
                                          + fieldInfo.name() + "\\$set\")")).add(SpaceEnum.ONE);
-            } else if (!lateinit && (clash || javaStatic(fieldInfo, visibility))) {
+            } else if (!lateinit && (clash || javaField(fieldInfo, visibility))) {
                 builder.add(new TextImpl("@JvmField")).add(SpaceEnum.ONE);
             }
         }
@@ -113,13 +113,15 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     }
 
     /**
-     * A static field of translated Java, in the companion object: Java code reads it as {@code C.FIELD}, not as
-     * {@code C.Companion.getFIELD()}. In an interface's companion only when it has no {@code const val}: Kotlin
-     * requires all of its properties to be {@code @JvmField}, then.
+     * A public field of translated Java stays a field: Java code that is not translated (yet) reads {@code i.opcode}
+     * and {@code C.FIELD}, not {@code i.getOpcode()} and {@code C.Companion.getFIELD()}. A lateinit property's field
+     * is public already. In an interface's companion only when it has no {@code const val}: Kotlin requires all of
+     * its properties to be {@code @JvmField}, then.
      */
-    private static boolean javaStatic(FieldInfo fieldInfo,
-                                      java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility) {
-        if (!KotlinContext.translatingJava() || !fieldInfo.isStatic() || !visibility.isEmpty()) return false;
+    static boolean javaField(FieldInfo fieldInfo,
+                             java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility) {
+        if (!KotlinContext.translatingJava() || !visibility.isEmpty()) return false;
+        if (!fieldInfo.isStatic()) return true;
         // Kotlin: in an interface's companion, all properties are @JvmField, or none; a const val is not
         return !fieldInfo.owner().isInterface()
                || fieldInfo.owner().fields().stream().noneMatch(f -> !f.isSynthetic() && isConst(f));

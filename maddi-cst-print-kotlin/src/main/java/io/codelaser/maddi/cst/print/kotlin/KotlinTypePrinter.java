@@ -162,7 +162,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (primary != null) {
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
+                                // a record's component is read through its accessor, x(): a data class property
                                 .add(KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
+                                     || !typeInfo.typeNature().isRecord() && !hasComponentMethods(typeInfo)
+                                        && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
+                                                fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))
                                         ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
                                         : new OutputBuilderImpl())
                                 .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)

@@ -121,7 +121,11 @@ public class KotlinStatementPrinter {
             case ForStatement fs -> forStatement(fs, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
             case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
-            case YieldStatement ys -> KotlinExpressionPrinter.print(ys.expression(), q); // a `when` arm's value
+            // a `when` arm's value; inside an arm that is a run { } block, a return from it
+            case YieldStatement ys -> YIELD_AS_RETURN.get()
+                    ? new OutputBuilderImpl().add(new TextImpl("return@run")).add(SpaceEnum.ONE)
+                            .add(KotlinExpressionPrinter.print(ys.expression(), q))
+                    : KotlinExpressionPrinter.print(ys.expression(), q);
             case TryStatement ts -> tryStatement(ts, q);
             case BreakStatement bs -> breakStatement(bs);
             case ContinueStatement cs -> new OutputBuilderImpl().add(new TextImpl("continue"
@@ -531,13 +535,52 @@ public class KotlinStatementPrinter {
         return KotlinExpressionPrinter.print(c, q);
     }
 
-    /** A `when` arm: a single-statement block is unwrapped to its value (`1 -> "a"`, not `1 -> { "a" }`). */
+    /** Inside a {@code when} arm printed as {@code run { }}: a {@code yield} is {@code return@run}. */
+    private static final ThreadLocal<Boolean> YIELD_AS_RETURN = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * A `when` arm: a single-statement block is unwrapped to its value (`1 -> "a"`, not `1 -> { "a" }`). A block's
+     * value is its last expression, so an arm that yields elsewhere ({@code if (c) { yield a; } throw …}) is a
+     * {@code run { }} whose yields return from it.
+     */
     private static OutputBuilder arm(Statement s, Qualification q) {
-        if (s instanceof Block block) {
-            List<Statement> body = withoutFinalBreak(block.statements().stream().filter(x -> !x.isSynthetic()).toList());
-            if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation)) return print(body.getFirst(), q);
-            return braces(body.stream().map(st -> print(st, q)).toList());
+        boolean outer = YIELD_AS_RETURN.get();
+        YIELD_AS_RETURN.set(false);
+        try {
+            if (s instanceof Block block) {
+                List<Statement> body = withoutFinalBreak(block.statements().stream().filter(x -> !x.isSynthetic()).toList());
+                if (yieldsBeforeTheEnd(body)) {
+                    YIELD_AS_RETURN.set(true);
+                    return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE)
+                            .add(braces(body.stream().map(st -> print(st, q)).toList()));
+                }
+                if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation)) return print(body.getFirst(), q);
+                return braces(body.stream().map(st -> print(st, q)).toList());
+            }
+            return armStatement(s, q);
+        } finally {
+            YIELD_AS_RETURN.set(outer);
         }
+    }
+
+    /** A yield that is not the block's last statement: inside an if, a loop, a try. */
+    private static boolean yieldsBeforeTheEnd(List<Statement> body) {
+        for (int i = 0; i < body.size(); i++) {
+            Statement st = body.get(i);
+            if (i == body.size() - 1 && st instanceof YieldStatement) return false;
+            boolean[] found = {false};
+            st.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof YieldStatement) found[0] = true;
+                // a lambda's or nested switch expression's yields are its own
+                return !found[0] && !(e instanceof io.codelaser.maddi.cst.api.expression.SwitchExpression)
+                       && !(e instanceof io.codelaser.maddi.cst.api.expression.Lambda);
+            });
+            if (found[0]) return true;
+        }
+        return false;
+    }
+
+    private static OutputBuilder armStatement(Statement s, Qualification q) {
         if (s instanceof BreakStatement bs && bs.goToLabel() == null) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         }

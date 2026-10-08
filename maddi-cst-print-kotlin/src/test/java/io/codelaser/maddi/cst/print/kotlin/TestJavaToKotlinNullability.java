@@ -559,7 +559,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "take(ArrayList<String?>())");
         contains(kotlin, "return n + map.get(k)!! + 1");
         // a primary-constructor property has its field's type, and its argument is checked against it
-        contains(kotlin, "class Node(val value: String?)");
+        contains(kotlin, "class Node(@JvmField val value: String?)");
         // through a nested type argument: map.entries is a Set<Entry<String, String?>>
         contains(kotlin, "for (entry in values.entries) {use(entry.value!!) }");
         contains(kotlin, "val node = Node(label)");
@@ -596,5 +596,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "p.get(\"k\") as String?");
         contains(kotlin, "(p.get(\"k\") as String).length");
         contains(kotlin, "= o as String"); // o is not nullable
+    }
+
+    @Language("java")
+    private static final String LOOKUP_SUBTYPE = """
+            package a;
+            import java.util.List;
+            import java.util.Set;
+            class E { }
+            class V extends E { }
+            class C {
+                boolean m(List<E> lst, Set<E> set, E e) {
+                    V v = null;
+                    if (e instanceof V w) v = w;
+                    lst.remove(v);
+                    return set.contains(v);
+                }
+            }
+            """;
+
+    /**
+     * Java's {@code lst.remove(v)} with a null {@code v} removes nothing; Kotlin's {@code v!!} would throw. The stdlib
+     * extension takes a nullable element, but infers its T from the inputs only: a subtype is cast up.
+     */
+    @Test
+    public void lookupOfNullableSubtype() {
+        String kotlin = kotlin(LOOKUP_SUBTYPE, new KotlinPrintOptions(new ByName(Set.of("v")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "lst.remove((v as E?))");
+        contains(kotlin, "set.contains((v as E?))");
     }
 }

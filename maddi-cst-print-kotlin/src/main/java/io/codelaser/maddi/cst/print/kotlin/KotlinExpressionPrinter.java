@@ -416,7 +416,22 @@ public class KotlinExpressionPrinter {
                 }
                 // set.contains(x), map.get(k) with a nullable x or k: Java's take an Object, and null finds nothing;
                 // Kotlin's stdlib extensions take any supertype of the element or key, so no `!!` (which throws)
-                if (hasParameter && call != null && nullableLookup(method, call, args.get(i), i)) argumentTranslated = false;
+                ParameterizedType lookedUp = hasParameter && call != null ? nullableLookup(method, call, args.get(i), i) : null;
+                if (lookedUp != null) {
+                    if (unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
+                        && KotlinNullability.nullableInKotlin(args.get(i))) {
+                        // lst.remove(varassign) with a VarExprent? from a List<Exprent>: T is inferred from the
+                        // inputs only, so the argument is cast up to the element type
+                        printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                                .add(operand(PrecedenceEnum.CAST, args.get(i), q))
+                                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                                .add(new TextImpl(KotlinTypeName.of(lookedUp.withNullable(
+                                        io.codelaser.maddi.cst.api.type.NullableState.NULLABLE), q)))
+                                .add(SymbolEnum.RIGHT_PARENTHESIS));
+                        continue;
+                    }
+                    argumentTranslated = false;
+                }
                 if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null
                     && cc.parameterizedType().arrays() == 1 && !cc.parameterizedType().componentType().isPrimitiveExcludingVoid()
                     && method.parameters().get(i).parameterizedType().typeParameter() != null
@@ -627,24 +642,36 @@ public class KotlinExpressionPrinter {
      * takes the element or key type, its stdlib extension of the same name ({@code Map<out K, V>.get(key: K)},
      * {@code Iterable<T>.contains(element: T)}, …) a nullable one too, and returns what Java's returns for a null.
      * <p>
-     * Only for an argument of the element's (or key's) own type: the extension infers its T from its inputs alone, and
-     * {@code set.contains(exit)} with a {@code BasicBlockStatement?} into a {@code Set<Statement>} has none to infer
-     * from.
+     * The extension infers its T from its inputs alone: {@code set.contains(exit)} with a {@code BasicBlockStatement?}
+     * into a {@code Set<Statement>} has none to infer from, and the argument is cast to {@code Statement?}.
+     *
+     * @return the element (or key) type; null when this is no such lookup, or the argument is not of a subtype
      */
-    private static boolean nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
+    private static ParameterizedType nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
                                           Expression argument, int i) {
         if (!LOOKUPS.contains(method.name()) || !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
             || "remove".equals(method.name()) && method.parameters().size() != 1
             || call.object() == null || call.objectIsImplicit()) {
-            return false;
+            return null;
         }
         ParameterizedType p = method.parameters().get(i).parameterizedType();
-        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return false;
+        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return null;
         ParameterizedType element = lookedUp(call.object().parameterizedType(), method.typeInfo(),
                 "containsValue".equals(method.name()) ? 1 : 0);
         ParameterizedType argumentType = argument.parameterizedType();
-        return element != null && argumentType != null && element.arrays() == argumentType.arrays()
-               && element.wildcard() == null && element.typeInfo() != null && element.typeInfo() == argumentType.typeInfo();
+        boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
+                        && element.wildcard() == null && element.typeInfo() != null
+                        && (element.typeInfo() == argumentType.typeInfo()
+                            || element.arrays() == 0 && element.parameters().isEmpty()
+                               && isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>()));
+        return found ? element : null;
+    }
+
+    private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+        if (sub == null || !visited.add(sub)) return false;
+        if (sub == sup) return true;
+        if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
+        return sub.interfacesImplemented().stream().anyMatch(i -> isSubtype(i.typeInfo(), sup, visited));
     }
 
     /** The receiver's type argument {@code index} as the declaring type sees it: E of a Set<E>, K or V of a Map. */

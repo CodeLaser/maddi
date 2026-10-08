@@ -278,4 +278,44 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "arrayOf<IntArray>(null, intArrayOf(1, 2)),");
         contains(kotlin, "var names: Array<Array<String>> = arrayOf<Array<String>>(arrayOf<String>(\"a\"), arrayOf<String>())");
     }
+
+    @Language("java")
+    private static final String YIELD_IN_IF = """
+            package a;
+            class C {
+                String m(int k, Object o) {
+                    return switch (k) {
+                        case 1 -> {
+                            if (o instanceof String str) {
+                                yield str;
+                            } else if (o instanceof Integer n) {
+                                String t = n.toString();
+                                yield t;
+                            }
+                            throw new RuntimeException("type " + o);
+                        }
+                        case 2 -> {
+                            String u = "u";
+                            yield u;
+                        }
+                        default -> "d";
+                    };
+                }
+            }
+            """;
+
+    /**
+     * A {@code yield} inside an if: Kotlin's block arm takes its last expression as its value, so such an arm is a
+     * {@code run { }} that returns from it; an arm that yields only at its end stays a block.
+     */
+    @Test
+    public void yieldBeforeTheEnd() {
+        String kotlin = kotlin(YIELD_IN_IF);
+        contains(kotlin, "1 -> run {");
+        contains(kotlin, "return@run o");
+        contains(kotlin, "return@run t");
+        contains(kotlin, "throw RuntimeException(");
+        contains(kotlin, "val u = \"u\"");
+        assertFalse(kotlin.contains("return@run u"), kotlin);
+    }
 }

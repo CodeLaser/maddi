@@ -309,9 +309,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "m.containsKey(names.get(k))");
         contains(kotlin, "l.indexOf(names.get(k))");
         contains(kotlin, "s.remove(names.get(k))");
-        // an argument of a narrower type keeps its `!!`: Kotlin's extension cannot infer its T from a Set<Any> and a
-        // String?
-        contains(kotlin, "names.get(k)!!)");
+        // an argument of a narrower type is cast up: Kotlin's extension cannot infer its T from a Set<Any> and a
+        // String?, and a `!!` throws where Java finds nothing
+        contains(kotlin, "names.get(k) as Any?)");
     }
 
     @Language("java")
@@ -436,7 +436,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("protected constructor"), kotlin);
         contains(kotlin, "protected override fun removeRange(from: Int, to: Int)");
         // a clone() of Object's: Kotlin's Any declares none, kotlin.Cloneable does
-        contains(kotlin, "class Copy(val n: Int) : Cloneable {");
+        contains(kotlin, "class Copy(@JvmField val n: Int) : Cloneable {");
         contains(kotlin, "override fun clone(): Copy");
         // Kotlin's clone() cannot return null: the deliberate behaviour change is an exception instead
         contains(kotlin, "override fun clone(): Placeholder = throw CloneNotSupportedException()");
@@ -652,7 +652,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(ACCESSOR_CLASH);
         contains(kotlin, "@JvmField var pointer: Int = 0");
         contains(kotlin, "@JvmField var isOpen: Boolean = false");
-        contains(kotlin, "\n    var count: Int = 0");
+        contains(kotlin, "@JvmField var count: Int = 0"); // a public field: Java code reads it as a field
         contains(kotlin, "\n    private val hidden: String = \"h\"");
         contains(kotlin, "@JvmField internal val depth: Int = 0");
         contains(kotlin, "@get:JvmName(\"data\\$get\") @set:JvmName(\"data\\$set\") internal lateinit var data: IntArray");
