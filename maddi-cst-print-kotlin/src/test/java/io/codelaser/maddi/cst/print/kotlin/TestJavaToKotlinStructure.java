@@ -284,6 +284,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "if (counter == null) { counter = 0; counter } else ++counter");
     }
 
+    @Language("java")
+    private static final String LOOKUPS = """
+            package a;
+            import java.util.*;
+            class L {
+                boolean has(Set<String> s, Map<String, Integer> m, List<String> l, Map<String, String> names, String k) {
+                    return s.contains(names.get(k)) || m.get(names.get(k)) != null || m.containsKey(names.get(k))
+                           || l.indexOf(names.get(k)) >= 0 || s.remove(names.get(k));
+                }
+                boolean kept(Set<Object> objects, Map<String, String> names, String k) {
+                    return objects.contains(names.get(k));
+                }
+            }
+            """;
+
+    /** A lookup with a nullable key: Java's takes an Object and finds nothing, Kotlin's stdlib extension takes a K?. */
+    @Test
+    public void nullableLookups() {
+        String kotlin = kotlin(LOOKUPS);
+        contains(kotlin, "s.contains(names.get(k))");
+        contains(kotlin, "m.get(names.get(k)) != null");
+        contains(kotlin, "m.containsKey(names.get(k))");
+        contains(kotlin, "l.indexOf(names.get(k))");
+        contains(kotlin, "s.remove(names.get(k))");
+        // an argument of a narrower type keeps its `!!`: Kotlin's extension cannot infer its T from a Set<Any> and a
+        // String? (a variable keeps it too, which only verdicts make nullable: see the fernflower-nullability ratchet)
+        contains(kotlin, "names.get(k)!!)");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

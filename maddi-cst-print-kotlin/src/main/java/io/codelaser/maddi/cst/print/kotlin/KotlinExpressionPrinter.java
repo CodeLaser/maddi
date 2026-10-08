@@ -338,6 +338,9 @@ public class KotlinExpressionPrinter {
                     if (seen != declared) argumentTranslated = true;
                     declared = seen;
                 }
+                // set.contains(x), map.get(k) with a nullable x or k: Java's take an Object, and null finds nothing;
+                // Kotlin's stdlib extensions take any supertype of the element or key, so no `!!` (which throws)
+                if (hasParameter && call != null && nullableLookup(method, call, args.get(i), i)) argumentTranslated = false;
                 if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null
                     && cc.parameterizedType().arrays() == 1 && !cc.parameterizedType().componentType().isPrimitiveExcludingVoid()
                     && method.parameters().get(i).parameterizedType().typeParameter() != null
@@ -356,6 +359,47 @@ public class KotlinExpressionPrinter {
         }
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",
+            "containsValue", "contains", "indexOf", "lastIndexOf", "remove");
+
+    /**
+     * The {@code Object} parameter of a lookup on a Java collection or map that Kotlin maps to its own: Kotlin's member
+     * takes the element or key type, its stdlib extension of the same name ({@code Map<out K, V>.get(key: K)},
+     * {@code Iterable<T>.contains(element: T)}, …) a nullable one too, and returns what Java's returns for a null.
+     * <p>
+     * Only for an argument of the element's (or key's) own type: the extension infers its T from its inputs alone, and
+     * {@code set.contains(exit)} with a {@code BasicBlockStatement?} into a {@code Set<Statement>} has none to infer
+     * from. And not for a variable: the use-site nullability facts take the argument as asserted non-null after the
+     * call ({@code blocks.contains(child!!)} smart-casts the {@code child.…} that follow), until they stop doing so.
+     */
+    private static boolean nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
+                                          Expression argument, int i) {
+        if (!LOOKUPS.contains(method.name()) || !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
+            || "remove".equals(method.name()) && method.parameters().size() != 1
+            || unwrap(argument) instanceof VariableExpression || call.object() == null || call.objectIsImplicit()) {
+            return false;
+        }
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return false;
+        ParameterizedType element = lookedUp(call.object().parameterizedType(), method.typeInfo(),
+                "containsValue".equals(method.name()) ? 1 : 0);
+        ParameterizedType argumentType = argument.parameterizedType();
+        return element != null && argumentType != null && element.arrays() == argumentType.arrays()
+               && element.wildcard() == null && element.typeInfo() != null && element.typeInfo() == argumentType.typeInfo();
+    }
+
+    /** The receiver's type argument {@code index} as the declaring type sees it: E of a Set<E>, K or V of a Map. */
+    private static ParameterizedType lookedUp(ParameterizedType receiver, TypeInfo declaring, int index) {
+        if (receiver == null || receiver.typeInfo() == null) return null;
+        try {
+            ParameterizedType seen = receiver.typeInfo() == declaring ? receiver
+                    : receiver.concreteSuperType(declaring.asParameterizedType());
+            return seen == null || index >= seen.parameters().size() ? null : seen.parameters().get(index);
+        } catch (RuntimeException | AssertionError e) {
+            return null;
+        }
     }
 
     /**
