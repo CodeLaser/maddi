@@ -333,6 +333,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "filter( { l -> l != null }).map { it!! }");
     }
 
+    @Language("java")
+    private static final String HOISTED = """
+            package a;
+            import java.util.*;
+            class H {
+                void m(Map<Integer, List<Integer>> map, int id) {
+                    List<Integer> lst = map.get(id);
+                    if (lst == null) map.put(id, lst = new ArrayList<>());
+                    lst.add(id);
+                }
+                int n(Map<Integer, List<Integer>> map, int id) {
+                    List<Integer> lst;
+                    return map.put(id, lst = new ArrayList<>()) == null ? lst.size() : 0;
+                }
+            }
+            """;
+
+    /** An assignment as an argument of a statement call goes first: as a value it is an also { }, which kills smart casts. */
+    @Test
+    public void hoistedAssignments() {
+        String kotlin = kotlin(HOISTED);
+        contains(kotlin, """
+                        lst = ArrayList<Int>()
+                        map.put(id, lst)
+                """);
+        // not a statement: the value form stays
+        contains(kotlin, ".also { lst = it }");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

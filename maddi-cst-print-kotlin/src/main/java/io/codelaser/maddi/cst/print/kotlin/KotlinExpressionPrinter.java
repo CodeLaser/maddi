@@ -84,6 +84,7 @@ public class KotlinExpressionPrinter {
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
             case Lambda lambda -> lambda(lambda, q);
+            case Assignment a when HOISTED.get().contains(a) -> variable(a.variableTarget(), q);
             case Assignment a -> assignmentAsValue(a, q);
             case BitwiseNegation bn -> new OutputBuilderImpl().add(receiver(bn.expression(), q)).add(SymbolEnum.DOT)
                     .add(new TextImpl("inv")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
@@ -132,7 +133,66 @@ public class KotlinExpressionPrinter {
     public static OutputBuilder printStatement(Expression e, Qualification q) {
         if (e instanceof Assignment a) return assignmentAsStatement(a, q);
         if (e instanceof EnclosedExpression ee) return printStatement(ee.inner(), q);
+        if (e instanceof MethodCall mc) {
+            List<Assignment> hoisted = hoistable(mc);
+            if (!hoisted.isEmpty()) return hoisted(mc, hoisted, q);
+        }
         return print(e, q);
+    }
+
+    // assignments printed before the statement they are an argument of; in it, they are their target
+    private static final ThreadLocal<java.util.Set<Expression>> HOISTED =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /**
+     * {@code map.put(k, lst = new ArrayList<>())} as a statement: {@code lst = ArrayList()} first, then
+     * {@code map.put(k, lst)}. As a value, the assignment is {@code ArrayList().also { lst = it }}, and a local a lambda
+     * assigns gets no smart casts anywhere ({@code lst.add(id)} on the next line). Only where Java evaluates nothing
+     * with an effect before the assignment: a receiver and earlier arguments that are variables or constants, none of
+     * them the assigned local.
+     */
+    private static List<Assignment> hoistable(MethodCall mc) {
+        List<Assignment> hoisted = new ArrayList<>();
+        java.util.Set<io.codelaser.maddi.cst.api.variable.Variable> assigned = new java.util.HashSet<>();
+        if (!mc.objectIsImplicit() && mc.object() != null && !pure(mc.object(), assigned)) return hoisted;
+        for (Expression argument : mc.parameterExpressions()) {
+            if (unwrap(argument) instanceof Assignment a && a.prefixPrimitiveOperator() == null
+                && (a.assignmentOperator() == null || "=".equals(a.assignmentOperator().name()))
+                && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                && !(unwrap(a.value()) instanceof Assignment)) {
+                hoisted.add(a);
+                assigned.add(a.variableTarget());
+            } else if (!pure(argument, assigned)) {
+                break;
+            }
+        }
+        // the receiver is evaluated before any argument: it must not read what an argument assigns
+        if (!mc.objectIsImplicit() && mc.object() != null && !pure(mc.object(), assigned)) return List.of();
+        return hoisted;
+    }
+
+    /** A constant, or a variable read (through fields of variables) that is none of {@code assigned}. */
+    private static boolean pure(Expression e, java.util.Set<io.codelaser.maddi.cst.api.variable.Variable> assigned) {
+        Expression x = unwrap(e);
+        if (x instanceof ConstantExpression<?>) return true;
+        if (!(x instanceof VariableExpression ve) || assigned.contains(ve.variable())) return false;
+        return switch (ve.variable()) {
+            case FieldReference fr -> fr.isStatic() || fr.scope() == null || pure(fr.scope(), assigned);
+            case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> false;
+            default -> true;
+        };
+    }
+
+    private static OutputBuilder hoisted(MethodCall mc, List<Assignment> hoisted, Qualification q) {
+        List<OutputBuilder> lines = new ArrayList<>();
+        hoisted.forEach(a -> lines.add(assignmentAsStatement(a, q)));
+        HOISTED.get().addAll(hoisted);
+        try {
+            lines.add(print(mc, q));
+        } finally {
+            hoisted.forEach(HOISTED.get()::remove);
+        }
+        return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
     private static OutputBuilder text(String s) {
