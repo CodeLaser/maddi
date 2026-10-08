@@ -309,7 +309,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "l.indexOf(names.get(k))");
         contains(kotlin, "s.remove(names.get(k))");
         // an argument of a narrower type keeps its `!!`: Kotlin's extension cannot infer its T from a Set<Any> and a
-        // String? (a variable keeps it too, which only verdicts make nullable: see the fernflower-nullability ratchet)
+        // String?
         contains(kotlin, "names.get(k)!!)");
     }
 

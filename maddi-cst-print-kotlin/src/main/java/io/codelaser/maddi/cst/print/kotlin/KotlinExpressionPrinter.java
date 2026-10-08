@@ -371,14 +371,13 @@ public class KotlinExpressionPrinter {
      * <p>
      * Only for an argument of the element's (or key's) own type: the extension infers its T from its inputs alone, and
      * {@code set.contains(exit)} with a {@code BasicBlockStatement?} into a {@code Set<Statement>} has none to infer
-     * from. And not for a variable: the use-site nullability facts take the argument as asserted non-null after the
-     * call ({@code blocks.contains(child!!)} smart-casts the {@code child.…} that follow), until they stop doing so.
+     * from.
      */
     private static boolean nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
                                           Expression argument, int i) {
         if (!LOOKUPS.contains(method.name()) || !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
             || "remove".equals(method.name()) && method.parameters().size() != 1
-            || unwrap(argument) instanceof VariableExpression || call.object() == null || call.objectIsImplicit()) {
+            || call.object() == null || call.objectIsImplicit()) {
             return false;
         }
         ParameterizedType p = method.parameters().get(i).parameterizedType();
