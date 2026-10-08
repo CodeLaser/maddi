@@ -118,7 +118,13 @@ public class KotlinExpressionPrinter {
             case ShortConstant sc -> text(Short.toString(sc.constant()));
             case CommaExpression ce -> ce.expressions().stream().map(x -> printStatement(x, q))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
-            default -> e.print(q); // constants (int, long, boolean, null) and anything unknown: as in Java
+            default -> {
+                // constants (int, long, boolean, null) and anything unknown: as in Java
+                if (!(e instanceof ConstantExpression<?>)) {
+                    KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, e, e.getClass().getSimpleName());
+                }
+                yield e.print(q);
+            }
         };
     }
 
@@ -202,7 +208,7 @@ public class KotlinExpressionPrinter {
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
-            return KotlinNullability.asserted(object, q);
+            return KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
             return KotlinNullability.asserted(mc.parameterExpressions().getFirst(), q);
@@ -300,7 +306,8 @@ public class KotlinExpressionPrinter {
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
             if (spread(args, method, i)) {
-                printed.add(new OutputBuilderImpl().add(SPREAD).add(KotlinNullability.asserted(args.get(i), q)));
+                printed.add(new OutputBuilderImpl().add(SPREAD)
+                        .add(KotlinNullability.asserted(args.get(i), KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, q)));
                 continue;
             }
             boolean hasParameter = method != null && i < method.parameters().size()
@@ -402,6 +409,7 @@ public class KotlinExpressionPrinter {
             && rawOf(rawValueType(e), target)) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
+            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, e, KotlinContext.describe(e));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -895,14 +903,14 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder numericOperand(Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }
 
     private static OutputBuilder valueOperand(Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return receiver(e, q);
     }
@@ -951,7 +959,7 @@ public class KotlinExpressionPrinter {
     /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
     private static OutputBuilder condition(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, q);
+            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }

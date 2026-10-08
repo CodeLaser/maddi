@@ -126,7 +126,11 @@ public class KotlinStatementPrinter {
             case AssertStatement as -> assertStatement(as, q);
             case LocalTypeDeclaration ltd -> new KotlinTypePrinter(ltd.typeInfo(), true) // a local type has no visibility
                     .print(new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q), true);
-            default -> s.print(q); // not-yet-translated statement forms: Java rendering
+            default -> {
+                // not-yet-translated statement forms: Java rendering
+                KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, s, s.getClass().getSimpleName());
+                yield s.print(q);
+            }
         };
     }
 

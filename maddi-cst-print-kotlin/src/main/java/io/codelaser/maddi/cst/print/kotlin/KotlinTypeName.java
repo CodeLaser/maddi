@@ -181,6 +181,11 @@ public class KotlinTypeName {
     static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp, Qualification q) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         String name = KotlinNames.name(tp.simpleName());
+        if (bounds.size() > 1) {
+            KotlinContext.message(KotlinPrintMessage.Code.BOUNDS_DROPPED,
+                    tp.isMethodTypeParameter() ? KotlinContext.currentMethod() : null, tp.simpleName() + " extends "
+                    + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(" & ")));
+        }
         return bounds.size() == 1 ? name + " : " + of(bounds.getFirst(), q) : name;
     }
 

@@ -41,7 +41,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null" : defaultValue(type);
 
         OutputBuilder builder = new OutputBuilderImpl();
-        KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner()).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
+        KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
         if (needsDefault && zero == null) builder.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
         if (isConst()) builder.add(new TextImpl("const")).add(SpaceEnum.ONE);
         builder.add(isVal ? KotlinKeyword.VAL : KotlinKeyword.VAR)

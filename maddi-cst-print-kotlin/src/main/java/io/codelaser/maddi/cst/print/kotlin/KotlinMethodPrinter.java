@@ -112,6 +112,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             } else if (expressionBody != null && nullClone(expressionBody)) {
                 // Kotlin's clone() returns a non-null Any, so `return null` cannot be: a DELIBERATE behaviour change, the
                 // caller gets the exception instead of the null (fernflower's InstructionSequence, "to be overwritten")
+                KotlinContext.message(KotlinPrintMessage.Code.CLONE_NULL_THROWS, methodInfo, typeInfo.simpleName() + ".clone()");
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(new TextImpl("throw CloneNotSupportedException()"));
             } else if (expressionBody != null) {

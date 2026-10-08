@@ -204,6 +204,43 @@ final class KotlinContext {
         return taken;
     }
 
+    // what the printing of a file did that its text does not say; a set, as the printer may print an element twice
+    private static final ThreadLocal<java.util.Set<KotlinPrintMessage>> MESSAGES =
+            ThreadLocal.withInitial(java.util.LinkedHashSet::new);
+
+    /** Records a message about {@code subject}, an element of the type being printed. */
+    static void message(KotlinPrintMessage.Code code, io.codelaser.maddi.cst.api.element.Element subject, String detail) {
+        TypeInfo type = TYPES.get().peek();
+        // without a subject, the type itself (a class's type parameter)
+        io.codelaser.maddi.cst.api.element.Element located = subject != null ? subject : type;
+        io.codelaser.maddi.cst.api.element.Source source = located == null ? null : located.source();
+        boolean known = source != null && !source.isNoSource();
+        MESSAGES.get().add(new KotlinPrintMessage(code, type == null ? "?" : type.fullyQualifiedName(),
+                known ? source.beginLine() : -1, known ? source.beginPos() : -1, detail));
+    }
+
+    /** An element in a message: its Java text, on one line, shortened. */
+    static String describe(io.codelaser.maddi.cst.api.element.Element e) {
+        if (e == null) return "";
+        if (e instanceof io.codelaser.maddi.cst.api.info.MethodInfo m) return m.fullyQualifiedName();
+        if (e instanceof io.codelaser.maddi.cst.api.info.FieldInfo f) return f.owner().simpleName() + "." + f.name();
+        if (e instanceof TypeInfo t) return t.fullyQualifiedName();
+        String text;
+        try {
+            text = e.toString().replaceAll("\\s+", " ").trim();
+        } catch (RuntimeException re) {
+            return e.getClass().getSimpleName();
+        }
+        return text.length() <= 80 ? text : text.substring(0, 77) + "...";
+    }
+
+    /** The messages recorded since the last call, which starts a new record. */
+    static java.util.List<KotlinPrintMessage> takeMessages() {
+        java.util.List<KotlinPrintMessage> taken = java.util.List.copyOf(MESSAGES.get());
+        MESSAGES.get().clear();
+        return taken;
+    }
+
     static void resetLabels() {
         COUNTER.get()[0] = 0;
         PATTERNS.get().clear();
