@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -108,6 +109,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
             if (!reassigned.isEmpty()) {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
+            } else if (expressionBody != null && nullClone(expressionBody)) {
+                // Kotlin's clone() returns a non-null Any, so `return null` cannot be: a DELIBERATE behaviour change, the
+                // caller gets the exception instead of the null (fernflower's InstructionSequence, "to be overwritten")
+                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                        .add(new TextImpl("throw CloneNotSupportedException()"));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -120,6 +126,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
         }
         return b;
+    }
+
+    /** {@code clone() { return null; }}, overriding: Kotlin's {@code Cloneable.clone()} has no nullable result. */
+    private boolean nullClone(Expression expressionBody) {
+        return "clone".equals(methodInfo.name()) && methodInfo.parameters().isEmpty()
+               && !methodInfo.overrides().isEmpty() && KotlinExpressionPrinter.unwrap(expressionBody) instanceof NullConstant;
     }
 
     /**

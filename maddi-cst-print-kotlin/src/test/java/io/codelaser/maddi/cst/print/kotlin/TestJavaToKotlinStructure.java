@@ -111,6 +111,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     Copy(int n) { this.n = n; }
                     @Override public Copy clone() { return new Copy(n); }
                 }
+                abstract static class Placeholder {
+                    @Override public Placeholder clone() { return null; }
+                }
                 static int sibling(Base b) { return b.items.size(); }
             }
             """;
@@ -292,6 +295,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // a clone() of Object's: Kotlin's Any declares none, kotlin.Cloneable does
         contains(kotlin, "class Copy(val n: Int) : Cloneable {");
         contains(kotlin, "override fun clone(): Copy");
+        // Kotlin's clone() cannot return null: the deliberate behaviour change is an exception instead
+        contains(kotlin, "override fun clone(): Placeholder = throw CloneNotSupportedException()");
     }
 
     @Test
