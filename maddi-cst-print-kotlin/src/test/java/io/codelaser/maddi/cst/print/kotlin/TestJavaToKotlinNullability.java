@@ -164,6 +164,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String STREAMS = """
+            package a;
+            import java.util.*;
+            class S {
+                static int size(String s) { return s.length(); }
+                int total(List<String> items) { return items.stream().mapToInt(S::size).sum(); }
+                Optional<String> any(List<String> items) { return items.stream().filter(t -> t.isEmpty()).findAny(); }
+                Optional<String> last(Optional<String> o) { return o.map(t -> { if (t.isEmpty()) return null; return t; }); }
+                Optional<String> plain(List<String> names) { return names.stream().findFirst(); }
+            }
+            """;
+
+    /**
+     * Java's Optional never holds null, Kotlin's type argument says what went in: a nullable element or a map lambda
+     * that returns null. And a method reference on nullable elements asserts them where its parameter is non-null.
+     */
+    @Test
+    public void streamsOfNullableElements() {
+        String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "mapToInt({ S.size(it!!) })");
+        contains(kotlin, "findAny() as Optional<String>)");
+        contains(kotlin, "as Optional<String>)");
+        // names' elements are non-null: no cast
+        contains(kotlin, "= names.stream().findFirst()");
+    }
+
+    @Language("java")
     private static final String NULLS = """
             package a;
             import java.util.Map;

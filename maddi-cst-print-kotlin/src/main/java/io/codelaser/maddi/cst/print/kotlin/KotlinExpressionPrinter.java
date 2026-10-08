@@ -374,6 +374,13 @@ public class KotlinExpressionPrinter {
                                    && !method.parameters().get(i).isVarArgs();
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
+            if (call != null && unwrap(args.get(i)) instanceof MethodReference mr && nullableStreamElements(method, call)) {
+                OutputBuilder asserting = assertingReference(mr, q);
+                if (asserting != null) {
+                    printed.add(asserting);
+                    continue;
+                }
+            }
             if (hasParameter && comparingKey(method, args.get(i))) {
                 printed.add(comparingKeyLambda((MethodReference) unwrap(args.get(i)), q));
                 continue;
@@ -486,6 +493,87 @@ public class KotlinExpressionPrinter {
                 .add(new TextImpl("!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
+    /** A call on a {@code Stream<X?>}: Kotlin hands its functions an X?. */
+    private static boolean nullableStreamElements(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call) {
+        if (method == null || !"java.util.stream.Stream".equals(method.typeInfo().fullyQualifiedName())
+            || call.object() == null || call.objectIsImplicit()) {
+            return false;
+        }
+        ParameterizedType stream = KotlinNullability.kotlinType(call.object());
+        return stream != null && stream.parameters().size() == 1
+               && KotlinNullability.isNullable(stream.parameters().getFirst());
+    }
+
+    /**
+     * A method reference applied to the nullable elements of a stream, which Java passes on as they are:
+     * {@code mapToInt(Helper::size)} as {@code { Helper.size(it!!) }} where size takes a non-null Statement, and
+     * {@code map(Statement::getId)} as {@code { it!!.getId() }}. Null when the reference takes the element as it is.
+     */
+    private static OutputBuilder assertingReference(MethodReference mr, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (m.isConstructor() || mappedMember(mr) != null || !(mr.scope() instanceof TypeExpression te)) return null;
+        String name = KotlinNames.name(m.name());
+        if (m.isStatic() && m.parameters().size() == 1
+            && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {
+            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+            return text("{ " + KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + name + "(it!!) }");
+        }
+        if (!m.isStatic() && m.parameters().isEmpty()) {
+            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+            return text("{ it!!." + name + "() }");
+        }
+        return null;
+    }
+
+    /**
+     * {@code Optional<Statement> o = stats.stream().filter(…).findAny()}: Java's Optional never holds a null, but
+     * Kotlin types the result after the stream's {@code Statement?} elements, or after a {@code map} lambda that
+     * returns null (Java's empty), and an {@code Optional<Statement?>} is no {@code Optional<Statement>}.
+     */
+    private static boolean optionalOfNullable(Expression e, ParameterizedType target) {
+        if (target == null || target.typeInfo() == null || !"java.util.Optional".equals(target.typeInfo().fullyQualifiedName())
+            || target.parameters().size() != 1 || KotlinNullability.isNullable(target.parameters().getFirst())
+            || !(unwrap(e) instanceof MethodCall mc)) {
+            return false;
+        }
+        String declaring = mc.methodInfo().typeInfo().fullyQualifiedName();
+        ParameterizedType result = mc.methodInfo().returnType();
+        return result != null && result.typeInfo() != null && "java.util.Optional".equals(result.typeInfo().fullyQualifiedName())
+               && ("java.util.Optional".equals(declaring) || "java.util.stream.Stream".equals(declaring))
+               && nullableInChain(mc);
+    }
+
+    /**
+     * Somewhere in this Optional or Stream chain Kotlin's element type becomes nullable: a stream of X? elements, or
+     * a {@code map} lambda that returns null.
+     */
+    private static boolean nullableInChain(MethodCall mc) {
+        for (Expression x = mc; unwrap(x) instanceof MethodCall c; x = c.object()) {
+            String declaring = c.methodInfo().typeInfo().fullyQualifiedName();
+            if (!"java.util.Optional".equals(declaring) && !"java.util.stream.Stream".equals(declaring)) {
+                ParameterizedType t = KotlinNullability.kotlinType(c);
+                return t != null && t.parameters().size() == 1 && KotlinNullability.isNullable(t.parameters().getFirst());
+            }
+            if ("map".equals(c.methodInfo().name()) && c.parameterExpressions().size() == 1
+                && unwrap(c.parameterExpressions().getFirst()) instanceof Lambda l && returnsNull(l)) {
+                return true;
+            }
+            if (c.object() == null || c.objectIsImplicit()) return false;
+        }
+        return false;
+    }
+
+    private static boolean returnsNull(Lambda l) {
+        boolean[] found = {false};
+        l.methodBody().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof ReturnStatement rs && !rs.hasNoValue() && unwrap(rs.expression()) instanceof NullConstant) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
+    }
+
     private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",
             "containsValue", "contains", "indexOf", "lastIndexOf", "remove");
 
@@ -564,6 +652,18 @@ public class KotlinExpressionPrinter {
             if (withStates != null) return inCall(cc, () -> constructorCall(cc, withStates, q));
         }
         if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() == null && cc.anonymousClass() == null
+            && target != null && target.arrays() > 0 && cc.parameterizedType().arrays() == target.arrays()
+            && cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).count() == 1 && nonNullElements(target)) {
+            // Offsets[] offsets = new Offsets[n], filled before it is read: arrayOfNulls is an Array<Offsets?>, and the
+            // declaration's elements are non-null. Erased, the cast checks nothing: a slot read before it is filled
+            // fails later, as Java's null does
+            ParameterizedType created = rawOf(cc.parameterizedType(), target) ? target : cc.parameterizedType();
+            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, cc, KotlinContext.describe(cc));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(inCall(cc, () -> constructorCall(cc, created, q))).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() == null && cc.anonymousClass() == null
             && target != null && cc.parameterizedType().arrays() > 0 && rawOf(cc.parameterizedType(), target)) {
             // new FastSparseSet[n][]: Kotlin's arrays are invariant, so the elements are the declaration's, <Int> not <*>
             return inCall(cc, () -> constructorCall(cc, target, q));
@@ -572,6 +672,12 @@ public class KotlinExpressionPrinter {
             && target.arrays() == cc.parameterizedType().arrays()) {
             // new Object[]{…}: as {…}, with the element state of what it initializes (Array<Any?>)
             return arrayInitializer(cc.arrayInitializer(), target, q);
+        }
+        if (optionalOfNullable(e, target)) {
+            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         if (target != null && !(unwrap(e) instanceof ConstructorCall) && !(unwrap(e) instanceof NullConstant)
             && rawOf(rawValueType(e), target)) {
@@ -631,6 +737,14 @@ public class KotlinExpressionPrinter {
             if (!sameUpToStates(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /** An array of references whose elements the declaration says are non-null: arrayOfNulls would make them X?. */
+    private static boolean nonNullElements(ParameterizedType array) {
+        ParameterizedType component = array.componentType();
+        return component != null && KotlinTypeName.primitiveArray(component) == null
+               && !KotlinNullability.isNullable(component) && component.wildcard() == null && !component.isTypeParameter()
+               && (component.typeInfo() != null || component.arrays() > 0);
     }
 
     /** The type Kotlin sees for {@code e}, where the printer knows it (a local typed from its initializer is not raw). */

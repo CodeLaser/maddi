@@ -172,8 +172,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void rawArrays() {
         String kotlin = kotlin(RAW_ARRAYS);
-        contains(kotlin, "private val grid: Array<Array<Box<Int>>> = arrayOfNulls<Array<Box<Int>>>(3)");
-        contains(kotlin, "val row: Array<Box<Int>> = arrayOfNulls<Box<Int>>(2)");
+        // arrayOfNulls is an Array<X?>; the declarations' elements are non-null (filled before they are read)
+        contains(kotlin, "private val grid: Array<Array<Box<Int>>> = (arrayOfNulls<Array<Box<Int>>>(3) as Array<Array<Box<Int>>>)");
+        contains(kotlin, "val row: Array<Box<Int>> = (arrayOfNulls<Box<Int>>(2) as Array<Box<Int>>)");
         contains(kotlin, "val g = grid");
         // a raw value where a typed one is expected: Java's unchecked conversion, Kotlin's unchecked cast
         contains(kotlin, "val empty: Array<Box<Int>> = (EMPTY as Array<Box<Int>>)");

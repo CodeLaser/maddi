@@ -34,8 +34,10 @@
 # survive them, unlike run { }), filter(Objects::nonNull) followed by map { it!! }: 93 files, 848 type errors.
 # 2026-10-08, Comparator.comparing(map::get) as comparing({ map.get(it)!! }); a Map.Entry.setValue (Iterator.next,
 # List.get/set) override returning null throws UnsupportedOperationException, deliberately: 93 files, 845 errors.
+# 2026-10-08, arrayOfNulls(n) as Array<X> where the declaration's elements are non-null; Optional<X?> results cast to
+# Optional<X>; method references asserting nullable stream elements: 95 files, 833 type errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	93
+compilingFiles	95
