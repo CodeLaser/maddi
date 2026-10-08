@@ -409,7 +409,7 @@ public class KotlinExpressionPrinter {
                 ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
                 boolean argumentTranslated = translated;
                 if (call != null) {
-                    ParameterizedType seen = KotlinNullability.throughReceiver(declared, call);
+                    ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);
                     // the receiver's type argument is a declaration of ours, even on a library member (queue.add)
                     if (seen != declared) argumentTranslated = true;
                     declared = seen;
@@ -667,6 +667,13 @@ public class KotlinExpressionPrinter {
         if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return null;
         ParameterizedType element = lookedUp(call.object().parameterizedType(), method.typeInfo(),
                 "containsValue".equals(method.name()) ? 1 : 0);
+        if (element != null && element.wildcard() != null && element.wildcard().isSuper()) {
+            // lst.remove(post) on a MutableList<in Statement?>: the member takes the bound, when that is nullable
+            ParameterizedType kotlin = lookedUp(KotlinNullability.kotlinType(call.object()), method.typeInfo(),
+                    "containsValue".equals(method.name()) ? 1 : 0);
+            element = kotlin != null && kotlin.wildcard() != null && kotlin.wildcard().isSuper()
+                      && KotlinNullability.isNullable(kotlin) ? kotlin.withWildcard(null) : null;
+        }
         ParameterizedType argumentType = argument.parameterizedType();
         boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
                         && element.wildcard() == null && element.typeInfo() != null

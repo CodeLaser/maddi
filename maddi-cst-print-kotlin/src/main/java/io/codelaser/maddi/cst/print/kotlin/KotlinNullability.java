@@ -271,6 +271,16 @@ final class KotlinNullability {
                 }
                 default -> null;
             };
+            // (if (i == 0) shortRange else longRange).entries: Kotlin's type of the if is its branches'
+            case InlineConditional ic -> {
+                ParameterizedType t = kotlinType(ic.ifTrue());
+                ParameterizedType f = kotlinType(ic.ifFalse());
+                ParameterizedType both = t != null ? t : f;
+                if (both == null || t != null && f != null && (t.typeInfo() != f.typeInfo() || t.arrays() != f.arrays())) {
+                    yield null;
+                }
+                yield nullableInKotlin(ic) ? both.withNullable(NullableState.NULLABLE) : both;
+            }
             default -> null;
         };
     }
@@ -283,6 +293,14 @@ final class KotlinNullability {
      * {@code Collection.add(E)}); anything else keeps the declared type.
      */
     static ParameterizedType throughReceiver(ParameterizedType declared, MethodCall call) {
+        return throughReceiver(declared, call, false);
+    }
+
+    /**
+     * As {@link #throughReceiver(ParameterizedType, MethodCall)}; for a parameter ({@code input}), a {@code ? super X}
+     * argument is its bound: {@code lst.add(0, post)} on a {@code MutableList<in Statement?>} takes a Statement?.
+     */
+    static ParameterizedType throughReceiver(ParameterizedType declared, MethodCall call, boolean input) {
         if (declared == null || !declared.isTypeParameter() && declared.parameters().isEmpty() || declared.arrays() > 0
             || call.objectIsImplicit() || call.object() == null) {
             return declared;
@@ -299,7 +317,7 @@ final class KotlinNullability {
             }
             if (receiver == null || receiver.typeInfo() != declaring) return declared;
         }
-        return substitute(declared, receiver);
+        return substitute(declared, receiver, input);
     }
 
     /**
@@ -308,11 +326,20 @@ final class KotlinNullability {
      * stays: {@code getWithKey(k): E?} on a collection of {@code MethodWrapper} is a {@code MethodWrapper?}.
      */
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver) {
+        return substitute(declared, receiver, false);
+    }
+
+    private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver, boolean input) {
         if (declared == null) return null;
         if (declared.isTypeParameter() && declared.arrays() == 0) {
             int index = receiver.typeInfo().typeParameters().indexOf(declared.typeParameter());
             if (index < 0 || index >= receiver.parameters().size()) return declared;
             ParameterizedType argument = receiver.parameters().get(index);
+            if (input && argument != null && argument.wildcard() != null && argument.wildcard().isSuper()
+                && (argument.typeInfo() != null || argument.isTypeParameter())) {
+                // MutableList<in Statement?>.add(e): what goes in is a Statement?, an `in` projection's
+                argument = argument.withWildcard(null);
+            }
             if (argument != null && argument.wildcard() != null && argument.wildcard().isExtendsNoIntersection()
                 && (argument.typeInfo() != null || argument.isTypeParameter())) {
                 // List<? extends Statement?>.get(i): what comes out is a Statement?, a Kotlin `out` projection's

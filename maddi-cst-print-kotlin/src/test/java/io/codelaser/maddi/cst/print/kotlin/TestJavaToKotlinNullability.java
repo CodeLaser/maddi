@@ -626,4 +626,52 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "lst.remove((v as E?))");
         contains(kotlin, "set.contains((v as E?))");
     }
+
+    @Language("java")
+    private static final String SUPER_LIST = """
+            package a;
+            import java.util.List;
+            class C {
+                static boolean choice(String head, List<? super String> lst, boolean b) {
+                    String post = null;
+                    if (b) post = head;
+                    lst.add(head);
+                    lst.remove(post);
+                    lst.add(0, post);
+                    return true;
+                }
+            }
+            """;
+
+    /** A {@code MutableList<in String?>} takes a String? in: no {@code !!} on what Java adds or removes. */
+    @Test
+    public void superWildcardOfNullableElements() {
+        String kotlin = kotlin(SUPER_LIST, new KotlinPrintOptions(new ByName(Set.of("lst<>", "post")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "lst: MutableList<in String?>");
+        contains(kotlin, "lst.remove(post)");
+        contains(kotlin, "lst.add(0, post)");
+    }
+
+    @Language("java")
+    private static final String CONDITIONAL_ITERABLE = """
+            package a;
+            import java.util.List;
+            class C {
+                List<String> a;
+                List<String> b;
+                void use(String s) { }
+                void m(boolean c) {
+                    for (String s : c ? a : b) use(s);
+                }
+            }
+            """;
+
+    /** The loop variable over {@code if (c) a else b} has the branches' element type: a nullable one is asserted. */
+    @Test
+    public void conditionalIterable() {
+        String kotlin = kotlin(CONDITIONAL_ITERABLE, new KotlinPrintOptions(new ByName(Set.of("a<>", "b<>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "use(s!!)");
+    }
 }
