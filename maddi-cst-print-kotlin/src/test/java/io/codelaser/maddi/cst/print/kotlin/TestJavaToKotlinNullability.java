@@ -191,6 +191,32 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String LAMBDAS = """
+            package a;
+            import java.util.*;
+            class Lm {
+                static class St { int id; List<String> ex() { return id > 0 ? null : new ArrayList<>(); } }
+                void sort(List<St> sorted) { Collections.sort(sorted, Comparator.comparingInt(o -> o.id)); }
+                String first(Optional<List<St>> o) {
+                    return o.map(stats -> stats.isEmpty() ? null : stats.get(0).ex())
+                            .map(exprs -> exprs.size() == 1 ? exprs.get(0) : null).orElse(null);
+                }
+            }
+            """;
+
+    /**
+     * Lambda parameters Kotlin infers nullable: a key extractor sorting nullable elements (Java throws there too), and
+     * an Optional.map after one that may return null (Java never calls it with null; the `!!` cannot throw).
+     */
+    @Test
+    public void inferredNullableLambdaParameters() {
+        String kotlin = kotlin(LAMBDAS, new KotlinPrintOptions(new ByName(Set.of("sorted<>", "ex()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "o -> o!!.id");
+        contains(kotlin, "exprs!!.size");
+    }
+
+    @Language("java")
     private static final String NULLS = """
             package a;
             import java.util.Map;

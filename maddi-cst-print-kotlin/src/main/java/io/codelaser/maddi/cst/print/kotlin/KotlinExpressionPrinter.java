@@ -390,6 +390,11 @@ public class KotlinExpressionPrinter {
                 List<ParameterizedType> types = call == null || !hasParameter ? List.of()
                         : KotlinNullability.lambdaParameterTypes(call, method.parameters().get(i).parameterizedType());
                 List<ParameterInfo> params = l.parameters();
+                if (call != null && (sortsNullable(method) || optionalOfNullableValue(method, call))) {
+                    // Kotlin infers the parameters nullable where Java hands over a value, or throws: `o!!.id`
+                    types = params.stream().map(p -> p.parameterizedType().withNullable(
+                            io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)).toList();
+                }
                 boolean typed = types.size() == params.size();
                 for (int j = 0; typed && j < params.size(); j++) {
                     ParameterizedType t = types.get(j);
@@ -563,15 +568,55 @@ public class KotlinExpressionPrinter {
         return false;
     }
 
+    /** {@code null}, {@code c ? x : null}, or a value Kotlin types nullable ({@code stats.get(0).getExprents()}). */
+    private static boolean mayBeNull(Expression e) {
+        Expression x = unwrap(e);
+        if (x instanceof NullConstant) return true;
+        if (x instanceof InlineConditional ic) return mayBeNull(ic.ifTrue()) || mayBeNull(ic.ifFalse());
+        return KotlinNullability.nullableInKotlin(x);
+    }
+
     private static boolean returnsNull(Lambda l) {
         boolean[] found = {false};
         l.methodBody().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof ReturnStatement rs && !rs.hasNoValue() && unwrap(rs.expression()) instanceof NullConstant) {
-                found[0] = true;
-            }
+            if (e instanceof ReturnStatement rs && !rs.hasNoValue() && mayBeNull(rs.expression())) found[0] = true;
             return !found[0];
         });
         return found[0];
+    }
+
+    /**
+     * A key extractor of {@code Comparator.comparingInt(o -> o.id)} that sorts nullable elements: Kotlin infers its
+     * parameter from the list, {@code Collections.sort(sorted, …)} with a {@code MutableList<Statement?>}, and Java
+     * throws where it dereferences the null.
+     */
+    private static boolean sortsNullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+        if (method == null || !"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
+            || !method.name().startsWith("comparing") && !method.name().startsWith("thenComparing")) {
+            return false;
+        }
+        if (!(KotlinContext.enclosingCall() instanceof MethodCall outer)) return false;
+        String owner = outer.methodInfo().typeInfo().fullyQualifiedName();
+        Expression sorted = switch (outer.methodInfo().name()) {
+            case "sort" -> "java.util.Collections".equals(owner) && !outer.parameterExpressions().isEmpty()
+                    ? outer.parameterExpressions().getFirst() : outer.objectIsImplicit() ? null : outer.object();
+            case "sorted", "min", "max" -> outer.objectIsImplicit() ? null : outer.object();
+            default -> null;
+        };
+        ParameterizedType t = sorted == null ? null : KotlinNullability.kotlinType(sorted);
+        return t != null && t.parameters().size() == 1 && KotlinNullability.isNullable(t.parameters().getFirst());
+    }
+
+    /**
+     * A lambda of {@code Optional.map}, {@code filter}, {@code flatMap}, {@code ifPresent} on an Optional whose
+     * Kotlin type argument is nullable (a map lambda before it returned null, Java's empty): Java never calls it with
+     * null, Kotlin types its parameter nullable. The {@code !!} on its dereferences cannot throw.
+     */
+    private static boolean optionalOfNullableValue(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call) {
+        return method != null && "java.util.Optional".equals(method.typeInfo().fullyQualifiedName())
+               && java.util.Set.of("map", "flatMap", "filter", "ifPresent", "ifPresentOrElse").contains(method.name())
+               && !call.objectIsImplicit() && unwrap(call.object()) instanceof MethodCall receiver
+               && nullableInChain(receiver);
     }
 
     private static final java.util.Set<String> LOOKUPS = java.util.Set.of("get", "getOrDefault", "containsKey",

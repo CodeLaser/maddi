@@ -149,6 +149,14 @@ final class KotlinContext {
     private static final ThreadLocal<Deque<io.codelaser.maddi.cst.api.expression.Expression>> CALLS =
             ThreadLocal.withInitial(ArrayDeque::new);
 
+    /** The call around the innermost one: {@code Collections.sort(list, …)} while printing its comparingInt(…). */
+    static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
+        java.util.Iterator<io.codelaser.maddi.cst.api.expression.Expression> it = CALLS.get().iterator();
+        if (!it.hasNext()) return null;
+        it.next();
+        return it.hasNext() ? it.next() : null;
+    }
+
     /** The innermost method or constructor call being printed: where a per-expression fact is asked for. */
     static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
         return CALLS.get().peek();
