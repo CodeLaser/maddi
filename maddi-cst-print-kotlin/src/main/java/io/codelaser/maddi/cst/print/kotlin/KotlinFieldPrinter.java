@@ -41,8 +41,21 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null" : defaultValue(type);
 
         OutputBuilder builder = new OutputBuilderImpl();
-        KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo).ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
-        if (needsDefault && zero == null) builder.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
+        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
+                KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo);
+        boolean lateinit = needsDefault && zero == null;
+        if (!isConst() && !visibility.equals(java.util.Optional.of(KeywordImpl.PRIVATE))) {
+            boolean clash = accessorClash(fieldInfo, isVal);
+            if (lateinit && clash) {
+                // a lateinit property cannot be a @JvmField: its accessors get names no Java method has
+                builder.add(new TextImpl("@get:JvmName(\"" + fieldInfo.name() + "\\$get\") @set:JvmName(\""
+                                         + fieldInfo.name() + "\\$set\")")).add(SpaceEnum.ONE);
+            } else if (!lateinit && (clash || javaStatic(fieldInfo, visibility))) {
+                builder.add(new TextImpl("@JvmField")).add(SpaceEnum.ONE);
+            }
+        }
+        visibility.ifPresent(v -> builder.add(v).add(SpaceEnum.ONE));
+        if (lateinit) builder.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
         if (isConst()) builder.add(new TextImpl("const")).add(SpaceEnum.ONE);
         builder.add(isVal ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                 .add(SpaceEnum.ONE)
@@ -62,9 +75,54 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     }
 
     private static boolean isVal(FieldInfo fieldInfo, boolean hasInitializer, boolean asParameterInPrimaryConstructor) {
-        return fieldInfo.isFinal() && (hasInitializer || fieldInfo.isStatic()
+        return isFinal(fieldInfo) && (hasInitializer || fieldInfo.isStatic()
                                        || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()))
                || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
+    }
+
+    /**
+     * Java's field and its getter are two members; a Kotlin property's accessors are methods with the getter's JVM
+     * name: {@code val handlers} next to {@code fun getHandlers()} is a platform declaration clash. A property whose
+     * accessor name a method of its class or a supertype has, is a {@code @JvmField}: a field, as in Java, without
+     * accessors. A {@code lateinit} property cannot be one; its accessors are renamed ({@code @get:JvmName}).
+     */
+    static boolean accessorClash(FieldInfo fieldInfo, boolean isVal) {
+        if (!KotlinContext.translatingJava()) return false;
+        String name = fieldInfo.name();
+        boolean isPrefix = name.length() > 2 && name.startsWith("is") && !Character.isLowerCase(name.charAt(2));
+        String capitalized = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        String getter = isPrefix ? name : "get" + capitalized;
+        String setter = isPrefix ? "set" + name.substring(2) : "set" + capitalized;
+        return accessorClash(fieldInfo.owner(), fieldInfo.isStatic(), getter, isVal ? null : setter,
+                new java.util.HashSet<>());
+    }
+
+    private static boolean accessorClash(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, boolean isStatic,
+                                         String getter, String setter,
+                                         java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited) {
+        if (typeInfo == null || !visited.add(typeInfo)) return false;
+        if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic() && m.isStatic() == isStatic
+                && (m.parameters().isEmpty() && getter.equals(m.name())
+                    || m.parameters().size() == 1 && setter != null && setter.equals(m.name())))) {
+            return true;
+        }
+        if (typeInfo.parentClass() != null
+            && accessorClash(typeInfo.parentClass().typeInfo(), isStatic, getter, setter, visited)) return true;
+        return typeInfo.interfacesImplemented().stream()
+                .anyMatch(i -> accessorClash(i.typeInfo(), isStatic, getter, setter, visited));
+    }
+
+    /**
+     * A static field of translated Java, in the companion object: Java code reads it as {@code C.FIELD}, not as
+     * {@code C.Companion.getFIELD()}. In an interface's companion only when it has no {@code const val}: Kotlin
+     * requires all of its properties to be {@code @JvmField}, then.
+     */
+    private static boolean javaStatic(FieldInfo fieldInfo,
+                                      java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility) {
+        if (!KotlinContext.translatingJava() || !fieldInfo.isStatic() || !visibility.isEmpty()) return false;
+        // Kotlin: in an interface's companion, all properties are @JvmField, or none; a const val is not
+        return !fieldInfo.owner().isInterface()
+               || fieldInfo.owner().fields().stream().noneMatch(f -> !f.isSynthetic() && isConst(f));
     }
 
     /** The property is a {@code val}, which Kotlin can smart-cast; a {@code var} property it cannot. */
@@ -75,7 +133,16 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** A static final primitive or String with a constant initializer: {@code const val}, usable in annotations. */
     private boolean isConst() {
-        if (!fieldInfo.isStatic() || !fieldInfo.isFinal() || fieldInfo.initializer() == null
+        return isConst(fieldInfo);
+    }
+
+    /** Final as Java has it: an interface's field is implicitly static and final. */
+    static boolean isFinal(FieldInfo fieldInfo) {
+        return fieldInfo.isFinal() || fieldInfo.owner().isInterface();
+    }
+
+    private static boolean isConst(FieldInfo fieldInfo) {
+        if (!fieldInfo.isStatic() || !isFinal(fieldInfo) || fieldInfo.initializer() == null
             || !fieldInfo.initializer().isConstant() || KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())) {
             return false;
         }

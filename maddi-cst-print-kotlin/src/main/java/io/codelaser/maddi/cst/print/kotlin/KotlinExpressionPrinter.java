@@ -69,7 +69,7 @@ public class KotlinExpressionPrinter {
     public static OutputBuilder print(Expression e, Qualification q) {
         return switch (e) {
             case ConstructorCall cc -> inCall(cc, () -> constructorCall(cc, cc.parameterizedType(), q));
-            case Cast cast -> cast(cast, q);
+            case Cast cast -> cast(cast, false, q);
             case InstanceOf io -> instanceOf(io, q);
             case InlineConditional ic when isElvis(ic) ->
                 // desugared elvis `a ?: b` = InlineConditional(a==null, ifTrue=b, ifFalse=a); recover the `?:`
@@ -680,6 +680,10 @@ public class KotlinExpressionPrinter {
      * integral type by itself.
      */
     static OutputBuilder widened(Expression e, ParameterizedType target, Qualification q) {
+        if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
+            // String factory = (String) properties.get(key): Java's cast lets the null through
+            return cast(c, true, q);
+        }
         if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
@@ -1356,9 +1360,10 @@ public class KotlinExpressionPrinter {
      * ⛔ #105: a cast between primitive types converts, so it prints as a conversion function. {@code x as Int} on a
      * {@code Long} throws ClassCastException where Java's {@code (int) x} truncates. Narrowing to byte, short or
      * char from a floating type goes through {@code toInt()}, as Java's does (and Kotlin deprecates the direct
-     * functions); from char, through {@code code}.
+     * functions); from char, through {@code code}. A reference cast of a nullable value into a nullable target is to the
+     * nullable type.
      */
-    private static OutputBuilder cast(Cast cast, Qualification q) {
+    private static OutputBuilder cast(Cast cast, boolean nullable, Qualification q) {
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
         if (to != null && from != null && cast.parameterizedType().isPrimitiveExcludingVoid()) {
@@ -1369,9 +1374,13 @@ public class KotlinExpressionPrinter {
             }
             return receiver;
         }
+        // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
+        ParameterizedType type = nullable
+                ? cast.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
+                : cast.parameterizedType();
         return new OutputBuilderImpl().add(operand(cast.precedence(), cast.expression(), q)).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinTypeName.of(cast.parameterizedType(), q)));
+                .add(new TextImpl(KotlinTypeName.of(type, q)));
     }
 
     private static String conversion(Primitive from, Primitive to) {

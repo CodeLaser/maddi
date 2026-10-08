@@ -247,6 +247,15 @@ final class KotlinNullability {
         };
     }
 
+    /**
+     * A reference cast of a value Kotlin types nullable: {@code x as T} throws on null where Java's cast does not.
+     * Into a nullable target it prints {@code x as T?} (see {@link KotlinExpressionPrinter#widened}); elsewhere the
+     * value is dereferenced, unboxed or tested, where Java throws as well.
+     */
+    static boolean nullableCast(Cast cast) {
+        return !cast.parameterizedType().isPrimitiveExcludingVoid() && nullableInKotlin(cast.expression());
+    }
+
     /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
     static ParameterizedType kotlinType(Expression e) {
         return switch (KotlinExpressionPrinter.unwrap(e)) {

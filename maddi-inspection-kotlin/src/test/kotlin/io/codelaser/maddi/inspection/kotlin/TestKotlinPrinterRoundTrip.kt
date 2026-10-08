@@ -150,7 +150,8 @@ class TestKotlinPrinterRoundTrip {
 
         // real Java -> idiomatic Kotlin, on a construct-rich class
         assertTrue(kotlin.contains("open class Rich<T>"), kotlin) // Java non-final class -> open
-        assertTrue(kotlin.contains("(val id: Int, var name: String)"), kotlin) // final field -> val, mutable -> var
+        // final field -> val, mutable -> var; getId() would clash with the property's getter: a field, @JvmField
+        assertTrue(kotlin.contains("(@JvmField val id: Int, var name: String)"), kotlin)
         assertTrue(kotlin.contains("fun check(x: Any): Boolean = x is String && (x as String)"), kotlin) // is + as + &&
         assertTrue(kotlin.contains("""fun pick(n: Int): String = if (n > 0) "pos" else "neg""""), kotlin) // ternary body
         assertTrue(kotlin.contains("for (x in xs)"), kotlin) // for-each -> for-in

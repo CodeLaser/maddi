@@ -57,7 +57,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
-        KotlinModifiers.visibility(methodInfo, typeInfo).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
+                KotlinModifiers.visibility(methodInfo, typeInfo);
+        if (KotlinContext.translatingJava() && methodInfo.isStatic() && visibility.isEmpty()) {
+            // in the companion object: Java code calls it as C.m(), not C.Companion.m()
+            b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
+        }
+        visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         if (!methodInfo.overrides().isEmpty()) {
             // an abstract class re-declaring an interface method, to narrow its return type
             if (methodInfo.isAbstract() && !typeInfo.isInterface()) b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);

@@ -274,7 +274,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     @Test
     public void arrayInitializers() {
         String kotlin = kotlin(ARRAY_INITIALIZERS);
-        contains(kotlin, "val TABLE: Array<Array<IntArray>> = arrayOf<Array<IntArray>>(arrayOf<IntArray>(null, intArrayOf(1, 2)), null)");
+        contains(kotlin, "@JvmField val TABLE: Array<Array<IntArray>> = arrayOf<Array<IntArray>>(");
+        contains(kotlin, "arrayOf<IntArray>(null, intArrayOf(1, 2)),");
         contains(kotlin, "var names: Array<Array<String>> = arrayOf<Array<String>>(arrayOf<String>(\"a\"), arrayOf<String>())");
     }
 }

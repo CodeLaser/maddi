@@ -162,6 +162,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (primary != null) {
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
+                                .add(KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
+                                        ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
+                                        : new OutputBuilderImpl())
                                 .add(fieldByName.get(p.name()).isFinal() ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                                 .add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(p.name())))
                                 .add(SymbolEnum.COLON_LABEL)

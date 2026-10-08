@@ -570,4 +570,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "arrayOf<String>(label!!, \"x\")");
         contains(kotlin, "override fun toString(): String = label!!");
     }
+
+    @Language("java")
+    private static final String CASTS = """
+            package a;
+            import java.util.Map;
+            class C {
+                String level(Map<String, Object> p) {
+                    String l = (String) p.get("k");
+                    return l;
+                }
+                int len(Map<String, Object> p) { return ((String) p.get("k")).length(); }
+                String name(Object o) { return (String) o; }
+            }
+            """;
+
+    /**
+     * Java's {@code (String) p.get(k)} lets null through, Kotlin's {@code as String} throws: a cast of a value Kotlin
+     * types nullable into a nullable target is to the nullable type. Dereferenced, Java throws on the null as well.
+     */
+    @Test
+    public void castOfNullableValue() {
+        String kotlin = kotlin(CASTS, new KotlinPrintOptions(new ByName(Set.of("l", "level()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "p.get(\"k\") as String?");
+        contains(kotlin, "(p.get(\"k\") as String).length");
+        contains(kotlin, "= o as String"); // o is not nullable
+    }
 }

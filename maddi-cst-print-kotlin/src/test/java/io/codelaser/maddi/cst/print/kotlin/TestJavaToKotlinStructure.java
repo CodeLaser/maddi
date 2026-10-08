@@ -620,4 +620,79 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "var x = 1");
         contains(kotlin, "val y = 2");
     }
+
+    private static final String ACCESSOR_CLASH = """
+            package a;
+            class C {
+                protected int pointer = 0;
+                protected boolean isOpen;
+                int count = 0;
+                private final String hidden = "h";
+                public int getPointer() { return pointer; }
+                public void setPointer(int pointer) { this.pointer = pointer; }
+                public boolean isOpen() { return isOpen; }
+                public String getHidden() { return hidden; }
+                static class N {
+                    private int depth = 0;
+                    int getDepth() { return depth; }
+                    private int[] data;
+                    N(int n) { data = new int[n]; }
+                    int[] getData() { return data; }
+                }
+            }
+            """;
+
+    /**
+     * A property whose accessor has the JVM name of a method of its class is a {@code @JvmField}, without accessors:
+     * {@code var pointer} next to {@code getPointer()} is a platform declaration clash. A private property has no
+     * accessors; {@code isOpen}'s getter is {@code isOpen()}.
+     */
+    @Test
+    public void accessorClash() {
+        String kotlin = kotlin(ACCESSOR_CLASH);
+        contains(kotlin, "@JvmField var pointer: Int = 0");
+        contains(kotlin, "@JvmField var isOpen: Boolean = false");
+        contains(kotlin, "\n    var count: Int = 0");
+        contains(kotlin, "\n    private val hidden: String = \"h\"");
+        contains(kotlin, "@JvmField internal val depth: Int = 0");
+        contains(kotlin, "@get:JvmName(\"data\\$get\") @set:JvmName(\"data\\$set\") internal lateinit var data: IntArray");
+    }
+
+    @Language("java")
+    private static final String JAVA_STATICS = """
+            package a;
+            class C {
+                static int counter = 0;
+                private static int hidden = 1;
+                static final String NAME = "n";
+                static int next() { return counter++; }
+                private static int peek() { return hidden; }
+            }
+            interface Codes {
+                int ONE = 1;
+                java.util.List<String> NAMES = java.util.List.of("a");
+            }
+            interface Lists {
+                java.util.List<String> EMPTY = java.util.List.of();
+            }
+            """;
+
+    /**
+     * Static members go to the companion object; Java code reaches them as {@code C.counter} and {@code C.next()}:
+     * {@code @JvmField} and {@code @JvmStatic}. Private ones, and constants, need neither. An interface's fields are
+     * final.
+     */
+    @Test
+    public void staticsForJavaCallers() {
+        String kotlin = kotlin(JAVA_STATICS);
+        contains(kotlin, "@JvmField var counter: Int = 0");
+        contains(kotlin, "private val hidden: Int = 1");
+        contains(kotlin, "const val NAME: String = \"n\"");
+        contains(kotlin, "@JvmStatic fun next(): Int");
+        contains(kotlin, "private fun peek(): Int");
+        // an interface's fields are final; its companion's properties are all @JvmField, or none
+        contains(kotlin, "const val ONE: Int = 1");
+        contains(kotlin, "\n        val NAMES: MutableList<String>");
+        contains(kotlin, "@JvmField val EMPTY: MutableList<String>");
+    }
 }
