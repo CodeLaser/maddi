@@ -382,14 +382,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // ---- a class-file unit's package and module annotations (JSpecify's @NullMarked scope, say) ----
     // Read once per package and module: every class file of a package shares its package-info.class. Not
     // computeIfAbsent: building an annotation can load its type, and with it another package's annotations.
-    // Symbols compare by identity.
+    // ⛔ And the SAME package's: Spring's org.springframework.lang and micrometer's io.micrometer.common.lang annotate
+    // their package with their own @NonNullApi, whose unit asks for this package's annotations again. The entry is
+    // marked in progress (per thread) BEFORE loading, and a re-entry gets an empty list: the annotation type's own
+    // unit does without its package's annotations. Per thread, so that another thread loading a type of that package
+    // meanwhile is not handed the empty list for good. Without the guard: a StackOverflowError that dropped 16 of
+    // nacos's units (2026-10-09, TestSelfAnnotatedPackage). Symbols compare by identity.
     private final Map<Symbol.PackageSymbol, List<AnnotationExpression>> packageAnnotations = new ConcurrentHashMap<>();
     private final Map<Symbol.ModuleSymbol, List<AnnotationExpression>> moduleAnnotations = new ConcurrentHashMap<>();
+    private final ThreadLocal<Set<Symbol>> scopeAnnotationsInProgress =
+            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     private List<AnnotationExpression> packageAnnotations(Symbol.PackageSymbol ps) {
         if (ps == null) return List.of();
         List<AnnotationExpression> known = packageAnnotations.get(ps);
         if (known != null) return known;
+        Set<Symbol> inProgress = scopeAnnotationsInProgress.get();
+        if (!inProgress.add(ps)) return List.of();
         List<AnnotationExpression> annotations;
         try {
             // javac attaches package-info.class's annotations to the package when it completes that class
@@ -397,6 +406,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             annotations = List.copyOf(loadAnnotations(ps));
         } catch (Symbol.CompletionFailure cf) {
             annotations = List.of();
+        } finally {
+            inProgress.remove(ps);
         }
         packageAnnotations.put(ps, annotations);
         return annotations;
@@ -407,7 +418,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (module == null || module.isUnnamed()) return List.of();
         List<AnnotationExpression> known = moduleAnnotations.get(module);
         if (known != null) return known;
-        List<AnnotationExpression> annotations = List.copyOf(loadAnnotations(module));
+        Set<Symbol> inProgress = scopeAnnotationsInProgress.get();
+        if (!inProgress.add(module)) return List.of();
+        List<AnnotationExpression> annotations;
+        try {
+            annotations = List.copyOf(loadAnnotations(module));
+        } finally {
+            inProgress.remove(module);
+        }
         moduleAnnotations.put(module, annotations);
         return annotations;
     }
