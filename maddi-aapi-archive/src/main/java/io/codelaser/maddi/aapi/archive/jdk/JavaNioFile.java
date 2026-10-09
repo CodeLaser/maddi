@@ -15,6 +15,8 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.rare.AllowsInterrupt;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
@@ -305,6 +307,24 @@ public class JavaNioFile {
         //@Independent[T]
         @AllowsInterrupt @NotModified
         static Stream<String> lines(Path path) { return null; }
+    }
+
+    //public interface FileVisitor<T>
+    class FileVisitor$<T> {
+        // exc is null when the iteration of the directory completed without an error; an override must accept it
+        // (fernflower's DecompilerTestFixture.deleteRecursively)
+        FileVisitResult postVisitDirectory(T dir, @Nullable IOException exc) { return null; }
+        FileVisitResult preVisitDirectory(T dir, @NotNull BasicFileAttributes attrs) { return null; }
+        FileVisitResult visitFile(T file, @NotNull BasicFileAttributes attrs) { return null; }
+        FileVisitResult visitFileFailed(T file, @NotNull IOException exc) { return null; }
+    }
+
+    //public class SimpleFileVisitor<T> implements FileVisitor<T>
+    class SimpleFileVisitor$<T> {
+        FileVisitResult postVisitDirectory(T dir, @Nullable IOException exc) { return null; }
+        FileVisitResult preVisitDirectory(T dir, @NotNull BasicFileAttributes attrs) { return null; }
+        FileVisitResult visitFile(T file, @NotNull BasicFileAttributes attrs) { return null; }
+        FileVisitResult visitFileFailed(T file, @NotNull IOException exc) { return null; }
     }
 
     //public interface Path implements Comparable<Path>, Iterable<Path>, Watchable

@@ -1,4 +1,18 @@
 [
+{"name": "Tjava.nio.file.FileVisitor", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MpostVisitDirectory(0,T,java.io.IOException)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"Q"}}]},
+ {"name": "MpreVisitDirectory(1,T,java.nio.file.attribute.BasicFileAttributes)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]},
+ {"name": "MvisitFile(2,T,java.nio.file.attribute.BasicFileAttributes)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]},
+ {"name": "MvisitFileFailed(3,T,java.io.IOException)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]}]},
+
 {"name": "Tjava.nio.file.Files", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcopy(0,java.io.InputStream,java.nio.file.Path,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
@@ -282,6 +296,20 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
  {"name": "MtoString(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MtoUri(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}}]},
+
+{"name": "Tjava.nio.file.SimpleFileVisitor", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MpostVisitDirectory(0,T,java.io.IOException)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"Q"}}]},
+ {"name": "MpreVisitDirectory(1,T,java.nio.file.attribute.BasicFileAttributes)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]},
+ {"name": "MvisitFile(2,T,java.nio.file.attribute.BasicFileAttributes)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]},
+ {"name": "MvisitFileFailed(3,T,java.io.IOException)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N"}}]}]},
 
 {"name": "Tjava.nio.file.Watchable", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mregister(0,java.nio.file.WatchService,java.nio.file.WatchEvent.Kind[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
