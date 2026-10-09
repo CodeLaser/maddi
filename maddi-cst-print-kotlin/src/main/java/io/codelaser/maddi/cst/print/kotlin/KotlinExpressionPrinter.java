@@ -466,6 +466,13 @@ public class KotlinExpressionPrinter {
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && nullableBesideVarargs(method, i)) {
+                    // UserMessage(text: String?) beside UserMessage(name: String, vararg contents: Content): Java
+                    // takes the first for UserMessage("hi"), Kotlin the more specific second with no contents
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
                 }
                 printed.add(argument);
             }
@@ -723,6 +730,26 @@ public class KotlinExpressionPrinter {
                 && m.parameters().size() == method.parameters().size()
                 && m.parameters().get(i).parameterizedType().isPrimitiveExcludingVoid()
                 && primitive(m.parameters().get(i).parameterizedType()) == boxed);
+    }
+
+    /**
+     * A nullable parameter of a method without varargs, where an overload starts with the same types, non-null, and
+     * ends in varargs: Kotlin finds that one more specific for a non-null argument, and calls it without varargs.
+     */
+    private static boolean nullableBesideVarargs(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (method == null || i >= method.parameters().size() || method.parameters().getLast().isVarArgs()) return false;
+        ParameterizedType declared = KotlinNullability.parameterType(method.parameters().get(i));
+        if (declared == null || declared.isPrimitiveExcludingVoid() || !KotlinNullability.isNullable(declared)) return false;
+        int n = method.parameters().size();
+        List<io.codelaser.maddi.cst.api.info.MethodInfo> candidates = method.isConstructor()
+                ? method.typeInfo().constructors() : method.typeInfo().methods();
+        return candidates.stream().anyMatch(m -> m != method && m.name().equals(method.name())
+                && m.parameters().size() == n + 1 && m.parameters().getLast().isVarArgs()
+                && java.util.stream.IntStream.range(0, n).allMatch(j -> {
+                    ParameterizedType mine = method.parameters().get(j).parameterizedType();
+                    ParameterizedType theirs = m.parameters().get(j).parameterizedType();
+                    return mine.typeInfo() != null && mine.typeInfo() == theirs.typeInfo() && mine.arrays() == theirs.arrays();
+                }));
     }
 
     /** The receiver's type argument {@code index} as the declaring type sees it: E of a Set<E>, K or V of a Map. */

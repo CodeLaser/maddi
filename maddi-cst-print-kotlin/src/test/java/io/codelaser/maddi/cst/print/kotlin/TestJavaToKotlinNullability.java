@@ -677,4 +677,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "use(s!!)");
     }
+
+    @Language("java")
+    private static final String NULLABLE_BESIDE_VARARGS = """
+            package a;
+            class M {
+                M(String text) { }
+                M(String name, Object... contents) { }
+                static M of() { return new M("hi"); }
+                static M named() { return new M("n", "c"); }
+            }
+            """;
+
+    /**
+     * {@code M(text: String?)} beside {@code M(name: String, vararg contents: Any)}: Kotlin finds the second more
+     * specific for {@code M("hi")}, Java takes the first; the argument is cast to the nullable parameter type.
+     */
+    @Test
+    public void nullableBesideVarargs() {
+        String kotlin = kotlin(NULLABLE_BESIDE_VARARGS, new KotlinPrintOptions(new ByName(Set.of("text")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "M((\"hi\" as String?))");
+        contains(kotlin, "M(\"n\", \"c\")");
+    }
 }

@@ -436,6 +436,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         String packageName = cs.owner.toString();
         TypeInfo newTypeInfo;
         boolean internal;
+        boolean fromClassFile = false;
         TypeInfo predefinedType;
         if ("java.lang".equals(packageName) && (predefinedType = predefinedTypes.get(simpleName)) != null) {
             newTypeInfo = predefinedType;
@@ -504,10 +505,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         .setPackageAnnotations(packageAnnotations(cs.packge()))
                         .setModuleAnnotations(moduleAnnotations(cs.packge()))
                         .build();
+                fromClassFile = !internal;
             }
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         }
-        put(newTypeInfo);
+        if (fromClassFile) {
+            // ⛔ CHECK AND REGISTER IN ONE STEP. Every caller looked the type up first, but the registry is shared
+            // with other threads (InfoByFqn's javadoc): another one may have loaded the same class file since. Its
+            // instance wins, ours is dropped before anyone sees it -- not committed as a second HttpClient.
+            TypeInfo registered = infoByFqn.putIfAbsentFromSameOrigin(newTypeInfo.fullyQualifiedName(), newTypeInfo,
+                    sourceSetOfCurrentTask);
+            if (registered != newTypeInfo) return registered;
+        } else {
+            put(newTypeInfo);
+        }
         if (internal) {
             // ⛔ A STUB STILL HAS TO ANSWER THE FIRST QUESTION ASKED OF IT. Skipping loadType is the point of
             // this branch, but it left typeNature and parentClass NULL, and the very next thing anyone does
