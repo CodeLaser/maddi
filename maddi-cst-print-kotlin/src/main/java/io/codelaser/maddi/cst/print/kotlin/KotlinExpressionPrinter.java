@@ -297,7 +297,8 @@ public class KotlinExpressionPrinter {
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(KotlinNullability.receiverWithDot(object, q));
         }
-        if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo())) {
+        if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo()) || KotlinTypePrinter.isAnnotationElement(mc.methodInfo())) {
+            // a data class's property; an annotation's element, Java's too, which Kotlin reads as a property
             return b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()))); // a data class property
         }
         if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
@@ -319,7 +320,7 @@ public class KotlinExpressionPrinter {
         }
         String sameArguments = KotlinMappedMembers.renamed(mc.methodInfo());
         if (sameArguments != null) {
-            return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), q));
+            return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
         if (KotlinMappedMembers.isSplit(mc.methodInfo())) {
             // Java's split drops trailing empty strings, and returns an array

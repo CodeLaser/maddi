@@ -119,6 +119,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         MethodInfo primaryFinal = primary;
         if (components.isEmpty() && typeInfo.typeNature().isRecord()) dataClass = false; // a data class needs a property
 
+        // Java's @interface: Kotlin's annotation class, its elements the constructor's properties
+        boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
             out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
@@ -142,7 +144,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (companion && typeInfo.isInnerClass() && !isLocal(typeInfo) && !typeInfo.isAnonymous()) {
                 out.add(new TextImpl("inner")).add(SpaceEnum.ONE); // Java's nested class sees the outer instance
             }
-            if (typeInfo.typeNature().isEnum()) {
+            if (annotationType) {
+                out.add(new TextImpl("annotation")).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
+            } else if (typeInfo.typeNature().isEnum()) {
                 out.add(KeywordImpl.ENUM).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
             } else if (typeInfo.typeNature().isInterface()) {
                 // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`
@@ -192,12 +196,17 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (initConstructor != null) {
                 out.add(primaryConstructorHeader(initConstructor, insideType));
+            } else if (annotationType && typeInfo.methods().stream().anyMatch(KotlinTypePrinter::isAnnotationElement)) {
+                out.add(typeInfo.methods().stream().filter(KotlinTypePrinter::isAnnotationElement)
+                        .map(m -> annotationElement(m, insideType))
+                        .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             }
             OutputBuilder superArguments = primary != null || !components.isEmpty()
                                            || constructors.stream().allMatch(KotlinTypePrinter::isImplicitDefaultConstructor)
                     ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                     : initConstructor != null ? superArguments(initConstructor, insideType) : null;
-            List<OutputBuilder> supers = superTypes(superArguments, insideType);
+            List<OutputBuilder> supers = annotationType ? List.of() : superTypes(superArguments, insideType);
             if (!supers.isEmpty()) {
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -236,7 +245,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // getter stays a method, because its callers print as calls (prepwork marks it all the same)
                 .filter(m -> !m.isSynthetic() && (companion || !isAccessor(m)))
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
-                .filter(m -> !isRecordAccessor(m))
+                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
@@ -338,6 +347,30 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /** {@code x()} of a record with component {@code x}: the data class's property {@code x} takes its place. */
+    /** An element of a Java annotation type, {@code String value() default ""}: a property in Kotlin. */
+    static boolean isAnnotationElement(MethodInfo m) {
+        return m.typeInfo().typeNature().isAnnotation() && !m.isStatic() && !m.isSynthetic()
+               && m.parameters().isEmpty() && !fromKotlinSource(m.typeInfo());
+    }
+
+    /**
+     * {@code val value: Array<String> = [""]}: a class is a {@code KClass}, and a single default for an array element
+     * is that array. Java keeps a default as the element's body, a single return.
+     */
+    private static OutputBuilder annotationElement(MethodInfo m, Qualification q) {
+        ParameterizedType type = m.returnType();
+        OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.VAL).add(SpaceEnum.ONE)
+                .add(new TextImpl(KotlinNames.name(m.name()))).add(SymbolEnum.COLON_LABEL)
+                .add(new TextImpl(KotlinAnnotations.elementType(type, q)));
+        if (m.methodBody() != null && m.methodBody().statements().size() == 1
+            && m.methodBody().statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
+            && rs.expression() != null) {
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                    .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, q));
+        }
+        return b;
+    }
+
     static boolean isRecordAccessor(MethodInfo m) {
         TypeInfo owner = m.typeInfo();
         return owner.typeNature().isRecord() && !m.isStatic() && m.parameters().isEmpty() && !fromKotlinSource(owner)
