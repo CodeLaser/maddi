@@ -48,7 +48,7 @@
   {"name": "Preplacement(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mreplace(11,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pinput(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Ptransform(1)", "data":{"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"independentParameter":2}}]},
  {"name": "MreplaceFirst(12,java.lang.CharSequence,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Preplacement(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -372,7 +372,8 @@
   {"name": "Plimit(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MskipWhile(51,java.lang.String,int,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$skipWhile(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+  {"name": "PstartIndex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
  {"name": "Msplit(52,java.lang.CharSequence,java.lang.String[],boolean,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$split(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pdelimiters(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
@@ -454,34 +455,40 @@
   {"name": "P$this$trim(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "Mtrim(74,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$trim(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "P$this$trim(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "Mtrim(75,java.lang.String,char[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$trim(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mtrim(76,java.lang.String,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
-  {"name": "P$this$trim(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "P$this$trim(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "MtrimEnd(77,java.lang.CharSequence)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
   {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtrimEnd(78,java.lang.CharSequence,char[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MtrimEnd(79,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "MtrimEnd(80,java.lang.String,char[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$trimEnd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MtrimEnd(81,java.lang.String,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
-  {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "P$this$trimEnd(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "MtrimStart(82,java.lang.CharSequence)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
   {"name": "P$this$trimStart(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtrimStart(83,java.lang.CharSequence,char[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$trimStart(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MtrimStart(84,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$trimStart(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "P$this$trimStart(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "MtrimStart(85,java.lang.String,char[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$trimStart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pchars(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MtrimStart(86,java.lang.String,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
-  {"name": "P$this$trimStart(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]}
+  {"name": "P$this$trimStart(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]}]}
 ]
