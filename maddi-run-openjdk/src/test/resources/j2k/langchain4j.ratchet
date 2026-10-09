@@ -10,12 +10,17 @@
 # the Kotlin classes in front; of 172 test files, 93 compile, and with those 823 pass.
 # 2026-10-09, the import computer keeps one of two equal imports (ImageContent imports Image twice): no printer
 # crash, 153 files compiling, 151 to class files.
+# 2026-10-09, Java annotation types printed as annotation classes (the scanner keeps the elements' defaults), and
+# a renamed String.formatted spreads its varargs: 233 files compiling (330 type errors), 229 to class files. The
+# tests go DOWN, knowingly: 80 more Kotlin classes in front expose what a translation without verdicts gets wrong
+# (non-null parameters handed null, lateinit properties never set, boxed parameters turned primitive in the JVM
+# signature): 730 pass with the Kotlin classes; 85 test files compile against them, and with those 718 pass.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	153
-bytecodeFiles	151
-testsPassing	835
-testBytecodeFiles	93
-translatedTestsPassing	823
+compilingFiles	233
+bytecodeFiles	229
+testsPassing	730
+testBytecodeFiles	85
+translatedTestsPassing	718

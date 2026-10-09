@@ -96,6 +96,25 @@ final class KotlinAnnotations {
         };
     }
 
+    /** An annotation element's type: a class is a {@code KClass}, {@code Class<?>[]} an {@code Array<KClass<*>>}. */
+    static String elementType(ParameterizedType type, Qualification q) {
+        if (type.typeInfo() != null && "java.lang.Class".equals(type.typeInfo().fullyQualifiedName())) {
+            String argument = type.parameters().isEmpty() || type.parameters().getFirst().isUnboundWildcard() ? "*"
+                    : "out " + KotlinTypeName.of(type.parameters().getFirst().withWildcard(null), q);
+            String kclass = "kotlin.reflect.KClass<" + argument + ">";
+            return type.arrays() > 0 ? "Array<" + kclass + ">" : kclass;
+        }
+        return KotlinTypeName.of(type, q);
+    }
+
+    /** An element's default: {@code String[] value() default ""} is {@code [""]}. */
+    static OutputBuilder elementValue(Expression e, boolean array, Qualification q) {
+        if (array && !(e instanceof ArrayInitializer)) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACKET).add(value(e, q)).add(SymbolEnum.RIGHT_BRACKET);
+        }
+        return value(e, q);
+    }
+
     /** In an annotation, a class is a KClass: {@code X::class}, not {@code X::class.java}. */
     private static String classLiteral(ParameterizedType type, Qualification q) {
         if (type.arrays() > 0 || type.typeInfo() == null) return KotlinTypeName.of(type, q) + "::class";

@@ -139,9 +139,9 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         return isConst(fieldInfo);
     }
 
-    /** Final as Java has it: an interface's field is implicitly static and final. */
+    /** Final as Java has it: an interface's field, and an annotation type's, is implicitly static and final. */
     static boolean isFinal(FieldInfo fieldInfo) {
-        return fieldInfo.isFinal() || fieldInfo.owner().isInterface();
+        return fieldInfo.isFinal() || fieldInfo.owner().isInterface() || fieldInfo.owner().typeNature().isAnnotation();
     }
 
     private static boolean isConst(FieldInfo fieldInfo) {

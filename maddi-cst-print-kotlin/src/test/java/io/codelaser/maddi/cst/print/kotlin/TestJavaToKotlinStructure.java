@@ -749,4 +749,44 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(DUPLICATE_IMPORT);
         contains(kotlin, "var uris: MutableList<URI>");
     }
+
+    @Language("java")
+    private static final String ANNOTATION_TYPES = """
+            package a;
+            import java.lang.annotation.*;
+            import static java.lang.annotation.ElementType.*;
+            @Retention(RetentionPolicy.RUNTIME)
+            @Target({METHOD, PACKAGE})
+            @interface Tool {
+                String name() default "";
+                String[] value() default "";
+                Class<?> type() default Object.class;
+                boolean required() default true;
+                String NO_DEFAULT = "none";
+            }
+            @interface Marker { }
+            class C {
+                @Tool(name = "n") public void run() { }
+                static String join(Tool tool) { return tool.name() + tool.value().length; }
+            }
+            """;
+
+    /**
+     * Java's {@code @interface} is Kotlin's {@code annotation class}: the elements are the constructor's properties
+     * (a {@code Class} a {@code KClass}, a single default for an array the array), read as properties. Java's
+     * meta-annotations stay: they keep Java's targets ({@code PACKAGE}) and retention in the class file.
+     */
+    @Test
+    public void annotationTypes() {
+        String kotlin = kotlin(ANNOTATION_TYPES);
+        contains(kotlin, "annotation class Tool(");
+        contains(kotlin, "val name: String = \"\"");
+        contains(kotlin, "val value: Array<String> = [\"\"]");
+        contains(kotlin, "val type: kotlin.reflect.KClass<*> = Any::class");
+        contains(kotlin, "val required: Boolean = true");
+        contains(kotlin, "const val NO_DEFAULT: String = \"none\"");
+        contains(kotlin, "annotation class Marker");
+        contains(kotlin, "tool.name + tool.value.size");
+        assertFalse(kotlin.contains(": Annotation"), kotlin);
+    }
 }

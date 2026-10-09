@@ -1092,8 +1092,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Block methodBody;
             // method body
             if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
-                methodBody = runtime.emptyBlock();
-                // TODO: an idea is to add a "return defaultValue;" statement so that we don't drop the value
+                // an element's default, `String value() default ""`, as the body's single return: what the Java
+                // printer writes back as `default …`, and the Kotlin printer as the property's default
+                JCTree.JCExpression defaultValue = jcMethod.defaultValue;
+                if (defaultValue == null) {
+                    methodBody = runtime.emptyBlock();
+                } else {
+                    scan(defaultValue, null);
+                    Statement returnStatement = runtime.newReturnBuilder()
+                            .setSource(sourceForNode(defaultValue))
+                            .setExpression(currentExpression)
+                            .build();
+                    methodBody = runtime.newBlockBuilder().setSource(sourceForNode(defaultValue))
+                            .addStatement(returnStatement).build();
+                }
             } else {
                 currentMethod = methodInfo;
                 // the sum of statements in a compact constructor may be > 9 so we need to pad correctly
@@ -2199,7 +2211,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // synthetic instance fields on interface types too (CreateSyntheticFieldsForGetSet gives java.util.List a
         // non-static '_synthetic_list'), and an accessor cannot tell those from a constant. Here the declaration is
         // in hand, so there is no ambiguity. The nature is available: the line below already branches on it.
-        boolean isStatic = (flags & Flags.STATIC) != 0 || owner.typeNature().isInterface();
+        // an annotation type's field is a constant as an interface's is (P.NO_DEFAULT)
+        boolean isStatic = (flags & Flags.STATIC) != 0 || owner.typeNature().isInterface()
+                           || owner.typeNature().isAnnotation();
         if (!owner.typeNature().isRecord() || isStatic) {
             FieldInfo inMap = owner.getFieldByName(name, false);
             FieldInfo fieldInfo;

@@ -108,6 +108,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     if (val == -1 || val != 2) return s.concat("x");
                     return "%s and %s".formatted(joined, count);
                 }
+                String n(String format, Object... args) {
+                    return format.formatted(args);
+                }
             }
             """;
 
@@ -123,6 +126,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "`val` == -1L || `val` != 2L");
         contains(kotlin, "s.plus(\"x\")");
         contains(kotlin, "\"%s and %s\".format(joined, count)");
+        contains(kotlin, "format.format(*args)");
     }
 
     @Language("java")
