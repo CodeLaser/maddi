@@ -94,7 +94,10 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
                 scopeVariable = overrideScopeVariable;
             }
         }
-        this.fullyQualifiedName = computeFqn(scope);
+        // interned: equal-but-distinct field references are rebuilt by every translation and expansion, and the
+        // name (a full method signature for a deep face) was the largest share of a corpus's live heap
+        // (timefold at analyzer iteration 3: 6.4M FieldReferenceImpl, 2.3 GB of String bodies; CodeLaser/maddi-mod#16)
+        this.fullyQualifiedName = computeFqn(scope).intern();
         assert !(scopeIsRecursivelyThis() && fieldInfo.isStatic());
         // know that: assert this.scope != null;
         // assert this.scope.source() != null;

@@ -54,7 +54,7 @@ public class ThisImpl extends VariableImpl implements This {
         super(parameterizedType);
         this.writeSuper = writeSuper;
         this.explicitlyWriteType = explicitlyWriteType;
-        this.fullyQualifiedName = parameterizedType.typeInfo().fullyQualifiedName() + ".this";
+        this.fullyQualifiedName = (parameterizedType.typeInfo().fullyQualifiedName() + ".this").intern();
     }
 
     @Override

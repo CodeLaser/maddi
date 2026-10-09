@@ -98,14 +98,14 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
         this.indexVariable = indexVariable;
         String arrayFqn = arrayVariable == null ? expressionId(arrayExpression) : arrayVariable.fullyQualifiedName();
         String indexFqn = indexVariable == null ? expressionId(indexExpression) : indexVariable.fullyQualifiedName();
-        fullyQualifiedName = arrayFqn + "[" + indexFqn + "]";
+        fullyQualifiedName = (arrayFqn + "[" + indexFqn + "]").intern(); // see FieldReferenceImpl
         String arraySimple = arrayVariable == null
                 ? arrayExpression.print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString()
                 : arrayVariable.simpleName();
         String indexSimple = indexVariable == null
                 ? indexExpression.print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString()
                 : indexVariable.simpleName();
-        simpleName = arraySimple + "[" + indexSimple + "]";
+        simpleName = (arraySimple + "[" + indexSimple + "]").intern();
     }
 
     private static String expressionId(Expression expression) {
