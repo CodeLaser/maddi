@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.impl.expression;
 
+import io.codelaser.maddi.cst.impl.type.ParameterizedTypePrinter;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.element.*;
@@ -303,8 +304,14 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_ANGLE_BRACKET,
                                 SymbolEnum.RIGHT_ANGLE_BRACKET, GuideImpl.defaultGuideGenerator())));
             }
-            outputBuilder.add(SpaceEnum.ONE)
-                    .add(concreteReturnType.copyWithoutArrays().print(qualification, false, diamond));
+            outputBuilder.add(SpaceEnum.ONE);
+            if (object != null && concreteReturnType.typeInfo() != null && concreteReturnType.arrays() == 0) {
+                // 'outer.new Inner(1)': the class by its simple name, relative to the outer instance (GitHub #107)
+                outputBuilder.add(ParameterizedTypePrinter.printAfterQualifiedNew(qualification, concreteReturnType,
+                        diamond));
+            } else {
+                outputBuilder.add(concreteReturnType.copyWithoutArrays().print(qualification, false, diamond));
+            }
             if (concreteReturnType.arrays() > 0) {
                 for (int i = 0; i < concreteReturnType.arrays(); i++) {
                     if (i < parameterExpressions.size()) {

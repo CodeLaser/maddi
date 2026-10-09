@@ -217,6 +217,24 @@ public class ParameterizedTypePrinter {
     record TypeAndParameters(TypeInfo typeInfo, boolean isPrimaryType, List<ParameterizedType> typeParameters) {
     }
 
+    /**
+     * The class of a qualified instance creation, {@code outer.new Inner<String>(...)}: named by its simple name,
+     * relative to the outer instance's type ({@code outer.new X.Inner(1)} does not parse: GitHub #107), with only
+     * its own type arguments (the outer type's come first in {@code parameters()}).
+     */
+    public static OutputBuilder printAfterQualifiedNew(Qualification qualification,
+                                                      ParameterizedType parameterizedType,
+                                                      Diamond diamond) {
+        TypeInfo typeInfo = parameterizedType.typeInfo();
+        List<ParameterizedType> parameters = parameterizedType.parameters();
+        int own = typeInfo.typeParameters().size();
+        List<ParameterizedType> ownParameters = parameters.size() >= own
+                ? parameters.subList(parameters.size() - own, parameters.size()) : parameters;
+        OutputBuilder outputBuilder = singleType(qualification, typeInfo, diamond, true, ownParameters, false);
+        if (ownParameters.isEmpty() && own > 0 && diamond.isYes()) outputBuilder.add(SymbolEnum.DIAMOND);
+        return outputBuilder;
+    }
+
     private static OutputBuilder singleType(Qualification qualification,
                                             TypeInfo typeInfo,
                                             Diamond diamond,
