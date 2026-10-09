@@ -1,6 +1,7 @@
 # TestJavaToKotlinFernflower: fernflower's main sources printed as Kotlin by maddi-cst-print-kotlin and judged by
-# kotlinc 2.4.0 (see the test's javadoc for the two compiles). Lower is better for printerCrashes and syntaxErrors,
-# higher for syntaxCleanFiles and compilingFiles; `types` must not move.
+# kotlinc 2.4.0 (see JavaToKotlinRatchet's javadoc for the compiles and the tests). Lower is better for
+# printerCrashes and syntaxErrors, higher for syntaxCleanFiles, compilingFiles, bytecodeFiles, testsPassing,
+# testBytecodeFiles and translatedTestsPassing; `types` must not move.
 # Write a better value here in the commit that earns it.
 #
 # 2026-10-06, first record, no prepwork: 199 types; 0 printer crashes; 8,458 syntax errors in 149 files; 50 files
@@ -36,8 +37,17 @@
 # List.get/set) override returning null throws UnsupportedOperationException, deliberately: 93 files, 845 errors.
 # 2026-10-08, arrayOfNulls(n) as Array<X> where the declaration's elements are non-null; Optional<X?> results cast to
 # Optional<X>; method references asserting nullable stream elements: 95 files, 833 type errors.
+# 2026-10-09, two new stages: the compiling files to class files, and fernflower's own tests with those in front of
+# the original classes. 87 of the 95 compile to class files; 24 of 265 tests pass (the original: 264). Without
+# verdicts every declaration is non-null, and the first null the decompiler meets throws.
+# 2026-10-09, and the test sources translated too, with annotations (JUnit finds a test by its @Test): 21 of the 28
+# test files compile to class files against the Kotlin main classes; with those, 24 tests pass.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
 compilingFiles	95
+bytecodeFiles	87
+testsPassing	24
+testBytecodeFiles	21
+translatedTestsPassing	24

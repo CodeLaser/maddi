@@ -121,6 +121,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
+            out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
             if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
                 out.add(new TextImpl("@JvmRecord")).add(SpaceEnum.ONE);

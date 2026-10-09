@@ -695,4 +695,40 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "\n        val NAMES: MutableList<String>");
         contains(kotlin, "@JvmField val EMPTY: MutableList<String>");
     }
+
+    @Language("java")
+    private static final String ANNOTATIONS = """
+            package a;
+            import java.lang.annotation.*;
+            import java.util.concurrent.TimeUnit;
+            @Retention(RetentionPolicy.RUNTIME) @interface Timed { long value(); TimeUnit unit() default TimeUnit.SECONDS; }
+            @Retention(RetentionPolicy.RUNTIME) @interface Marker { }
+            @Retention(RetentionPolicy.RUNTIME) @interface Source { Class<?> value(); }
+            @Retention(RetentionPolicy.RUNTIME) @interface Tags { String[] value(); }
+            @Timed(value = 60, unit = TimeUnit.SECONDS)
+            @Source(String.class)
+            class C {
+                @Marker int count;
+                @Marker @Tags({"a", "b"}) public void run() { }
+                @Override public String toString() { return "c"; }
+                @Deprecated public void old() { }
+                @SuppressWarnings("unchecked") public void raw() { }
+            }
+            """;
+
+    /**
+     * Java's annotations in Kotlin's syntax: named arguments, a class as {@code X::class}, an array as {@code [a, b]}.
+     * {@code @Override} is the modifier, {@code @SuppressWarnings} goes, {@code @Deprecated} is Kotlin's.
+     */
+    @Test
+    public void annotations() {
+        String kotlin = kotlin(ANNOTATIONS);
+        contains(kotlin, "@Timed(value = 60, unit = TimeUnit.SECONDS) @Source(String::class)");
+        contains(kotlin, "@Marker @JvmField var count: Int = 0");
+        contains(kotlin, "@Marker @Tags([\"a\", \"b\"]) open fun run()");
+        contains(kotlin, "override fun toString(): String");
+        assertFalse(kotlin.contains("@Override"), kotlin);
+        contains(kotlin, "@Deprecated(\"\") open fun old()");
+        assertFalse(kotlin.contains("@SuppressWarnings"), kotlin);
+    }
 }
