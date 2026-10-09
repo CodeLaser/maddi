@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.impl.element;
 
 import io.codelaser.maddi.cst.api.element.*;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -47,6 +48,9 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     private final SetOnce<List<TypeInfo>> types = new SetOnce<>();
     // null for an ordinary compilation unit; a module-info.java carries its declaration here
     private final SetOnce<ModuleInfo> moduleInfo = new SetOnce<>();
+    // a unit loaded from a class file: its package's and its module's annotations (see the interface)
+    private final List<AnnotationExpression> packageAnnotations;
+    private final List<AnnotationExpression> moduleAnnotations;
 
     public CompilationUnitImpl(SourceSet sourceSet,
                                URI uri,
@@ -56,7 +60,23 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
                                String packageName,
                                FingerPrint fingerPrint,
                                List<Comment> trailingComments) {
+        this(sourceSet, uri, comments, source, importStatements, packageName, fingerPrint, trailingComments,
+                List.of(), List.of());
+    }
+
+    public CompilationUnitImpl(SourceSet sourceSet,
+                               URI uri,
+                               List<Comment> comments,
+                               Source source,
+                               List<ImportStatement> importStatements,
+                               String packageName,
+                               FingerPrint fingerPrint,
+                               List<Comment> trailingComments,
+                               List<AnnotationExpression> packageAnnotations,
+                               List<AnnotationExpression> moduleAnnotations) {
         this.sourceSet = sourceSet;
+        this.packageAnnotations = packageAnnotations;
+        this.moduleAnnotations = moduleAnnotations;
         this.uri = uri;
         this.packageName = packageName;
         this.comments = comments == null ? List.of() : List.copyOf(comments);
@@ -66,6 +86,16 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
             this.fingerPrint.set(fingerPrint);
         }
         this.trailingComments = trailingComments;
+    }
+
+    @Override
+    public List<AnnotationExpression> packageAnnotations() {
+        return packageAnnotations;
+    }
+
+    @Override
+    public List<AnnotationExpression> moduleAnnotations() {
+        return moduleAnnotations;
     }
 
     @Override
@@ -192,6 +222,20 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         private SourceSet sourceSet;
         private FingerPrint fingerPrint;
         private final List<Comment> trailingComments = new ArrayList<>();
+        private List<AnnotationExpression> packageAnnotations = List.of();
+        private List<AnnotationExpression> moduleAnnotations = List.of();
+
+        @Override
+        public CompilationUnit.Builder setPackageAnnotations(List<AnnotationExpression> annotations) {
+            this.packageAnnotations = List.copyOf(annotations);
+            return this;
+        }
+
+        @Override
+        public CompilationUnit.Builder setModuleAnnotations(List<AnnotationExpression> annotations) {
+            this.moduleAnnotations = List.copyOf(annotations);
+            return this;
+        }
 
         @Override
         public String packageName() {
@@ -248,13 +292,13 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         @Override
         public CompilationUnit build() {
             return new CompilationUnitImpl(sourceSet, uri, comments, source, List.copyOf(importStatements), packageName,
-                    fingerPrint, List.copyOf(trailingComments));
+                    fingerPrint, List.copyOf(trailingComments), packageAnnotations, moduleAnnotations);
         }
     }
 
     @Override
     public CompilationUnit copy() {
         return new CompilationUnitImpl(sourceSet, uri, comments, source, importStatements, packageName,
-                fingerPrint.getOrDefaultNull(), trailingComments);
+                fingerPrint.getOrDefaultNull(), trailingComments, packageAnnotations, moduleAnnotations);
     }
 }

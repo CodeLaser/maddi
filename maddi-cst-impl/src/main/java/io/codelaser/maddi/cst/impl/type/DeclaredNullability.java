@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -42,10 +43,11 @@ import java.util.function.Function;
  * <b>Recognition is by simple name</b> ({@link NullAnnotations}), e.g. elasticsearch's private
  * {@code org.elasticsearch.core.Nullable} too.
  * <p>
- * <b>Scope.</b> Inside a {@code @NullMarked} scope (the method, an enclosing type, or the package, the nearest
- * {@code @NullMarked}/{@code @NullUnmarked} winning) an unannotated type use is non-null, except a type-variable use
- * and an unbounded wildcard, whose nullability is parametric and stays {@link NullableState#UNSPECIFIED}. JSR-305's
- * {@code @ParametersAreNonnullByDefault} marks parameters only. Outside any marked scope an unannotated use is
+ * <b>Scope.</b> Inside a {@code @NullMarked} scope (the method, an enclosing type, the package, or for a type
+ * loaded from a class file its module; the nearest {@code @NullMarked}/{@code @NullUnmarked} winning) an
+ * unannotated type use is non-null, except a type-variable use and an unbounded wildcard, whose nullability is
+ * parametric and stays {@link NullableState#UNSPECIFIED}. JSR-305's {@code @ParametersAreNonnullByDefault} marks
+ * parameters only. Outside any marked scope an unannotated use is
  * {@link NullableState#UNSPECIFIED}. A primitive is always {@link NullableState#NONNULL}.
  * <p>
  * <b>maddi's own annotations</b> ({@code io.codelaser.maddi.annotation}) carry attributes that change their meaning:
@@ -220,6 +222,13 @@ public final class DeclaredNullability {
         List<AnnotationExpression> pkg = packageAnnotations.apply(typeInfo.packageName());
         if (marked == null) marked = markedBy(pkg);
         parametersNonNull |= has(pkg, PARAMETERS_NON_NULL_BY_DEFAULT);
+        // a type loaded from a class file: its package-info.class, then its module (JUnit 6 marks its packages)
+        CompilationUnit cu = typeInfo.primaryType().compilationUnit();
+        if (cu != null) {
+            if (marked == null) marked = markedBy(cu.packageAnnotations());
+            parametersNonNull |= has(cu.packageAnnotations(), PARAMETERS_NON_NULL_BY_DEFAULT);
+            if (marked == null) marked = markedBy(cu.moduleAnnotations());
+        }
         return new Scope(Boolean.TRUE.equals(marked), parametersNonNull);
     }
 

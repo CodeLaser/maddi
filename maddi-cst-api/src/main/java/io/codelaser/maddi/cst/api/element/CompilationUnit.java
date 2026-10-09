@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.api.element;
 
 import io.codelaser.maddi.annotation.Fluent;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 import java.net.URI;
@@ -74,6 +75,20 @@ public interface CompilationUnit extends Element {
     void setModuleInfo(ModuleInfo moduleInfo);
 
     /**
+     * For a unit loaded from a class file: the declaration annotations of its package, as javac reads them from the
+     * library's {@code package-info.class} (a JSpecify {@code @NullMarked}, say). Empty for a source unit, whose
+     * package annotations are on the package-info type its own source set parses.
+     */
+    default List<AnnotationExpression> packageAnnotations() {
+        return List.of();
+    }
+
+    /** For a unit loaded from a class file in a named module: that module's declaration annotations. */
+    default List<AnnotationExpression> moduleAnnotations() {
+        return List.of();
+    }
+
+    /**
      * Sets the source fingerprint. Can be called only once; calling it again throws.
      * If a fingerprint was already set via the builder, this method must not be called.
      *
@@ -106,6 +121,14 @@ public interface CompilationUnit extends Element {
 
         @Fluent
         Builder addTrailingComments(List<Comment> comments);
+
+        /** See {@link CompilationUnit#packageAnnotations()}. */
+        @Fluent
+        Builder setPackageAnnotations(List<AnnotationExpression> annotations);
+
+        /** See {@link CompilationUnit#moduleAnnotations()}. */
+        @Fluent
+        Builder setModuleAnnotations(List<AnnotationExpression> annotations);
 
         CompilationUnit build();
     }

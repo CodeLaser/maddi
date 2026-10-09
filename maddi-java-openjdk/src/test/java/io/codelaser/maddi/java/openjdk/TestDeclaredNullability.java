@@ -326,4 +326,25 @@ public class TestDeclaredNullability extends CommonTest {
                 arr: String[]""", fields(m, dn));
         assertEquals("m(p: String, q: List<String>): String?", method(m, "m", dn));
     }
+
+    // a LIBRARY type's scope: JUnit 6 marks each package (package-info.class: @NullMarked), and javac attaches that
+    // to the package only when it completes package-info; the unit loaded from the class file carries it
+    @Test
+    public void libraryPackageMarked() {
+        Map<String, TypeInfo> types = parse(Map.of("a.b.L", """
+                package a.b;
+                class L {
+                    void report(org.junit.jupiter.api.TestReporter reporter) { reporter.publishEntry("k", "v"); }
+                }
+                """));
+        TypeInfo reporter = types.get("a.b.L").findUniqueMethod("report", 1).parameters().getFirst()
+                .parameterizedType().typeInfo();
+        assertEquals("[NullMarked]", reporter.compilationUnit().packageAnnotations().stream()
+                .map(ae -> ae.typeInfo().simpleName()).toList().toString());
+        MethodInfo publish = reporter.methodStream()
+                .filter(mi -> "publishEntry".equals(mi.name()) && mi.parameters().size() == 2).findFirst().orElseThrow();
+        DeclaredNullability dn = declared(types);
+        assertEquals("String", k(dn.parameter(publish.parameters().getFirst())));
+        assertEquals("String", k(dn.parameter(publish.parameters().get(1))));
+    }
 }
