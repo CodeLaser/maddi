@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tkotlin.ranges.IntRange", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FCompanion(0)", "data":{"containerField":1,"finalField":1}},
  {"name": "C<init>(0,int,int)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[

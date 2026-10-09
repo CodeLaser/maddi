@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjavax.swing.text.JTextComponent", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SAccessibleJTextComponent(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},

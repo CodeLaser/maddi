@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.util.random.RandomGenerator", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SArbitrarilyJumpableGenerator(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Mcopy(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
