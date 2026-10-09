@@ -37,9 +37,7 @@ import java.util.stream.Stream;
  * ⛔ <b>SHARED ACROSS THREADS, SO EVERY METHOD IS SYNCHRONIZED.</b> The scan is single-threaded, but the
  * {@code CompiledTypesManager} reads this registry from parallel analyzer threads, and its lazy loader writes it;
  * a host (the refactoring server) may serve requests while a parse runs. Plain maps under concurrent writers
- * lose entries, and two loaders that both miss a type both load it: the "committed twice" assertion in
- * {@link #put} (micronaut's {@code HttpClient}, a 225-source-set project in a server under -ea, 2026-10-09).
- * See {@link #putIfAbsentFromSameOrigin}.
+ * lose entries, and two loaders that both miss a type both load it. See {@link #putIfAbsentFromSameOrigin}.
  */
 public class InfoByFqn {
     private static final Logger LOGGER = LoggerFactory.getLogger(InfoByFqn.class);
@@ -201,9 +199,17 @@ public class InfoByFqn {
     /**
      * Register a type just minted from a class file, unless the registry already holds one for the same FQN from
      * the same origin (same source set, same compilation-unit URI): then that one is returned and the new one must
-     * be dropped. Check and put are one step under this registry's monitor, so of two threads that both missed
-     * the type and both loaded it, the second gets the first's instance instead of committing the type twice.
-     * A different origin (a multi-release entry, a newer jar of another source set) is put as {@link #put} does.
+     * be dropped. A different origin (a multi-release entry, a newer jar of another source set) is put as
+     * {@link #put} does.
+     * <p>
+     * ⛔ <b>A LOAD CAN RE-ENTER ITSELF, ON ONE THREAD.</b> A class-file load builds the type's unit before it registers
+     * the type, and the unit's package annotations can lead back to the type: micronaut's
+     * {@code io.micronaut.http.client} is {@code @Requires(beans = HttpClientRegistry.class)}, and
+     * {@code HttpClientRegistry<T extends HttpClient>} -- so the first load of {@code HttpClient} loaded it again,
+     * registered by the inner load, and then committed a second time by the outer one: "type
+     * io.micronaut.http.client.HttpClient committed twice", which refused a 225-source-set parse under -ea
+     * (2026-10-09, TestPackageAnnotationNamesItsOwnType). The outer load now gets the inner one's instance. Check and
+     * put are also one step under this registry's monitor, so two threads that both load a type agree the same way.
      */
     public synchronized TypeInfo putIfAbsentFromSameOrigin(String fqn, TypeInfo typeInfo,
                                                            SourceSet sourceSetOfCurrentTask) {

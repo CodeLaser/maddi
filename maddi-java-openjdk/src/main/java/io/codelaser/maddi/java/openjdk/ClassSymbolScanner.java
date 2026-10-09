@@ -510,9 +510,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         }
         if (fromClassFile) {
-            // ⛔ CHECK AND REGISTER IN ONE STEP. Every caller looked the type up first, but the registry is shared
-            // with other threads (InfoByFqn's javadoc): another one may have loaded the same class file since. Its
-            // instance wins, ours is dropped before anyone sees it -- not committed as a second HttpClient.
+            // ⛔ CHECK AND REGISTER IN ONE STEP. Every caller looked the type up first, but building the unit above
+            // (its package annotations) can have loaded this very class file again, and registered it: micronaut's
+            // HttpClient, through its package's @Requires(beans = HttpClientRegistry.class). Another thread can have
+            // done the same. That instance wins, ours is dropped before anyone sees it -- not committed twice.
             TypeInfo registered = infoByFqn.putIfAbsentFromSameOrigin(newTypeInfo.fullyQualifiedName(), newTypeInfo,
                     sourceSetOfCurrentTask);
             if (registered != newTypeInfo) return registered;
