@@ -73,7 +73,9 @@ go straight to a pull request; anything that changes behaviour, adds a dependenc
 than an afternoon is worth agreeing on first — maddi has strong opinions about what its
 annotations *mean*, and a technically fine PR can still be wrong about the semantics.
 
-Pull requests target **`main`**. The maintainer pushes directly; contributors open PRs. CI runs
+Pull requests target **`devel`**, not `main`. GitHub proposes `main`, which is the default branch, so
+change the PR's base to `devel`. `main` only moves when a release gate promotes a tested `devel`. The
+maintainer pushes directly; contributors open PRs. CI runs
 `./gradlew build` (compile plus everything not tagged `slow`) on every PR, and it must be green.
 
 **Sign off your commits.** maddi uses the [Developer Certificate of Origin](DCO) — a statement that
@@ -82,7 +84,7 @@ to create: add a `Signed-off-by` line to each commit, which `git` writes for you
 
 ```bash
 git commit -s -m "your message"          # or, to fix a branch you already wrote:
-git rebase --signoff main
+git rebase --signoff devel
 ```
 
 A CI job checks it. There is no CLA — contributions stay under the licence of the module you
