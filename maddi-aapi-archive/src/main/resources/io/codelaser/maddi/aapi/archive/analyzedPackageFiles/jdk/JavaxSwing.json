@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjavax.swing.AbstractButton", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FBORDER_PAINTED_CHANGED_PROPERTY(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "FCONTENT_AREA_FILLED_CHANGED_PROPERTY(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},

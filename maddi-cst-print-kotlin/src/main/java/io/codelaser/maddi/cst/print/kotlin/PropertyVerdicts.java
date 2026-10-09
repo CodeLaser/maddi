@@ -76,6 +76,11 @@ public final class PropertyVerdicts implements NullabilityVerdicts {
             }
 
             @Override
+            public ParameterizedType reassignedParameter(ParameterInfo parameterInfo) {
+                return locals.reassignedParameter(parameterInfo);
+            }
+
+            @Override
             public ParameterizedType local(MethodInfo method, io.codelaser.maddi.cst.api.element.Element declaration,
                                            io.codelaser.maddi.cst.api.variable.LocalVariable variable) {
                 return locals.local(method, declaration, variable);

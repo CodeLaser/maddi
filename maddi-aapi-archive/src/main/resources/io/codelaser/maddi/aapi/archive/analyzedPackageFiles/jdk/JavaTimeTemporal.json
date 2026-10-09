@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.time.temporal.ChronoUnit", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
  {"name": "FCENTURIES(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "FDAYS(1)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},

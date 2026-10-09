@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.lang.ref.Reference", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mclear(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "Menqueue(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},

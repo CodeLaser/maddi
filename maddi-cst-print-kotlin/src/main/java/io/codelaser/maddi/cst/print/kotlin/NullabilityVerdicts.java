@@ -44,6 +44,15 @@ public interface NullabilityVerdicts {
     }
 
     /**
+     * A parameter the body assigns: the verdict of the values the body assigns it, the type of the printer's
+     * {@code var p = p}. The parameter's own verdict ({@link #parameter}) is the caller's value only. Null when the
+     * parameter is never assigned, or not known.
+     */
+    default ParameterizedType reassignedParameter(ParameterInfo parameterInfo) {
+        return null;
+    }
+
+    /**
      * A local variable, identified by the element that declares it (a LocalVariableCreation, ForEachStatement or
      * catch clause) in {@code method}: a local's equality is its name, which does not tell same-named locals apart.
      */

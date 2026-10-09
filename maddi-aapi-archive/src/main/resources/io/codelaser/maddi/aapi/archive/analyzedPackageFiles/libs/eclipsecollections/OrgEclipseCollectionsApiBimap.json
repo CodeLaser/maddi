@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Torg.eclipse.collections.api.bimap.BiMap", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcollect(0,org.eclipse.collections.api.block.function.Function2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},

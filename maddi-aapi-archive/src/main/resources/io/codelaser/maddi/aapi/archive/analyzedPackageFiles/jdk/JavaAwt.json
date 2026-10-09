@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.awt.Color", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "FBLACK(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "FBLUE(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},

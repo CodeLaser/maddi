@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.util.jar.JarFile", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FMANIFEST_NAME(0)", "data":{"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
  {"name": "C<init>(0,java.lang.String)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":

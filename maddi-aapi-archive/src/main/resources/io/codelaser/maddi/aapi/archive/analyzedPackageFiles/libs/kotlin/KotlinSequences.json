@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tkotlin.sequences.SequencesKt__SequencesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "MasSequence(0,java.util.Iterator)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":

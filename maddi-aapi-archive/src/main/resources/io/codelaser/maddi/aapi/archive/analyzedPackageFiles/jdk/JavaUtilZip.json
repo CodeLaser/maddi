@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Tjava.util.zip.ZipOutputStream", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FDEFLATED(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "FSTORED(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},

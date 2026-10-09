@@ -1,4 +1,6 @@
 [
+{"format": "maddi-analysis-results", "version": 1},
+
 {"name": "Torg.eclipse.collections.api.list.FixedSizeList", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MsortThis(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nullabilityMethod":"N"}},
  {"name": "MsortThis(1,java.util.Comparator)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
