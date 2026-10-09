@@ -325,7 +325,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             c.parameters().forEach(p -> KotlinContext.declared(p.name()));
             return new OutputBuilderImpl().add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(KotlinStatementPrinter.reassignedParameters(c.parameters(),
-                            c.methodBody()), statements, q));
+                            c.methodBody(), q), statements, q));
         } finally {
             KotlinContext.exitMethod(scope);
         }

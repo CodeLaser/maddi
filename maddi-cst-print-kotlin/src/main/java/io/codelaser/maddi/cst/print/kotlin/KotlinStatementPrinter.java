@@ -177,14 +177,24 @@ public class KotlinStatementPrinter {
      * parameter (Kotlin warns, and accepts).
      */
     static List<OutputBuilder> reassignedParameters(List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters,
-                                                    Element body) {
+                                                    Element body, Qualification q) {
         if (body == null || parameters.isEmpty()) return List.of();
         List<OutputBuilder> result = new ArrayList<>();
         for (io.codelaser.maddi.cst.api.info.ParameterInfo p : parameters) {
             if (assignedIn(body, p)) {
                 String name = KotlinNames.name(p.name());
-                result.add(new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(name))
-                        .add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));
+                OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(name));
+                // the parameter's verdict is the caller's value; what the body assigns has its own (maddi-mod#22 gap
+                // 5): a nullable one types the var, since Kotlin would infer the parameter's non-null type
+                ParameterizedType own = KotlinNullability.parameterType(p);
+                ParameterizedType shadow = KotlinNullability.verdicts().reassignedParameter(p);
+                if (shadow != null && KotlinNullability.isNullable(shadow) && own != null
+                    && !KotlinNullability.isNullable(own) && !own.isPrimitiveExcludingVoid()) {
+                    ParameterizedType type = own.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+                    KotlinContext.localType(p.name(), type);
+                }
+                result.add(b.add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));
             }
         }
         return result;

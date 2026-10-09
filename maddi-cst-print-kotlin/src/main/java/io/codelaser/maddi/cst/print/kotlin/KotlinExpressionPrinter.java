@@ -1073,7 +1073,7 @@ public class KotlinExpressionPrinter {
         KotlinContext.pushScope(body);
         try {
             // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
-            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body);
+            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body, q);
             if (reassigned.isEmpty() && statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
                 && !rs.hasNoValue()) {
                 ParameterizedType returnType = lambda.methodInfo().returnType();

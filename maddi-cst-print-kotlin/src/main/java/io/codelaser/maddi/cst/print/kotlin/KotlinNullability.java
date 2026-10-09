@@ -62,7 +62,7 @@ final class KotlinNullability {
     private KotlinNullability() {
     }
 
-    private static NullabilityVerdicts verdicts() {
+    static NullabilityVerdicts verdicts() {
         return KotlinContext.options().verdicts();
     }
 
@@ -76,6 +76,11 @@ final class KotlinNullability {
         if (lambdaParameter != null) return lambdaParameter;
         FieldInfo property = KotlinTypePrinter.propertyOf(parameterInfo);
         if (property != null) return fieldType(property); // class Foo(val id: T): the property's type
+        // a parameter the body assigns is printed as `var p = p`, typed by what the body assigns
+        // (KotlinStatementPrinter.reassignedParameters): every read in the body is the local's
+        ParameterizedType shadow = KotlinContext.currentMethod() == parameterInfo.methodInfo()
+                ? KotlinContext.localType(parameterInfo.name()) : null;
+        if (shadow != null) return shadow;
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
         if (verdict != null) return verdict;
         ParameterizedType declared = parameterInfo.parameterizedType();

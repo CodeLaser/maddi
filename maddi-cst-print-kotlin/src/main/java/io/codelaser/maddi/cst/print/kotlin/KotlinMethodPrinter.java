@@ -117,7 +117,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 constructorBody(b, body, qualification);
                 return b;
             }
-            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body);
+            List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, qualification);
             Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
             if (!reassigned.isEmpty()) {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
@@ -184,7 +184,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
         List<OutputBuilder> reassigned = body == null ? List.of()
-                : KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body);
+                : KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, q);
         if (!statements.isEmpty() || !reassigned.isEmpty()) {
             b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, statements, q));
         }
