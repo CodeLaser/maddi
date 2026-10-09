@@ -3,35 +3,35 @@
  {"name": "Madd(0,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MaddAll(1,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MaddAllIterable(2,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mclear(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mremove(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "MremoveAll(5,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MremoveAllIterable(6,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MremoveIf(7,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MremoveIfWith(8,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MretainAll(9,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MretainAllIterable(10,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mtap(11,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
  {"name": "Mwith(12,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1}}},
  {"name": "MwithAll(13,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2}}},
  {"name": "Mwithout(14,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MwithoutAll(15,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2}}}]},
 
 {"name": "Torg.eclipse.collections.api.collection.ImmutableCollection", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "MaggregateBy(0,org.eclipse.collections.api.block.function.Function,org.eclipse.collections.api.block.function.Function0,org.eclipse.collections.api.block.function.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
@@ -42,7 +42,7 @@
   {"name": "PgroupBy(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PzeroValueFactory(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PmutatingAggregator(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "McastToCollection(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "McastToCollection(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mcollect(3,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McollectBoolean(4,org.eclipse.collections.api.block.function.primitive.BooleanFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -88,12 +88,12 @@
  {"name": "MnewWith(22,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MnewWithAll(23,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MnewWithout(24,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MnewWithoutAll(25,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MparallelStream(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MparallelStream(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mpartition(27,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MpartitionWith(28,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
@@ -110,12 +110,12 @@
  {"name": "Mselect(32,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectInstancesOf(33,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectWith(34,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mspliterator(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mstream(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mspliterator(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mstream(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MsumByDouble(37,org.eclipse.collections.api.block.function.Function,org.eclipse.collections.api.block.function.primitive.DoubleFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -131,12 +131,12 @@
  {"name": "Mtap(41,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mzip(42,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MzipWithIndex(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MzipWithIndex(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Torg.eclipse.collections.api.collection.MutableCollection", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MaddAllIterable(0,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MaggregateBy(1,org.eclipse.collections.api.block.function.Function,org.eclipse.collections.api.block.function.Function0,org.eclipse.collections.api.block.function.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "PgroupBy(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PzeroValueFactory(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
@@ -205,21 +205,21 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MremoveAllIterable(30,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MremoveIf(31,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MremoveIfWith(32,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MretainAllIterable(33,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mselect(34,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectAndRejectWith(35,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MselectInstancesOf(36,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectWith(37,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -244,12 +244,12 @@
  {"name": "Mwith(46,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MwithAll(47,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mwithout(48,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MwithoutAll(49,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mzip(50,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MzipWithIndex(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}}]}
 ]

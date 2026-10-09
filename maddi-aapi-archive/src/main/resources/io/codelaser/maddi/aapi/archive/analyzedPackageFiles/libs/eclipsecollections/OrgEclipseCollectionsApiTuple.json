@@ -5,9 +5,9 @@
  {"name": "MisEqual(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisSame(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mput(4,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1}}},
  {"name": "Mswap(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
- {"name": "MtoEntry(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
+ {"name": "MtoEntry(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Torg.eclipse.collections.api.tuple.Triple", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "MgetOne(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
