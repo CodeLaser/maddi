@@ -392,6 +392,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (f.initializer() instanceof ConstructorCall cc && !cc.parameterExpressions().isEmpty()) {
                 e.add(KotlinExpressionPrinter.arguments(cc.parameterExpressions(), cc.constructor(), q));
             }
+            if (f.initializer() instanceof ConstructorCall cc && cc.anonymousClass() != null) {
+                // JAVAC("javac") { override fun compile(…) }: an entry with members of its own
+                OutputBuilder body = new KotlinTypePrinter(cc.anonymousClass(), true).print(
+                        new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q), false);
+                if (!body.isEmpty()) e.add(SpaceEnum.ONE).add(body);
+            }
             return e;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
         if (moreMembersFollow) entries.add(SymbolEnum.SEMICOLON);

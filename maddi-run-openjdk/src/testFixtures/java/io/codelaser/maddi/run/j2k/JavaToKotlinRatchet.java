@@ -368,6 +368,9 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
                 if (m.find()) failing.add(Path.of(m.group(1)).toAbsolutePath().normalize());
             });
             failing.retainAll(remaining);
+            // the next round starts afresh: this round's errors, why its files were left out, stay beside it
+            Files.copy(dir.resolve("kotlinc.log"), dir.resolveSibling(dir.getFileName() + "-round" + (round + 1) + ".log"),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             if (failing.isEmpty()) fail("compile 3 failed without an error in a file it compiled; see " + dir);
             leftOut.add(List.copyOf(failing));
             remaining.removeAll(failing);
@@ -380,7 +383,8 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
     private static String bytecodeReport(Bytecode bytecode, String title) {
         StringBuilder sb = new StringBuilder("\n" + title + ": ").append(bytecode.files.size()).append(" files\n");
         for (int i = 0; i < bytecode.leftOut.size(); i++) {
-            sb.append("  round ").append(i + 1).append(", left out:\n");
+            sb.append("  round ").append(i + 1).append(", left out (").append("its log: -round").append(i + 1)
+                    .append(".log):\n");
             bytecode.leftOut.get(i).forEach(f -> sb.append("    ").append(f.getFileName()).append('\n'));
         }
         return sb.toString();

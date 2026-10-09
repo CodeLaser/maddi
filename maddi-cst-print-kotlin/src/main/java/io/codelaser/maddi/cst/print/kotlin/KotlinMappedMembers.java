@@ -212,6 +212,16 @@ final class KotlinMappedMembers {
                && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
     }
 
+    /**
+     * Java's {@code String} members that Kotlin's {@code String} does not have, reached through
+     * {@code java.lang.String}: {@code strip} keeps a no-break space that Kotlin's {@code trim} removes.
+     */
+    static boolean isJavaStringOnly(MethodInfo methodInfo) {
+        return !methodInfo.isStatic() && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName())
+               && java.util.Set.of("strip", "stripLeading", "stripTrailing", "stripIndent", "indent",
+                "translateEscapes").contains(methodInfo.name());
+    }
+
     /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */
     static boolean isSplit(MethodInfo methodInfo) {
         return "split".equals(methodInfo.name()) && methodInfo.parameters().size() == 1

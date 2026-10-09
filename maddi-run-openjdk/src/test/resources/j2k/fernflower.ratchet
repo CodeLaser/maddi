@@ -42,6 +42,8 @@
 # verdicts every declaration is non-null, and the first null the decompiler meets throws.
 # 2026-10-09, and the test sources translated too, with annotations (JUnit finds a test by its @Test): 21 of the 28
 # test files compile to class files against the Kotlin main classes; with those, 24 tests pass.
+# 2026-10-09, Java's String.strip* through java.lang.String, a static called through a subclass names its declaring
+# class, enum constants keep their bodies: 22 test files compile to class files.
 types	199
 printerCrashes	0
 syntaxErrors	0
@@ -49,5 +51,5 @@ syntaxCleanFiles	199
 compilingFiles	95
 bytecodeFiles	87
 testsPassing	24
-testBytecodeFiles	21
+testBytecodeFiles	22
 translatedTestsPassing	24

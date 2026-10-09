@@ -340,4 +340,38 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "valueOf(x) as Any)");
         contains(kotlin, "P(2, x)");
     }
+
+    @Language("java")
+    private static final String TEST_FIXTURE_SHAPES = """
+            package a;
+            import java.util.List;
+            enum Tool {
+                JAVAC("javac") { public String run(String s) { return s + "c"; } },
+                ECJ("ecj") { public String run(String s) { return s + "e"; } };
+                private final String name;
+                Tool(String name) { this.name = name; }
+                public abstract String run(String s);
+            }
+            class Base {
+                static List<String> collect(String s) { return List.of(s); }
+            }
+            class Sub extends Base { }
+            class User {
+                int count(String s) { return Sub.collect(s).size(); }
+                String clean(String s) { return s.replace("\\r", "").stripTrailing(); }
+            }
+            """;
+
+    /**
+     * fernflower's test fixtures: an enum constant with members of its own, a static method called through a
+     * subclass (a companion's members are not inherited), and Java's {@code String.stripTrailing()}.
+     */
+    @Test
+    public void testFixtureShapes() {
+        String kotlin = kotlin(TEST_FIXTURE_SHAPES);
+        contains(kotlin, "JAVAC(\"javac\") {");
+        contains(kotlin, "override fun run(s: String): String = s + \"c\"");
+        contains(kotlin, "Base.collect(s).size");
+        contains(kotlin, "as java.lang.String).stripTrailing()");
+    }
 }

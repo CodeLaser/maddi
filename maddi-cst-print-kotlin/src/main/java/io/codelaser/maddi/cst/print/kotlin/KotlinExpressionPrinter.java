@@ -267,6 +267,14 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
+        if (KotlinMappedMembers.isJavaStringOnly(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+            // s.stripTrailing() -> (s as java.lang.String).stripTrailing()
+            return b.add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, q))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl("java.lang.String"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
+                    .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
+        }
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             return KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
         }
@@ -280,7 +288,11 @@ public class KotlinExpressionPrinter {
         } else if (object instanceof TypeExpression te) {
             TypeInfo owner = mc.methodInfo().typeInfo();
             if (!mc.objectIsImplicit() || !KotlinContext.typeInScope(owner) && !KotlinTypePrinter.fromKotlinSource(owner)) {
-                b.add(new TextImpl(KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
+                // SingleClassesTest.collectClasses(f), declared in SingleClassesTestBase: a companion's members are
+                // not inherited, so the declaring type names them
+                TypeInfo named = mc.methodInfo().isStatic() && KotlinNullability.translated(owner)
+                                 && te.parameterizedType().typeInfo() != owner ? owner : te.parameterizedType().typeInfo();
+                b.add(new TextImpl(KotlinTypeName.staticOwner(named, q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(KotlinNullability.receiverWithDot(object, q));
