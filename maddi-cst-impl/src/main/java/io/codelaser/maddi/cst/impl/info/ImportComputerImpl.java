@@ -226,6 +226,15 @@ public class ImportComputerImpl implements ImportComputer {
         // a type the caller has vetoed keeps its place in typesReferenced -- so conflict() still sees it and can
         // suppress an on-demand import that would collide with it -- but is never imported itself
         doNotImport.forEach(qualification::addTypeNotImported);
+        // A top-level type of the unit's own package that the unit references owns its simple name too: a
+        // single-type import of a same-named type would shadow it ('import java.util.Iterator;' in a unit of
+        // io.vavr.collection, which has its own Iterator: GitHub #110). Reserved before any import is decided, so
+        // the order of typesReferenced does not matter; the other type is then printed fully qualified.
+        typesReferenced.stream()
+                .filter(ti -> ti.isPrimaryType() && myPackage.equals(ti.packageName())
+                              && ti.compilationUnit() != compilationUnit)
+                .map(TypeInfo::simpleName)
+                .forEach(qualification::reserveSimpleNameAgainstImport);
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
             // Sharing a package puts a TOP-LEVEL type's simple name in scope, but not a nested one's: to write
