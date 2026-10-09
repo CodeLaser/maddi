@@ -57,6 +57,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return b.add(new TextImpl("init")).add(SpaceEnum.ONE)
                     .add(KotlinStatementPrinter.block(methodInfo.methodBody(), qualification));
         }
+        b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);
         if (KotlinContext.translatingJava() && methodInfo.isStatic() && visibility.isEmpty()) {

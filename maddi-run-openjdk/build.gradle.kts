@@ -81,6 +81,22 @@ tasks.withType<Test>().configureEach {
         listOf("-Dmaddi.test.kotlinCompilerClasspath=" + kotlinCompiler.asPath)
     })
 }
+// The corpus's own tests run in a child JVM too (JavaToKotlinRatchet's tests stage): JUnit's console launcher and
+// the Jupiter engine, at the version of the corpus's junit-jupiter-api (fernflower: 6.0.3).
+val junitConsole = configurations.create("junitConsole") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    junitConsole("org.junit.platform:junit-platform-console:6.0.3")
+    junitConsole("org.junit.jupiter:junit-jupiter-engine:6.0.3")
+}
+tasks.withType<Test>().configureEach {
+    inputs.files(junitConsole).withPropertyName("junitConsole")
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.junitConsoleClasspath=" + junitConsole.asPath)
+    })
+}
 
 // The `maddi` launcher and distribution moved to maddi-cli (mod): this driver finds the modification analysis as
 // a service, and a base module cannot carry it (split stage 3).

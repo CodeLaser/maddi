@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -65,6 +66,25 @@ import static org.junit.jupiter.api.Assertions.fail;
  *   Kotlin compiler accepts as a drop-in replacement for their Java.</li>
  * </ol>
  * The second compile's error total is reported, not ratcheted.
+ *
+ * <h2>Then to class files, and the corpus's own tests</h2>
+ * The type checker is not the whole compiler: the JVM back end has errors of its own (a property's getter with the
+ * JVM name of a Java method), and a file it accepts may still behave differently from its Java. So:
+ * <ol start="3">
+ *   <li>the compiling files are compiled to class files. A file the back end rejects is left out, and so is a file
+ *   that then no longer compiles, until the rest does: {@code bytecodeFiles}, a drop-in replacement for their Java
+ *   all the way to the class file;</li>
+ *   <li>the corpus's test classes run, in a child JVM with JUnit's console launcher, once against the original
+ *   classes and once with the Kotlin classes in front of them: {@code testsPassing}. The original's count, and each
+ *   test that passes there and fails with Kotlin, go into the report and {@code tests/}.</li>
+ *   <li>the test sources are translated too, and compiled to class files against the Kotlin main classes, leaving
+ *   out what does not compile as in 3 (its original test class stays): {@code testBytecodeFiles};</li>
+ *   <li>the tests run once more, the translated test classes and the Kotlin main classes in front of the originals:
+ *   {@code translatedTestsPassing}, Kotlin tests judging the Kotlin translation.</li>
+ * </ol>
+ * The tests run when the corpus has a built test source set and the test JVM has
+ * {@code -Dmaddi.test.junitConsoleClasspath} (the {@code junitConsole} configuration beside {@code kotlinCompiler});
+ * otherwise {@code testsPassing} is neither measured nor ratcheted.
  * <p>
  * The output lands in {@code build/j2k/<name>/}: the translated sources, both compilers' raw output, and
  * {@code report.txt} with the errors by kind. Read the report before tightening.
@@ -84,6 +104,10 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         DIRECTION.put("syntaxErrors", "<=");
         DIRECTION.put("syntaxCleanFiles", ">=");
         DIRECTION.put("compilingFiles", ">=");
+        DIRECTION.put("bytecodeFiles", ">=");
+        DIRECTION.put("testsPassing", ">=");
+        DIRECTION.put("testBytecodeFiles", ">=");
+        DIRECTION.put("translatedTestsPassing", ">=");
     }
 
     // kotlinc's plain renderer: "<path>.kt:<line>:<column>: error: <message>", the path relative to the working
@@ -96,7 +120,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
      * sorted by name.
      */
     public record Corpus(InputConfigurationImpl config, JavaInspector javaInspector, Summary summary,
-                         SourceSet main, List<TypeInfo> types) {
+                         SourceSet main, List<TypeInfo> types, List<TypeInfo> testTypes) {
     }
 
     /** Parses a corpus of {@link Corpora#oss}, which must be built (its class files are compile 2's class path). */
@@ -120,35 +144,21 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
                              || t.compilationUnit().sourceSet().name().equals(main.name()))
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
-        return new Corpus(config, javaInspector, summary, main, types);
+        List<TypeInfo> testTypes = summary.parseResult().primaryTypes().stream()
+                .filter(t -> t.compilationUnit().sourceSet().test())
+                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
+                .toList();
+        return new Corpus(config, javaInspector, summary, main, types, testTypes);
     }
 
     /** Translates, compiles twice, writes the report, and holds the numbers to the ratchet file. */
     public void run(Corpus corpus, KotlinPrintOptions options) throws Exception {
         Path out = Path.of("build/j2k", name);
         deleteRecursively(out);
-        Path src = out.resolve("src");
-        List<Path> files = new ArrayList<>();
-        List<String> crashes = new ArrayList<>();
-        List<KotlinPrintMessage> messages = new ArrayList<>();
-        Runtime runtime = corpus.javaInspector().runtime();
-        Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        Set<Object> printed = new HashSet<>();
-        for (TypeInfo type : corpus.types()) {
-            if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
-            try {
-                KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(type.compilationUnit(),
-                        true, options).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
-                messages.addAll(result.messages());
-                String kotlin = formatter.write(result.output()) + "\n";
-                Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
-                Files.createDirectories(file.getParent());
-                Files.writeString(file, kotlin);
-                files.add(file.toAbsolutePath().normalize());
-            } catch (RuntimeException | StackOverflowError e) {
-                crashes.add(type.fullyQualifiedName() + ": " + e);
-            }
-        }
+        Printed main = print(corpus, corpus.types(), options, out.resolve("src"));
+        List<Path> files = main.files;
+        List<String> crashes = main.crashes;
+        List<KotlinPrintMessage> messages = main.messages;
 
         // compile 1: everything, for the syntax errors
         List<String> classPath = libraries(corpus.config());
@@ -169,18 +179,89 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         });
         long compiling = syntaxClean.stream().filter(f -> !withErrors.contains(f)).count();
 
+        // compile 3: the compiling files to class files, leaving out what the back end rejects
+        List<Path> compilingList = syntaxClean.stream().filter(f -> !withErrors.contains(f)).toList();
+        Bytecode bytecode = toBytecode(compilingList, withOriginals, out.resolve("compile-classes"));
+
         Map<String, Long> measured = new LinkedHashMap<>();
         measured.put("types", (long) corpus.types().size());
         measured.put("printerCrashes", (long) crashes.size());
         measured.put("syntaxErrors", syntaxPerFile.values().stream().mapToLong(Long::longValue).sum());
         measured.put("syntaxCleanFiles", (long) syntaxClean.size());
         measured.put("compilingFiles", compiling);
+        measured.put("bytecodeFiles", (long) bytecode.files.size());
 
-        String report = report(measured, crashes, all, clean) + messageCounts(messages);
+        // the corpus's own tests, against the original classes and with the Kotlin classes in front of them
+        String testReport = "";
+        Optional<SourceSet> testSet = corpus.config().sourceSets().stream().filter(SourceSet::test).findFirst();
+        String runner = System.getProperty("maddi.test.junitConsoleClasspath");
+        if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri())) && runner != null && !runner.isBlank()) {
+            Path testClasses = Path.of(testSet.get().uri());
+            Tests original = runTests(corpus, null, testClasses, runner, out.resolve("tests/original"));
+            Tests kotlin = runTests(corpus, List.of(bytecode.classes), testClasses, runner, out.resolve("tests/kotlin"));
+            measured.put("testsPassing", (long) kotlin.passed.size());
+            testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
+
+            // the tests translated as well: Kotlin tests against the Kotlin translation
+            Printed tests = print(corpus, corpus.testTypes(), options, out.resolve("test-src"));
+            List<String> testClassPath = new ArrayList<>(classPath);
+            testClassPath.add(bytecode.classes.toAbsolutePath().toString());
+            testClassPath.add(Path.of(corpus.main().uri()).toString());
+            testClassPath.add(testClasses.toString());
+            Bytecode testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
+            measured.put("testBytecodeFiles", (long) testBytecode.files.size());
+            Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses, runner,
+                    out.resolve("tests/translated"));
+            measured.put("translatedTestsPassing", (long) translated.passed.size());
+            testReport += "\ntest sources translated: " + corpus.testTypes().size() + " types, "
+                          + tests.crashes.size() + " printer crashes" + bytecodeReport(testBytecode, "compile 4 (the "
+                          + "test sources to class files)")
+                          + testReport(original, translated, out.resolve("tests"), "translated tests");
+            if (!tests.crashes.isEmpty()) testReport += "  test printer crashes:\n" + tests.crashes.stream()
+                    .map(c -> "    " + c + "\n").collect(Collectors.joining());
+        } else {
+            testReport = "\ntests: not run (" + (testSet.isEmpty() ? "no test source set"
+                    : runner == null || runner.isBlank() ? "no -Dmaddi.test.junitConsoleClasspath"
+                    : "test source set not built: " + testSet.get().uri()) + ")\n";
+        }
+
+        String report = report(measured, crashes, all, clean)
+                        + bytecodeReport(bytecode, "compile 3 (the compiling files to class files)") + testReport
+                        + messageCounts(messages);
         Files.writeString(out.resolve("report.txt"), report);
         Files.write(out.resolve("messages.txt"), messages.stream().map(KotlinPrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
         ratchet(measured);
+    }
+
+    private record Printed(List<Path> files, List<String> crashes, List<KotlinPrintMessage> messages) {
+    }
+
+    /** Each compilation unit of {@code types} as a Kotlin file under {@code src}. */
+    private static Printed print(Corpus corpus, List<TypeInfo> types, KotlinPrintOptions options, Path src)
+            throws IOException {
+        List<Path> files = new ArrayList<>();
+        List<String> crashes = new ArrayList<>();
+        List<KotlinPrintMessage> messages = new ArrayList<>();
+        Runtime runtime = corpus.javaInspector().runtime();
+        Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        Set<Object> printed = new HashSet<>();
+        for (TypeInfo type : types) {
+            if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
+            try {
+                KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(type.compilationUnit(),
+                        true, options).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+                messages.addAll(result.messages());
+                String kotlin = formatter.write(result.output()) + "\n";
+                Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
+                Files.createDirectories(file.getParent());
+                Files.writeString(file, kotlin);
+                files.add(file.toAbsolutePath().normalize());
+            } catch (RuntimeException | StackOverflowError e) {
+                crashes.add(type.fullyQualifiedName() + ": " + e);
+            }
+        }
+        return new Printed(files, crashes, messages);
     }
 
     /** Every jar the configuration names; the JDK comes from the compiler's own JVM. */
@@ -214,14 +295,9 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
     private static Compiled compile(List<Path> files, List<String> classPath, Path dir) throws Exception {
         Files.createDirectories(dir);
         if (files.isEmpty()) return new Compiled(0, List.of(), List.of());
-        String compilerClassPath = System.getProperty("maddi.test.kotlinCompilerClasspath");
-        assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
-                "no -Dmaddi.test.kotlinCompilerClasspath: run this through Gradle");
-        String stdlib = Arrays.stream(compilerClassPath.split(java.io.File.pathSeparator))
-                .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
-                .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib in " + compilerClassPath));
+        String compilerClassPath = compilerClassPath();
         List<String> cp = new ArrayList<>(classPath);
-        cp.addFirst(stdlib);
+        cp.addFirst(stdlib());
 
         List<String> args = new ArrayList<>(List.of("-no-stdlib", "-no-reflect", "-jvm-target", "21",
                 "-classpath", String.join(java.io.File.pathSeparator, cp),
@@ -254,6 +330,152 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
             fail("kotlinc exited " + exit + " without a diagnostic this test can read; see " + log.toAbsolutePath());
         }
         return new Compiled(exit, errors, crashes);
+    }
+
+    private static String compilerClassPath() {
+        String compilerClassPath = System.getProperty("maddi.test.kotlinCompilerClasspath");
+        assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
+                "no -Dmaddi.test.kotlinCompilerClasspath: run this through Gradle");
+        return compilerClassPath;
+    }
+
+    /** The Kotlin standard library the compiler came with: what compiled classes run against. */
+    private static String stdlib() {
+        String compilerClassPath = compilerClassPath();
+        return Arrays.stream(compilerClassPath.split(java.io.File.pathSeparator))
+                .filter(p -> Path.of(p).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
+                .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib in " + compilerClassPath));
+    }
+
+    /** The files compiled to class files, the directory they are in, and the files left out, per round. */
+    private record Bytecode(List<Path> files, Path classes, List<List<Path>> leftOut) {
+    }
+
+    /**
+     * Compile 3. A round that fails leaves out the files with errors, and the next round compiles the rest: a file
+     * that needs one left out now fails in turn (against the original class, which lacks the Kotlin's members).
+     */
+    private static Bytecode toBytecode(List<Path> files, List<String> classPath, Path dir) throws Exception {
+        List<Path> remaining = new ArrayList<>(files);
+        List<List<Path>> leftOut = new ArrayList<>();
+        for (int round = 0; round < 20 && !remaining.isEmpty(); round++) {
+            deleteRecursively(dir);
+            Compiled c = compile(remaining, classPath, dir);
+            if (c.exitCode == 0) return new Bytecode(remaining, dir.resolve("classes"), leftOut);
+            Set<Path> failing = c.errors.stream().map(d -> d.file).collect(Collectors.toCollection(TreeSet::new));
+            c.crashes.forEach(x -> {
+                Matcher m = CRASHED_ON.matcher(x);
+                if (m.find()) failing.add(Path.of(m.group(1)).toAbsolutePath().normalize());
+            });
+            failing.retainAll(remaining);
+            if (failing.isEmpty()) fail("compile 3 failed without an error in a file it compiled; see " + dir);
+            leftOut.add(List.copyOf(failing));
+            remaining.removeAll(failing);
+        }
+        deleteRecursively(dir);
+        Files.createDirectories(dir.resolve("classes"));
+        return new Bytecode(List.of(), dir.resolve("classes"), leftOut);
+    }
+
+    private static String bytecodeReport(Bytecode bytecode, String title) {
+        StringBuilder sb = new StringBuilder("\n" + title + ": ").append(bytecode.files.size()).append(" files\n");
+        for (int i = 0; i < bytecode.leftOut.size(); i++) {
+            sb.append("  round ").append(i + 1).append(", left out:\n");
+            bytecode.leftOut.get(i).forEach(f -> sb.append("    ").append(f.getFileName()).append('\n'));
+        }
+        return sb.toString();
+    }
+
+    // ---------------------------------------------------------------- the corpus's tests
+
+    /**
+     * Test identifiers ("class#method()"), by outcome, one per test run: a parameterized test's invocations share
+     * their identifier, so these are lists.
+     */
+    private record Tests(List<String> passed, List<String> failed, List<String> skipped) {
+    }
+
+    /**
+     * The corpus's test classes in a child JVM, from the corpus's working directory (fernflower finds its testData
+     * there): JUnit's console launcher scans the (original) test classes, the outcome comes from its XML report.
+     * With {@code kotlinClasses}, those come first on the class path, in front of the original classes they replace,
+     * test classes included: the launcher finds a test by the original's name and loads the Kotlin one.
+     */
+    private static Tests runTests(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner, Path dir)
+            throws Exception {
+        deleteRecursively(dir);
+        Files.createDirectories(dir);
+        List<String> cp = new ArrayList<>();
+        if (kotlinClasses != null) {
+            kotlinClasses.forEach(k -> cp.add(k.toAbsolutePath().toString()));
+            cp.add(stdlib());
+        }
+        cp.add(Path.of(corpus.main().uri()).toString());
+        cp.add(testClasses.toString());
+        cp.addAll(libraries(corpus.config()));
+        cp.addAll(Arrays.asList(runner.split(java.io.File.pathSeparator)));
+        Path argFile = dir.resolve("java.args");
+        Files.write(argFile, List.of("-cp", "\"" + String.join(java.io.File.pathSeparator, cp) + "\""));
+        Path java = Path.of(System.getProperty("java.home"), "bin", "java");
+        Path reports = dir.resolve("reports");
+        Path log = dir.resolve("tests.log");
+        Path workingDirectory = corpus.config().workingDirectory();
+        Process process = new ProcessBuilder(java.toString(), "-Xmx2g", "@" + argFile.toAbsolutePath(),
+                "org.junit.platform.console.ConsoleLauncher", "execute", "--disable-banner", "--details=summary",
+                "--scan-classpath", testClasses.toString(), "--reports-dir", reports.toAbsolutePath().toString())
+                .directory(workingDirectory.toFile())
+                .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        if (!process.waitFor(60, TimeUnit.MINUTES)) {
+            process.destroyForcibly();
+            fail("the tests did not finish within an hour; see " + log.toAbsolutePath());
+        }
+        Path xml = reports.resolve("TEST-junit-jupiter.xml");
+        if (!Files.isRegularFile(xml)) fail("no test report " + xml + "; see " + log.toAbsolutePath());
+        return parseReport(xml);
+    }
+
+    private static Tests parseReport(Path xml) throws Exception {
+        List<String> passed = new ArrayList<>(), failed = new ArrayList<>(), skipped = new ArrayList<>();
+        org.w3c.dom.Document doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+                .parse(xml.toFile());
+        org.w3c.dom.NodeList cases = doc.getElementsByTagName("testcase");
+        for (int i = 0; i < cases.getLength(); i++) {
+            org.w3c.dom.Element tc = (org.w3c.dom.Element) cases.item(i);
+            String id = tc.getAttribute("classname") + "#" + tc.getAttribute("name");
+            if (tc.getElementsByTagName("failure").getLength() > 0 || tc.getElementsByTagName("error").getLength() > 0) {
+                failed.add(id);
+            } else if (tc.getElementsByTagName("skipped").getLength() > 0) {
+                skipped.add(id);
+            } else {
+                passed.add(id);
+            }
+        }
+        return new Tests(passed, failed, skipped);
+    }
+
+    private static String testReport(Tests original, Tests kotlin, Path dir, String label) throws IOException {
+        Set<String> originalPassed = new HashSet<>(original.passed), originalFailed = new HashSet<>(original.failed);
+        List<String> broken = kotlin.failed.stream().filter(originalPassed::contains).distinct().sorted().toList();
+        List<String> fixed = kotlin.passed.stream().filter(originalFailed::contains).distinct().sorted().toList();
+        Files.write(dir.resolve("failing-" + label.replace(' ', '-') + ".txt"), broken);
+        StringBuilder sb = new StringBuilder("\ntests (the corpus's own), " + label + ":\n");
+        sb.append(String.format("  %-18s %6d passed, %d failed, %d skipped%n", "original classes",
+                original.passed.size(), original.failed.size(), original.skipped.size()));
+        sb.append(String.format("  %-18s %6d passed, %d failed, %d skipped%n", label,
+                kotlin.passed.size(), kotlin.failed.size(), kotlin.skipped.size()));
+        if (!original.failed.isEmpty() && "with Kotlin".equals(label)) {
+            sb.append("  failing on the original classes too:\n");
+            original.failed.stream().distinct().sorted().forEach(t -> sb.append("    ").append(t).append('\n'));
+        }
+        if (!broken.isEmpty()) {
+            sb.append("  passing on the original, failing ").append(label).append(" (its tests.log has the traces):\n");
+            broken.forEach(t -> sb.append("    ").append(t).append('\n'));
+        }
+        if (!fixed.isEmpty()) {
+            sb.append("  failing on the original, passing with Kotlin:\n");
+            fixed.forEach(t -> sb.append("    ").append(t).append('\n'));
+        }
+        return sb.toString();
     }
 
     // ---------------------------------------------------------------- report and ratchet
@@ -313,6 +535,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         List<String> worse = new ArrayList<>();
         List<String> better = new ArrayList<>();
         DIRECTION.forEach((name, direction) -> {
+            if (!measured.containsKey(name)) return; // testsPassing, where the tests did not run
             Long was = recorded.get(name);
             long is = measured.get(name);
             if (was == null) {

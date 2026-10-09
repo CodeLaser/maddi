@@ -44,6 +44,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo);
         boolean lateinit = needsDefault && zero == null;
+        builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification));
         if (!isConst() && !visibility.equals(java.util.Optional.of(KeywordImpl.PRIVATE))) {
             boolean clash = accessorClash(fieldInfo, isVal);
             if (lateinit && clash) {
