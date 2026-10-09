@@ -102,4 +102,23 @@ public class TestPackageInfo extends CommonTest {
                 "the package annotation must precede the package declaration; printed:\n" + printed);
     }
 
+    /*
+    GitHub #109: a package annotation written fully qualified, with no import (gson's
+    '@com.google.errorprone.annotations.CheckReturnValue package com.google.gson;'), was printed by its simple name
+    and nothing imported it, so the printed file did not resolve.
+     */
+    @Language("java")
+    private static final String INPUT3 = """
+            @a.PackageWide("?")
+            package a.b;
+            """;
+
+    @Test
+    public void qualifiedPackageAnnotationStaysResolvable() {
+        TypeInfo pkgInfo = scan(false, "a.PackageWide", ANNOT, "a.b.package-info", INPUT3)
+                .get("a.b.package-info");
+        String printed = print2(pkgInfo.compilationUnit());
+        assertTrue(printed.contains("@a.PackageWide") || printed.contains("import a.PackageWide;"),
+                "the package annotation must resolve; printed:\n" + printed);
+    }
 }

@@ -88,7 +88,10 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
             // a JavaDoc is a Comment, so filter it out rather than print it twice if it is carried both ways
             packageInfo.comments().stream().filter(c -> c != packageInfo.javaDoc())
                     .forEach(c -> outputBuilder.add(c.print(qualification)));
-            packageInfo.annotations().forEach(ae -> outputBuilder.add(ae.print(qualification))
+            // with the import computer's qualification: it knows which annotation types it did not import (one
+            // written fully qualified, '@com.google.errorprone.annotations.CheckReturnValue package
+            // com.google.gson;'), and those must stay qualified (GitHub #109)
+            packageInfo.annotations().forEach(ae -> outputBuilder.add(ae.print(importData.insideType()))
                     .add(SpaceEnum.NEWLINE));
         }
 

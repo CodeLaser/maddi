@@ -299,8 +299,12 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             methodName = methodInfo.name();
         }
 
+        // Java requires a qualifier for explicit type arguments ('X.<T>empty()', 'this.<T>two(x)': '<T> two(x)' is a
+        // syntax error) and, since Java 14, for a method named 'yield' (a restricted identifier): GitHub #106
+        boolean needsQualifier = !typeArguments.isEmpty() || "yield".equals(methodInfo.name());
+
         // TODO ideally we use static imports in implicit static cases
-        if (objectIsImplicit && qualification.doNotQualifyImplicit() && !methodInfo.isStatic()) {
+        if (objectIsImplicit && qualification.doNotQualifyImplicit() && !methodInfo.isStatic() && !needsQualifier) {
             outputBuilder.add(new TextImpl(methodName));
             if (guideGenerator != null) start = true;
         } else {
@@ -328,7 +332,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                 TypeInfo typeInfo = typeExpression.parameterizedType().typeInfo();
                 TypeName typeName = TypeNameImpl.typeName(typeInfo, qualification.qualifierRequired(typeInfo), false);
                 outputBuilder.add(new QualifiedNameImpl(methodName, typeName,
-                        qualification.qualifierRequired(methodInfo) ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
+                        needsQualifier || qualification.qualifierRequired(methodInfo)
+                                ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
                 if (guideGenerator != null) start = true;
             } else if ((ve = object.asInstanceOf(VariableExpression.class)) != null &&
                        ve.variable() instanceof This thisVar) {
@@ -340,7 +345,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                         qualification.qualifierRequired(thisVar.typeInfo()), false);
                 ThisName thisName = new ThisNameImpl(thisVar.writeSuper(), typeName,
                         qualification.qualifierRequired(thisVar) && thisVar.explicitlyWriteType() != null);
-                boolean qualifierRequired = qualification.qualifierRequired(methodInfo) && !objectIsImplicit;
+                boolean qualifierRequired = needsQualifier
+                                            || qualification.qualifierRequired(methodInfo) && !objectIsImplicit;
                 outputBuilder.add(new QualifiedNameImpl(methodName, thisName,
                         qualifierRequired || thisVar.writeSuper() ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
                 if (guideGenerator != null) start = true;

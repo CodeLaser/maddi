@@ -89,7 +89,9 @@ public class ElementPrinter {
                                        Space space,
                                        boolean lastElement) {
         Line.SpaceLevel spaceLevel = computeSpaceLevel(options, space, null, false);
-        line.setSpace(spaceLevel);
+        // a pending newline is never undone by a following space: the newline that closes a '//' comment, followed
+        // by the space a local class's member happens to start with, put the field inside the comment (GitHub #108)
+        if (!line.spaceLevel().isNewLine()) line.setSpace(spaceLevel);
         if (!lastElement && !space.split().isNever()) {
             addSplitPoint(splitInfo, line.length(), space);
         }
