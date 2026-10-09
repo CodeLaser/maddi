@@ -15,14 +15,17 @@
 
 package io.codelaser.maddi.cst.impl.analysis;
 
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -69,6 +72,32 @@ public final class NullAnnotations {
     }
 
     private static final String MADDI = "io.codelaser.maddi.annotation";
+
+    /**
+     * Whether {@code methodInfo} sits in a JSpecify {@code @NullMarked} scope as a class file declares it: the
+     * method, its type and the enclosing types, then the package and the module of the type's compilation unit
+     * ({@link CompilationUnit#packageAnnotations()}); the nearest
+     * {@code @NullMarked}/{@code @NullUnmarked} wins. For a library method: a source package's package-info is a
+     * type of its own, which {@code DeclaredNullability} reads.
+     */
+    public static boolean inNullMarkedScope(MethodInfo methodInfo) {
+        Boolean marked = markedBy(methodInfo.annotations());
+        TypeInfo t = methodInfo.typeInfo();
+        while (marked == null && t != null) {
+            marked = markedBy(t.annotations());
+            t = t.compilationUnitOrEnclosingType().isRight() ? t.compilationUnitOrEnclosingType().getRight() : null;
+        }
+        CompilationUnit cu = methodInfo.typeInfo().primaryType().compilationUnit();
+        if (marked == null && cu != null) marked = markedBy(cu.packageAnnotations());
+        if (marked == null && cu != null) marked = markedBy(cu.moduleAnnotations());
+        return Boolean.TRUE.equals(marked);
+    }
+
+    private static Boolean markedBy(List<AnnotationExpression> annotations) {
+        if (annotations.stream().anyMatch(ae -> "NullUnmarked".equals(ae.typeInfo().simpleName()))) return false;
+        if (annotations.stream().anyMatch(ae -> "NullMarked".equals(ae.typeInfo().simpleName()))) return true;
+        return null;
+    }
 
     private static Stream<AnnotationExpression> annotations(Info info) {
         ParameterizedType type = switch (info) {

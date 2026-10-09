@@ -359,7 +359,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             cu = sourceSet == null
                     ? runtime.newCompilationUnitStub(packageName) // off-classpath jar: a minimal stub, as when there is no class file
                     : runtime.newCompilationUnitBuilder().setPackageName(packageName)
-                    .setSourceSet(sourceSet).setURI(uri).build();
+                    .setSourceSet(sourceSet).setURI(uri)
+                    .setPackageAnnotations(packageAnnotations(cs.packge()))
+                    .setModuleAnnotations(moduleAnnotations(cs.packge())).build();
         } else {
             cu = runtime.newCompilationUnitStub(packageName);
         }
@@ -375,6 +377,39 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         int eq = export.indexOf('=', slash + 1);
         String pkg = (eq < 0 ? export.substring(slash + 1) : export.substring(slash + 1, eq)).trim();
         return pkg.isEmpty() ? null : pkg;
+    }
+
+    // ---- a class-file unit's package and module annotations (JSpecify's @NullMarked scope, say) ----
+    // Read once per package and module: every class file of a package shares its package-info.class. Not
+    // computeIfAbsent: building an annotation can load its type, and with it another package's annotations.
+    // Symbols compare by identity.
+    private final Map<Symbol.PackageSymbol, List<AnnotationExpression>> packageAnnotations = new ConcurrentHashMap<>();
+    private final Map<Symbol.ModuleSymbol, List<AnnotationExpression>> moduleAnnotations = new ConcurrentHashMap<>();
+
+    private List<AnnotationExpression> packageAnnotations(Symbol.PackageSymbol ps) {
+        if (ps == null) return List.of();
+        List<AnnotationExpression> known = packageAnnotations.get(ps);
+        if (known != null) return known;
+        List<AnnotationExpression> annotations;
+        try {
+            // javac attaches package-info.class's annotations to the package when it completes that class
+            if (ps.package_info != null) ps.package_info.complete();
+            annotations = List.copyOf(loadAnnotations(ps));
+        } catch (Symbol.CompletionFailure cf) {
+            annotations = List.of();
+        }
+        packageAnnotations.put(ps, annotations);
+        return annotations;
+    }
+
+    private List<AnnotationExpression> moduleAnnotations(Symbol.PackageSymbol ps) {
+        Symbol.ModuleSymbol module = ps == null ? null : ps.modle;
+        if (module == null || module.isUnnamed()) return List.of();
+        List<AnnotationExpression> known = moduleAnnotations.get(module);
+        if (known != null) return known;
+        List<AnnotationExpression> annotations = List.copyOf(loadAnnotations(module));
+        moduleAnnotations.put(module, annotations);
+        return annotations;
     }
 
     TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
@@ -448,6 +483,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         .setPackageName(packageName)
                         .setSourceSet(sourceSet)
                         .setURI(uri)
+                        .setPackageAnnotations(packageAnnotations(cs.packge()))
+                        .setModuleAnnotations(moduleAnnotations(cs.packge()))
                         .build();
             }
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
