@@ -1673,7 +1673,8 @@
   {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mrange(12,E,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mspliterator(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
 
 {"name": "Tjava.util.Enumeration", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
  {"name": "MasIterator(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}},
@@ -3132,16 +3133,19 @@
   {"name": "Parg9(9)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mof(21,E[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N(N)"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mremove(22,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MofLazy(22,java.util.Set,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Mremove(23,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MremoveAll(23,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MremoveAll(24,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MretainAll(24,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MretainAll(25,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "Msize(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mspliterator(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MtoArray(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}},
- {"name": "MtoArray(28,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}, "sub":
+ {"name": "Msize(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mspliterator(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MtoArray(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}},
+ {"name": "MtoArray(29,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.util.SortedMap", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[

@@ -1046,263 +1046,269 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Macos(7,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MaddExact(8,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Macosh(8,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MaddExact(9,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MaddExact(9,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MaddExact(10,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Masin(10,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Masin(11,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Matan(11,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Masinh(12,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "Matan(13,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Matan2(12,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Matan2(14,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mcbrt(13,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Matanh(15,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "Mcbrt(16,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mceil(14,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mceil(17,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MceilDiv(15,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilDiv(18,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilDiv(16,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilDiv(19,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilDiv(17,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilDiv(20,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilDivExact(18,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilDivExact(21,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilDivExact(19,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilDivExact(22,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilMod(20,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilMod(23,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilMod(21,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilMod(24,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MceilMod(22,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MceilMod(25,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mclamp(23,double,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mclamp(26,double,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mclamp(24,float,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mclamp(27,float,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mclamp(25,long,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mclamp(28,long,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mclamp(26,long,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mclamp(29,long,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "McopySign(27,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "McopySign(30,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "McopySign(28,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "McopySign(31,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mcos(29,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mcos(32,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mcosh(30,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mcosh(33,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MdecrementExact(31,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MdecrementExact(34,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MdecrementExact(32,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MdecrementExact(35,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MdivideExact(33,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MdivideExact(36,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MdivideExact(34,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MdivideExact(37,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mexp(35,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mexp(38,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mexpm1(36,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mexpm1(39,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mfloor(37,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mfloor(40,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MfloorDiv(38,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorDiv(41,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorDiv(39,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorDiv(42,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorDiv(40,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorDiv(43,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorDivExact(41,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorDivExact(44,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorDivExact(42,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorDivExact(45,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorMod(43,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorMod(46,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorMod(44,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorMod(47,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfloorMod(45,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MfloorMod(48,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfma(46,double,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mfma(49,double,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mfma(47,float,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mfma(50,float,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MgetExponent(48,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MgetExponent(51,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetExponent(49,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MgetExponent(52,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mhypot(50,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mhypot(53,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MincrementExact(51,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MincrementExact(54,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MincrementExact(52,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MincrementExact(55,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mlog(53,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mlog(56,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mlog10(54,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mlog10(57,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mlog1p(55,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mlog1p(58,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mmax(56,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmax(59,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmax(57,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmax(60,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmax(58,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmax(61,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmax(59,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmax(62,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmin(60,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmin(63,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmin(61,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmin(64,float,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmin(62,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmin(65,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mmin(63,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mmin(66,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MmultiplyExact(64,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MmultiplyExact(67,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MmultiplyExact(65,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MmultiplyExact(68,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MmultiplyExact(66,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MmultiplyExact(69,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MmultiplyFull(67,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MmultiplyFull(70,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MmultiplyHigh(68,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MmultiplyHigh(71,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MnegateExact(69,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnegateExact(72,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MnegateExact(70,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnegateExact(73,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MnextAfter(71,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MnextAfter(74,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MnextAfter(72,float,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MnextAfter(75,float,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MnextDown(73,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnextDown(76,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MnextDown(74,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnextDown(77,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MnextUp(75,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnextUp(78,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MnextUp(76,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MnextUp(79,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mpow(77,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mpow(80,double,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MpowExact(78,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MpowExact(81,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MpowExact(79,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MpowExact(82,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mrandom(80)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mrint(81,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mrandom(83)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mrint(84,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mround(82,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mround(85,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mround(83,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mround(86,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mscalb(84,double,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mscalb(87,double,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mscalb(85,float,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mscalb(88,float,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msignum(86,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Msignum(89,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Msignum(87,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Msignum(90,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Msin(88,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Msin(91,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Msinh(89,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Msinh(92,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Msqrt(90,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Msqrt(93,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MsubtractExact(91,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MsubtractExact(94,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsubtractExact(92,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MsubtractExact(95,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mtan(93,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mtan(96,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mtanh(94,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mtanh(97,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoDegrees(95,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoDegrees(98,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoIntExact(96,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoIntExact(99,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoRadians(97,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoRadians(100,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mulp(98,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mulp(101,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mulp(99,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mulp(102,float)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MunsignedMultiplyExact(100,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedMultiplyExact(103,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MunsignedMultiplyExact(101,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedMultiplyExact(104,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MunsignedMultiplyExact(102,long,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedMultiplyExact(105,long,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MunsignedMultiplyHigh(103,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedMultiplyHigh(106,long,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MunsignedPowExact(104,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedPowExact(107,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MunsignedPowExact(105,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MunsignedPowExact(108,long,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
 
@@ -1546,168 +1552,170 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MdescribeConstable(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MendsWith(16,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MencodedLength(16,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MendsWith(17,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mequals(17,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mequals(18,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MequalsFoldCase(18,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MequalsFoldCase(19,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MequalsIgnoreCase(19,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MequalsIgnoreCase(20,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mformat(20,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mformat(21,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mformat(21,java.util.Locale,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mformat(22,java.util.Locale,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mformatted(22,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mformatted(23,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "MgetBytes(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MgetBytes(24,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetBytes(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetBytes(25,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MgetBytes(25,int,int,byte[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetBytes(26,int,int,byte[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MgetBytes(26,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MgetBytes(27,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MgetChars(27,int,int,char[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MgetChars(28,int,int,char[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MhashCode(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mindent(29,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MhashCode(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mindent(30,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MindexOf(30,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MindexOf(31,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MindexOf(31,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MindexOf(32,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MindexOf(32,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MindexOf(33,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MindexOf(33,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MindexOf(34,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MindexOf(34,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MindexOf(35,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MindexOf(35,int,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MindexOf(36,int,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mintern(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MisBlank(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MisEmpty(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mjoin(39,java.lang.CharSequence,java.lang.CharSequence[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mintern(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MisBlank(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MisEmpty(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mjoin(40,java.lang.CharSequence,java.lang.CharSequence[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "Mjoin(40,java.lang.CharSequence,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mjoin(41,java.lang.CharSequence,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MlastIndexOf(41,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MlastIndexOf(42,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MlastIndexOf(42,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MlastIndexOf(43,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MlastIndexOf(43,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MlastIndexOf(44,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MlastIndexOf(44,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MlastIndexOf(45,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mlength(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mlines(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mmatches(47,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mlength(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mlines(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mmatches(48,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MoffsetByCodePoints(48,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MoffsetByCodePoints(49,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MregionMatches(49,boolean,int,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MregionMatches(50,boolean,int,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg4(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MregionMatches(50,int,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MregionMatches(51,int,java.lang.String,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mrepeat(51,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mrepeat(52,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mreplace(52,java.lang.CharSequence,java.lang.CharSequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mreplace(53,java.lang.CharSequence,java.lang.CharSequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mreplace(53,char,char)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mreplace(54,char,char)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MreplaceAll(54,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreplaceAll(55,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MreplaceFirst(55,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MreplaceFirst(56,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MresolveConstantDesc(56,java.lang.invoke.MethodHandles.Lookup)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MresolveConstantDesc(57,java.lang.invoke.MethodHandles.Lookup)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Msplit(57,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Msplit(58,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Msplit(58,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msplit(59,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsplitWithDelimiters(59,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsplitWithDelimiters(60,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MstartsWith(60,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+ {"name": "MstartsWith(61,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MstartsWith(61,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MstartsWith(62,java.lang.String,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mstrip(62)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MstripIndent(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MstripLeading(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MstripTrailing(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MsubSequence(66,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mstrip(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MstripIndent(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MstripLeading(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MstripTrailing(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MsubSequence(67,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Msubstring(67,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Msubstring(68,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Msubstring(68,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msubstring(69,int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MtoCharArray(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoLowerCase(70)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoLowerCase(71,java.util.Locale)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MtoCharArray(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoLowerCase(71)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoLowerCase(72,java.util.Locale)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoString(72)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MtoUpperCase(73)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoUpperCase(74,java.util.Locale)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MtoString(73)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MtoUpperCase(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoUpperCase(75,java.util.Locale)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mtransform(75,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mtransform(76,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
- {"name": "MtranslateEscapes(76)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mtrim(77)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MvalueOf(78,java.lang.Object)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MtranslateEscapes(77)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mtrim(78)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MvalueOf(79,java.lang.Object)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MvalueOf(79,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(80,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(80,char)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(81,char)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(81,char[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(82,char[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "MvalueOf(82,char[],int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MvalueOf(83,char[],int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MvalueOf(83,double)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(84,double)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(84,float)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(85,float)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(85,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(86,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(86,long)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(87,long)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.lang.StringBuffer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[

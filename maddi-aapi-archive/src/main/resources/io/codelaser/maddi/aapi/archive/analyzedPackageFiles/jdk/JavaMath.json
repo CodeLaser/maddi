@@ -137,41 +137,44 @@
  {"name": "Mremainder(38,java.math.BigDecimal,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mround(39,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mrootn(39,int,java.math.MathContext)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mround(40,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mscale(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MscaleByPowerOfTen(41,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mscale(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MscaleByPowerOfTen(42,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MsetScale(42,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MsetScale(43,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MsetScale(43,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsetScale(44,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MsetScale(44,int,java.math.RoundingMode)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MsetScale(45,int,java.math.RoundingMode)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MshortValueExact(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Msignum(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Msqrt(47,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MshortValueExact(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Msignum(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Msqrt(48,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MstripTrailingZeros(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Msubtract(49,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MstripTrailingZeros(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Msubtract(50,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Msubtract(50,java.math.BigDecimal,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Msubtract(51,java.math.BigDecimal,java.math.MathContext)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MtoBigInteger(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoBigIntegerExact(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoEngineeringString(53)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoPlainString(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MtoString(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mulp(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MunscaledValue(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MvalueOf(58,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MtoBigInteger(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoBigIntegerExact(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoEngineeringString(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoPlainString(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoString(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mulp(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MunscaledValue(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MvalueOf(59,double)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(59,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MvalueOf(60,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MvalueOf(60,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "MvalueOf(61,long,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
 
