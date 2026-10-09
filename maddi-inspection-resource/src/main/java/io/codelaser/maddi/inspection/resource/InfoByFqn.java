@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.inspection.resource;
 
+import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.slf4j.Logger;
@@ -32,6 +33,13 @@ import java.util.stream.Stream;
  * Promoted out of the openjdk parser so that every language front-end (the javac-based Java parser and
  * the K2-based Kotlin parser) can thread the same instance and thereby share one {@code TypeInfo} per
  * type across languages.
+ * <p>
+ * ⛔ <b>SHARED ACROSS THREADS, SO EVERY METHOD IS SYNCHRONIZED.</b> The scan is single-threaded, but the
+ * {@code CompiledTypesManager} reads this registry from parallel analyzer threads, and its lazy loader writes it;
+ * a host (the refactoring server) may serve requests while a parse runs. Plain maps under concurrent writers
+ * lose entries, and two loaders that both miss a type both load it: the "committed twice" assertion in
+ * {@link #put} (micronaut's {@code HttpClient}, a 225-source-set project in a server under -ea, 2026-10-09).
+ * See {@link #putIfAbsentFromSameOrigin}.
  */
 public class InfoByFqn {
     private static final Logger LOGGER = LoggerFactory.getLogger(InfoByFqn.class);
@@ -60,11 +68,11 @@ public class InfoByFqn {
      * hierarchy can no longer be built from a class file, in either order, in this parse or a later one. A source
      * scan that finds the claim already taken knows a class-file load got there first and clears what it left.
      */
-    public boolean markClassScannerSetupDone(TypeInfo typeInfo) {
+    public synchronized boolean markClassScannerSetupDone(TypeInfo typeInfo) {
         return classScannerSetupDone.add(typeInfo);
     }
 
-    public void removeAllSources() {
+    public synchronized void removeAllSources() {
         singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
         multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
         multiTypeByFqn.values().removeIf(List::isEmpty);
@@ -79,7 +87,7 @@ public class InfoByFqn {
      * "Under it" is decided by {@link #belongsTo}. The {@code classScannerSetupDone} guard is dropped along with the
      * type, exactly as {@code removeAllSources} does — the entries are identity-keyed on objects nobody will use again.
      */
-    public void removeType(TypeInfo primaryType) {
+    public synchronized void removeType(TypeInfo primaryType) {
         Predicate<TypeInfo> belongsToIt = belongsTo(primaryType);
         singleTypeByFqn.values().removeIf(belongsToIt);
         for (String fqn : List.copyOf(multiTypeByFqn.keySet())) {
@@ -118,7 +126,7 @@ public class InfoByFqn {
      * ({@code InfoMap.rewiredTypes()}), which is the only complete list — anonymous classes, local classes and
      * lambdas are rewired too, and none of them is among a type's {@code subTypes()}.
      */
-    public void replaceType(TypeInfo typeInfo) {
+    public synchronized void replaceType(TypeInfo typeInfo) {
         String fqn = typeInfo.fullyQualifiedName();
         List<TypeInfo> multi = multiTypeByFqn.get(fqn);
         if (multi == null) {
@@ -138,11 +146,11 @@ public class InfoByFqn {
         return ti.compilationUnit().sourceSet() != null && !ti.compilationUnit().sourceSet().externalLibrary();
     }
 
-    public void startOfNewSourceSet() {
+    public synchronized void startOfNewSourceSet() {
         loadedForThisSourceSet.clear();
     }
 
-    public void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
+    public synchronized void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
         loadedForThisSourceSet.add(typeInfo);
         if (isStub(typeInfo)) {
             // A STUB is not a definition, so it does not displace one: register it only where nothing better
@@ -191,6 +199,35 @@ public class InfoByFqn {
     }
 
     /**
+     * Register a type just minted from a class file, unless the registry already holds one for the same FQN from
+     * the same origin (same source set, same compilation-unit URI): then that one is returned and the new one must
+     * be dropped. Check and put are one step under this registry's monitor, so of two threads that both missed
+     * the type and both loaded it, the second gets the first's instance instead of committing the type twice.
+     * A different origin (a multi-release entry, a newer jar of another source set) is put as {@link #put} does.
+     */
+    public synchronized TypeInfo putIfAbsentFromSameOrigin(String fqn, TypeInfo typeInfo,
+                                                           SourceSet sourceSetOfCurrentTask) {
+        TypeInfo present = sameOrigin(singleTypeByFqn.get(fqn), typeInfo);
+        if (present == null) {
+            List<TypeInfo> multi = multiTypeByFqn.get(fqn);
+            if (multi != null) {
+                present = multi.stream().map(m -> sameOrigin(m, typeInfo)).filter(Objects::nonNull)
+                        .findFirst().orElse(null);
+            }
+        }
+        if (present != null) return present;
+        put(fqn, typeInfo, sourceSetOfCurrentTask);
+        return typeInfo;
+    }
+
+    private static TypeInfo sameOrigin(TypeInfo present, TypeInfo typeInfo) {
+        if (present == null || isStub(present) || isStub(typeInfo)) return null;
+        CompilationUnit a = present.compilationUnit();
+        CompilationUnit b = typeInfo.compilationUnit();
+        return a.sourceSet().equals(b.sourceSet()) && Objects.equals(a.uri(), b.uri()) ? present : null;
+    }
+
+    /**
      * ⛔ <b>A TYPE WITHOUT A SOURCE SET IS A STUB, AND EVERY DECISION BELOW IS ABOUT SOURCE SETS.</b>
      * {@code ClassSymbolScanner} mints one ({@code newCompilationUnitStub}, logged as "Creating stub type
      * for …") when a class file names a type that is not on the class path; GAP #163 fixes null as the
@@ -211,7 +248,7 @@ public class InfoByFqn {
         return typeInfo.compilationUnit().sourceSet() == null;
     }
 
-    public TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
+    public synchronized TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
         TypeInfo ti = singleTypeByFqn.get(fullyQualifiedName);
         if (ti != null) return ti;
         List<TypeInfo> multi = multiTypeByFqn.get(fullyQualifiedName);
