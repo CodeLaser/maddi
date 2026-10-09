@@ -731,4 +731,22 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "@Deprecated(\"\") open fun old()");
         assertFalse(kotlin.contains("@SuppressWarnings"), kotlin);
     }
+
+    @Language("java")
+    private static final String DUPLICATE_IMPORT = """
+            package a;
+            import java.util.List;
+            import java.net.URI;
+            import java.util.List;
+            class C {
+                List<URI> uris;
+            }
+            """;
+
+    /** Java accepts the same import twice; the import computer keeps one. */
+    @Test
+    public void duplicateImport() {
+        String kotlin = kotlin(DUPLICATE_IMPORT);
+        contains(kotlin, "var uris: MutableList<URI>");
+    }
 }

@@ -1,0 +1,21 @@
+# TestJavaToKotlinLangchain4j: langchain4j-core's main sources printed as Kotlin by maddi-cst-print-kotlin, without
+# nullability verdicts, and judged by kotlinc 2.4.0 and by langchain4j-core's own tests (see JavaToKotlinRatchet's
+# javadoc). Lower is better for printerCrashes and syntaxErrors, higher for syntaxCleanFiles, compilingFiles,
+# bytecodeFiles, testsPassing, testBytecodeFiles and translatedTestsPassing; `types` must not move.
+# Write a better value here in the commit that earns it.
+#
+# 2026-10-09, first record, corpus at dab06ac18: 346 types; 1 printer crash (ImageContent: a duplicate key in the
+# printer's map of Image); 345 files syntax-clean, 152 compiling against the original classes (588 type errors),
+# 150 to class files. The tests (JUnit, Mockito, AssertJ): 1,111 pass on the original classes (5 skipped), 835 with
+# the Kotlin classes in front; of 172 test files, 93 compile, and with those 823 pass.
+# 2026-10-09, the import computer keeps one of two equal imports (ImageContent imports Image twice): no printer
+# crash, 153 files compiling, 151 to class files.
+types	346
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	346
+compilingFiles	153
+bytecodeFiles	151
+testsPassing	835
+testBytecodeFiles	93
+translatedTestsPassing	823

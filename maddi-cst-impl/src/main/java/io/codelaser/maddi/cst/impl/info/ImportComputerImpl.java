@@ -272,7 +272,8 @@ public class ImportComputerImpl implements ImportComputer {
         LOGGER.debug("Types per package: {}", typesPerPackage);
         Map<String, List<Comment>> originalComments = compilationUnit
                 .importStatements().stream()
-                .collect(Collectors.toUnmodifiableMap(ImportStatement::importString, Element::comments));
+                // Java accepts the same import twice (langchain4j's ImageContent imports Image twice)
+                .collect(Collectors.toUnmodifiableMap(ImportStatement::importString, Element::comments, (a, b) -> a));
 
         // IMPROVE static fields and methods
         // IMPROVE order of imports: for now, we simply do alphabetic, and ensure there are no conflicts

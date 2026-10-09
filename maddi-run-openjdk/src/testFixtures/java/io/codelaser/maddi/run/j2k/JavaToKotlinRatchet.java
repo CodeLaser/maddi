@@ -423,8 +423,10 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path reports = dir.resolve("reports");
         Path log = dir.resolve("tests.log");
-        Path workingDirectory = corpus.config().workingDirectory();
-        Process process = new ProcessBuilder(java.toString(), "-Xmx2g", "@" + argFile.toAbsolutePath(),
+        Path workingDirectory = workingDirectory(corpus, testClasses);
+        // Mockito attaches its agent at run time, which the JDK will refuse by default
+        Process process = new ProcessBuilder(java.toString(), "-Xmx2g", "-XX:+EnableDynamicAgentLoading",
+                "@" + argFile.toAbsolutePath(),
                 "org.junit.platform.console.ConsoleLauncher", "execute", "--disable-banner", "--details=summary",
                 "--scan-classpath", testClasses.toString(), "--reports-dir", reports.toAbsolutePath().toString())
                 .directory(workingDirectory.toFile())
@@ -436,6 +438,23 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         Path xml = reports.resolve("TEST-junit-jupiter.xml");
         if (!Files.isRegularFile(xml)) fail("no test report " + xml + "; see " + log.toAbsolutePath());
         return parseReport(xml);
+    }
+
+    /**
+     * Where the tests run: the configuration's working directory when it names one (fernflower finds its testData
+     * there), else the build directory of the test classes' module, the nearest ancestor with a pom.xml or Gradle
+     * build file, as Maven's surefire runs a module's tests (langchain4j-core).
+     */
+    private static Path workingDirectory(Corpus corpus, Path testClasses) {
+        Path configured = corpus.config().workingDirectory();
+        if (configured != null && configured.isAbsolute() && Files.isDirectory(configured)) return configured;
+        for (Path dir = testClasses.toAbsolutePath(); dir != null; dir = dir.getParent()) {
+            if (Files.isRegularFile(dir.resolve("pom.xml")) || Files.isRegularFile(dir.resolve("build.gradle.kts"))
+                || Files.isRegularFile(dir.resolve("build.gradle"))) {
+                return dir;
+            }
+        }
+        return testClasses;
     }
 
     private static Tests parseReport(Path xml) throws Exception {
