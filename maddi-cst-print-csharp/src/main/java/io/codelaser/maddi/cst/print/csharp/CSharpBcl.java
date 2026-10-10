@@ -211,6 +211,13 @@ final class CSharpBcl {
         compatType("java.util.Iterator", "JavaIterator");
         compatType("java.util.ListIterator", "JavaIterator");
         compatType("java.io.File", "JavaFile");
+        compatType("java.util.Enumeration", "JavaEnumeration");
+        compatType("java.util.zip.ZipFile", "JavaZipFile");
+        compatType("java.util.zip.ZipEntry", "JavaZipEntry");
+        compatType("java.util.zip.ZipOutputStream", "JavaZipOutputStream");
+        compatType("java.util.jar.JarFile", "JavaJarFile");
+        compatType("java.util.jar.JarEntry", "JavaZipEntry");
+        compatType("java.util.jar.Manifest", "JavaManifest");
     }
 
     /** The C# counterpart of a JDK type; null when there is none (yet). */
@@ -794,6 +801,7 @@ final class CSharpBcl {
             Map.entry("java.io.File.separator", "Path.DirectorySeparatorChar.ToString()"),
             Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"),
             Map.entry("java.io.File.pathSeparator", "Path.PathSeparator.ToString()"),
+            Map.entry("java.util.jar.JarFile.MANIFEST_NAME", "JavaJarFile.MANIFEST_NAME"),
             Map.entry("java.io.File.pathSeparatorChar", "Path.PathSeparator"),
             Map.entry("java.lang.Character.UNASSIGNED", "JavaCharacter.UNASSIGNED"),
             Map.entry("java.lang.Character.CONTROL", "JavaCharacter.CONTROL"),
@@ -805,7 +813,8 @@ final class CSharpBcl {
             Map.entry("java.lang.Character.SPACE_SEPARATOR", "JavaCharacter.SPACE_SEPARATOR"));
 
     private static final Map<String, String> FIELD_NAMESPACES = Map.of("Console", SYSTEM, "Math", SYSTEM,
-            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT);
+            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT,
+            "JavaJarFile", COMPAT);
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
     static String[] field(FieldInfo fieldInfo) {

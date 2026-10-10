@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -944,4 +945,182 @@ public class JavaMatcher
     public int End() => match.Index + match.Length;
 
     public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
+}
+
+/// <summary>java.util.Enumeration over a C# enumerable.</summary>
+public class JavaEnumeration<T>
+{
+    private readonly IEnumerator<T> enumerator;
+    private bool hasPeeked;
+    private bool peeked;
+
+    public JavaEnumeration(IEnumerable<T> source) => enumerator = source.GetEnumerator();
+
+    public bool HasMoreElements()
+    {
+        if (!hasPeeked)
+        {
+            peeked = enumerator.MoveNext();
+            hasPeeked = true;
+        }
+        return peeked;
+    }
+
+    public T NextElement()
+    {
+        if (!HasMoreElements()) throw new InvalidOperationException("no more elements");
+        hasPeeked = false;
+        return enumerator.Current;
+    }
+}
+
+/// <summary>java.util.zip.ZipEntry: an entry of an archive being read, or one to write.</summary>
+public class JavaZipEntry
+{
+    internal readonly ZipArchiveEntry Entry;
+    private readonly string name;
+    internal DateTimeOffset? Time;
+
+    public JavaZipEntry(string name) => this.name = name;
+
+    internal JavaZipEntry(ZipArchiveEntry entry)
+    {
+        Entry = entry;
+        name = entry.FullName;
+    }
+
+    public string GetName() => name;
+
+    public bool IsDirectory() => name.EndsWith("/");
+
+    public long GetSize() => Entry?.Length ?? -1;
+
+    public long GetTime() => (Time ?? Entry?.LastWriteTime)?.ToUnixTimeMilliseconds() ?? -1;
+
+    public void SetTime(long time) => Time = DateTimeOffset.FromUnixTimeMilliseconds(time);
+
+    public override string ToString() => name;
+}
+
+/// <summary>java.util.zip.ZipFile: an archive opened for reading.</summary>
+public class JavaZipFile : IDisposable
+{
+    protected readonly ZipArchive Archive;
+
+    public JavaZipFile(string path) => Archive = ZipFile.OpenRead(path);
+
+    public JavaZipFile(JavaFile file) : this(file.GetPath())
+    {
+    }
+
+    public JavaEnumeration<JavaZipEntry> Entries() =>
+        new JavaEnumeration<JavaZipEntry>(Archive.Entries.Select(e => new JavaZipEntry(e)).ToList());
+
+    public JavaZipEntry GetEntry(string name) => Archive.GetEntry(name) is { } e ? new JavaZipEntry(e) : null;
+
+    public Stream GetInputStream(JavaZipEntry entry) =>
+        (entry.Entry ?? Archive.GetEntry(entry.GetName()))?.Open();
+
+    public int Size() => Archive.Entries.Count;
+
+    public void Close() => Archive.Dispose();
+
+    public void Dispose() => Archive.Dispose();
+}
+
+/// <summary>java.util.jar.JarFile: a zip archive with a manifest.</summary>
+public class JavaJarFile : JavaZipFile
+{
+    public const string MANIFEST_NAME = "META-INF/MANIFEST.MF";
+
+    public JavaJarFile(string path) : base(path)
+    {
+    }
+
+    public JavaJarFile(JavaFile file) : base(file)
+    {
+    }
+
+    public JavaManifest GetManifest()
+    {
+        var entry = Archive.GetEntry(MANIFEST_NAME);
+        if (entry == null) return null;
+        using var stream = entry.Open();
+        return new JavaManifest(stream);
+    }
+}
+
+/// <summary>java.util.jar.Manifest: its bytes, read and written as they are.</summary>
+public class JavaManifest
+{
+    private readonly byte[] bytes;
+
+    public JavaManifest() => bytes = Encoding.UTF8.GetBytes("Manifest-Version: 1.0\r\n\r\n");
+
+    public JavaManifest(Stream input)
+    {
+        using var memory = new MemoryStream();
+        input.CopyTo(memory);
+        bytes = memory.ToArray();
+    }
+
+    public void Write(Stream output) => output.Write(bytes, 0, bytes.Length);
+}
+
+/// <summary>java.util.zip.ZipOutputStream: an archive written entry by entry.</summary>
+public class JavaZipOutputStream : Stream
+{
+    private readonly ZipArchive archive;
+    private Stream current;
+
+    public JavaZipOutputStream(Stream output) => archive = new ZipArchive(output, ZipArchiveMode.Create);
+
+    public void PutNextEntry(JavaZipEntry entry)
+    {
+        CloseEntry();
+        var created = archive.CreateEntry(entry.GetName());
+        if (entry.Time is { } time) created.LastWriteTime = time;
+        current = created.Open();
+    }
+
+    public void CloseEntry()
+    {
+        current?.Dispose();
+        current = null;
+    }
+
+    public void Write(sbyte[] buffer, int offset, int count) => Write((byte[])(object)buffer, offset, count);
+
+    public override void Write(byte[] buffer, int offset, int count) => current.Write(buffer, offset, count);
+
+    public override void WriteByte(byte value) => current.WriteByte(value);
+
+    public override void Flush() => current?.Flush();
+
+    public void Close() => Dispose();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            CloseEntry();
+            archive.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    public override bool CanRead => false;
+    public override bool CanSeek => false;
+    public override bool CanWrite => true;
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
 }

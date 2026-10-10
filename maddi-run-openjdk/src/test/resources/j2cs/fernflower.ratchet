@@ -40,9 +40,11 @@
 # IEnumerable of T (wildcard losses 31 -> 16): 154 files compile; errors 140 -> 134.
 # 2026-10-10, new EnumMap<>(K.class) as new SortedDictionary<K, V>(); == between a value type and an Object as
 # object.Equals: 155 files compile; errors 134 -> 129.
+# 2026-10-10, java.util.zip and java.util.jar as the compatibility library's classes over System.IO.Compression,
+# Enumeration as JavaEnumeration: 160 files compile; unmapped JDK uses 74 -> 36; errors 129 -> 102.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	155
-unmappedJdkUses	74
+compilingFiles	160
+unmappedJdkUses	36

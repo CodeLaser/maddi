@@ -238,8 +238,9 @@ ratchet's report (see below) lists what is left.
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
-  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`) and `JavaMatcher` (a `Regex` applied step by
-  step, as `java.util.regex.Matcher`).
+  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
+  step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
+  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 
