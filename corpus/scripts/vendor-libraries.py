@@ -58,26 +58,30 @@ keeps whatever formatting its generator gave it, and a diff shows only the paths
 
 LOMBOK THAT CANNOT RUN ON THE TARGET JDK IS REPLACED BY 1.18.48
 ---------------------------------------------------------------
-JDK 27 removed com.sun.tools.javac.tree.EndPosTable, and Lombok up to 1.18.46 needs it: its
-processor dies with an ExceptionInInitializerError (ClassNotFoundException: ...EndPosTable), and
-maddi records a parse error for every source set that uses Lombok (pulsar declares 1.18.42: 105
-source sets; timefold-solver and dolphinscheduler 1.18.46). 1.18.48 runs on JDK 24, 26 and 27.
+Each JDK needs a Lombok that knows its javac: per Lombok's changelog, JDK 25 support came in
+1.18.40, JDK 26 in 1.18.46, JDK 27 in 1.18.48. An older Lombok fails in its own way on each:
+on JDK 27, which removed com.sun.tools.javac.tree.EndPosTable, the processor dies with an
+ExceptionInInitializerError (ClassNotFoundException: ...EndPosTable); on JDK 26, pulsar's 1.18.42
+overflows the stack in JavacAST.buildTree (laser1, pulsar-broker-common/main). Either way maddi
+records a parse error for every source set that uses Lombok (pulsar declares 1.18.42: 105 source
+sets; timefold-solver and dolphinscheduler 1.18.46). 1.18.48 runs on JDK 24 to 27.
 
-So when -- and only when -- the TARGET JDK is 27 or later and a configuration names a Lombok of
-1.18.46 or earlier, that Lombok is vendored as lombok-1.18.48.jar instead: the copy, the `uri` and
-every reference to the jar's `name` (the source sets' dependencies) all say 1.18.48, also for a
-configuration vendored before, whose Lombok already sits in lib/. On an older JDK the declared
-Lombok runs, and is kept: 1.18.48 is not a drop-in -- it rejects
-`@Builder(builderClassName = "Builder")` ("builderClassName cannot be "Builder" when using
-@Builder; use @lombok.Builder or choose another builder class name"), which pulsar's
-PulsarTestContext uses (the pulsar catalogue entry carries the corpus patch that makes it parse).
+So when -- and only when -- a configuration names a Lombok older than the first one that supports
+the TARGET JDK (LOMBOK_FOR_JDK; a JDK newer than the table needs at least its newest entry), that
+Lombok is vendored as lombok-1.18.48.jar instead: the copy, the `uri` and every reference to the
+jar's `name` (the source sets' dependencies) all say 1.18.48, also for a configuration vendored
+before, whose Lombok already sits in lib/. On a JDK the declared Lombok supports, it runs, and is
+kept: 1.18.48 is not a drop-in -- it rejects `@Builder(builderClassName = "Builder")`
+("builderClassName cannot be "Builder" when using @Builder; use @lombok.Builder or choose another
+builder class name"), which pulsar's PulsarTestContext uses (the pulsar catalogue entry carries the
+corpus patch that makes it parse).
 
 The target JDK is the one that will parse the configuration: --jdk N, else $JAVA_HOME/bin/java,
 else `java` on PATH, asked for its version only when a configuration names a Lombok. The
 configurations are per machine already, so each machine decides for itself.
 
-These corpora are pinned upstream checkouts; their own builds cannot compile on JDK 27 with the
-Lombok they declare either. This changes test data, not maddi: maddi parses with the Lombok a
+These corpora are pinned upstream checkouts; their own builds cannot compile on a JDK their
+Lombok does not support either. This changes test data, not maddi: maddi parses with the Lombok a
 configuration names, and says so when that Lombok cannot run.
 
 The jar is taken from the Gradle cache or ~/.m2 when either holds it, else downloaded from Maven
@@ -108,8 +112,8 @@ LOMBOK_SHA1 = "6858f13541bab505384f07053c5a7b539bbfd3e3"  # repo1.maven.org's .s
 LOMBOK_RELATIVE = f"org/projectlombok/lombok/{LOMBOK_VERSION}/lombok-{LOMBOK_VERSION}.jar"
 # the processor jar, lombok-<version>.jar; not rewrite-java-lombok-*.jar, not lombok-<version>-sources.jar
 LOMBOK_JAR = re.compile(r"^lombok-\d+(\.\d+)*(-SNAPSHOT)?\.jar$")
-LOMBOK_LAST_BEFORE_JDK27 = (1, 18, 46)  # the newest Lombok that needs com.sun.tools.javac.tree.EndPosTable
-JDK_WITHOUT_ENDPOSTABLE = 27
+# the first Lombok that supports each JDK, from Lombok's changelog ("PLATFORM: JDKnn support added")
+LOMBOK_FOR_JDK = {25: (1, 18, 40), 26: (1, 18, 46), 27: (1, 18, 48)}
 
 
 def lombok_version(name):
@@ -144,7 +148,10 @@ def detect_jdk():
 def lombok_needs_replacing(name, jdk):
     """Can the Lombok `name` not run on JDK `jdk`? Then it is vendored as LOMBOK_VERSION instead."""
     version = lombok_version(name)
-    return version is not None and version <= LOMBOK_LAST_BEFORE_JDK27 and jdk >= JDK_WITHOUT_ENDPOSTABLE
+    if version is None:
+        return False
+    known = [j for j in LOMBOK_FOR_JDK if j <= jdk]
+    return bool(known) and version < LOMBOK_FOR_JDK[max(known)]
 
 
 def sha1(path):

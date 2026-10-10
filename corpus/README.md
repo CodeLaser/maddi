@@ -146,7 +146,7 @@ entry, its **owner**. One tree has one pin.
 ### Patches
 
 Occasionally upstream code at the pin cannot go through a tool we cannot avoid. Example: Lombok
-1.18.48, the only Lombok that runs on JDK 27, rejects pulsar's `@Builder(builderClassName = "Builder")`.
+1.18.48, the only Lombok that runs on JDK 27 (and the one vendored for JDK 26 too), rejects pulsar's `@Builder(builderClassName = "Builder")`.
 **`source.patches`** lists patch files that are part of the corpus:
 
 - they are applied by `obtain` and `clean`, after checking out the pin;
@@ -194,9 +194,11 @@ every such jar to **`$TEST_OSS_ROOT/lib/<project>/`** and rewrites the configura
 shared between projects, and it downloads a jar that is already gone from Maven Central, checked
 against its SHA-1.
 
-It also replaces a **Lombok that cannot run on the target JDK**: Lombok ≤ 1.18.46 dies on JDK 27
-(`EndPosTable` was removed), so on 27 the configuration is pointed at 1.18.48 instead. A Lombok that
-runs on the target JDK is left as the project declared it.
+It also replaces a **Lombok that cannot run on the target JDK**: each JDK needs the Lombok that
+added its support (25: 1.18.40, 26: 1.18.46, 27: 1.18.48). Lombok ≤ 1.18.46 dies on JDK 27
+(`EndPosTable` was removed), and pulsar's 1.18.42 overflows the stack on JDK 26, so there the
+configuration is pointed at 1.18.48 instead. A Lombok that runs on the target JDK is left as the
+project declared it.
 
 ### Registration
 
@@ -585,7 +587,7 @@ for an entry with `build.jdk`. Check with `./gradlew -Dorg.gradle.java.home=<hom
 can empty a project's classes directory on the way out.
 
 **A build dies in Lombok (`ExceptionInInitializerError`, `EndPosTable`).** That project's Lombok
-cannot run on this JDK, and JDK 27 broke every Lombok up to 1.18.46. Give the entry a `build.jdk`
+cannot run on this JDK: JDK 26 needs Lombok 1.18.46 or later, JDK 27 1.18.48. Give the entry a `build.jdk`
 the project's Lombok supports. maddi's own parse is covered separately, by vendoring.
 
 **`catalogue:build` "failed" but the composite went on.** Intended: the build's exit code is
