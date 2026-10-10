@@ -80,7 +80,7 @@ public final class CSharpStatementPrinter {
             case ReturnStatement rs -> rs.hasNoValue()
                     ? new OutputBuilderImpl().add(KeywordImpl.RETURN).add(SymbolEnum.SEMICOLON)
                     : new OutputBuilderImpl().add(KeywordImpl.RETURN).add(SpaceEnum.ONE)
-                            .add(CSharpExpressionPrinter.print(rs.expression(), q)).add(SymbolEnum.SEMICOLON);
+                            .add(CSharpExpressionPrinter.returned(rs.expression(), q)).add(SymbolEnum.SEMICOLON);
             // only in a switch expression's block arm, which is a lambda: its value is the lambda's
             case YieldStatement ys -> new OutputBuilderImpl().add(KeywordImpl.RETURN).add(SpaceEnum.ONE)
                     .add(CSharpExpressionPrinter.print(ys.expression(), q)).add(SymbolEnum.SEMICOLON);
@@ -244,7 +244,7 @@ public final class CSharpStatementPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.FOR).add(SpaceEnum.ONE)
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(init).add(SymbolEnum.SEMICOLON);
         if (fs.expression() != null && !fs.expression().isEmpty()) {
-            b.add(CSharpExpressionPrinter.print(fs.expression(), q));
+            b.add(CSharpExpressionPrinter.condition(fs.expression(), q));
         }
         return b.add(SymbolEnum.SEMICOLON).add(updates).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                 .add(loopBody(fs.block(), continueLabel, q));
@@ -582,7 +582,7 @@ public final class CSharpStatementPrinter {
     }
 
     private static OutputBuilder parenthesized(Expression e, Qualification q) {
-        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(CSharpExpressionPrinter.print(e, q))
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(CSharpExpressionPrinter.condition(e, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 

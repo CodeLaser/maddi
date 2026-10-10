@@ -86,7 +86,9 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Fields.** A static final primitive or String with a constant initializer becomes `const`. Any other final field
   becomes `readonly`.
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
-  class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`).
+  class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
+  `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
+  `ordinal()` a cast to `int`.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
@@ -167,10 +169,11 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
 ratchet's report (see below) lists what is left.
 
-- **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` and its hash maps become
-  `Dictionary<K, V>`. `Set` and its hash sets become `HashSet<T>`. Those are the concrete types C# code declares;
-  where the modification analysis proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the
-  analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
+- **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
+  `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
+  alike. `HashMap` becomes `Dictionary<K, V>`, `LinkedHashMap` the insertion-ordered `OrderedDictionary<K, V>`,
+  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
+  proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
@@ -178,7 +181,10 @@ ratchet's report (see below) lists what is left.
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
-  → `Exception`, and so on.
+  → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
+- **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected gets a cast, and
+  `(Boolean) o` used as a condition becomes `(bool) o`. Java's `null` where a type parameter is expected becomes
+  `default`. A constant of an interface, which C# does not bring into scope in an implementing class, is qualified.
 - **Members.** A member rule is a template keyed by the declaring type, the name and the arity, or by the parameter
   types where Java overloads on them: `List.get/1` → `$0[$1]`, `String.substring/2` → `$0[$1..$2]`,
   `List.remove(int)`.
@@ -197,7 +203,8 @@ ratchet's report (see below) lists what is left.
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
-- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, and the byte-array streams.
+- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
+  (Java's `Iterator`, with `remove`) and `JavaFile` (`java.io.File`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

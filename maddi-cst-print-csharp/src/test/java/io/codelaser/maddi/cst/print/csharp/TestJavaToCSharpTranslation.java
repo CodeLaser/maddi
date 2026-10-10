@@ -140,7 +140,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Palette", ENUMS);
         contains(cs, "internal enum Primary { Red, Green, Blue }");
         contains(cs, "internal sealed class Planet {");
-        contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23);");
+        contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23) { Name = \"MERCURY\", Ordinal = 0 };");
         contains(cs, "case Primary.Red:");
         contains(cs, "internal static Primary First() => Primary.Red;");
     }

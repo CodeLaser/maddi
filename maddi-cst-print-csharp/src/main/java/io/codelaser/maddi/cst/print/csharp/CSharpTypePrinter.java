@@ -199,6 +199,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** Only constants, without arguments or bodies, and nothing else: a C# enum. */
     private boolean simpleEnum() {
+        return simpleEnum(typeInfo);
+    }
+
+    static boolean simpleEnum(TypeInfo typeInfo) {
         if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
         if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
         if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c))) {
@@ -222,10 +226,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
     }
 
-    /** {@code public static readonly Color Red = new Color(255, 0, 0);} per constant. */
+    /**
+     * {@code public static readonly Color Red = new Color(255, 0, 0) { Name = "Red", Ordinal = 0 };} per constant,
+     * then Java's {@code name()}, {@code ordinal()}, {@code values()} and {@code valueOf(String)}.
+     */
     private List<OutputBuilder> enumInstances(Qualification q) {
         String self = CSharpNames.type(typeInfo);
-        return typeInfo.fields().stream().filter(CSharpNames::isEnumConstant).map(f -> {
+        List<FieldInfo> constants = typeInfo.fields().stream().filter(CSharpNames::isEnumConstant).toList();
+        List<OutputBuilder> out = new ArrayList<>(constants.stream().map(f -> {
             OutputBuilder b = new OutputBuilderImpl().add(new TextImpl("public static readonly " + self + " "
                                                                        + CSharpNames.field(f)))
                     .add(SymbolEnum.assignment("="));
@@ -238,8 +246,23 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else {
                 b.add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(new TextImpl(self)).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
             }
+            b.add(SymbolEnum.LEFT_BRACE).add(new TextImpl("Name")).add(SymbolEnum.assignment("="))
+                    .add(new TextImpl("\"" + f.name() + "\"")).add(SymbolEnum.COMMA).add(new TextImpl("Ordinal"))
+                    .add(SymbolEnum.assignment("=")).add(new TextImpl(Integer.toString(constants.indexOf(f))))
+                    .add(SymbolEnum.RIGHT_BRACE);
             return (OutputBuilder) b.add(SymbolEnum.SEMICOLON);
-        }).toList();
+        }).toList());
+        out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }")));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public int Ordinal { get; private init; }")));
+        if (typeInfo.methods().stream().noneMatch(m -> "toString".equals(m.name()) && m.parameters().isEmpty())) {
+            out.add(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => Name;")));
+        }
+        String all = constants.stream().map(CSharpNames::field).collect(Collectors.joining(", "));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + "[] Values() => new " + self
+                                                         + "[] { " + all + " };")));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
+        CSharpContext.using("System");
+        return out;
     }
 
     // ---------------------------------------------------------------- helpers

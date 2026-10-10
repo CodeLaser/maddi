@@ -11,9 +11,13 @@
 # interfaces as delegates, exceptions, String/StringBuilder/boxed members, and the compatibility library
 # Maddi.JavaCompat (JavaCompat.cs, compiled with the translation) where Java's behaviour differs: 105 files compile;
 # unmapped JDK uses 6,922 -> 232; errors 4,947 -> 807.
+# 2026-10-10, Java's Map and Set as IDictionary/ISet, LinkedHashMap as OrderedDictionary; unboxing casts and null as
+# default for a type parameter where C# needs them; Java's iterators and java.io.File in the compatibility library;
+# enums printed as classes get Name/Ordinal/Values/ValueOf; interface constants qualified; an exception's cause
+# constructor: 124 files compile; unmapped JDK uses 232 -> 120; errors 807 -> 476.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	105
-unmappedJdkUses	232
+compilingFiles	124
+unmappedJdkUses	120
