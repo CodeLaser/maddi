@@ -1710,7 +1710,9 @@ public class KotlinExpressionPrinter {
             }
             return receiver;
         }
-        // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
+        // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?; and (AiMessage) null,
+        // which picks an overload, is always null
+        if (unwrap(cast.expression()) instanceof NullConstant) nullable = true;
         ParameterizedType type = nullable
                 ? cast.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
                 : cast.parameterizedType();

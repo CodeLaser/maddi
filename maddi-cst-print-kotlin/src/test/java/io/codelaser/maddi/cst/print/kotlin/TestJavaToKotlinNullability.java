@@ -189,6 +189,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 String upper(String s) { return s.toUpperCase(); }
                 List<String> uppers(List<String> items) { return items.stream().map(this::upper).toList(); }
                 static String str(Object o) { return o.toString(); }
+                static int pick(String text) { return text == null ? 0 : 1; }
+                static int pick(Integer number) { return 2; }
+                static int none() { return pick((String) null); }
                 boolean empty(Collection<?> c) { return c.stream().map(S::str).anyMatch(String::isEmpty); }
             }
             """;
@@ -199,7 +202,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void streamsOfNullableElements() {
-        String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>", "text")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "mapToInt({ S.size(it!!) })");
         contains(kotlin, "findAny() as Optional<String>)");
         contains(kotlin, "as Optional<String>)");
@@ -210,6 +213,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // a bound reference; a Collection<?>'s elements are Any? in Kotlin
         contains(kotlin, "{ this.upper(it!!) }).toList()");
         contains(kotlin, "map({ S.str(it!!) })");
+        // a cast null picks the overload; `null as String` would throw
+        contains(kotlin, "pick(null as String?)");
     }
 
     @Language("java")
