@@ -45,9 +45,11 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     @Override
     public OutputBuilder print(Qualification q) {
         CSharpContext.pushMethod(methodInfo);
+        CSharpContext.enterScope(java.util.Set.of()); // the parameters'
         try {
             return printMethod(q);
         } finally {
+            CSharpContext.exitScope();
             CSharpContext.popMethod();
         }
     }
@@ -124,6 +126,6 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static OutputBuilder parameter(ParameterInfo p, Qualification q) {
         String type = CSharpTypeName.of(p.parameterizedType(), q);
         return new OutputBuilderImpl().add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
-                                                        + CSharpNames.name(p.name())));
+                                                        + CSharpContext.declare(p.name())));
     }
 }

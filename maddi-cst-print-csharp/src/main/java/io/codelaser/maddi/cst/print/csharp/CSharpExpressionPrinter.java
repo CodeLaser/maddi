@@ -91,7 +91,7 @@ public final class CSharpExpressionPrinter {
             case VariableExpression ve -> variable(ve.variable(), q);
             case ArrayLength al -> new OutputBuilderImpl().add(receiver(al.scope(), q)).add(SymbolEnum.DOT)
                     .add(text("Length"));
-            case ArrayInitializer ai -> arrayInitializer(ai, q);
+            case ArrayInitializer ai -> arrayInitializer(ai, ai.parameterizedType(), q);
             case ClassExpression ce -> text("typeof(" + typeOfArgument(ce.type(), q) + ")");
             case TypeExpression te -> text(CSharpTypeName.of(te.parameterizedType(), q));
             case StringConstant sc -> text(stringLiteral(sc.constant()));
@@ -121,7 +121,7 @@ public final class CSharpExpressionPrinter {
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
-            default -> text(CSharpNames.name(v.simpleName()));
+            default -> text(CSharpContext.local(v.simpleName()));
         };
     }
 
@@ -194,7 +194,7 @@ public final class CSharpExpressionPrinter {
         if (type.arrays() > 0) {
             if (cc.arrayInitializer() != null) {
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                        .add(text(CSharpTypeName.of(type, q))).add(SpaceEnum.ONE).add(arrayInitializer(cc.arrayInitializer(), q));
+                        .add(text(CSharpTypeName.of(type, q))).add(SpaceEnum.ONE).add(arrayInitializer(cc.arrayInitializer(), type, q));
             }
             List<Expression> dimensions = cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).toList();
             if (dimensions.size() > 1) {
@@ -219,11 +219,30 @@ public final class CSharpExpressionPrinter {
                 .add(arguments(cc.parameterExpressions(), q));
     }
 
-    private static OutputBuilder arrayInitializer(ArrayInitializer ai, Qualification q) {
+    /**
+     * The value of a declaration: an array initializer gets the declared type, which its nested initializers need
+     * (see {@link #arrayInitializer}).
+     */
+    static OutputBuilder initializer(Expression value, ParameterizedType declared, Qualification q) {
+        if (value instanceof ArrayInitializer ai && declared != null && declared.arrays() > 0) {
+            return arrayInitializer(ai, declared, q);
+        }
+        return print(value, q);
+    }
+
+    /**
+     * {@code { a, b }}. C# allows nested braces only in a rectangular array's initializer: an element of a jagged
+     * array that is itself an initializer is an array creation, {@code { new int[] { 1 }, null }}.
+     */
+    private static OutputBuilder arrayInitializer(ArrayInitializer ai, ParameterizedType arrayType, Qualification q) {
         if (ai.expressions().isEmpty()) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         }
-        return ai.expressions().stream().map(x -> print(x, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+        ParameterizedType element = arrayType.arrays() > 0 ? arrayType.copyWithOneFewerArrays() : arrayType;
+        return ai.expressions().stream().map(x -> x instanceof ArrayInitializer nested
+                ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
+                        .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
+                : print(x, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
 
@@ -252,17 +271,18 @@ public final class CSharpExpressionPrinter {
         boolean typed = !lambda.outputVariants().isEmpty()
                         && lambda.outputVariants().stream().allMatch(Lambda.OutputVariant::isTyped);
         OutputBuilder b = new OutputBuilderImpl();
-        if (params.size() == 1 && !typed) {
-            b.add(text(CSharpNames.name(params.getFirst().name())));
-        } else {
-            b.add(text(params.stream()
-                    .map(p -> (typed ? CSharpTypeName.of(p.parameterizedType(), q) + " " : "")
-                              + CSharpNames.name(p.name()))
-                    .collect(Collectors.joining(", ", "(", ")"))));
-        }
-        b.add(SymbolEnum.binaryOperator("=>"));
         CSharpContext.pushMethod(lambda.methodInfo());
+        CSharpContext.enterScope(java.util.Set.of()); // the parameters'
         try {
+            if (params.size() == 1 && !typed) {
+                b.add(text(CSharpContext.declare(params.getFirst().name())));
+            } else {
+                b.add(text(params.stream()
+                        .map(p -> (typed ? CSharpTypeName.of(p.parameterizedType(), q) + " " : "")
+                                  + CSharpContext.declare(p.name()))
+                        .collect(Collectors.joining(", ", "(", ")"))));
+            }
+            b.add(SymbolEnum.binaryOperator("=>"));
             List<Statement> statements = lambda.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
             if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
                 return b.add(print(rs.expression(), q));
@@ -272,6 +292,7 @@ public final class CSharpExpressionPrinter {
             }
             return b.add(CSharpStatementPrinter.block(lambda.methodBody(), q));
         } finally {
+            CSharpContext.exitScope();
             CSharpContext.popMethod();
         }
     }
@@ -363,7 +384,7 @@ public final class CSharpExpressionPrinter {
         RecordPattern pattern = io.patternVariable();
         if (pattern != null && pattern.localVariable() != null) {
             return b.add(text(CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
-                    .add(SpaceEnum.ONE).add(text(CSharpNames.name(pattern.localVariable().simpleName())));
+                    .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
         if (pattern != null) {
             CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, io, CSharpContext.describe(io));

@@ -395,4 +395,39 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal virtual Key<Number> Raw() => null;");
         contains(cs, "protected internal override void M() { }");
     }
+
+    @Language("java")
+    private static final String SCOPES = """
+            package org.example.scope;
+            class Scopes {
+                static final int[][] TABLE = { null, { 1, 2 }, {} };
+                static int later(int[] xs) {
+                    for (int k = 0; k < xs.length; k++) {
+                        int last = xs[k];
+                        if (last > 0) return last;
+                    }
+                    int last = -1;
+                    return last;
+                }
+                static String twice(Object o, Object p) {
+                    if (o instanceof String s) return s;
+                    if (p instanceof String s) return s + s;
+                    return "";
+                }
+            }
+            """;
+
+    /**
+     * C# scopes a local to its whole block, and a pattern variable of an if condition to the enclosing block: names
+     * Java can reuse clash in C#, and are renamed. A jagged array's nested initializers are array creations.
+     */
+    @Test
+    public void scopes() {
+        String cs = translate("Scopes", SCOPES);
+        contains(cs, "internal static readonly int[][] TABLE = { null, new int[] { 1, 2 }, new int[] { } };");
+        contains(cs, "int last2 = xs[k];\nif (last2 > 0) { return last2; }");
+        contains(cs, "int last = -1;\nreturn last;");
+        contains(cs, "if (o is string s) { return s; }");
+        contains(cs, "if (p is string s2) { return s2 + s2; }");
+    }
 }
