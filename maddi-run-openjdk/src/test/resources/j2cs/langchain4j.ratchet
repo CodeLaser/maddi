@@ -1,0 +1,13 @@
+# TestJavaToCSharpLangchain4j: langchain4j's core sources printed as C# by maddi-cst-print-csharp and judged by Roslyn
+# (tools/csharp-check, Microsoft.CodeAnalysis.CSharp 5.0.0 on .NET 10; see JavaToCSharpRatchet's javadoc), the second
+# corpus after fernflower. Lower is better for printerCrashes, syntaxErrors and unmappedJdkUses, higher for
+# syntaxCleanFiles and compilingFiles; `types` must not move. Write a better value here in the commit that earns it.
+#
+# 2026-10-10, first record, with the printer as fernflower left it: 11 printer crashes (StackOverflowError), 57
+# syntax errors in 11 files; 143 of 346 files compile; 1,249 errors (not ratcheted).
+types	346
+printerCrashes	11
+syntaxErrors	57
+syntaxCleanFiles	325
+compilingFiles	143
+unmappedJdkUses	465

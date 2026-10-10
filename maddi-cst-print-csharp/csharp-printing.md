@@ -267,10 +267,12 @@ The translation calls the library only where it needs that behaviour, so idiomat
 
 ## The ratchet
 
-`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources. It judges them
+`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources, and
+`TestJavaToCSharpLangchain4j` langchain4j's core (records, builders, default methods, annotations, `Optional`,
+streams), the Kotlin printer's second corpus too. Each judges its translation
 with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with `dotnet build`, so a
 .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors, then compiles the
-syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/fernflower.ratchet`:
+syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/<corpus>.ratchet`:
 printer crashes, syntax errors, syntax-clean files, compiling files (files without an error in that compilation),
 and `unmappedJdkUses`.
 
