@@ -1702,43 +1702,49 @@ public class JavaUtil {
         static int lastIndexOfSubList(/*@Independent[M]*/ List<?> source, /*@Independent[M]*/ List<?> target) { return 0; }
 
         //@Independent[O] @NotModified[T]
-        static <T> Collection<T> unmodifiableCollection(/*@Independent[M]*/ Collection<? extends T> c) { return null; }
+        static <T> Collection<T> unmodifiableCollection(
+            /*@Independent[M]*/ @NotModified Collection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <T> SequencedCollection<T> unmodifiableSequencedCollection(
-            /*@Independent[M]*/ SequencedCollection<? extends T> c) { return null; }
+            /*@Independent[M]*/ @NotModified SequencedCollection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ Set<? extends T> s) { return null; }
+        static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ @NotModified Set<? extends T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> SequencedSet<T> unmodifiableSequencedSet(/*@Independent[M]*/ SequencedSet<? extends T> s) {
+        static <T> SequencedSet<T> unmodifiableSequencedSet(
+            /*@Independent[M]*/ @NotModified SequencedSet<? extends T> s) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ SortedSet<T> s) { return null; }
+        static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ @NotModified SortedSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> NavigableSet<T> unmodifiableNavigableSet(/*@Independent[M]*/ NavigableSet<T> s) { return null; }
+        static <T> NavigableSet<T> unmodifiableNavigableSet(
+            /*@Independent[M]*/ @NotModified NavigableSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> List<T> unmodifiableList(/*@Independent[M]*/ List<? extends T> list) { return null; }
+        static <T> List<T> unmodifiableList(/*@Independent[M]*/ @NotModified List<? extends T> list) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> Map<K, V> unmodifiableMap(/*@Independent[M]*/ Map<? extends K, ? extends V> m) { return null; }
+        static <K, V> Map<K, V> unmodifiableMap(
+            /*@Independent[M]*/ @NotModified Map<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <K, V> SequencedMap<K, V> unmodifiableSequencedMap(
-            /*@Independent[M]*/ SequencedMap<? extends K, ? extends V> m) { return null; }
+            /*@Independent[M]*/ @NotModified SequencedMap<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> SortedMap<K, V> unmodifiableSortedMap(/*@Independent[M]*/ SortedMap<K, ? extends V> m) {
+        static <K, V> SortedMap<K, V> unmodifiableSortedMap(
+            /*@Independent[M]*/ @NotModified SortedMap<K, ? extends V> m) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(/*@Independent[M]*/ NavigableMap<K, ? extends V> m) {
+        static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(
+            /*@Independent[M]*/ @NotModified NavigableMap<K, ? extends V> m) {
             return null;
         }
 
