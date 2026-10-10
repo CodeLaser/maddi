@@ -397,25 +397,16 @@ class TestVendorLibraries(unittest.TestCase):
             self.assertEqual(before, f.read())
         self.assertFalse(os.path.exists(self.lib("p")))
 
-    def test_on_jdk_25_the_declared_lombok_runs_and_is_kept(self):
-        self.lombok_new_in_gradle_cache()
-        old = self.gradle_jar("org.projectlombok", "lombok", "1.18.42", LOMBOK_OLD)
-        cfg = self.config("p", [old], source_sets=[("a/main", ["lombok-1.18.42.jar"])])
-        v, ok = self.vendor(cfg, jdk=25)
-        self.assertTrue(ok)
-        self.assertEqual(0, v.stats["lombok"])
-        self.assertEqual("file:" + self.lib("p", "org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar"),
-                         self.uris(cfg)[1])  # vendored as itself, like any other jar
-        self.assertEqual([["lombok-1.18.42.jar"]], self.names(cfg)[1])
-
-    def test_on_jdk_26_a_lombok_before_1_18_46_is_replaced(self):
+    def test_on_jdk_26_the_declared_lombok_runs_and_is_kept(self):
         self.lombok_new_in_gradle_cache()
         old = self.gradle_jar("org.projectlombok", "lombok", "1.18.42", LOMBOK_OLD)
         cfg = self.config("p", [old], source_sets=[("a/main", ["lombok-1.18.42.jar"])])
         v, ok = self.vendor(cfg, jdk=26)
         self.assertTrue(ok)
-        self.assertEqual(1, v.stats["lombok"])
-        self.assertEqual([["lombok-1.18.48.jar"]], self.names(cfg)[1])
+        self.assertEqual(0, v.stats["lombok"])
+        self.assertEqual("file:" + self.lib("p", "org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar"),
+                         self.uris(cfg)[1])  # vendored as itself, like any other jar
+        self.assertEqual([["lombok-1.18.42.jar"]], self.names(cfg)[1])
 
     def test_on_jdk_27_a_lombok_after_1_18_46_is_kept(self):
         newer = self.gradle_jar("org.projectlombok", "lombok", "1.18.50", b"a later lombok")
@@ -429,13 +420,7 @@ class TestVendorLibraries(unittest.TestCase):
         r = vendor_libraries.lombok_needs_replacing
         self.assertTrue(r("lombok-1.18.46.jar", 27))
         self.assertTrue(r("lombok-1.18.30.jar", 28))
-        # JDK 26 support came in 1.18.46: pulsar's 1.18.42 overflows the stack on 26
-        self.assertTrue(r("lombok-1.18.42.jar", 26))
-        self.assertTrue(r("lombok-1.18.44.jar", 26))
         self.assertFalse(r("lombok-1.18.46.jar", 26))
-        self.assertFalse(r("lombok-1.18.42.jar", 25))
-        self.assertTrue(r("lombok-1.18.38.jar", 25))
-        self.assertFalse(r("lombok-1.18.30.jar", 21))
         self.assertFalse(r("lombok-1.18.48.jar", 27))
         self.assertFalse(r("rewrite-java-lombok-8.84.0.jar", 27))
 

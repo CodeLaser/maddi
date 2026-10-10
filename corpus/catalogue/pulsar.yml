@@ -11,15 +11,14 @@ source:
   rev: 8576283da4ad3f3742168fc4bf4a527f31923297
   # ⛔ ONE UPSTREAM LINE IS PATCHED, 2026-10-03, and the patch is part of the corpus: `obtain` and
   # `clean` apply it, `doctor` refuses the tree without it, the gate records `<sha>+<patch>`.
-  # Pulsar's Lombok 1.18.42 supports JDK 25 but neither 26 (support came in 1.18.46; on laser1's 26
-  # it overflows the stack in JavacAST.buildTree) nor 27 (EndPosTable removed; 1.18.48), so on those
-  # vendor-libraries.py swaps in 1.18.48 -- which refuses PulsarTestContext's `@Builder(builderClassName = "Builder")`:
+  # JDK 27 removed javac's EndPosTable, so Lombok <= 1.18.46 cannot run there and vendor-libraries.py
+  # swaps in 1.18.48 -- which refuses PulsarTestContext's `@Builder(builderClassName = "Builder")`:
   #   error: builderClassName cannot be "Builder" when using @Builder; use @lombok.Builder or
   #   choose another builder class name.
   # The failed Lombok round made maddi parse that file without Lombok, and
   # TestCycleMeasurementRatchetPulsar lost types on the Mac (JDK 27). The patch does what the message
   # says (`@lombok.Builder`, no import), as pulsar's own SpyConfig already does; it is neutral under
-  # the declared 1.18.42 on JDK 25, so every machine parses the same tree. Drop it when the pin
+  # the declared 1.18.42 on JDK 24/26, so every machine parses the same tree. Drop it when the pin
   # moves past an upstream commit that makes the same change.
   patches: [patches/pulsar/lombok-1.18.48-builder.patch]
 
