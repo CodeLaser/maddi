@@ -96,6 +96,23 @@ public final class CSharpNames {
         return name(simple);
     }
 
+    /**
+     * The name of a type parameter: its Java name, unless a member of its type has that name in C#, which C# does not
+     * allow; then the C# convention's {@code T} prefix: {@code EmbeddingMatch<TEmbedded>} with method {@code Embedded()}.
+     */
+    public static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        String simple = tp.simpleName();
+        if (tp.getOwner().isLeft()) {
+            TypeInfo owner = tp.getOwner().getLeft();
+            if (owner.methods().stream().anyMatch(m -> !m.isConstructor() && simple.equals(method(m)))
+                || owner.fields().stream().anyMatch(f -> simple.equals(field(f)))
+                || owner.subTypes().stream().anyMatch(st -> simple.equals(st.simpleName()))) {
+                return name("T" + simple);
+            }
+        }
+        return name(simple);
+    }
+
     /** The name of a method in a declaration and in its calls. */
     public static String method(MethodInfo methodInfo) {
         String javaName = methodInfo.name();
@@ -117,6 +134,11 @@ public final class CSharpNames {
         if (pascal.equals(type(owner)) && !pascal.equals(javaName)) {
             // C# has no member named as its type: Metadata.metadata(k, v) is Metadata.Of(k, v)
             return methodInfo.isStatic() ? "Of" : pascal + "Value";
+        }
+        if (owner.subTypes().stream().anyMatch(st -> !hoisted(st) && pascal.equals(type(st)))
+            && owner.fields().stream().anyMatch(f -> javaName.equals(field(f)))) {
+            // nested type Result, field result: Result result() is ResultValue()
+            return pascal + "Value";
         }
         if (pascal.equals(javaName) || pascal.equals(type(owner))
             || owner.fields().stream().anyMatch(f -> pascal.equals(field(f)))

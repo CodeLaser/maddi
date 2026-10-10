@@ -118,7 +118,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
             List<TypeParameter> declaredTypeParameters = self != null ? self.typeParameters() : typeInfo.typeParameters();
             String typeParameters = declaredTypeParameters.isEmpty() ? ""
-                    : declaredTypeParameters.stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                    : declaredTypeParameters.stream().map(CSharpNames::typeParameter)
                             .collect(Collectors.joining(", ", "<", ">"));
             out.add(new TextImpl(modifiers + keyword)).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
@@ -191,7 +191,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (h.outer()) {
             TypeInfo outer = enclosingType(typeInfo);
             String outerType = CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? ""
-                    : outer.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                    : outer.typeParameters().stream().map(CSharpNames::typeParameter)
                             .collect(Collectors.joining(", ", "<", ">")));
             members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + outerType + " outer;")));
             parameters.add(outerType + " outer");
@@ -389,7 +389,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         MethodInfo sam = CSharpProgram.invoked(typeInfo);
         String access = typeAccess();
         String typeParameters = typeInfo.typeParameters().isEmpty() ? ""
-                : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                : typeInfo.typeParameters().stream().map(CSharpNames::typeParameter)
                         .collect(Collectors.joining(", ", "<", ">"));
         String parameters = sam.parameters().stream()
                 .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
@@ -423,7 +423,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String delegate = (isVoid ? "Action" : "Func")
                           + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
         String self = CSharpNames.type(typeInfo) + (typeInfo.typeParameters().isEmpty() ? ""
-                : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                : typeInfo.typeParameters().stream().map(CSharpNames::typeParameter)
                         .collect(Collectors.joining(", ", "<", ">")));
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String f = names.contains("f") ? "function" : "f";

@@ -910,4 +910,29 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public abstract string Embed(string text);");
         contains(cs, "public override string Embed(string text) => text.ToUpperInvariant();");
     }
+
+    @Language("java")
+    private static final String MEMBER_NAMES = """
+            package org.example.members;
+            final class Match<Embedded> {
+                private final Embedded embedded;
+                Match(Embedded embedded) { this.embedded = embedded; }
+                Embedded embedded() { return embedded; }
+            }
+            final class Outcome {
+                enum Result { SUCCESS, FAILURE }
+                private final Result result;
+                Outcome(Result result) { this.result = result; }
+                Result result() { return result; }
+            }
+            """;
+
+    /** C# has no member named as a type parameter or a nested type of its type. */
+    @Test
+    public void memberNames() {
+        String cs = translate("Match", MEMBER_NAMES);
+        contains(cs, "internal sealed class Match<TEmbedded> {");
+        contains(cs, "internal TEmbedded Embedded() => embedded;");
+        contains(cs, "internal Result ResultValue() => result;");
+    }
 }

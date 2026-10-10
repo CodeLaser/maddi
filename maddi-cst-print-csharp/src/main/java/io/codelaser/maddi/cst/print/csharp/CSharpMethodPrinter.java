@@ -85,7 +85,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return b;
         }
         String typeParameters = methodInfo.typeParameters().isEmpty() ? ""
-                : methodInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                : methodInfo.typeParameters().stream().map(CSharpNames::typeParameter)
                         .collect(Collectors.joining(", ", "<", ">"));
         MethodInfo overridden = CSharpTypePrinter.interfaceMethodDefaulted(typeInfo, methodInfo);
         if (overridden != null) {

@@ -108,6 +108,10 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
   another type of the namespace has that name too, the name is prefixed with its enclosing types' names
   (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`.
+- **Member names.** C# has no member named as its type, a type parameter of its type, or a nested type of its
+  type. A method named as its class is `Of` (static) or `PascalValue`; a type parameter named as a member takes the
+  C# convention's `T` prefix (`EmbeddingMatch<TEmbedded>` with `Embedded()`); a method named as a nested type, with
+  a field of its Java name, is `PascalValue` (`ResultValue()` beside `enum Result` and field `result`).
 - **Interface implementations.** C# is stricter than Java in three places:
   - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
     method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;

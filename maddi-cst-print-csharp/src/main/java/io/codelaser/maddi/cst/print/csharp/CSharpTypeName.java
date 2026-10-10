@@ -98,7 +98,7 @@ public final class CSharpTypeName {
             }
             CSharpContext.message(CSharpPrintMessage.Code.WILDCARD_AS_BOUND, null, pt.toString());
         }
-        if (pt.isTypeParameter()) return CSharpNames.name(pt.typeParameter().simpleName());
+        if (pt.isTypeParameter()) return CSharpNames.typeParameter(pt.typeParameter());
         TypeInfo typeInfo = pt.typeInfo();
         if (typeInfo == null) return "object";
         String fqn = typeInfo.fullyQualifiedName();
@@ -284,7 +284,7 @@ public final class CSharpTypeName {
         for (TypeParameter tp : typeParameters) {
             List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
             if (bounds.isEmpty()) continue;
-            constraints.add("where " + CSharpNames.name(tp.simpleName()) + " : "
+            constraints.add("where " + CSharpNames.typeParameter(tp) + " : "
                             + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(", ")));
         }
         return constraints;

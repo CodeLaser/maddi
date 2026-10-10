@@ -379,7 +379,7 @@ public final class CSharpExpressionPrinter {
                 }
                 arguments.add(SymbolEnum.RIGHT_PARENTHESIS);
                 String typeArguments = hoisted.typeParameters().isEmpty() ? "" : hoisted.typeParameters().stream()
-                        .map(tp -> CSharpNames.name(tp.simpleName())).collect(Collectors.joining(", ", "<", ">"));
+                        .map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                         .add(text(hoisted.name() + typeArguments)).add(arguments);
             }

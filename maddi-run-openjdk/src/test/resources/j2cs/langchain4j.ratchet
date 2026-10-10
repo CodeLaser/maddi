@@ -25,9 +25,12 @@
 # default method implements an inherited interface's method explicitly, an abstract class redeclares the interface
 # methods it leaves (and its subclasses override them), clashing hoisted nested types are prefixed: 224 files
 # compile; errors 772 -> 721.
+# 2026-10-10, a type parameter named as a member of its type is T-prefixed (EmbeddingMatch<TEmbedded>), a method
+# named as a nested type of its type with a field of its Java name is PascalValue (ResultValue()): 226 files compile;
+# errors 721 -> 716.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	224
+compilingFiles	226
 unmappedJdkUses	670
