@@ -567,10 +567,12 @@ public class JavaIo {
         @AllowsInterrupt
         void println(String x) { }
         @AllowsInterrupt void println(@Independent Object x) { }
-        @AllowsInterrupt PrintStream printf(String format, @Independent Object ... args) { return null; }
-        @AllowsInterrupt PrintStream printf(Locale l, String format, @Independent Object ... args) { return null; }
-        @AllowsInterrupt PrintStream format(String format, @Independent Object ... args) { return null; }
-        @AllowsInterrupt PrintStream format(Locale l, String format, @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream printf(String format, @NotModified @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream printf(Locale l, String format,
+            @NotModified @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream format(String format, @NotModified @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream format(Locale l, String format,
+            @NotModified @Independent Object ... args) { return null; }
         //override from java.lang.Appendable
         //@Independent[H]
         @AllowsInterrupt

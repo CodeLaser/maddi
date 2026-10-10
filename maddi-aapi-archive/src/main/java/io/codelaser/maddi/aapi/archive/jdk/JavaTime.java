@@ -270,6 +270,35 @@ public class JavaTime {
         public String toString() { return null; }
     }
 
+    //public final class LocalTime implements Temporal, TemporalAdjuster, Comparable<LocalTime>, Serializable
+    // Not hinted before 2026-10-10: an unannotated library parameter reads as modified, so 'LocalTime.now(clock)'
+    // modified its Clock (langchain4j PromptTemplate.injectDateTimeVariables, CodeLaser/maddi-mod#24 R5).
+    @ImmutableContainer
+    class LocalTime$ {
+        static final LocalTime MIN = null;
+        static final LocalTime MAX = null;
+        static final LocalTime MIDNIGHT = null;
+        static final LocalTime NOON = null;
+        static LocalTime now() { return null; }
+        static LocalTime now(ZoneId zone) { return null; }
+        static LocalTime now(Clock clock) { return null; }
+        static LocalTime of(int hour, int minute) { return null; }
+        static LocalTime of(int hour, int minute, int second) { return null; }
+        static LocalTime of(int hour, int minute, int second, int nanoOfSecond) { return null; }
+        static LocalTime ofSecondOfDay(long secondOfDay) { return null; }
+        static LocalTime ofNanoOfDay(long nanoOfDay) { return null; }
+        static LocalTime parse(CharSequence text) { return null; }
+        int getHour() { return 0; }
+        int getMinute() { return 0; }
+        int getSecond() { return 0; }
+        int getNano() { return 0; }
+        int toSecondOfDay() { return 0; }
+        long toNanoOfDay() { return 0L; }
+        boolean isAfter(LocalTime other) { return false; }
+        boolean isBefore(LocalTime other) { return false; }
+        public String toString() { return null; }
+    }
+
     //public final class LocalDate implements Temporal, TemporalAdjuster, ChronoLocalDate, Serializable
     @ImmutableContainer
     class LocalDate$ {
