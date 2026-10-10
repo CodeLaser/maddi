@@ -131,6 +131,21 @@ final class CSharpBcl {
         type("java.util.stream.Stream", "IEnumerable", GENERIC);
         type("java.util.stream.IntStream", "IEnumerable<int>", GENERIC);
         type("java.util.Optional", "{0?}", null);
+        type("java.util.OptionalInt", "int?", null);
+        type("java.util.OptionalLong", "long?", null);
+        type("java.util.OptionalDouble", "double?", null);
+        type("java.time.Instant", "DateTimeOffset", SYSTEM);
+        type("java.lang.ThreadLocal", "ThreadLocal", THREADING);
+        type("java.util.regex.Pattern", "Regex", REGEX);
+        compatType("java.util.regex.Matcher", "JavaMatcher");
+        type("java.io.FileInputStream", "FileStream", IO);
+        type("java.io.FileOutputStream", "FileStream", IO);
+        type("java.io.BufferedInputStream", "BufferedStream", IO);
+        type("java.io.BufferedOutputStream", "BufferedStream", IO);
+        type("java.io.OutputStreamWriter", "StreamWriter", IO);
+        type("java.io.InputStreamReader", "StreamReader", IO);
+        type("java.io.BufferedReader", "TextReader", IO);
+        type("java.io.Reader", "TextReader", IO);
 
         type("java.util.function.Function", "Func", SYSTEM);
         type("java.util.function.BiFunction", "Func", SYSTEM);
@@ -169,6 +184,8 @@ final class CSharpBcl {
         type("java.lang.UnsupportedOperationException", "NotSupportedException", SYSTEM);
         type("java.lang.NullPointerException", "NullReferenceException", SYSTEM);
         type("java.lang.IndexOutOfBoundsException", "ArgumentOutOfRangeException", SYSTEM);
+        type("java.lang.StringIndexOutOfBoundsException", "ArgumentOutOfRangeException", SYSTEM);
+        type("java.lang.ArrayIndexOutOfBoundsException", "IndexOutOfRangeException", SYSTEM);
         type("java.lang.ArrayIndexOutOfBoundsException", "IndexOutOfRangeException", SYSTEM);
         type("java.lang.ClassCastException", "InvalidCastException", SYSTEM);
         type("java.lang.NumberFormatException", "FormatException", SYSTEM);
@@ -622,7 +639,57 @@ final class CSharpBcl {
         m("java.io.Closeable.close/0", "$0.Dispose()");
         m("java.io.InputStream.close/0", "$0.Dispose()");
         m("java.io.OutputStream.close/0", "$0.Dispose()");
-        m("java.io.OutputStream.write/1", "$0.WriteByte((byte) $1)");
+        m("java.io.OutputStream.write(int)", "$0.WriteByte((byte) $1)");
+        m("java.io.OutputStream.write(byte[])", "$0.Write((byte[]) (object) $1)");
+        m("java.io.OutputStream.write/3", "$0.Write((byte[]) (object) $1, $2, $3)");
+        m("java.io.InputStream.read/0", "$0.ReadByte()");
+        m("java.io.InputStream.read/1", "$0.Read((byte[]) (object) $1)");
+        m("java.io.InputStream.read/3", "$0.Read((byte[]) (object) $1, $2, $3)");
+        m("java.io.InputStream.readAllBytes/0", "JavaStreams.ReadAllBytes($0)", COMPAT);
+        m("java.io.InputStream.skip/1", "JavaStreams.Skip($0, $1)", COMPAT);
+        m("java.io.Writer.write/1", "$0.Write($1)");
+        m("java.io.Writer.flush/0", "$0.Flush()");
+        m("java.io.Writer.close/0", "$0.Dispose()");
+        m("java.io.Reader.close/0", "$0.Dispose()");
+        m("java.io.BufferedReader.readLine/0", "$0.ReadLine()");
+        // file streams: a java.io.File or a path
+        m("java.io.FileOutputStream.new/1", "new FileStream($1.ToString(), FileMode.Create)", IO);
+        m("java.io.FileOutputStream.new/2", "new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create)", IO);
+        m("java.io.FileInputStream.new/1", "File.OpenRead($1.ToString())", IO);
+        m("java.io.BufferedOutputStream.new/1", "new BufferedStream($1)", IO);
+        m("java.io.BufferedOutputStream.new/2", "new BufferedStream($1, $2)", IO);
+        m("java.io.BufferedInputStream.new/1", "new BufferedStream($1)", IO);
+        m("java.io.OutputStreamWriter.new/1", "new StreamWriter($1)", IO);
+        m("java.io.OutputStreamWriter.new/2", "new StreamWriter($1, $2)", IO);
+        m("java.io.InputStreamReader.new/1", "new StreamReader($1)", IO);
+        m("java.io.InputStreamReader.new/2", "new StreamReader($1, $2)", IO);
+        m("java.io.BufferedReader.new/1", "$1");
+        // java.time, threads, regular expressions
+        m("java.time.Instant.now/0", "DateTimeOffset.UtcNow", SYSTEM);
+        m("java.time.Instant.toEpochMilli/0", "$0.ToUnixTimeMilliseconds()");
+        m("java.lang.ThreadLocal.get/0", "$0.Value");
+        m("java.lang.ThreadLocal.set/1", "$0.Value = $1");
+        m("java.lang.ThreadLocal.remove/0", "$0.Value = default");
+        m("java.lang.ThreadLocal.withInitial/1", "new ThreadLocal<{R0}>($1)", THREADING);
+        m("java.util.regex.Pattern.compile/1", "new Regex($1)", REGEX);
+        m("java.util.regex.Pattern.matcher/1", "new JavaMatcher($0, $1)", COMPAT);
+        m("java.util.regex.Pattern.matches/2", "Regex.IsMatch($2, \"^(?:\" + $1 + \")$\")", REGEX);
+        m("java.util.regex.Pattern.quote/1", "Regex.Escape($1)", REGEX);
+        m("java.util.regex.Pattern.pattern/0", "$0.ToString()");
+        // OptionalInt and its kin: a nullable value
+        for (String optional : List.of("java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble")) {
+            m(optional + ".isPresent/0", "$0.HasValue");
+            m(optional + ".isEmpty/0", "!$0.HasValue");
+            m(optional + ".orElse/1", "$0 ?? $1");
+            m(optional + ".getAsInt/0", "$0.Value");
+            m(optional + ".getAsLong/0", "$0.Value");
+            m(optional + ".getAsDouble/0", "$0.Value");
+        }
+        m("java.lang.Boolean.toString/1", "JavaString.ValueOf($1)", COMPAT);
+        m("java.lang.Byte.toUnsignedInt/1", "(@1 & 0xFF)");
+        m("java.lang.Character.getType/1", "JavaCharacter.GetType($1)", COMPAT);
+        m("java.lang.AbstractStringBuilder.substring/1", "$0.ToString(@1, $0.Length - @1)");
+        m("java.lang.AbstractStringBuilder.substring/2", "$0.ToString(@1, @2 - @1)");
         m("java.io.OutputStream.flush/0", "$0.Flush()");
     }
 
@@ -650,6 +717,19 @@ final class CSharpBcl {
             }
             if ("java.lang.Math".equals(owner.fullyQualifiedName())) {
                 return rule("Math." + CSharpNames.pascal(candidate.name()) + "($*)", SYSTEM);
+            }
+        }
+        return null;
+    }
+
+    /** The rule of a JDK constructor, keyed {@code owner.new/arity} or {@code owner.new(signature)}; null without. */
+    static Rule constructor(MethodInfo constructor) {
+        String base = constructor.typeInfo().fullyQualifiedName() + ".new";
+        for (String key : List.of(base + "(" + signature(constructor) + ")", base + "/" + constructor.parameters().size())) {
+            Chooser chooser = MEMBERS.get(key);
+            if (chooser != null) {
+                Rule rule = chooser.choose(constructor, null);
+                if (rule != null) return rule;
             }
         }
         return null;
@@ -710,10 +790,20 @@ final class CSharpBcl {
             Map.entry("java.nio.charset.StandardCharsets.US_ASCII", "Encoding.ASCII"),
             Map.entry("java.nio.charset.StandardCharsets.ISO_8859_1", "Encoding.Latin1"),
             Map.entry("java.io.File.separator", "Path.DirectorySeparatorChar.ToString()"),
-            Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"));
+            Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"),
+            Map.entry("java.io.File.pathSeparator", "Path.PathSeparator.ToString()"),
+            Map.entry("java.io.File.pathSeparatorChar", "Path.PathSeparator"),
+            Map.entry("java.lang.Character.UNASSIGNED", "JavaCharacter.UNASSIGNED"),
+            Map.entry("java.lang.Character.CONTROL", "JavaCharacter.CONTROL"),
+            Map.entry("java.lang.Character.FORMAT", "JavaCharacter.FORMAT"),
+            Map.entry("java.lang.Character.PRIVATE_USE", "JavaCharacter.PRIVATE_USE"),
+            Map.entry("java.lang.Character.SURROGATE", "JavaCharacter.SURROGATE"),
+            Map.entry("java.lang.Character.LINE_SEPARATOR", "JavaCharacter.LINE_SEPARATOR"),
+            Map.entry("java.lang.Character.PARAGRAPH_SEPARATOR", "JavaCharacter.PARAGRAPH_SEPARATOR"),
+            Map.entry("java.lang.Character.SPACE_SEPARATOR", "JavaCharacter.SPACE_SEPARATOR"));
 
     private static final Map<String, String> FIELD_NAMESPACES = Map.of("Console", SYSTEM, "Math", SYSTEM,
-            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO);
+            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT);
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
     static String[] field(FieldInfo fieldInfo) {

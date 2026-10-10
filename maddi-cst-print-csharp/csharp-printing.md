@@ -204,6 +204,8 @@ ratchet's report (see below) lists what is left.
   - A call matches the rule of the method or of a method it overrides, the most specific type first.
   - Where Java's method returns a value C#'s does not, the rule has a second template for a call whose value is
     unused, which is the idiomatic one: `map.put(k, v);` becomes `map[k] = v;`.
+  - A constructor has a rule keyed `owner.new/arity`: `new FileOutputStream(f)` becomes
+    `new FileStream(f.ToString(), FileMode.Create)`.
   - A method reference to a mapped member becomes a lambda around its template.
   - A template whose result is not an atom (`list.Count == 0`) is parenthesised as an operand.
   - `String`'s `indexOf`, `startsWith` and `endsWith` compare ordinally, as Java's do. Case conversions are
@@ -217,7 +219,8 @@ ratchet's report (see below) lists what is left.
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
-  (Java's `Iterator`, with `remove`) and `JavaFile` (`java.io.File`).
+  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`) and `JavaMatcher` (a `Regex` applied step by
+  step, as `java.util.regex.Matcher`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

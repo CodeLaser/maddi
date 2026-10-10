@@ -309,6 +309,18 @@ public final class CSharpExpressionPrinter {
         if (cc.object() != null) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
+        CSharpBcl.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
+                : CSharpBcl.constructor(cc.constructor());
+        if (rule != null) {
+            rule.namespaces().forEach(CSharpContext::using);
+            List<Expression> parameterExpressions = cc.parameterExpressions();
+            List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
+                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> converted(parameterExpressions.get(i),
+                            parameterType(cc.constructor(), i), q)).toList();
+            List<java.util.function.Supplier<OutputBuilder>> operands = parameterExpressions.stream()
+                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
+            return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
+        }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(type, q)))
                 .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }

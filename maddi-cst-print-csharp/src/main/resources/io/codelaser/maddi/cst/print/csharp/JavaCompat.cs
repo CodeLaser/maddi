@@ -365,6 +365,32 @@ public static class JavaString
 /// <summary>Character's classification as Java has it.</summary>
 public static class JavaCharacter
 {
+    // Character.getType's categories, by Java's numbers
+    public const int UNASSIGNED = 0;
+    public const int SPACE_SEPARATOR = 12;
+    public const int LINE_SEPARATOR = 13;
+    public const int PARAGRAPH_SEPARATOR = 14;
+    public const int CONTROL = 15;
+    public const int FORMAT = 16;
+    public const int PRIVATE_USE = 18;
+    public const int SURROGATE = 19;
+
+    private static readonly int[] Types =
+    {
+        1, 2, 3, 4, 5, // letters: upper, lower, title, modifier, other
+        6, 8, 7, // marks: non-spacing, spacing combining, enclosing
+        9, 10, 11, // numbers: decimal digit, letter, other
+        12, 13, 14, // separators: space, line, paragraph
+        15, 16, 19, 18, // control, format, surrogate, private use
+        23, 20, 21, 22, 29, 30, 24, // punctuation: connector, dash, open, close, initial quote, final quote, other
+        25, 26, 27, 28, // symbols: math, currency, modifier, other
+        0, // other, not assigned
+    };
+
+    /// <summary>Character.getType: the UnicodeCategory, in Java's numbering.</summary>
+    public static int GetType(int c) =>
+        Types[(int)CharUnicodeInfo.GetUnicodeCategory(c)];
+
     public static bool IsJavaIdentifierStart(int c)
     {
         if (c == '$' || c == '_') return true;
@@ -854,4 +880,68 @@ public class JavaFile
     public override bool Equals(object o) => o is JavaFile f && f.path == path;
 
     public override int GetHashCode() => path.GetHashCode();
+}
+
+/// <summary>InputStream's methods the BCL's Stream does not have.</summary>
+public static class JavaStreams
+{
+    public static sbyte[] ReadAllBytes(Stream s)
+    {
+        using var memory = new MemoryStream();
+        s.CopyTo(memory);
+        return (sbyte[])(object)memory.ToArray();
+    }
+
+    public static long Skip(Stream s, long n)
+    {
+        long skipped = 0;
+        while (skipped < n && s.ReadByte() >= 0) skipped++;
+        return skipped;
+    }
+}
+
+/// <summary>java.util.regex.Matcher: a Regex applied to an input, step by step.</summary>
+public class JavaMatcher
+{
+    private readonly Regex regex;
+    private readonly string input;
+    private Match match;
+
+    public JavaMatcher(Regex regex, string input)
+    {
+        this.regex = regex;
+        this.input = input;
+    }
+
+    public bool Find()
+    {
+        match = match == null ? regex.Match(input) : match.NextMatch();
+        return match.Success;
+    }
+
+    public bool Matches()
+    {
+        match = Regex.Match(input, "^(?:" + regex + ")$", regex.Options);
+        return match.Success;
+    }
+
+    public bool LookingAt()
+    {
+        match = Regex.Match(input, "^(?:" + regex + ")", regex.Options);
+        return match.Success;
+    }
+
+    public string Group() => match.Value;
+
+    public string Group(int group) => match.Groups[group].Success ? match.Groups[group].Value : null;
+
+    public string Group(string name) => match.Groups[name].Success ? match.Groups[name].Value : null;
+
+    public int GroupCount() => regex.GetGroupNumbers().Length - 1;
+
+    public int Start() => match.Index;
+
+    public int End() => match.Index + match.Length;
+
+    public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
 }

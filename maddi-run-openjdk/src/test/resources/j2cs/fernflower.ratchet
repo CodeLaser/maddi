@@ -24,9 +24,12 @@
 # class (new IExprentIterator.Lambda(e => ...)): 137 files compile; errors 236 -> 218.
 # 2026-10-10, an anonymous class of a translated functional interface as a lambda in its adapter; an unbound method
 # reference's lambda typed; Comparator.comparing with its compared type: 139 files compile; errors 218 -> 204.
+# 2026-10-10, constructor rules (new FileOutputStream(f) -> new FileStream(..., FileMode.Create)); file and buffered
+# streams, readers and writers; Pattern as Regex with the compatibility library's JavaMatcher; Instant, ThreadLocal,
+# OptionalInt, Character.getType: 144 files compile; unmapped JDK uses 120 -> 74; errors 204 -> 156.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	139
-unmappedJdkUses	120
+compilingFiles	144
+unmappedJdkUses	74
