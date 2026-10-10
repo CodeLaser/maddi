@@ -882,6 +882,19 @@ public class JavaInspectorImpl implements JavaInspector {
         this.interleave = interleave;
     }
 
+    /**
+     * The stack javac and its annotation processors get for a source set. Both attribute recursively, a few frames
+     * per operand of a {@code a + b + c …} chain: pulsar-broker-common's overflowed the test worker's stack in
+     * Lombok's JavacAST.buildTree on laser1, and the source set was parsed without Lombok. Plain javac compiles it on
+     * a 1 MiB stack, and runs on its launcher's main thread; we run under whatever called us, with its frames already
+     * on the stack. Reserved, not committed: the memory is touched only as deep as the recursion goes.
+     */
+    static final long JAVAC_STACK_SIZE = 512L * 1024 * 1024;
+
+    /**
+     * One source set, on a thread of its own with {@link #JAVAC_STACK_SIZE}; the caller waits, so javac is still
+     * driven by one thread at a time (parsing-stability.md).
+     */
     private void singleSourceSet(Summary summary,
                                  Map<String, String> sourcesByFqn,
                                  InfoByFqn infoByFqn,
@@ -891,6 +904,48 @@ public class JavaInspectorImpl implements JavaInspector {
                                  boolean parameterNames,
                                  boolean syntheticListField,
                                  boolean lombok) throws IOException {
+        Throwable[] thrown = new Throwable[1];
+        Thread javac = Thread.ofPlatform().name("maddi-javac " + sourceSet.name()).stackSize(JAVAC_STACK_SIZE)
+                .unstarted(() -> {
+                    try {
+                        singleSourceSetOnThisThread(summary, sourcesByFqn, infoByFqn, sourceSet, ignoreErrors,
+                                ignoreModule, parameterNames, syntheticListField, lombok);
+                    } catch (Throwable t) {
+                        thrown[0] = t;
+                    }
+                });
+        javac.start();
+        boolean interrupted = false;
+        while (true) {
+            try {
+                javac.join();
+                break;
+            } catch (InterruptedException ie) {
+                // javac cannot be stopped halfway without leaving its context unusable: wait, and pass the
+                // interrupt on
+                interrupted = true;
+            }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+        switch (thrown[0]) {
+            case null -> {
+            }
+            case IOException ioe -> throw ioe;
+            case RuntimeException re -> throw re;
+            case Error e -> throw e;
+            default -> throw new IllegalStateException(thrown[0]);
+        }
+    }
+
+    private void singleSourceSetOnThisThread(Summary summary,
+                                             Map<String, String> sourcesByFqn,
+                                             InfoByFqn infoByFqn,
+                                             SourceSet sourceSet,
+                                             boolean ignoreErrors,
+                                             boolean ignoreModule,
+                                             boolean parameterNames,
+                                             boolean syntheticListField,
+                                             boolean lombok) throws IOException {
         // must precede createTask: it is what the task's CLASS_OUTPUT is pointed at. null = we generate nothing for
         // this scan, and then we never set CLASS_OUTPUT and never call generate(), so javac cannot write class files
         // next to the sources it is reading.
