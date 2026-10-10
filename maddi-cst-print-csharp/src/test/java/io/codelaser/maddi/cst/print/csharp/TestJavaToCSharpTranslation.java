@@ -986,7 +986,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Json", TYPE_TOKENS);
         contains(cs, "internal static T FromJson<T>(string json) {");
         contains(cs, "Console.Out.WriteLine(typeof(T)");
-        contains(cs, "internal static List<T> All<T>(string json) => new List<T> { FromJson<T>(json)");
+        contains(cs, "internal static List<T> All<T>(string json) => new List<T> { FromJson<T>(json) };");
         contains(cs, "FromJson<int>(json)");
         contains(cs, "internal static string Describe<T>(Type type)");
     }
