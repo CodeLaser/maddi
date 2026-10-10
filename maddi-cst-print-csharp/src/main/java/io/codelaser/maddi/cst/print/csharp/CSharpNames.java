@@ -107,6 +107,10 @@ public final class CSharpNames {
         }
         String pascal = pascal(javaName);
         TypeInfo owner = methodInfo.typeInfo();
+        if (pascal.equals(type(owner)) && !pascal.equals(javaName)) {
+            // C# has no member named as its type: Metadata.metadata(k, v) is Metadata.Of(k, v)
+            return methodInfo.isStatic() ? "Of" : pascal + "Value";
+        }
         if (pascal.equals(javaName) || pascal.equals(type(owner))
             || owner.fields().stream().anyMatch(f -> pascal.equals(field(f)))
             || owner.subTypes().stream().anyMatch(st -> pascal.equals(type(st)))) {

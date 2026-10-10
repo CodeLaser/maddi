@@ -737,4 +737,47 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Query", NAMESPACES);
         contains(cs, "namespace Org.Example.Exceptions.Queries;");
     }
+
+    @Language("java")
+    private static final String LANGUAGE = """
+            package org.example.lang;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Metadata {
+                interface Result {
+                    boolean success();
+                    default boolean failed() { return !success(); }
+                }
+                interface Listener<T> {
+                    void onEvent(T event);
+                }
+                interface StartListener extends Listener<String> {
+                }
+                static class Ok implements Result {
+                    public boolean success() { return true; }
+                    boolean check() { return failed(); }
+                }
+                abstract static class Builder<T extends Builder<T>> {
+                    String name;
+                    T name(String name) { this.name = name; return (T) this; }
+                }
+                private final Map<String, Object> metadata = new HashMap<>();
+                static Metadata metadata(String key, Object value) { return new Metadata(); }
+                Object get(String key) { return metadata.get(key); }
+            }
+            """;
+
+    /**
+     * A C# class does not inherit its interfaces' default methods: a call goes through the interface. A cast to a type
+     * parameter goes through object. A method named as its class is renamed. An adapter substitutes the arguments a
+     * functional interface gives its generic super-interface.
+     */
+    @Test
+    public void language() {
+        String cs = translate("Metadata", LANGUAGE);
+        contains(cs, "internal bool Check() => ((IResult) this).Failed();");
+        contains(cs, "return (T) (object) this;");
+        contains(cs, "internal static Metadata Of(string key, object value) => new Metadata();");
+        contains(cs, "public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
+    }
 }

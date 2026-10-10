@@ -70,9 +70,7 @@ public final class CSharpExpressionPrinter {
     public static OutputBuilder print(Expression e, Qualification q) {
         return switch (e) {
             case ConstructorCall cc -> constructorCall(cc, q);
-            case Cast cast -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(text(CSharpTypeName.of(cast.parameterizedType(), q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
-                    .add(operand(cast.precedence(), cast.expression(), q));
+            case Cast cast -> cast(cast, q);
             case InstanceOf io -> instanceOf(io, false, q);
             case InlineConditional ic -> new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
                     .add(SymbolEnum.QUESTION_MARK).add(operand(ic.precedence(), ic.ifTrue(), q))
@@ -122,6 +120,61 @@ public final class CSharpExpressionPrinter {
                 yield e.print(q);
             }
         };
+    }
+
+    /**
+     * {@code (T) x}. C# casts to a type parameter, or a type of one, only from object, an interface or a type of type
+     * parameters: {@code (T) this} in a self-typed builder is {@code (T) (object) this}.
+     */
+    private static OutputBuilder cast(Cast cast, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(text(CSharpTypeName.of(cast.parameterizedType(), q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+        ParameterizedType from = cast.expression().parameterizedType();
+        ParameterizedType to = cast.parameterizedType();
+        if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
+                             || mentionsTypeParameter(to) && !mentionsTypeParameter(from))
+            && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface())) {
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+        }
+        return b.add(operand(cast.precedence(), cast.expression(), q));
+    }
+
+    private static boolean mentionsTypeParameter(ParameterizedType t) {
+        return t.isTypeParameter() || t.parameters().stream().anyMatch(CSharpExpressionPrinter::mentionsTypeParameter);
+    }
+
+    /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */
+    private static boolean defaultThroughClass(MethodInfo method, Expression object, boolean implicit) {
+        if (method.isStatic() || !method.isDefault() || !method.typeInfo().isInterface()
+            || !CSharpNames.translated(method.typeInfo()) || CSharpContext.program().delegate(method.typeInfo())) {
+            return false;
+        }
+        TypeInfo receiverType;
+        if (object == null || implicit || object instanceof VariableExpression ve && ve.variable() instanceof This) {
+            receiverType = CSharpContext.currentType();
+        } else {
+            ParameterizedType t = object.parameterizedType();
+            receiverType = t == null ? null : t.typeInfo();
+        }
+        return receiverType != null && !receiverType.isInterface() && !receiverType.equals(method.typeInfo());
+    }
+
+    /** The interface as the receiver's type implements it, with its type arguments. */
+    private static String interfaceType(TypeInfo owner, Expression object, Qualification q) {
+        TypeInfo start = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This
+                ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
+        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>(List.of(start));
+        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.pop();
+            if (!seen.add(t)) continue;
+            for (ParameterizedType i : t.interfacesImplemented()) {
+                if (owner.equals(i.typeInfo())) return CSharpTypeName.of(i, q);
+                if (i.typeInfo() != null) todo.push(i.typeInfo());
+            }
+            if (t.parentClass() != null && t.parentClass().typeInfo() != null) todo.push(t.parentClass().typeInfo());
+        }
+        return CSharpTypeName.name(owner, q);
     }
 
     // ---------------------------------------------------------------- variables
@@ -246,6 +299,14 @@ public final class CSharpExpressionPrinter {
         if (CSharpContext.program().isInvoke(method) && object != null && !mc.objectIsImplicit()) {
             // a call of a delegate is an invocation: f(x)
             return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));
+        }
+        if (defaultThroughClass(method, object, mc.objectIsImplicit())) {
+            // a C# class does not inherit its interfaces' default methods: ((IResult) this).IsSuccess()
+            OutputBuilder self = object == null || mc.objectIsImplicit() ? text("this") : receiver(object, q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(text(interfaceType(method.typeInfo(), object, q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
+                    .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT).add(text(CSharpNames.method(method)))
+                    .add(arguments(mc.parameterExpressions(), method, q));
         }
         CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
         if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()

@@ -188,6 +188,12 @@ public final class CSharpTypeName {
         if (!CSharpNames.translated(typeInfo)) {
             CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
         }
+        if (shadowedByMember(typeInfo) || ambiguousHere(typeInfo)) {
+            // VideoContent.Video() hides the type Video in VideoContent's code
+            String namespace = CSharpNames.namespace(typeInfo);
+            String fromPrimary = fromPrimaryType(typeInfo);
+            return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
+        }
         if (q == null) {
             CSharpContext.referenced(typeInfo);
             return CSharpNames.type(typeInfo);
@@ -206,6 +212,34 @@ public final class CSharpTypeName {
         }
         String namespace = CSharpNames.namespace(typeInfo);
         return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
+    }
+
+    /** The type's top-level name is ambiguous (see {@link CSharpProgram}) and it is not of the printed namespace. */
+    private static boolean ambiguousHere(TypeInfo typeInfo) {
+        if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
+        TypeInfo top = CSharpNames.topLevel(typeInfo);
+        if (!CSharpContext.program().ambiguous(CSharpNames.type(top))) return false;
+        TypeInfo current = CSharpContext.currentType();
+        return current == null || !CSharpNames.namespace(current).equals(CSharpNames.namespace(typeInfo));
+    }
+
+    /**
+     * A member of the type being printed, of a type it is nested in, or of their superclasses, has the type's simple
+     * C# name: in C#, the member hides the type.
+     */
+    private static boolean shadowedByMember(TypeInfo typeInfo) {
+        if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
+        String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
+        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CSharpNames.enclosing(t)) {
+            for (TypeInfo c = t; c != null && CSharpNames.translated(c);
+                 c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
+                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
+                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** {@code Outer.Inner}, each segment by its C# name. */

@@ -11,9 +11,13 @@
 # unmapped JDK uses 465 -> 670, as the 11 files that crashed are printed now.
 # 2026-10-10, a namespace segment with a type's name is plural (Dev.Langchain4j.Exception hid System.Exception,
 # Embedding, Query, Image, Tool: their types): 205 files compile; errors 1,374 -> 938.
+# 2026-10-10, a default method called on a class goes through the interface; a cast to a type parameter through
+# object; a method named as its class is Of (static) or <Name>Value; a type hidden by a member, or whose name two
+# namespaces or the BCL declare, is qualified; an adapter substitutes a generic super-interface's arguments: 208 files
+# compile; errors 938 -> 801.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	205
+compilingFiles	208
 unmappedJdkUses	670

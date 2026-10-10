@@ -74,16 +74,19 @@ public final class CSharpProgram {
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
-    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of());
+    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
+            Set.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
+    private final Set<String> ambiguous;
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
-                          Inheritance inheritance, Map<String, String> namespaceSegments) {
+                          Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous) {
+        this.ambiguous = ambiguous;
         this.delegates = delegates;
         this.extended = extended;
         this.overridden = overridden;
@@ -118,7 +121,34 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all));
+                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes));
+    }
+
+    /**
+     * The simple names of the program's top-level types that two namespaces declare, or the BCL does: where usings
+     * bring both into scope, C# finds the name ambiguous.
+     */
+    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes) {
+        Map<String, Set<String>> namespaces = new java.util.HashMap<>();
+        for (TypeInfo t : primaryTypes) {
+            if (!CSharpNames.translated(t)) continue;
+            String simple = t.simpleName();
+            String name = t.isInterface() && !t.typeNature().isAnnotation()
+                          && !(simple.length() > 1 && simple.charAt(0) == 'I' && Character.isUpperCase(simple.charAt(1)))
+                    ? "I" + simple : simple;
+            namespaces.computeIfAbsent(name, n -> new HashSet<>()).add(t.packageName());
+        }
+        Set<String> bcl = CSharpBcl.typeNames();
+        Set<String> ambiguous = new HashSet<>();
+        namespaces.forEach((name, packages) -> {
+            if (packages.size() > 1 || bcl.contains(name)) ambiguous.add(name);
+        });
+        return Set.copyOf(ambiguous);
+    }
+
+    /** A type of this simple name is qualified outside its namespace. */
+    public boolean ambiguous(String simpleName) {
+        return ambiguous.contains(simpleName);
     }
 
     /** {@code Exception} → {@code Exceptions}: the segments of the program's namespaces that are a type's name too. */

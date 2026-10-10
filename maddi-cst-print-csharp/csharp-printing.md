@@ -31,6 +31,11 @@ the factory signatures carry no context.
 Every name is a function of its declaration and of the whole program's facts (`CSharpProgram`), so a declaration and
 all its uses agree without a renaming pass.
 
+- A method named as its class (C# allows no such member) is `Of` when static, `<Name>Value` otherwise:
+  `Metadata.metadata(k, v)` is `Metadata.Of(k, v)`.
+- A type is qualified with its namespace where a member of the printed class (or of a class it is nested in, or of
+  their superclasses) hides it (`VideoContent.Video()` hides `Video`), and outside its namespace where its simple
+  name is ambiguous: declared by two namespaces of the program, or by the BCL (`CSharpProgram`).
 - A namespace segment that is also the name of a type, of the program or of the BCL, is plural: the namespace
   `Dev.Langchain4j.Exception` would hide `System.Exception` from the code in `Dev.Langchain4j`, and
   `Dev.Langchain4j.Exceptions` is .NET's naming (`CSharpProgram`).
@@ -117,6 +122,10 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
+  the interface, `((IResult) this).Failed()`.
+- **Casts to type parameters.** C# casts to a type parameter only from `object`, an interface or another type
+  parameter: `(T) this` in a self-typed builder is `(T) (object) this`.
 - **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that walks
   its `Iterator()`, so that `foreach` and LINQ work on it.
 - **Exposed types.** Java's public method may name a less accessible type, C#'s may not: a nested type is as visible

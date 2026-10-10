@@ -394,11 +394,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
         MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
-        List<String> parameterTypes = sam.parameters().stream().map(p -> CSharpTypeName.argument(p.parameterizedType(), q))
+        // a method of a generic super-interface, Listener<T>.onEvent(T), is the interface's with its arguments
+        java.util.Map<TypeParameter, ParameterizedType> arguments = sam.typeInfo().equals(typeInfo) ? java.util.Map.of()
+                : superArguments(typeInfo, sam.typeInfo(), java.util.Map.of());
+        if (arguments == null) arguments = java.util.Map.of();
+        java.util.Map<TypeParameter, ParameterizedType> map = arguments;
+        List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> substitute(p.parameterizedType(), map))
                 .toList();
-        boolean isVoid = sam.returnType().isVoid();
+        ParameterizedType samReturn = substitute(sam.returnType(), map);
+        List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
+        boolean isVoid = samReturn.isVoid();
         List<String> delegateArguments = new ArrayList<>(parameterTypes);
-        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(sam.returnType(), q));
+        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(samReturn, q));
         String delegate = (isVoid ? "Action" : "Func")
                           + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
         String self = CSharpNames.type(typeInfo) + (typeInfo.typeParameters().isEmpty() ? ""
@@ -407,12 +414,39 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String f = names.contains("f") ? "function" : "f";
         String parameters = IntStream.range(0, names.size())
-                .mapToObj(i -> CSharpTypeName.of(sam.parameters().get(i).parameterizedType(), q) + " " + names.get(i))
+                .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
         CSharpContext.using("System");
         return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + CSharpTypeName.of(sam.returnType(), q) + " " + CSharpNames.method(sam) + "(" + parameters
+                + " { public " + CSharpTypeName.of(samReturn, q) + " " + CSharpNames.method(sam) + "(" + parameters
                 + ") => " + f + "(" + String.join(", ", names) + "); }"));
+    }
+
+    /** The type arguments {@code from} gives the type parameters of its super-interface {@code target}. */
+    private static java.util.Map<TypeParameter, ParameterizedType> superArguments(
+            TypeInfo from, TypeInfo target, java.util.Map<TypeParameter, ParameterizedType> map) {
+        for (ParameterizedType i : from.interfacesImplemented()) {
+            TypeInfo t = i.typeInfo();
+            if (t == null) continue;
+            java.util.Map<TypeParameter, ParameterizedType> next = new java.util.HashMap<>();
+            for (int k = 0; k < Math.min(t.typeParameters().size(), i.parameters().size()); k++) {
+                next.put(t.typeParameters().get(k), substitute(i.parameters().get(k), map));
+            }
+            if (t.equals(target)) return next;
+            java.util.Map<TypeParameter, ParameterizedType> found = superArguments(t, target, next);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    static ParameterizedType substitute(ParameterizedType pt, java.util.Map<TypeParameter, ParameterizedType> map) {
+        if (map.isEmpty()) return pt;
+        if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
+            ParameterizedType mapped = map.get(pt.typeParameter());
+            return pt.arrays() == 0 ? mapped : mapped.copyWithArrays(mapped.arrays() + pt.arrays());
+        }
+        if (pt.parameters().isEmpty()) return pt;
+        return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map)).toList());
     }
 
     // ---------------------------------------------------------------- helpers
