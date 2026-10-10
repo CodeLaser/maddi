@@ -86,7 +86,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (!methodInfo.typeParameters().isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(methodInfo.typeParameters().stream()
-                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification))))
+                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
+                                                                             + (nonNullBound(methodInfo, tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }
@@ -301,4 +302,24 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         });
         return reads.size() == uses[0];
     }
+    /**
+     * {@code <T> T ensureNotNull(T object, String name)}: the parameter is nullable, the result is not, and both are
+     * T. Kotlin's unbounded {@code <T>} is {@code T : Any?}, so a nullable argument makes T nullable and the "non-null"
+     * result with it: {@code this.metadata = ensureNotNull(metadata, "metadata")} did not type-check against a
+     * {@code Metadata}. Bounded {@code T : Any}, T is the argument's non-null type and {@code T?} the parameter's.
+     * Only for an unbounded type parameter of a method that overrides nothing (an override cannot change bounds).
+     */
+    static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        if (!methodInfo.overrides().isEmpty() || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
+            return false;
+        }
+        ParameterizedType rt = KotlinNullability.returnType(methodInfo);
+        if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;
+        return methodInfo.parameters().stream().anyMatch(p -> {
+            ParameterizedType pt = KotlinNullability.parameterType(p);
+            ParameterizedType element = p.isVarArgs() && pt.arrays() > 0 ? pt.componentType() : pt;
+            return element.typeParameter() == tp && element.arrays() == 0 && KotlinNullability.isNullable(element);
+        });
+    }
+
 }

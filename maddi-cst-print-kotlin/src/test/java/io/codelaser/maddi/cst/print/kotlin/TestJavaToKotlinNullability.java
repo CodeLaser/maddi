@@ -700,4 +700,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "M((\"hi\" as String?))");
         contains(kotlin, "M(\"n\", \"c\")");
     }
+
+    @Language("java")
+    private static final String NON_NULL_RESULT_OF_NULLABLE_T = """
+            package a;
+            class V {
+                static <T> T ensureNotNull(T object, String name) {
+                    if (object == null) throw new IllegalArgumentException(name);
+                    return object;
+                }
+                static <T> T firstNotNull(T... values) {
+                    for (T v : values) if (v != null) return v;
+                    throw new IllegalArgumentException();
+                }
+                static <T> T identity(T t) { return t; }
+            }
+            """;
+
+    /**
+     * A nullable {@code T?} parameter beside a non-null {@code T} result: Kotlin's unbounded T would take the nullable
+     * argument's type, and the result with it. {@code T : Any} keeps the result non-null at the call site.
+     */
+    @Test
+    public void nonNullResultOfNullableTypeParameter() {
+        String kotlin = kotlin(NON_NULL_RESULT_OF_NULLABLE_T, new KotlinPrintOptions(new ByName(Set.of("object", "values[]")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun <T : Any> ensureNotNull(`object`: T?, name: String): T");
+        contains(kotlin, "fun <T : Any> firstNotNull(vararg values: T?): T");
+        contains(kotlin, "fun <T> identity(t: T): T");
+    }
 }
