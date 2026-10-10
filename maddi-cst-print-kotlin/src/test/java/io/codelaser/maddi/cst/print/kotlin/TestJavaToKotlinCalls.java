@@ -208,6 +208,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 static <T> T getOrDefault(T value, T defaultValue) { return value != null ? value : defaultValue; }
                 static <T> T getOrDefault(T value, java.util.function.Supplier<T> s) { return value != null ? value : s.get(); }
                 static class D { }
+                static int pick(String text) { return 1; }
+                static int pick(Integer number) { return 2; }
+                static int none() { return pick((String) null); }
                 D orNew(D d) { return getOrDefault(d, D::new); }
                 List<String> listed(String... ss) { return Optional.ofNullable(ss).map(List::of).orElse(null); }
                 void byScore(List<String> fused, Map<String, Double> scores) {
@@ -257,6 +260,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "{ java.util.List.of() })");
         contains(kotlin, "{ java.util.List.of(*it) })");
         contains(kotlin, "getOrDefault(d, java.util.function.Supplier(::D))");
+        // into a non-null parameter the cast null stays as it was
+        contains(kotlin, "pick(null as String)");
         contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
         contains(kotlin, "anyMatch({ it.retry() })");
         contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");

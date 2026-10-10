@@ -538,9 +538,11 @@ public class KotlinExpressionPrinter {
                     printed.add(arrayInitializer(cc.arrayInitializer(), null, q));
                     continue;
                 }
-                // a constructor call takes the target's states (Kotlin's generics are invariant)
-                ParameterizedType widenTo = unwrap(args.get(i)) instanceof ConstructorCall && declared != null
-                        ? declared : target;
+                // a constructor call takes the target's states (Kotlin's generics are invariant); so does (AiMessage)
+                // null, which picks an overload: `null as AiMessage?` into a nullable parameter (`as AiMessage` throws)
+                ParameterizedType widenTo = (unwrap(args.get(i)) instanceof ConstructorCall
+                                             || unwrap(args.get(i)) instanceof Cast c && unwrap(c.expression()) instanceof NullConstant)
+                                            && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
                 if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
@@ -1710,10 +1712,7 @@ public class KotlinExpressionPrinter {
             }
             return receiver;
         }
-        // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?; and (AiMessage) null,
-        // which picks an overload, is always null; not an array, which is a varargs one's and spread, *(null as
-        // Array<X>), which Kotlin cannot take nullable
-        if (unwrap(cast.expression()) instanceof NullConstant && cast.parameterizedType().arrays() == 0) nullable = true;
+        // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
         ParameterizedType type = nullable
                 ? cast.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
                 : cast.parameterizedType();
