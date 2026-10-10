@@ -31,7 +31,9 @@ See <<input-configuration>> for what these build.
 `--analysis-steps <steps>`:: `none`, `prep`, `modification`, `rewire-tests` (comma-separated).
 `--analysis-results-dir <dir>`:: Where results are written.
 `--preload-analysis-results-dirs <dirs>`:: Load pre-computed analysis results for library types
-before modification analysis (see <<analysis-hints>>).
+before modification analysis (see <<analysis-hints>>). Without it, an analysis run loads the JDK and
+library results that ship with maddi; `default` names them in a list (`default,my/results`), `none`
+loads nothing.
 `-p`/`--parallel`, `--quiet`, `-d`/`--debug <targets>`, `--jre <dir>`, `--source-encoding <enc>`.
 
 == Two workflows
