@@ -271,7 +271,36 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
-        return closed && pi.isUnmodified() && onlyRead(pi, m.methodBody());
+        if (!closed || !pi.isUnmodified()) return false;
+        // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
+        // is unmodified, and each one's other uses are checked where the cycle is entered
+        java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();
+        if (!visiting.add(pi)) return true;
+        try {
+            return onlyRead(pi, m.methodBody());
+        } finally {
+            visiting.remove(pi);
+        }
+    }
+
+    private static final ThreadLocal<java.util.Set<ParameterInfo>> READ_ONLY_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /**
+     * Can the argument at {@code index} of a call to {@code callee} be a read-only collection? A parameter that is
+     * not a collection takes one ({@code Object}; the callee's own {@code T}: {@code ensureNotNull(map, "map")}), and
+     * so does a library method's collection parameter, a platform type {@code (Mutable)Map<K, V>!}; a translated
+     * method's collection parameter only when it is itself printed read-only. Not a type variable of the receiver's:
+     * {@code ThreadLocal<MutableMap<…>>.set(value: T)} takes the mutable type it was declared with.
+     */
+    private static boolean acceptsReadOnly(MethodInfo callee, int index) {
+        if (callee == null || callee.parameters().isEmpty()) return false;
+        ParameterInfo p = callee.parameters().get(Math.min(index, callee.parameters().size() - 1));
+        if (index >= callee.parameters().size() - 1 && p.isVarArgs()) return false;
+        ParameterizedType type = p.parameterizedType();
+        if (type.typeParameter() != null) return type.arrays() == 0 && type.typeParameter().isMethodTypeParameter();
+        if (KotlinTypeName.readOnly(type, null).equals(KotlinTypeName.of(type, null))) return true; // not a collection
+        return !KotlinNullability.translated(callee.typeInfo()) || readOnlyParameter(p);
     }
 
     /**
@@ -295,12 +324,29 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
+            // passed on to a parameter that takes a read-only collection: isRepresentable(map, KEYS), rawFallback(map)
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+                passedOn(pi, mc.parameterExpressions(), mc.methodInfo(), reads);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.constructor() != null) {
+                passedOn(pi, cc.parameterExpressions(), cc.constructor(), reads);
+            }
             if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable())) {
                 uses[0]++;
             }
             return true;
         });
         return reads.size() == uses[0];
+    }
+
+    private static void passedOn(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
+                                 MethodInfo callee, java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads) {
+        for (int i = 0; i < args.size(); i++) {
+            if (KotlinExpressionPrinter.unwrap(args.get(i)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable()) && acceptsReadOnly(callee, i)) {
+                reads.add(ve);
+            }
+        }
     }
     /**
      * {@code <T> T ensureNotNull(T object, String name)}: the parameter is nullable, the result is not, and both are

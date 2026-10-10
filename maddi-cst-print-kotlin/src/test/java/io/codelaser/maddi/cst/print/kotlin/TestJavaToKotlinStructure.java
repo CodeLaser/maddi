@@ -405,6 +405,11 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 private static void fill(List<String> items) { items.add("x"); }
                 private static List<String> same(List<String> items) { return items; }
                 int open(List<String> items) { return items.size(); }
+                private static int sizeOf(Map<String, Object> map) { check(map); return describe(map) + Objects.hashCode(map); }
+                private static void check(Object o) { }
+                private static int describe(Map<String, Object> m) { return m.size(); }
+                private static int stuffs(Map<String, Object> m) { fillMap(m); return 0; }
+                private static void fillMap(Map<String, Object> m) { m.put("a", 1); }
             }
             """;
 
@@ -415,7 +420,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     @Test
     public void readOnlyParameters() {
         String kotlin = kotlin(READ_ONLY, type -> type.methods().stream()
-                .filter(m -> !"fill".equals(m.name()))
+                .filter(m -> !m.name().startsWith("fill"))
                 .forEach(m -> m.parameters().forEach(p -> p.analysis().set(
                         io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
                         io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
@@ -425,6 +430,58 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun same(items: MutableList<String>): MutableList<String>");
         // open: overridable, so its parameter keeps Java's mutable type whatever the analysis says
         contains(kotlin, "fun open(items: MutableList<String>): Int");
+        // passed on: to a non-collection parameter, a library method, a read-only parameter -- read; to one that is not
+        contains(kotlin, "fun sizeOf(map: Map<String, Any>): Int");
+        contains(kotlin, "fun describe(m: Map<String, Any>): Int");
+        contains(kotlin, "fun stuffs(m: MutableMap<String, Any>): Int");
+    }
+
+    @Language("java")
+    private static final String READ_ONLY_PASSED_ON = """
+            package a;
+            import java.util.*;
+            class J {
+                private static final Set<String> KEYS = Set.of("type", "description");
+                static <T> T ensureNotNull(T object, String name) {
+                    if (object == null) throw new IllegalArgumentException(name);
+                    return object;
+                }
+                public static String fromMap(Map<String, Object> map) {
+                    ensureNotNull(map, "map");
+                    if (map.containsKey("$ref")) {
+                        Object ref = map.get("$ref");
+                        if (!isRepresentable(map, KEYS)) return rawFallback(map);
+                        return String.valueOf(ref);
+                    }
+                    return new StringBuilder().append(optionalString(map, "description")).toString();
+                }
+                private static boolean isRepresentable(Map<String, Object> map, Set<String> allowedKeys) {
+                    return allowedKeys.containsAll(map.keySet()) && !hasNullValue(map);
+                }
+                private static boolean hasNullValue(Map<String, Object> map) {
+                    for (Object value : map.values()) if (value == null) return true;
+                    return false;
+                }
+                private static String rawFallback(Map<String, Object> map) { return String.valueOf(map); }
+                private static final ThreadLocal<Map<String, Object>> CURRENT = new ThreadLocal<>();
+                private static void keep(Map<String, Object> map) { CURRENT.set(map); }
+                private static String optionalString(Map<String, Object> map, String field) {
+                    Object v = map.get(field);
+                    return v instanceof String s ? s : null;
+                }
+            }
+            """;
+
+    /** langchain4j's JsonSchemaElementJsonUtils.fromMap: an unmodified map passed on only to read-only parameters. */
+    @Test
+    public void readOnlyPassedOn() {
+        String kotlin = kotlin(READ_ONLY_PASSED_ON, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun fromMap(map: Map<String, Any>): String");
+        contains(kotlin, "fun isRepresentable(map: Map<String, Any>, allowedKeys: Set<String>): Boolean");
+        // ThreadLocal<MutableMap<String, Any>>.set(value: T): the receiver's T is the mutable type
+        contains(kotlin, "fun keep(map: MutableMap<String, Any>)");
     }
 
     @Test
