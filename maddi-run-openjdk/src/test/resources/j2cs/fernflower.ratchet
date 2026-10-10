@@ -33,9 +33,12 @@
 # (DirectGraph.ExprentIterator, FastExtendedPostdominanceHelper.IReachabilityAction); the numbers do not move.
 # 2026-10-10, closed world: a class nothing extends sealed, a method nothing overrides not virtual (237 of 267
 # classes sealed, 38 virtual methods left); the numbers do not move.
+# 2026-10-10, anonymous classes hoisted into private nested classes (captures as constructor arguments, the
+# enclosing instance as outer): 152 files compile; errors 135 -> 140, the hoisted bodies being printed now (wildcard
+# covariance, Map.Entry implementations, ClassLoader).
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	151
+compilingFiles	152
 unmappedJdkUses	74

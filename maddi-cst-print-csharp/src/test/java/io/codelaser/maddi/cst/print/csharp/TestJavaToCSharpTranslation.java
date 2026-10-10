@@ -574,4 +574,55 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static void Tell(IListener l) { l.Changed(\"b\"); }");
         contains(cs, "internal static void Quiet() { Tell(new IListener.Lambda(n => { })); }");
     }
+
+    @Language("java")
+    private static final String ANONYMOUS = """
+            package org.example.anon;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Engine {
+                interface Graph {
+                    List<String> nodes();
+                    String first();
+                }
+                abstract static class Counter {
+                    final int start;
+                    Counter(int start) { this.start = start; }
+                    abstract int next();
+                }
+                private final String prefix = "n";
+                int size(Graph g) { return g.nodes().size(); }
+                int run(int count) {
+                    List<String> all = new ArrayList<>();
+                    Graph g = new Graph() {
+                        @Override
+                        public List<String> nodes() { return all; }
+                        @Override
+                        public String first() { return prefix + count; }
+                    };
+                    Counter c = new Counter(count) {
+                        private int i = start;
+                        @Override
+                        int next() { return i++; }
+                    };
+                    return size(g) + c.next();
+                }
+            }
+            """;
+
+    /**
+     * An anonymous class that does not become a lambda is hoisted into a private nested class: what it captures is
+     * passed to its constructor, the enclosing instance as {@code outer}, and its fields are initialised there.
+     */
+    @Test
+    public void anonymousClasses() {
+        String cs = translate("Engine", ANONYMOUS);
+        contains(cs, "IGraph g = new GraphImpl(this, all, count);");
+        contains(cs, "Counter c = new CounterImpl(count);");
+        contains(cs, "private sealed class GraphImpl : IGraph {");
+        contains(cs, "internal GraphImpl(Engine outer, List<string> all, int count) {");
+        contains(cs, "public string First() => outer.prefix + count;");
+        contains(cs, "private sealed class CounterImpl : Counter {");
+        contains(cs, "internal CounterImpl(int p0) : base(p0) { this.i = start; }");
+    }
 }

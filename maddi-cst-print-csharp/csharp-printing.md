@@ -67,6 +67,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
     `CSharpAccess` finds the private members and nested types that code outside their owner reaches. Those, and only
     those, become `internal`.
   - An override keeps the access of the class method it overrides: Java may widen access, C# may not.
+- **Anonymous classes.** One that does not become a lambda is hoisted (`CSharpAnonymous`): a private sealed nested
+  class of the type whose code creates it, named after what it extends (`GraphImpl`). The local variables and
+  parameters it uses become its constructor's arguments and its fields, and so does the enclosing instance, `outer`,
+  when it uses one of its instance members; its fields' initializers move into that constructor, after the captures.
+  Its superclass's constructor arguments come first. A generic method's type parameters become the class's.
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
@@ -171,7 +176,6 @@ The file uses a file-scoped `namespace X;`.
 Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
 
 - **Not translated yet:**
-  - anonymous classes, other than those of a translated functional interface (to be hoisted into nested classes);
   - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;

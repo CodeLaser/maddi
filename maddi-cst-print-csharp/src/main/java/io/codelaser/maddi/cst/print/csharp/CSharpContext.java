@@ -42,6 +42,7 @@ final class CSharpContext {
         final Set<TypeInfo> referenced = new LinkedHashSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
+        final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
 
@@ -57,6 +58,22 @@ final class CSharpContext {
     /** A new file: no types, no messages, no usings. */
     static void reset() {
         STATE.set(new State());
+    }
+
+    static void hoisted(CSharpAnonymous.Hoisted hoisted) {
+        STATE.get().hoisted.put(hoisted.type(), hoisted);
+    }
+
+    /** The hoisted form of an anonymous class; null when it is not hoisted (yet). */
+    static CSharpAnonymous.Hoisted hoisted(TypeInfo anonymous) {
+        return STATE.get().hoisted.get(anonymous);
+    }
+
+    /** The type being printed is a hoisted anonymous class that uses its enclosing instance: its {@code outer}. */
+    static CSharpAnonymous.Hoisted hoistedWithOuter() {
+        TypeInfo current = currentType();
+        CSharpAnonymous.Hoisted h = current == null ? null : STATE.get().hoisted.get(current);
+        return h != null && h.outer() ? h : null;
     }
 
     static void program(CSharpProgram program) {

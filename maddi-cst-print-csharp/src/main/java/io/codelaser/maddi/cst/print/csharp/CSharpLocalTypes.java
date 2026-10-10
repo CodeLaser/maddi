@@ -95,7 +95,7 @@ final class CSharpLocalTypes {
 
     /** An instance member of {@code owner} is not one of the local type's own, or inherited by it. */
     private static boolean foreign(TypeInfo owner, TypeInfo local) {
-        return !within(owner, local) && local.recursiveSuperTypeStream().noneMatch(owner::equals);
+        return !within(owner, local) && !CSharpNames.inherits(local, owner);
     }
 
     /** The code of {@code type} and its nested types: bodies and initializers. */

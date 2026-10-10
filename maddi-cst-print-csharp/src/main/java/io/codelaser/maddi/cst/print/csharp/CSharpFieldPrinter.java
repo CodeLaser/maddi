@@ -50,7 +50,10 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         }
         OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(modifiers + type)).add(SpaceEnum.ONE)
                 .add(new TextImpl(name));
-        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
+        // a hoisted anonymous class initialises its instance fields in its constructor, after its captures
+        boolean inConstructor = !fieldInfo.isStatic() && fieldInfo.owner().isAnonymous()
+                                && CSharpContext.hoisted(fieldInfo.owner()) != null;
+        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty() && !inConstructor) {
             b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(fieldInfo.initializer(),
                     fieldInfo.type(), q));
         }

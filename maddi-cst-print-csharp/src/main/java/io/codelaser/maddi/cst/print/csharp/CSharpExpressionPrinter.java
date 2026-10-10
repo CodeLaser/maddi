@@ -138,6 +138,11 @@ public final class CSharpExpressionPrinter {
 
     private static String thisOrBase(This t) {
         if (t.writeSuper()) return "base";
+        // Outer.this in a hoisted anonymous class
+        if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()
+            && CSharpContext.hoistedWithOuter() != null) {
+            return "outer";
+        }
         if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
         }
@@ -156,6 +161,13 @@ public final class CSharpExpressionPrinter {
                     field.owner().fullyQualifiedName() + "." + field.name());
         }
         String name = CSharpNames.field(field);
+        CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
+        if (withOuter != null && !field.isStatic() && CSharpAnonymous.thisScope(fr)
+            && CSharpAnonymous.viaOuter(field.owner(), withOuter.type())
+            && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
+                 && t.explicitlyWriteType() != null)) {
+            return text("outer." + name);
+        }
         if (fr.isDefaultScope() || fr.scope() == null) {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
             // implementing the interface
@@ -235,7 +247,11 @@ public final class CSharpExpressionPrinter {
             // a call of a delegate is an invocation: f(x)
             return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));
         }
-        if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
+        CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
+        if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
+            && CSharpAnonymous.viaOuter(method.typeInfo(), withOuter.type())) {
+            b.add(text("outer")).add(SymbolEnum.DOT);
+        } else if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
             if (!mc.objectIsImplicit() || method.isStatic() && !inScope(method.typeInfo())) {
@@ -284,6 +300,24 @@ public final class CSharpExpressionPrinter {
         if (cc.anonymousClass() != null) {
             OutputBuilder adapted = anonymousAsLambda(cc, q);
             if (adapted != null) return adapted;
+            CSharpAnonymous.Hoisted hoisted = CSharpContext.hoisted(cc.anonymousClass());
+            if (hoisted != null) {
+                // new GraphImpl(superArguments…, this, captures…)
+                OutputBuilder arguments = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS);
+                List<OutputBuilder> all = new java.util.ArrayList<>();
+                if (!hoisted.superArguments().isEmpty()) cc.parameterExpressions().forEach(x -> all.add(print(x, q)));
+                if (hoisted.outer()) all.add(text(CSharpContext.hoistedWithOuter() != null ? "outer" : "this"));
+                hoisted.captures().forEach(c -> all.add(text(CSharpContext.local(c.name()))));
+                for (int i = 0; i < all.size(); i++) {
+                    if (i > 0) arguments.add(SymbolEnum.COMMA);
+                    arguments.add(all.get(i));
+                }
+                arguments.add(SymbolEnum.RIGHT_PARENTHESIS);
+                String typeArguments = hoisted.typeParameters().isEmpty() ? "" : hoisted.typeParameters().stream()
+                        .map(tp -> CSharpNames.name(tp.simpleName())).collect(Collectors.joining(", ", "<", ">"));
+                return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+                        .add(text(hoisted.name() + typeArguments)).add(arguments);
+            }
             CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
             ParameterizedType parent = cc.anonymousClass().parentClass();
             ParameterizedType named = parent != null && !parent.isJavaLangObject() ? parent
@@ -517,14 +551,19 @@ public final class CSharpExpressionPrinter {
      * without using itself: a lambda in the interface's adapter class, {@code new IVisitor.Lambda((string node) => {
      * … })}. Null for any other.
      */
+    /** The anonymous class of {@code cc} is printed as a lambda, see {@link #anonymousAsLambda}. */
+    static boolean asLambda(ConstructorCall cc) {
+        TypeInfo anonymous = cc.anonymousClass();
+        if (!CSharpProgram.lambdaLike(anonymous)) return false;
+        ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
+        return functionalType.typeInfo() != null && (CSharpNames.lambdaAdapter(functionalType.typeInfo())
+                                                     || CSharpContext.program().delegate(functionalType.typeInfo()));
+    }
+
     private static OutputBuilder anonymousAsLambda(ConstructorCall cc, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
-        if (!CSharpProgram.lambdaLike(anonymous)) return null;
+        if (!asLambda(cc)) return null;
         ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
-        if (functionalType.typeInfo() == null || !CSharpNames.lambdaAdapter(functionalType.typeInfo())
-                                                 && !CSharpContext.program().delegate(functionalType.typeInfo())) {
-            return null;
-        }
         MethodInfo method = anonymous.methods().stream().filter(m -> !m.isSynthetic()).findFirst().orElseThrow();
         OutputBuilder b = new OutputBuilderImpl();
         CSharpContext.pushMethod(method);
