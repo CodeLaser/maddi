@@ -33,6 +33,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -84,7 +85,7 @@ public final class CSharpStatementPrinter {
             case YieldStatement ys -> new OutputBuilderImpl().add(KeywordImpl.RETURN).add(SpaceEnum.ONE)
                     .add(CSharpExpressionPrinter.print(ys.expression(), q)).add(SymbolEnum.SEMICOLON);
             case ExpressionAsStatement es -> new OutputBuilderImpl()
-                    .add(CSharpExpressionPrinter.print(es.expression(), q)).add(SymbolEnum.SEMICOLON);
+                    .add(CSharpExpressionPrinter.printStatement(es.expression(), q)).add(SymbolEnum.SEMICOLON);
             case LocalVariableCreation lvc -> new OutputBuilderImpl().add(declaration(lvc, q)).add(SymbolEnum.SEMICOLON);
             case IfElseStatement ife -> ifElse(ife, q);
             case ThrowStatement ts -> new OutputBuilderImpl().add(KeywordImpl.THROW).add(SpaceEnum.ONE)
@@ -94,10 +95,7 @@ public final class CSharpStatementPrinter {
             case DoStatement ds -> new OutputBuilderImpl().add(KeywordImpl.DO).add(SpaceEnum.ONE)
                     .add(loopBody(ds.block(), continueLabel, q)).add(SpaceEnum.ONE).add(KeywordImpl.WHILE)
                     .add(SpaceEnum.ONE).add(parenthesized(ds.expression(), q)).add(SymbolEnum.SEMICOLON);
-            case ForEachStatement fe -> new OutputBuilderImpl().add(CSharpKeyword.FOREACH).add(SpaceEnum.ONE)
-                    .add(SymbolEnum.LEFT_PARENTHESIS).add(forEachVariable(fe, q)).add(SpaceEnum.ONE)
-                    .add(CSharpKeyword.IN).add(SpaceEnum.ONE).add(CSharpExpressionPrinter.print(fe.expression(), q))
-                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(loopBody(fe.block(), continueLabel, q));
+            case ForEachStatement fe -> forEach(fe, continueLabel, q);
             case ForStatement fs -> forStatement(fs, continueLabel, q);
             case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
@@ -130,7 +128,13 @@ public final class CSharpStatementPrinter {
     }
 
     static OutputBuilder block(List<Statement> statements, Qualification q) {
-        return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        CSharpContext.enterScope(CSharpLocals.declaredIn(own));
+        try {
+            return braces(own.stream().map(st -> print(st, q)).toList());
+        } finally {
+            CSharpContext.exitScope();
+        }
     }
 
     static OutputBuilder braces(List<OutputBuilder> printed) {
@@ -143,11 +147,16 @@ public final class CSharpStatementPrinter {
     /** A loop body; with the target of a labelled {@code continue} as its last statement. */
     private static OutputBuilder loopBody(Block body, String continueLabel, Qualification q) {
         if (continueLabel == null) return block(body, q);
-        List<OutputBuilder> printed = new ArrayList<>(body.statements().stream().filter(st -> !st.isSynthetic())
-                .map(st -> print(st, q)).toList());
-        printed.add(new OutputBuilderImpl().add(text(continueLabel(continueLabel) + ":")).add(SpaceEnum.ONE)
-                .add(SymbolEnum.SEMICOLON));
-        return braces(printed);
+        List<Statement> own = body.statements().stream().filter(st -> !st.isSynthetic()).toList();
+        CSharpContext.enterScope(CSharpLocals.declaredIn(own));
+        try {
+            List<OutputBuilder> printed = new ArrayList<>(own.stream().map(st -> print(st, q)).toList());
+            printed.add(new OutputBuilderImpl().add(text(continueLabel(continueLabel) + ":")).add(SpaceEnum.ONE)
+                    .add(SymbolEnum.SEMICOLON));
+            return braces(printed);
+        } finally {
+            CSharpContext.exitScope();
+        }
     }
 
     private static OutputBuilder ifElse(IfElseStatement ife, Qualification q) {
@@ -175,10 +184,10 @@ public final class CSharpStatementPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         b.add(text(implicitlyTyped(lvc) ? "var" : CSharpTypeName.of(lv.parameterizedType(), q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
-            OutputBuilder d = new OutputBuilderImpl().add(text(CSharpNames.name(v.simpleName())));
+            OutputBuilder d = new OutputBuilderImpl().add(text(CSharpContext.declare(v.simpleName())));
             Expression init = v.assignmentExpression();
             if (init != null && !init.isEmpty()) {
-                d.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.print(init, q));
+                d.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(init, v.parameterizedType(), q));
             }
             return d;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -195,19 +204,42 @@ public final class CSharpStatementPrinter {
                && Objects.equals(cc.parameterizedType(), lv.parameterizedType());
     }
 
+    private static OutputBuilder forEach(ForEachStatement fe, String continueLabel, Qualification q) {
+        // the collection is outside the loop variable's scope
+        OutputBuilder collection = CSharpExpressionPrinter.print(fe.expression(), q);
+        CSharpContext.enterScope(Set.of());
+        try {
+            return new OutputBuilderImpl().add(CSharpKeyword.FOREACH).add(SpaceEnum.ONE)
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(forEachVariable(fe, q)).add(SpaceEnum.ONE)
+                    .add(CSharpKeyword.IN).add(SpaceEnum.ONE).add(collection)
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(loopBody(fe.block(), continueLabel, q));
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
     private static OutputBuilder forEachVariable(ForEachStatement fe, Qualification q) {
         LocalVariable lv = fe.initializer().localVariable();
         String type = fe.initializer().isVar() ? "var" : CSharpTypeName.of(lv.parameterizedType(), q);
-        return text(type + " " + CSharpNames.name(lv.simpleName()));
+        return text(type + " " + CSharpContext.declare(lv.simpleName()));
     }
 
     private static OutputBuilder forStatement(ForStatement fs, String continueLabel, Qualification q) {
+        CSharpContext.enterScope(Set.of());
+        try {
+            return forStatementInScope(fs, continueLabel, q);
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
+    private static OutputBuilder forStatementInScope(ForStatement fs, String continueLabel, Qualification q) {
         OutputBuilder init = fs.initializers().stream().map(e -> switch (e) {
             case LocalVariableCreation lvc -> declaration(lvc, q);
             case Expression x -> CSharpExpressionPrinter.print(x, q);
             default -> text(e.toString());
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
-        OutputBuilder updates = fs.updaters().stream().map(e -> CSharpExpressionPrinter.print(e, q))
+        OutputBuilder updates = fs.updaters().stream().map(e -> CSharpExpressionPrinter.printStatement(e, q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
         OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.FOR).add(SpaceEnum.ONE)
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(init).add(SymbolEnum.SEMICOLON);
@@ -248,6 +280,16 @@ public final class CSharpStatementPrinter {
      * {@code goto case X;}, and the last one breaks.
      */
     private static OutputBuilder switchOldStyle(SwitchStatementOldStyle sw, Qualification q) {
+        // one C# scope, the switch block, as in Java
+        CSharpContext.enterScope(CSharpLocals.declaredIn(sw.block().statements()));
+        try {
+            return switchOldStyleInScope(sw, q);
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
+    private static OutputBuilder switchOldStyleInScope(SwitchStatementOldStyle sw, Qualification q) {
         List<Statement> statements = sw.block().statements();
         TreeMap<Integer, List<SwitchStatementOldStyle.SwitchLabel>> byStart = new TreeMap<>();
         for (SwitchStatementOldStyle.SwitchLabel l : sw.switchLabels()) {
@@ -281,7 +323,22 @@ public final class CSharpStatementPrinter {
         return switchStatement(sw.expression(), sections, q);
     }
 
+    /** Java's arms are scopes of their own; C#'s sections share the switch block's, where clashes are renamed. */
     private static OutputBuilder switchNewStyle(SwitchStatementNewStyle sw, Qualification q) {
+        List<Statement> all = new ArrayList<>();
+        for (SwitchEntry entry : sw.entries()) {
+            if (entry.statement() instanceof Block block) all.addAll(block.statements());
+            else all.add(entry.statement());
+        }
+        CSharpContext.enterScope(CSharpLocals.declaredIn(all));
+        try {
+            return switchNewStyleInScope(sw, q);
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
+    private static OutputBuilder switchNewStyleInScope(SwitchStatementNewStyle sw, Qualification q) {
         List<OutputBuilder> sections = new ArrayList<>();
         for (SwitchEntry entry : sw.entries()) {
             Statement body = entry.statement();
@@ -333,7 +390,7 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder pattern(RecordPattern pattern, Qualification q) {
         if (pattern.localVariable() != null) {
             return text(CSharpTypeName.of(pattern.localVariable().parameterizedType(), q) + " "
-                        + CSharpNames.name(pattern.localVariable().simpleName()));
+                        + CSharpContext.declare(pattern.localVariable().simpleName()));
         }
         CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, null, "record pattern");
         return text(CSharpTypeName.of(pattern.parameterizedType(), q));
@@ -371,25 +428,35 @@ public final class CSharpStatementPrinter {
     static OutputBuilder switchExpression(SwitchExpression se, Qualification q) {
         List<OutputBuilder> arms = new ArrayList<>();
         for (SwitchEntry entry : se.entries()) {
-            OutputBuilder head;
-            List<Expression> conditions = entry.conditions();
-            if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
-                head = text("_");
-            } else if (entry.patternVariable() != null) {
-                head = pattern(entry.patternVariable(), q);
-            } else {
-                head = joinOr(conditions, q);
+            CSharpContext.enterScope(Set.of()); // an arm's pattern variable is the arm's
+            try {
+                arms.add(switchArm(entry, se.parameterizedType(), q));
+            } finally {
+                CSharpContext.exitScope();
             }
-            if (entry.whenExpression() != null && !entry.whenExpression().isEmpty()) {
-                head.add(SpaceEnum.ONE).add(CSharpKeyword.WHEN).add(SpaceEnum.ONE)
-                        .add(CSharpExpressionPrinter.print(entry.whenExpression(), q));
-            }
-            arms.add(new OutputBuilderImpl().add(head).add(SymbolEnum.binaryOperator("=>"))
-                    .add(armValue(entry.statement(), se.parameterizedType(), q)));
         }
         return new OutputBuilderImpl().add(CSharpExpressionPrinter.receiver(se.selector(), q)).add(SpaceEnum.ONE)
                 .add(KeywordImpl.SWITCH).add(SpaceEnum.ONE).add(arms.stream().collect(OutputBuilderImpl.joining(
                         SymbolEnum.COMMA, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
+    }
+
+    /** {@code A or B when (c) => value}. */
+    private static OutputBuilder switchArm(SwitchEntry entry, ParameterizedType type, Qualification q) {
+        OutputBuilder head;
+        List<Expression> conditions = entry.conditions();
+        if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
+            head = text("_");
+        } else if (entry.patternVariable() != null) {
+            head = pattern(entry.patternVariable(), q);
+        } else {
+            head = joinOr(conditions, q);
+        }
+        if (entry.whenExpression() != null && !entry.whenExpression().isEmpty()) {
+            head.add(SpaceEnum.ONE).add(CSharpKeyword.WHEN).add(SpaceEnum.ONE)
+                    .add(CSharpExpressionPrinter.print(entry.whenExpression(), q));
+        }
+        return new OutputBuilderImpl().add(head).add(SymbolEnum.binaryOperator("=>"))
+                .add(armValue(entry.statement(), type, q));
     }
 
     private static OutputBuilder joinOr(List<Expression> conditions, Qualification q) {
@@ -436,21 +503,12 @@ public final class CSharpStatementPrinter {
 
         OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.TRY).add(SpaceEnum.ONE).add(body);
         for (TryStatement.CatchClause cc : ts.catchClauses()) {
-            String variable = CSharpNames.name(cc.catchVariable().simpleName());
-            List<ParameterizedType> types = cc.exceptionTypes();
-            b.add(SpaceEnum.ONE).add(KeywordImpl.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS);
-            if (types.size() == 1) {
-                b.add(text(CSharpTypeName.of(types.getFirst(), q) + " " + variable)).add(SymbolEnum.RIGHT_PARENTHESIS);
-            } else {
-                // catch (A | B e): one clause, filtered
-                CSharpContext.using("System");
-                b.add(text("Exception " + variable)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                        .add(CSharpKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                        .add(text(types.stream().map(t -> variable + " is " + CSharpTypeName.of(t, q))
-                                .reduce((x, y) -> x + " || " + y).orElse("true")))
-                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            CSharpContext.enterScope(Set.of());
+            try {
+                b.add(catchClause(cc, q));
+            } finally {
+                CSharpContext.exitScope();
             }
-            b.add(SpaceEnum.ONE).add(block(cc.block(), q));
         }
         if (ts.finallyBlock() != null && !ts.finallyBlock().isEmpty()) {
             b.add(SpaceEnum.ONE).add(KeywordImpl.FINALLY).add(SpaceEnum.ONE).add(block(ts.finallyBlock(), q));
@@ -458,8 +516,37 @@ public final class CSharpStatementPrinter {
         return b;
     }
 
+    /** {@code catch (T e) { … }}; {@code catch (Exception e) when (e is A || e is B) { … }} for a multi-catch. */
+    private static OutputBuilder catchClause(TryStatement.CatchClause cc, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl();
+        String variable = CSharpContext.declare(cc.catchVariable().simpleName());
+        List<ParameterizedType> types = cc.exceptionTypes();
+        b.add(SpaceEnum.ONE).add(KeywordImpl.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS);
+        if (types.size() == 1) {
+            b.add(text(CSharpTypeName.of(types.getFirst(), q) + " " + variable)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        } else {
+            // catch (A | B e): one clause, filtered
+            CSharpContext.using("System");
+            b.add(text("Exception " + variable)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                    .add(CSharpKeyword.WHEN).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(text(types.stream().map(t -> variable + " is " + CSharpTypeName.of(t, q))
+                            .reduce((x, y) -> x + " || " + y).orElse("true")))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return b.add(SpaceEnum.ONE).add(block(cc.block(), q));
+    }
+
     /** {@code using (T a = …) using (U b = …) { body }}: disposed in reverse order, as Java closes its resources. */
     private static OutputBuilder using(TryStatement ts, Qualification q) {
+        CSharpContext.enterScope(Set.of());
+        try {
+            return usingInScope(ts, q);
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
+    private static OutputBuilder usingInScope(TryStatement ts, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
         for (Statement resource : ts.resources()) {
             b.add(CSharpKeyword.USING).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS);

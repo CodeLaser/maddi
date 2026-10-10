@@ -40,7 +40,8 @@ Every name is a function of its declaration alone, so a declaration and all its 
 - A new name that would collide falls back to the Java name. It can collide with its enclosing type (C# forbids a
   member named after its type), with a field, or with a nested type.
 
-Library declarations keep their Java names. Translating the JDK's names is the job of the BCL mapping (next step).
+Library declarations keep their Java names, except where the BCL mapping (below) translates them. A translated
+`close()` of an `AutoCloseable` becomes `Dispose()`.
 
 ## Types (`CSharpTypeName`)
 
@@ -160,6 +161,61 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
     type, so they will have to move out of it.
 - **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
+
+## The JDK → BCL mapping (`CSharpBcl`)
+
+The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
+ratchet's report (see below) lists what is left.
+
+- **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` and its hash maps become
+  `Dictionary<K, V>`. `Set` and its hash sets become `HashSet<T>`. Those are the concrete types C# code declares;
+  where the modification analysis proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the
+  analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
+  becomes `KeyValuePair<K, V>`.
+- **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
+  `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
+- **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
+  `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
+  invocation: `f.apply(x)` becomes `f(x)`.
+- **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
+  → `Exception`, and so on.
+- **Members.** A member rule is a template keyed by the declaring type, the name and the arity, or by the parameter
+  types where Java overloads on them: `List.get/1` → `$0[$1]`, `String.substring/2` → `$0[$1..$2]`,
+  `List.remove(int)`.
+  - A call matches the rule of the method or of a method it overrides, the most specific type first.
+  - Where Java's method returns a value C#'s does not, the rule has a second template for a call whose value is
+    unused, which is the idiomatic one: `map.put(k, v);` becomes `map[k] = v;`.
+  - A method reference to a mapped member becomes a lambda around its template.
+  - A template whose result is not an atom (`list.Count == 0`) is parenthesised as an operand.
+  - `String`'s `indexOf`, `startsWith` and `endsWith` compare ordinally, as Java's do. Case conversions are
+    invariant.
+
+### The compatibility library (`Maddi.JavaCompat`)
+
+`JavaCompat.cs`, a resource of this module, is C# that goes with the translation. Its parts:
+
+- Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
+  previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
+  empty strings, and `String.format`'s conversions differ from .NET's.
+- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, and the byte-array streams.
+- Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
+  BCL.
+
+The translation calls the library only where it needs that behaviour, so idiomatic code does not depend on it.
+
+## The ratchet
+
+`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources. It judges them
+with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with `dotnet build`, so a
+.NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors, then compiles the
+syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/fernflower.ratchet`:
+printer crashes, syntax errors, syntax-clean files, compiling files (files without an error in that compilation),
+and `unmappedJdkUses`.
+
+The printer reports every JDK type or member it prints without a BCL counterpart as `UNMAPPED_JDK`. Their count is
+ratcheted, and `build/j2cs/fernflower/report.txt` lists them by frequency. That list, together with the names and
+members the compiler does not know, is the BCL mapping's work list. The error total is reported but not ratcheted:
+as the mapping lets the compiler bind more, it gets to report errors it could not see before.
 
 ## Status (first slice)
 

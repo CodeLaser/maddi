@@ -92,6 +92,8 @@ public final class CSharpNames {
             if (n == 1 && "equals".equals(javaName)) return "Equals";
         }
         if (!translated(methodInfo.typeInfo())) return name(javaName);
+        String bcl = CSharpBcl.overrideName(methodInfo);
+        if (bcl != null) return bcl;
         // an override is named as what it overrides, which may have kept its Java name
         for (MethodInfo overridden : methodInfo.overrides()) {
             if (overridden != methodInfo && translated(overridden.typeInfo())) return method(overridden);

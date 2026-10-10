@@ -41,6 +41,11 @@ final class CSharpContext {
         final Set<String> usings = new TreeSet<>();
         final Set<TypeInfo> referenced = new LinkedHashSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
+        final Deque<Scope> scopes = new ArrayDeque<>();
+    }
+
+    /** A block's locals: the Java name to the C# name, and the names it declares at its own level, later ones too. */
+    private record Scope(java.util.Map<String, String> names, Set<String> pending) {
     }
 
     private static final ThreadLocal<State> STATE = ThreadLocal.withInitial(State::new);
@@ -93,6 +98,47 @@ final class CSharpContext {
 
     static boolean reachedFromOutside(Object info) {
         return STATE.get().privateReachedFromOutside.contains(info);
+    }
+
+    /** A new scope, which declares {@code pending} at its own level (see {@link CSharpLocals}). */
+    static void enterScope(Set<String> pending) {
+        STATE.get().scopes.push(new Scope(new java.util.HashMap<>(), pending));
+    }
+
+    static void exitScope() {
+        STATE.get().scopes.pop();
+    }
+
+    /**
+     * Declares a local, a parameter or a pattern variable in the current scope: its C# name, escaped. The Java name,
+     * unless C# would see a clash: with a name of an enclosing scope (declared already, or later at that scope's own
+     * level), or with a name declared already in this scope. Then {@code name2}, {@code name3}, ….
+     */
+    static String declare(String javaName) {
+        Deque<Scope> scopes = STATE.get().scopes;
+        if (scopes.isEmpty()) enterScope(Set.of());
+        Scope current = scopes.peek();
+        String candidate = javaName;
+        for (int i = 2; taken(candidate, current, scopes); i++) candidate = javaName + i;
+        current.names.put(javaName, candidate);
+        return CSharpNames.name(candidate);
+    }
+
+    private static boolean taken(String candidate, Scope current, Deque<Scope> scopes) {
+        for (Scope scope : scopes) {
+            if (scope.names.containsValue(candidate)) return true;
+            if (scope != current && scope.pending.contains(candidate)) return true;
+        }
+        return false;
+    }
+
+    /** The C# name of a use of the local {@code javaName}: what its innermost declaration was called. */
+    static String local(String javaName) {
+        for (Scope scope : STATE.get().scopes) {
+            String name = scope.names.get(javaName);
+            if (name != null) return CSharpNames.name(name);
+        }
+        return CSharpNames.name(javaName);
     }
 
     /** A type the printed code names by its simple name: it must be in scope, through a {@code using}. */

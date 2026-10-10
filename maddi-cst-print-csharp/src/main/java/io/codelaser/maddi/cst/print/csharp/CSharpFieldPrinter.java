@@ -51,7 +51,8 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(modifiers + type)).add(SpaceEnum.ONE)
                 .add(new TextImpl(name));
         if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) {
-            b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.print(fieldInfo.initializer(), q));
+            b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(fieldInfo.initializer(),
+                    fieldInfo.type(), q));
         }
         return b.add(SymbolEnum.SEMICOLON);
     }

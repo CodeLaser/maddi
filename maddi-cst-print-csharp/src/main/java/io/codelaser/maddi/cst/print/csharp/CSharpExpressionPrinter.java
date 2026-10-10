@@ -58,6 +58,15 @@ public final class CSharpExpressionPrinter {
     private CSharpExpressionPrinter() {
     }
 
+    /**
+     * An expression whose value is not used: an expression statement, a for-loop update. A call of a JDK method may
+     * then have its idiomatic form ({@code map[k] = v} for {@code map.put(k, v)}, see {@link CSharpBcl}).
+     */
+    public static OutputBuilder printStatement(Expression e, Qualification q) {
+        if (e instanceof MethodCall mc) return methodCall(mc, q, true);
+        return print(e, q);
+    }
+
     public static OutputBuilder print(Expression e, Qualification q) {
         return switch (e) {
             case ConstructorCall cc -> constructorCall(cc, q);
@@ -68,7 +77,7 @@ public final class CSharpExpressionPrinter {
             case InlineConditional ic -> new OutputBuilderImpl().add(operand(ic.precedence(), ic.condition(), q))
                     .add(SymbolEnum.QUESTION_MARK).add(operand(ic.precedence(), ic.ifTrue(), q))
                     .add(SymbolEnum.COLON).add(operand(ic.precedence(), ic.ifFalse(), q));
-            case MethodCall mc -> methodCall(mc, q);
+            case MethodCall mc -> methodCall(mc, q, false);
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> CSharpStatementPrinter.switchExpression(se, q);
             case Lambda lambda -> lambda(lambda, q);
@@ -91,7 +100,7 @@ public final class CSharpExpressionPrinter {
             case VariableExpression ve -> variable(ve.variable(), q);
             case ArrayLength al -> new OutputBuilderImpl().add(receiver(al.scope(), q)).add(SymbolEnum.DOT)
                     .add(text("Length"));
-            case ArrayInitializer ai -> arrayInitializer(ai, q);
+            case ArrayInitializer ai -> arrayInitializer(ai, ai.parameterizedType(), q);
             case ClassExpression ce -> text("typeof(" + typeOfArgument(ce.type(), q) + ")");
             case TypeExpression te -> text(CSharpTypeName.of(te.parameterizedType(), q));
             case StringConstant sc -> text(stringLiteral(sc.constant()));
@@ -121,7 +130,7 @@ public final class CSharpExpressionPrinter {
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
-            default -> text(CSharpNames.name(v.simpleName()));
+            default -> text(CSharpContext.local(v.simpleName()));
         };
     }
 
@@ -135,6 +144,15 @@ public final class CSharpExpressionPrinter {
 
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
         FieldInfo field = fr.fieldInfo();
+        if (!CSharpNames.translated(field.owner())) {
+            String[] mapped = CSharpBcl.field(field);
+            if (mapped != null) {
+                if (mapped[1] != null) CSharpContext.using(mapped[1]);
+                return text(mapped[0]);
+            }
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, fr.scope() != null ? fr.scope() : null,
+                    field.owner().fullyQualifiedName() + "." + field.name());
+        }
         String name = CSharpNames.field(field);
         if (fr.isDefaultScope() || fr.scope() == null) return text(name);
         if (fr.isStatic() && fr.scope() instanceof TypeExpression) {
@@ -145,7 +163,32 @@ public final class CSharpExpressionPrinter {
 
     // ---------------------------------------------------------------- calls
 
-    private static OutputBuilder methodCall(MethodCall mc, Qualification q) {
+    /** The JDK → BCL rule of a call; null for a call of a translated method, or a JDK method without one. */
+    private static CSharpBcl.Rule rule(MethodCall mc) {
+        return CSharpNames.translated(mc.methodInfo().typeInfo()) ? null : CSharpBcl.call(mc.methodInfo(), mc);
+    }
+
+    /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
+    private static boolean nonAtomicCall(Expression e) {
+        return e instanceof MethodCall mc && rule(mc) instanceof CSharpBcl.Rule r && !CSharpTemplate.atomic(r.template(false));
+    }
+
+    private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
+        CSharpBcl.Rule rule = rule(mc);
+        if (rule != null) {
+            rule.namespaces().forEach(CSharpContext::using);
+            Expression object = mc.object();
+            java.util.function.Supplier<OutputBuilder> receiver = () -> object == null ? text("this")
+                    : object instanceof VariableExpression ve && ve.variable() instanceof This t ? text(thisOrBase(t))
+                    : object instanceof TypeExpression te ? text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
+                    : receiver(object, q);
+            List<java.util.function.Supplier<OutputBuilder>> args = mc.parameterExpressions().stream()
+                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> print(a, q)).toList();
+            List<java.util.function.Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
+                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
+            return new CSharpTemplate(receiver, args, operands, mc, mc.concreteReturnType(),
+                    object == null ? null : object.parameterizedType(), q).render(rule.template(statement));
+        }
         OutputBuilder b = new OutputBuilderImpl();
         Expression object = mc.object();
         MethodInfo method = mc.methodInfo();
@@ -166,6 +209,7 @@ public final class CSharpExpressionPrinter {
         }
         String typeArguments = mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
+        unmapped(method, mc);
         b.add(text(CSharpNames.method(method) + typeArguments));
         return b.add(arguments(mc.parameterExpressions(), q));
     }
@@ -189,7 +233,7 @@ public final class CSharpExpressionPrinter {
         if (type.arrays() > 0) {
             if (cc.arrayInitializer() != null) {
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                        .add(text(CSharpTypeName.of(type, q))).add(SpaceEnum.ONE).add(arrayInitializer(cc.arrayInitializer(), q));
+                        .add(text(CSharpTypeName.of(type, q))).add(SpaceEnum.ONE).add(arrayInitializer(cc.arrayInitializer(), type, q));
             }
             List<Expression> dimensions = cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).toList();
             if (dimensions.size() > 1) {
@@ -214,11 +258,30 @@ public final class CSharpExpressionPrinter {
                 .add(arguments(cc.parameterExpressions(), q));
     }
 
-    private static OutputBuilder arrayInitializer(ArrayInitializer ai, Qualification q) {
+    /**
+     * The value of a declaration: an array initializer gets the declared type, which its nested initializers need
+     * (see {@link #arrayInitializer}).
+     */
+    static OutputBuilder initializer(Expression value, ParameterizedType declared, Qualification q) {
+        if (value instanceof ArrayInitializer ai && declared != null && declared.arrays() > 0) {
+            return arrayInitializer(ai, declared, q);
+        }
+        return print(value, q);
+    }
+
+    /**
+     * {@code { a, b }}. C# allows nested braces only in a rectangular array's initializer: an element of a jagged
+     * array that is itself an initializer is an array creation, {@code { new int[] { 1 }, null }}.
+     */
+    private static OutputBuilder arrayInitializer(ArrayInitializer ai, ParameterizedType arrayType, Qualification q) {
         if (ai.expressions().isEmpty()) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         }
-        return ai.expressions().stream().map(x -> print(x, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+        ParameterizedType element = arrayType.arrays() > 0 ? arrayType.copyWithOneFewerArrays() : arrayType;
+        return ai.expressions().stream().map(x -> x instanceof ArrayInitializer nested
+                ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
+                        .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
+                : print(x, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
 
@@ -230,6 +293,15 @@ public final class CSharpExpressionPrinter {
         return CSharpTypeName.of(type, q);
     }
 
+    /** A JDK method the mapping does not translate: counted, printed with its Java name. */
+    private static void unmapped(MethodInfo method, Expression use) {
+        if (!CSharpNames.translated(method.typeInfo()) && !"ToString".equals(CSharpNames.method(method))
+            && !"Equals".equals(CSharpNames.method(method)) && !"GetHashCode".equals(CSharpNames.method(method))) {
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, use,
+                    method.typeInfo().fullyQualifiedName() + "." + method.name() + "/" + method.parameters().size());
+        }
+    }
+
     // ---------------------------------------------------------------- lambdas and method references
 
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
@@ -238,26 +310,29 @@ public final class CSharpExpressionPrinter {
         boolean typed = !lambda.outputVariants().isEmpty()
                         && lambda.outputVariants().stream().allMatch(Lambda.OutputVariant::isTyped);
         OutputBuilder b = new OutputBuilderImpl();
-        if (params.size() == 1 && !typed) {
-            b.add(text(CSharpNames.name(params.getFirst().name())));
-        } else {
-            b.add(text(params.stream()
-                    .map(p -> (typed ? CSharpTypeName.of(p.parameterizedType(), q) + " " : "")
-                              + CSharpNames.name(p.name()))
-                    .collect(Collectors.joining(", ", "(", ")"))));
-        }
-        b.add(SymbolEnum.binaryOperator("=>"));
         CSharpContext.pushMethod(lambda.methodInfo());
+        CSharpContext.enterScope(java.util.Set.of()); // the parameters'
         try {
+            if (params.size() == 1 && !typed) {
+                b.add(text(CSharpContext.declare(params.getFirst().name())));
+            } else {
+                b.add(text(params.stream()
+                        .map(p -> (typed ? CSharpTypeName.of(p.parameterizedType(), q) + " " : "")
+                                  + CSharpContext.declare(p.name()))
+                        .collect(Collectors.joining(", ", "(", ")"))));
+            }
+            b.add(SymbolEnum.binaryOperator("=>"));
             List<Statement> statements = lambda.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
             if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
                 return b.add(print(rs.expression(), q));
             }
             if (statements.size() == 1 && statements.getFirst() instanceof ExpressionAsStatement eas) {
-                return b.add(print(eas.expression(), q));
+                // a lambda of a void method: its expression's value is not used
+                return b.add(lambda.methodInfo().isVoid() ? printStatement(eas.expression(), q) : print(eas.expression(), q));
             }
             return b.add(CSharpStatementPrinter.block(lambda.methodBody(), q));
         } finally {
+            CSharpContext.exitScope();
             CSharpContext.popMethod();
         }
     }
@@ -282,6 +357,21 @@ public final class CSharpExpressionPrinter {
                     : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", parameters) + ")";
             return text(parameterList + " => " + created);
         }
+        CSharpBcl.Rule rule = CSharpNames.translated(method.typeInfo()) ? null : CSharpBcl.call(method, null);
+        if (rule != null) {
+            // a lambda around the member's translation: String::length is p0 => p0.Length
+            rule.namespaces().forEach(CSharpContext::using);
+            boolean unbound = scope instanceof TypeExpression && !method.isStatic();
+            java.util.function.Supplier<OutputBuilder> receiver = unbound ? () -> text(parameters.getFirst())
+                    : scope instanceof TypeExpression te ? () -> text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
+                    : () -> receiver(scope, q);
+            List<java.util.function.Supplier<OutputBuilder>> args = parameters.subList(unbound ? 1 : 0, parameters.size())
+                    .stream().map(p -> (java.util.function.Supplier<OutputBuilder>) () -> text(p)).toList();
+            return new OutputBuilderImpl().add(text(parameterList)).add(SymbolEnum.binaryOperator("=>"))
+                    .add(new CSharpTemplate(receiver, args, args, null, mr.concreteReturnType(),
+                            scope.parameterizedType(), q).render(rule.template(false)));
+        }
+        unmapped(method, mr);
         String name = CSharpNames.method(method);
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.name(te.parameterizedType().typeInfo(), q);
@@ -348,7 +438,7 @@ public final class CSharpExpressionPrinter {
         RecordPattern pattern = io.patternVariable();
         if (pattern != null && pattern.localVariable() != null) {
             return b.add(text(CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
-                    .add(SpaceEnum.ONE).add(text(CSharpNames.name(pattern.localVariable().simpleName())));
+                    .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
         if (pattern != null) {
             CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, io, CSharpContext.describe(io));
@@ -415,7 +505,7 @@ public final class CSharpExpressionPrinter {
     /** An operand, in parentheses when its precedence is lower than its operator's. */
     static OutputBuilder operand(Precedence precedence, Expression e, Qualification q) {
         OutputBuilder inner = print(e, q);
-        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda) {
+        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda || nonAtomicCall(e)) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         return inner;
@@ -426,7 +516,7 @@ public final class CSharpExpressionPrinter {
         OutputBuilder inner = print(e, q);
         return switch (e) {
             case VariableExpression ve -> inner;
-            case MethodCall mc -> inner;
+            case MethodCall mc when !nonAtomicCall(mc) -> inner;
             case EnclosedExpression ee -> inner;
             case ArrayLength al -> inner;
             case ClassExpression ce -> inner;

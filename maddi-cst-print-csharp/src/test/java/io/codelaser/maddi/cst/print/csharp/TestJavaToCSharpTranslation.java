@@ -193,7 +193,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "default:\nr--;\nbreak;");
         contains(cs, "case 1: case 2: return \"small\";");
         contains(cs, "\"a\" or \"b\" => 1,");
-        contains(cs, "_ => throw new IllegalArgumentException(s)");
+        contains(cs, "_ => throw new ArgumentException(s)");
     }
 
     @Language("java")
@@ -259,7 +259,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void expressions() {
         String cs = translate("Expressions", EXPRESSIONS);
         contains(cs, "internal static bool Same(string a, string b) => object.ReferenceEquals(a, b);");
-        contains(cs, "if (o is string s && !s.isEmpty()) { return s; }");
+        contains(cs, "if (o is string s && !(s.Length == 0)) { return s; }");
         contains(cs, "if (o is not int) { return \"other\"; }");
         contains(cs, "x >>> 3");
         contains(cs, "typeof(Expressions)");
@@ -297,7 +297,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Resources", TRY);
         contains(cs, "using (var a = new Res())");
         contains(cs, "using (var b = new Res())");
-        contains(cs, "catch (Exception e) when (e is IllegalStateException || e is UnsupportedOperationException) {");
+        contains(cs, "catch (Exception e) when (e is InvalidOperationException || e is NotSupportedException) {");
     }
 
     @Language("java")
@@ -314,7 +314,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void staticClass() {
         String cs = translate("Strings", UTIL);
         contains(cs, "public static class Strings {");
-        contains(cs, "public static T Max<T>(T a, T b) where T : Comparable<T> => a.compareTo(b) >= 0 ? a : b;");
+        contains(cs, "public static T Max<T>(T a, T b) where T : IComparable<T> => a.CompareTo(b) >= 0 ? a : b;");
     }
 
     @Language("java")
@@ -355,8 +355,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Test
     public void lambdas() {
         String cs = translate("Lambdas", LAMBDAS);
-        contains(cs, "internal static Function<string, int> Lengths() => Lambdas.Len;");
-        contains(cs, "internal static Function<int, int> Inc() => x => x + 1;");
+        contains(cs, "internal static Func<string, int> Lengths() => Lambdas.Len;");
+        contains(cs, "internal static Func<int, int> Inc() => x => x + 1;");
         contains(cs, "() => new StringBuilder()");
     }
 
@@ -394,5 +394,40 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private int Peek(Outer o) => o.secret + unused;");
         contains(cs, "internal virtual Key<Number> Raw() => null;");
         contains(cs, "protected internal override void M() { }");
+    }
+
+    @Language("java")
+    private static final String SCOPES = """
+            package org.example.scope;
+            class Scopes {
+                static final int[][] TABLE = { null, { 1, 2 }, {} };
+                static int later(int[] xs) {
+                    for (int k = 0; k < xs.length; k++) {
+                        int last = xs[k];
+                        if (last > 0) return last;
+                    }
+                    int last = -1;
+                    return last;
+                }
+                static String twice(Object o, Object p) {
+                    if (o instanceof String s) return s;
+                    if (p instanceof String s) return s + s;
+                    return "";
+                }
+            }
+            """;
+
+    /**
+     * C# scopes a local to its whole block, and a pattern variable of an if condition to the enclosing block: names
+     * Java can reuse clash in C#, and are renamed. A jagged array's nested initializers are array creations.
+     */
+    @Test
+    public void scopes() {
+        String cs = translate("Scopes", SCOPES);
+        contains(cs, "internal static readonly int[][] TABLE = { null, new int[] { 1, 2 }, new int[] { } };");
+        contains(cs, "int last2 = xs[k];\nif (last2 > 0) { return last2; }");
+        contains(cs, "int last = -1;\nreturn last;");
+        contains(cs, "if (o is string s) { return s; }");
+        contains(cs, "if (p is string s2) { return s2 + s2; }");
     }
 }

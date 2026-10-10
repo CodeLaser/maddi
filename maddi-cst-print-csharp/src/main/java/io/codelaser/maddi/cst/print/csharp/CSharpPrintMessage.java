@@ -68,6 +68,11 @@ public record CSharpPrintMessage(Code code, String type, int line, int position,
         MULTI_DIMENSIONAL_ARRAY(Severity.ERROR),
         /** A form of a switch C# cannot say (a pattern, a block arm of a switch expression). */
         SWITCH_FORM(Severity.ERROR),
+        /**
+         * A JDK type or member the BCL mapping does not translate (yet), printed with its Java name. One per use: the
+         * counts per type and member are the mapping's work list.
+         */
+        UNMAPPED_JDK(Severity.ERROR),
         /** A statement or expression form the printer does not know, printed as Java. */
         JAVA_FALLBACK(Severity.ERROR);
 
