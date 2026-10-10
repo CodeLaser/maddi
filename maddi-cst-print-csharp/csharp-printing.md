@@ -187,7 +187,10 @@ ratchet's report (see below) lists what is left.
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected gets a cast, and
   `(Boolean) o` used as a condition becomes `(bool) o`. Java's `null` where a type parameter is expected becomes
-  `default`. A constant of an interface, which C# does not bring into scope in an implementing class, is qualified.
+  `default`.
+- **Static members.** C# finds a static member by its simple name only in the type itself, the types it is nested
+  in, and their base classes. Any other, a static import or an interface's constant used in an implementing class,
+  is qualified with its type: `ExitExprent.EXIT_THROW`.
 - **Members.** A member rule is a template keyed by the declaring type, the name and the arity, or by the parameter
   types where Java overloads on them: `List.get/1` → `$0[$1]`, `String.substring/2` → `$0[$1..$2]`,
   `List.remove(int)`.

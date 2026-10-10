@@ -83,7 +83,8 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         Set<String> usingStatics = new TreeSet<>();
         for (TypeInfo referenced : CSharpContext.referenced()) {
             TypeInfo primary = referenced.primaryType();
-            if (primary == null || compilationUnit.types().contains(primary)) continue;
+            // an unmapped JDK type has no namespace in C#: its use is reported (UNMAPPED_JDK)
+            if (primary == null || compilationUnit.types().contains(primary) || !CSharpNames.translated(primary)) continue;
             if (referenced.isPrimaryType() || CSharpNames.hoisted(referenced)) {
                 usings.add(CSharpNames.namespace(referenced));
             } else {
@@ -94,7 +95,9 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             }
         }
         for (ImportComputer.ImportDetails i : importData.imports()) {
-            if (i.importString().startsWith("static ")) usingStatics.add(staticImportOwner(i.importString()));
+            if (i.importString().startsWith("static ") && !library(i.importString().substring(7).trim())) {
+                usingStatics.add(staticImportOwner(i.importString()));
+            }
         }
         usings.remove(namespace);
         usings.remove("");
@@ -110,6 +113,10 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                     .add(SpaceEnum.NEWLINE);
         }
         return out.add(types);
+    }
+
+    private static boolean library(String qualifiedName) {
+        return qualifiedName.startsWith("java.") || qualifiedName.startsWith("javax.");
     }
 
     /** The nested types of {@code typeInfo}, at any depth, that are printed in the namespace. */
@@ -131,7 +138,7 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         int firstType = 0;
         while (firstType < segments.length - 1 && !Character.isUpperCase(segments[firstType].charAt(0))) firstType++;
         String packageName = String.join(".", Arrays.copyOfRange(segments, 0, firstType));
-        boolean library = packageName.startsWith("java.") || packageName.startsWith("javax.");
+        boolean library = library(packageName);
         String namespace = CSharpNames.namespace(packageName, !library);
         String type = String.join(".", Arrays.copyOfRange(segments, firstType, segments.length - 1));
         return namespace.isEmpty() ? type : namespace + "." + type;

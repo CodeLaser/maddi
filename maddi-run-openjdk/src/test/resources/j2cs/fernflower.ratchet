@@ -17,9 +17,11 @@
 # constructor: 124 files compile; unmapped JDK uses 232 -> 120; errors 807 -> 476.
 # 2026-10-10, a static nested type of a generic type hoisted into the namespace; a boxed key or element passed to a
 # collection or a type parameter unboxed; a raw array creation typed as declared: 132 files compile; errors 476 -> 310.
+# 2026-10-10, a static member outside C#'s lookup scope (a static import, an interface's constant) qualified with its
+# type; no using directive for an unmapped JDK package: 133 files compile; errors 310 -> 259.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	132
+compilingFiles	133
 unmappedJdkUses	120
