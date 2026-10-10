@@ -54,6 +54,13 @@ public final class CSharpTypeName {
     private CSharpTypeName() {
     }
 
+    /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
+    private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
+            "java.util.List", "IReadOnlyList",
+            "java.util.Collection", "IReadOnlyCollection",
+            "java.util.Set", "IReadOnlyCollection",
+            "java.lang.Iterable", "IEnumerable");
+
     /** The C# type reference, no leading or trailing space. */
     public static String of(ParameterizedType pt, Qualification q) {
         return of(pt, q, false);
@@ -91,6 +98,16 @@ public final class CSharpTypeName {
         if (mapped != null) return mapped;
 
         List<ParameterizedType> arguments = pt.parameters();
+        String covariant = COVARIANT.get(fqn);
+        if (covariant != null && arguments.size() == 1 && arguments.getFirst().wildcard() != null
+            && arguments.getFirst().wildcard().isExtends() && arguments.getFirst().typeInfo() != null) {
+            // Java cannot add to a List<? extends Node>: C#'s covariant read-only interface, IReadOnlyList<Node>,
+            // which a List<Block> is
+            CSharpContext.using(CSharpBcl.GENERIC);
+            CSharpContext.using("System.Linq"); // Contains, on any IEnumerable
+            ParameterizedType bound = arguments.getFirst().withWildcard(null);
+            return covariant + "<" + of(bound, q, true) + ">";
+        }
         List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintMessage.Code.RAW_TYPE, null, fqn);

@@ -36,9 +36,11 @@
 # 2026-10-10, anonymous classes hoisted into private nested classes (captures as constructor arguments, the
 # enclosing instance as outer): 152 files compile; errors 135 -> 140, the hoisted bodies being printed now (wildcard
 # covariance, Map.Entry implementations, ClassLoader).
+# 2026-10-10, List/Collection/Set/Iterable of ? extends T as C#'s covariant IReadOnlyList/IReadOnlyCollection/
+# IEnumerable of T (wildcard losses 31 -> 16): 154 files compile; errors 140 -> 134.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	152
+compilingFiles	154
 unmappedJdkUses	74
