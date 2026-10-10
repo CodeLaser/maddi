@@ -83,9 +83,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(new TextImpl("val")).add(SpaceEnum.ONE).add(new TextImpl(property));
         } else {
             b.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
-            if (!methodInfo.typeParameters().isEmpty()) {
+            MethodInfo genericSuper = genericOverridden(methodInfo);
+            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = genericSuper != null
+                    ? genericSuper.typeParameters() : methodInfo.typeParameters();
+            if (!typeParameters.isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
-                b.add(methodInfo.typeParameters().stream()
+                b.add(typeParameters.stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
                                                                              + (nonNullBound(methodInfo, tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -100,7 +103,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (property == null) b.add(parameters(methodInfo, qualification));
 
         if (!methodInfo.isConstructor()) {
-            ParameterizedType rt = KotlinNullability.returnType(methodInfo);
+            MethodInfo genericSuper = genericOverridden(methodInfo);
+            ParameterizedType rt = KotlinNullability.returnType(genericSuper != null ? genericSuper : methodInfo);
             // the body throws instead of returning null: the override keeps Kotlin's non-null result
             if (rt != null && !methodInfo.isAbstract() && methodInfo.methodBody() != null
                 && nullOverride(expressionBody(methodInfo.methodBody())) != null) {
@@ -129,6 +133,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         typeInfo.simpleName() + "." + methodInfo.name() + "()");
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(new TextImpl("throw " + nullOverride(expressionBody) + "()"));
+            } else if (expressionBody != null && genericOverridden(methodInfo) != null) {
+                // Class<AiServiceCompletedEvent> overriding <T extends AiServiceEvent> Class<T>: Java's unchecked
+                // override, Kotlin's unchecked cast
+                MethodInfo genericSuper = genericOverridden(methodInfo);
+                b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl(KotlinTypeName.of(KotlinNullability.returnType(genericSuper), qualification)));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -348,6 +361,32 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
         }
     }
+    /**
+     * The generic member a method without type parameters overrides: Java lets {@code Class<AiServiceCompletedEvent>
+     * eventClass()} override {@code <T extends AiServiceEvent> Class<T> eventClass()} (unchecked); Kotlin does not, and
+     * the override is printed with the member's type parameters and result, its value cast. Only an abstract method
+     * or one whose body is a single expression, which takes the cast; null otherwise.
+     */
+    private MethodInfo genericOverridden(MethodInfo m) {
+        if (m.isConstructor() || !m.typeParameters().isEmpty() || m.overrides().isEmpty()) return null;
+        if (!m.isAbstract() && (m.methodBody() == null || expressionBody(m.methodBody()) == null)) return null;
+        return m.overrides().stream().filter(o -> !o.typeParameters().isEmpty() && mentionsOwnTypeParameter(o))
+                .findFirst().orElse(null);
+    }
+
+    private static boolean mentionsOwnTypeParameter(MethodInfo o) {
+        ParameterizedType rt = o.returnType();
+        if (rt == null) return false;
+        java.util.Set<io.codelaser.maddi.cst.api.info.TypeParameter> own = new java.util.HashSet<>(o.typeParameters());
+        java.util.ArrayDeque<ParameterizedType> todo = new java.util.ArrayDeque<>(List.of(rt));
+        while (!todo.isEmpty()) {
+            ParameterizedType t = todo.pop();
+            if (t.typeParameter() != null && own.contains(t.typeParameter())) return true;
+            todo.addAll(t.parameters());
+        }
+        return false;
+    }
+
     /**
      * {@code <T> T ensureNotNull(T object, String name)}: the parameter is nullable, the result is not, and both are
      * T. Kotlin's unbounded {@code <T>} is {@code T : Any?}, so a nullable argument makes T nullable and the "non-null"

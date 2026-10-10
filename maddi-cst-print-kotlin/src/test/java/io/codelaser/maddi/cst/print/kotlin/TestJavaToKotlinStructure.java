@@ -484,6 +484,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun keep(map: MutableMap<String, Any>)");
     }
 
+    @Language("java")
+    private static final String GENERIC_OVERRIDE = """
+            package a;
+            interface Event {
+                <T extends Event> Class<T> eventClass();
+                <T extends Event> Builder<T> toBuilder();
+                abstract class Builder<T extends Event> { }
+            }
+            interface Completed extends Event {
+                default Class<Completed> eventClass() { return Completed.class; }
+                default CompletedBuilder toBuilder() { return new CompletedBuilder(); }
+                class CompletedBuilder extends Event.Builder<Completed> { }
+            }
+            """;
+
+    /**
+     * Java's unchecked override of a generic member by a non-generic one ({@code langchain4j}'s
+     * {@code AiServiceEvent.eventClass()}): Kotlin needs the member's type parameters and result, and casts.
+     */
+    @Test
+    public void genericMemberOverridden() {
+        String kotlin = kotlin(GENERIC_OVERRIDE);
+        contains(kotlin, "override fun <T : Event> eventClass(): Class<T> = (Completed::class.java) as Class<T>");
+        contains(kotlin, "override fun <T : Event> toBuilder(): Builder<T> = (CompletedBuilder()) as Builder<T>");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);
