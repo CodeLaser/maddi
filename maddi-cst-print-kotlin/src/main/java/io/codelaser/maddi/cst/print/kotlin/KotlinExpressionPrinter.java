@@ -466,6 +466,14 @@ public class KotlinExpressionPrinter {
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && collectionBesideObject(method, i)) {
+                    // template.apply(Collections.singletonMap("name", "Klaus")) beside apply(Object): Java takes the
+                    // Map overload; Kotlin's MutableMap<String, Any?> is invariant and takes no Map<String, String>,
+                    // so Kotlin took apply(value: Any). The cast keeps Java's choice, unchecked, as Java's generics are
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
                 } else if (hasParameter && nullableBesideVarargs(method, i)) {
                     // UserMessage(text: String?) beside UserMessage(name: String, vararg contents: Content): Java
                     // takes the first for UserMessage("hi"), Kotlin the more specific second with no contents
@@ -473,6 +481,13 @@ public class KotlinExpressionPrinter {
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
+                }
+                if (KotlinContext.translatingJava() && mockitoMatcher(args.get(i))) {
+                    // verify(listener).onRequest(any()): the matcher returns null, and Kotlin checks a platform value
+                    // passed as a non-null parameter -- "any(...) must not be null". The helper's unchecked cast does not
+                    argument = new OutputBuilderImpl().add(new TextImpl(MOCKITO_MATCHED)).add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(argument).add(SymbolEnum.RIGHT_PARENTHESIS);
+                    KotlinContext.fileHelper(MOCKITO_MATCHED_DECLARATION);
                 }
                 printed.add(argument);
             }
@@ -709,6 +724,47 @@ public class KotlinExpressionPrinter {
         if (sub == sup) return true;
         if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
         return sub.interfacesImplemented().stream().anyMatch(i -> isSubtype(i.typeInfo(), sup, visited));
+    }
+
+    /**
+     * A collection parameter of a translated method where an overload of the same arity takes {@code Object}: the
+     * argument may not be exactly Kotlin's invariant {@code MutableMap<K, V>}, and Kotlin then picks the other.
+     */
+    private static boolean collectionBesideObject(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (method == null || i >= method.parameters().size() || !KotlinNullability.translated(method.typeInfo())) {
+            return false;
+        }
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        if (p.arrays() > 0 || p.typeParameter() != null || method.parameters().get(i).isVarArgs()
+            || KotlinTypeName.readOnly(p, null).equals(KotlinTypeName.of(p, null))) {
+            return false;
+        }
+        List<io.codelaser.maddi.cst.api.info.MethodInfo> candidates = method.isConstructor()
+                ? method.typeInfo().constructors() : method.typeInfo().methods();
+        return candidates.stream().anyMatch(m -> m != method && m.name().equals(method.name())
+                && m.parameters().size() == method.parameters().size()
+                && m.parameters().get(i).parameterizedType().isJavaLangObject());
+    }
+
+    private static final String MOCKITO_MATCHED = "mockitoMatched";
+    private static final String MOCKITO_MATCHED_DECLARATION = """
+            @Suppress("UNCHECKED_CAST")
+            private fun <T> mockitoMatched(value: T?): T = value as T""";
+    private static final java.util.Set<String> MOCKITO_MATCHER_TYPES = java.util.Set.of("org.mockito.ArgumentMatchers",
+            "org.mockito.AdditionalMatchers", "org.mockito.hamcrest.MockitoHamcrest");
+
+    /**
+     * A Mockito matcher as an argument, {@code any()}, {@code eq(x)}, {@code argThat(…)}, {@code captor.capture()}:
+     * it registers the matcher and returns null (or 0, for a primitive), a value Kotlin would check against a
+     * non-null parameter.
+     */
+    private static boolean mockitoMatcher(Expression arg) {
+        if (!(unwrap(arg) instanceof MethodCall mc) || mc.methodInfo() == null) return false;
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (m.returnType() == null || m.returnType().isPrimitiveExcludingVoid()) return false;
+        String owner = m.typeInfo().fullyQualifiedName();
+        return MOCKITO_MATCHER_TYPES.contains(owner)
+               || "org.mockito.ArgumentCaptor".equals(owner) && "capture".equals(m.name());
     }
 
     /**

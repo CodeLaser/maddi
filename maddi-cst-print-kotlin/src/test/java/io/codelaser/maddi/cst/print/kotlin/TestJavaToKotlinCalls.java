@@ -150,4 +150,46 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "'e'.code -> { return \"enum\" }");
         contains(kotlin, "when (c.code) {\n66 -> \"B\"");
     }
+
+    @Language("java")
+    private static final String MOCKITO_MATCHERS = """
+            package org.mockito;
+            class ArgumentMatchers {
+                static <T> T any() { return null; }
+                static int anyInt() { return 0; }
+            }
+            class UseMatchers {
+                interface Listener { void onRequest(String request, int n); }
+                void verify(Listener listener) { listener.onRequest(ArgumentMatchers.any(), ArgumentMatchers.anyInt()); }
+            }
+            """;
+
+    /**
+     * A Mockito matcher returns null into what Kotlin declares non-null, and Kotlin checks the platform value: "any(...)
+     * must not be null". The file's private helper casts it, unchecked; a primitive matcher's 0 needs nothing.
+     */
+    @Test
+    public void mockitoMatchers() {
+        String kotlin = kotlin(MOCKITO_MATCHERS);
+        contains(kotlin, "listener.onRequest(mockitoMatched(ArgumentMatchers.any()), ArgumentMatchers.anyInt())");
+        contains(kotlin, "private fun <T> mockitoMatched(value: T?): T = value as T");
+    }
+
+    @Language("java")
+    private static final String COLLECTION_BESIDE_OBJECT = """
+            package a;
+            import java.util.*;
+            class T {
+                String apply(Object value) { return apply(Collections.singletonMap("it", value)); }
+                String apply(Map<String, Object> variables) { return variables.toString(); }
+                String use() { return apply(Collections.singletonMap("name", "Klaus")); }
+            }
+            """;
+
+    /** Java's Map overload beside apply(Object): Kotlin's invariant MutableMap would lose to Any without the cast. */
+    @Test
+    public void collectionBesideObject() {
+        String kotlin = kotlin(COLLECTION_BESIDE_OBJECT);
+        contains(kotlin, "apply((Collections.singletonMap(\"name\", \"Klaus\") as MutableMap<String, Any>))");
+    }
 }

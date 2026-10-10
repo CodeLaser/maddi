@@ -70,6 +70,7 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                     .add(SpaceEnum.NEWLINE);
         }
         KotlinContext.takeReferencedTypes();
+        KotlinContext.takeFileHelpers();
         OutputBuilder types = new OutputBuilderImpl();
         for (TypeInfo typeInfo : compilationUnit.types()) {
             if (typeInfo.typeNature().isPackageInfo()) continue;
@@ -83,6 +84,7 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         imports.forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(i)))
                 .add(SpaceEnum.NEWLINE));
         out.add(types);
+        KotlinContext.takeFileHelpers().forEach(h -> out.add(SpaceEnum.NEWLINE).add(new TextImpl(h)).add(SpaceEnum.NEWLINE));
         return out;
     }
 

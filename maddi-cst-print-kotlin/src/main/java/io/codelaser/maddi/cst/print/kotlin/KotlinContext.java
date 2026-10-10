@@ -212,6 +212,20 @@ final class KotlinContext {
         return taken;
     }
 
+    // the file's private helpers its text calls (KotlinCompilationUnitPrinter appends their declarations)
+    private static final ThreadLocal<java.util.Set<String>> FILE_HELPERS = ThreadLocal.withInitial(java.util.TreeSet::new);
+
+    static void fileHelper(String declaration) {
+        FILE_HELPERS.get().add(declaration);
+    }
+
+    /** The helpers asked for since the last call, which starts a new record. */
+    static java.util.Set<String> takeFileHelpers() {
+        java.util.Set<String> taken = FILE_HELPERS.get();
+        FILE_HELPERS.set(new java.util.TreeSet<>());
+        return taken;
+    }
+
     // what the printing of a file did that its text does not say; a set, as the printer may print an element twice
     private static final ThreadLocal<java.util.Set<KotlinPrintMessage>> MESSAGES =
             ThreadLocal.withInitial(java.util.LinkedHashSet::new);
