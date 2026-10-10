@@ -77,7 +77,7 @@ class NarrowedReceiverTest : KotlinScanTestBase() {
             implicitBound: return ${'$'}receiver.validate(4)+${'$'}receiver.getPrio();
             ib1: return ${'$'}receiver.validate(4);
             ib2: return ${'$'}receiver.getPrio();
-            implicitSmart: return ${'$'}receiver instanceof Validatable?CollectionsKt.sumOfInt(CollectionsKt.listOf(1),it->${'$'}receiver.getPrio()+it):0;
+            implicitSmart: return ${'$'}receiver instanceof Validatable?CollectionsKt.sumOfInt(CollectionsKt.map(CollectionsKt.listOf(1),it->${'$'}receiver.getPrio()+it)):0;
             inLambda: return CollectionsKt.any(xs,it->it instanceof Validatable&&it.getPrio()>0);
             """.trimIndent(), actual)
     }
