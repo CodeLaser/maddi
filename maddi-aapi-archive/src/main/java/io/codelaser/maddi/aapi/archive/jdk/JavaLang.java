@@ -1995,16 +1995,17 @@ public class JavaLang {
         char [] toCharArray() { return null; }
 
         //@NotModified[T]
-        static String format(String format, /*@Independent[T]*/ Object ... args) { return null; }
+        static String format(String format, @NotModified /*@Independent[T]*/ Object ... args) { return null; }
 
         //@NotModified[T]
-        static String format(/*@Independent[T]*/ Locale l, String format, /*@Independent[T]*/ Object ... args) {
+        static String format(/*@Independent[T]*/ Locale l, String format,
+            @NotModified /*@Independent[T]*/ Object ... args) {
             return null;
         }
 
         //frequency 37
         //@NotModified[T]
-        String formatted(/*@Independent[M]*/ Object ... args) { return null; }
+        String formatted(@NotModified /*@Independent[M]*/ Object ... args) { return null; }
 
         //frequency 1
         //@NotModified[T]
@@ -2559,7 +2560,7 @@ public class JavaLang {
             void log(
                 /*@Independent[T]*/ System.Logger.Level level,
                 String format,
-                /*@Independent[T]*/ Object ... params) { }
+                @NotModified /*@Independent[T]*/ Object ... params) { }
 
             @IgnoreModifications
             void log(
@@ -2573,7 +2574,7 @@ public class JavaLang {
                 /*@Independent[T]*/ System.Logger.Level level,
                 /*@Independent[T]*/ ResourceBundle resourceBundle,
                 String string,
-                /*@Independent[T]*/ Object ... object) { }
+                @NotModified /*@Independent[T]*/ Object ... object) { }
         }
 
         //public abstract static class LoggerFinder
