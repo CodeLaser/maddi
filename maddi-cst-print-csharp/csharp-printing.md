@@ -161,6 +161,20 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 - **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
+## The ratchet
+
+`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources. It judges them
+with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with `dotnet build`, so a
+.NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors, then compiles the
+syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/fernflower.ratchet`:
+printer crashes, syntax errors, syntax-clean files, compiling files (files without an error in that compilation),
+and `unmappedJdkUses`.
+
+The printer reports every JDK type or member it prints without a BCL counterpart as `UNMAPPED_JDK`. Their count is
+ratcheted, and `build/j2cs/fernflower/report.txt` lists them by frequency. That list, together with the names and
+members the compiler does not know, is the BCL mapping's work list. The error total is reported but not ratcheted:
+as the mapping lets the compiler bind more, it gets to report errors it could not see before.
+
 ## Status (first slice)
 
 `TestJavaToCSharpTranslation` has one test per rule. It writes each sample to `build/csharp-samples/`, and all of

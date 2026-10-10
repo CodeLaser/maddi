@@ -1,0 +1,7 @@
+<Project>
+  <!-- build output under build/, which .gitignore covers, not bin/ and obj/ beside the sources -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)build/bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

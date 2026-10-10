@@ -1,0 +1,13 @@
+# TestJavaToCSharpFernflower: fernflower's main sources printed as C# by maddi-cst-print-csharp and judged by Roslyn
+# (tools/csharp-check, Microsoft.CodeAnalysis.CSharp 5.0.0 on .NET 10; see JavaToCSharpRatchet's javadoc). Lower is
+# better for printerCrashes, syntaxErrors and unmappedJdkUses, higher for syntaxCleanFiles and compilingFiles;
+# `types` must not move. Write a better value here in the commit that earns it.
+#
+# 2026-10-10, first record: the first slice of the printer, no BCL mapping. 0 printer crashes, 0 syntax errors; 22 of
+# 199 files compile (interfaces and stubs); 5,290 errors (not ratcheted), 3,216 of them JDK types C# does not know.
+types	199
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	199
+compilingFiles	22
+unmappedJdkUses	6922

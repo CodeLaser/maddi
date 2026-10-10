@@ -55,6 +55,7 @@ dependencies {
 // much about class-path clashes as about the printer. 2.4.0: the Kotlin of maddi-kotlin-k2's build.
 dependencies {
     testFixturesApi(project(":maddi-cst-print-kotlin"))
+    testFixturesApi(project(":maddi-cst-print-csharp"))
     testFixturesApi(project(":maddi-inspection-api"))
     testFixturesImplementation(project(":maddi-cst-api"))
     testFixturesImplementation(project(":maddi-cst-impl"))
@@ -95,6 +96,16 @@ tasks.withType<Test>().configureEach {
     inputs.files(junitConsole).withPropertyName("junitConsole")
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOf("-Dmaddi.test.junitConsoleClasspath=" + junitConsole.asPath)
+    })
+}
+
+// TestJavaToCSharpFernflower: the judge of the C# printer's output is tools/csharp-check, a .NET tool on Roslyn that
+// JavaToCSharpRatchet builds with `dotnet build` (a .NET 10 SDK on the PATH). Its directory, as a system property.
+val csharpCheck = rootProject.file("tools/csharp-check")
+tasks.withType<Test>().configureEach {
+    inputs.dir(csharpCheck).withPropertyName("csharpCheck").optional()
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.csharpCheck=" + csharpCheck.absolutePath)
     })
 }
 

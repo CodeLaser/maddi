@@ -115,7 +115,13 @@ public final class CSharpTypeName {
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = MAPPED.get(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
-        if (q == null) return CSharpNames.type(typeInfo);
+        if (!CSharpNames.translated(typeInfo)) {
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
+        }
+        if (q == null) {
+            CSharpContext.referenced(typeInfo);
+            return CSharpNames.type(typeInfo);
+        }
         TypeNameRequired required = q.qualifierRequired(typeInfo);
         if (required == TypeNameImpl.Required.SIMPLE) {
             CSharpContext.referenced(typeInfo);
@@ -124,6 +130,8 @@ public final class CSharpTypeName {
         String fromPrimary = fromPrimaryType(typeInfo);
         if (required == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE
             || required == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING) {
+            // Outer.Inner: Outer must be in scope
+            if (typeInfo.primaryType() != null) CSharpContext.referenced(typeInfo.primaryType());
             return fromPrimary;
         }
         String namespace = CSharpNames.namespace(typeInfo);

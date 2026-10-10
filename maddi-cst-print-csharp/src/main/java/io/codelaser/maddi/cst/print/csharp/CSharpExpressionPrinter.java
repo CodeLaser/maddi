@@ -135,6 +135,10 @@ public final class CSharpExpressionPrinter {
 
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
         FieldInfo field = fr.fieldInfo();
+        if (!CSharpNames.translated(field.owner())) {
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, fr.scope() != null ? fr.scope() : null,
+                    field.owner().fullyQualifiedName() + "." + field.name());
+        }
         String name = CSharpNames.field(field);
         if (fr.isDefaultScope() || fr.scope() == null) return text(name);
         if (fr.isStatic() && fr.scope() instanceof TypeExpression) {
@@ -166,6 +170,7 @@ public final class CSharpExpressionPrinter {
         }
         String typeArguments = mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
+        unmapped(method, mc);
         b.add(text(CSharpNames.method(method) + typeArguments));
         return b.add(arguments(mc.parameterExpressions(), q));
     }
@@ -230,6 +235,15 @@ public final class CSharpExpressionPrinter {
         return CSharpTypeName.of(type, q);
     }
 
+    /** A JDK method the mapping does not translate: counted, printed with its Java name. */
+    private static void unmapped(MethodInfo method, Expression use) {
+        if (!CSharpNames.translated(method.typeInfo()) && !"ToString".equals(CSharpNames.method(method))
+            && !"Equals".equals(CSharpNames.method(method)) && !"GetHashCode".equals(CSharpNames.method(method))) {
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, use,
+                    method.typeInfo().fullyQualifiedName() + "." + method.name() + "/" + method.parameters().size());
+        }
+    }
+
     // ---------------------------------------------------------------- lambdas and method references
 
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
@@ -282,6 +296,7 @@ public final class CSharpExpressionPrinter {
                     : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", parameters) + ")";
             return text(parameterList + " => " + created);
         }
+        unmapped(method, mr);
         String name = CSharpNames.method(method);
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.name(te.parameterizedType().typeInfo(), q);
