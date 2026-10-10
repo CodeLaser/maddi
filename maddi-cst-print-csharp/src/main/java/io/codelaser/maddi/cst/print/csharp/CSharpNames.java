@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -171,9 +172,19 @@ public final class CSharpNames {
 
     /** A translated functional interface: its lambdas are printed with an adapter class, see CSharpTypePrinter. */
     static boolean lambdaAdapter(TypeInfo typeInfo) {
-        if (!typeInfo.isInterface() || !translated(typeInfo) || !typeInfo.isFunctionalInterface()) return false;
-        MethodInfo sam = typeInfo.singleAbstractMethod();
+        if (!typeInfo.isInterface() || !translated(typeInfo)) return false;
+        MethodInfo sam = singleAbstractMethod(typeInfo);
         return sam != null && sam.typeParameters().isEmpty();
+    }
+
+    /** The one abstract method of a functional interface, also when no lambda targets it. */
+    static MethodInfo singleAbstractMethod(TypeInfo typeInfo) {
+        if (!typeInfo.interfacesImplemented().isEmpty()) {
+            return typeInfo.isFunctionalInterface() ? typeInfo.singleAbstractMethod() : null;
+        }
+        List<MethodInfo> abstractMethods = typeInfo.methods().stream()
+                .filter(m -> !m.isSynthetic() && m.isAbstract() && !m.isStatic()).toList();
+        return abstractMethods.size() == 1 ? abstractMethods.getFirst() : null;
     }
 
     static boolean translated(TypeInfo typeInfo) {

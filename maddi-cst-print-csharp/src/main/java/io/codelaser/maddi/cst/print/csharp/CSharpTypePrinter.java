@@ -279,7 +279,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * e => 0)}. An interface becomes a delegate only when nothing else implements it, which a file does not know.
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
-        MethodInfo sam = typeInfo.singleAbstractMethod();
+        MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
         List<String> parameterTypes = sam.parameters().stream().map(p -> CSharpTypeName.argument(p.parameterizedType(), q))
                 .toList();
         boolean isVoid = sam.returnType().isVoid();

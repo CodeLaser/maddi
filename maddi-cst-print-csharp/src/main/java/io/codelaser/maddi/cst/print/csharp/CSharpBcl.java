@@ -580,9 +580,9 @@ final class CSharpBcl {
             m(f, "$0($*)");
         }
         String c = "java.util.Comparator.";
-        m(c + "comparing/1", "JavaComparator.Comparing($1)", COMPAT);
-        m(c + "comparingInt/1", "JavaComparator.Comparing($1)", COMPAT);
-        m(c + "comparingLong/1", "JavaComparator.Comparing($1)", COMPAT);
+        m(c + "comparing/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
+        m(c + "comparingInt/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
+        m(c + "comparingLong/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
         m(c + "thenComparing/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingInt/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingLong/1", "$0.ThenComparing($1)", COMPAT);

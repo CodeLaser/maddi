@@ -95,7 +95,9 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Functional interfaces.** A translated functional interface stays an interface: a class elsewhere may implement
   it, which one file cannot rule out. It gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) :
   IExprentIterator { … }`, and its lambdas and method references are wrapped in it:
-  `new IExprentIterator.Lambda(e => 0)`. Turning it into a `delegate` needs whole-program knowledge.
+  `new IExprentIterator.Lambda(e => 0)`. Turning it into a `delegate` needs whole-program knowledge. An anonymous class
+  of such an interface that only implements its method, without fields and without using itself, becomes a lambda
+  in the adapter too.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
@@ -159,7 +161,7 @@ The file uses a file-scoped `namespace X;`.
 Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
 
 - **Not translated yet:**
-  - anonymous classes (to be hoisted into nested classes or lambdas);
+  - anonymous classes, other than those of a translated functional interface (to be hoisted into nested classes);
   - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;

@@ -276,6 +276,8 @@ public final class CSharpExpressionPrinter {
 
     private static OutputBuilder constructorCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) {
+            OutputBuilder adapted = anonymousAsLambda(cc, q);
+            if (adapted != null) return adapted;
             CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
             ParameterizedType parent = cc.anonymousClass().parentClass();
             ParameterizedType named = parent != null && !parent.isJavaLangObject() ? parent
@@ -469,6 +471,45 @@ public final class CSharpExpressionPrinter {
                 .add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
+    /**
+     * An anonymous class of a translated functional interface that only implements its method, without fields and
+     * without using itself: a lambda in the interface's adapter class, {@code new IVisitor.Lambda((string node) => {
+     * … })}. Null for any other.
+     */
+    private static OutputBuilder anonymousAsLambda(ConstructorCall cc, Qualification q) {
+        TypeInfo anonymous = cc.anonymousClass();
+        if (anonymous.interfacesImplemented().size() != 1) return null;
+        ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
+        if (functionalType.typeInfo() == null || !CSharpNames.lambdaAdapter(functionalType.typeInfo())) return null;
+        List<MethodInfo> methods = anonymous.methods().stream().filter(m -> !m.isSynthetic()).toList();
+        if (methods.size() != 1 || anonymous.fields().stream().anyMatch(f -> !f.isSynthetic())
+            || anonymous.subTypes().stream().anyMatch(st -> !st.isSynthetic()) || methods.getFirst().methodBody() == null) {
+            return null;
+        }
+        MethodInfo method = methods.getFirst();
+        boolean[] usesThis = {false};
+        method.methodBody().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof VariableExpression ve && ve.variable() instanceof This t && t.typeInfo().equals(anonymous)) {
+                usesThis[0] = true;
+            }
+            return !usesThis[0];
+        });
+        if (usesThis[0]) return null;
+        OutputBuilder b = new OutputBuilderImpl();
+        CSharpContext.pushMethod(method);
+        CSharpContext.enterScope(java.util.Set.of());
+        try {
+            b.add(text(method.parameters().stream()
+                    .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
+                    .collect(Collectors.joining(", ", "(", ")"))));
+            b.add(SymbolEnum.binaryOperator("=>")).add(CSharpStatementPrinter.block(method.methodBody(), q));
+        } finally {
+            CSharpContext.exitScope();
+            CSharpContext.popMethod();
+        }
+        return adapted(functionalType, b, q);
+    }
+
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
         List<ParameterInfo> params = lambda.parameters();
         // typed as Java wrote it: (int a, int b) -> …; a C# lambda types all its parameters or none
@@ -514,6 +555,12 @@ public final class CSharpExpressionPrinter {
         List<String> parameters = IntStream.range(0, arity).mapToObj(i -> "p" + i).toList();
         String parameterList = arity == 1 ? parameters.getFirst() : String.join(", ", parameters);
         if (arity != 1) parameterList = "(" + parameterList + ")";
+        // String::length is (string p0) => p0.Length: typed, so that a generic method taking it infers its arguments
+        boolean unboundReceiver = scope instanceof TypeExpression && !method.isStatic() && !method.isConstructor();
+        if (unboundReceiver && arity > 0) {
+            parameterList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.of(mr.concreteParameterTypes().get(i), q)
+                    + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));
+        }
         if (method.isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
             String created = type.arrays() > 0

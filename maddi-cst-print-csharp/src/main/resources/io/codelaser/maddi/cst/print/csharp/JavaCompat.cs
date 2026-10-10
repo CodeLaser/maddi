@@ -201,6 +201,11 @@ public static class JavaComparator
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
         (a, b) => Comparer<K>.Default.Compare(key(a), key(b));
 
+    /// <summary>Comparator.comparing with the compared type given, Comparing&lt;T&gt;(o => o.Id): a lambda's
+    /// parameter type cannot be inferred from its use.</summary>
+    public static Comparison<T> Comparing<T>(Func<T, IComparable> key) =>
+        (a, b) => Comparer<IComparable>.Default.Compare(key(a), key(b));
+
     public static Comparison<T> ThenComparing<T, K>(this Comparison<T> first, Func<T, K> key) =>
         first.ThenComparing(Comparing(key));
 

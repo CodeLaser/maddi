@@ -22,9 +22,11 @@
 # 2026-10-10, a local class that captures nothing lifted into its enclosing type: 134 files compile; errors 259 -> 236.
 # 2026-10-10, a lambda or method reference of a translated functional interface wrapped in the interface's adapter
 # class (new IExprentIterator.Lambda(e => ...)): 137 files compile; errors 236 -> 218.
+# 2026-10-10, an anonymous class of a translated functional interface as a lambda in its adapter; an unbound method
+# reference's lambda typed; Comparator.comparing with its compared type: 139 files compile; errors 218 -> 204.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	137
+compilingFiles	139
 unmappedJdkUses	120
