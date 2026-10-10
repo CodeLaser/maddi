@@ -14,6 +14,9 @@
 
 package io.codelaser.maddi.kotlin.k2
 
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
@@ -68,4 +71,19 @@ private fun jvmNameFromEntries(entries: List<KtAnnotationEntry>?): String? {
     val jvmName = entries?.firstOrNull { it.shortName?.asString() == "JvmName" } ?: return null
     val literal = jvmName.valueArguments.firstOrNull()?.getArgumentExpression() as? KtStringTemplateExpression
     return (literal?.entries?.singleOrNull() as? KtLiteralStringTemplateEntry)?.text
+}
+
+private val JVM_NAME_ANNOTATION = ClassId.fromString("kotlin/jvm/JvmName")
+
+/**
+ * The JVM name `@JvmName` gives [symbol], or null: from its PSI for a source function, else from its annotations,
+ * which is the only route for a LIBRARY symbol (deserialized from a class file, no PSI). The stdlib renames
+ * overloads that erase alike -- `Iterable<Int>.sum()` is `sumOfInt`, `Iterable<Long>.sum()` `sumOfLong` -- and a
+ * library type built under the Kotlin name kept one of the seven and bound every `sum()` to it.
+ */
+internal fun jvmNameOf(symbol: KaCallableSymbol?): String? {
+    if (symbol == null) return null
+    (symbol.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }?.let { return it }
+    val annotation = symbol.annotations.firstOrNull { it.classId == JVM_NAME_ANNOTATION } ?: return null
+    return (annotation.arguments.firstOrNull()?.expression as? KaAnnotationValue.ConstantValue)?.value?.value as? String
 }

@@ -35,9 +35,9 @@ class RenumberedPlaceholderTest : KotlinScanTestBase() {
             inline fun <reified T : Any> viaAlso(): List<T> = java.util.ServiceLoader.load(T::class.java).toList().also { println(it.size) }
             """.trimIndent() + "\n")
         val body = { name: String -> types.flatMap { it.methods() }.first { it.name() == name }.methodBody().toString() }
-        assertEquals("{return CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJava(k2-unsupported-expr:KtClassLiteralExpression)));}",
+        assertEquals("{return CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJavaClass(k2-unsupported-expr:KtClassLiteralExpression)));}",
             body("plain"))
-        assertEquals("{List<Object> it=CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJava(k2-unsupported-expr:KtClassLiteralExpression)));{System.out.println(it.size);}return it;}",
+        assertEquals("{List<Object> it=CollectionsKt.toList(ServiceLoader.load(JvmClassMappingKt.getJavaClass(k2-unsupported-expr:KtClassLiteralExpression)));{System.out.println(it.size);}return it;}",
             body("viaAlso"))
         assertEquals(2, PlaceholderCensus.of(types).total)
     }

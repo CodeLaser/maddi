@@ -23,6 +23,7 @@ import kotlin.ranges.IntRange;
 import kotlin.text.MatchGroup;
 import kotlin.text.MatchGroupCollection;
 import kotlin.text.MatchResult;
+import kotlin.text.RegexOption;
 
 import java.util.List;
 
@@ -49,6 +50,13 @@ public class KotlinText {
     */
     @ImmutableContainer
     class Regex$ {
+        /* `s.toRegex()` and `s.toRegex(option)` are @InlineOnly, lowered to these */
+        Regex$(String pattern) {
+        }
+
+        Regex$(String pattern, @NotModified RegexOption option) {
+        }
+
         String getPattern() {
             return null;
         }
@@ -149,6 +157,17 @@ public class KotlinText {
 
         @NotModified
         List<String> getGroupValues();
+
+        @NotModified
+        MatchResult.Destructured getDestructured();
+
+        /* `val (a, b) = m.destructured`: a view of the match's groups; componentN is @InlineOnly and lowered */
+        class Destructured {
+            @NotModified
+            MatchResult getMatch() {
+                return null;
+            }
+        }
     }
 
     interface MatchGroupCollection$ {

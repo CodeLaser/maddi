@@ -571,6 +571,14 @@ internal class KotlinTypeMapper(
     }
 
     /**
+     * The JVM name of a library property's getter: what `@get:JvmName` says (`KClass<T>.java` is `getJavaClass`),
+     * else the bean name kotlinc derives (`getX`, `isX` for an `is`-property).
+     */
+    @OptIn(KaExperimentalApi::class) // javaGetterName
+    internal fun KaSession.libraryGetterName(property: KaPropertySymbol): String =
+        property.javaGetterName?.asString() ?: ("get" + property.name.asString().replaceFirstChar { it.uppercaseChar() })
+
+    /**
      * A top-level extension property as the static getter kotlinc compiles it to: `val C.x: T` becomes
      * `getX(C): T` on the file facade. Null when the property has no extension receiver — a plain top-level
      * `val` is a field on the facade, which is a different shape and not this path's business.
@@ -580,9 +588,7 @@ internal class KotlinTypeMapper(
         // a plain top-level `val` has a getter too (`getINDENT_SIZE_PROPERTY()`) -- unless it is a `const`, which
         // is read as the facade's static field (convertLibraryConstField)
         if (receiver == null && (property as? KaKotlinPropertySymbol)?.isConst == true) return null
-        val name = property.name.asString()
-        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
-        val method = runtime.newMethod(owner, getterName, runtime.methodTypeStaticMethod())
+        val method = runtime.newMethod(owner, libraryGetterName(property), runtime.methodTypeStaticMethod())
         val builder = method.builder()
         // a generic extension property (`val <T> List<T>.lastIndex`) is a generic static getter, its type parameters
         // unbounded for the reason convertLibraryMethod gives
@@ -868,7 +874,10 @@ internal class KotlinTypeMapper(
     private fun KaSession.convertLibraryMethod(owner: TypeInfo, function: KaNamedFunctionSymbol,
                                                static: Boolean = false): MethodInfo {
         val methodType = if (static) runtime.methodTypeStaticMethod() else runtime.methodTypeMethod()
-        val method = runtime.newMethod(owner, function.name.asString(), methodType)
+        // ⛔ THE JVM NAME, as the class file has it: the stdlib renames overloads that erase alike (`sum` over an
+        // Iterable<Int> is `sumOfInt`, over an Iterable<Long> `sumOfLong`), and under the Kotlin name all seven were
+        // one signature, `seen` kept the first (Byte), and a contract keyed on `sumOfInt` matched nothing (#15)
+        val method = runtime.newMethod(owner, jvmNameOf(function) ?: function.name.asString(), methodType)
         val builder = method.builder()
         // ⛔ THE METHOD'S OWN TYPE PARAMETERS, as the class file's Signature attribute has them. Without them a bare
         // `T` found no binder and fell to Object: `listOf(vararg T)` was `listOf(Object[])` returning List<Object>,

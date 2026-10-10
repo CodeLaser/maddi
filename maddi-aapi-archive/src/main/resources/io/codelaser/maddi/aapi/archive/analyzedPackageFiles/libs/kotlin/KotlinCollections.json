@@ -543,8 +543,8 @@
   {"name": "P$this$asIterable(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MasIterable(35,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$asIterable(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
- {"name": "MasSequence(36,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$asSequence(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MasSequence(36,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$asSequence(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MasSequence(37,boolean[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$asSequence(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MasSequence(38,byte[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
@@ -901,9 +901,9 @@
  {"name": "Mdrop(149,byte[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$drop(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mdrop(150,char[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$drop(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mdrop(150,char[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$drop(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mdrop(151,double[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$drop(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -937,9 +937,9 @@
  {"name": "MdropLast(161,float[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$dropLast(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MdropLast(162,int[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$dropLast(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MdropLast(162,int[],int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$dropLast(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MdropLast(163,long[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$dropLast(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -1090,9 +1090,9 @@
   {"name": "P$this$filterIndexedTo(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MfilterNot(210,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$filterNot(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MfilterNot(210,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$filterNot(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MfilterNot(211,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$filterNot(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
@@ -1284,9 +1284,9 @@
  {"name": "MfirstOrNull(274,short[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
   {"name": "P$this$firstOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MflatMap(275,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$flatMap(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MflatMap(275,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MflatMap(276,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$flatMap(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
@@ -1552,8 +1552,8 @@
  {"name": "MforEachIndexed(348,short[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Paction(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MgetIndices(349,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MgetIndices(349,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$indices(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MgetIndices(350,boolean[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MgetIndices(351,byte[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
@@ -1564,8 +1564,8 @@
   {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MgetIndices(354,float[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
- {"name": "MgetIndices(355,int[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MgetIndices(355,int[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$indices(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MgetIndices(356,long[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$indices(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MgetIndices(357,short[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
@@ -2789,9 +2789,9 @@
   {"name": "P$this$randomOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MrandomOrNull(749,short[],kotlin.random.Random)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
   {"name": "P$this$randomOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mreduce(750,T[],kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$reduce(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(750,T[],kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$reduce(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "Mreduce(751,boolean[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$reduce(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
@@ -2807,9 +2807,9 @@
  {"name": "Mreduce(755,float[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$reduce(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "Mreduce(756,int[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "P$this$reduce(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(756,int[],kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$reduce(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "Mreduce(757,long[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$reduce(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
@@ -3696,9 +3696,9 @@
  {"name": "MtakeLast(1089,short[],int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$takeLast(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MtakeLastWhile(1090,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$takeLastWhile(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MtakeLastWhile(1090,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$takeLastWhile(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MtakeLastWhile(1091,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$takeLastWhile(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
@@ -3723,9 +3723,9 @@
  {"name": "MtakeLastWhile(1098,short[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$takeLastWhile(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MtakeWhile(1099,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$takeWhile(0)", "data":{"containerParameter":1,"immutableParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MtakeWhile(1099,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$takeWhile(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MtakeWhile(1100,boolean[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$takeWhile(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
@@ -3787,8 +3787,8 @@
   {"name": "P$this$toDoubleArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MtoFloatArray(1121,java.lang.Float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
   {"name": "P$this$toFloatArray(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
- {"name": "MtoHashSet(1122,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toHashSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoHashSet(1122,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toHashSet(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoHashSet(1123,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$toHashSet(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
  {"name": "MtoHashSet(1124,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
@@ -4208,8 +4208,8 @@
   {"name": "Pklass(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mreverse(2,java.util.List)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$reverse(0)", "data":{"containerParameter":1}}},
- {"name": "MtoSortedSet(3,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1}}},
+ {"name": "MtoSortedSet(3,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoSortedSet(4,java.lang.Iterable,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
@@ -4249,9 +4249,9 @@
   {"name": "P$this$associateTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
   {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MassociateWith(10,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$associateWith(0)", "data":{"containerParameter":1}},
-  {"name": "PvalueSelector(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MassociateWith(10,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$associateWith(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PvalueSelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MassociateWithTo(11,java.lang.Iterable,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$associateWithTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
@@ -4285,18 +4285,18 @@
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "Mdistinct(23,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$distinct(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
- {"name": "MdistinctBy(24,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$distinctBy(0)", "data":{"containerParameter":1}},
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MdistinctBy(24,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$distinctBy(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "Mdrop(25,java.lang.Iterable,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$drop(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MdropLast(26,java.util.List,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$dropLast(0)", "data":{"containerParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MdropLastWhile(27,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$dropLastWhile(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MdropLastWhile(27,java.util.List,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$dropLastWhile(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MdropWhile(28,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$dropWhile(0)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4353,9 +4353,9 @@
  {"name": "MflatMap(46,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
- {"name": "MflatMapSequence(47,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$flatMap(0)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MflatMapSequence(47,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MflatMapSequenceTo(48,java.lang.Iterable,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$flatMapTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
@@ -4383,9 +4383,9 @@
  {"name": "MforEach(54,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
- {"name": "MforEachIndexed(55,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$forEachIndexed(0)", "data":{"containerParameter":1}},
-  {"name": "Paction(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MforEachIndexed(55,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$forEachIndexed(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MgetOrNull(56,java.util.List,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "P$this$getOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -4488,9 +4488,9 @@
  {"name": "Mmap(86,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$map(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
- {"name": "MmapIndexed(87,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$mapIndexed(0)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MmapIndexed(87,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$mapIndexed(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MmapIndexedNotNull(88,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$mapIndexedNotNull(0)", "data":{"containerParameter":1}},
   {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4509,13 +4509,13 @@
   {"name": "P$this$mapNotNullTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
   {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MmapTo(93,java.lang.Iterable,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$mapTo(0)", "data":{"containerParameter":1}},
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MmaxByOrNull(94,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$maxByOrNull(0)", "data":{"containerParameter":1}},
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MmapTo(93,java.lang.Iterable,C,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$mapTo(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Ptransform(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "MmaxByOrNull(94,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$maxByOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MmaxByOrThrow(95,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$maxBy(0)", "data":{"containerParameter":1}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4537,9 +4537,9 @@
  {"name": "MmaxWithOrThrow(103,java.lang.Iterable,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MminByOrNull(104,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$minByOrNull(0)", "data":{"containerParameter":1}},
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MminByOrNull(104,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$minByOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MminByOrThrow(105,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$minBy(0)", "data":{"containerParameter":1}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4612,9 +4612,9 @@
   {"name": "P$this$random(0)", "data":{"containerParameter":1}}]},
  {"name": "MrandomOrNull(132,java.util.Collection,kotlin.random.Random)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$randomOrNull(0)", "data":{"containerParameter":1}}]},
- {"name": "Mreduce(133,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$reduce(0)", "data":{"containerParameter":1}},
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(133,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$reduce(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MreduceIndexed(134,java.lang.Iterable,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$reduceIndexed(0)", "data":{"containerParameter":1}},
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4656,10 +4656,10 @@
  {"name": "MrunningReduceIndexed(147,java.lang.Iterable,kotlin.jvm.functions.Function3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$runningReduceIndexed(0)", "data":{"containerParameter":1}},
   {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "Mscan(148,java.lang.Iterable,R,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$scan(0)", "data":{"containerParameter":1}},
-  {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Mscan(148,java.lang.Iterable,R,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$scan(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pinitial(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poperation(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MscanIndexed(149,java.lang.Iterable,R,kotlin.jvm.functions.Function3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$scanIndexed(0)", "data":{"containerParameter":1}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -4668,9 +4668,9 @@
   {"name": "P$this$shuffle(0)", "data":{"containerParameter":1}}]},
  {"name": "Msingle(151,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$single(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
- {"name": "Msingle(152,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "P$this$single(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Msingle(152,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$single(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "Msingle(153,java.util.List)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$single(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsingleOrNull(154,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
@@ -4715,27 +4715,27 @@
  {"name": "MsumByDouble(169,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$sumByDouble(0)", "data":{"containerParameter":1}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MsumOfByte(170,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
- {"name": "MsumOfDouble(171,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
- {"name": "MsumOfFloat(172,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
- {"name": "MsumOfInt(173,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
- {"name": "MsumOfLong(174,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
- {"name": "MsumOfShort(175,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
-  {"name": "P$this$sum(0)", "data":{"containerParameter":1}}},
+ {"name": "MsumOfByte(170,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsumOfDouble(171,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsumOfFloat(172,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsumOfInt(173,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsumOfLong(174,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsumOfShort(175,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mtake(176,java.lang.Iterable,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$take(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MtakeLast(177,java.util.List,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$takeLast(0)", "data":{"containerParameter":1}},
   {"name": "Pn(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MtakeLastWhile(178,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$takeLastWhile(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MtakeLastWhile(178,java.util.List,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$takeLastWhile(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MtakeWhile(179,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$takeWhile(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
@@ -4754,8 +4754,8 @@
   {"name": "P$this$toFloatArray(0)", "data":{"containerParameter":1}}},
  {"name": "MtoHashSet(186,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$toHashSet(0)", "data":{"containerParameter":1}}},
- {"name": "MtoIntArray(187,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toIntArray(0)", "data":{"containerParameter":1}}},
+ {"name": "MtoIntArray(187,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toIntArray(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoList(188,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$toList(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoLongArray(189,java.util.Collection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
@@ -4773,11 +4773,11 @@
  {"name": "Munion(195,java.lang.Iterable,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$union(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pother(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
- {"name": "Mwindowed(196,java.lang.Iterable,int,int,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$windowed(0)", "data":{"containerParameter":1}},
-  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Pstep(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "PpartialWindows(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mwindowed(196,java.lang.Iterable,int,int,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$windowed(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psize(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pstep(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PpartialWindows(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mwindowed(197,java.lang.Iterable,int,int,boolean,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$windowed(0)", "data":{"containerParameter":1}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -4793,18 +4793,34 @@
   {"name": "P$this$zip(0)", "data":{"containerParameter":1}},
   {"name": "Pother(1)", "data":{"containerParameter":1}},
   {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "Mzip(201,java.lang.Iterable,R[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$zip(0)", "data":{"containerParameter":1}},
-  {"name": "Pother(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "Mzip(201,java.lang.Iterable,R[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$zip(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pother(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mzip(202,java.lang.Iterable,R[],kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$zip(0)", "data":{"containerParameter":1}},
   {"name": "Pother(1)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MzipWithNext(203,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$zipWithNext(0)", "data":{"containerParameter":1}}},
+ {"name": "MzipWithNext(203,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$zipWithNext(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MzipWithNext(204,java.lang.Iterable,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$zipWithNext(0)", "data":{"containerParameter":1}},
   {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]}]},
+
+{"name": "Tkotlin.collections.IndexedValue", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0,int,T)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pvalue(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mcomponent1(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mcomponent2(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "Mcopy(2,int,T)", "data":{"defaultsAnalyzer":1}, "subs":[
+  {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pvalue(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mequals(3,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pother(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
+ {"name": "MgetIndex(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MgetValue(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MhashCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MtoString(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
 
 {"name": "Tkotlin.collections.MapsKt__MapsJVMKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
@@ -4850,9 +4866,9 @@
  {"name": "Mfilter(2,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$filter(0)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MfilterKeys(3,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$filterKeys(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MfilterKeys(3,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$filterKeys(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MfilterNot(4,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$filterNot(0)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
@@ -4864,9 +4880,9 @@
   {"name": "P$this$filterTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MfilterValues(7,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$filterValues(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MfilterValues(7,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$filterValues(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MgetOrPut(8,java.util.Map,K,kotlin.jvm.functions.Function0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$getOrPut(0)", "data":{"containerParameter":1}},
   {"name": "Pkey(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -4881,9 +4897,9 @@
  {"name": "MmapEntryOf(12,K,V)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Pkey(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pvalue(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MmapKeys(13,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$mapKeys(0)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MmapKeys(13,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$mapKeys(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MmapKeysTo(14,java.util.Map,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$mapKeysTo(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}},
@@ -4918,9 +4934,9 @@
  {"name": "Mplus(25,java.util.Map,java.util.Map)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$plus(0)", "data":{"containerParameter":1}},
   {"name": "Pmap(1)", "data":{"containerParameter":1}}]},
- {"name": "Mplus(26,java.util.Map,kotlin.Pair)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$plus(0)", "data":{"containerParameter":1}},
-  {"name": "Ppair(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mplus(26,java.util.Map,kotlin.Pair)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$plus(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppair(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mplus(27,java.util.Map,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$plus(0)", "data":{"containerParameter":1}},
   {"name": "Ppairs(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
@@ -4934,8 +4950,8 @@
   {"name": "Ppairs(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
  {"name": "MputAll(31,java.util.Map,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$putAll(0)", "data":{"containerParameter":1}}]},
- {"name": "MtoMap(32,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toMap(0)", "data":{"containerParameter":1}}},
+ {"name": "MtoMap(32,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoMap(33,java.lang.Iterable,M)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
@@ -4944,8 +4960,8 @@
  {"name": "MtoMap(35,java.util.Map,M)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
- {"name": "MtoMap(36,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+ {"name": "MtoMap(36,kotlin.Pair[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoMap(37,kotlin.Pair[],M)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"immutableParameter":1}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
@@ -4962,17 +4978,17 @@
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
  {"name": "Many(1,java.util.Map)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$any(0)", "data":{"containerParameter":1}}},
- {"name": "Many(2,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "P$this$any(0)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "Many(2,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$any(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MasSequence(3,java.util.Map)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$asSequence(0)", "data":{"containerParameter":1}}},
  {"name": "Mcount(4,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$count(0)", "data":{"containerParameter":1}},
   {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MflatMap(5,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "P$this$flatMap(0)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MflatMap(5,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MflatMapSequence(6,java.util.Map,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$flatMap(0)", "data":{"containerParameter":1}},
   {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
@@ -5045,8 +5061,8 @@
   {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsetOfNotNull(6,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MsetOfNotNull(7,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1}}}]},
+ {"name": "MsetOfNotNull(7,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":1,"unmodifiedParameter":1}}}]},
 
 {"name": "Tkotlin.collections.SetsKt___SetsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},

@@ -18,7 +18,10 @@ import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import kotlin.Lazy;
+import kotlin.LazyThreadSafetyMode;
 import kotlin.Pair;
+import kotlin.jvm.functions.Function0;
 
 /**
  * The annotated API for the {@code kotlin} package. It began with one type: every {@code val x by lazy { … }} in
@@ -160,5 +163,23 @@ public class Kotlin {
         @Independent(hc = true)
         @NotNull
         static <A, B> Pair<A, B> to(@NotModified A receiver, @NotModified B that) { return null; }
+    }
+
+    /*
+    public actual fun <T> lazy(initializer: () -> T): Lazy<T>
+    public actual fun <T> lazy(mode: LazyThreadSafetyMode, initializer: () -> T): Lazy<T>
+
+    The mode is an enum constant, read. The Lazy holds the initializer and later its value: no @Independent.
+    */
+    class LazyKt__LazyJVMKt$ {
+        @NotNull
+        static <T> Lazy<T> lazy(Function0<? extends T> initializer) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Lazy<T> lazy(@NotModified LazyThreadSafetyMode mode, Function0<? extends T> initializer) {
+            return null;
+        }
     }
 }

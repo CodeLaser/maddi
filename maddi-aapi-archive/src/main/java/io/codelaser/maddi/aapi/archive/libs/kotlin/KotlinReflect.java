@@ -23,8 +23,8 @@ import java.lang.reflect.Type;
  * modifying. A KClass, KCallable or KType is a description of code, and asking it a question changes nothing.
  * Only members are contracted here; no type-level immutability is claimed for these interfaces.
  * <p>
- * ⚠ {@code X::class.java} is NOT covered: its JVM method is {@code JvmClassMappingKt.getJavaClass} (a @JvmName),
- * the K2 model calls the member {@code getJava}, and a contract matches by the JVM name.
+ * {@code X::class.java} is {@code JvmClassMappingKt.getJavaClass} (a @JvmName), in package kotlin.jvm: see
+ * {@link KotlinJvm}.
  */
 public class KotlinReflect {
     public static final String PACKAGE_NAME = "kotlin.reflect";

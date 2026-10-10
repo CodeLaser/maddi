@@ -35,6 +35,12 @@ class JvmNameCallTest : KotlinScanTestBase() {
             @JvmName("twiceOf") fun Int.twice(): Int = this * 2
             class K {
                 fun total(l: List<Int>): Int = l.sum()
+                fun totalLong(l: List<Long>): Long = l.sum()
+                fun javaClass(k: kotlin.reflect.KClass<String>): Class<String> = k.java
+                fun ofInstance(s: String): Class<String> = s.javaClass
+                fun implicitThis(): Class<K> = javaClass
+                fun safeCall(s: String?): Class<String>? = s?.javaClass
+                fun inLambda(l: List<Any>): List<Class<Any>> = l.map { it.javaClass }
                 fun path(p: Seg): Seg = p / "journal"
                 fun named(p: Seg): Seg = p.div("x")
                 fun ext(i: Int): Int = i.twice()
@@ -53,15 +59,41 @@ class JvmNameCallTest : KotlinScanTestBase() {
         assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
     }
 
+    /** `T.javaClass` and `KClass<T>.java` share the JVM name `getJavaClass`: the receiver tells them apart. */
+    @Test
+    fun twoGettersOfOneName() {
+        fun callee(name: String) = (type("K").methods().first { it.name() == name }.methodBody().statements().first()
+            .expression() as io.codelaser.maddi.cst.api.expression.MethodCall).methodInfo().fullyQualifiedName()
+        assertEquals("kotlin.jvm.JvmClassMappingKt.getJavaClass(kotlin.reflect.KClass)", callee("javaClass"))
+        assertEquals("kotlin.jvm.JvmClassMappingKt.getJavaClass(Object)", callee("ofInstance"))
+        // the other shapes detekt writes `javaClass` in, a lambda's body included: each binds the Object getter
+        fun callees(name: String): List<String> {
+            val found = mutableListOf<String>()
+            type("K").methods().first { it.name() == name }.methodBody().visit { e ->
+                if (e is io.codelaser.maddi.cst.api.expression.MethodCall) found.add(e.methodInfo().fullyQualifiedName())
+                true
+            }
+            return found
+        }
+        listOf("implicitThis", "safeCall", "inLambda").forEach { name ->
+            assertEquals(listOf("kotlin.jvm.JvmClassMappingKt.getJavaClass(Object)"),
+                callees(name).filter { it.contains("getJavaClass") }, name)
+        }
+    }
+
     @Test
     fun theJvmNames() {
-        // `sum` stays `sum` here: the unit world's stdlib is BUILT from K2, with Kotlin names (its class file has
-        // `sumOfInt`, which the lookup tries first)
+        // the unit world's stdlib is BUILT from K2, under the JVM names its class file has: the seven `sum`
+        // overloads over an Iterable erase alike, and only their @JvmName tells them apart (#15)
         assertEquals("""
-            total: return CollectionsKt.sum(l);
+            total: return CollectionsKt.sumOfInt(l);
+            totalLong: return CollectionsKt.sumOfLong(l);
+            javaClass: return JvmClassMappingKt.getJavaClass(k);
+            ofInstance: return JvmClassMappingKt.getJavaClass(s);
             path: return p.resolve("journal");
             named: return p.resolve("x");
             ext: return JnKt.twiceOf(i);
-            """.trimIndent(), listOf("total", "path", "named", "ext").joinToString("\n") { "$it: ${body(it)}" })
+            """.trimIndent(), listOf("total", "totalLong", "javaClass", "ofInstance", "path", "named", "ext")
+            .joinToString("\n") { "$it: ${body(it)}" })
     }
 }

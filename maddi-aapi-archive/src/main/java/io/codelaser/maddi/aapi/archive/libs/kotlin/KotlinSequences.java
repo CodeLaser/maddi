@@ -17,10 +17,16 @@ package io.codelaser.maddi.aapi.archive.libs.kotlin;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import kotlin.Pair;
 import kotlin.Unit;
+import kotlin.collections.IndexedValue;
+import kotlin.coroutines.Continuation;
 import kotlin.jvm.functions.Function1;
+import kotlin.jvm.functions.Function2;
 import kotlin.sequences.Sequence;
+import kotlin.sequences.SequenceScope;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -264,6 +270,49 @@ public class KotlinSequences {
                                               Function1<? super K, ? extends V> valueSelector) {
             return null;
         }
+
+        /* the second census batch (#15); flatMapIterable was bound to flatMap's contract until the JVM names were kept */
+        @NotNull
+        static <T, R> Sequence<R> flatMapIterable(@NotModified Sequence<? extends T> receiver, Function1<? super T, ? extends Iterable<? extends R>> transform) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Sequence<IndexedValue<T>> withIndex(@NotModified Sequence<? extends T> receiver) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Sequence<T> filterNotNull(@NotModified Sequence<? extends T> receiver) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Sequence<T> dropWhile(@NotModified Sequence<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Iterable<T> asIterable(@NotModified Sequence<? extends T> receiver) {
+            return null;
+        }
+
+        static <T> boolean contains(@NotModified Sequence<? extends T> receiver, T element) {
+            return false;
+        }
+
+        static <T, R> R fold(@NotModified Sequence<? extends T> receiver, R initial, Function2<? super R, ? super T, ? extends R> operation) {
+            return null;
+        }
+
+        static <T> void forEachIndexed(@NotModified Sequence<? extends T> receiver, Function2<? super Integer, ? super T, Unit> action) {
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> Pair<List<T>, List<T>> partition(@NotModified Sequence<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
     }
 
     /* public fun <T> sequenceOf(vararg elements: T): Sequence<T> -- a view over the array */
@@ -278,6 +327,56 @@ public class KotlinSequences {
     class SequencesKt___SequencesJvmKt$ {
         @NotNull
         static <R> Sequence<R> filterIsInstance(@NotModified Sequence<?> receiver, Class<R> klass) {
+            return null;
+        }
+    }
+
+    /*
+    public fun <T> sequence(block: suspend SequenceScope<T>.() -> Unit): Sequence<T>
+    public fun <T> iterator(block: suspend SequenceScope<T>.() -> Unit): Iterator<T>
+    public abstract suspend fun yield(value: T)
+    public abstract suspend fun yieldAll(iterator: Iterator<T>)
+    public suspend fun yieldAll(elements: Iterable<T>)
+    public suspend fun yieldAll(sequence: Sequence<T>)
+
+    A builder hands out what its block yields. The result is a lazy view of the block, DEPENDENT on it: left
+    unannotated, the defaults computed @Independent, and a sequence yielding the elements of a captured list read
+    independent of it (TestKotlinAnalyzerSuspend.uncontractedBuilder).
+    The scope RECEIVES what is yielded, as a collection's addAll does: the scope is modified, the argument is read and
+    shares its elements with it. An Iterator is advanced by being drained, so yieldAll(Iterator) stays at the default.
+    The Continuation is the coroutine machinery's, never the caller's data.
+    */
+    class SequencesKt__SequenceBuilderKt$ {
+        @Independent(absent = true)
+        @NotNull
+        static <T> Sequence<T> sequence(Function2<? super SequenceScope<? super T>, ? super Continuation<? super Unit>, ?> block) {
+            return null;
+        }
+
+        @Independent(absent = true)
+        @NotNull
+        static <T> Iterator<T> iterator(Function2<? super SequenceScope<? super T>, ? super Continuation<? super Unit>, ?> block) {
+            return null;
+        }
+    }
+
+    class SequenceScope$<T> {
+        Object yield(@Independent(hc = true) @NotModified T value, @NotModified Continuation<? super Unit> continuation) {
+            return null;
+        }
+
+        Object yieldAll(@Independent(hc = true) @NotModified Iterable<? extends T> elements,
+                        @NotModified Continuation<? super Unit> continuation) {
+            return null;
+        }
+
+        Object yieldAll(@Independent(hc = true) @NotModified Sequence<? extends T> sequence,
+                        @NotModified Continuation<? super Unit> continuation) {
+            return null;
+        }
+
+        Object yieldAll(@Independent(hc = true) Iterator<? extends T> iterator,
+                        @NotModified Continuation<? super Unit> continuation) {
             return null;
         }
     }

@@ -1,0 +1,16 @@
+[
+{"format": "maddi-analysis-results", "version": 1},
+
+{"name": "Tkotlin.jvm.JvmClassMappingKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MgetAnnotationClass(0,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$annotationClass(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetJavaClass(1,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$javaClass(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetJavaClass(2,kotlin.reflect.KClass)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$java(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+ {"name": "MgetJavaObjectType(3,kotlin.reflect.KClass)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetJavaPrimitiveType(4,kotlin.reflect.KClass)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetKotlinClass(5,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$kotlin(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetRuntimeClassOfKClassInstance(6,kotlin.reflect.KClass)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}}]}
+]

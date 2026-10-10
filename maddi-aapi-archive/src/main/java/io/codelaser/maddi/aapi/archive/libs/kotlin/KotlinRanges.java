@@ -28,5 +28,23 @@ public class KotlinRanges {
 
         @NotModified
         boolean isEmpty() { return false; }
+
+        @NotModified
+        Integer getStart() { return null; }
+
+        @NotModified
+        Integer getEndInclusive() { return null; }
+    }
+
+    /* IntRange's parent: first, last and step are final ints, read */
+    class IntProgression$ {
+        @NotModified
+        int getFirst() { return 0; }
+
+        @NotModified
+        int getLast() { return 0; }
+
+        @NotModified
+        int getStep() { return 0; }
     }
 }
