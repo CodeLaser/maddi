@@ -113,6 +113,8 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that walks
+  its `Iterator()`, so that `foreach` and LINQ work on it.
 - **Exposed types.** Java's public method may name a less accessible type, C#'s may not: a nested type is as visible
   as the members whose signatures name it (a record's components count as its properties), capped by the visibility
   of the members' own types, and so are the types it is nested in (`CSharpAccess`).
@@ -253,8 +255,9 @@ ratchet's report (see below) lists what is left.
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
-- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
-  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
+- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
+  (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
+  `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the

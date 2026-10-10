@@ -50,9 +50,12 @@
 # sorts stable, Collections.reverse in place: 170 files compile; errors 89 -> 78.
 # 2026-10-10, a nested type as visible as the members whose signatures name it, and its enclosing types with it:
 # 171 files compile; errors 78 -> 72.
+# 2026-10-10, Iterator as the compatibility library's interface IJavaIterator<T>; a class implementing Iterable gets
+# GetEnumerator; a conditional's null branch for a type parameter is default; Map.Entry.comparingByKey/Value with
+# both type arguments ({R0.1} in templates): 176 files compile; errors 72 -> 60.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	171
+compilingFiles	176
 unmappedJdkUses	32

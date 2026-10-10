@@ -385,8 +385,7 @@ public final class CSharpExpressionPrinter {
         if (target == null) return print(value, q);
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
-        if (target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target)
-                                                                                        || converts(ic.ifFalse(), target))) {
+        if (inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target))) {
             // the branches: C#'s conditional takes its type from them
             return new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
                     .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q))
@@ -447,7 +446,7 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic
+               || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
 

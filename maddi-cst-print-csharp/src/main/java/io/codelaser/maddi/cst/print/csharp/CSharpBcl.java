@@ -212,8 +212,9 @@ final class CSharpBcl {
         compatType("java.io.ByteArrayInputStream", "ByteArrayInputStream");
         compatType("java.io.ByteArrayOutputStream", "ByteArrayOutputStream");
         compatType("java.util.BitSet", "BitSet");
-        compatType("java.util.Iterator", "JavaIterator");
-        compatType("java.util.ListIterator", "JavaIterator");
+        // an interface, which the program's iterators implement
+        compatType("java.util.Iterator", "IJavaIterator");
+        compatType("java.util.ListIterator", "IJavaIterator");
         compatType("java.io.File", "JavaFile");
         compatType("java.util.Enumeration", "JavaEnumeration");
         compatType("java.util.zip.ZipFile", "JavaZipFile");
@@ -377,8 +378,8 @@ final class CSharpBcl {
         m("java.util.Collections.singleton/1", "new HashSet<{R0}> { $1 }");
         m("java.util.Collections.singletonMap/2", "new Dictionary<{R0}, {R1}> { [$1] = $2 }");
         m("java.util.Collections.nCopies/2", "Enumerable.Repeat<{R0}>($2, $1).ToList()", LINQ);
-        m("java.util.Map.Entry.comparingByKey/0", "JavaComparator.ComparingByKey<{R0}>()", COMPAT);
-        m("java.util.Map.Entry.comparingByValue/0", "JavaComparator.ComparingByValue<{R0}>()", COMPAT);
+        m("java.util.Map.Entry.comparingByKey/0", "JavaComparator.ComparingByKey<{R0.0}, {R0.1}>()", COMPAT);
+        m("java.util.Map.Entry.comparingByValue/0", "JavaComparator.ComparingByValue<{R0.0}, {R0.1}>()", COMPAT);
         m("java.util.Collections.sort/1", "JavaCollections.Sort($1)", COMPAT);
         m("java.util.Collections.sort/2", "JavaCollections.Sort($1, $2)", COMPAT);
         // LINQ's Reverse would be a new sequence: in place

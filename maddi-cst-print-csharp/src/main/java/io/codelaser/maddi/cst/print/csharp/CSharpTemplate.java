@@ -37,7 +37,7 @@ import java.util.function.Supplier;
  * @param arguments  {@code $1}, {@code $2}, …
  * @param operands   {@code @1}, {@code @2}, …: the arguments as operands
  * @param call       the call, for {@code $1.2} (an argument of an argument); null for a method reference
- * @param returnType {@code {R}}, {@code {R0}}, …
+ * @param returnType {@code {R}}, {@code {R0}}, … and {@code {R0.1}}, a type argument of a type argument
  * @param receiverType {@code {T0}}, …: the type arguments of the receiver's type
  */
 record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuilder>> arguments,
@@ -79,7 +79,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             if (c == '{' && i + 2 < template.length() && (template.charAt(i + 1) == 'R' || template.charAt(i + 1) == 'T')) {
                 int close = template.indexOf('}', i);
                 String token = template.substring(i + 1, close);
-                if (token.matches("[RT]\\d*")) {
+                if (token.matches("[RT](\\d+(\\.\\d+)*)?")) {
                     literal.append(type(token));
                     i = close + 1;
                     continue;
@@ -113,8 +113,13 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         ParameterizedType t = token.charAt(0) == 'R' ? returnType : receiverType;
         if (t == null) return "object";
         if (token.length() == 1) return CSharpTypeName.of(t, q);
-        int index = Integer.parseInt(token.substring(1));
-        return index < t.parameters().size() ? CSharpTypeName.argument(t.parameters().get(index), q) : "object";
+        // {R0.1}: the second type argument of the first type argument
+        for (String index : token.substring(1).split("\\.")) {
+            int i = Integer.parseInt(index);
+            if (i >= t.parameters().size()) return "object";
+            t = t.parameters().get(i);
+        }
+        return CSharpTypeName.argument(t, q);
     }
 
     static final Symbol NULL_CONDITIONAL = new SymbolEnum("?.", SpaceEnum.NONE, SpaceEnum.NONE, null);

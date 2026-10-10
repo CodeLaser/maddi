@@ -154,6 +154,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
+        members.addAll(enumerable(q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -343,6 +344,30 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
         CSharpContext.using("System");
         return out;
+    }
+
+    /**
+     * A class implementing Java's Iterable is C#'s IEnumerable: its GetEnumerator walks its {@code iterator()}, so that
+     * foreach and LINQ work on it.
+     */
+    private List<OutputBuilder> enumerable(Qualification q) {
+        if (typeInfo.isInterface()) return List.of();
+        ParameterizedType iterable = typeInfo.interfacesImplemented().stream()
+                .filter(i -> i.typeInfo() != null && "java.lang.Iterable".equals(i.typeInfo().fullyQualifiedName()))
+                .findFirst().orElse(null);
+        if (iterable == null) return List.of();
+        MethodInfo iterator = typeInfo.methods().stream()
+                .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty()).findFirst()
+                .orElse(null);
+        if (iterator == null) return List.of();
+        String element = iterable.parameters().isEmpty() ? "object" : CSharpTypeName.argument(iterable.parameters().getFirst(), q);
+        CSharpContext.using(CSharpBcl.GENERIC);
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        return List.of(
+                new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
+                                                         + CSharpNames.method(iterator) + "().AsEnumerator();")),
+                new OutputBuilderImpl().add(new TextImpl(
+                        "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();")));
     }
 
     /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */

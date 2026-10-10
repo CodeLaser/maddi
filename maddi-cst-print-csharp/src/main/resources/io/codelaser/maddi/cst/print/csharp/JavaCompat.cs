@@ -782,7 +782,30 @@ public class BitSet : ICloneable
 /// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
 /// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
 /// </summary>
-public class JavaIterator<T>
+public interface IJavaIterator<T>
+{
+    bool HasNext();
+
+    T Next();
+
+    void Remove() => throw new NotSupportedException("remove");
+
+    void ForEachRemaining(Action<T> action)
+    {
+        while (HasNext()) action(Next());
+    }
+}
+
+public static class JavaIterators
+{
+    /// <summary>A Java iterator as C#'s enumerator: a class with iterator() is an IEnumerable.</summary>
+    public static IEnumerator<T> AsEnumerator<T>(this IJavaIterator<T> iterator)
+    {
+        while (iterator.HasNext()) yield return iterator.Next();
+    }
+}
+
+public class JavaIterator<T> : IJavaIterator<T>
 {
     private readonly IList<T> list;
     private readonly ICollection<T> collection;
