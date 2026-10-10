@@ -32,6 +32,18 @@ chapter only when detail is missing here.
   - **All non-trivial constructors are modifying** (they assign fields).
   - Field property `unmodified` is **content-only**: it says the field's *content* is never modified;
     field *assignment* is tracked separately via effective finality (rule 0 below).
+  - **Structural (shallow) twins** (2026-10-10, CodeLaser/maddi-mod#25): `STRUCTURALLY_NON_MODIFYING_METHOD`,
+    `STRUCTURALLY_UNMODIFIED_PARAMETER`, `STRUCTURALLY_UNMODIFIED_FIELD`, and `structurallyUnmodifiedVariable` at
+    statement level. A modification of the object itself or of its accessible content (real fields, the scope chain)
+    counts; one of its hidden content (an element: the `∈`/`∋` links, a map value, a consumer applied to the
+    elements) does not. Implied by the deep property; readers (`isStructurallyUnmodified()`,
+    `isStructurallyNonModifying()`) fall back to the deep one when the twin is absent, so a contract or a hint
+    counts as structural. Computed beside the deep verdict by the link computer (the same decision over the
+    evaluation's modified set, without the `∋` propagation and with the deep-only evidence left out: an argument
+    to a parameter that is modified yet structurally unmodified, a callee summary's `deepOnlyModified()` entries),
+    by the abstract-method fold, and by a second closure of the reachability pass over the structural seeds.
+    Consumer: the Java→Kotlin printer's `List`/`MutableList` choice. Immutability, independence and `@Container`
+    keep the deep property.
 - **Independence** is a separate axis from immutability: it captures whether a method's return
   value/parameters expose (parts of) the receiver's content. `@Independent` (nothing shared),
   `@Independent(hc=true)` (only hidden content shared), dependent (mutable content shared).
@@ -208,6 +220,12 @@ immutability verdicts are derived.
   `DecoratorImpl`) but never inferred. `@Singleton` and `@ExtensionClass` exist in `maddi-support`
   but have no property and are read by nothing. The chapter carries per-section status markers as
   of 2026-07-23.
+- **The reachability pass (MODREACH) follows no element link for a parameter**: its E1/E2 projections walk
+  assignment links only, so under MODREACH the published DEEP `UNMODIFIED_PARAMETER` of a walkable body never
+  records an element-only modification (`for (Item i : items) i.touch()` reads unmodified); the fixpoint's
+  FALSE is reverse-upgraded at the cutover. Fields keep that evidence through the statement-level seeds.
+  Measured 2026-10-10 (`TestStructuralModification`), not changed: the structural twins make the distinction
+  explicit instead.
 - **`@Finalizer`'s modification semantics ARE implemented and load-bearing** (its three life-cycle
   sequencing rules are not): a call to a finalizer NEVER marks the receiver modified — the guard
   `!methodInfo.isFinalizer()` in `MethodModification.go`, mirrored in `ShallowMethodLinkComputer`

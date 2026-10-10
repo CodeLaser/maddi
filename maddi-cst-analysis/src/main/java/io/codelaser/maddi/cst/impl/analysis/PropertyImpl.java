@@ -41,6 +41,17 @@ public class PropertyImpl implements Property {
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
+    /**
+     * The structural (shallow) twin of {@link #NON_MODIFYING_METHOD}: the method does not modify the receiver
+     * object itself, nor the objects that are its accessible content (its fields, recursively), but it may modify
+     * the objects in its hidden content: the elements of a collection, the values stored under a type parameter.
+     * {@code for (Item i : this) i.touch()} is structurally non-modifying; {@code add(i)} is not. Implied by
+     * {@code NON_MODIFYING_METHOD}, so a reader falls back to it when this twin is absent (a library contract, a
+     * bodiless method): {@code MethodInfo.isStructurallyNonModifying()}. Written by the link computer, the
+     * abstract-method fold and the reachability cutover, never by a contract. The Java-to-Kotlin printer reads it
+     * to choose a read-only collection type (CodeLaser/maddi-mod#25); immutability and independence keep the deep one.
+     */
+    public static final Property STRUCTURALLY_NON_MODIFYING_METHOD = new PropertyImpl("structurallyNonModifyingMethod");
     /** the method has a STATIC SIDE EFFECT: it modifies static/global state belonging to a type other than its
      * own primary type (a modifying call on, or assignment to, another type's static field). Informational — it
      * does not by itself cap the type's immutability (immutability inspects only the type's own fields) — but it
@@ -121,6 +132,14 @@ public class PropertyImpl implements Property {
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
     /**
+     * The structural twin of {@link #UNMODIFIED_PARAMETER}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}: the
+     * argument's object is not modified by the method, its elements may be. {@code Collection<Query> queries}, read
+     * with {@code queries.iterator().next()} and handed element by element to a method that modifies them, is
+     * structurally unmodified; the parameter of {@code Collections.sort} is not. Kotlin's {@code List}, {@code Map}
+     * and {@code Collection} are exactly this: read-only views whose elements are what they are.
+     */
+    public static final Property STRUCTURALLY_UNMODIFIED_PARAMETER = new PropertyImpl("structurallyUnmodifiedParameter");
+    /**
      * The mark label(s) of {@code @NotModified(after="…")} on a parameter: the method modifies the argument's
      * object graph only through chains the eventual machinery excuses -- once every label (field names in the
      * parameter type's label space) has been committed on the argument, a call leaves the argument unmodified.
@@ -173,6 +192,8 @@ public class PropertyImpl implements Property {
             ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property IGNORE_MODIFICATIONS_FIELD = new PropertyImpl("ignoreModificationsField");
     public static final Property UNMODIFIED_FIELD = new PropertyImpl("unmodifiedField");
+    /** The structural twin of {@link #UNMODIFIED_FIELD}, see {@link #STRUCTURALLY_NON_MODIFYING_METHOD}. */
+    public static final Property STRUCTURALLY_UNMODIFIED_FIELD = new PropertyImpl("structurallyUnmodifiedField");
     public static final Property IMMUTABLE_FIELD = new PropertyImpl("immutableField"
             , ValueImpl.ImmutableImpl.MUTABLE);
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");

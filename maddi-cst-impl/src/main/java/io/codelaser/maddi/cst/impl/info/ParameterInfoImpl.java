@@ -246,6 +246,12 @@ public class ParameterInfoImpl implements ParameterInfo {
     }
 
     @Override
+    public boolean isStructurallyUnmodified() {
+        Value.Bool structural = analysis.getOrNull(PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
+        return structural != null ? structural.isTrue() : isUnmodified();
+    }
+
+    @Override
     public boolean isIgnoreModifications() {
         return analysis.getOrDefault(PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, ValueImpl.BoolImpl.FALSE).isTrue();
     }

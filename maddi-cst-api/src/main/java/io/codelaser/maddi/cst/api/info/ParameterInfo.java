@@ -90,6 +90,14 @@ public interface ParameterInfo extends Variable, Info {
     boolean isUnmodified();
 
     /**
+     * Returns {@code true} if the analyzer determined that the method never modifies the argument's object
+     * itself: no mutator is called on it, it is not handed to a parameter that is structurally modified. Its
+     * elements (its hidden content) may still be modified. Implied by {@link #isUnmodified()}, which is the
+     * fallback when the structural verdict is absent. A Kotlin {@code List}/{@code Map} parameter is this.
+     */
+    boolean isStructurallyUnmodified();
+
+    /**
      * Returns analysis data describing which field this parameter is assigned to
      * (directly or via a setter), as determined by the analyzer.
      */

@@ -410,6 +410,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 private static int describe(Map<String, Object> m) { return m.size(); }
                 private static int stuffs(Map<String, Object> m) { fillMap(m); return 0; }
                 private static void fillMap(Map<String, Object> m) { m.put("a", 1); }
+                private static void touch(List<StringBuilder> items) { for (StringBuilder sb : items) sb.append("x"); }
             }
             """;
 
@@ -421,11 +422,22 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     public void readOnlyParameters() {
         String kotlin = kotlin(READ_ONLY, type -> type.methods().stream()
                 .filter(m -> !m.name().startsWith("fill"))
-                .forEach(m -> m.parameters().forEach(p -> p.analysis().set(
-                        io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+                .forEach(m -> m.parameters().forEach(p -> {
+                    if (m.name().equals("touch")) {
+                        // deep: modified through its elements; structural: the list itself is not
+                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.FALSE);
+                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                    } else {
+                        p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                    }
+                })));
         contains(kotlin, "fun count(items: List<String>): Int");
         contains(kotlin, "fun fill(items: MutableList<String>)");
+        // the structural verdict decides: a List<StringBuilder> whose elements are appended to is a read-only List
+        contains(kotlin, "fun touch(items: List<StringBuilder>)");
         // unmodified, but returned where a MutableList is declared: only a parameter that is merely read
         contains(kotlin, "fun same(items: MutableList<String>): MutableList<String>");
         // open: overridable, so its parameter keeps Java's mutable type whatever the analysis says
