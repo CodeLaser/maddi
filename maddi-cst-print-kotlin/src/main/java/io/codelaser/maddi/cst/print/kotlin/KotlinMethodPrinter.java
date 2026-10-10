@@ -393,7 +393,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * T. Kotlin's unbounded {@code <T>} is {@code T : Any?}, so a nullable argument makes T nullable and the "non-null"
      * result with it: {@code this.metadata = ensureNotNull(metadata, "metadata")} did not type-check against a
      * {@code Metadata}. Bounded {@code T : Any}, T is the argument's non-null type and {@code T?} the parameter's.
-     * Only for an unbounded type parameter of a method that overrides nothing (an override cannot change bounds).
+     * Only for an unbounded type parameter of a method that overrides nothing (an override cannot change bounds), and
+     * not when T is a type argument of a parameter: {@code <T> T getOrDefault(T value, Supplier<T> supplier)} returns
+     * what the supplier gives, which a {@code Supplier<DocumentSplitter?>} makes nullable.
      */
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         if (!methodInfo.overrides().isEmpty() || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
@@ -401,6 +403,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;
+        if (typeArgumentOfParameter(methodInfo, tp)) return false;
         return methodInfo.parameters().stream().anyMatch(p -> {
             ParameterizedType pt = KotlinNullability.parameterType(p);
             ParameterizedType element = p.isVarArgs() && pt.arrays() > 0 ? pt.componentType() : pt;
@@ -408,4 +411,16 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         });
     }
 
+    /**
+     * T is a type argument of one of the method's parameters ({@code Supplier<T>}): a value of T may come from there,
+     * as null where T is instantiated nullable.
+     */
+    static boolean typeArgumentOfParameter(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        return methodInfo.parameters().stream().anyMatch(p -> p.parameterizedType().parameters().stream()
+                .anyMatch(a -> mentions(a, tp)));
+    }
+
+    private static boolean mentions(ParameterizedType type, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        return tp.equals(type.typeParameter()) || type.parameters().stream().anyMatch(a -> mentions(a, tp));
+    }
 }
