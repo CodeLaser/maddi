@@ -15,6 +15,8 @@
 # object; a method named as its class is Of (static) or <Name>Value; a type hidden by a member, or whose name two
 # namespaces or the BCL declare, is qualified; an adapter substitutes a generic super-interface's arguments: 208 files
 # compile; errors 938 -> 801.
+# 2026-10-10, annotation types as attribute classes (8, which printed empty before), their uses as attributes, element
+# reads as properties: errors 801 -> 793; the numbers do not move.
 types	346
 printerCrashes	0
 syntaxErrors	0

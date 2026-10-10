@@ -296,6 +296,10 @@ public final class CSharpExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         Expression object = mc.object();
         MethodInfo method = mc.methodInfo();
+        if (CSharpAttributes.isElement(method) && object != null) {
+            // tool.name() reads the attribute's property
+            return new OutputBuilderImpl().add(receiver(object, q)).add(SymbolEnum.DOT).add(text(CSharpAttributes.property(method)));
+        }
         if (CSharpContext.program().isInvoke(method) && object != null && !mc.objectIsImplicit()) {
             // a call of a delegate is an invocation: f(x)
             return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));

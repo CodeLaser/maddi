@@ -37,6 +37,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String name = CSharpNames.field(fieldInfo);
         if (asParameterInRecordDeclaration) return new OutputBuilderImpl().add(new TextImpl(type + " " + name));
 
+        OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), q, true);
         StringBuilder modifiers = new StringBuilder();
         String access = CSharpModifiers.access(fieldInfo);
         if (access != null) modifiers.append(access).append(' ');
@@ -48,7 +49,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             if (isFinal(fieldInfo)) modifiers.append("readonly ");
             else if (fieldInfo.isVolatile()) modifiers.append("volatile ");
         }
-        OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(modifiers + type)).add(SpaceEnum.ONE)
+        OutputBuilder b = new OutputBuilderImpl().add(attributes).add(new TextImpl(modifiers + type)).add(SpaceEnum.ONE)
                 .add(new TextImpl(name));
         // a hoisted anonymous class initialises its instance fields in its constructor, after its captures
         boolean inConstructor = !fieldInfo.isStatic() && fieldInfo.owner().isAnonymous()

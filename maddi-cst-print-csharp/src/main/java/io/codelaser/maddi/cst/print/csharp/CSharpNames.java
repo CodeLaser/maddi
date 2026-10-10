@@ -79,6 +79,8 @@ public final class CSharpNames {
         CSharpAnonymous.Hoisted hoisted = typeInfo.isAnonymous() ? CSharpContext.hoisted(typeInfo) : null;
         if (hoisted != null) return hoisted.name();
         String simple = typeInfo.simpleName();
+        // an attribute class's name ends in Attribute: [Tool] uses ToolAttribute
+        if (CSharpAttributes.isAttribute(typeInfo)) return name(simple.endsWith("Attribute") ? simple : simple + "Attribute");
         // a delegate is named as a class
         if (translated(typeInfo) && typeInfo.typeNature().isInterface() && !typeInfo.typeNature().isAnnotation()
             && !CSharpContext.program().delegate(typeInfo)

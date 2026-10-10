@@ -64,6 +64,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             CSharpContext.message(CSharpPrintMessage.Code.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
             return b;
         }
+        b.add(CSharpAttributes.uses(methodInfo.annotations(), q, true));
         if (methodInfo.isSynchronized()) {
             CSharpContext.using("System.Runtime.CompilerServices");
             b.add(new TextImpl("[MethodImpl(MethodImplOptions.Synchronized)]")).add(SpaceEnum.NEWLINE);
@@ -125,7 +126,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     private static OutputBuilder parameter(ParameterInfo p, Qualification q) {
         String type = CSharpTypeName.of(p.parameterizedType(), q);
-        return new OutputBuilderImpl().add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
+        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }
 }

@@ -780,4 +780,46 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static Metadata Of(string key, object value) => new Metadata();");
         contains(cs, "public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
     }
+
+    @Language("java")
+    private static final String ANNOTATIONS = """
+            package org.example.attr;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            import java.lang.reflect.Method;
+            class Tools {
+                @Retention(RetentionPolicy.RUNTIME)
+                @Target({ElementType.METHOD})
+                @interface Tool {
+                    String name() default "";
+                    String[] value() default "";
+                    boolean required() default true;
+                }
+                @Tool(value = "Adds", name = "add")
+                int add(int a, int b) { return a + b; }
+                @Deprecated
+                int old() { return 0; }
+                static String nameOf(Tool tool) { return tool.name(); }
+            }
+            """;
+
+    /**
+     * An annotation type is an attribute class with properties and their defaults; a use is an attribute, its value
+     * element positional; reading an element reads the property.
+     */
+    @Test
+    public void annotations() {
+        String cs = translate("Tools", ANNOTATIONS);
+        contains(cs, "[AttributeUsage(AttributeTargets.Method)]");
+        contains(cs, "internal sealed class ToolAttribute : Attribute {");
+        contains(cs, "public ToolAttribute(params string[] value) { Value = value; }");
+        contains(cs, "public string Name { get; set; } = \"\";");
+        contains(cs, "public string[] Value { get; set; } = new string[] { \"\" };");
+        contains(cs, "public bool Required { get; set; } = true;");
+        contains(cs, "[Tool(\"Adds\", Name = \"add\")]");
+        contains(cs, "[Obsolete]");
+        contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
+    }
 }

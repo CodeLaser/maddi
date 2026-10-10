@@ -66,6 +66,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
         CSharpContext.pushType(typeInfo);
         try {
+            if (CSharpAttributes.isAttribute(typeInfo)) {
+                return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType());
+            }
             if (typeInfo.typeNature().isAnnotation()) {
                 CSharpContext.message(CSharpPrintMessage.Code.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
                 return new OutputBuilderImpl();
@@ -99,6 +102,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
+            out.add(CSharpAttributes.uses(typeInfo.annotations(), q, true));
             StringBuilder modifiers = new StringBuilder();
             String access = typeAccess();
             if (access != null) modifiers.append(access).append(' ');

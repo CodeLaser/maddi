@@ -122,6 +122,12 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
+  (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
+  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
+  the property, `tool.Name`. A use on a type, method, field or parameter is an attribute,
+  `[Tool("Adds", Name = "add")]`; `@Deprecated` is `[Obsolete]`. Other JDK annotations have no C# counterpart, and
+  those of other libraries are dropped.
 - **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
   the interface, `((IResult) this).Failed()`.
 - **Casts to type parameters.** C# casts to a type parameter only from `object`, an interface or another type
@@ -209,7 +215,6 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
   - `Outer.this`, because a C# nested class has no enclosing instance;
-  - annotation types (to become attributes);
   - `new int[a][b]`;
   - record patterns;
   - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
