@@ -192,4 +192,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(COLLECTION_BESIDE_OBJECT);
         contains(kotlin, "apply((Collections.singletonMap(\"name\", \"Klaus\") as MutableMap<String, Any>))");
     }
+
+    @Language("java")
+    private static final String SMALL_GAPS = """
+            package a;
+            import java.util.*;
+            import java.util.concurrent.CompletableFuture;
+            import java.util.stream.*;
+            class G {
+                static class Failure { boolean retry; boolean retry() { return retry; } }
+                CompletableFuture<Void> all(List<CompletableFuture<String>> fs) {
+                    return CompletableFuture.allOf(fs.toArray(new CompletableFuture[0]));
+                }
+                List<String> orEmpty(List<String> l) { return Optional.ofNullable(l).orElseGet(List::of); }
+                boolean anyRetry(List<Failure> fs) { return fs.stream().anyMatch(Failure::retry); }
+                @SuppressWarnings("unchecked")
+                boolean greater(Object actual, Object expected) { return ((Comparable) actual).compareTo(expected) > 0; }
+            }
+            """;
+
+    /** toArray(T[]), a static reference into a mapped type, a property-function clash, a raw Comparable. */
+    @Test
+    public void smallGaps() {
+        String kotlin = kotlin(SMALL_GAPS);
+        contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
+        contains(kotlin, "{ java.util.List.of() })");
+        contains(kotlin, "anyMatch({ it.retry() })");
+        contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");
+    }
 }

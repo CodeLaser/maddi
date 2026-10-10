@@ -304,6 +304,14 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
             return b.add(new TextImpl("removeAt")).add(arguments(mc.parameterExpressions(), q));
         }
+        if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+            // c.toArray(new X[0]): Kotlin's collections have no toArray(T[]); toTypedArray<X>() types the array as
+            // Java's argument does (Kotlin's arrays are invariant, its Collection<out E> is not)
+            ParameterizedType array = mc.parameterExpressions().getFirst().parameterizedType();
+            String element = array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
+                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
+        }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
         if (mapped != null) return b.add(new TextImpl(mapped));
         if (KotlinMappedMembers.isIndexGet(mc.methodInfo())) {
@@ -995,6 +1003,22 @@ public class KotlinExpressionPrinter {
         }
         String member = mappedMember(mr);
         if (member != null) return text("{ it" + member + " }");
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (scope instanceof TypeExpression te && m.isStatic() && !m.isVarargs()
+            && KotlinTypeName.isMapped(te.parameterizedType().typeInfo().fullyQualifiedName()) && m.parameters().size() <= 2) {
+            // java.util.List::of: Kotlin wants the mapped type's arguments (List<E>) and has no static to refer to
+            String call = KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + KotlinNames.name(m.name());
+            return text(switch (m.parameters().size()) {
+                case 0 -> "{ " + call + "() }";
+                case 1 -> "{ " + call + "(it) }";
+                default -> "{ a, b -> " + call + "(a, b) }";
+            });
+        }
+        if (scope instanceof TypeExpression && !m.isStatic() && m.parameters().isEmpty()
+            && m.typeInfo().fields().stream().anyMatch(f -> f.name().equals(m.name()))) {
+            // Failure::retry where Failure has a field retry too: Kotlin finds the property and the function
+            return text("{ it." + KotlinNames.name(m.name()) + "() }");
+        }
         OutputBuilder b = new OutputBuilderImpl();
         if (scope instanceof TypeExpression te) {
             TypeInfo owner = te.parameterizedType().typeInfo();
@@ -1003,6 +1027,17 @@ public class KotlinExpressionPrinter {
             b.add(receiver(scope, q));
         }
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
+    }
+
+    private static boolean toArrayOf(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        return m != null && "toArray".equals(m.name()) && m.parameters().size() == 1
+               && m.parameters().getFirst().parameterizedType().arrays() == 1
+               && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+    }
+
+    private static boolean rawComparable(ParameterizedType type) {
+        return type.typeInfo() != null && "java.lang.Comparable".equals(type.typeInfo().fullyQualifiedName())
+               && type.parameters().isEmpty() && type.arrays() == 0;
     }
 
     /**
@@ -1539,9 +1574,13 @@ public class KotlinExpressionPrinter {
         ParameterizedType type = nullable
                 ? cast.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
                 : cast.parameterizedType();
+        String typeName = rawComparable(cast.parameterizedType())
+                // ((Comparable) actual).compareTo(expected): Comparable<*> takes nothing, Comparable<Any?> anything,
+                // unchecked, as Java's raw type does
+                ? "Comparable<Any?>" + (nullable ? "?" : "") : KotlinTypeName.of(type, q);
         return new OutputBuilderImpl().add(operand(cast.precedence(), cast.expression(), q)).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinTypeName.of(type, q)));
+                .add(new TextImpl(typeName));
     }
 
     private static String conversion(Primitive from, Primitive to) {

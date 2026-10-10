@@ -300,9 +300,15 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** {@code private constructor(x: Int)}, or just {@code (x: Int)}. */
     private OutputBuilder primaryConstructorHeader(MethodInfo c, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
-        if (!typeInfo.typeNature().isEnum()) {
-            KotlinModifiers.visibility(c.access(), typeInfo, c).ifPresent(v -> b.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
-                    .add(KotlinKeyword.CONSTRUCTOR));
+        // class TextContentMixin @JsonCreator constructor(@JsonProperty("text") text: String): annotated, the primary
+        // constructor needs its keyword
+        OutputBuilder annotations = KotlinAnnotations.print(c.annotations(), q);
+        java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility = typeInfo.typeNature().isEnum()
+                ? java.util.Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
+        if (!annotations.isEmpty() || visibility.isPresent()) {
+            b.add(SpaceEnum.ONE).add(annotations);
+            visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+            b.add(KotlinKeyword.CONSTRUCTOR);
         }
         return b.add(KotlinMethodPrinter.parameters(c, q));
     }

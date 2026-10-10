@@ -261,7 +261,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     private static OutputBuilder parameter(ParameterInfo pi, String typeOverride, Qualification q) {
-        OutputBuilder ob = new OutputBuilderImpl();
+        // @JsonProperty("text") text: String -- Jackson's creator, JUnit's @TempDir, a tool's @P read them
+        OutputBuilder ob = new OutputBuilderImpl().add(KotlinAnnotations.print(pi.annotations(), q));
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType declared = KotlinNullability.parameterType(pi);
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String

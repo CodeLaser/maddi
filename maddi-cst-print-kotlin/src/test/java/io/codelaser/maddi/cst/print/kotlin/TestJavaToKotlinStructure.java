@@ -510,6 +510,52 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun <T : Event> toBuilder(): Builder<T> = (CompletedBuilder()) as Builder<T>");
     }
 
+    @Language("java")
+    private static final String ANNOTATION_ARGUMENTS = """
+            package a;
+            import java.lang.annotation.*;
+            @Target({ElementType.TYPE, ElementType.METHOD})
+            @interface Types {
+                Type[] value();
+                @interface Type { String name(); }
+            }
+            @interface Tags { String[] value(); }
+            @Types({@Types.Type(name = "a"), @Types.Type(name = "b")})
+            @Tags("x")
+            class Annotated { }
+            """;
+
+    /**
+     * A Java annotation's array {@code value} is a vararg to Kotlin; a translated annotation class's is an Array
+     * property, so a single value takes brackets. A member annotation type is named through its enclosing type.
+     */
+    @Test
+    public void annotationArguments() {
+        String kotlin = kotlin(ANNOTATION_ARGUMENTS);
+        contains(kotlin, "@Target(ElementType.TYPE, ElementType.METHOD)");
+        contains(kotlin, "@Types([Types.Type(name = \"a\"), Types.Type(name = \"b\")])");
+        contains(kotlin, "@Tags([\"x\"])");
+    }
+
+    @Language("java")
+    private static final String CREATOR = """
+            package a;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.RUNTIME) @interface Creator { }
+            @Retention(RetentionPolicy.RUNTIME) @interface Property { String value(); }
+            abstract class TextMixin {
+                @Creator
+                TextMixin(@Property("text") String text) { }
+            }
+            """;
+
+    /** Jackson's mix-in: the creator annotation needs the primary constructor's keyword, the parameter its own. */
+    @Test
+    public void annotatedPrimaryConstructor() {
+        String kotlin = kotlin(CREATOR);
+        contains(kotlin, "abstract class TextMixin @Creator constructor(@Property(\"text\") text: String)");
+    }
+
     @Test
     public void protectedAndClone() {
         String kotlin = kotlin(VISIBILITY);

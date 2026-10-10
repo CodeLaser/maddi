@@ -66,18 +66,45 @@ final class KotlinAnnotations {
 
     /** The name and the arguments; as an annotation's argument, without the {@code @}. */
     private static OutputBuilder annotation(AnnotationExpression ae, String at, Qualification q) {
-        OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(at + KotlinTypeName.name(ae.typeInfo(), q)));
+        OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(at + annotationName(ae.typeInfo(), q)));
         List<AnnotationExpression.KV> kvs = ae.keyValuePairs();
         if (kvs.isEmpty()) return b;
         b.add(SymbolEnum.LEFT_PARENTHESIS);
         boolean positional = kvs.size() == 1 && (kvs.getFirst().keyIsDefault() || "value".equals(kvs.getFirst().key()));
+        boolean translated = KotlinNullability.translated(ae.typeInfo());
         for (int i = 0; i < kvs.size(); i++) {
             if (i > 0) b.add(SymbolEnum.COMMA);
             AnnotationExpression.KV kv = kvs.get(i);
             if (!positional) b.add(new TextImpl(kv.key())).add(SpaceEnum.ONE).add(new TextImpl("=")).add(SpaceEnum.ONE);
-            b.add(value(kv.value(), q));
+            if (positional && !translated && kv.value() instanceof ArrayInitializer ai) {
+                // a Java annotation's array `value` is a vararg to Kotlin: @Target(ElementType.TYPE, ElementType.METHOD)
+                for (int j = 0; j < ai.expressions().size(); j++) {
+                    if (j > 0) b.add(SymbolEnum.COMMA);
+                    b.add(value(ai.expressions().get(j), q));
+                }
+            } else {
+                // a translated annotation class's array element is an Array property: @Tool(["x"]), not @Tool("x")
+                b.add(elementValue(kv.value(), translated && arrayElement(ae.typeInfo(), kv), q));
+            }
         }
         return b.add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    private static boolean arrayElement(io.codelaser.maddi.cst.api.info.TypeInfo annotationType, AnnotationExpression.KV kv) {
+        String key = kv.keyIsDefault() ? "value" : kv.key();
+        return annotationType.methods().stream().anyMatch(m -> m.name().equals(key) && m.parameters().isEmpty()
+                                                               && m.returnType().arrays() > 0);
+    }
+
+    /**
+     * A member annotation type is named through its enclosing type, {@code JsonSubTypes.Type}: bare, {@code Type}
+     * resolves to whatever else the file imports by that name ({@code java.lang.reflect.Type}).
+     */
+    private static String annotationName(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, Qualification q) {
+        String name = KotlinTypeName.name(typeInfo, q);
+        io.codelaser.maddi.cst.api.info.TypeInfo primary = typeInfo.primaryType();
+        if (name.contains(".") || typeInfo.isPrimaryType() || primary == null) return name;
+        return KotlinTypeName.name(primary, q) + typeInfo.fullyQualifiedName().substring(primary.fullyQualifiedName().length());
     }
 
     private static OutputBuilder value(Expression e, Qualification q) {
