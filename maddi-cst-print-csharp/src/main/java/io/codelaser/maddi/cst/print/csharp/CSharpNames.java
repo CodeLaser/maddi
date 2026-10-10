@@ -64,7 +64,9 @@ public final class CSharpNames {
     public static String namespace(String packageName, boolean translated) {
         if (packageName == null || packageName.isEmpty()) return "";
         if (!translated) return packageName;
-        return Arrays.stream(packageName.split("\\.")).map(CSharpNames::pascal).collect(Collectors.joining("."));
+        CSharpProgram program = CSharpContext.program();
+        return Arrays.stream(packageName.split("\\.")).map(CSharpNames::pascal).map(program::namespaceSegment)
+                .collect(Collectors.joining("."));
     }
 
     /** The namespace a type is declared in. */
@@ -74,6 +76,8 @@ public final class CSharpNames {
 
     /** The simple name of a type: {@code IVisitor} for a translated interface {@code Visitor}. */
     public static String type(TypeInfo typeInfo) {
+        CSharpAnonymous.Hoisted hoisted = typeInfo.isAnonymous() ? CSharpContext.hoisted(typeInfo) : null;
+        if (hoisted != null) return hoisted.name();
         String simple = typeInfo.simpleName();
         // a delegate is named as a class
         if (translated(typeInfo) && typeInfo.typeNature().isInterface() && !typeInfo.typeNature().isAnnotation()
@@ -165,6 +169,23 @@ public final class CSharpNames {
             if (enclosing == null || hoisted(t)) return t;
             t = enclosing;
         }
+    }
+
+    /**
+     * {@code type} has {@code ancestor} as a superclass or superinterface, at any depth. Not
+     * {@code recursiveSuperTypeStream()}, which includes the enclosing type of an inner class.
+     */
+    static boolean inherits(TypeInfo type, TypeInfo ancestor) {
+        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>(List.of(type));
+        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.pop();
+            if (!seen.add(t)) continue;
+            if (t != type && t.equals(ancestor)) return true;
+            if (t.parentClass() != null && t.parentClass().typeInfo() != null) todo.push(t.parentClass().typeInfo());
+            t.interfacesImplemented().stream().filter(i -> i.typeInfo() != null).forEach(i -> todo.push(i.typeInfo()));
+        }
+        return false;
     }
 
     static TypeInfo enclosing(TypeInfo typeInfo) {

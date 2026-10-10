@@ -38,6 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Parses a Java compilation unit with the openjdk front end and prints it as C#. */
 public abstract class CommonJavaToCSharp {
     protected JavaInspector javaInspector;
+    /** The whole-program policy of the translation: see {@link CSharpProgram}. */
+    protected CSharpProgram.Policy policy = CSharpProgram.Policy.DEFAULT;
 
     @BeforeEach
     public void beforeEach() throws IOException {
@@ -72,7 +74,7 @@ public abstract class CommonJavaToCSharp {
                 .orElseThrow();
         Runtime runtime = javaInspector.runtime();
         // the file is the whole program
-        return new CSharpCompilationUnitPrinter(typeInfo.compilationUnit(), true, CSharpProgram.analyze(primaryTypes))
+        return new CSharpCompilationUnitPrinter(typeInfo.compilationUnit(), true, CSharpProgram.analyze(primaryTypes, policy))
                 .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
     }
 

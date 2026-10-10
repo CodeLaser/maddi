@@ -28,8 +28,12 @@ the factory signatures carry no context.
 
 ## Naming (`CSharpNames`)
 
-Every name is a function of its declaration alone, so a declaration and all its uses agree without a renaming pass.
+Every name is a function of its declaration and of the whole program's facts (`CSharpProgram`), so a declaration and
+all its uses agree without a renaming pass.
 
+- A namespace segment that is also the name of a type, of the program or of the BCL, is plural: the namespace
+  `Dev.Langchain4j.Exception` would hide `System.Exception` from the code in `Dev.Langchain4j`, and
+  `Dev.Langchain4j.Exceptions` is .NET's naming (`CSharpProgram`).
 - A namespace is the package with each segment in PascalCase: `org.example.util` becomes `Org.Example.Util`.
 - A translated method is PascalCase: `getName` becomes `GetName`. `toString`, `equals` and `hashCode` become
   `ToString`, `Equals` and `GetHashCode`. An override takes the name of the method it overrides.
@@ -67,6 +71,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
     `CSharpAccess` finds the private members and nested types that code outside their owner reaches. Those, and only
     those, become `internal`.
   - An override keeps the access of the class method it overrides: Java may widen access, C# may not.
+- **Anonymous classes.** One that does not become a lambda is hoisted (`CSharpAnonymous`): a private sealed nested
+  class of the type whose code creates it, named after what it extends (`GraphImpl`). The local variables and
+  parameters it uses become its constructor's arguments and its fields, and so does the enclosing instance, `outer`,
+  when it uses one of its instance members; its fields' initializers move into that constructor, after the captures.
+  Its superclass's constructor arguments come first. A generic method's type parameters become the class's.
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
@@ -103,12 +112,33 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `new IExprentIterator.Lambda(e => 0)`. A printer that is not given the program (`CSharpProgram.NONE`) uses this
   form for all of them. An anonymous class of either kind that only implements the method, without fields and
   without using itself, becomes a lambda.
+- **Inheritance.** C#'s classes and methods are open only when declared so; Java's are open unless declared
+  final. With the whole program (`CSharpProgram`), a class nothing extends is `sealed`, and a method nothing overrides
+  is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
+  methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
+  Java leaves open.
+- **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that walks
+  its `Iterator()`, so that `foreach` and LINQ work on it.
+- **Exposed types.** Java's public method may name a less accessible type, C#'s may not: a nested type is as visible
+  as the members whose signatures name it (a record's components count as its properties), capped by the visibility
+  of the members' own types, and so are the types it is nested in (`CSharpAccess`).
+- **Subclasses of collections.** C#'s `List<T>` has no virtual methods. A class extending `ArrayList` extends the
+  compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `AddAll`, `Clear`,
+  `Clone`, …) are virtual. A call through a `List<E>`-typed reference reaches `List`'s method, not the override:
+  `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but `IList<T>` is not an
+  `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
+- **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
+  Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
+  `Cloneable`, `Serializable` and `RandomAccess` are dropped.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
 
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
+
+- A for-each loop whose body assigns the loop variable iterates over `vItem` and declares `v` as its copy: C#'s
+  iteration variable is read-only.
 
 - **Loops and statements.**
   - `for (T x : xs)` becomes `foreach (T x in xs)`.
@@ -166,7 +196,6 @@ The file uses a file-scoped `namespace X;`.
 Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
 
 - **Not translated yet:**
-  - anonymous classes, other than those of a translated functional interface (to be hoisted into nested classes);
   - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
@@ -190,6 +219,9 @@ ratchet's report (see below) lists what is left.
   `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
   proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
+- **Wildcards.** Java cannot add to a `List<? extends Node>`: it is C#'s covariant read-only interface,
+  `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
+  `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
@@ -215,6 +247,8 @@ ratchet's report (see below) lists what is left.
     `new FileStream(f.ToString(), FileMode.Create)`.
   - A method reference to a mapped member becomes a lambda around its template.
   - A template whose result is not an atom (`list.Count == 0`) is parenthesised as an operand.
+  - Java's sorts are stable, `List.Sort` is not: `list.sort(c)` and `Collections.sort` are the compatibility
+    library's stable sort. `Collections.reverse` reverses in place (LINQ's `Reverse` is a new sequence).
   - `String`'s `indexOf`, `startsWith` and `endsWith` compare ordinally, as Java's do. Case conversions are
     invariant.
 
@@ -225,9 +259,11 @@ ratchet's report (see below) lists what is left.
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
-- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
-  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`) and `JavaMatcher` (a `Regex` applied step by
-  step, as `java.util.regex.Matcher`).
+- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
+  (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
+  `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
+  step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
+  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 
@@ -235,10 +271,12 @@ The translation calls the library only where it needs that behaviour, so idiomat
 
 ## The ratchet
 
-`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources. It judges them
+`TestJavaToCSharpFernflower` (maddi-run-openjdk, `slowTest`) translates fernflower's main sources, and
+`TestJavaToCSharpLangchain4j` langchain4j's core (records, builders, default methods, annotations, `Optional`,
+streams), the Kotlin printer's second corpus too. Each judges its translation
 with `tools/csharp-check`, a small .NET tool on Roslyn that `JavaToCSharpRatchet` builds with `dotnet build`, so a
 .NET 10 SDK must be on the `PATH`. The tool parses each file on its own for the syntax errors, then compiles the
-syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/fernflower.ratchet`:
+syntax-clean files together against the BCL. The numbers are held in `src/test/resources/j2cs/<corpus>.ratchet`:
 printer crashes, syntax errors, syntax-clean files, compiling files (files without an error in that compilation),
 and `unmappedJdkUses`.
 

@@ -83,6 +83,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                     MethodPrinterFactory methodPrinterFactory, FieldPrinterFactory fieldPrinterFactory,
                                     EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
         Qualification q = importData.insideType();
+        List<CSharpAnonymous.Hoisted> anonymous = CSharpAnonymous.in(typeInfo);
+        anonymous.forEach(CSharpContext::hoisted);
+        CSharpAnonymous.Hoisted self = typeInfo.isAnonymous() ? CSharpContext.hoisted(typeInfo) : null;
         boolean record = typeInfo.typeNature().isRecord();
         boolean enumClass = typeInfo.typeNature().isEnum();
         boolean staticClass = staticClass();
@@ -101,10 +104,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (access != null) modifiers.append(access).append(' ');
             if (staticClass) modifiers.append("static ");
             else if (typeInfo.isAbstract() && !typeInfo.isInterface()) modifiers.append("abstract ");
-            else if (record || enumClass || typeInfo.typeNature().isClass() && typeInfo.isFinal()) modifiers.append("sealed ");
+            else if (record || enumClass || typeInfo.typeNature().isClass()
+                                            && (typeInfo.isFinal() || !CSharpContext.program().open(typeInfo))) {
+                modifiers.append("sealed ");
+            }
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
-            String typeParameters = typeInfo.typeParameters().isEmpty() ? ""
-                    : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+            List<TypeParameter> declaredTypeParameters = self != null ? self.typeParameters() : typeInfo.typeParameters();
+            String typeParameters = declaredTypeParameters.isEmpty() ? ""
+                    : declaredTypeParameters.stream().map(tp -> CSharpNames.name(tp.simpleName()))
                             .collect(Collectors.joining(", ", "<", ">"));
             out.add(new TextImpl(modifiers + keyword)).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
@@ -118,13 +125,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
-            for (String constraint : CSharpTypeName.constraints(typeInfo.typeParameters(), q)) {
+            for (String constraint : CSharpTypeName.constraints(declaredTypeParameters, q)) {
                 out.add(SpaceEnum.ONE).add(new TextImpl(constraint));
             }
         }
 
         List<OutputBuilder> members = new ArrayList<>();
         if (enumClass) enumInstances(q).forEach(members::add);
+        if (self != null) members.addAll(hoistedMembers(self, q));
         typeInfo.fields().stream()
                 .filter(f -> !f.isSynthetic() && !CSharpNames.isEnumConstant(f) && !components.contains(f))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
@@ -146,6 +154,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
+        members.addAll(enumerable(q));
+        anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
@@ -153,7 +163,49 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return out;
     }
 
+    /**
+     * The fields of a hoisted anonymous class's captures, and its constructor: the superclass's arguments, the
+     * enclosing instance, the captures, then the instance fields' initializers.
+     */
+    private List<OutputBuilder> hoistedMembers(CSharpAnonymous.Hoisted h, Qualification q) {
+        List<OutputBuilder> members = new ArrayList<>();
+        List<String> parameters = new ArrayList<>();
+        List<OutputBuilder> body = new ArrayList<>();
+        for (int i = 0; i < h.superArguments().size(); i++) {
+            parameters.add(CSharpTypeName.of(h.superArguments().get(i), q) + " p" + i);
+        }
+        if (h.outer()) {
+            TypeInfo outer = enclosingType(typeInfo);
+            String outerType = CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? ""
+                    : outer.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                            .collect(Collectors.joining(", ", "<", ">")));
+            members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + outerType + " outer;")));
+            parameters.add(outerType + " outer");
+            body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+        }
+        for (CSharpAnonymous.Capture c : h.captures()) {
+            String type = CSharpTypeName.of(c.type(), q);
+            String name = CSharpNames.name(c.name());
+            members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + type + " " + name + ";")));
+            parameters.add(type + " " + name);
+            body.add(new OutputBuilderImpl().add(new TextImpl("this." + name + " = " + name + ";")));
+        }
+        for (FieldInfo f : typeInfo.fields()) {
+            if (f.isSynthetic() || f.isStatic() || f.initializer() == null || f.initializer().isEmpty()) continue;
+            body.add(new OutputBuilderImpl().add(new TextImpl("this." + CSharpNames.field(f)))
+                    .add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
+                    .add(SymbolEnum.SEMICOLON));
+        }
+        if (parameters.isEmpty() && body.isEmpty()) return members;
+        String baseCall = h.superArguments().isEmpty() ? "" : " : base(" + java.util.stream.IntStream
+                .range(0, h.superArguments().size()).mapToObj(i -> "p" + i).collect(Collectors.joining(", ")) + ")";
+        members.add(new OutputBuilderImpl().add(new TextImpl("internal " + h.name() + "(" + String.join(", ", parameters)
+                + ")" + baseCall)).add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(body)));
+        return members;
+    }
+
     private String typeAccess() {
+        if (typeInfo.isAnonymous() && CSharpContext.hoisted(typeInfo) != null) return "private";
         if (isLocal(typeInfo)) return "private"; // lifted into the enclosing type
         // a top-level type is public or internal
         if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
@@ -164,6 +216,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
     }
 
+    private static final java.util.Set<String> LIST_BASES = java.util.Set.of("java.util.ArrayList",
+            "java.util.AbstractList", "java.util.LinkedList");
+
+    private static final java.util.Set<String> MARKERS = java.util.Set.of("java.lang.Cloneable", "java.io.Serializable",
+            "java.util.RandomAccess");
+
     /** The superclass, unless implicit (Object, Enum, Record), and the interfaces. */
     private List<String> superTypes(Qualification q) {
         List<String> supers = new ArrayList<>();
@@ -171,9 +229,23 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (parent != null && !parent.isJavaLangObject() && parent.typeInfo() != null
             && !"java.lang.Enum".equals(parent.typeInfo().fullyQualifiedName())
             && !"java.lang.Record".equals(parent.typeInfo().fullyQualifiedName())) {
-            supers.add(CSharpTypeName.of(parent, q));
+            if (LIST_BASES.contains(parent.typeInfo().fullyQualifiedName())) {
+                // C#'s List has no virtual methods: the compatibility library's JavaArrayList, whose Java methods are
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                if (typeInfo.methods().stream().anyMatch(m -> m.overrides().stream()
+                        .anyMatch(o -> LIST_BASES.contains(o.typeInfo().fullyQualifiedName())))) {
+                    CSharpContext.message(CSharpPrintMessage.Code.LIST_SUBCLASS, typeInfo, typeInfo.simpleName());
+                }
+                supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                        .collect(Collectors.joining(", ")) + ">");
+            } else {
+                supers.add(CSharpTypeName.of(parent, q));
+            }
         }
-        typeInfo.interfacesImplemented().forEach(i -> supers.add(CSharpTypeName.of(i, q)));
+        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
+        typeInfo.interfacesImplemented().stream()
+                .filter(i -> i.typeInfo() == null || !MARKERS.contains(i.typeInfo().fullyQualifiedName()))
+                .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
         return supers;
     }
 
@@ -272,6 +344,30 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
         CSharpContext.using("System");
         return out;
+    }
+
+    /**
+     * A class implementing Java's Iterable is C#'s IEnumerable: its GetEnumerator walks its {@code iterator()}, so that
+     * foreach and LINQ work on it.
+     */
+    private List<OutputBuilder> enumerable(Qualification q) {
+        if (typeInfo.isInterface()) return List.of();
+        ParameterizedType iterable = typeInfo.interfacesImplemented().stream()
+                .filter(i -> i.typeInfo() != null && "java.lang.Iterable".equals(i.typeInfo().fullyQualifiedName()))
+                .findFirst().orElse(null);
+        if (iterable == null) return List.of();
+        MethodInfo iterator = typeInfo.methods().stream()
+                .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty()).findFirst()
+                .orElse(null);
+        if (iterator == null) return List.of();
+        String element = iterable.parameters().isEmpty() ? "object" : CSharpTypeName.argument(iterable.parameters().getFirst(), q);
+        CSharpContext.using(CSharpBcl.GENERIC);
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        return List.of(
+                new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
+                                                         + CSharpNames.method(iterator) + "().AsEnumerator();")),
+                new OutputBuilderImpl().add(new TextImpl(
+                        "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();")));
     }
 
     /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */

@@ -150,13 +150,23 @@ public final class CSharpStatementPrinter {
 
     /** A loop body; with the target of a labelled {@code continue} as its last statement. */
     private static OutputBuilder loopBody(Block body, String continueLabel, Qualification q) {
-        if (continueLabel == null) return block(body, q);
+        return loopBody(body, continueLabel, q, null);
+    }
+
+    /** {@code prefix}: a first statement, printed in the body's scope. */
+    private static OutputBuilder loopBody(Block body, String continueLabel, Qualification q,
+                                          java.util.function.Supplier<OutputBuilder> prefix) {
+        if (continueLabel == null && prefix == null) return block(body, q);
         List<Statement> own = body.statements().stream().filter(st -> !st.isSynthetic()).toList();
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
-            List<OutputBuilder> printed = new ArrayList<>(own.stream().map(st -> print(st, q)).toList());
-            printed.add(new OutputBuilderImpl().add(text(continueLabel(continueLabel) + ":")).add(SpaceEnum.ONE)
-                    .add(SymbolEnum.SEMICOLON));
+            List<OutputBuilder> printed = new ArrayList<>();
+            if (prefix != null) printed.add(prefix.get());
+            own.forEach(st -> printed.add(print(st, q)));
+            if (continueLabel != null) {
+                printed.add(new OutputBuilderImpl().add(text(continueLabel(continueLabel) + ":")).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.SEMICOLON));
+            }
             return braces(printed);
         } finally {
             CSharpContext.exitScope();
@@ -213,6 +223,19 @@ public final class CSharpStatementPrinter {
         OutputBuilder collection = CSharpExpressionPrinter.print(fe.expression(), q);
         CSharpContext.enterScope(Set.of());
         try {
+            LocalVariable lv = fe.initializer().localVariable();
+            if (assigns(fe.block(), lv.simpleName())) {
+                // C#'s iteration variable is read-only: the body works on a copy
+                String type = fe.initializer().isVar() ? "var" : CSharpTypeName.of(lv.parameterizedType(), q);
+                String item = CSharpContext.declare(lv.simpleName() + "Item");
+                return new OutputBuilderImpl().add(CSharpKeyword.FOREACH).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.LEFT_PARENTHESIS).add(text(type + " " + item)).add(SpaceEnum.ONE)
+                        .add(CSharpKeyword.IN).add(SpaceEnum.ONE).add(collection)
+                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                        .add(loopBody(fe.block(), continueLabel, q, () -> new OutputBuilderImpl()
+                                .add(text(type + " " + CSharpContext.declare(lv.simpleName())))
+                                .add(SymbolEnum.assignment("=")).add(text(item)).add(SymbolEnum.SEMICOLON)));
+            }
             return new OutputBuilderImpl().add(CSharpKeyword.FOREACH).add(SpaceEnum.ONE)
                     .add(SymbolEnum.LEFT_PARENTHESIS).add(forEachVariable(fe, q)).add(SpaceEnum.ONE)
                     .add(CSharpKeyword.IN).add(SpaceEnum.ONE).add(collection)
@@ -220,6 +243,19 @@ public final class CSharpStatementPrinter {
         } finally {
             CSharpContext.exitScope();
         }
+    }
+
+    /** The block assigns the local variable {@code name}. */
+    private static boolean assigns(Block block, String name) {
+        boolean[] found = {false};
+        block.visit((Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+                && a.variableTarget() instanceof LocalVariable target && target.simpleName().equals(name)) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static OutputBuilder forEachVariable(ForEachStatement fe, Qualification q) {

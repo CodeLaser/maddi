@@ -129,7 +129,10 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
                 Files.writeString(file, formatter.write(result.output()) + "\n");
                 files.add(file.toAbsolutePath().normalize());
             } catch (RuntimeException | StackOverflowError e) {
-                crashes.add(type.fullyQualifiedName() + ": " + e);
+                // the frames where it happened: a StackOverflowError's top frames are its cycle
+                StackTraceElement[] trace = e.getStackTrace();
+                crashes.add(type.fullyQualifiedName() + ": " + e + java.util.Arrays.stream(trace).limit(12)
+                        .map(f -> "\n      at " + f).collect(java.util.stream.Collectors.joining()));
             }
         }
         return new Printed(files, crashes, messages);

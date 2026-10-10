@@ -138,6 +138,11 @@ public final class CSharpExpressionPrinter {
 
     private static String thisOrBase(This t) {
         if (t.writeSuper()) return "base";
+        // Outer.this in a hoisted anonymous class
+        if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()
+            && CSharpContext.hoistedWithOuter() != null) {
+            return "outer";
+        }
         if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
         }
@@ -156,6 +161,13 @@ public final class CSharpExpressionPrinter {
                     field.owner().fullyQualifiedName() + "." + field.name());
         }
         String name = CSharpNames.field(field);
+        CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
+        if (withOuter != null && !field.isStatic() && CSharpAnonymous.thisScope(fr)
+            && CSharpAnonymous.viaOuter(field.owner(), withOuter.type())
+            && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
+                 && t.explicitlyWriteType() != null)) {
+            return text("outer." + name);
+        }
         if (fr.isDefaultScope() || fr.scope() == null) {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
             // implementing the interface
@@ -235,7 +247,11 @@ public final class CSharpExpressionPrinter {
             // a call of a delegate is an invocation: f(x)
             return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));
         }
-        if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
+        CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
+        if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
+            && CSharpAnonymous.viaOuter(method.typeInfo(), withOuter.type())) {
+            b.add(text("outer")).add(SymbolEnum.DOT);
+        } else if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
             if (!mc.objectIsImplicit() || method.isStatic() && !inScope(method.typeInfo())) {
@@ -284,6 +300,24 @@ public final class CSharpExpressionPrinter {
         if (cc.anonymousClass() != null) {
             OutputBuilder adapted = anonymousAsLambda(cc, q);
             if (adapted != null) return adapted;
+            CSharpAnonymous.Hoisted hoisted = CSharpContext.hoisted(cc.anonymousClass());
+            if (hoisted != null) {
+                // new GraphImpl(superArguments…, this, captures…)
+                OutputBuilder arguments = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS);
+                List<OutputBuilder> all = new java.util.ArrayList<>();
+                if (!hoisted.superArguments().isEmpty()) cc.parameterExpressions().forEach(x -> all.add(print(x, q)));
+                if (hoisted.outer()) all.add(text(CSharpContext.hoistedWithOuter() != null ? "outer" : "this"));
+                hoisted.captures().forEach(c -> all.add(text(CSharpContext.local(c.name()))));
+                for (int i = 0; i < all.size(); i++) {
+                    if (i > 0) arguments.add(SymbolEnum.COMMA);
+                    arguments.add(all.get(i));
+                }
+                arguments.add(SymbolEnum.RIGHT_PARENTHESIS);
+                String typeArguments = hoisted.typeParameters().isEmpty() ? "" : hoisted.typeParameters().stream()
+                        .map(tp -> CSharpNames.name(tp.simpleName())).collect(Collectors.joining(", ", "<", ">"));
+                return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+                        .add(text(hoisted.name() + typeArguments)).add(arguments);
+            }
             CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
             ParameterizedType parent = cc.anonymousClass().parentClass();
             ParameterizedType named = parent != null && !parent.isJavaLangObject() ? parent
@@ -351,8 +385,7 @@ public final class CSharpExpressionPrinter {
         if (target == null) return print(value, q);
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
-        if (target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target)
-                                                                                        || converts(ic.ifFalse(), target))) {
+        if (inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target))) {
             // the branches: C#'s conditional takes its type from them
             return new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
                     .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q))
@@ -413,7 +446,7 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic
+               || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
 
@@ -484,6 +517,12 @@ public final class CSharpExpressionPrinter {
 
     /** {@code typeof(List<>)} for Java's {@code List.class}: the unbound generic type. */
     private static String typeOfArgument(ParameterizedType type, Qualification q) {
+        CSharpBcl.TypeMapping bcl = type.typeInfo() == null ? null : CSharpBcl.type(type.typeInfo());
+        if (bcl != null && (bcl.template().contains("{") || bcl.dropArguments() || bcl.template().contains("?"))) {
+            // Optional.class: Optional<T> is T itself in C#, which has no type of its own
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, type.typeInfo().fullyQualifiedName() + ".class");
+            return "object";
+        }
         if (type.arrays() == 0 && type.typeInfo() != null && !type.typeInfo().typeParameters().isEmpty()) {
             return CSharpTypeName.name(type.typeInfo(), q) + "<" + ",".repeat(type.typeInfo().typeParameters().size() - 1) + ">";
         }
@@ -517,14 +556,19 @@ public final class CSharpExpressionPrinter {
      * without using itself: a lambda in the interface's adapter class, {@code new IVisitor.Lambda((string node) => {
      * … })}. Null for any other.
      */
+    /** The anonymous class of {@code cc} is printed as a lambda, see {@link #anonymousAsLambda}. */
+    static boolean asLambda(ConstructorCall cc) {
+        TypeInfo anonymous = cc.anonymousClass();
+        if (!CSharpProgram.lambdaLike(anonymous)) return false;
+        ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
+        return functionalType.typeInfo() != null && (CSharpNames.lambdaAdapter(functionalType.typeInfo())
+                                                     || CSharpContext.program().delegate(functionalType.typeInfo()));
+    }
+
     private static OutputBuilder anonymousAsLambda(ConstructorCall cc, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
-        if (!CSharpProgram.lambdaLike(anonymous)) return null;
+        if (!asLambda(cc)) return null;
         ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
-        if (functionalType.typeInfo() == null || !CSharpNames.lambdaAdapter(functionalType.typeInfo())
-                                                 && !CSharpContext.program().delegate(functionalType.typeInfo())) {
-            return null;
-        }
         MethodInfo method = anonymous.methods().stream().filter(m -> !m.isSynthetic()).findFirst().orElseThrow();
         OutputBuilder b = new OutputBuilderImpl();
         CSharpContext.pushMethod(method);
@@ -656,8 +700,24 @@ public final class CSharpExpressionPrinter {
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
 
+    /** {@code value} is a C# value type (a primitive, an enum C# declares as an enum), {@code other} an Object. */
+    private static boolean valueAndObject(Expression value, Expression other) {
+        ParameterizedType v = value.parameterizedType();
+        ParameterizedType o = other.parameterizedType();
+        if (v == null || o == null || v.arrays() > 0 || !o.isJavaLangObject() || o.arrays() > 0) return false;
+        return v.isPrimitiveExcludingVoid() || v.typeInfo() != null && v.typeInfo().typeNature().isEnum()
+                                               && CSharpNames.translated(v.typeInfo()) && CSharpTypePrinter.simpleEnum(v.typeInfo());
+    }
+
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
+        if (("==".equals(op) || "!=".equals(op)) && (valueAndObject(bo.lhs(), bo.rhs()) || valueAndObject(bo.rhs(), bo.lhs()))) {
+            // Java compares a boxed enum or number with an Object by reference; C# cannot compare a value type with
+            // an object: by value
+            OutputBuilder call = new OutputBuilderImpl().add(text("object.Equals"))
+                    .add(arguments(List.of(bo.lhs(), bo.rhs()), q));
+            return "==".equals(op) ? call : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
+        }
         if (("==".equals(op) || "!=".equals(op)) && stringIdentity(bo.lhs(), bo.rhs())) {
             // Java's == on two Strings compares references; C#'s compares contents
             OutputBuilder call = new OutputBuilderImpl().add(text("object.ReferenceEquals"))

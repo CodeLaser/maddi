@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -99,6 +100,8 @@ final class CSharpBcl {
     }
 
     static {
+        // C#'s List, the concrete type: its IList does not implement IReadOnlyList, which the covariant List<? extends T>
+        // is (see CSharpTypeName)
         for (String list : List.of("java.util.List", "java.util.ArrayList", "java.util.LinkedList",
                 "java.util.AbstractList", "java.util.Deque", "java.util.ArrayDeque", "java.util.Queue",
                 "java.util.SequencedCollection")) {
@@ -127,7 +130,9 @@ final class CSharpBcl {
         type("java.util.AbstractCollection", "ICollection", GENERIC);
         type("java.lang.Iterable", "IEnumerable", GENERIC);
         type("java.util.Map.Entry", "KeyValuePair", GENERIC);
-        type("java.util.AbstractMap.SimpleEntry", "KeyValuePair", GENERIC);
+        // a class of the program may extend these, which it cannot do with KeyValuePair, a struct
+        compatType("java.util.AbstractMap.SimpleEntry", "JavaEntry");
+        compatType("java.util.AbstractMap.SimpleImmutableEntry", "JavaEntry");
         type("java.util.stream.Stream", "IEnumerable", GENERIC);
         type("java.util.stream.IntStream", "IEnumerable<int>", GENERIC);
         type("java.util.Optional", "{0?}", null);
@@ -208,12 +213,35 @@ final class CSharpBcl {
         compatType("java.io.ByteArrayInputStream", "ByteArrayInputStream");
         compatType("java.io.ByteArrayOutputStream", "ByteArrayOutputStream");
         compatType("java.util.BitSet", "BitSet");
-        compatType("java.util.Iterator", "JavaIterator");
-        compatType("java.util.ListIterator", "JavaIterator");
+        // an interface, which the program's iterators implement
+        compatType("java.util.Iterator", "IJavaIterator");
+        compatType("java.util.ListIterator", "IJavaIterator");
         compatType("java.io.File", "JavaFile");
+        compatType("java.util.Enumeration", "JavaEnumeration");
+        compatType("java.util.zip.ZipFile", "JavaZipFile");
+        compatType("java.util.zip.ZipEntry", "JavaZipEntry");
+        compatType("java.util.zip.ZipOutputStream", "JavaZipOutputStream");
+        compatType("java.util.jar.JarFile", "JavaJarFile");
+        compatType("java.util.jar.JarEntry", "JavaZipEntry");
+        compatType("java.util.jar.Manifest", "JavaManifest");
     }
 
     /** The C# counterpart of a JDK type; null when there is none (yet). */
+    /** The names of the BCL types the translation uses, and the System types any C# code may name. */
+    static Set<String> typeNames() {
+        Set<String> names = new java.util.HashSet<>(Set.of("Exception", "Object", "String", "Math", "Console", "Type",
+                "Attribute", "Enum", "Array", "Action", "Func", "Task", "Path", "File", "Directory", "Stream", "Encoding",
+                "Regex", "Thread", "Monitor", "Debug", "Enumerable", "Comparer", "Random", "Guid", "Uri", "TimeSpan",
+                "DateTime", "DateTimeOffset", "Convert", "Environment", "Buffer", "Delegate", "Version", "Index", "Range"));
+        for (TypeMapping m : TYPES.values()) {
+            String t = m.template();
+            int cut = t.indexOf('<');
+            if (cut >= 0) t = t.substring(0, cut);
+            if (!t.isEmpty() && Character.isUpperCase(t.charAt(0))) names.add(t);
+        }
+        return names;
+    }
+
     static TypeMapping type(TypeInfo typeInfo) {
         return TYPES.get(typeInfo.fullyQualifiedName());
     }
@@ -276,8 +304,11 @@ final class CSharpBcl {
         ms("java.util.Collection.addAll/1", "$0.AddAll($1)", "$0.AddAll($1)", COMPAT);
         m("java.util.Collection.containsAll/1", "@1.All($0.Contains)", LINQ);
         m("java.util.Collection.stream/0", "$0");
-        ms("java.util.Collection.removeIf/1", "$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", SYSTEM);
-        ms("java.util.Collection.removeAll/1", "$0.RemoveAll(@1.Contains) > 0", "$0.RemoveAll(@1.Contains)");
+        // a List has RemoveAll; any other collection, a set or a map's entries, the compatibility library's RemoveIf
+        chooser("java.util.Collection.removeIf/1", (method, call) -> listTyped(call)
+                ? new Rule("$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", List.of(SYSTEM))
+                : rule("$0.RemoveIf($1)", COMPAT));
+        ms("java.util.Collection.removeAll/1", "$0.RemoveAllOf($1)", "$0.RemoveAllOf($1)", COMPAT);
         ms("java.util.Collection.retainAll/1", "$0.RetainAll($1)", "$0.RetainAll($1)", COMPAT);
         m("java.lang.Iterable.forEach/1", "$0.ForEach($1)", COMPAT);
         m("java.lang.Iterable.iterator/0", "$0.Iterator()", COMPAT);
@@ -288,12 +319,13 @@ final class CSharpBcl {
         ms("java.util.List.remove(int)", "$0.RemoveAtAndGet($1)", "$0.RemoveAt($1)", COMPAT);
         m("java.util.List.remove(Object)", "$0.Remove($1)");
         ms("java.util.List.addAll/1", "$0.AddAll($1)", "$0.AddRange($1)", COMPAT);
-        ms("java.util.List.addAll/2", "$0.InsertAll($1, $2)", "$0.InsertRange($1, $2)", COMPAT);
+        m("java.util.List.addAll/2", "$0.InsertAll($1, $2)", COMPAT);
         ms("java.util.List.set/2", "$0.Set($1, $2)", "$0[$1] = $2", COMPAT);
         m("java.util.List.indexOf/1", "$0.IndexOf($1)");
-        m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)");
-        m("java.util.List.subList/2", "$0.GetRange(@1, @2 - @1)");
-        m("java.util.List.sort/1", "$0.Sort($1)");
+        m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)", COMPAT);
+        m("java.util.List.subList/2", "$0.SubList($1, $2)", COMPAT);
+        // Java's sorts are stable, List.Sort is not
+        m("java.util.List.sort/1", "JavaCollections.Sort($0, $1)", COMPAT);
         m("java.util.List.getFirst/0", "$0[0]");
         m("java.util.List.getLast/0", "$0[^1]");
         m("java.util.SequencedCollection.getFirst/0", "$0[0]");
@@ -301,7 +333,7 @@ final class CSharpBcl {
         m("java.util.List.of/1", "new List<{R0}> { $* }");
         chooser("java.util.List.of/0", (method, call) -> rule("new List<{R0}>()"));
         m("java.util.List.copyOf/1", "new List<{R0}>($1)");
-        for (String deque : List.of("java.util.Deque", "java.util.LinkedList", "java.util.ArrayDeque")) {
+        for (String deque : List.of("java.util.Deque", "java.util.LinkedList", "java.util.ArrayDeque", "java.util.Queue")) {
             m(deque + ".getFirst/0", "$0[0]");
             m(deque + ".getLast/0", "$0[^1]");
             m(deque + ".peekFirst/0", "$0.PeekFirst()", COMPAT);
@@ -318,6 +350,8 @@ final class CSharpBcl {
             m(deque + ".poll/0", "$0.PollFirst()", COMPAT);
             m(deque + ".pollFirst/0", "$0.PollFirst()", COMPAT);
             m(deque + ".pollLast/0", "$0.PollLast()", COMPAT);
+            m(deque + ".element/0", "$0[0]");
+            ms(deque + ".remove/0", "$0.RemoveFirst()", "$0.RemoveAt(0)", COMPAT);
         }
 
         // Map
@@ -359,10 +393,13 @@ final class CSharpBcl {
         m("java.util.Collections.singletonList/1", "new List<{R0}> { $1 }");
         m("java.util.Collections.singleton/1", "new HashSet<{R0}> { $1 }");
         m("java.util.Collections.singletonMap/2", "new Dictionary<{R0}, {R1}> { [$1] = $2 }");
-        m("java.util.Collections.nCopies/2", "Enumerable.Repeat($2, $1).ToList()", LINQ);
-        m("java.util.Collections.sort/1", "$1.Sort()");
-        m("java.util.Collections.sort/2", "$1.Sort($2)");
-        m("java.util.Collections.reverse/1", "$1.Reverse()");
+        m("java.util.Collections.nCopies/2", "Enumerable.Repeat<{R0}>($2, $1).ToList()", LINQ);
+        m("java.util.Map.Entry.comparingByKey/0", "JavaComparator.ComparingByKey<{R0.0}, {R0.1}>()", COMPAT);
+        m("java.util.Map.Entry.comparingByValue/0", "JavaComparator.ComparingByValue<{R0.0}, {R0.1}>()", COMPAT);
+        m("java.util.Collections.sort/1", "JavaCollections.Sort($1)", COMPAT);
+        m("java.util.Collections.sort/2", "JavaCollections.Sort($1, $2)", COMPAT);
+        // LINQ's Reverse would be a new sequence: in place
+        m("java.util.Collections.reverse/1", "JavaCollections.ReverseInPlace($1)", COMPAT);
         m("java.util.Collections.unmodifiableList/1", "$1");
         m("java.util.Collections.unmodifiableSet/1", "$1");
         m("java.util.Collections.unmodifiableMap/1", "$1");
@@ -630,8 +667,9 @@ final class CSharpBcl {
         m("java.lang.Object.notifyAll/0", "Monitor.PulseAll($0)", THREADING);
         m("java.lang.Object.notify/0", "Monitor.Pulse($0)", THREADING);
         m("java.lang.Object.wait/0", "Monitor.Wait($0)", THREADING);
+        // super.clone(): the shallow copy C#'s object makes
         chooser("java.lang.Object.clone/0", (method, call) -> call != null && arrayTyped(call.object())
-                ? rule("({R}) @0.Clone()") : null);
+                ? rule("({R}) @0.Clone()") : rule("$0.MemberwiseClone()"));
         m("java.lang.Class.getName/0", "$0.FullName");
         m("java.lang.Class.getSimpleName/0", "$0.Name");
         m("java.lang.Thread.currentThread/0", "Thread.CurrentThread", THREADING);
@@ -653,6 +691,8 @@ final class CSharpBcl {
         m("java.io.Reader.close/0", "$0.Dispose()");
         m("java.io.BufferedReader.readLine/0", "$0.ReadLine()");
         // file streams: a java.io.File or a path
+        // an EnumMap orders by its keys, as a SortedDictionary does; its Class argument is the key type's
+        m("java.util.EnumMap.new(Class)", "new {R}()", GENERIC);
         m("java.io.FileOutputStream.new/1", "new FileStream($1.ToString(), FileMode.Create)", IO);
         m("java.io.FileOutputStream.new/2", "new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create)", IO);
         m("java.io.FileInputStream.new/1", "File.OpenRead($1.ToString())", IO);
@@ -792,6 +832,7 @@ final class CSharpBcl {
             Map.entry("java.io.File.separator", "Path.DirectorySeparatorChar.ToString()"),
             Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"),
             Map.entry("java.io.File.pathSeparator", "Path.PathSeparator.ToString()"),
+            Map.entry("java.util.jar.JarFile.MANIFEST_NAME", "JavaJarFile.MANIFEST_NAME"),
             Map.entry("java.io.File.pathSeparatorChar", "Path.PathSeparator"),
             Map.entry("java.lang.Character.UNASSIGNED", "JavaCharacter.UNASSIGNED"),
             Map.entry("java.lang.Character.CONTROL", "JavaCharacter.CONTROL"),
@@ -803,7 +844,8 @@ final class CSharpBcl {
             Map.entry("java.lang.Character.SPACE_SEPARATOR", "JavaCharacter.SPACE_SEPARATOR"));
 
     private static final Map<String, String> FIELD_NAMESPACES = Map.of("Console", SYSTEM, "Math", SYSTEM,
-            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT);
+            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT,
+            "JavaJarFile", COMPAT);
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
     static String[] field(FieldInfo fieldInfo) {
@@ -837,6 +879,14 @@ final class CSharpBcl {
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
         return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+    }
+
+    /** The receiver is a C# List. */
+    private static boolean listTyped(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
+        TypeInfo t = call.object().parameterizedType().typeInfo();
+        TypeMapping mapping = t == null ? null : TYPES.get(t.fullyQualifiedName());
+        return mapping != null && "List".equals(mapping.template());
     }
 
     /** The receiver is declared as Java's Map interface: C#'s IDictionary, without the BCL's read-only extensions. */

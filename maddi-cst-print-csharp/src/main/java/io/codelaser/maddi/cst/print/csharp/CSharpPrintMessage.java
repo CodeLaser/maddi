@@ -47,19 +47,24 @@ public record CSharpPrintMessage(Code code, String type, int line, int position,
         RAW_TYPE(Severity.LOSS),
         /** A Java instance initializer {@code { … }}: C# has none (yet: to be moved into the constructors). */
         INSTANCE_INITIALIZER(Severity.ERROR),
-        /** An anonymous class: C# has none (yet: to be hoisted into a nested class, or a lambda). */
+        /** An enum constant's body, an anonymous subclass of its enum: not translated (yet). */
         ANONYMOUS_CLASS(Severity.ERROR),
-        /** A class declared in a method body: C# has none (yet: to be hoisted into a nested class). */
+        /** A class declared in a method body that captures its locals or its instance: not lifted (yet). */
         LOCAL_CLASS(Severity.ERROR),
         /** {@code Outer.this}: a C# nested class has no enclosing instance (yet: to be passed explicitly). */
         OUTER_THIS(Severity.ERROR),
+        /**
+         * A class extending ArrayList, printed extending the compatibility library's JavaArrayList, whose Java methods
+         * are virtual: a call through a C# List-typed reference does not reach its overrides.
+         */
+        LIST_SUBCLASS(Severity.BEHAVIOUR_CHANGE),
         /** An enum with fields, methods or constructors, printed as a class with static readonly instances. */
         ENUM_AS_CLASS(Severity.INFO),
         /** A record's canonical or compact constructor: a positional C# record has none (yet). */
         RECORD_CONSTRUCTOR(Severity.LOSS),
         /**
-         * A static nested type of a generic type: C# nests it in every instantiation of its enclosing type, so its
-         * name needs the enclosing type's arguments (yet: to be moved out of the enclosing type).
+         * An inner (non-static) class of a generic type: C# names it with the enclosing type's arguments,
+         * {@code Outer<E>.Inner} (yet).
          */
         NESTED_IN_GENERIC(Severity.ERROR),
         /** A Java annotation type: not translated (yet: to become an attribute class). */

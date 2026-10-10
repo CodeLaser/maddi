@@ -31,9 +31,31 @@
 # parameter; a char switch's int labels as chars: 151 files compile; errors 156 -> 135.
 # 2026-10-10, whole-program facts (CSharpProgram): a functional interface nothing implements is a delegate
 # (DirectGraph.ExprentIterator, FastExtendedPostdominanceHelper.IReachabilityAction); the numbers do not move.
+# 2026-10-10, closed world: a class nothing extends sealed, a method nothing overrides not virtual (237 of 267
+# classes sealed, 38 virtual methods left); the numbers do not move.
+# 2026-10-10, anonymous classes hoisted into private nested classes (captures as constructor arguments, the
+# enclosing instance as outer): 152 files compile; errors 135 -> 140, the hoisted bodies being printed now (wildcard
+# covariance, Map.Entry implementations, ClassLoader).
+# 2026-10-10, List/Collection/Set/Iterable of ? extends T as C#'s covariant IReadOnlyList/IReadOnlyCollection/
+# IEnumerable of T (wildcard losses 31 -> 16): 154 files compile; errors 140 -> 134.
+# 2026-10-10, new EnumMap<>(K.class) as new SortedDictionary<K, V>(); == between a value type and an Object as
+# object.Equals: 155 files compile; errors 134 -> 129.
+# 2026-10-10, java.util.zip and java.util.jar as the compatibility library's classes over System.IO.Compression,
+# Enumeration as JavaEnumeration: 160 files compile; unmapped JDK uses 74 -> 36; errors 129 -> 102.
+# 2026-10-10, clone as a method of its own (super.clone() is MemberwiseClone); a for-each that assigns its variable
+# works on a copy; a private type in a non-private signature is internal; Queue.poll and kin; removeIf on a set or a
+# map's entries; AbstractMap.SimpleEntry as the compatibility library's JavaEntry; marker interfaces dropped: 168
+# files compile; unmapped JDK uses 36 -> 32; errors 102 -> 89.
+# 2026-10-10, a class extending ArrayList extends the compatibility library's JavaArrayList (LIST_SUBCLASS); Java's
+# sorts stable, Collections.reverse in place: 170 files compile; errors 89 -> 78.
+# 2026-10-10, a nested type as visible as the members whose signatures name it, and its enclosing types with it:
+# 171 files compile; errors 78 -> 72.
+# 2026-10-10, Iterator as the compatibility library's interface IJavaIterator<T>; a class implementing Iterable gets
+# GetEnumerator; a conditional's null branch for a type parameter is default; Map.Entry.comparingByKey/Value with
+# both type arguments ({R0.1} in templates): 176 files compile; errors 72 -> 60.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	151
-unmappedJdkUses	74
+compilingFiles	176
+unmappedJdkUses	32

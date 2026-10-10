@@ -15,7 +15,11 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -37,7 +41,7 @@ import java.util.function.Supplier;
  * @param arguments  {@code $1}, {@code $2}, …
  * @param operands   {@code @1}, {@code @2}, …: the arguments as operands
  * @param call       the call, for {@code $1.2} (an argument of an argument); null for a method reference
- * @param returnType {@code {R}}, {@code {R0}}, …
+ * @param returnType {@code {R}}, {@code {R0}}, … and {@code {R0.1}}, a type argument of a type argument
  * @param receiverType {@code {T0}}, …: the type arguments of the receiver's type
  */
 record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuilder>> arguments,
@@ -71,6 +75,15 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                         i = k;
                         continue;
                     }
+                    if (c == '$' && index > 0 && call != null && template.startsWith("()", j)) {
+                        // $1(): the supplier argument, called; a lambda's body or a constructor reference's creation
+                        OutputBuilder supplied = supplied(index);
+                        if (supplied != null) {
+                            b.add(supplied);
+                            i = j + 2;
+                            continue;
+                        }
+                    }
                     b.add(index == 0 ? receiver.get() : (c == '@' ? operands : arguments).get(index - 1).get());
                     i = j;
                     continue;
@@ -79,7 +92,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             if (c == '{' && i + 2 < template.length() && (template.charAt(i + 1) == 'R' || template.charAt(i + 1) == 'T')) {
                 int close = template.indexOf('}', i);
                 String token = template.substring(i + 1, close);
-                if (token.matches("[RT]\\d*")) {
+                if (token.matches("[RT](\\d+(\\.\\d+)*)?")) {
                     literal.append(type(token));
                     i = close + 1;
                     continue;
@@ -102,6 +115,41 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         return b;
     }
 
+    /**
+     * The value of calling argument {@code index}, a supplier, when it is written in place: {@code () -> x} is
+     * {@code x}, {@code ArrayList::new} is {@code new List<T>()}. C# cannot call a lambda where it is written. Null
+     * for any other argument, which {@code $1()} calls.
+     */
+    private OutputBuilder supplied(int index) {
+        Expression arg = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index - 1));
+        if (arg instanceof Lambda lambda && lambda.parameters().isEmpty()) {
+            List<Statement> statements = lambda.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+                return CSharpExpressionPrinter.receiver(rs.expression(), q);
+            }
+            return null;
+        }
+        if (arg instanceof MethodReference mr && mr.methodInfo().isConstructor() && mr.concreteParameterTypes().isEmpty()
+            && mr.concreteReturnType() != null && mr.concreteReturnType().arrays() == 0) {
+            return new OutputBuilderImpl().add(new TextImpl("new " + CSharpTypeName.of(mr.concreteReturnType(), q)))
+                    .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        if (arg instanceof MethodReference mr && mr.methodInfo().isStatic() && mr.concreteParameterTypes().isEmpty()) {
+            // List::of is List.of(), translated
+            var method = mr.methodInfo();
+            String owner = CSharpTypeName.name(method.typeInfo(), q);
+            CSharpBcl.Rule rule = CSharpNames.translated(method.typeInfo()) ? null : CSharpBcl.call(method, null);
+            if (rule == null) {
+                return new OutputBuilderImpl().add(new TextImpl(owner + "." + CSharpNames.method(method)))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            }
+            rule.namespaces().forEach(CSharpContext::using);
+            return new CSharpTemplate(() -> new OutputBuilderImpl().add(new TextImpl(owner)), List.of(), List.of(), null,
+                    mr.concreteReturnType(), null, q).render(rule.template(false));
+        }
+        return null;
+    }
+
     /** {@code $1.2}: argument 2 of argument 1, a call. */
     private OutputBuilder inner(int argument, int index) {
         Expression arg = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(argument - 1));
@@ -113,8 +161,13 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         ParameterizedType t = token.charAt(0) == 'R' ? returnType : receiverType;
         if (t == null) return "object";
         if (token.length() == 1) return CSharpTypeName.of(t, q);
-        int index = Integer.parseInt(token.substring(1));
-        return index < t.parameters().size() ? CSharpTypeName.argument(t.parameters().get(index), q) : "object";
+        // {R0.1}: the second type argument of the first type argument
+        for (String index : token.substring(1).split("\\.")) {
+            int i = Integer.parseInt(index);
+            if (i >= t.parameters().size()) return "object";
+            t = t.parameters().get(i);
+        }
+        return CSharpTypeName.argument(t, q);
     }
 
     static final Symbol NULL_CONDITIONAL = new SymbolEnum("?.", SpaceEnum.NONE, SpaceEnum.NONE, null);

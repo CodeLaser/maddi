@@ -273,19 +273,20 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /**
-     * A collection parameter the modification analysis proves unmodified ({@link ParameterInfo#isUnmodified()}):
-     * Kotlin's read-only interface, covariant where MutableList is invariant. {@code changeEverywhere(…,
-     * List<Statement> statements)} only iterates, and is called with a {@code List<Statement?>} and with a
-     * {@code MutableList<Statement>}; only {@code List<Statement?>} takes both. Not without the analysis (unmodified
-     * is then false), and only for a method no other can override and that overrides none: Kotlin wants an
-     * override's parameter types exactly the overridden member's.
+     * A collection parameter the modification analysis proves structurally unmodified
+     * ({@link ParameterInfo#isStructurallyUnmodified()}: the collection itself is not modified; its elements may be,
+     * which Kotlin's read-only {@code List<T>} allows too): Kotlin's read-only interface, covariant where MutableList
+     * is invariant. {@code changeEverywhere(…, List<Statement> statements)} only iterates, and is called with a
+     * {@code List<Statement?>} and with a {@code MutableList<Statement>}; only {@code List<Statement?>} takes both.
+     * Not without the analysis (unmodified is then false), and only for a method no other can override and that
+     * overrides none: Kotlin wants an override's parameter types exactly the overridden member's.
      */
     private static boolean readOnlyParameter(ParameterInfo pi) {
         MethodInfo m = pi.methodInfo();
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
-        if (!closed || !pi.isUnmodified()) return false;
+        if (!closed || !pi.isStructurallyUnmodified()) return false;
         // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
         // is unmodified, and each one's other uses are checked where the cycle is entered
         java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();

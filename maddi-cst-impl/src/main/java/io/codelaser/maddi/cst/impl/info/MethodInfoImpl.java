@@ -419,6 +419,12 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
+    public boolean isStructurallyNonModifying() {
+        Value.Bool structural = analysis().getOrNull(PropertyImpl.STRUCTURALLY_NON_MODIFYING_METHOD, ValueImpl.BoolImpl.class);
+        return structural != null ? structural.isTrue() : isNonModifying();
+    }
+
+    @Override
     public boolean isFluent() {
         return analysis().getOrDefault(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
     }

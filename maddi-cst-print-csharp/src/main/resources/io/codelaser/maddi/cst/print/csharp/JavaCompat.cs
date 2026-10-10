@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -51,6 +52,14 @@ public static class JavaCollections
             while (c.Remove(x)) changed = true;
         }
         return changed;
+    }
+
+    /// <summary>Collection.removeIf on a set or a map's entries: whether anything was removed.</summary>
+    public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
+    {
+        var removed = c.Where(p).ToList();
+        foreach (var x in removed) c.Remove(x);
+        return removed.Count > 0;
     }
 
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
@@ -118,10 +127,10 @@ public static class JavaCollections
 
     public static bool AddAll<T>(this ICollection<T> c, params T[] items) => c.AddAll((IEnumerable<T>)items);
 
-    public static bool InsertAll<T>(this List<T> l, int index, IEnumerable<T> items)
+    public static bool InsertAll<T>(this IList<T> l, int index, IEnumerable<T> items)
     {
         var all = items.ToList();
-        l.InsertRange(index, all);
+        for (var i = 0; i < all.Count; i++) l.Insert(index + i, all[i]);
         return all.Count > 0;
     }
 
@@ -134,7 +143,39 @@ public static class JavaCollections
     }
 
     /// <summary>List.remove(int): the element removed.</summary>
-    public static T RemoveAtAndGet<T>(this List<T> l, int index)
+    public static void AddRange<T>(this IList<T> l, IEnumerable<T> items)
+    {
+        foreach (var x in items.ToList()) l.Add(x);
+    }
+
+    /// <summary>List.subList, as a copy.</summary>
+    public static List<T> SubList<T>(this IList<T> l, int from, int to) => l.Skip(from).Take(to - from).ToList();
+
+    public static int LastIndexOf<T>(this IList<T> l, T item)
+    {
+        for (var i = l.Count - 1; i >= 0; i--)
+        {
+            if (EqualityComparer<T>.Default.Equals(l[i], item)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
+    public static void Sort<T>(this IList<T> l, Comparison<T> comparison)
+    {
+        var sorted = l.Order(Comparer<T>.Create(comparison ?? Comparer<T>.Default.Compare)).ToList();
+        for (var i = 0; i < sorted.Count; i++) l[i] = sorted[i];
+    }
+
+    public static void Sort<T>(this IList<T> l) => l.Sort(null);
+
+    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
+    public static void ReverseInPlace<T>(IList<T> l)
+    {
+        for (int i = 0, j = l.Count - 1; i < j; i++, j--) (l[i], l[j]) = (l[j], l[i]);
+    }
+
+    public static T RemoveAtAndGet<T>(this IList<T> l, int index)
     {
         var x = l[index];
         l.RemoveAt(index);
@@ -142,34 +183,34 @@ public static class JavaCollections
     }
 
     /// <summary>List.set: the element replaced.</summary>
-    public static T Set<T>(this List<T> l, int index, T value)
+    public static T Set<T>(this IList<T> l, int index, T value)
     {
         var old = l[index];
         l[index] = value;
         return old;
     }
 
-    public static T RemoveFirst<T>(this List<T> l)
+    public static T RemoveFirst<T>(this IList<T> l)
     {
         if (l.Count == 0) throw new InvalidOperationException("empty");
         return l.RemoveAtAndGet(0);
     }
 
-    public static T RemoveLast<T>(this List<T> l)
+    public static T RemoveLast<T>(this IList<T> l)
     {
         if (l.Count == 0) throw new InvalidOperationException("empty");
         return l.RemoveAtAndGet(l.Count - 1);
     }
 
-    public static T PeekFirst<T>(this List<T> l) => l.Count == 0 ? default : l[0];
+    public static T PeekFirst<T>(this IList<T> l) => l.Count == 0 ? default : l[0];
 
-    public static T PeekLast<T>(this List<T> l) => l.Count == 0 ? default : l[^1];
+    public static T PeekLast<T>(this IList<T> l) => l.Count == 0 ? default : l[^1];
 
-    public static T PollFirst<T>(this List<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
+    public static T PollFirst<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
 
-    public static T PollLast<T>(this List<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
+    public static T PollLast<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
 
-    public static bool Offer<T>(this List<T> l, T x)
+    public static bool Offer<T>(this IList<T> l, T x)
     {
         l.Add(x);
         return true;
@@ -217,6 +258,12 @@ public static class JavaComparator
         };
 
     public static Comparison<T> Reversed<T>(this Comparison<T> c) => (a, b) => c(b, a);
+
+    public static Comparison<KeyValuePair<K, V>> ComparingByKey<K, V>() =>
+        (a, b) => Comparer<K>.Default.Compare(a.Key, b.Key);
+
+    public static Comparison<KeyValuePair<K, V>> ComparingByValue<K, V>() =>
+        (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
 }
 
 /// <summary>Java's String methods that differ from the BCL's.</summary>
@@ -735,7 +782,30 @@ public class BitSet : ICloneable
 /// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
 /// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
 /// </summary>
-public class JavaIterator<T>
+public interface IJavaIterator<T>
+{
+    bool HasNext();
+
+    T Next();
+
+    void Remove() => throw new NotSupportedException("remove");
+
+    void ForEachRemaining(Action<T> action)
+    {
+        while (HasNext()) action(Next());
+    }
+}
+
+public static class JavaIterators
+{
+    /// <summary>A Java iterator as C#'s enumerator: a class with iterator() is an IEnumerable.</summary>
+    public static IEnumerator<T> AsEnumerator<T>(this IJavaIterator<T> iterator)
+    {
+        while (iterator.HasNext()) yield return iterator.Next();
+    }
+}
+
+public class JavaIterator<T> : IJavaIterator<T>
 {
     private readonly IList<T> list;
     private readonly ICollection<T> collection;
@@ -944,4 +1014,280 @@ public class JavaMatcher
     public int End() => match.Index + match.Length;
 
     public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
+}
+
+/// <summary>java.util.Enumeration over a C# enumerable.</summary>
+public class JavaEnumeration<T>
+{
+    private readonly IEnumerator<T> enumerator;
+    private bool hasPeeked;
+    private bool peeked;
+
+    public JavaEnumeration(IEnumerable<T> source) => enumerator = source.GetEnumerator();
+
+    public bool HasMoreElements()
+    {
+        if (!hasPeeked)
+        {
+            peeked = enumerator.MoveNext();
+            hasPeeked = true;
+        }
+        return peeked;
+    }
+
+    public T NextElement()
+    {
+        if (!HasMoreElements()) throw new InvalidOperationException("no more elements");
+        hasPeeked = false;
+        return enumerator.Current;
+    }
+}
+
+/// <summary>java.util.zip.ZipEntry: an entry of an archive being read, or one to write.</summary>
+public class JavaZipEntry
+{
+    internal readonly ZipArchiveEntry Entry;
+    private readonly string name;
+    internal DateTimeOffset? Time;
+
+    public JavaZipEntry(string name) => this.name = name;
+
+    internal JavaZipEntry(ZipArchiveEntry entry)
+    {
+        Entry = entry;
+        name = entry.FullName;
+    }
+
+    public string GetName() => name;
+
+    public bool IsDirectory() => name.EndsWith("/");
+
+    public long GetSize() => Entry?.Length ?? -1;
+
+    public long GetTime() => (Time ?? Entry?.LastWriteTime)?.ToUnixTimeMilliseconds() ?? -1;
+
+    public void SetTime(long time) => Time = DateTimeOffset.FromUnixTimeMilliseconds(time);
+
+    public override string ToString() => name;
+}
+
+/// <summary>java.util.zip.ZipFile: an archive opened for reading.</summary>
+public class JavaZipFile : IDisposable
+{
+    protected readonly ZipArchive Archive;
+
+    public JavaZipFile(string path) => Archive = ZipFile.OpenRead(path);
+
+    public JavaZipFile(JavaFile file) : this(file.GetPath())
+    {
+    }
+
+    public JavaEnumeration<JavaZipEntry> Entries() =>
+        new JavaEnumeration<JavaZipEntry>(Archive.Entries.Select(e => new JavaZipEntry(e)).ToList());
+
+    public JavaZipEntry GetEntry(string name) => Archive.GetEntry(name) is { } e ? new JavaZipEntry(e) : null;
+
+    public Stream GetInputStream(JavaZipEntry entry) =>
+        (entry.Entry ?? Archive.GetEntry(entry.GetName()))?.Open();
+
+    public int Size() => Archive.Entries.Count;
+
+    public void Close() => Archive.Dispose();
+
+    public void Dispose() => Archive.Dispose();
+}
+
+/// <summary>java.util.jar.JarFile: a zip archive with a manifest.</summary>
+public class JavaJarFile : JavaZipFile
+{
+    public const string MANIFEST_NAME = "META-INF/MANIFEST.MF";
+
+    public JavaJarFile(string path) : base(path)
+    {
+    }
+
+    public JavaJarFile(JavaFile file) : base(file)
+    {
+    }
+
+    public JavaManifest GetManifest()
+    {
+        var entry = Archive.GetEntry(MANIFEST_NAME);
+        if (entry == null) return null;
+        using var stream = entry.Open();
+        return new JavaManifest(stream);
+    }
+}
+
+/// <summary>java.util.jar.Manifest: its bytes, read and written as they are.</summary>
+public class JavaManifest
+{
+    private readonly byte[] bytes;
+
+    public JavaManifest() => bytes = Encoding.UTF8.GetBytes("Manifest-Version: 1.0\r\n\r\n");
+
+    public JavaManifest(Stream input)
+    {
+        using var memory = new MemoryStream();
+        input.CopyTo(memory);
+        bytes = memory.ToArray();
+    }
+
+    public void Write(Stream output) => output.Write(bytes, 0, bytes.Length);
+}
+
+/// <summary>java.util.zip.ZipOutputStream: an archive written entry by entry.</summary>
+public class JavaZipOutputStream : Stream
+{
+    private readonly ZipArchive archive;
+    private Stream current;
+
+    public JavaZipOutputStream(Stream output) => archive = new ZipArchive(output, ZipArchiveMode.Create);
+
+    public void PutNextEntry(JavaZipEntry entry)
+    {
+        CloseEntry();
+        var created = archive.CreateEntry(entry.GetName());
+        if (entry.Time is { } time) created.LastWriteTime = time;
+        current = created.Open();
+    }
+
+    public void CloseEntry()
+    {
+        current?.Dispose();
+        current = null;
+    }
+
+    public void Write(sbyte[] buffer, int offset, int count) => Write((byte[])(object)buffer, offset, count);
+
+    public override void Write(byte[] buffer, int offset, int count) => current.Write(buffer, offset, count);
+
+    public override void WriteByte(byte value) => current.WriteByte(value);
+
+    public override void Flush() => current?.Flush();
+
+    public void Close() => Dispose();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            CloseEntry();
+            archive.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    public override bool CanRead => false;
+    public override bool CanSeek => false;
+    public override bool CanWrite => true;
+    public override long Length => throw new NotSupportedException();
+
+    public override long Position
+    {
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
+    }
+
+    public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+}
+
+/// <summary>AbstractMap.SimpleEntry: a key and a value, as a class that the program's classes may extend.</summary>
+public class JavaEntry<K, V>
+{
+    public K Key { get; }
+    public V Value { get; private set; }
+
+    public JavaEntry(K key, V value)
+    {
+        Key = key;
+        Value = value;
+    }
+
+    public JavaEntry(KeyValuePair<K, V> entry) : this(entry.Key, entry.Value)
+    {
+    }
+
+    public K GetKey() => Key;
+
+    public V GetValue() => Value;
+
+    public V SetValue(V value)
+    {
+        var old = Value;
+        Value = value;
+        return old;
+    }
+
+    public static implicit operator KeyValuePair<K, V>(JavaEntry<K, V> e) => new KeyValuePair<K, V>(e.Key, e.Value);
+
+    public override bool Equals(object o) =>
+        o is JavaEntry<K, V> e && Equals(Key, e.Key) && Equals(Value, e.Value);
+
+    public override int GetHashCode() => (Key?.GetHashCode() ?? 0) ^ (Value?.GetHashCode() ?? 0);
+
+    public override string ToString() => Key + "=" + Value;
+}
+
+/// <summary>
+/// java.util.ArrayList as the base of a class of the program: C#'s List has no virtual methods, so a subclass could
+/// not override add or remove. Java's methods are virtual here, under the names the translation calls them by. It is
+/// a List, but a call through a List-typed reference reaches List's method, not the subclass's override.
+/// </summary>
+public class JavaArrayList<E> : List<E>
+{
+    public JavaArrayList()
+    {
+    }
+
+    public JavaArrayList(int capacity) : base(capacity)
+    {
+    }
+
+    public JavaArrayList(IEnumerable<E> items) : base(items)
+    {
+    }
+
+    public new virtual bool Add(E item)
+    {
+        base.Add(item);
+        return true;
+    }
+
+    public virtual void Add(int index, E item) => Insert(index, item);
+
+    public virtual bool AddAll(ICollection<E> items)
+    {
+        AddRange(items);
+        return items.Count > 0;
+    }
+
+    public virtual bool Remove(object item) => item is E e && base.Remove(e);
+
+    public virtual E Remove(int index)
+    {
+        var old = this[index];
+        RemoveAt(index);
+        return old;
+    }
+
+    public E RemoveAtAndGet(int index)
+    {
+        var old = this[index];
+        RemoveAt(index);
+        return old;
+    }
+
+    public E Set(int index, E item)
+    {
+        var old = this[index];
+        this[index] = item;
+        return old;
+    }
+
+    public new virtual void Clear() => base.Clear();
+
+    public virtual JavaArrayList<E> Clone() => new JavaArrayList<E>(this);
 }

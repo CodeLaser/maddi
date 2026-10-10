@@ -1,0 +1,19 @@
+# TestJavaToCSharpLangchain4j: langchain4j's core sources printed as C# by maddi-cst-print-csharp and judged by Roslyn
+# (tools/csharp-check, Microsoft.CodeAnalysis.CSharp 5.0.0 on .NET 10; see JavaToCSharpRatchet's javadoc), the second
+# corpus after fernflower. Lower is better for printerCrashes, syntaxErrors and unmappedJdkUses, higher for
+# syntaxCleanFiles and compilingFiles; `types` must not move. Write a better value here in the commit that earns it.
+#
+# 2026-10-10, first record, with the printer as fernflower left it: 11 printer crashes (StackOverflowError), 57
+# syntax errors in 11 files; 143 of 346 files compile; 1,249 errors (not ratcheted).
+# 2026-10-10, an F-bounded type used raw (R extends GuardrailResult<R>) stops at its own erasure, which ended the 11
+# crashes; a supplier argument a template calls is written in place (orElseGet(() -> x) is ?? x, orElseGet(List::of)
+# is ?? new List<T>()); Optional.class: 0 crashes, 0 syntax errors, 151 files compile; errors 1,249 -> 1,374 and
+# unmapped JDK uses 465 -> 670, as the 11 files that crashed are printed now.
+# 2026-10-10, a namespace segment with a type's name is plural (Dev.Langchain4j.Exception hid System.Exception,
+# Embedding, Query, Image, Tool: their types): 205 files compile; errors 1,374 -> 938.
+types	346
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	346
+compilingFiles	205
+unmappedJdkUses	670

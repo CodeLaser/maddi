@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.info;
 
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
+import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -325,6 +326,12 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     @Override
     public boolean isUnmodified() {
         return analysis().getOrDefault(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
+    public boolean isStructurallyUnmodified() {
+        Value.Bool structural = analysis().getOrNull(PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD, ValueImpl.BoolImpl.class);
+        return structural != null ? structural.isTrue() : isUnmodified();
     }
 
     @Override

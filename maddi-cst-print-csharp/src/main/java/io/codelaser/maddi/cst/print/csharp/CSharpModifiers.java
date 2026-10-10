@@ -61,6 +61,9 @@ final class CSharpModifiers {
             else if (m.isProtected()) declared = Declared.PROTECTED;
             else if (m.isPrivate()) declared = Declared.PRIVATE;
         }
+        if (declared != Declared.PUBLIC && CSharpContext.reachedFromOutside(new CSharpAccess.Exposed(t))) {
+            return "public";
+        }
         return csharp(declared, enclosing, t);
     }
 
@@ -96,17 +99,23 @@ final class CSharpModifiers {
         };
     }
 
+    private static final java.util.Set<String> OBJECT_OVERRIDABLE = java.util.Set.of("toString", "equals", "hashCode");
+
     /** {@code virtual}, {@code override}, {@code sealed override}, {@code abstract}; null when none applies. */
     static String inheritance(MethodInfo m, TypeInfo owner) {
         if (m.isStatic() || m.isConstructor() || owner.isInterface()) return null;
-        boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface());
+        // C#'s object has ToString, Equals and GetHashCode to override, not Java's clone or finalize
+        boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface()
+                && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !OBJECT_OVERRIDABLE.contains(o.name())));
+        CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";
-            return m.isFinal() && extensible(owner) ? "sealed override" : "override";
+            return m.isFinal() && extensible(owner) && program.open(owner) ? "sealed override" : "override";
         }
         if (m.isAbstract()) return "abstract";
         if (m.isFinal() || m.access() != null && m.access().isPrivate() || !extensible(owner)) return null;
-        return "virtual";
+        // C#'s methods are not virtual unless declared so: only those a subclass overrides, see CSharpProgram
+        return program.open(owner) && program.overridable(m) ? "virtual" : null;
     }
 
     /** A class that can be extended: not final, not an enum or record. */
