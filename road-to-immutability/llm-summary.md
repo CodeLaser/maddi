@@ -42,8 +42,11 @@ chapter only when detail is missing here.
     evaluation's modified set, without the `∋` propagation and with the deep-only evidence left out: an argument
     to a parameter that is modified yet structurally unmodified, a callee summary's `deepOnlyModified()` entries),
     by the abstract-method fold, and by a second closure of the reachability pass over the structural seeds.
-    Consumer: the Java→Kotlin printer's `List`/`MutableList` choice. Immutability, independence and `@Container`
-    keep the deep property.
+    Written and read as `@Modified(hc=true)` (modified in the hidden content only; a contract on a bodiless
+    declaration, `AnnotationToProperty`/`DecoratorImpl`/`SourceContractMaterializer`). Consumer: the Java→Kotlin
+    printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
+    The book's §"Propagating modifications" (080) describes it; the step back from a modified container to its
+    elements (`useAddNewLine`) is still not computed.
 - **Independence** is a separate axis from immutability: it captures whether a method's return
   value/parameters expose (parts of) the receiver's content. `@Independent` (nothing shared),
   `@Independent(hc=true)` (only hidden content shared), dependent (mutable content shared).

@@ -97,6 +97,18 @@ public @interface Modified {
     int[] onlyHcs() default {};
 
     /**
+     * The modification touches only the hidden content of the object: an element of the collection, a value held
+     * under a type parameter, never the object itself or its accessible content. {@code @Modified(hc=true)} on a
+     * {@code List<StringBuilder>} parameter says that the string builders are appended to and the list is not.
+     * This is the structural (shallow) modification verdict beside the deep one (road to immutability, "More on
+     * hidden content"; CodeLaser/maddi-mod#25): computed by the analyzer, and read as a contract on a declaration
+     * without a body. Kotlin's read-only {@code List} is exactly this.
+     *
+     * @return true when the object itself is structurally unmodified, and only its hidden content is modified
+     */
+    boolean hc() default false;
+
+    /**
      * Any explanation for the presence of this annotion in this particular place.
      */
     String comment() default "";
