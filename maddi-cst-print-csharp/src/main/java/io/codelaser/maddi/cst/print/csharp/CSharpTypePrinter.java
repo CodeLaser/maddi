@@ -141,6 +141,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
         typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
+        CSharpLocalTypes.lifted(typeInfo)
+                .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
@@ -149,7 +151,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     private String typeAccess() {
-        if (isLocal(typeInfo)) return null;
+        if (isLocal(typeInfo)) return "private"; // lifted into the enclosing type
         // a top-level type is public or internal
         if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
         // a hoisted type is in the namespace, where C# has no private or protected

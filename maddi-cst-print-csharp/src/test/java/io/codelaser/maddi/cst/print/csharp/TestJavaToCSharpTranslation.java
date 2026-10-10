@@ -17,6 +17,8 @@ package io.codelaser.maddi.cst.print.csharp;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -470,5 +472,39 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "string name = names.Get((int) boxed);");
         contains(cs, "int i = (int) map.GetValueOrNull(key);");
         contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
+    }
+
+    @Language("java")
+    private static final String LOCAL_CLASSES = """
+            package org.example.local;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Locals {
+                private int base = 1;
+                int count(int n) {
+                    class Entry {
+                        final int value;
+                        Entry(int value) { this.value = value; }
+                    }
+                    List<Entry> entries = new ArrayList<>();
+                    for (int i = 0; i < n; i++) entries.add(new Entry(i));
+                    return entries.size();
+                }
+                int captures(int n) {
+                    class Adder {
+                        int add(int x) { return x + n + base; }
+                    }
+                    return new Adder().add(1);
+                }
+            }
+            """;
+
+    /** A local class that captures nothing is lifted into its enclosing type; one that captures is not translated. */
+    @Test
+    public void localClasses() {
+        String cs = translate("Locals", LOCAL_CLASSES);
+        contains(cs, "private class Entry {");
+        contains(cs, "entries.Add(new Entry(i));");
+        assertFalse(cs.contains("class Adder"), cs);
     }
 }

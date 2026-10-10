@@ -110,8 +110,11 @@ public final class CSharpStatementPrinter {
             case SynchronizedStatement ss -> new OutputBuilderImpl().add(CSharpKeyword.LOCK).add(SpaceEnum.ONE)
                     .add(parenthesized(ss.expression(), q)).add(SpaceEnum.ONE).add(block(ss.block(), q));
             case AssertStatement as -> assertStatement(as, q);
+            // printed in the enclosing type, see CSharpLocalTypes
             case LocalTypeDeclaration ltd -> {
-                CSharpContext.message(CSharpPrintMessage.Code.LOCAL_CLASS, ltd, ltd.typeInfo().simpleName());
+                if (!CSharpLocalTypes.liftable(ltd.typeInfo())) {
+                    CSharpContext.message(CSharpPrintMessage.Code.LOCAL_CLASS, ltd, ltd.typeInfo().simpleName());
+                }
                 yield new OutputBuilderImpl();
             }
             default -> {

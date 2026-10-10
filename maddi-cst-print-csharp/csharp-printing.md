@@ -156,14 +156,15 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 
 - **Not translated yet:**
   - anonymous classes (to be hoisted into nested classes or lambdas);
-  - local classes;
+  - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
+    is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
   - `Outer.this`, because a C# nested class has no enclosing instance;
   - annotation types (to become attributes);
   - `new int[a][b]`;
   - record patterns;
-  - static nested types of a generic type (`NESTED_IN_GENERIC`). C# nests them in every instantiation of the outer
-    type, so they will have to move out of it.
+  - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
+    one is hoisted (see Declarations).
 - **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
