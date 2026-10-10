@@ -65,13 +65,14 @@ public abstract class CommonJavaToCSharp {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
-        TypeInfo typeInfo = javaInspector.parse(Map.of(pkg + "." + first, java),
-                        new JavaInspector.ParseOptions.Builder().build())
-                .parseResult().primaryTypes().stream()
+        List<TypeInfo> primaryTypes = List.copyOf(javaInspector.parse(Map.of(pkg + "." + first, java),
+                        new JavaInspector.ParseOptions.Builder().build()).parseResult().primaryTypes());
+        TypeInfo typeInfo = primaryTypes.stream()
                 .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
                 .orElseThrow();
         Runtime runtime = javaInspector.runtime();
-        return new CSharpCompilationUnitPrinter(typeInfo.compilationUnit(), true)
+        // the file is the whole program
+        return new CSharpCompilationUnitPrinter(typeInfo.compilationUnit(), true, CSharpProgram.analyze(primaryTypes))
                 .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
     }
 

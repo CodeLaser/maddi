@@ -231,6 +231,10 @@ public final class CSharpExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         Expression object = mc.object();
         MethodInfo method = mc.methodInfo();
+        if (CSharpContext.program().isInvoke(method) && object != null && !mc.objectIsImplicit()) {
+            // a call of a delegate is an invocation: f(x)
+            return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));
+        }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
@@ -515,23 +519,13 @@ public final class CSharpExpressionPrinter {
      */
     private static OutputBuilder anonymousAsLambda(ConstructorCall cc, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
-        if (anonymous.interfacesImplemented().size() != 1) return null;
+        if (!CSharpProgram.lambdaLike(anonymous)) return null;
         ParameterizedType functionalType = anonymous.interfacesImplemented().getFirst();
-        if (functionalType.typeInfo() == null || !CSharpNames.lambdaAdapter(functionalType.typeInfo())) return null;
-        List<MethodInfo> methods = anonymous.methods().stream().filter(m -> !m.isSynthetic()).toList();
-        if (methods.size() != 1 || anonymous.fields().stream().anyMatch(f -> !f.isSynthetic())
-            || anonymous.subTypes().stream().anyMatch(st -> !st.isSynthetic()) || methods.getFirst().methodBody() == null) {
+        if (functionalType.typeInfo() == null || !CSharpNames.lambdaAdapter(functionalType.typeInfo())
+                                                 && !CSharpContext.program().delegate(functionalType.typeInfo())) {
             return null;
         }
-        MethodInfo method = methods.getFirst();
-        boolean[] usesThis = {false};
-        method.methodBody().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof VariableExpression ve && ve.variable() instanceof This t && t.typeInfo().equals(anonymous)) {
-                usesThis[0] = true;
-            }
-            return !usesThis[0];
-        });
-        if (usesThis[0]) return null;
+        MethodInfo method = anonymous.methods().stream().filter(m -> !m.isSynthetic()).findFirst().orElseThrow();
         OutputBuilder b = new OutputBuilderImpl();
         CSharpContext.pushMethod(method);
         CSharpContext.enterScope(java.util.Set.of());
@@ -539,7 +533,13 @@ public final class CSharpExpressionPrinter {
             b.add(text(method.parameters().stream()
                     .map(p -> CSharpTypeName.argument(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
                     .collect(Collectors.joining(", ", "(", ")"))));
-            b.add(SymbolEnum.binaryOperator("=>")).add(CSharpStatementPrinter.block(method.methodBody(), q));
+            b.add(SymbolEnum.binaryOperator("=>"));
+            List<Statement> statements = method.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
+            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+                b.add(returned(rs.expression(), q));
+            } else {
+                b.add(CSharpStatementPrinter.block(method.methodBody(), q));
+            }
         } finally {
             CSharpContext.exitScope();
             CSharpContext.popMethod();
@@ -594,6 +594,14 @@ public final class CSharpExpressionPrinter {
         if (arity != 1) parameterList = "(" + parameterList + ")";
         // String::length is (string p0) => p0.Length: typed, so that a generic method taking it infers its arguments
         boolean unboundReceiver = scope instanceof TypeExpression && !method.isStatic() && !method.isConstructor();
+        if (CSharpContext.program().isInvoke(method)) {
+            // f::apply of a delegate f: f.Invoke; ExprentIterator::processExprent: (ExprentIterator p0, …) => p0(…)
+            if (!unboundReceiver) return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text("Invoke"));
+            String typedList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.of(mr.concreteParameterTypes().get(i), q)
+                    + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));
+            return text(typedList + " => " + parameters.getFirst() + "("
+                        + String.join(", ", parameters.subList(1, parameters.size())) + ")");
+        }
         if (unboundReceiver && arity > 0) {
             parameterList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.of(mr.concreteParameterTypes().get(i), q)
                     + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));

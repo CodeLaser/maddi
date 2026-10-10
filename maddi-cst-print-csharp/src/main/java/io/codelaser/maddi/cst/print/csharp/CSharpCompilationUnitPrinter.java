@@ -42,7 +42,12 @@ import java.util.TreeSet;
  * A library package keeps its Java name until the BCL mapping takes it over. Comments are not printed: the CST's
  * comments are Java's.
  */
-public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2, CSharpProgram program) {
+
+    /** Without knowledge of the other files of the program: see {@link CSharpProgram#NONE}. */
+    public CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+        this(compilationUnit, formatter2, CSharpProgram.NONE);
+    }
 
     /** The C# text, and the messages about what it does differently from the Java, or could not translate. */
     public record Result(OutputBuilder output, List<CSharpPrintMessage> messages) {
@@ -56,6 +61,7 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
     public Result printWithMessages(ImportComputer importComputer, Qualification qualification) {
         CSharpContext.reset();
         try {
+            CSharpContext.program(program);
             CSharpContext.privateReachedFromOutside(CSharpAccess.reachedFromOutside(compilationUnit));
             OutputBuilder output = printFile(importComputer, qualification);
             return new Result(output, CSharpContext.messages());

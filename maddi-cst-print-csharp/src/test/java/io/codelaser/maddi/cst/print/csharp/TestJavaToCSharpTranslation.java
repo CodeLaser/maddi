@@ -520,21 +520,48 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Language("java")
     private static final String FUNCTIONAL = """
             package org.example.fun;
+            import java.util.ArrayList;
+            import java.util.List;
             class Graph {
                 interface Visitor {
                     int visit(String node);
                 }
+                interface Listener {
+                    void changed(String node);
+                }
+                static class Recorder implements Listener {
+                    final List<String> seen = new ArrayList<>();
+                    public void changed(String node) { seen.add(node); }
+                }
                 static int walk(Visitor v) { return v.visit("a"); }
                 static int lengths() { return walk(s -> s.length()) + walk(Graph::one); }
+                static int counted() {
+                    return walk(new Visitor() {
+                        @Override
+                        public int visit(String node) { return 2; }
+                    });
+                }
+                static Visitor bound(Visitor v) { return v::visit; }
                 static int one(String s) { return 1; }
+                static void tell(Listener l) { l.changed("b"); }
+                static void quiet() { tell(n -> { }); }
             }
             """;
 
-    /** A translated functional interface stays an interface, with an adapter class for its lambdas. */
+    /**
+     * A translated functional interface that nothing in the program implements is a C# delegate; one that a class
+     * implements stays an interface, with an adapter class for its lambdas.
+     */
     @Test
     public void functionalInterface() {
         String cs = translate("Graph", FUNCTIONAL);
-        contains(cs, "public sealed class Lambda(Func<string, int> f) : IVisitor { public int Visit(string node) => f(node); }");
-        contains(cs, "internal static int Lengths() => Walk(new IVisitor.Lambda(s => s.Length)) + Walk(new IVisitor.Lambda(Graph.One));");
+        contains(cs, "internal delegate int Visitor(string node);");
+        contains(cs, "internal static int Walk(Visitor v) => v(\"a\");");
+        contains(cs, "internal static int Lengths() => Walk(s => s.Length) + Walk(Graph.One);");
+        contains(cs, "internal static int Counted() => Walk((string node) => 2);");
+        contains(cs, "internal static Visitor Bound(Visitor v) => v.Invoke;");
+        contains(cs, "public sealed class Lambda(Action<string> f) : IListener { public void Changed(string node) => f(node); }");
+        contains(cs, "internal static void Tell(IListener l) { l.Changed(\"b\"); }");
+        contains(cs, "internal static void Quiet() { Tell(new IListener.Lambda(n => { })); }");
     }
 }

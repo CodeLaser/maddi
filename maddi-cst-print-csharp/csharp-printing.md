@@ -92,12 +92,17 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
-- **Functional interfaces.** A translated functional interface stays an interface: a class elsewhere may implement
-  it, which one file cannot rule out. It gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) :
-  IExprentIterator { … }`, and its lambdas and method references are wrapped in it:
-  `new IExprentIterator.Lambda(e => 0)`. Turning it into a `delegate` needs whole-program knowledge. An anonymous class
-  of such an interface that only implements its method, without fields and without using itself, becomes a lambda
-  in the adapter too.
+- **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
+  one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
+  anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
+  invocation `f(x)`, and a method reference `f::apply` is `f.Invoke`. `CSharpProgram` makes that decision once,
+  over all the translated types, before the files are printed. Its policy can force the other form:
+  `FunctionalInterfaces.ADAPTER`.
+  Any other functional interface stays an interface and gets a nested adapter, `public sealed class
+  Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its lambdas and method references:
+  `new IExprentIterator.Lambda(e => 0)`. A printer that is not given the program (`CSharpProgram.NONE`) uses this
+  form for all of them. An anonymous class of either kind that only implements the method, without fields and
+  without using itself, becomes a lambda.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions

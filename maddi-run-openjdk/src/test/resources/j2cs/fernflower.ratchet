@@ -29,6 +29,8 @@
 # OptionalInt, Character.getType: 144 files compile; unmapped JDK uses 120 -> 74; errors 204 -> 156.
 # 2026-10-10, unboxing in a conditional's branches, a compound assignment and an arithmetic operand, not of a lambda's
 # parameter; a char switch's int labels as chars: 151 files compile; errors 156 -> 135.
+# 2026-10-10, whole-program facts (CSharpProgram): a functional interface nothing implements is a delegate
+# (DirectGraph.ExprentIterator, FastExtendedPostdominanceHelper.IReachabilityAction); the numbers do not move.
 types	199
 printerCrashes	0
 syntaxErrors	0
