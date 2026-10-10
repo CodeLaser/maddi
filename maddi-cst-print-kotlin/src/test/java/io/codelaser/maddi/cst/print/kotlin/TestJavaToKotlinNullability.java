@@ -186,6 +186,15 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 Optional<String> last(Optional<String> o) { return o.map(t -> { if (t.isEmpty()) return null; return t; }); }
                 Optional<String> plain(List<String> names) { return names.stream().findFirst(); }
                 long nulls(List<String> items) { return items.stream().filter(Objects::isNull).count(); }
+                String upper(String s) { return s.toUpperCase(); }
+                List<String> uppers(List<String> items) { return items.stream().map(this::upper).toList(); }
+                static String str(Object o) { return o.toString(); }
+                static int pick(String text) { return text == null ? 0 : 1; }
+                static int pick(Integer number) { return 2; }
+                static int none() { return pick((String) null); }
+                static int count(String... ss) { return ss == null ? 0 : ss.length; }
+                static int noArray() { return count((String[]) null); }
+                boolean empty(Collection<?> c) { return c.stream().map(S::str).anyMatch(String::isEmpty); }
             }
             """;
 
@@ -195,7 +204,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void streamsOfNullableElements() {
-        String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        String kotlin = kotlin(STREAMS, new KotlinPrintOptions(new ByName(Set.of("items<>", "text")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "mapToInt({ S.size(it!!) })");
         contains(kotlin, "findAny() as Optional<String>)");
         contains(kotlin, "as Optional<String>)");
@@ -203,6 +212,13 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "= names.stream().findFirst()");
         // a library's parameter takes the null
         contains(kotlin, "filter(Objects ::isNull)");
+        // a bound reference; a Collection<?>'s elements are Any? in Kotlin
+        contains(kotlin, "{ this.upper(it!!) }).toList()");
+        contains(kotlin, "map({ S.str(it!!) })");
+        // a cast null picks the overload; `null as String` would throw
+        contains(kotlin, "pick(null as String?)");
+        // a varargs array is spread, which Kotlin cannot do with a nullable one
+        contains(kotlin, "count(*(null as Array<String>))");
     }
 
     @Language("java")
@@ -714,6 +730,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     throw new IllegalArgumentException();
                 }
                 static <T> T identity(T t) { return t; }
+                static <T> T getOrDefault(T value, java.util.function.Supplier<T> supplier) {
+                    return value != null ? value : supplier.get();
+                }
             }
             """;
 
@@ -723,10 +742,13 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void nonNullResultOfNullableTypeParameter() {
-        String kotlin = kotlin(NON_NULL_RESULT_OF_NULLABLE_T, new KotlinPrintOptions(new ByName(Set.of("object", "values[]")),
+        String kotlin = kotlin(NON_NULL_RESULT_OF_NULLABLE_T, new KotlinPrintOptions(new ByName(Set.of("object", "values[]", "value")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "fun <T : Any> ensureNotNull(`object`: T?, name: String): T");
         contains(kotlin, "fun <T : Any> firstNotNull(vararg values: T?): T");
         contains(kotlin, "fun <T> identity(t: T): T");
+        // the supplier's T reaches the result: a Supplier<X?> makes it nullable
+        contains(kotlin, "fun <T> getOrDefault(value: T?, supplier: java.util.function.Supplier<T>): T");
+        contains(kotlin, "value else supplier.get()) as T)");
     }
 }

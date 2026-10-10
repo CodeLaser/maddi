@@ -453,6 +453,19 @@ final class KotlinNullability {
             || !nullableInKotlin(value)) {
             return printed;
         }
+        io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
+        if (target.arrays() == 0 && target.typeParameter() != null && method != null
+            && method.typeParameters().contains(target.typeParameter())
+            && KotlinMethodPrinter.typeArgumentOfParameter(method, target.typeParameter())) {
+            // getOrDefault's value ?: supplier.get() into its T: null where T is instantiated nullable, as in Java; an
+            // unchecked cast, where `!!` would throw
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintMessage.Code.ASSERT_AT_UNBOXING : KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL,
                 value, KotlinContext.describe(value));
         return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);

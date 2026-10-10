@@ -205,11 +205,49 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     return CompletableFuture.allOf(fs.toArray(new CompletableFuture[0]));
                 }
                 List<String> orEmpty(List<String> l) { return Optional.ofNullable(l).orElseGet(List::of); }
+                static <T> T getOrDefault(T value, T defaultValue) { return value != null ? value : defaultValue; }
+                static <T> T getOrDefault(T value, java.util.function.Supplier<T> s) { return value != null ? value : s.get(); }
+                static class D { }
+                D orNew(D d) { return getOrDefault(d, D::new); }
+                List<String> listed(String... ss) { return Optional.ofNullable(ss).map(List::of).orElse(null); }
+                void byScore(List<String> fused, Map<String, Double> scores) {
+                    fused.sort(Comparator.comparingDouble(scores::get).reversed());
+                }
                 boolean anyRetry(List<Failure> fs) { return fs.stream().anyMatch(Failure::retry); }
                 @SuppressWarnings("unchecked")
                 boolean greater(Object actual, Object expected) { return ((Comparable) actual).compareTo(expected) > 0; }
             }
             """;
+
+    @Language("java")
+    private static final String RESULT_ONLY_TYPE_PARAMETERS = """
+            package a;
+            import java.util.*;
+            interface R {
+                class Failure { String message() { return ""; } }
+                <F extends Failure> List<F> failures();
+                default int count() { return failures().size(); }
+                default String first() { List<Failure> fs = failures(); return fs.get(0).message(); }
+                default void put(Map<String, Object> m) { m.put("items", Collections.emptyMap()); }
+                default Object images(Map<String, Object> m) { return m.getOrDefault("images", List.of()); }
+                default List<String> none() { return List.of(); }
+            }
+            """;
+
+    /**
+     * Type parameters only the result mentions: Kotlin needs the type arguments where Java takes the bound, or where
+     * nothing is expected.
+     */
+    @Test
+    public void resultOnlyTypeParameters() {
+        String kotlin = kotlin(RESULT_ONLY_TYPE_PARAMETERS);
+        contains(kotlin, "failures<Failure>().size");
+        contains(kotlin, "val fs: MutableList<Failure> = failures<Failure>()");
+        contains(kotlin, "Collections.emptyMap<Any, Any>())");
+        contains(kotlin, "java.util.List.of<Any>())");
+        // the expected type fixes E
+        contains(kotlin, "= java.util.List.of()");
+    }
 
     /** toArray(T[]), a static reference into a mapped type, a property-function clash, a raw Comparable. */
     @Test
@@ -217,6 +255,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(SMALL_GAPS);
         contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
         contains(kotlin, "{ java.util.List.of() })");
+        contains(kotlin, "{ java.util.List.of(*it) })");
+        contains(kotlin, "getOrDefault(d, java.util.function.Supplier(::D))");
+        contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
         contains(kotlin, "anyMatch({ it.retry() })");
         contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");
     }
