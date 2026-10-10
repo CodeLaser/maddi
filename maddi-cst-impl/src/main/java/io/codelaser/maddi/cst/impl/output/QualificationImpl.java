@@ -102,6 +102,16 @@ public class QualificationImpl implements Qualification {
         if (r != null) {
             return r;
         }
+        // a nested type printed from its primary type ('Try.Data') needs the primary type's simple name to mean that
+        // type. When the primary type was not imported because its name is taken (by the unit's own 'Try', or by
+        // another import), 'Try.Data' would resolve against the wrong 'Try': fully qualified instead
+        // (CodeLaser/maddi#114)
+        if (!typeInfo.isPrimaryType()
+            && (typeNameRequired == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE
+                || typeNameRequired == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING)
+            && top.typesNotImported.get(typeInfo.primaryType()) == TypeNameImpl.Required.FQN) {
+            return TypeNameImpl.Required.FQN;
+        }
         if (typeNameRequired != null && !top.simpleTypeNames.contains(typeInfo.simpleName())) {
             return typeNameRequired;
         }

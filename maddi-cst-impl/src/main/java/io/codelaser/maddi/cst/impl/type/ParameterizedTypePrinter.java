@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.output.TypeNameRequired;
 import io.codelaser.maddi.cst.api.type.Diamond;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.type.Wildcard;
@@ -116,25 +117,40 @@ public class ParameterizedTypePrinter {
             element = element.componentType();
         }
         List<AnnotationExpression> typeAnnotations = printAnnotations ? element.annotations() : List.of();
+        TypeParameter tp = parameterizedType.typeParameter();
+        TypeInfo typeInfo = parameterizedType.typeInfo();
+        boolean singleName = typeInfo != null && (parameterizedType.parameters().isEmpty()
+                                                  || typeInfo.isPrimaryType() || typeInfo.isStatic());
+        /*
+         JLS 9.7.4: on a qualified type name a type-use annotation goes immediately before the simple name,
+         'A.M.@NN P<T>'; '@NN A.M.P<T>' does not compile ("to annotate a qualified type, write A.M.@NN P<T>").
+         When the name prints qualified, the qualifier is written first and the name itself simple
+         (CodeLaser/maddi#113). Not for a generic inner class, whose type arguments are distributed over its
+         outer types (distributeTypeParameters).
+         */
+        String qualifier = !typeAnnotations.isEmpty() && tp == null && singleName
+                ? qualifierBeforeSimpleName(qualification, typeInfo) : null;
+        // no space between the qualifier and the annotation: the formatter separates two words by default, which
+        // printed 'java.util. @Nullable List'
+        if (qualifier != null) outputBuilder.add(new TextImpl(qualifier)).add(SpaceEnum.NONE);
         if (!typeAnnotations.isEmpty()) {
             OutputBuilder ab = typeAnnotations.stream().map(ae -> ae.print(qualification))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.ONE));
             outputBuilder.add(ab).add(SpaceEnum.ONE);
         }
-        TypeParameter tp = parameterizedType.typeParameter();
         if (tp != null) {
             outputBuilder.add(tp.print(qualification, printTypeBounds));
-        } else if (parameterizedType.typeInfo() != null) {
+        } else if (typeInfo != null) {
             if (parameterizedType.parameters().isEmpty()) {
-                outputBuilder.add(TypeNameImpl.typeName(parameterizedType.typeInfo(),
-                        qualification.qualifierRequired(parameterizedType.typeInfo()), false));
+                outputBuilder.add(TypeNameImpl.typeName(typeInfo, qualifier != null ? TypeNameImpl.Required.SIMPLE
+                        : qualification.qualifierRequired(typeInfo), false));
                 if (diamond.isYes()) {
                     outputBuilder.add(SymbolEnum.DIAMOND);
                 }
             } else {
                 OutputBuilder sub;
-                if (parameterizedType.typeInfo().isPrimaryType() || parameterizedType.typeInfo().isStatic()) { // shortcut
-                    sub = singleType(qualification, parameterizedType.typeInfo(), diamond, false,
+                if (singleName) { // shortcut
+                    sub = singleType(qualification, typeInfo, diamond, qualifier != null,
                             parameterizedType.parameters(), printTypeBounds);
                 } else {
                     sub = distributeTypeParameters(qualification, parameterizedType,
@@ -177,6 +193,22 @@ public class ParameterizedTypePrinter {
             }
         }
         return outputBuilder;
+    }
+
+    /*
+     The part of the type's printed name before its simple name ('a.b.A.M.' for 'a.b.A.M.P', 'A.M.' when qualified
+     from the primary type), or null when the name prints simple, or in a form that is not Java source.
+     */
+    private static String qualifierBeforeSimpleName(Qualification qualification, TypeInfo typeInfo) {
+        TypeNameRequired required = qualification.qualifierRequired(typeInfo);
+        if (required != TypeNameImpl.Required.FQN && required != TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE
+            && required != TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING) {
+            return null;
+        }
+        String name = TypeNameImpl.typeName(typeInfo, required, false).minimal();
+        String simple = typeInfo.simpleName();
+        return name.length() > simple.length() && name.endsWith("." + simple)
+                ? name.substring(0, name.length() - simple.length()) : null;
     }
 
     // if a type is a subtype, the type parameters may belong to any of the intermediate types

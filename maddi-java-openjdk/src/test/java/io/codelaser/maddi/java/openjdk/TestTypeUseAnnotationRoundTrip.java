@@ -104,7 +104,9 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
      * <p>
      * ⚠ The qualification ({@code java.util.List}) and the layout are the printer's own decisions at
      * CHOP_DOWN / 120 columns, and are reproduced here as-is. If a formatting change makes this fail, read
-     * the diff before assuming an annotation was lost.
+     * the diff before assuming an annotation was lost. Where the printer qualifies an annotated type, the
+     * annotation goes before the simple name, {@code java.util.@Nullable List} (JLS 9.7.4); before 2026-10-10 this
+     * pinned {@code @Nullable java.util.List}, which javac rejects for a TYPE_USE annotation (CodeLaser/maddi#113).
      */
     @DisplayName("the printed file is exactly the source, annotations and all")
     @Test
@@ -119,7 +121,7 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
                 public class X {
                     @Deprecated public java.util.List<@Nullable String> insideTypeArgument() { return null; }
                     public CompletableFuture<@Nullable String> theCaffeineShape() { return null; }
-                    public Map<String, @Nullable java.util.List<@Nullable String>> nested() { return null; }
+                    public Map<String, java.util.@Nullable List<@Nullable String>> nested() { return null; }
                     public void asParameter(java.util.List<@Nullable String> in) { }
                     public @Nullable String onTheReturnType() { return null; }
                 }
