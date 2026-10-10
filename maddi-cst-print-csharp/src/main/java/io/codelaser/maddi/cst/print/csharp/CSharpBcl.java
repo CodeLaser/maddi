@@ -653,6 +653,8 @@ final class CSharpBcl {
         m("java.io.Reader.close/0", "$0.Dispose()");
         m("java.io.BufferedReader.readLine/0", "$0.ReadLine()");
         // file streams: a java.io.File or a path
+        // an EnumMap orders by its keys, as a SortedDictionary does; its Class argument is the key type's
+        m("java.util.EnumMap.new(Class)", "new {R}()", GENERIC);
         m("java.io.FileOutputStream.new/1", "new FileStream($1.ToString(), FileMode.Create)", IO);
         m("java.io.FileOutputStream.new/2", "new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create)", IO);
         m("java.io.FileInputStream.new/1", "File.OpenRead($1.ToString())", IO);

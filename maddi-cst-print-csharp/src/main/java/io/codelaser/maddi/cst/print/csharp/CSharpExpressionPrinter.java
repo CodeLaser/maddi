@@ -695,8 +695,24 @@ public final class CSharpExpressionPrinter {
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
 
+    /** {@code value} is a C# value type (a primitive, an enum C# declares as an enum), {@code other} an Object. */
+    private static boolean valueAndObject(Expression value, Expression other) {
+        ParameterizedType v = value.parameterizedType();
+        ParameterizedType o = other.parameterizedType();
+        if (v == null || o == null || v.arrays() > 0 || !o.isJavaLangObject() || o.arrays() > 0) return false;
+        return v.isPrimitiveExcludingVoid() || v.typeInfo() != null && v.typeInfo().typeNature().isEnum()
+                                               && CSharpNames.translated(v.typeInfo()) && CSharpTypePrinter.simpleEnum(v.typeInfo());
+    }
+
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
+        if (("==".equals(op) || "!=".equals(op)) && (valueAndObject(bo.lhs(), bo.rhs()) || valueAndObject(bo.rhs(), bo.lhs()))) {
+            // Java compares a boxed enum or number with an Object by reference; C# cannot compare a value type with
+            // an object: by value
+            OutputBuilder call = new OutputBuilderImpl().add(text("object.Equals"))
+                    .add(arguments(List.of(bo.lhs(), bo.rhs()), q));
+            return "==".equals(op) ? call : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
+        }
         if (("==".equals(op) || "!=".equals(op)) && stringIdentity(bo.lhs(), bo.rhs())) {
             // Java's == on two Strings compares references; C#'s compares contents
             OutputBuilder call = new OutputBuilderImpl().add(text("object.ReferenceEquals"))

@@ -38,9 +38,11 @@
 # covariance, Map.Entry implementations, ClassLoader).
 # 2026-10-10, List/Collection/Set/Iterable of ? extends T as C#'s covariant IReadOnlyList/IReadOnlyCollection/
 # IEnumerable of T (wildcard losses 31 -> 16): 154 files compile; errors 140 -> 134.
+# 2026-10-10, new EnumMap<>(K.class) as new SortedDictionary<K, V>(); == between a value type and an Object as
+# object.Equals: 155 files compile; errors 134 -> 129.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	154
+compilingFiles	155
 unmappedJdkUses	74
