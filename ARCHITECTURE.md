@@ -80,6 +80,7 @@ everything downstream of parsing operates on it exclusively.
 | `maddi-cst-io` | Codec: (de)serialization of CST and analysis results to/from JSON. | `…cst.io.CodecImpl` |
 | `maddi-cst-print` | Language-neutral formatter: renders the `OutputElement` IR to formatted text. | `…cst.print.formatter2.Formatter2Impl` |
 | `maddi-cst-print-kotlin` | Prints the CST as *Kotlin* source (same `OutputElement` IR; the target language is a printer choice, not a CST property). | `…cst.print.kotlin.KotlinTypePrinter`, `kotlin-printing.md` |
+| `maddi-cst-print-csharp` | Prints the CST as *C#* source (Java → C# translation, #115), on the same `OutputElement` IR and printer seam. | `…cst.print.csharp.CSharpTypePrinter`, `csharp-printing.md` |
 
 ### Inspection — the front ends
 
@@ -197,7 +198,7 @@ The IDE plugins are delivered separately and talk to the bundled daemon.
   producer/driver pair for your language (table above); for javac, read
   `parsing-stability.md` *before* anything else.
 - **"I want to touch the printers/formatter"** — `docs/design/formatter-analysis.md`,
-  `maddi-cst-print`, and `maddi-cst-print-kotlin/kotlin-printing.md`.
+  `maddi-cst-print`, `maddi-cst-print-kotlin/kotlin-printing.md` and `maddi-cst-print-csharp/csharp-printing.md`.
 - **"I want to work on the plugins or IDE integration"** — `maddi-run-config`, then the plugin
   module; for IDEs, `maddi-ide-daemon`'s `DaemonProtocol` and `Taskfile.yml` (the IDE build
   tasks); state in `maddi-eclipse/README.md`, open items in `docs/roadmap/ide-todo.md`.

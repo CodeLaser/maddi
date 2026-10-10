@@ -1,0 +1,163 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.print.csharp;
+
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * The naming policy: Java's names, written the way C# code names things. Every name is a function of the declaration
+ * alone, so a declaration and all its uses agree without a renaming pass:
+ * <ul>
+ *   <li>a namespace is the package, each segment PascalCase: {@code org.example.util} is {@code Org.Example.Util};</li>
+ *   <li>a translated method is PascalCase ({@code getName} is {@code GetName}); {@code toString}, {@code equals} and
+ *   {@code hashCode} are {@code ToString}, {@code Equals} and {@code GetHashCode}; an override has its overridden
+ *   method's name;</li>
+ *   <li>a translated interface is prefixed with {@code I} ({@code Visitor} is {@code IVisitor}), unless its name has
+ *   that shape already;</li>
+ *   <li>an enum constant, and a record component (a property in C#), is PascalCase: {@code NOT_FOUND} is
+ *   {@code NotFound};</li>
+ *   <li>other fields, parameters and locals keep their names;</li>
+ *   <li>an identifier that is a C# keyword is escaped: {@code @params}.</li>
+ * </ul>
+ * A new name that would collide (with its enclosing type, which C# forbids, or another member) falls back to the Java
+ * name. Library declarations keep their Java names: what the JDK's become is the BCL mapping's business.
+ */
+public final class CSharpNames {
+
+    private static final Set<String> KEYWORDS = Set.of("abstract", "as", "base", "bool", "break", "byte", "case",
+            "catch", "char", "checked", "class", "const", "continue", "decimal", "default", "delegate", "do", "double",
+            "else", "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for", "foreach",
+            "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock", "long", "namespace", "new",
+            "null", "object", "operator", "out", "override", "params", "private", "protected", "public", "readonly",
+            "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc", "static", "string", "struct",
+            "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort",
+            "using", "virtual", "void", "volatile", "while");
+
+    private CSharpNames() {
+    }
+
+    /** An identifier, escaped when it is a C# keyword. */
+    public static String name(String identifier) {
+        return KEYWORDS.contains(identifier) ? "@" + identifier : identifier;
+    }
+
+    /** The namespace of a translated package; a library package is left as it is. */
+    public static String namespace(String packageName, boolean translated) {
+        if (packageName == null || packageName.isEmpty()) return "";
+        if (!translated) return packageName;
+        return Arrays.stream(packageName.split("\\.")).map(CSharpNames::pascal).collect(Collectors.joining("."));
+    }
+
+    /** The namespace a type is declared in. */
+    public static String namespace(TypeInfo typeInfo) {
+        return namespace(typeInfo.packageName(), translated(typeInfo));
+    }
+
+    /** The simple name of a type: {@code IVisitor} for a translated interface {@code Visitor}. */
+    public static String type(TypeInfo typeInfo) {
+        String simple = typeInfo.simpleName();
+        if (translated(typeInfo) && typeInfo.typeNature().isInterface() && !typeInfo.typeNature().isAnnotation()
+            && !(simple.length() > 1 && simple.charAt(0) == 'I' && Character.isUpperCase(simple.charAt(1)))) {
+            String prefixed = "I" + simple;
+            if (!clashesInEnclosingType(typeInfo, prefixed)) return prefixed;
+        }
+        return name(simple);
+    }
+
+    /** The name of a method in a declaration and in its calls. */
+    public static String method(MethodInfo methodInfo) {
+        String javaName = methodInfo.name();
+        if (!methodInfo.isStatic() && !methodInfo.isConstructor()) {
+            int n = methodInfo.parameters().size();
+            if (n == 0 && "toString".equals(javaName)) return "ToString";
+            if (n == 0 && "hashCode".equals(javaName)) return "GetHashCode";
+            if (n == 1 && "equals".equals(javaName)) return "Equals";
+        }
+        if (!translated(methodInfo.typeInfo())) return name(javaName);
+        // an override is named as what it overrides, which may have kept its Java name
+        for (MethodInfo overridden : methodInfo.overrides()) {
+            if (overridden != methodInfo && translated(overridden.typeInfo())) return method(overridden);
+        }
+        String pascal = pascal(javaName);
+        TypeInfo owner = methodInfo.typeInfo();
+        if (pascal.equals(javaName) || pascal.equals(type(owner))
+            || owner.fields().stream().anyMatch(f -> pascal.equals(field(f)))
+            || owner.subTypes().stream().anyMatch(st -> pascal.equals(type(st)))) {
+            return name(javaName);
+        }
+        return pascal;
+    }
+
+    /** The name of a field: PascalCase for an enum constant or a record component, else the Java name. */
+    public static String field(FieldInfo fieldInfo) {
+        TypeInfo owner = fieldInfo.owner();
+        if (!translated(owner)) return name(fieldInfo.name());
+        String renamed = null;
+        if (isEnumConstant(fieldInfo)) {
+            renamed = pascalFromConstant(fieldInfo.name());
+        } else if (owner.typeNature().isRecord() && !fieldInfo.isStatic()) {
+            renamed = pascal(fieldInfo.name());
+        }
+        if (renamed == null || renamed.equals(fieldInfo.name())) return name(fieldInfo.name());
+        String r = renamed;
+        boolean clash = r.equals(type(owner))
+                        || owner.fields().stream().anyMatch(f -> f != fieldInfo && r.equals(f.name()))
+                        || owner.subTypes().stream().anyMatch(st -> r.equals(type(st)));
+        return clash ? name(fieldInfo.name()) : r;
+    }
+
+    /** An enum constant: a static final field of the enum's own type. */
+    static boolean isEnumConstant(FieldInfo f) {
+        TypeInfo owner = f.owner();
+        return owner.typeNature().isEnum() && f.isStatic() && f.isFinal() && f.type().typeInfo() == owner
+               && f.type().arrays() == 0;
+    }
+
+    /** Declared in the sources being translated, not in a library. */
+    static boolean translated(TypeInfo typeInfo) {
+        return typeInfo.compilationUnit() != null && !typeInfo.compilationUnit().externalLibrary();
+    }
+
+    private static boolean clashesInEnclosingType(TypeInfo typeInfo, String name) {
+        if (typeInfo.isPrimaryType()) return false;
+        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
+        TypeInfo enclosing = cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
+        return enclosing != null && (enclosing.simpleName().equals(name)
+                                     || enclosing.subTypes().stream().anyMatch(st -> st.simpleName().equals(name)));
+    }
+
+    /** {@code getName} is {@code GetName}. */
+    static String pascal(String s) {
+        if (s.isEmpty() || !Character.isLowerCase(s.charAt(0))) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    /** {@code NOT_FOUND} is {@code NotFound}; a name that is not all capitals is only capitalized. */
+    static String pascalFromConstant(String s) {
+        if (!s.equals(s.toUpperCase()) || s.chars().noneMatch(Character::isLetter)) return pascal(s);
+        StringBuilder sb = new StringBuilder();
+        for (String part : s.split("_")) {
+            if (part.isEmpty()) continue;
+            sb.append(part.charAt(0)).append(part.substring(1).toLowerCase());
+        }
+        return sb.isEmpty() || !Character.isJavaIdentifierStart(sb.charAt(0)) ? s : sb.toString();
+    }
+}
