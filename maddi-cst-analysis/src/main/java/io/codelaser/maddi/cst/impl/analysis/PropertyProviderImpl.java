@@ -81,6 +81,9 @@ public class PropertyProviderImpl {
                 PARAMETER_ASSIGNED_TO_FIELD,
                 POST_CONDITIONS_METHOD,
                 PRECONDITION_METHOD,
+                STRUCTURALLY_NON_MODIFYING_METHOD,
+                STRUCTURALLY_UNMODIFIED_FIELD,
+                STRUCTURALLY_UNMODIFIED_PARAMETER,
                 UNMODIFIED_FIELD,
                 UNMODIFIED_PARAMETER,
                 UTILITY_CLASS

@@ -296,6 +296,14 @@ public interface MethodInfo extends Info {
     boolean isNonModifying();
 
     /**
+     * Returns {@code true} if the analyzer determined this method does not modify its receiver object or the
+     * objects in the receiver's accessible content (its fields); it may modify the receiver's hidden content (the
+     * elements of a collection). Implied by {@link #isNonModifying()}, the fallback when the structural verdict
+     * is absent.
+     */
+    boolean isStructurallyNonModifying();
+
+    /**
      * Returns {@code true} if this method is fluent (always returns {@code this}),
      * as determined by analysis.
      */

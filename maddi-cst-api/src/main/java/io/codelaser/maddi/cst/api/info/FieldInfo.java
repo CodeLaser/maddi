@@ -68,6 +68,13 @@ public interface FieldInfo extends Info {
      */
     boolean isUnmodified();
 
+    /**
+     * Returns {@code true} if the analyzer determined that the object held by this field is never modified
+     * itself after construction; the objects in its hidden content (a collection's elements) may be. Implied by
+     * {@link #isUnmodified()}, the fallback when the structural verdict is absent.
+     */
+    boolean isStructurallyUnmodified();
+
     /** Returns the simple name of this field. */
     String name();
 
