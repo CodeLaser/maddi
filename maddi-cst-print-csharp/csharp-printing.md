@@ -1,0 +1,186 @@
+# Printing the CST as C#
+
+`maddi-cst-print-csharp` prints a CST, parsed from Java, as **C#** source. It is the C# counterpart of
+`maddi-cst-print-kotlin` (see `kotlin-printing.md`). It reuses the language-neutral `OutputElement` IR and the
+`maddi-cst-print` formatter unchanged. The work item is #115.
+
+## Aim
+
+The aim is automatic translation, with no manual editing, into C# that reads as if it had been written in C#. maddi's
+analyses drive what makes the output idiomatic:
+
+- **Nullability** (`NullabilityPass`, maddi-mod) decides where `?` goes under `#nullable enable`, and where `!`, `?.`
+  or `??` appear.
+- **Modification and immutability** decide whether something can be `readonly` or `init`-only, whether a parameter
+  can be `IReadOnlyList<T>`, and whether a class can become a `record` or a `readonly struct`.
+- **Prepwork** (`getSetField`) collapses getters and setters into properties.
+
+None of these drivers is wired in yet. This first slice covers the syntax and the structure that follow from the
+Java alone.
+
+## The pluggable-printer seam
+
+`CSharpTypePrinter`, `CSharpMethodPrinter` and `CSharpFieldPrinter` implement the cst-api `TypePrinter`,
+`MethodPrinter` and `FieldPrinter` interfaces, including the factory overload, as the Java and Kotlin printers do.
+`CSharpCompilationUnitPrinter` prints a file and returns `CSharpPrintMessage`s alongside the text. The state of one
+file's printing (types and methods being printed, messages, `using`s) is in the thread-local `CSharpContext`, because
+the factory signatures carry no context.
+
+## Naming (`CSharpNames`)
+
+Every name is a function of its declaration alone, so a declaration and all its uses agree without a renaming pass.
+
+- A namespace is the package with each segment in PascalCase: `org.example.util` becomes `Org.Example.Util`.
+- A translated method is PascalCase: `getName` becomes `GetName`. `toString`, `equals` and `hashCode` become
+  `ToString`, `Equals` and `GetHashCode`. An override takes the name of the method it overrides.
+- A translated interface gets an `I` prefix (`Visitor` becomes `IVisitor`) unless its name already has that shape.
+- An enum constant or a record component is PascalCase: `NOT_FOUND` becomes `NotFound`, and component `x` becomes
+  property `X`.
+- An identifier that is a C# keyword is escaped: `System.out` becomes `System.@out`.
+- A new name that would collide falls back to the Java name. It can collide with its enclosing type (C# forbids a
+  member named after its type), with a field, or with a nested type.
+
+Library declarations keep their Java names. Translating the JDK's names is the job of the BCL mapping (next step).
+
+## Types (`CSharpTypeName`)
+
+- Primitives map to C#'s, except that Java's signed `byte` becomes `sbyte`.
+- `String` and `Object` become `string` and `object`.
+- A boxed type becomes the nullable value type, `Integer` → `int?`. As a type argument it becomes the value type
+  itself: `List<Integer>` → `List<int>`, because C# generics are not erased.
+- In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
+- C# has no wildcards. `? extends T` and `? super T` become `T`. An unbound `?` becomes the type parameter's bound, so
+  that the constraint still holds.
+- C# has no raw types either. A raw `Key` becomes `Key<Bound>`.
+- Bounds become `where T : …` constraints.
+- `typeof(List<>)` is the unbound generic type.
+
+## Declarations
+
+- **Access.** Every declaration states its access, except the public members of an interface, where C# writes none.
+  - Package access becomes `internal`, because a translated code base is one assembly.
+  - `protected` becomes `protected internal`, because Java's `protected` also grants package access.
+  - Access is read from the declared modifiers, not from `access()`. For fields and types, `access()` is combined
+    with the enclosing type's access.
+  - Java's `private` covers the whole top-level type; C#'s covers the type itself and its nested types.
+    `CSharpAccess` finds the private members and nested types that code outside their owner reaches. Those, and only
+    those, become `internal`.
+  - An override keeps the access of the class method it overrides: Java may widen access, C# may not.
+- **Inheritance.**
+  - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
+    method becomes `virtual`.
+  - An override of a class method becomes `override`, or `sealed override` when it is final. Implementing an
+    interface method needs neither.
+  - A final class becomes `sealed`.
+- **Classes.**
+  - Java's utility-class idiom becomes a `static class`: static members only, and one constructor that is private,
+    parameterless and empty.
+  - A nested class never gets `static`.
+  - `throws` is dropped.
+  - A single-`return` body becomes an expression body, `=> expr;`.
+  - A constructor's `super(…)` or `this(…)` becomes `: base(…)` or `: this(…)`.
+  - A static initializer becomes the static constructor.
+  - `synchronized` becomes `[MethodImpl(MethodImplOptions.Synchronized)]`.
+  - Varargs become `params T[]`.
+- **Fields.** A static final primitive or String with a constant initializer becomes `const`. Any other final field
+  becomes `readonly`.
+- **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
+  class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`).
+- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
+
+## Statements and expressions
+
+C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
+differences:
+
+- **Loops and statements.**
+  - `for (T x : xs)` becomes `foreach (T x in xs)`.
+  - `synchronized (o)` becomes `lock (o)`.
+  - `assert c : m` becomes `Debug.Assert(c, m)`.
+- **Labelled jumps.** These become `goto`. `break outer` jumps to `outer_break: ;` after the loop. `continue outer`
+  jumps to `outer_continue: ;` at the end of its body, so the loop's update still runs.
+- **Switch statements.**
+  - A C# section may not fall through. A Java section whose end is reachable ends in `goto case X;` or
+    `goto default;` to the next section, and the last section ends in `break;`.
+  - `endsInJump` is conservative: a `break;` too many is only an "unreachable code" warning.
+  - An enum case label is qualified: `case Color.Red:`.
+  - An arrow switch statement becomes sections whose labels share the arm's statements.
+- **Switch expressions.**
+  - They become `sel switch { "a" or "b" => 1, _ => throw … }`.
+  - An arm that is a block with `yield` becomes a lambda that is called at once:
+    `new Func<T>(() => { …; return v; })()`. This is exact, because Java allows no `return`, `break` or `continue`
+    out of a switch expression.
+- **Try statements.**
+  - Try-with-resources becomes stacked `using (T r = …)` statements, wrapped in `try` when there are catch or finally
+    clauses.
+  - A multi-catch becomes `catch (Exception e) when (e is A || e is B)`.
+- **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
+  declared type. Otherwise it keeps its type.
+- **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
+  `x is not T`.
+- **String identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
+  `object.ReferenceEquals(a, b)`.
+- **Lambdas and method references.**
+  - A lambda becomes `(a, b) => …`.
+  - A method reference becomes a method group (`Owner.Method`, `receiver.Method`). For an unbound receiver or a
+    constructor it becomes a lambda: `(p0, p1) => p0.M(p1)` or `p0 => new T(p0)`.
+- **Other expressions.**
+  - `X.class` becomes `typeof(X)`.
+  - `super.m()` becomes `base.M()`.
+  - An array's `length` becomes `Length`.
+  - Diamonds get their type arguments written out.
+  - `>>>` is C# 11's.
+
+## `using` directives
+
+Java imports types and C# imports namespaces. The directives follow from the types the printed code names by their
+simple names, which `CSharpTypeName` records:
+
+- A type in another namespace needs `using Namespace;`.
+- A nested type from another file, and a Java static import, need `using static Namespace.Type;`, which brings that
+  type's static members and nested types into scope.
+- The BCL namespaces the printed code needs (`System.Diagnostics` for `Debug.Assert`, `System` for `Func` and
+  `Exception`) are added too.
+
+The file uses a file-scoped `namespace X;`.
+
+## Messages (`CSharpPrintMessage`)
+
+Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
+
+- **Not translated yet:**
+  - anonymous classes (to be hoisted into nested classes or lambdas);
+  - local classes;
+  - instance initializers;
+  - `Outer.this`, because a C# nested class has no enclosing instance;
+  - annotation types (to become attributes);
+  - `new int[a][b]`;
+  - record patterns;
+  - static nested types of a generic type (`NESTED_IN_GENERIC`). C# nests them in every instantiation of the outer
+    type, so they will have to move out of it.
+- **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
+- **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
+
+## Status (first slice)
+
+`TestJavaToCSharpTranslation` has one test per rule. It writes each sample to `build/csharp-samples/`, and all of
+them compile with `dotnet build` (.NET 10) apart from their JDK references. A smoke run over fernflower's 199 main
+files gives:
+
+- no printer crash and no Java fallback;
+- **no syntax error** from Roslyn;
+- 1,189 errors in all, 1,169 of them JDK types C# does not know, which is the BCL mapping's work;
+- 20 others:
+  - the generic-nested types listed above (12);
+  - `clone()` overrides, for the BCL mapping (2);
+  - three shapes that need structural work: a record accessor that implements an interface method (3), a covariant
+    return in an interface implementation (1), and a public member whose signature names a package-private nested
+    type (2), which C# rejects as inconsistent accessibility.
+
+Next, in #115's order:
+
+1. A `JavaToCSharpRatchet` on fernflower.
+2. The JDK → BCL mapping (types, members, exceptions, `AutoCloseable` → `IDisposable`, `Iterable` →
+   `IEnumerable`, functional interfaces → delegates).
+3. The hoisting of anonymous, local and generic-nested types.
+4. The analyses' verdicts.
