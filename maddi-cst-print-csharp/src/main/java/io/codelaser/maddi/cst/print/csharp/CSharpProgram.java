@@ -75,7 +75,7 @@ public final class CSharpProgram {
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of());
+            Set.of(), Set.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -83,9 +83,12 @@ public final class CSharpProgram {
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
     private final Set<String> ambiguous;
+    private final Set<TypeInfo> prefixedHoisted;
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
-                          Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous) {
+                          Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
+                          Set<TypeInfo> prefixedHoisted) {
+        this.prefixedHoisted = prefixedHoisted;
         this.ambiguous = ambiguous;
         this.delegates = delegates;
         this.extended = extended;
@@ -121,7 +124,29 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes));
+                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes), prefixedHoisted(all));
+    }
+
+    /**
+     * The hoisted types ({@link CSharpNames#hoisted}) whose simple name another type of their namespace has too:
+     * {@code RequestContext.Add} and {@code ResponseContext.Add} both land in the namespace.
+     */
+    private static Set<TypeInfo> prefixedHoisted(List<TypeInfo> all) {
+        Map<String, List<TypeInfo>> byName = new java.util.HashMap<>();
+        for (TypeInfo t : all) {
+            if (t.isAnonymous() || !CSharpNames.translated(t)) continue;
+            if (CSharpNames.enclosing(t) != null && !CSharpNames.hoisted(t)) continue;
+            byName.computeIfAbsent(t.packageName() + "." + t.simpleName(), n -> new ArrayList<>()).add(t);
+        }
+        Set<TypeInfo> prefixed = new HashSet<>();
+        byName.values().stream().filter(ts -> ts.size() > 1)
+                .forEach(ts -> ts.stream().filter(CSharpNames::hoisted).forEach(prefixed::add));
+        return Set.copyOf(prefixed);
+    }
+
+    /** A hoisted type whose name is prefixed with its enclosing types' names, which keeps it unique. */
+    public boolean prefixedHoisted(TypeInfo typeInfo) {
+        return prefixedHoisted.contains(typeInfo);
     }
 
     /**

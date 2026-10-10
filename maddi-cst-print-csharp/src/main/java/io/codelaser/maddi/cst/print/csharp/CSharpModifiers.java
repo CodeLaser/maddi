@@ -107,6 +107,8 @@ final class CSharpModifiers {
         // C#'s object has ToString, Equals and GetHashCode to override, not Java's clone or finalize
         boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface()
                 && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !OBJECT_OVERRIDABLE.contains(o.name())));
+        // or an interface's method that an abstract superclass redeclares abstract
+        if (!overridesClassMethod) overridesClassMethod = redeclaredAbove(m, owner);
         CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";
@@ -116,6 +118,15 @@ final class CSharpModifiers {
         if (m.isFinal() || m.access() != null && m.access().isPrivate() || !extensible(owner)) return null;
         // C#'s methods are not virtual unless declared so: only those a subclass overrides, see CSharpProgram
         return program.open(owner) && program.overridable(m) ? "virtual" : null;
+    }
+
+    private static boolean redeclaredAbove(MethodInfo m, TypeInfo owner) {
+        if (m.overrides().stream().noneMatch(o -> o != m && o.typeInfo().isInterface())) return false;
+        for (TypeInfo s = owner.parentClass() == null ? null : owner.parentClass().typeInfo(); s != null;
+             s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
+            if (CSharpTypePrinter.leftAbstract(s).stream().anyMatch(l -> m.overrides().contains(l.method()))) return true;
+        }
+        return false;
     }
 
     /** A class that can be extended: not final, not an enum or record. */

@@ -17,6 +17,8 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -85,8 +87,18 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         String typeParameters = methodInfo.typeParameters().isEmpty() ? ""
                 : methodInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
                         .collect(Collectors.joining(", ", "<", ">"));
-        b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
-                .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
+        MethodInfo overridden = CSharpTypePrinter.interfaceMethodDefaulted(typeInfo, methodInfo);
+        if (overridden != null) {
+            // a default method for an inherited interface's method implements it explicitly
+            ParameterizedType owner = CSharpTypePrinter.implementedAs(typeInfo, overridden.typeInfo());
+            java.util.Map<TypeParameter, ParameterizedType> map = CSharpTypePrinter.typeArguments(owner);
+            b.add(new TextImpl(CSharpTypeName.of(CSharpTypePrinter.substitute(overridden.returnType(), map), q)))
+                    .add(SpaceEnum.ONE)
+                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
+        } else {
+            b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
+                    .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
+        }
         b.add(parameters(methodInfo, q));
         for (String constraint : CSharpTypeName.constraints(methodInfo.typeParameters(), q)) {
             b.add(SpaceEnum.ONE).add(new TextImpl(constraint));

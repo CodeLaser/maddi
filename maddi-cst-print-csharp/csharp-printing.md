@@ -105,7 +105,18 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `ordinal()` a cast to `int`.
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
-  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
+  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
+  another type of the namespace has that name too, the name is prefixed with its enclosing types' names
+  (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`.
+- **Interface implementations.** C# is stricter than Java in three places:
+  - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
+    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
+  - a default method that implements an inherited interface's method is an explicit implementation:
+    `Type IListener<string>.EventClass() => typeof(string);`;
+  - an abstract class that leaves an interface's method to its subclasses redeclares it,
+    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s.
+
+  A generic interface method (Java may implement `<T> Class<T> eventClass()` raw) is left as it is.
 - **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
   one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
   anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an

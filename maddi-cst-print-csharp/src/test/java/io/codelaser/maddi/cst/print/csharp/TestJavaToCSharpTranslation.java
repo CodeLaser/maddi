@@ -869,4 +869,45 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static T EnsureNotEmpty<T>(T c) where T : ICollection {");
         contains(cs, "internal static int Size(IList list) => list.Count;");
     }
+
+    @Language("java")
+    private static final String INTERFACES = """
+            package org.example.interfaces;
+            interface Listener<E> {
+                void onEvent(E event);
+                Class<E> eventClass();
+            }
+            interface StringListener extends Listener<String> {
+                default Class<String> eventClass() { return String.class; }
+            }
+            interface Failure {
+                Failure withCode(int code);
+            }
+            interface Model {
+                int dimension();
+                String embed(String text);
+            }
+            abstract class AbstractModel implements Model {
+                public int dimension() { return embed("test").length(); }
+            }
+            final class UpperModel extends AbstractModel {
+                public String embed(String text) { return text.toUpperCase(); }
+            }
+            class Holder {
+                static final class SimpleFailure implements Failure {
+                    public SimpleFailure withCode(int code) { return this; }
+                }
+            }
+            """;
+
+    /** C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. */
+    @Test
+    public void interfaceImplementations() {
+        String cs = translate("Listener", INTERFACES);
+        contains(cs, "Type IListener<string>.EventClass() => typeof(string);");
+        contains(cs, "public SimpleFailure WithCode(int code) => this;");
+        contains(cs, "IFailure IFailure.WithCode(int code) => WithCode(code);");
+        contains(cs, "public abstract string Embed(string text);");
+        contains(cs, "public override string Embed(string text) => text.ToUpperInvariant();");
+    }
 }

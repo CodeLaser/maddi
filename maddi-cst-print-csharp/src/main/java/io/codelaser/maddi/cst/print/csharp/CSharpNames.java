@@ -88,6 +88,11 @@ public final class CSharpNames {
             String prefixed = "I" + simple;
             if (!clashesInEnclosingType(typeInfo, prefixed)) return prefixed;
         }
+        if (CSharpContext.program().prefixedHoisted(typeInfo)) {
+            StringBuilder sb = new StringBuilder(simple);
+            for (TypeInfo e = enclosing(typeInfo); e != null; e = enclosing(e)) sb.insert(0, e.simpleName());
+            return name(sb.toString());
+        }
         return name(simple);
     }
 

@@ -21,9 +21,13 @@
 # accessor implementing an interface method implements it explicitly: 209 files compile; errors 793 -> 791.
 # 2026-10-10, List/Collection/Set/Iterable/Map of ? as C#'s non-generic IList/ICollection/IEnumerable/IDictionary
 # (which a List<string> is, as a T extends Collection<?> needs): 214 files compile; errors 791 -> 772.
+# 2026-10-10, interface implementations: a narrower return type implements the interface's method explicitly, a
+# default method implements an inherited interface's method explicitly, an abstract class redeclares the interface
+# methods it leaves (and its subclasses override them), clashing hoisted nested types are prefixed: 224 files
+# compile; errors 772 -> 721.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	214
+compilingFiles	224
 unmappedJdkUses	670

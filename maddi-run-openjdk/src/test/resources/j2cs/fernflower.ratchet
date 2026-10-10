@@ -53,9 +53,13 @@
 # 2026-10-10, Iterator as the compatibility library's interface IJavaIterator<T>; a class implementing Iterable gets
 # GetEnumerator; a conditional's null branch for a type parameter is default; Map.Entry.comparingByKey/Value with
 # both type arguments ({R0.1} in templates): 176 files compile; errors 72 -> 60.
+# 2026-10-10, interface implementations: a narrower return type implements the interface's method explicitly, a
+# default method implements an inherited interface's method explicitly, an abstract class redeclares the interface
+# methods it leaves (and its subclasses override them), clashing hoisted nested types are prefixed: 177 files
+# compile; errors 60 -> 55.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	176
+compilingFiles	177
 unmappedJdkUses	32

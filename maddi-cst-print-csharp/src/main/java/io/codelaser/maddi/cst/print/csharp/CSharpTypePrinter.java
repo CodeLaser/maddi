@@ -167,6 +167,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
+        if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
+        if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -451,6 +453,48 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return null;
     }
 
+    /**
+     * The method of an inherited interface that this default method of interface {@code iface} implements, when C#
+     * needs it implemented explicitly: a C# interface's member never implements another's implicitly.
+     */
+    static MethodInfo interfaceMethodDefaulted(TypeInfo iface, MethodInfo m) {
+        if (!iface.isInterface() || m.isStatic() || m.isAbstract() || m.methodBody() == null
+            || !m.typeParameters().isEmpty() || m.isConstructor()) return null;
+        return m.overrides().stream()
+                .filter(o -> o != m && o.typeInfo() != iface && o.typeInfo().isInterface()
+                             && CSharpNames.translated(o.typeInfo()) && o.isAbstract() && o.typeParameters().isEmpty())
+                .filter(o -> implementedAs(iface, o.typeInfo()) != null)
+                .findFirst().orElse(null);
+    }
+
+    /** {@code ancestor} as {@code type} extends or implements it, in {@code type}'s type parameters. */
+    static ParameterizedType implementedAs(TypeInfo type, TypeInfo ancestor) {
+        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
+        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        if (type.parentClass() != null) todo.add(type.parentClass());
+        todo.addAll(type.interfacesImplemented());
+        while (!todo.isEmpty()) {
+            ParameterizedType pt = todo.poll();
+            TypeInfo t = pt.typeInfo();
+            if (t == null || !seen.add(t)) continue;
+            if (t.equals(ancestor)) return pt;
+            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(pt);
+            if (t.parentClass() != null) todo.add(substitute(t.parentClass(), map));
+            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
+        }
+        return null;
+    }
+
+    /** The type parameters of {@code pt}'s type, mapped to its arguments. */
+    static java.util.Map<TypeParameter, ParameterizedType> typeArguments(ParameterizedType pt) {
+        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+        TypeInfo t = pt.typeInfo();
+        for (int k = 0; k < Math.min(t.typeParameters().size(), pt.parameters().size()); k++) {
+            map.put(t.typeParameters().get(k), pt.parameters().get(k));
+        }
+        return map;
+    }
+
     static ParameterizedType substitute(ParameterizedType pt, java.util.Map<TypeParameter, ParameterizedType> map) {
         if (map.isEmpty()) return pt;
         if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
@@ -494,6 +538,123 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         return out;
     }
+
+    /**
+     * Java lets a method implement an interface's method with a narrower return type, {@code Failure
+     * withGuardrailClass(…)} for {@code IFailure withGuardrailClass(…)}; C# does not, for an interface. The interface's
+     * method is implemented explicitly, and calls the method: {@code IFailure IFailure.WithGuardrailClass(Type g) =>
+     * WithGuardrailClass(g);}.
+     */
+    private List<OutputBuilder> covariantImplementations(Qualification q) {
+        List<OutputBuilder> out = new ArrayList<>();
+        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        for (ParameterizedType i : typeInfo.interfacesImplemented()) {
+            covariantImplementations(i, java.util.Map.of(), seen, out, q);
+        }
+        return out;
+    }
+
+    private void covariantImplementations(ParameterizedType i, java.util.Map<TypeParameter, ParameterizedType> outer,
+                                          java.util.Set<TypeInfo> seen, List<OutputBuilder> out, Qualification q) {
+        TypeInfo iface = i.typeInfo();
+        if (iface == null || !CSharpNames.translated(iface) || !seen.add(iface)) return;
+        ParameterizedType implemented = substitute(i, outer);
+        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+        for (int k = 0; k < Math.min(iface.typeParameters().size(), implemented.parameters().size()); k++) {
+            map.put(iface.typeParameters().get(k), implemented.parameters().get(k));
+        }
+        for (MethodInfo m : iface.methods()) {
+            if (m.isStatic() || !m.typeParameters().isEmpty() || m.isSynthetic()) continue;
+            MethodInfo own = typeInfo.methods().stream()
+                    .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
+                    .findFirst().orElse(null);
+            if (own == null || own.typeInfo().typeNature().isRecord() && isRecordAccessor(own)) continue;
+            String returnType = CSharpTypeName.of(substitute(m.returnType(), map), q);
+            if (returnType.equals(CSharpTypeName.of(own.returnType(), q))) continue;
+            List<String> names = own.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
+            StringBuilder sb = new StringBuilder(returnType).append(' ').append(CSharpTypeName.of(implemented, q))
+                    .append('.').append(CSharpNames.method(m)).append('(');
+            for (int k = 0; k < names.size(); k++) {
+                if (k > 0) sb.append(", ");
+                sb.append(CSharpTypeName.of(substitute(m.parameters().get(k).parameterizedType(), map), q))
+                        .append(' ').append(names.get(k));
+            }
+            sb.append(") => ").append(CSharpNames.method(own)).append('(').append(String.join(", ", names))
+                    .append(");");
+            out.add(new OutputBuilderImpl().add(new TextImpl(sb.toString())));
+        }
+        for (ParameterizedType sup : iface.interfacesImplemented()) {
+            covariantImplementations(sup, map, seen, out, q);
+        }
+    }
+
+    /**
+     * An abstract Java class may leave an interface's method to its subclasses; C# makes it say so:
+     * {@code public abstract Response<List<Embedding>> EmbedAll(List<TextSegment> textSegments);}.
+     */
+    private List<OutputBuilder> abstractRedeclarations(Qualification q) {
+        List<OutputBuilder> out = new ArrayList<>();
+        java.util.Set<String> declared = new java.util.HashSet<>();
+        for (LeftAbstract left : leftAbstract(typeInfo)) {
+            MethodInfo m = left.method();
+            String name = CSharpNames.method(m);
+            StringBuilder sb = new StringBuilder("public abstract ")
+                    .append(CSharpTypeName.of(substitute(m.returnType(), left.typeArguments()), q)).append(' ')
+                    .append(name).append('(');
+            StringBuilder signature = new StringBuilder(name);
+            for (int k = 0; k < m.parameters().size(); k++) {
+                if (k > 0) sb.append(", ");
+                String type = CSharpTypeName.of(substitute(m.parameters().get(k).parameterizedType(),
+                        left.typeArguments()), q);
+                sb.append(type).append(' ').append(CSharpNames.name(m.parameters().get(k).name()));
+                signature.append(',').append(type);
+            }
+            if (declared.add(signature.toString())) out.add(new OutputBuilderImpl().add(new TextImpl(sb + ");")));
+        }
+        return out;
+    }
+
+    /** An interface's method an abstract class leaves to its subclasses, and the interface's type arguments. */
+    record LeftAbstract(MethodInfo method, java.util.Map<TypeParameter, ParameterizedType> typeArguments) {}
+
+    /** The interface methods abstract class {@code cls} redeclares abstract: no class or default implements them. */
+    static List<LeftAbstract> leftAbstract(TypeInfo cls) {
+        if (cls.isInterface() || !cls.isAbstract() || !CSharpNames.translated(cls)) return List.of();
+        List<MethodInfo> implementations = new ArrayList<>();
+        for (TypeInfo t = cls; t != null; t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            implementations.addAll(t.methods());
+        }
+        java.util.Map<TypeInfo, ParameterizedType> interfaces = new java.util.LinkedHashMap<>();
+        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
+        for (TypeInfo t = cls; t != null; t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            ParameterizedType asSeen = t == cls ? null : implementedAs(cls, t);
+            java.util.Map<TypeParameter, ParameterizedType> map = asSeen == null ? java.util.Map.of() : typeArguments(asSeen);
+            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
+        }
+        while (!todo.isEmpty()) {
+            ParameterizedType i = todo.poll();
+            TypeInfo iface = i.typeInfo();
+            if (iface == null || interfaces.containsKey(iface)) continue;
+            interfaces.put(iface, i);
+            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(i);
+            iface.interfacesImplemented().forEach(sup -> todo.add(substitute(sup, map)));
+        }
+        interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
+                .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
+        List<LeftAbstract> left = new ArrayList<>();
+        interfaces.forEach((iface, i) -> {
+            if (!CSharpNames.translated(iface)) return;
+            for (MethodInfo m : iface.methods()) {
+                if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()) continue;
+                if (OBJECT_METHODS.contains(m.name() + "/" + m.parameters().size())) continue;
+                if (implementations.stream().anyMatch(x -> x != m && x.overrides().contains(m))) continue;
+                left.add(new LeftAbstract(m, typeArguments(i)));
+            }
+        });
+        return left;
+    }
+
+    private static final java.util.Set<String> OBJECT_METHODS = java.util.Set.of("equals/1", "hashCode/0", "toString/0");
 
     // ---------------------------------------------------------------- helpers
 
