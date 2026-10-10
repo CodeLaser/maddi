@@ -80,7 +80,8 @@ Two runner changes were needed, both bringing `RunMixedPrepAnalyzer` in line wit
 - **fault-tolerant prep.** Without it prep aborted detekt outright at 652 of 1,202 types. One failing method
   must not deny analysis to a corpus. Isolated elements are listed in full and the exit code reports them,
   so a run cannot look clean while skipping work.
-- **`--preload-analysis-results-dirs`.** See §3 — this is the one that is easy to get wrong.
+- **`--preload-analysis-results-dirs`.** See §3 — this is the one that is easy to get wrong. Since 2026-10-10 the
+  CLIs load the shipped results when the option is absent (`none` opts out, `default,dir` adds to them; maddi-mod#15).
 
 ## 3. No immutable types means the annotated APIs are missing
 

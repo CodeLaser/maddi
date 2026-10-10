@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
+import io.codelaser.maddi.annotation.Identity;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
@@ -627,6 +628,13 @@ public class KotlinCollections {
         static <T> void forEachIndexed(@NotModified Iterable<? extends T> receiver, Function2<? super Integer, ? super T, Unit> action) {
         }
 
+        /* returns its receiver: what `action` does to the elements is `action`'s contract */
+        @Identity
+        @NotNull
+        static <T, C extends Iterable<? extends T>> C onEach(@NotModified C receiver, Function1<? super T, Unit> action) {
+            return null;
+        }
+
         static <T, R, C extends Collection<? super R>> C mapTo(@NotModified Iterable<? extends T> receiver, C destination, Function1<? super T, ? extends R> transform) {
             return null;
         }
@@ -1059,6 +1067,20 @@ public class KotlinCollections {
         @NotNull
         static <R> List<R> filterIsInstance(@NotModified Object[] receiver, Class<R> klass) {
             return null;
+        }
+
+        /* asList is a VIEW of the array: no @Independent */
+        @NotNull
+        static <T> List<T> asList(@NotModified T[] receiver) {
+            return null;
+        }
+
+        static int binarySearch(@NotModified int[] receiver, int element, int fromIndex, int toIndex) {
+            return 0;
+        }
+
+        static <T> int binarySearch(@NotModified T[] receiver, T element, int fromIndex, int toIndex) {
+            return 0;
         }
     }
 

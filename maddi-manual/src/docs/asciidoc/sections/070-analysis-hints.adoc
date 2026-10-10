@@ -28,11 +28,15 @@ Generate skeleton hint sources for the library types your project actually calls
 call-frequency comments), as a starting point to curate. Gradle: `updatedHintsDir` /
 `updatedHintsPackage`; Maven: the `write-analysis-hints` goal.
 
-// TODO: expand — the on-disk layout of the archive (jdk/, libs/), how to add hints for your own
-// library end-to-end, and how the default-location preload is intended to work once wired.
+// TODO: expand — the on-disk layout of the archive (jdk/, libs/), and how to add hints for your own
+// library end-to-end.
 [NOTE]
 ====
-*Status.* Out of the box the runner only preloads results when you *explicitly* point it at them; an
-automatic "default location" preload of the shipped JDK/library results is not yet wired into the
-openjdk runner. Until then, supply `preloadAnalysisResultsDirs` yourself to get library annotations.
+*Default.* The command-line tools (`maddi`, `maddi-kotlin`) load the shipped JDK and library results when
+`--preload-analysis-results-dirs` is not given: `openjdk.jar` and `libs.jar` from `maddi-aapi-archive`, on
+their class path. Naming directories replaces that default; `default` names the shipped results in the list
+(`--preload-analysis-results-dirs default,my/results`), and `none` loads nothing. A run that compiles or writes hints
+(`--analysis-results-target-dir`, `--updated-hints-dir`) loads nothing implicitly, because what it preloads
+changes what it writes. The Gradle and Maven plugins still preload only what `preloadAnalysisResultsDirs`
+names.
 ====

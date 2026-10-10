@@ -501,7 +501,8 @@ public class Main {
         options.addOption(Option.builder().longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
                 .desc("Add a directory where the analyzed analysis hints files can be found." +
                       " Use the Java path separator '" + File.pathSeparator + "' to separate directories, " +
-                      "or use this options multiple times.").get());
+                      "or use this options multiple times. Without it, an analysis run loads the JDK and library" +
+                      " results shipped with maddi; '" + PRELOAD_DEFAULT + "' names them in a list, '" + PRELOAD_NONE + "' loads nothing.").get());
 
         options.addOption(Option.builder().longOpt(ANALYSIS_RESULTS_TARGET_DIR).hasArg().argName("DIR")
                 .desc("Where to write analyzed AnalysisHints files.").get());
@@ -531,11 +532,52 @@ public class Main {
         return builder.build();
     }
 
-    private static AnalysisHintsConfiguration parseAnalysisHintsConfiguration(CommandLine cmd) {
+    /** The value of {@code --preload-analysis-results-dirs} that loads nothing, not even the shipped results. */
+    public static final String PRELOAD_NONE = "none";
+
+    /** In {@code --preload-analysis-results-dirs}, the shipped results: {@code default,my/results} adds to them. */
+    public static final String PRELOAD_DEFAULT = "default";
+
+    /**
+     * The analysis results maddi ships (maddi-aapi-archive, on every CLI's runtime class path): the JDK first, as the
+     * libraries were compiled against it, then libs.jar (the test and log libraries, and the Kotlin stdlib).
+     */
+    public static final List<String> SHIPPED_ANALYSIS_RESULTS = List.of(
+            "resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/openjdk.jar",
+            "resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/libs.jar");
+
+    /*
+     ⛔ LOADED BY DEFAULT for an analysis run (CodeLaser/maddi-mod#15). Without results every library type is an unknown,
+     and the run still converges, certifies and reports thousands of verdicts -- detekt read @FinalFields=1320 with not one
+     immutable type, and @Immutable=676 once the JDK results were loaded (docs/status/kotlin-corpora.md §3). For Kotlin it
+     is worse: every uncontracted stdlib call modifies its arguments. Nothing about such a run looks wrong, so the
+     results must not depend on a flag nobody knows to pass. Not when hints are being compiled or written: those runs
+     produce the results, and what they preload changes what they write.
+     */
+    private static List<String> shippedAnalysisResults() {
+        List<String> shipped = SHIPPED_ANALYSIS_RESULTS.stream()
+                .filter(r -> Main.class.getResource(r.substring("resource:".length())) != null).toList();
+        if (shipped.size() < SHIPPED_ANALYSIS_RESULTS.size()) {
+            LOGGER.warn("The shipped analysis results are not on the class path; library types will be unknowns"
+                        + " (found {} of {})", shipped, SHIPPED_ANALYSIS_RESULTS);
+        }
+        return shipped;
+    }
+
+    static AnalysisHintsConfiguration parseAnalysisHintsConfiguration(CommandLine cmd) {
         AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
         String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
-        splitAndAdd(analyzedDirs, ",", builder::addPreloadAnalysisResultsDirs);
+        boolean none = analyzedDirs != null && analyzedDirs.length == 1 && PRELOAD_NONE.equals(analyzedDirs[0].trim());
+        boolean producesHints = cmd.hasOption(ANALYSIS_RESULTS_TARGET_DIR) || cmd.hasOption(UPDATED_HINTS_DIR);
+        if (analyzedDirs == null && !producesHints) {
+            shippedAnalysisResults().forEach(builder::addPreloadAnalysisResultsDirs);
+        } else if (!none) {
+            splitAndAdd(analyzedDirs, ",", dir -> {
+                if (PRELOAD_DEFAULT.equals(dir.trim())) shippedAnalysisResults().forEach(builder::addPreloadAnalysisResultsDirs);
+                else builder.addPreloadAnalysisResultsDirs(dir);
+            });
+        }
 
         String writeAnalyzedDir = cmd.getOptionValue(ANALYSIS_RESULTS_TARGET_DIR);
         builder.setAnalysisResultsTargetDir(writeAnalyzedDir);
