@@ -430,4 +430,45 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "if (o is string s) { return s; }");
         contains(cs, "if (p is string s2) { return s2 + s2; }");
     }
+
+    @Language("java")
+    private static final String CONVERSIONS = """
+            package org.example.conv;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.Set;
+            class Factory<E> {
+                private int size() { return 3; }
+                static class Item<E> {
+                    final Set<E>[] buckets = new Set[2];
+                    int n(Factory<E> f) { return f.size(); }
+                }
+                static <T> T none() { return null; }
+                static int index(Map<String, Integer> map, String key, Integer boxed) {
+                    Map<Integer, String> names = new HashMap<>();
+                    String name = names.get(boxed);
+                    int i = map.get(key);
+                    if ((Boolean) (Object) Boolean.TRUE) return boxed;
+                    return i + name.length();
+                }
+            }
+            """;
+
+    /**
+     * A static nested type of a generic type is printed beside it (C# would make it generic in the outer type's
+     * parameters); the outer type's private members it uses become internal. C# does not unbox: an Integer where an
+     * int is expected, or as a key, gets a cast. Java's null of a type parameter is default; a raw array creation
+     * takes the declared type's arguments.
+     */
+    @Test
+    public void conversions() {
+        String cs = translate("Factory", CONVERSIONS);
+        contains(cs, "internal class Item<E> {");
+        contains(cs, "internal int Size() => 3;");
+        contains(cs, "internal readonly ISet<E>[] buckets = new ISet<E>[2];");
+        contains(cs, "internal static T None<T>() => default;");
+        contains(cs, "string name = names.Get((int) boxed);");
+        contains(cs, "int i = (int) map.GetValueOrNull(key);");
+        contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
+    }
 }

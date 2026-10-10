@@ -88,7 +88,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 ? typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList() : List.of();
         if (enumClass) CSharpContext.message(CSharpPrintMessage.Code.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
         TypeInfo enclosing = enclosingType(typeInfo);
-        if (enclosing != null && !enclosing.typeParameters().isEmpty()) {
+        if (enclosing != null && !enclosing.typeParameters().isEmpty() && !CSharpNames.hoisted(typeInfo)) {
             CSharpContext.message(CSharpPrintMessage.Code.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
         }
 
@@ -139,7 +139,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
-        typeInfo.subTypes().stream().filter(st -> !st.isSynthetic())
+        typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -152,6 +152,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (isLocal(typeInfo)) return null;
         // a top-level type is public or internal
         if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
+        // a hoisted type is in the namespace, where C# has no private or protected
+        if (CSharpNames.hoisted(typeInfo)) {
+            return "public".equals(CSharpModifiers.access(typeInfo, enclosingType(typeInfo))) ? "public" : "internal";
+        }
         return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
     }
 

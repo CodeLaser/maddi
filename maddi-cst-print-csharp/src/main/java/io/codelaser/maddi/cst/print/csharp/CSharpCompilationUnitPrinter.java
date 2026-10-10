@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -71,6 +72,10 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             if (typeInfo.typeNature().isPackageInfo()) continue;
             OutputBuilder type = new CSharpTypePrinter(typeInfo, formatter2).print(importData, true);
             if (!type.isEmpty()) types.add(SpaceEnum.NEWLINE).add(type).add(SpaceEnum.NEWLINE);
+            for (TypeInfo h : hoisted(typeInfo, new ArrayList<>())) {
+                OutputBuilder hoisted = new CSharpTypePrinter(h, formatter2).print(importData, true);
+                if (!hoisted.isEmpty()) types.add(SpaceEnum.NEWLINE).add(hoisted).add(SpaceEnum.NEWLINE);
+            }
         }
 
         String namespace = CSharpNames.namespace(compilationUnit.packageName(), !compilationUnit.externalLibrary());
@@ -79,7 +84,7 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         for (TypeInfo referenced : CSharpContext.referenced()) {
             TypeInfo primary = referenced.primaryType();
             if (primary == null || compilationUnit.types().contains(primary)) continue;
-            if (referenced.isPrimaryType()) {
+            if (referenced.isPrimaryType() || CSharpNames.hoisted(referenced)) {
                 usings.add(CSharpNames.namespace(referenced));
             } else {
                 // a nested type by its simple name: its enclosing type's members are in scope
@@ -105,6 +110,16 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                     .add(SpaceEnum.NEWLINE);
         }
         return out.add(types);
+    }
+
+    /** The nested types of {@code typeInfo}, at any depth, that are printed in the namespace. */
+    private static List<TypeInfo> hoisted(TypeInfo typeInfo, List<TypeInfo> found) {
+        for (TypeInfo sub : typeInfo.subTypes()) {
+            if (sub.isSynthetic()) continue;
+            if (CSharpNames.hoisted(sub)) found.add(sub);
+            hoisted(sub, found);
+        }
+        return found;
     }
 
     /**

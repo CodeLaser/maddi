@@ -134,6 +134,41 @@ public final class CSharpNames {
     }
 
     /** Declared in the sources being translated, not in a library. */
+    /**
+     * A static nested type of a generic type. C# makes a nested type generic in its enclosing types' parameters,
+     * {@code Outer<E>.Inner}, which Java's static nested type is not: it is printed beside its primary type, in the
+     * namespace, and named without its enclosing types.
+     */
+    static boolean hoisted(TypeInfo typeInfo) {
+        TypeInfo enclosing = enclosing(typeInfo);
+        return enclosing != null && typeInfo.enclosingMethod() == null && translated(typeInfo)
+               && (typeInfo.isStatic() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
+                   || typeInfo.typeNature().isRecord())
+               && genericScope(enclosing);
+    }
+
+    /** Type parameters C# would give a type nested in this one: its own, and those of its non-hoisted enclosing types. */
+    private static boolean genericScope(TypeInfo typeInfo) {
+        if (!typeInfo.typeParameters().isEmpty()) return true;
+        TypeInfo enclosing = enclosing(typeInfo);
+        return enclosing != null && !hoisted(typeInfo) && genericScope(enclosing);
+    }
+
+    /** The type C# declares in the namespace that contains this one: its primary type, or a hoisted type. */
+    static TypeInfo topLevel(TypeInfo typeInfo) {
+        TypeInfo t = typeInfo;
+        while (true) {
+            TypeInfo enclosing = enclosing(t);
+            if (enclosing == null || hoisted(t)) return t;
+            t = enclosing;
+        }
+    }
+
+    static TypeInfo enclosing(TypeInfo typeInfo) {
+        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
+        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
+    }
+
     static boolean translated(TypeInfo typeInfo) {
         return typeInfo.compilationUnit() != null && !typeInfo.compilationUnit().externalLibrary();
     }

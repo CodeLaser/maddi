@@ -215,8 +215,8 @@ public final class CSharpExpressionPrinter {
                     : receiver(object, q);
             List<Expression> parameterExpressions = mc.parameterExpressions();
             List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> converted(parameterExpressions.get(i),
-                            parameterType(mc.methodInfo(), i), q)).toList();
+                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
+                            parameterExpressions.get(i), q)).toList();
             List<java.util.function.Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
                     .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
             return new CSharpTemplate(receiver, args, operands, mc, mc.concreteReturnType(),
@@ -267,7 +267,10 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder constructorCall(ConstructorCall cc, Qualification q) {
-        ParameterizedType type = cc.parameterizedType();
+        return constructorCall(cc, cc.parameterizedType(), q);
+    }
+
+    private static OutputBuilder constructorCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) {
             CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
             ParameterizedType parent = cc.anonymousClass().parentClass();
@@ -325,6 +328,12 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
+        // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
+        if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
+        // a type argument is the value type itself, List<int>: a K of a Dictionary<int, V> is an int
+        if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
+            return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
+        }
         return print(value, q);
     }
 
@@ -353,12 +362,34 @@ public final class CSharpExpressionPrinter {
         return p.isVarArgs() ? null : p.parameterizedType();
     }
 
+    /**
+     * An argument of a call printed by a template: as {@link #converted}, and a collection's {@code Object} parameter, of {@code get}, {@code contains},
+     * {@code remove}, is its element or key: a type argument, the value type itself in C#.
+     */
+    private static OutputBuilder templateArgument(MethodInfo method, int i, Expression value, Qualification q) {
+        ParameterizedType type = parameterType(method, i);
+        Expression inner = unwrap(value);
+        if (type != null && type.isJavaLangObject() && type.arrays() == 0 && unboxed(inner)
+            && "java.util".equals(method.typeInfo().packageName()) && !method.typeInfo().typeParameters().isEmpty()) {
+            return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
+        }
+        return converted(value, type, q);
+    }
+
     /** Whether {@link #converted} changes the value. */
     static boolean converts(Expression value, ParameterizedType target) {
         if (target == null) return false;
         Expression inner = unwrap(value);
-        return inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0
-               || target.isPrimitiveExcludingVoid() && unboxed(inner);
+        return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
+               || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target);
+    }
+
+    private static boolean rawArray(Expression e, ParameterizedType target) {
+        if (!(e instanceof ConstructorCall cc) || cc.anonymousClass() != null) return false;
+        ParameterizedType type = cc.parameterizedType();
+        return type.arrays() > 0 && type.arrays() == target.arrays() && type.typeInfo() != null
+               && type.typeInfo().equals(target.typeInfo()) && type.parameters().isEmpty()
+               && !target.parameters().isEmpty();
     }
 
     /** The value of a {@code return} in the current method or lambda. */

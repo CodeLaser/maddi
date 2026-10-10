@@ -15,9 +15,11 @@
 # default for a type parameter where C# needs them; Java's iterators and java.io.File in the compatibility library;
 # enums printed as classes get Name/Ordinal/Values/ValueOf; interface constants qualified; an exception's cause
 # constructor: 124 files compile; unmapped JDK uses 232 -> 120; errors 807 -> 476.
+# 2026-10-10, a static nested type of a generic type hoisted into the namespace; a boxed key or element passed to a
+# collection or a type parameter unboxed; a raw array creation typed as declared: 132 files compile; errors 476 -> 310.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	124
+compilingFiles	132
 unmappedJdkUses	120

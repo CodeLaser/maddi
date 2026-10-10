@@ -89,6 +89,9 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
   `ordinal()` a cast to `int`.
+- **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
+  Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
+  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
