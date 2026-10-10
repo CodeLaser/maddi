@@ -1080,10 +1080,11 @@ KOTLIN_NO_PARSE_ONLY = ("{name}: runner kotlin has no parse-only mode yet -- `--
 # `test-compile` would have emitted. -tests first, the more specific pattern. Anchored at the project dir so
 # ~/.m2 jars are untouched; `realpath` because the root may hold ../.. while the log is normalised. Fails
 # if any reactor jar survives, since a pattern that silently rewrote nothing looks exactly like success.
+# `tr -d " "`: BSD wc pads its count ("       2"), GNU wc does not.
 # The same shell as the Taskfile's _config:maven-log REWRITE_REACTOR_JARS, of which this is the port.
 _REWRITE_REACTOR_JARS = (
     'd=$(realpath .) && '
-    'before=$(grep -oE "$d/[^:]*/target/[^:]*\\.jar" compile.javac.log | wc -l) && '
+    'before=$(grep -oE "$d/[^:]*/target/[^:]*\\.jar" compile.javac.log | wc -l | tr -d " ") && '
     'sed -E "s#($d/[^:]*)/target/[^:]*-tests\\.jar#\\1/target/test-classes#g; '
     's#($d/[^:]*)/target/[^:]*\\.jar#\\1/target/classes#g" '
     'compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log && '

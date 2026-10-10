@@ -507,7 +507,7 @@ tasks:
       # pattern would silently rewrite nothing.
       - |
         {{if .REWRITE_REACTOR_JARS}}d=$(realpath .)
-        before=$(grep -oE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log | wc -l)
+        before=$(grep -oE "$d/[^:]*/target/[^:]*\.jar" compile.javac.log | wc -l | tr -d " ")
         sed -E "s#($d/[^:]*)/target/[^:]*-tests\.jar#\1/target/test-classes#g; \
                 s#($d/[^:]*)/target/[^:]*\.jar#\1/target/classes#g" \
             compile.javac.log > compile.javac.log.tmp && mv compile.javac.log.tmp compile.javac.log
