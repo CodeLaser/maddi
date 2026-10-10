@@ -4030,8 +4030,16 @@ internal class KotlinBodyConverter(
         val getterArgs = contexts + listOf(receiver)
         val facade = (property.psi as? KtProperty)?.containingKtFile?.let { facadeOf(it) }
             ?: with(typeMapper) { loadLibraryFacadeForProperty(property) } ?: return null
-        val getterName = "get" + name.replaceFirstChar { it.uppercaseChar() }
-        val callee = resolveCallee(facade, getterName, getterArgs)
+        val beanName = "get" + name.replaceFirstChar { it.uppercaseChar() }
+        val jvmName = with(typeMapper) { libraryGetterName(property) }
+        // ⛔ BY THE RECEIVER'S ERASURE FIRST: `T.javaClass` and `KClass<T>.java` are both `getJavaClass` on one facade,
+        // one argument each, and the argument tiers of resolveCallee cannot tell a type parameter from a KClass --
+        // all 16 of detekt's `x.javaClass` bound to the KClass getter once the stdlib carried its JVM names (#15)
+        val receiverErasure = mapType(property.receiverParameter!!.returnType, method.typeInfo(), method)
+            .erasedForFQN().fullyQualifiedName()
+        val callee = getterByReceiver(facade, jvmName, getterArgs.size, receiverErasure)
+            ?: resolveCallee(facade, jvmName, getterArgs)
+            ?: (if (jvmName != beanName) resolveCallee(facade, beanName, getterArgs) else null)
             ?: resolveCallee(facade, name, getterArgs) // a @JvmName'd getter keeps the property's name
             ?: return null
         return runtime.newMethodCallBuilder()
@@ -4089,7 +4097,10 @@ internal class KotlinBodyConverter(
         if (asField && field != null) return staticFieldRef(field, facade)
         val getterName = if (name.startsWith("is") && name.getOrNull(2)?.isUpperCase() == true) name
                          else "get" + name.replaceFirstChar { it.uppercaseChar() }
-        val getter = members(facade).methods().firstOrNull { it.isStatic && it.name() == getterName && it.parameters().isEmpty() }
+        // a library getter carries its JVM name (@get:JvmName), the one the facade was built with (#15)
+        val jvmName = with(typeMapper) { libraryGetterName(property) }
+        val getter = listOf(jvmName, getterName).firstNotNullOfOrNull { n ->
+            members(facade).methods().firstOrNull { it.isStatic && it.name() == n && it.parameters().isEmpty() } }
             ?: return field?.let { staticFieldRef(it, facade) }
         return runtime.newMethodCallBuilder()
             .setObject(staticQualifier(facade))
@@ -4664,7 +4675,9 @@ internal class KotlinBodyConverter(
                 ?: return placeholder("k2-callable-ref-property-facade", expression)
             val typeReceiver = receiver != null && explicitReceiverScope(receiver, method, locals)?.first is TypeExpression
             if (!typeReceiver) return placeholder("k2-callable-ref-property-bound-extension", expression)
-            val getter = resolveCalleeByArity(facade, getterName, 1) ?: resolveCalleeByArity(facade, name, 1)
+            val jvmName = with(typeMapper) { libraryGetterName(property) }
+            val getter = resolveCalleeByArity(facade, jvmName, 1) ?: resolveCalleeByArity(facade, getterName, 1)
+                ?: resolveCalleeByArity(facade, name, 1)
                 ?: return placeholder("k2-callable-ref-property-no-getter", expression)
             return methodReference(staticQualifier(facade),
                 getter, functionalType, expression)
@@ -4713,6 +4726,16 @@ internal class KotlinBodyConverter(
         all.removeIf { m -> m.isSynthetic && all.any { !it.isSynthetic && it.typeInfo() === m.typeInfo() } }
         if (all.size > 1) ++ambiguousBindings
         return all.firstOrNull()
+    }
+
+    /** The one getter named [name] whose receiver, its last parameter, erases to [receiverErasure]; else null. */
+    private fun getterByReceiver(facade: TypeInfo, name: String, arity: Int, receiverErasure: String): MethodInfo? {
+        val all = mutableListOf<MethodInfo>()
+        collectMethods(facade, name, arity, mutableSetOf(), all)
+        if (all.size <= 1) return all.firstOrNull()
+        return all.singleOrNull {
+            it.parameters().lastOrNull()?.parameterizedType()?.erasedForFQN()?.fullyQualifiedName() == receiverErasure
+        }
     }
 
     private fun collectMethods(type: TypeInfo, name: String, arity: Int, visited: MutableSet<TypeInfo>,
@@ -4823,14 +4846,6 @@ internal class KotlinBodyConverter(
         } finally {
             renamed = saved
         }
-    }
-
-    private fun KaSession.jvmNameOf(symbol: KaCallableSymbol?): String? {
-        if (symbol == null) return null
-        (symbol.psi as? KtNamedFunction)?.let { jvmNameOverride(it) }?.let { return it }
-        val annotation = symbol.annotations.firstOrNull { it.classId == JVM_NAME } ?: return null
-        return ((annotation.arguments.firstOrNull()?.expression as? org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue.ConstantValue)
-            ?.value?.value as? String)
     }
 
     @OptIn(KaExperimentalApi::class) // resolveSymbol(KtCallElement)
@@ -6064,4 +6079,3 @@ internal class KotlinBodyConverter(
     }
 }
 
-private val JVM_NAME = org.jetbrains.kotlin.name.ClassId.fromString("kotlin/jvm/JvmName")

@@ -502,6 +502,38 @@ public class KotlinCollections {
         static byte[] toByteArray(@NotModified Collection<Byte> receiver) {
             return null;
         }
+
+        /*
+        @JvmName("sumOfInt") public fun Iterable<Int>.sum(): Int
+        ... and the Byte, Short, Long, Float and Double overloads, each with its own @JvmName
+
+        Walks the receiver and adds; it writes nothing. The six erase to one `sum(Iterable)`, so only their JVM names
+        tell them apart, and a contract could not reach them until the front end built the stdlib under those names
+        (#15). The `sumOf { .. }` forms are @InlineOnly: no method for a contract to name.
+        */
+        static int sumOfByte(@NotModified Iterable<Byte> receiver) {
+            return 0;
+        }
+
+        static int sumOfShort(@NotModified Iterable<Short> receiver) {
+            return 0;
+        }
+
+        static int sumOfInt(@NotModified Iterable<Integer> receiver) {
+            return 0;
+        }
+
+        static long sumOfLong(@NotModified Iterable<Long> receiver) {
+            return 0L;
+        }
+
+        static float sumOfFloat(@NotModified Iterable<Float> receiver) {
+            return 0f;
+        }
+
+        static double sumOfDouble(@NotModified Iterable<Double> receiver) {
+            return 0d;
+        }
     }
 
     /*
