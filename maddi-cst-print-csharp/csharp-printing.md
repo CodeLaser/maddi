@@ -113,12 +113,18 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
+  Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
+  `Cloneable`, `Serializable` and `RandomAccess` are dropped.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
 
 C#'s statements, operators and precedence are mostly Java's, so most of the code prints as it does in Java. The
 differences:
+
+- A for-each loop whose body assigns the loop variable iterates over `vItem` and declares `v` as its copy: C#'s
+  iteration variable is read-only.
 
 - **Loops and statements.**
   - `for (T x : xs)` becomes `foreach (T x in xs)`.

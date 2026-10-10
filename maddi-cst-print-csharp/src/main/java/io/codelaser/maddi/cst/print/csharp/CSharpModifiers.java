@@ -96,10 +96,14 @@ final class CSharpModifiers {
         };
     }
 
+    private static final java.util.Set<String> OBJECT_OVERRIDABLE = java.util.Set.of("toString", "equals", "hashCode");
+
     /** {@code virtual}, {@code override}, {@code sealed override}, {@code abstract}; null when none applies. */
     static String inheritance(MethodInfo m, TypeInfo owner) {
         if (m.isStatic() || m.isConstructor() || owner.isInterface()) return null;
-        boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface());
+        // C#'s object has ToString, Equals and GetHashCode to override, not Java's clone or finalize
+        boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface()
+                && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !OBJECT_OVERRIDABLE.contains(o.name())));
         CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";

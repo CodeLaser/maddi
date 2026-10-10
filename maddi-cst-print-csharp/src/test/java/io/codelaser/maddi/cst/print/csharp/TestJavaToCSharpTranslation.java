@@ -625,4 +625,42 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private sealed class CounterImpl : Counter {");
         contains(cs, "internal CounterImpl(int p0) : base(p0) { this.i = start; }");
     }
+
+    @Language("java")
+    private static final String IDIOMS = """
+            package org.example.idiom;
+            import java.util.List;
+            class Node implements Cloneable {
+                int value;
+                @Override
+                public Node clone() {
+                    try {
+                        return (Node) super.clone();
+                    } catch (CloneNotSupportedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                static int sum(List<Integer> values) {
+                    int total = 0;
+                    for (Integer v : values) {
+                        if (v == null) v = 0;
+                        total += v;
+                    }
+                    return total;
+                }
+            }
+            """;
+
+    /**
+     * C#'s object has no clone to override: Java's clone is a method of its own, super.clone() is MemberwiseClone.
+     * C#'s iteration variable is read-only: a loop that assigns it works on a copy.
+     */
+    @Test
+    public void idioms() {
+        String cs = translate("Node", IDIOMS);
+        contains(cs, "internal sealed class Node {");
+        contains(cs, "public Node Clone() {");
+        contains(cs, "return (Node) base.MemberwiseClone();");
+        contains(cs, "foreach (int? vItem in values) {\nint? v = vItem;");
+    }
 }

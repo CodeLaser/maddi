@@ -127,7 +127,9 @@ final class CSharpBcl {
         type("java.util.AbstractCollection", "ICollection", GENERIC);
         type("java.lang.Iterable", "IEnumerable", GENERIC);
         type("java.util.Map.Entry", "KeyValuePair", GENERIC);
-        type("java.util.AbstractMap.SimpleEntry", "KeyValuePair", GENERIC);
+        // a class of the program may extend these, which it cannot do with KeyValuePair, a struct
+        compatType("java.util.AbstractMap.SimpleEntry", "JavaEntry");
+        compatType("java.util.AbstractMap.SimpleImmutableEntry", "JavaEntry");
         type("java.util.stream.Stream", "IEnumerable", GENERIC);
         type("java.util.stream.IntStream", "IEnumerable<int>", GENERIC);
         type("java.util.Optional", "{0?}", null);
@@ -283,7 +285,10 @@ final class CSharpBcl {
         ms("java.util.Collection.addAll/1", "$0.AddAll($1)", "$0.AddAll($1)", COMPAT);
         m("java.util.Collection.containsAll/1", "@1.All($0.Contains)", LINQ);
         m("java.util.Collection.stream/0", "$0");
-        ms("java.util.Collection.removeIf/1", "$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", SYSTEM);
+        // a List has RemoveAll; any other collection, a set or a map's entries, the compatibility library's RemoveIf
+        chooser("java.util.Collection.removeIf/1", (method, call) -> listTyped(call)
+                ? new Rule("$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", List.of(SYSTEM))
+                : rule("$0.RemoveIf($1)", COMPAT));
         ms("java.util.Collection.removeAll/1", "$0.RemoveAll(@1.Contains) > 0", "$0.RemoveAll(@1.Contains)");
         ms("java.util.Collection.retainAll/1", "$0.RetainAll($1)", "$0.RetainAll($1)", COMPAT);
         m("java.lang.Iterable.forEach/1", "$0.ForEach($1)", COMPAT);
@@ -308,7 +313,7 @@ final class CSharpBcl {
         m("java.util.List.of/1", "new List<{R0}> { $* }");
         chooser("java.util.List.of/0", (method, call) -> rule("new List<{R0}>()"));
         m("java.util.List.copyOf/1", "new List<{R0}>($1)");
-        for (String deque : List.of("java.util.Deque", "java.util.LinkedList", "java.util.ArrayDeque")) {
+        for (String deque : List.of("java.util.Deque", "java.util.LinkedList", "java.util.ArrayDeque", "java.util.Queue")) {
             m(deque + ".getFirst/0", "$0[0]");
             m(deque + ".getLast/0", "$0[^1]");
             m(deque + ".peekFirst/0", "$0.PeekFirst()", COMPAT);
@@ -325,6 +330,8 @@ final class CSharpBcl {
             m(deque + ".poll/0", "$0.PollFirst()", COMPAT);
             m(deque + ".pollFirst/0", "$0.PollFirst()", COMPAT);
             m(deque + ".pollLast/0", "$0.PollLast()", COMPAT);
+            m(deque + ".element/0", "$0[0]");
+            ms(deque + ".remove/0", "$0.RemoveFirst()", "$0.RemoveAt(0)", COMPAT);
         }
 
         // Map
@@ -366,7 +373,9 @@ final class CSharpBcl {
         m("java.util.Collections.singletonList/1", "new List<{R0}> { $1 }");
         m("java.util.Collections.singleton/1", "new HashSet<{R0}> { $1 }");
         m("java.util.Collections.singletonMap/2", "new Dictionary<{R0}, {R1}> { [$1] = $2 }");
-        m("java.util.Collections.nCopies/2", "Enumerable.Repeat($2, $1).ToList()", LINQ);
+        m("java.util.Collections.nCopies/2", "Enumerable.Repeat<{R0}>($2, $1).ToList()", LINQ);
+        m("java.util.Map.Entry.comparingByKey/0", "JavaComparator.ComparingByKey<{R0}>()", COMPAT);
+        m("java.util.Map.Entry.comparingByValue/0", "JavaComparator.ComparingByValue<{R0}>()", COMPAT);
         m("java.util.Collections.sort/1", "$1.Sort()");
         m("java.util.Collections.sort/2", "$1.Sort($2)");
         m("java.util.Collections.reverse/1", "$1.Reverse()");
@@ -637,8 +646,9 @@ final class CSharpBcl {
         m("java.lang.Object.notifyAll/0", "Monitor.PulseAll($0)", THREADING);
         m("java.lang.Object.notify/0", "Monitor.Pulse($0)", THREADING);
         m("java.lang.Object.wait/0", "Monitor.Wait($0)", THREADING);
+        // super.clone(): the shallow copy C#'s object makes
         chooser("java.lang.Object.clone/0", (method, call) -> call != null && arrayTyped(call.object())
-                ? rule("({R}) @0.Clone()") : null);
+                ? rule("({R}) @0.Clone()") : rule("$0.MemberwiseClone()"));
         m("java.lang.Class.getName/0", "$0.FullName");
         m("java.lang.Class.getSimpleName/0", "$0.Name");
         m("java.lang.Thread.currentThread/0", "Thread.CurrentThread", THREADING);
@@ -848,6 +858,14 @@ final class CSharpBcl {
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
         return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+    }
+
+    /** The receiver is a C# List. */
+    private static boolean listTyped(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
+        TypeInfo t = call.object().parameterizedType().typeInfo();
+        TypeMapping mapping = t == null ? null : TYPES.get(t.fullyQualifiedName());
+        return mapping != null && "List".equals(mapping.template());
     }
 
     /** The receiver is declared as Java's Map interface: C#'s IDictionary, without the BCL's read-only extensions. */

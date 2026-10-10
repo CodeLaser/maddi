@@ -52,16 +52,18 @@ final class CSharpAccess {
 
     private static void scan(TypeInfo x, Set<Object> reached) {
         Stream.concat(x.constructors().stream(), x.methods().stream()).forEach(m -> {
-            signature(m.returnType(), x, reached);
-            m.parameters().forEach(p -> signature(p.parameterizedType(), x, reached));
+            // a member that is not private exposes the types of its signature: they cannot be more private
+            boolean exposed = m.access() == null || !m.access().isPrivate();
+            signature(m.returnType(), x, reached, exposed);
+            m.parameters().forEach(p -> signature(p.parameterizedType(), x, reached, exposed));
             if (m.methodBody() != null) body(m.methodBody(), x, reached);
         });
         for (FieldInfo f : x.fields()) {
-            signature(f.type(), x, reached);
+            signature(f.type(), x, reached, f.modifiers().stream().noneMatch(FieldModifier::isPrivate));
             if (f.initializer() != null && !f.initializer().isEmpty()) body(f.initializer(), x, reached);
         }
-        if (x.parentClass() != null) signature(x.parentClass(), x, reached);
-        x.interfacesImplemented().forEach(i -> signature(i, x, reached));
+        if (x.parentClass() != null) signature(x.parentClass(), x, reached, false);
+        x.interfacesImplemented().forEach(i -> signature(i, x, reached, false));
         x.subTypes().forEach(st -> scan(st, reached));
     }
 
@@ -82,17 +84,21 @@ final class CSharpAccess {
         element.typesReferenced(null).forEach(tr -> type(tr.typeInfo(), x, reached));
     }
 
-    private static void signature(ParameterizedType pt, TypeInfo x, Set<Object> reached) {
+    private static void signature(ParameterizedType pt, TypeInfo x, Set<Object> reached, boolean exposed) {
         if (pt == null) return;
-        if (pt.typeInfo() != null) type(pt.typeInfo(), x, reached);
-        pt.parameters().forEach(p -> signature(p, x, reached));
+        if (pt.typeInfo() != null) type(pt.typeInfo(), x, reached, exposed);
+        pt.parameters().forEach(p -> signature(p, x, reached, exposed));
     }
 
     private static void type(TypeInfo t, TypeInfo x, Set<Object> reached) {
+        type(t, x, reached, false);
+    }
+
+    private static void type(TypeInfo t, TypeInfo x, Set<Object> reached, boolean exposed) {
         if (t == null || t.isPrimaryType()) return;
         if (t.typeModifiers().stream().anyMatch(TypeModifier::isPrivate)) {
             TypeInfo owner = enclosing(t);
-            if (owner != null && !within(x, owner)) reached.add(t);
+            if (owner != null && (exposed || !within(x, owner))) reached.add(t);
         }
     }
 

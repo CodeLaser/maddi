@@ -54,6 +54,14 @@ public static class JavaCollections
         return changed;
     }
 
+    /// <summary>Collection.removeIf on a set or a map's entries: whether anything was removed.</summary>
+    public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
+    {
+        var removed = c.Where(p).ToList();
+        foreach (var x in removed) c.Remove(x);
+        return removed.Count > 0;
+    }
+
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
 
@@ -218,6 +226,12 @@ public static class JavaComparator
         };
 
     public static Comparison<T> Reversed<T>(this Comparison<T> c) => (a, b) => c(b, a);
+
+    public static Comparison<KeyValuePair<K, V>> ComparingByKey<K, V>() =>
+        (a, b) => Comparer<K>.Default.Compare(a.Key, b.Key);
+
+    public static Comparison<KeyValuePair<K, V>> ComparingByValue<K, V>() =>
+        (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
 }
 
 /// <summary>Java's String methods that differ from the BCL's.</summary>
@@ -1123,4 +1137,41 @@ public class JavaZipOutputStream : Stream
     public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
     public override void SetLength(long value) => throw new NotSupportedException();
+}
+
+/// <summary>AbstractMap.SimpleEntry: a key and a value, as a class that the program's classes may extend.</summary>
+public class JavaEntry<K, V>
+{
+    public K Key { get; }
+    public V Value { get; private set; }
+
+    public JavaEntry(K key, V value)
+    {
+        Key = key;
+        Value = value;
+    }
+
+    public JavaEntry(KeyValuePair<K, V> entry) : this(entry.Key, entry.Value)
+    {
+    }
+
+    public K GetKey() => Key;
+
+    public V GetValue() => Value;
+
+    public V SetValue(V value)
+    {
+        var old = Value;
+        Value = value;
+        return old;
+    }
+
+    public static implicit operator KeyValuePair<K, V>(JavaEntry<K, V> e) => new KeyValuePair<K, V>(e.Key, e.Value);
+
+    public override bool Equals(object o) =>
+        o is JavaEntry<K, V> e && Equals(Key, e.Key) && Equals(Value, e.Value);
+
+    public override int GetHashCode() => (Key?.GetHashCode() ?? 0) ^ (Value?.GetHashCode() ?? 0);
+
+    public override string ToString() => Key + "=" + Value;
 }

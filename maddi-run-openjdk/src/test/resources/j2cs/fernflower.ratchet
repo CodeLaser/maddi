@@ -42,9 +42,13 @@
 # object.Equals: 155 files compile; errors 134 -> 129.
 # 2026-10-10, java.util.zip and java.util.jar as the compatibility library's classes over System.IO.Compression,
 # Enumeration as JavaEnumeration: 160 files compile; unmapped JDK uses 74 -> 36; errors 129 -> 102.
+# 2026-10-10, clone as a method of its own (super.clone() is MemberwiseClone); a for-each that assigns its variable
+# works on a copy; a private type in a non-private signature is internal; Queue.poll and kin; removeIf on a set or a
+# map's entries; AbstractMap.SimpleEntry as the compatibility library's JavaEntry; marker interfaces dropped: 168
+# files compile; unmapped JDK uses 36 -> 32; errors 102 -> 89.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	160
-unmappedJdkUses	36
+compilingFiles	168
+unmappedJdkUses	32

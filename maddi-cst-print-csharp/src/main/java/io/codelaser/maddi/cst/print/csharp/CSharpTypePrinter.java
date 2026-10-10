@@ -215,6 +215,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
     }
 
+    private static final java.util.Set<String> MARKERS = java.util.Set.of("java.lang.Cloneable", "java.io.Serializable",
+            "java.util.RandomAccess");
+
     /** The superclass, unless implicit (Object, Enum, Record), and the interfaces. */
     private List<String> superTypes(Qualification q) {
         List<String> supers = new ArrayList<>();
@@ -224,7 +227,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             && !"java.lang.Record".equals(parent.typeInfo().fullyQualifiedName())) {
             supers.add(CSharpTypeName.of(parent, q));
         }
-        typeInfo.interfacesImplemented().forEach(i -> supers.add(CSharpTypeName.of(i, q)));
+        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
+        typeInfo.interfacesImplemented().stream()
+                .filter(i -> i.typeInfo() == null || !MARKERS.contains(i.typeInfo().fullyQualifiedName()))
+                .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
         return supers;
     }
 
