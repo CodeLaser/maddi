@@ -459,7 +459,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     static MethodInfo interfaceMethodDefaulted(TypeInfo iface, MethodInfo m) {
         if (!iface.isInterface() || m.isStatic() || m.isAbstract() || m.methodBody() == null
-            || !m.typeParameters().isEmpty() || m.isConstructor()) return null;
+            || !m.typeParameters().isEmpty() || m.isConstructor() || CSharpWildcards.mayCapture(m)) return null;
         return m.overrides().stream()
                 .filter(o -> o != m && o.typeInfo() != iface && o.typeInfo().isInterface()
                              && CSharpNames.translated(o.typeInfo()) && o.isAbstract() && o.typeParameters().isEmpty())
@@ -564,7 +564,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             map.put(iface.typeParameters().get(k), implemented.parameters().get(k));
         }
         for (MethodInfo m : iface.methods()) {
-            if (m.isStatic() || !m.typeParameters().isEmpty() || m.isSynthetic()) continue;
+            if (m.isStatic() || !m.typeParameters().isEmpty() || m.isSynthetic() || CSharpWildcards.mayCapture(m)) continue;
             MethodInfo own = typeInfo.methods().stream()
                     .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
                     .findFirst().orElse(null);
@@ -645,7 +645,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         interfaces.forEach((iface, i) -> {
             if (!CSharpNames.translated(iface)) return;
             for (MethodInfo m : iface.methods()) {
-                if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()) continue;
+                if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
+                    || CSharpWildcards.mayCapture(m)) continue;
                 if (OBJECT_METHODS.contains(m.name() + "/" + m.parameters().size())) continue;
                 if (implementations.stream().anyMatch(x -> x != m && x.overrides().contains(m))) continue;
                 left.add(new LeftAbstract(m, typeArguments(i)));

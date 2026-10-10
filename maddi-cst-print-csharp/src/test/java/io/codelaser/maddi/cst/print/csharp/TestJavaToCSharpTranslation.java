@@ -935,4 +935,32 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal TEmbedded Embedded() => embedded;");
         contains(cs, "internal Result ResultValue() => result;");
     }
+
+    @Language("java")
+    private static final String CAPTURE = """
+            package org.example.capture;
+            import java.util.List;
+            interface Named { String name(); String title(); }
+            class Context<Embedded> {
+                List<Embedded> items() { return List.of(); }
+            }
+            interface Listener {
+                default void onRequest(Context<?> context) { }
+                default int size(Context<? extends Named> context) { return context.items().size(); }
+                default int length(Context<? extends String> context) { return context.items().size(); }
+            }
+            final class Counting implements Listener {
+                public void onRequest(Context<?> context) { System.out.println(context.items().size()); }
+            }
+            """;
+
+    /** Java captures a wildcard in the body; C#'s method takes it as a type parameter of its own. */
+    @Test
+    public void wildcardCapture() {
+        String cs = translate("Capture", CAPTURE);
+        contains(cs, "void OnRequest<TEmbedded>(Context<TEmbedded> context) { }");
+        contains(cs, "int Size<TEmbedded>(Context<TEmbedded> context) where TEmbedded : INamed");
+        contains(cs, "int Length(Context<string> context)");
+        contains(cs, "public void OnRequest<TEmbedded>(Context<TEmbedded> context)");
+    }
 }

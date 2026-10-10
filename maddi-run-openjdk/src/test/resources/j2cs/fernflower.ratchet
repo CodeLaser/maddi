@@ -57,9 +57,12 @@
 # default method implements an inherited interface's method explicitly, an abstract class redeclares the interface
 # methods it leaves (and its subclasses override them), clashing hoisted nested types are prefixed: 177 files
 # compile; errors 60 -> 55.
+# 2026-10-10, a method captures a parameter's wildcard X<?> of a program type as a type parameter of its own,
+# void OnRequest<TEmbedded>(Context<TEmbedded> c), constrained by the wildcard's or the declared bound: 179 files
+# compile; errors 55 -> 53.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	177
+compilingFiles	179
 unmappedJdkUses	32
