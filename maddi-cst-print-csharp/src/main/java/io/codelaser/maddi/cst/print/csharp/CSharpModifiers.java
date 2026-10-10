@@ -88,6 +88,9 @@ final class CSharpModifiers {
      */
     private static String csharp(Declared declared, TypeInfo owner, Object info) {
         if (declared == Declared.PRIVATE && CSharpContext.reachedFromOutside(info)) return "internal";
+        // an interface's static member in its companion class, which is no interface
+        if (owner != null && owner.isInterface() && owner.equals(CSharpContext.companion())
+            && (declared == Declared.PUBLIC || declared == Declared.PACKAGE)) return "public";
         if (owner != null && owner.isInterface() && (declared == Declared.PUBLIC || declared == Declared.PACKAGE)) {
             return null;
         }

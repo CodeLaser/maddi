@@ -250,6 +250,20 @@ final class CSharpBcl {
 
     /** A member's translation: {@code value} for a call whose value is used, {@code statement} for one whose is not. */
     record Rule(String value, String statement, List<String> namespaces) {
+        /** A template that writes a generic collection, {@code new List<{R0}> { $* }}, uses its namespace. */
+        private static final java.util.regex.Pattern COLLECTION = java.util.regex.Pattern.compile(
+                "\\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|LinkedList|Queue|Stack|KeyValuePair"
+                + "|IList|IDictionary|ISet|ICollection|IEnumerable|IReadOnlyList|IReadOnlyCollection|Comparer"
+                + "|EqualityComparer)<");
+
+        Rule {
+            if (!namespaces.contains(GENERIC) && (value != null && COLLECTION.matcher(value).find()
+                                                  || statement != null && COLLECTION.matcher(statement).find())) {
+                namespaces = java.util.stream.Stream.concat(namespaces.stream(), java.util.stream.Stream.of(GENERIC))
+                        .toList();
+            }
+        }
+
         String template(boolean asStatement) {
             return asStatement && statement != null ? statement : value;
         }

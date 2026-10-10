@@ -990,4 +990,42 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "FromJson<int>(json)");
         contains(cs, "internal static string Describe<T>(Type type)");
     }
+
+    @Language("java")
+    private static final String COMPANION = """
+            package org.example.companion;
+            public final class Response<T> {
+                private static final String EMPTY = "";
+                private final T content;
+                private Response(T content) { this.content = content; }
+                public T content() { return content; }
+                public String describe() { return EMPTY + content + count(); }
+                private static int count() { return 1; }
+                public static <T> Response<T> from(T content) { return new Response<>(content); }
+            }
+            interface Store<E> {
+                int LIMIT = 10;
+                static <E> Store<E> empty() { return null; }
+                E get();
+            }
+            class User {
+                Response<String> hello() { return Response.from("hello" + Store.LIMIT); }
+            }
+            """;
+
+    /** C# reaches a generic class's statics through a constructed type: they are in a non-generic class beside it. */
+    @Test
+    public void companionClasses() {
+        String cs = translate("Response", COMPANION);
+        contains(cs, "public sealed class Response<T> {");
+        contains(cs, "public string Describe() => Response.EMPTY + content + Response.Count();");
+        contains(cs, "internal Response(T content)");
+        contains(cs, "public static class Response {");
+        contains(cs, "internal const string EMPTY = \"\";");
+        contains(cs, "internal static int Count() => 1;");
+        contains(cs, "public static Response<T> From<T>(T content) => new Response<T>(content);");
+        contains(cs, "internal static class IStore {");
+        contains(cs, "public const int LIMIT = 10;");
+        contains(cs, "Response.From(\"hello\" + IStore.LIMIT)");
+    }
 }

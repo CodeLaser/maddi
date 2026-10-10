@@ -75,8 +75,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             if (typeInfo.typeNature().isEnum() && simpleEnum()) return simpleEnum(importData.insideType());
             if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
-            return printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
+            OutputBuilder type = printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
+            if (doTypeDeclaration && CSharpNames.hasCompanion(typeInfo)) {
+                type.add(SpaceEnum.NEWLINE).add(companion(importData.insideType(), methodPrinterFactory,
+                        fieldPrinterFactory));
+            }
+            return type;
         } finally {
             CSharpContext.popType();
         }
@@ -145,10 +150,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     + CSharpTypeName.of(f.type(), q) + " " + CSharpNames.field(f) + " { get; }"))));
         }
         typeInfo.fields().stream()
-                .filter(f -> !f.isSynthetic() && !CSharpNames.isEnumConstant(f) && !components.contains(f))
+                .filter(f -> !f.isSynthetic() && !CSharpNames.isEnumConstant(f) && !components.contains(f)
+                             && !CSharpNames.inCompanion(f))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.constructors().stream()
-                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty()))
+                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty())
+                             && !CSharpNames.inCompanion(c))
                 .filter(c -> {
                     if (record && c != canonical && c.parameters().size() == components.size()) {
                         CSharpContext.message(CSharpPrintMessage.Code.RECORD_CONSTRUCTOR, c, CSharpContext.describe(c));
@@ -158,7 +165,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 })
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(q)));
         typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)))
+                .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
         typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
@@ -537,6 +544,31 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
         }
         return out;
+    }
+
+    /**
+     * The static members of a generic type, in a non-generic static class of the same name beside it
+     * ({@link CSharpNames#hasCompanion}): {@code public static class Response { public static Response<T> From<T>(T
+     * content) => …; }}, which {@code Response.From(x)} calls, as Java does.
+     */
+    private OutputBuilder companion(Qualification q, MethodPrinterFactory methodPrinterFactory,
+                                    FieldPrinterFactory fieldPrinterFactory) {
+        TypeInfo previous = CSharpContext.companion();
+        CSharpContext.companion(typeInfo);
+        try {
+            List<OutputBuilder> members = new ArrayList<>();
+            typeInfo.fields().stream().filter(CSharpNames::inCompanion)
+                    .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
+            java.util.stream.Stream.concat(typeInfo.constructors().stream(), typeInfo.methods().stream())
+                    .filter(CSharpNames::inCompanion)
+                    .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
+            String access = typeAccess();
+            return new OutputBuilderImpl()
+                    .add(new TextImpl((access == null ? "" : access + " ") + "static class " + CSharpNames.type(typeInfo)))
+                    .add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(members.stream().filter(m -> !m.isEmpty()).toList()));
+        } finally {
+            CSharpContext.companion(previous);
+        }
     }
 
     /**

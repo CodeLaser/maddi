@@ -243,7 +243,7 @@ public final class CSharpExpressionPrinter {
         if (fr.isDefaultScope() || fr.scope() == null) {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
             // implementing the interface
-            if (field.isStatic() && !inScope(field.owner())) {
+            if (field.isStatic() && !inScope(field.owner(), CSharpNames.inCompanion(field))) {
                 return text(CSharpTypeName.name(field.owner(), q) + "." + name);
             }
             return text(name);
@@ -258,8 +258,13 @@ public final class CSharpExpressionPrinter {
      * C# finds the static members of {@code owner} by their simple names: it is the type being printed, a type it is
      * nested in (in C#: not past a hoisted type), or a superclass of one of those.
      */
-    private static boolean inScope(TypeInfo owner) {
-        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CSharpNames.hoisted(t) ? null : CSharpNames.enclosing(t)) {
+    private static boolean inScope(TypeInfo owner, boolean inCompanion) {
+        TypeInfo companion = CSharpContext.companion();
+        // a companion's members are in scope in the companion only; the companion is a sibling of its type
+        if (inCompanion) return owner.equals(companion);
+        TypeInfo start = CSharpContext.currentType();
+        if (companion != null) start = CSharpNames.hoisted(start) ? null : CSharpNames.enclosing(start);
+        for (TypeInfo t = start; t != null; t = CSharpNames.hoisted(t) ? null : CSharpNames.enclosing(t)) {
             for (TypeInfo c = t; c != null; c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
                 if (c.equals(owner)) return true;
             }
@@ -339,7 +344,7 @@ public final class CSharpExpressionPrinter {
         } else if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
-            if (!mc.objectIsImplicit() || method.isStatic() && !inScope(method.typeInfo())) {
+            if (!mc.objectIsImplicit() || method.isStatic() && !inScope(method.typeInfo(), CSharpNames.inCompanion(method))) {
                 b.add(text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {

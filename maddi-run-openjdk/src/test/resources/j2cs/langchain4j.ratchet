@@ -34,9 +34,12 @@
 # 2026-10-10, a type token Class<T> is the method's type argument when every call passes a known Class<X>
 # (T FromJson<T>(string json), typeof(T) in the body, FromJson<Foo>(s) at the call): 230 files compile;
 # errors 683 -> 666, CS0411 30 -> 9.
+# 2026-10-10, a generic type's static members in a non-generic static companion class of the same name
+# (Response.From(x) as in Java), Comparable<?> as IComparable, BCL templates writing a generic collection use its
+# namespace: 233 files compile; errors 666 -> 636.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	230
+compilingFiles	233
 unmappedJdkUses	670

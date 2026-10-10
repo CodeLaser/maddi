@@ -108,6 +108,13 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
   another type of the namespace has that name too, the name is prefixed with its enclosing types' names
   (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`.
+- **Static members of generic types.** C# reaches a generic class's static members through a constructed type,
+  `Response<T>.From(x)`; Java through the class, `Response.from(x)`. Java's static members never use the type's
+  parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#
+  idiom of `Tuple` and `Tuple<T>`: `public static class Response { public static Response<T> From<T>(T content)
+  … }`, which `Response.From(x)` calls as Java does. The generic type's own code qualifies them (`Response.Count()`);
+  the private members either side reaches become `internal`, as the two are siblings. A static member whose code
+  declares an anonymous or local class keeps the type without a companion.
 - **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
   type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
   `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
@@ -261,7 +268,7 @@ ratchet's report (see below) lists what is left.
   `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
   `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. A collection of `?` is C#'s non-generic interface, which every generic collection implements: `List<?>` is
   `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
-  `IDictionary`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
+  `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
   constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a

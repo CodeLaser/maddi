@@ -64,7 +64,8 @@ public final class CSharpTypeName {
             "java.util.Collection", "ICollection",
             "java.util.Set", "ICollection",
             "java.lang.Iterable", "IEnumerable",
-            "java.util.Map", "IDictionary");
+            "java.util.Map", "IDictionary",
+            "java.lang.Comparable", "IComparable");
 
     /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
     private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
@@ -114,7 +115,7 @@ public final class CSharpTypeName {
         if (nonGeneric != null && !arguments.isEmpty()
             && arguments.stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound())) {
             // List<?> is any list: C#'s non-generic IList, which every List<T> is
-            CSharpContext.using("System.Collections");
+            CSharpContext.using("IComparable".equals(nonGeneric) ? "System" : "System.Collections");
             return nonGeneric;
         }
         String covariant = COVARIANT.get(fqn);
