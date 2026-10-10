@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompilationUnitPrinter;
+import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
 import io.codelaser.maddi.cst.print.csharp.CSharpPrintMessage;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
@@ -115,11 +116,13 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         Runtime runtime = corpus.javaInspector().runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> done = new HashSet<>();
+        // the corpus is the whole program: what one file's printing may assume of the others
+        CSharpProgram program = CSharpProgram.analyze(types);
         for (TypeInfo type : types) {
             if (!done.add(type.compilationUnit())) continue; // a file with two primary types prints once
             try {
                 CSharpCompilationUnitPrinter.Result result = new CSharpCompilationUnitPrinter(type.compilationUnit(),
-                        true).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+                        true, program).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
                 messages.addAll(result.messages());
                 Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".cs");
                 Files.createDirectories(file.getParent());

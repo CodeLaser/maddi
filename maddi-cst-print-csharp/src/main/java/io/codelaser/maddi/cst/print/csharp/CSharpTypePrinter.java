@@ -71,6 +71,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 return new OutputBuilderImpl();
             }
             if (typeInfo.typeNature().isEnum() && simpleEnum()) return simpleEnum(importData.insideType());
+            if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
             return printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
         } finally {
@@ -271,6 +272,23 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
         CSharpContext.using("System");
         return out;
+    }
+
+    /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */
+    private OutputBuilder delegate(Qualification q) {
+        MethodInfo sam = CSharpProgram.invoked(typeInfo);
+        String access = typeAccess();
+        String typeParameters = typeInfo.typeParameters().isEmpty() ? ""
+                : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">"));
+        String parameters = sam.parameters().stream()
+                .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
+                .collect(Collectors.joining(", "));
+        StringBuilder sb = new StringBuilder(access == null ? "" : access + " ").append("delegate ")
+                .append(CSharpTypeName.of(sam.returnType(), q)).append(' ').append(CSharpNames.type(typeInfo))
+                .append(typeParameters).append('(').append(parameters).append(')');
+        for (String constraint : CSharpTypeName.constraints(typeInfo.typeParameters(), q)) sb.append(' ').append(constraint);
+        return new OutputBuilderImpl().add(new TextImpl(sb.toString())).add(SymbolEnum.SEMICOLON);
     }
 
     /**

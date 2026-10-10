@@ -41,6 +41,7 @@ final class CSharpContext {
         final Set<String> usings = new TreeSet<>();
         final Set<TypeInfo> referenced = new LinkedHashSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
+        CSharpProgram program = CSharpProgram.NONE;
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
 
@@ -56,6 +57,15 @@ final class CSharpContext {
     /** A new file: no types, no messages, no usings. */
     static void reset() {
         STATE.set(new State());
+    }
+
+    static void program(CSharpProgram program) {
+        STATE.get().program = program;
+    }
+
+    /** The whole program's facts, {@link CSharpProgram#NONE} when the printer was given none. */
+    static CSharpProgram program() {
+        return STATE.get().program;
     }
 
     static void pushType(TypeInfo typeInfo) {

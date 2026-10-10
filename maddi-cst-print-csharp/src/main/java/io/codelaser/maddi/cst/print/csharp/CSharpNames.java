@@ -75,7 +75,9 @@ public final class CSharpNames {
     /** The simple name of a type: {@code IVisitor} for a translated interface {@code Visitor}. */
     public static String type(TypeInfo typeInfo) {
         String simple = typeInfo.simpleName();
+        // a delegate is named as a class
         if (translated(typeInfo) && typeInfo.typeNature().isInterface() && !typeInfo.typeNature().isAnnotation()
+            && !CSharpContext.program().delegate(typeInfo)
             && !(simple.length() > 1 && simple.charAt(0) == 'I' && Character.isUpperCase(simple.charAt(1)))) {
             String prefixed = "I" + simple;
             if (!clashesInEnclosingType(typeInfo, prefixed)) return prefixed;
@@ -172,7 +174,7 @@ public final class CSharpNames {
 
     /** A translated functional interface: its lambdas are printed with an adapter class, see CSharpTypePrinter. */
     static boolean lambdaAdapter(TypeInfo typeInfo) {
-        if (!typeInfo.isInterface() || !translated(typeInfo)) return false;
+        if (!typeInfo.isInterface() || !translated(typeInfo) || CSharpContext.program().delegate(typeInfo)) return false;
         MethodInfo sam = singleAbstractMethod(typeInfo);
         return sam != null && sam.typeParameters().isEmpty();
     }
