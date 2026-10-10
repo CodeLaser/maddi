@@ -2090,6 +2090,39 @@ internal class KotlinBodyConverter(
                     runtime.newBinaryOperatorBuilder().setLhs(runtime.newEquals(receiver, runtime.nullConstant()))
                         .setRhs(empty).setOperator(runtime.orOperatorBool()).setPrecedence(runtime.precedenceLogicalOr())
                         .setParameterizedType(runtime.booleanParameterizedType()).setSource(runtime.noSource()).build() }
+            // an ARRAY's orEmpty is REIFIED, so ACC_SYNTHETIC: `a ?: new T[0]`, which is what kotlinc inlines (#15)
+            id == "kotlin.collections.orEmpty" && on == "kotlin.Array" && receiver != null && n == 0 && rereadable(receiver) -> {
+                val arrayType = receiver.parameterizedType().takeIf { it.arrays() > 0 } ?: return null
+                orElse(receiver, runtime.newConstructorCallBuilder().setSource(runtime.noSource())
+                    .setConstructor(arrayCreationConstructor(arrayType)).setConcreteReturnType(arrayType)
+                    .setDiamond(runtime.diamondNo()).setParameterExpressions(listOf(runtime.newInt(0))).build())
+            }
+            // THE @InlineOnly LOOPS: each becomes the chain of public calls computing the same value, which reads the
+            // receiver as the loop does -- eagerly where the loop may stop early, which changes no modification (#15)
+            id == "kotlin.collections.firstNotNullOfOrNull" && receiver != null && n == 1
+                && (on == "kotlin.collections.Iterable" || on == "kotlin.Array") ->
+                stdlibStatic("kotlin.collections", "mapNotNull", on, listOf(receiver) + arguments)
+                    ?.let { stdlibStatic("kotlin.collections", "firstOrNull", "kotlin.collections.Iterable", listOf(it)) }
+            id == "kotlin.collections.findLast" && receiver != null && n == 1
+                && (on == "kotlin.collections.Iterable" || on == "kotlin.collections.List" || on == "kotlin.Array") ->
+                stdlibStatic("kotlin.collections", "lastOrNull", on, listOf(receiver) + arguments)
+            id == "kotlin.collections.sumOf" && on == "kotlin.collections.Iterable" && receiver != null && n == 1 -> {
+                val sum = when ((call?.expressionType as? KaClassType)?.classId?.asFqNameString()) {
+                    "kotlin.Int" -> "sumOfInt"
+                    "kotlin.Long" -> "sumOfLong"
+                    "kotlin.Double" -> "sumOfDouble"
+                    else -> return null
+                }
+                stdlibStatic("kotlin.collections", "map", on, listOf(receiver) + arguments)
+                    ?.let { mapped -> staticOnSameClass(mapped, sum, listOf(mapped), null) }
+            }
+            (id == "kotlin.collections.minOf" || id == "kotlin.collections.maxOf") && on == "kotlin.collections.Iterable"
+                && receiver != null && n == 1 ->
+                stdlibStatic("kotlin.collections", "map", on, listOf(receiver) + arguments)?.let { mapped ->
+                    val result = call?.expressionType?.let { mapType(it, method.typeInfo(), method) }
+                    staticOnSameClass(mapped, if (id.endsWith("minOf")) "minOrThrow" else "maxOrThrow", listOf(mapped),
+                        result?.let { if (it.isPrimitiveExcludingVoid) it.erasedForFQN().fullyQualifiedName() else "java.lang.Comparable" })
+                }
             // `x ?: emptyList()`; a receiver that cannot be read twice (`f().orEmpty()`) evaluates once through
             // Objects.requireNonNullElse, which the jdk archive contracts as @Identity
             (id == "kotlin.collections.orEmpty" || id == "kotlin.sequences.orEmpty") && receiver != null && n == 0 -> when (on) {
@@ -2200,6 +2233,16 @@ internal class KotlinBodyConverter(
             }
             else -> null
         }
+    }
+
+    /** A static of the class [sibling] calls into, by its JVM name: `sumOfInt` beside the `map` it sums. */
+    private fun staticOnSameClass(sibling: Expression, jvmName: String, arguments: List<Expression>,
+                                  returnTypeFqn: String?): Expression? {
+        val owner = (sibling as? MethodCall)?.methodInfo()?.typeInfo()?.let { members(it) } ?: return null
+        val callee = resolveCallee(owner, jvmName, arguments, returnTypeFqn)?.takeIf { it.isStatic } ?: return null
+        return runtime.newMethodCallBuilder().setObject(staticQualifier(owner)).setObjectIsImplicit(false)
+            .setMethodInfo(callee).setParameterExpressions(arguments).setConcreteReturnType(callee.returnType())
+            .setTypeArguments(listOf()).setSource(runtime.noSource()).build()
     }
 
     /** `X.class` for the single reified type argument of [call]; null when it is itself a type parameter. */

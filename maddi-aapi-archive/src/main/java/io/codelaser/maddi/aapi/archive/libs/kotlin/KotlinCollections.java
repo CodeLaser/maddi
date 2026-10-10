@@ -203,6 +203,23 @@ public class KotlinCollections {
             return null;
         }
 
+        /*
+        ⚠ NOT contracted: `min()`/`max()` over an Iterable (@JvmName("minOrThrow"), "maxOrThrow"), which `minOf { }` and
+        `maxOf { }` (@InlineOnly) are lowered to. The Double, Float and Comparable overloads erase to one
+        `minOrThrow(Iterable)`, differing only by return type, and the hints parser keys a contract by erasure: one of the
+        three took it, which one undetermined. (A shadow returning a self-bounded T also drops the whole unit.)
+        */
+        /* the predicate forms: `findLast` (@InlineOnly) is lowered to them */
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T> T lastOrNull(@NotModified List<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
         @Independent(hc = true)
         static <T> T single(@NotModified Iterable<? extends T> receiver) {
             return null;
