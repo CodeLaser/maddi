@@ -17,9 +17,11 @@
 # compile; errors 938 -> 801.
 # 2026-10-10, annotation types as attribute classes (8, which printed empty before), their uses as attributes, element
 # reads as properties: errors 801 -> 793; the numbers do not move.
+# 2026-10-10, a record with a canonical or compact constructor declares its properties and that constructor; an
+# accessor implementing an interface method implements it explicitly: 209 files compile; errors 793 -> 791.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	208
+compilingFiles	209
 unmappedJdkUses	670

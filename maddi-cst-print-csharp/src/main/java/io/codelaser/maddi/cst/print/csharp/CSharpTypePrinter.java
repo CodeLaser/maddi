@@ -94,6 +94,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean staticClass = staticClass();
         List<FieldInfo> components = record
                 ? typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList() : List.of();
+        // a positional record has no constructor body: one with a canonical or compact constructor declares its
+        // properties and that constructor
+        MethodInfo canonical = record ? canonicalConstructor(components) : null;
         if (enumClass) CSharpContext.message(CSharpPrintMessage.Code.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
         TypeInfo enclosing = enclosingType(typeInfo);
         if (enclosing != null && !enclosing.typeParameters().isEmpty() && !CSharpNames.hoisted(typeInfo)) {
@@ -119,7 +122,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                             .collect(Collectors.joining(", ", "<", ">"));
             out.add(new TextImpl(modifiers + keyword)).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
-            if (record) {
+            if (record && canonical == null) {
                 FieldPrinterFactory componentPrinter = CSharpFieldPrinter::new;
                 out.add(components.stream().map(f -> componentPrinter.create(f, formatter2).print(q, true))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
@@ -137,13 +140,17 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = new ArrayList<>();
         if (enumClass) enumInstances(q).forEach(members::add);
         if (self != null) members.addAll(hoistedMembers(self, q));
+        if (canonical != null) {
+            components.forEach(f -> members.add(new OutputBuilderImpl().add(new TextImpl("public "
+                    + CSharpTypeName.of(f.type(), q) + " " + CSharpNames.field(f) + " { get; }"))));
+        }
         typeInfo.fields().stream()
                 .filter(f -> !f.isSynthetic() && !CSharpNames.isEnumConstant(f) && !components.contains(f))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.constructors().stream()
                 .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty()))
                 .filter(c -> {
-                    if (record && c.parameters().size() == components.size()) {
+                    if (record && c != canonical && c.parameters().size() == components.size()) {
                         CSharpContext.message(CSharpPrintMessage.Code.RECORD_CONSTRUCTOR, c, CSharpContext.describe(c));
                         return false;
                     }
@@ -159,6 +166,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
+        if (record) members.addAll(accessorImplementations(components, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -451,6 +459,40 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         if (pt.parameters().isEmpty()) return pt;
         return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map)).toList());
+    }
+
+    /** The record's canonical constructor, compact or not, when written; null when C#'s positional one serves. */
+    private MethodInfo canonicalConstructor(List<FieldInfo> components) {
+        return typeInfo.constructors().stream().filter(c -> !c.isSynthetic() && c.parameters().size() == components.size())
+                .filter(c -> java.util.stream.IntStream.range(0, components.size()).allMatch(i ->
+                        c.parameters().get(i).parameterizedType().equals(components.get(i).type())))
+                .filter(c -> c.methodBody() != null && c.methodBody().statements().stream().anyMatch(s -> !s.isSynthetic())
+                             || c.methodType().isCompactConstructor())
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * A record's accessor that implements an interface's method, {@code T response()}, is the property in C#: the
+     * interface's method is implemented explicitly, {@code T IBatchItemResult<T>.Response() => Response;}.
+     */
+    private List<OutputBuilder> accessorImplementations(List<FieldInfo> components, Qualification q) {
+        List<OutputBuilder> out = new ArrayList<>();
+        for (ParameterizedType i : typeInfo.interfacesImplemented()) {
+            TypeInfo iface = i.typeInfo();
+            if (iface == null || !CSharpNames.translated(iface)) continue;
+            java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+            for (int k = 0; k < Math.min(iface.typeParameters().size(), i.parameters().size()); k++) {
+                map.put(iface.typeParameters().get(k), i.parameters().get(k));
+            }
+            for (MethodInfo m : iface.methods()) {
+                if (m.isStatic() || !m.isAbstract() || !m.parameters().isEmpty()) continue;
+                components.stream().filter(f -> f.name().equals(m.name())).findFirst().ifPresent(f ->
+                        out.add(new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(substitute(m.returnType(), map), q)
+                                + " " + CSharpTypeName.of(i, q) + "." + CSharpNames.method(m) + "() => "
+                                + CSharpNames.field(f) + ";"))));
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- helpers

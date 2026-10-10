@@ -822,4 +822,31 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "[Obsolete]");
         contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
     }
+
+    @Language("java")
+    private static final String RECORDS = """
+            package org.example.rec;
+            interface Result<T> {
+                T response();
+            }
+            record Success<T>(T response, String note) implements Result<T> {
+                public Success {
+                    if (response == null) throw new IllegalArgumentException("response");
+                    note = note == null ? "" : note.trim();
+                }
+            }
+            """;
+
+    /**
+     * A record with a compact constructor is a record with get-only properties and that constructor, which assigns
+     * them after its body (the CST's compact constructor does). An accessor implementing an interface method implements it explicitly.
+     */
+    @Test
+    public void records() {
+        String cs = translate("Result", RECORDS);
+        contains(cs, "internal sealed record Success<T> : IResult<T> {");
+        contains(cs, "public T Response { get; }");
+        contains(cs, "note = note == null ? \"\" : note.Trim();\nResponse = response;\nNote = note;");
+        contains(cs, "T IResult<T>.Response() => Response;");
+    }
 }

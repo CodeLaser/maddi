@@ -145,7 +145,10 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
   `Cloneable`, `Serializable` and `RandomAccess` are dropped.
-- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
+- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. One with
+  a canonical or compact constructor, which a positional record cannot have, declares get-only properties and that
+  constructor. An accessor that implements an interface's method, `T response()`, is the property: the interface's
+  method is implemented explicitly, `T IResult<T>.Response() => Response;`.
 
 ## Statements and expressions
 
@@ -219,7 +222,8 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
   - record patterns;
   - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
     one is hoisted (see Declarations).
-- **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
+- **Recorded as losses:** wildcards and raw types, and a record's constructor of as many parameters as components
+  that is not its canonical one.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
 ## The JDK → BCL mapping (`CSharpBcl`)
